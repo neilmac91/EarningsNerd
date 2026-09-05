@@ -42,7 +42,7 @@ def returns_ratio_in_band(value: Any) -> bool:
 _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Revenue", "revenue", "usd"),
     # Financial-institution revenue components/totals (self-gating — only present for banks/insurers/
-    # BDCs). A bank shows Net Interest Income + Non-Interest Income and NO single "Revenue".
+    # BDCs). Banks show components and, when reported, their legitimate revenue total.
     ("Net Interest Income", "net_interest_income", "usd"),
     ("Non-Interest Income", "noninterest_income", "usd"),
     ("Premiums Earned (Net)", "premiums_earned", "usd"),
@@ -150,9 +150,8 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         return ""
     header = "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):"
     body = header + "\n" + "\n".join(rows)
-    # Financial-institution guard: a bank has no single "revenue" line (its generic revenue tag is
-    # only fee income), so the model must report the components separately instead of inventing a
-    # conflated composite — the root of the cross-section revenue mismatch this addresses.
+    # Financial institutions need separate components, with a reported total preserved only
+    # when available. A generic fee-income tag must never become an invented composite.
     # Shares fi_components_present with bank_guards and assess_quality (P0-2): the instruction
     # and the checks that judge its output are driven by the same predicate.
     if fi_components_present(xbrl_metrics):

@@ -37,9 +37,11 @@ def test_reported_total_directive_agrees_with_actual_components():
 def test_populated_table_recovers_jpm_components_and_verifiable_provenance():
     revenue = {'metric': 'Total net revenue', 'current_period': '$182.4B', 'commentary': 'Reported total.'}
     sections = {'results_that_matter': {'table': [revenue,
-        {'metric': 'Noninterest income', 'current_period': '$1B', 'commentary': 'Wrong analysis',
+        {'metric': 'Noninterest revenue', 'current_period': '$1B', 'commentary': 'Wrong analysis',
          'supporting_evidence': 'Invented quotation'},
-        {'metric': 'Non-Interest Income', 'current_period': '$2B'}]}}
+        {'metric': 'Non-Interest Income', 'current_period': '$2B'},
+        {'metric': 'NII', 'current_period': '$3B', 'commentary': 'Wrong NII'},
+        {'metric': 'Net interest revenue', 'current_period': '$4B'}]}}
     grounding = metrics()
     original = deepcopy(grounding)
     openai_service._apply_structured_fallbacks(sections, {}, grounding)
