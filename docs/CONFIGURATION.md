@@ -116,7 +116,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_QUALITY_GATE` | `true` | Partial summaries persist but do not consume monthly quota. |
 | `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. |
 | `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. |
-| `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. Requires founder readout decision. |
+| `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. Arm after the first weekly judged readout per D5. |
 | `EVIDENCE_SNAP_MIN_SCORE` | `72.0` | Figure-bearing evidence similarity floor; no-figure evidence uses the separate in-module floor of 88. |
 | `ENABLE_FPI_FILINGS` | `false` | Page-scoped 20-F/6-K/40-F discovery; CI explicitly enables it on the service. Other job form sets are separate. |
 | `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. |
@@ -200,7 +200,7 @@ APPLE_REDIRECT_URI=...
 # Stripe
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
-STRIPE_PRICE_MONTHLY_ID=...       # Required (no default) — fails obviously if misconfigured
+STRIPE_PRICE_MONTHLY_ID=...       # Required for checkout (empty default) — fails validation if misconfigured
 STRIPE_PRICE_YEARLY_ID=...
 PRO_TRIAL_DAYS=0                  # Card-required trial on Pro MONTHLY checkout. DEFAULT 0 = OFF
                                   # (rollout convention). Set 7 on the service only after the PR #619
