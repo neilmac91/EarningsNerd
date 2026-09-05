@@ -96,7 +96,10 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 3. Then output a JSON array of citation objects, one per marker you used, e.g.:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
-     excerpt to the SHORTEST span that supports the claim — one sentence, at most ~30 words.
+     excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
+     Never stitch separated table cells or sentences together, or insert an ellipsis into an excerpt.
+     If separate spans are needed, cite each exact span separately. For a tool-provided figure,
+     reuse its existing [F#] marker; do not add a text citation merely to restate that same figure.
    - "section" is the filing section it came from (e.g. "Item 1A — Risk Factors").
    - Keep the citation list tight: cite each distinct source once and reuse its marker; never pad
      the list. ALWAYS finish with step 4 — an answer without the followups block is incomplete.

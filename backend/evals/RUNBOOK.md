@@ -504,6 +504,25 @@ filings). Hand-fill is fine for double-tagged filers (ASML tags revenue twice �
 + €32.7B rounded — which the extractor correctly drops as ambiguous; the AI still reads it from the
 filing text).
 
+## Copilot first live corrective evidence (2026-09-05, PR #703)
+
+The first full 18-attempt run, `33984283703`, completed without execution errors but
+returned `accepted=false` (14 passed). Its artifact `9974711370` remains unchanged.
+The workflow initially masked the runner's nonzero exit through `tee`; both pipelines
+now use explicit Bash fail-fast/pipefail semantics. Three correct MSFT `$13.64` answers
+exposed a canonical `USD/shares` versus legacy `_per_share` scorer-unit mismatch; a
+Copilot-only adapter preserves native golden/source units and the shared summary bar.
+An AAPL text citation joined separated data with an invented ellipsis: that is a valid
+hard citation veto, retained as a regression. The prompt now explicitly requires contiguous
+text spans and reuse of existing fact markers. Neither invalid citations nor missing source
+coverage are relabeled as verified. Several MSFT/historical-BABA outputs used no tools or
+citations; their coverage remains an advisory measurement, not sourced-answer evidence.
+
+The concurrent summary run `33984195172` also failed its actual completeness gate:
+52 attempts, 51 scored, one BABA timeout. A workflow-level success badge does not override
+that failed evaluation. Corrective full gates and fresh actual reports remain pending;
+no tolerance, expected fact, model, pinned baseline or evidence-snap setting changes.
+
 ## Copilot citation-fidelity audit — can users trust the chips?
 
 The Copilot's promise is that every inline citation chip opens provenance for **exactly the claim

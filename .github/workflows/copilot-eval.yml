@@ -38,11 +38,13 @@ jobs:
         run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
       - name: Prepare actual SEC sources in a new scratch database
         working-directory: backend
+        shell: bash
         run: |
           mkdir -p evals/reports/copilot
           python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log
       - name: Run every verified question three times
         working-directory: backend
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |

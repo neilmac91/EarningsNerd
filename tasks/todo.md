@@ -1,5 +1,26 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## WS-6 Copilot — observed first live failure and corrective plan
+
+Run 33984283703 retained all 18 completed/scored attempts, zero execution errors, and four
+hard vetoes (14 passed). GitHub incorrectly reported success because a shell pipeline hid
+the runner failure. Three MSFT answers contained the correct $13.64 but the Copilot scorer
+passed canonical `USD/shares` to a shared matcher expecting `_per_share`. AAPL draw 2 emitted
+an invented ellipsis inside a text citation; that citation veto is valid and remains mandatory.
+The original report, source database and source artifacts are retained unchanged.
+
+- [ ] Make both logged workflow pipelines fail when their Python command fails; prove actual
+  shell exit propagation for preparation and evaluation, retaining always-uploaded artifacts.
+- [ ] Adapt canonical per-share units only at the Copilot numeric-scoring boundary, preserving
+  native golden/source units and the shared summary matcher; prove exact mixed-unit MSFT
+  answers, wrong basic EPS and missing EPS without changing tolerances or expected values.
+- [ ] Clarify contiguous exact text excerpts and reuse of existing fact markers in the Copilot
+  prompt; keep the actual AAPL stitched quotation as a hard-failing regression. No automatic
+  deletion of invalid citations, coverage promotion, model change or baseline re-pin.
+- [ ] Obtain intended mutation failures for these new tests, independent review, and a fresh
+  full backend gate before root opts the draft PR back into a complete three-repeat live run.
+- [ ] Inspect the new actual Copilot and summary reports; a workflow badge alone is insufficient.
+
 ## WS-6 Copilot — implementation plan after verified hygiene deployment
 
 Owners: AI Engineer (plan_gates) owns service/snapshot/currency, eval schema/scorers/runner,

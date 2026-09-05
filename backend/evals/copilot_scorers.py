@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import replace
 from datetime import date
 from typing import List, Optional, Tuple
 
@@ -138,7 +139,12 @@ def score_numeric_recall(answer: str, qa: CopilotQACase) -> Tuple[float, List[st
     case lists none). Only meaningful for disclosed numeric questions."""
     if not qa.expected_facts:
         return 1.0, []
-    recall, _matched, missing = score_numeric_accuracy(answer, qa.expected_facts)
+    # Canonical financial_fact units use ISO/shares; the shared summary matcher uses
+    # ISO_per_share for decimal rendering. Adapt a copy only at this boundary.
+    facts = [replace(f, unit=f.unit.removesuffix("/shares") + "_per_share")
+             if canonical_unit(f.unit) == f.unit and f.unit.endswith("/shares") else f
+             for f in qa.expected_facts]
+    recall, _matched, missing = score_numeric_accuracy(answer, facts)
     return recall, missing
 
 
