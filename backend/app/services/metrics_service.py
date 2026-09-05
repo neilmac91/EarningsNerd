@@ -47,6 +47,10 @@ async def get_all_metrics() -> Dict[str, Any]:
         },
     }
 
+    # AI counters are process-local, separately from durable per-summary logs.
+    from app.services.ai_metrics import get_ai_metrics
+    metrics["ai"] = get_ai_metrics()
+
     # Circuit breaker metrics
     try:
         from app.services.edgar.circuit_breaker import edgar_circuit_breaker
