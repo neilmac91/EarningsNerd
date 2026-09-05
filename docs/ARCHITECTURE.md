@@ -217,11 +217,14 @@ unused since generation became account-required in #619; kept because migrations
 ### Data-integrity invariants
 
 - `Filing.sec_url` / `Filing.document_url` are **NOT NULL**, enforced by SQLAlchemy event
-  listeners (`before_insert` auto-generates `sec_url` from the accession;
-  `before_update` refuses to null it). Repair procedure: docs/TROUBLESHOOTING.md.
+  listeners (`before_insert` derives `sec_url` from the loaded Company's CIK + accession and
+  raises when the company is not loaded — no placeholder URLs; `before_update` refuses to null
+  it; both validate the URL shape, canonical archive form required on SEC hosts). Repair
+  procedure: docs/TROUBLESHOOTING.md. Tests: `tests/unit/test_filing_url_listeners.py`.
 - SEC archive URL format: `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/`
   with CIK leading zeros stripped and accession dashes removed — built only by
-  `edgar/client.py::_transform_filing()`.
+  `app/utils/sec_urls.py::build_sec_archive_url()` (called from `edgar/client.py`,
+  `integrations/sec_api.py`, the Filing listener and `scripts/fix_null_sec_urls.py`).
 - Schema: `Base.metadata.create_all()` at startup + `ensure_additive_columns`; all other
   change via idempotent SQL in `backend/migrations/` (re-applied every deploy; no Alembic).
 

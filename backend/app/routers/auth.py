@@ -425,7 +425,7 @@ async def get_current_user_optional(
     try:
         user = db.query(User).filter(User.email == email).first()
         if user and not user.is_active:
-            logger.warning(f"Optional auth: User {email} is inactive")
+            logger.warning(f"Optional auth: user id={user.id} is inactive")
             return None
         return user
     except Exception as e:
@@ -450,7 +450,7 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
     except Exception as e:
         # Only log the token-bearing link in local dev (log access -> account takeover otherwise).
         link_note = f"; link: {link}" if settings.ENVIRONMENT == "development" else ""
-        logger.error(f"Verification email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
+        logger.error(f"Verification email NOT sent to user id={user.id}: {e.__class__.__name__}: {e}{link_note}")
 
 
 async def _send_account_exists_email_safe(user: User) -> None:
@@ -825,7 +825,7 @@ async def forgot_password(
     except Exception as e:
         # Only log the token-bearing link in local dev (a logged reset link = account takeover).
         link_note = f"; link: {reset_link}" if settings.ENVIRONMENT == "development" else ""
-        logger.error(f"Reset email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
+        logger.error(f"Reset email NOT sent to user id={user.id}: {e.__class__.__name__}: {e}{link_note}")
 
     return opaque
 

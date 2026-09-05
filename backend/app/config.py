@@ -105,6 +105,9 @@ class Settings(BaseSettings):
 
     # Sentry (error tracking)
     SENTRY_DSN: str = ""  # Get from Sentry.io project settings
+    # Deployed revision for Sentry release tagging (CI sets it to $GITHUB_SHA on Cloud Run).
+    # Empty → Sentry's default release detection.
+    SENTRY_RELEASE: str = ""
 
     # Resend
     RESEND_API_KEY: str = ""

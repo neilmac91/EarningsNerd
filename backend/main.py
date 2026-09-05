@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
-import os
 import re
 from dotenv import load_dotenv
 
-# Load environment variables early for Sentry initialization
+# Load environment variables early (Settings reads .env itself; the pre-Settings bootstrap
+# constants in database.py / redis_service.py / edgar/config.py read os.environ directly).
 load_dotenv()
+
+from app.config import settings, APP_VERSION
 
 # Initialize Sentry for error tracking (must be done before FastAPI app creation)
 try:
@@ -18,15 +20,14 @@ try:
 except ImportError:
     print("Sentry SDK not available - install sentry-sdk for error tracking")
 else:
-    sentry_dsn = os.getenv("SENTRY_DSN", "")
-    if sentry_dsn:
+    if settings.SENTRY_DSN:
         try:
             sentry_sdk.init(
-                dsn=sentry_dsn,
-                environment=os.getenv("ENVIRONMENT", "development"),
+                dsn=settings.SENTRY_DSN,
+                environment=settings.ENVIRONMENT,
                 # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
                 # errors are attributable to an exact revision. None → Sentry's default detection.
-                release=os.getenv("SENTRY_RELEASE") or None,
+                release=settings.SENTRY_RELEASE or None,
                 traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
                 profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
                 integrations=[
@@ -44,6 +45,7 @@ else:
         print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
 from app.database import engine, Base, get_db, ensure_additive_columns
+from app.services.event_loop import set_app_loop
 from app.services.logging_service import (
     configure_logging,
     CorrelationIdMiddleware,
@@ -77,13 +79,15 @@ from app.routers import (
     insiders,
     calendar,
 )
-from app.config import settings, APP_VERSION
 
 # Create database tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup - run sync DB operation in thread pool to avoid blocking event loop
     loop = asyncio.get_running_loop()
+    # Sync bridges (BackgroundTask bodies, threadpool work) hand coroutines to THIS loop via
+    # run_coroutine_threadsafe instead of spinning private loops — see app/services/event_loop.py.
+    set_app_loop(loop)
     await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
     # create_all() never ALTERs existing tables, so self-apply small additive columns that post-date
     # a table's original CREATE (e.g. the FPI alert prefs) — keeps deployed code + schema in sync
@@ -175,6 +179,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    set_app_loop(None)
     await close_redis()
     logger.info("Redis connections closed")
 

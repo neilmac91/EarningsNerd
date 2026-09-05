@@ -64,7 +64,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 5. **SEC calls:** all sec.gov traffic goes through the edgar service layer
    (`app/services/edgar/` — rate limiter + circuit breaker). Never raw httpx to sec.gov outside
    it. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
-   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket).
+   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket). Gate:
+   `tests/unit/test_sec_gov_importers_allowlist.py` (sec.gov literals only in the edgar layer,
+   `integrations/sec_api.py`, `utils/sec_urls.py`, `config.py`).
 6. **Contract tests are locked.** The SSE stream contract, background-generation
    characterization, auth flow, and Stripe webhook tests may be edited ONLY to delete references
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
@@ -75,12 +77,15 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
-   `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity).
+   `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`
+   itself — enforced by `tests/unit/test_os_getenv_allowlist.py`.
 9. **Boundaries:** validate external data where it enters (SEC responses, Stripe webhooks, AI
    output); do NOT re-validate internally-produced data downstream.
-10. **Data integrity:** `Filing.sec_url`/`document_url` are NOT NULL (event-listener enforced).
-    URL format: `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading
-    zeros stripped and accession dashes removed (see `lessons/sec-filing-url-format.md`).
+10. **Data integrity:** `Filing.sec_url`/`document_url` are NOT NULL (event-listener enforced;
+    the listener raises rather than fabricating a URL when the Company isn't loaded). URL format:
+    `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading zeros stripped
+    and accession dashes removed — build it ONLY with `app/utils/sec_urls.py` (see
+    `lessons/sec-filing-url-format.md`; tests in `tests/unit/test_filing_url_listeners.py`).
 11. **Design system:** any theme/token change is app-wide (public + authed). Done-gate = the
     legacy-color grep in `DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
