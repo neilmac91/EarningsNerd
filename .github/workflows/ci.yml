@@ -35,6 +35,12 @@ jobs:
         run: |
           # Scan app directory, skipping tests
           cd backend && bandit -r app -ll
+      - name: Dependency audit (pip-audit, advisory)
+        # ADVISORY for now: continue-on-error keeps a new upstream CVE from blocking a deploy until
+        # the requirements file audits clean; then drop continue-on-error and it becomes a gate.
+        # pip-audit itself is pinned in backend/requirements-dev.txt (installed above) — rule 12.
+        continue-on-error: true
+        run: pip-audit -r backend/requirements.txt
       - name: Run pytest
         # Fast lane: pytest.ini deselects the performance suite by default (slow-marked tests run
         # here in the default lane). conftest.py sets SECRET_KEY at import, so no env is needed.
@@ -131,11 +137,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+        working-directory: frontend
+      - name: Dependency audit (npm audit, advisory)
+        # ADVISORY for now: continue-on-error until the lockfile stays clean at this level for a
+        # release or two, then drop it and this becomes a gate. Production deps only (--omit=dev):
+        # the dev-only @lhci/cli chain is tracked separately and must not block deploys.
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
       - name: Lint
         run: npm run lint
@@ -171,7 +184,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -299,7 +312,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies

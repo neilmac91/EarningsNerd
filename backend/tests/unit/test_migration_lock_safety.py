@@ -576,14 +576,26 @@ def test_lint_toolchain_is_installed_from_pinned_dev_requirements():
         "ci.yml must not `pip install ruff`/`bandit` unpinned — install from backend/requirements-dev.txt."
     )
     assert "backend/requirements-dev.txt" in text
-    pins = {
-        line.split("==")[0].strip(): line.split("==")[1].strip()
+    dev_lines = [
+        line.strip()
         for line in REQUIREMENTS_DEV.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
-    }
-    for tool in ("ruff", "bandit"):
-        assert tool in pins and re.fullmatch(r"\d+\.\d+\.\d+", pins[tool]), (
-            f"requirements-dev.txt must pin {tool} to an exact version (found {pins.get(tool)!r})."
+    ]
+    pins: dict[str, str] = {}
+    for line in dev_lines:
+        assert "==" in line and re.fullmatch(r"[A-Za-z0-9_.\-]+==\d+\.\d+\.\d+", line), (
+            f"requirements-dev.txt line {line!r} must be an exact `tool==x.y.z` pin — every tool CI installs "
+            "from this file is a gate, and an unpinned gate drifts with the tool."
+        )
+        name, version = line.split("==")
+        pins[name] = version
+    for tool in ("ruff", "bandit", "pip-audit"):
+        assert tool in pins, f"requirements-dev.txt must pin {tool} (CI runs it from this file)."
+    for tool in pins:
+        # A pinned tool nobody runs is dead weight; a tool CI runs must come from the pinned file.
+        assert re.search(rf"(?<![\w-]){re.escape(tool)}(?![\w-])", text), (
+            f"{tool} is pinned in requirements-dev.txt but no executable ci.yml step references it — "
+            "wire it into the workflow or drop the pin."
         )
 
 

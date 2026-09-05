@@ -13,6 +13,40 @@ import { flashElement } from '@/lib/citationFlash'
 
 const HIGHLIGHT_NAME = 'copilot-citation'
 
+/**
+ * Paint for `::highlight(copilot-citation)`. Registered from here as a constructed stylesheet rather
+ * than in `app/globals.css`: lightningcss (Next 16.3's CSS pipeline) does not know the `::highlight()`
+ * pseudo-element — it emits a SelectorError warning and, with error recovery, keeps the rule, but
+ * Next's build surfaces that as "Parsing CSS source code failed" on every build. Same visual as
+ * before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight API exists,
+ * which implies constructable stylesheets too.
+ */
+export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
+
+let highlightSheet: CSSStyleSheet | null = null
+
+/**
+ * Adopt the `::highlight(copilot-citation)` rule once per document. Safe to call repeatedly: the
+ * memo alone is not trusted — if some other code reassigned `document.adoptedStyleSheets` without
+ * spreading the existing list, our sheet is gone while the memo says installed, so re-adopt.
+ */
+export function ensureCitationHighlightStyle(): void {
+  if (highlightSheet && document.adoptedStyleSheets.includes(highlightSheet)) return
+  try {
+    const sheet = highlightSheet ?? new CSSStyleSheet()
+    if (!highlightSheet) sheet.replaceSync(CITATION_HIGHLIGHT_CSS)
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+    highlightSheet = sheet
+  } catch {
+    // No constructable stylesheets (jsdom, very old engines): the block flash below still shows.
+  }
+}
+
+/** Test-only: forget the adopted sheet so each spec starts from a fresh document. */
+export function __resetCitationHighlightStyleForTests(): void {
+  highlightSheet = null
+}
+
 interface NodeSpan {
   node: Text
   start: number
@@ -77,6 +111,7 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string): 
   const w = window as unknown as { Highlight?: new (r: Range) => unknown }
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
   if (typeof w.Highlight === 'function' && highlights) {
+    ensureCitationHighlightStyle()
     highlights.delete(HIGHLIGHT_NAME)
     highlights.set(HIGHLIGHT_NAME, new w.Highlight(range))
   }

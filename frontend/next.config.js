@@ -4,6 +4,12 @@ const { withSentryConfig } = require('@sentry/nextjs')
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['recharts'],
+  typescript: {
+    // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
+    // Since 16.3 the build walks tsconfig.json's full `include` (tests/** too); specs are exercised
+    // by Vitest/Playwright and carry their own type debt, so they stay out of the production gate.
+    tsconfigPath: 'tsconfig.ci.json',
+  },
   images: {
     // Logo.dev's ticker-keyed logo CDN (see CompanyLogo.tsx). Hotlinked directly —
     // no proxy needed since its token is a publishable, client-safe identifier.
