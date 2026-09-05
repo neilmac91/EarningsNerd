@@ -159,3 +159,8 @@ launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; wa
 - [ ] Prove new tests by mutation and run the exact full backend gate.
 - [ ] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
 - [ ] Record artifact provenance and independent review; merge/deploy remains with the chief engineer. Later WS-6 measurement/resilience/hygiene/Copilot/arming steps remain separate PRs in that order.
+
+## WS-10 — configuration and script placement hygiene
+
+- [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
+- [x] Integrate WS-7 statement default/docs and refresh gate (1910 passed); independent review and CI remain required before merge.

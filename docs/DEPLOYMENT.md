@@ -493,6 +493,18 @@ for the evidence record and Analysis prerequisites.
 > Migrated off Render.com (June 2026). Superseded Render/Vercel/Firebase deployment notes are
 > archived under [`docs/history/`](./history/) for provenance.
 
+### Manual helper locations
+
+Normal frontend deployment uses Vercel Git integration. The optional manual production
+helper is `backend/scripts/deploy-vercel.sh`; it uses `NEXT_PUBLIC_API_BASE_URL` and
+resolves the frontend directory from the script location, so it can be invoked from
+any working directory. It installs missing CLI/dependencies, builds, and invokes
+`vercel --prod`; run only when intending a production deployment.
+
+`backend/scripts/smoke_resend.py` is an operator-run **live email** smoke to
+`neil@earningsnerd.io`, not a test suite member. It loads `backend/.env` relative to the
+script location. Do not run it in CI or as part of the backend gate.
+
 ### WS-7 SIC backfill prerequisite (founder executes)
 
 `USE_STATEMENT_FINANCIALS` now defaults to true in code; an explicit deployment override still

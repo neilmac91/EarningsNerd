@@ -233,3 +233,8 @@ correct).
   violations fixed; `docs/CONFIGURATION.md` covers every Settings field.
 - Every "never again" from wave 2 has a machine gate in the same PR (rule 12).
 - `tasks/todo.md` and briefs §6 updated; finished plans moved to `tasks/archive/`.
+
+WS-10 placement resolution (PR #696): the root Vercel helper is now
+`backend/scripts/deploy-vercel.sh`; the live email smoke is
+`backend/scripts/smoke_resend.py` (manual only, never collected by CI). Both resolve
+paths from their own file location. The original paths above record the audit finding.
