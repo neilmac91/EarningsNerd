@@ -54,10 +54,13 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    route was retired (smoke test `test_compare_router_is_gone` locks it at 404).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
-   idempotent SQL file in `backend/migrations/` — CI re-applies ALL files on every deploy, so every
-   file must stay safe to re-run forever. Never edit an applied migration. Idempotent is not
-   lock-free: `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE, so new files wrap ALTERs
-   on existing tables in a `DO $$ … IF NOT EXISTS … $$` guard (gate:
+   idempotent SQL file in `backend/migrations/`. The deploy applies each file ONCE per
+   (filename, sha256) through the `schema_migrations` ledger (`backend/scripts/apply_migrations.sh`,
+   ADR-0007) and skips it afterwards — but files must still be safe to re-run (ledger reset, edited
+   file, crash between apply and record; CI proves it with a triple pass on `postgres:15`). Never
+   edit an applied migration — an edit re-applies it once; that is the escape hatch, not a workflow.
+   Idempotent is not lock-free: `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE, so new
+   files wrap ALTERs on existing tables in a `DO $$ … IF NOT EXISTS … $$` guard (gate:
    `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
@@ -123,8 +126,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend gate = eslint +
 tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
-`deploy-backend` runs on push to main when `backend/` changed: applies `backend/migrations/*.sql`
-idempotently to Cloud SQL, deploys the Cloud Run service (`earningsnerd-backend`, project
+`deploy-backend` runs on push to main when `backend/` changed: applies not-yet-recorded
+`backend/migrations/*.sql` files to Cloud SQL through the `schema_migrations` ledger
+(`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
+`postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
 (Mondays 06:00 UTC), and updates the image on all 7 Cloud Run jobs (pregenerate, filing-scan,
 filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts, notable-filings).
