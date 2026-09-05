@@ -535,7 +535,9 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
 async def test_delayed_tool_start_consumer_cannot_execute_after_deadline(monkeypatch):
     from app.services.ai import copilot_chat
 
-    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.03)
+    from types import SimpleNamespace
+
+    started = asyncio.get_running_loop().time()
     calls, executed = [], []
     data = (
         event(
@@ -569,10 +571,22 @@ async def test_delayed_tool_start_consumer_cannot_execute_after_deadline(monkeyp
         try:
             first = await anext(gen)
             assert first.startswith(copilot_chat.STREAM_ACTIVITY_SENTINEL)
-            await asyncio.sleep(0.04)
+            # Advance only the wrapper's clock after real SDK setup/tool assembly completed.
+            # The event loop and its asyncio.timeout clock remain untouched.
+            monkeypatch.setattr(
+                copilot_chat,
+                "asyncio",
+                SimpleNamespace(
+                    get_running_loop=lambda: SimpleNamespace(time=lambda: started + 100),
+                    timeout=asyncio.timeout,
+                    sleep=asyncio.sleep,
+                    CancelledError=asyncio.CancelledError,
+                ),
+            )
             rest = [part async for part in gen]
+            assert executed == [], "tool ran after the consumer resumed beyond its deadline"
             assert len(rest) == 1 and rest[0].startswith(copilot_chat.STREAM_ERROR_SENTINEL)
-            assert executed == [] and len(calls) == 1
+            assert len(calls) == 1
         finally:
             await gen.aclose()
 
