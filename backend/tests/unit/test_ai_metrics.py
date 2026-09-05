@@ -57,6 +57,14 @@ def test_contradictory_provider_counters_do_not_become_claimed_totals():
     assert result["usage"]["cache_miss_tokens"] is None
 
 
+def test_reported_zero_usage_is_measured_zero_not_unavailable():
+    result = record({"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                     "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0})
+    assert set(result["usage"].values()) == {0}
+    totals = ai_metrics.get_ai_metrics()["calls"][0]["usage"]
+    assert all(v == {"known_total": 0, "known_calls": 1, "unknown_calls": 0} for v in totals.values())
+
+
 def test_untrusted_labels_and_usage_fields_are_never_logged(caplog):
     caplog.set_level("INFO", logger=ai_metrics.__name__)
     secret = "filing 123 private prompt"
