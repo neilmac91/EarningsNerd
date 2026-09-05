@@ -92,6 +92,10 @@ SENTRY_DSN=...                    # Sentry error tracking DSN
 # The in-app FMP/Finnhub/Stocktwits clients and the trending/hot-filings surfaces were torn down
 # (WS-8a, 2026-09). FMP_API_KEY is read ONLY by the operator-run
 # backend/scripts/refresh_index_membership.py (index constituents; `--source wikipedia` is keyless).
+# Removed 2026-09-04 (delete from any local .env — Settings forbids unknown keys and fails at import):
+# FINNHUB_API_KEY, FINNHUB_API_BASE, FINNHUB_TIMEOUT_SECONDS, FINNHUB_MAX_CONCURRENCY,
+# STOCKTWITS_TIMEOUT_SECONDS, FMP_API_BASE, FMP_TIMEOUT_SECONDS, FMP_MAX_CONCURRENCY,
+# TWITTER_BEARER_TOKEN, HOT_FILINGS_REFRESH_TOKEN, HOT_FILINGS_USER_AGENT.
 FMP_API_KEY=...
 
 # Streaming Configuration
