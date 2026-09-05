@@ -47,8 +47,9 @@ export const analytics = {
     safeCapture('signup_started', { source: source || 'direct' })
   },
 
-  // NOTE: there is deliberately no `signupCompleted` here — the backend emits `signup_completed`
-  // when the e-mail is verified (app/services/posthog_client.py), so a client twin would double count.
+  // NOTE: there is deliberately no `signupCompleted` here — `signup_completed` is emitted
+  // server-side on e-mail verification (`posthog_client.EVENT_SIGNUP_COMPLETED`), so a client
+  // twin would double count.
 
   // Verify-first signup: register no longer auto-logs-in, so there's no user id to identify
   // yet. Capture an anonymous "submitted" step; identify happens later at login/verify and

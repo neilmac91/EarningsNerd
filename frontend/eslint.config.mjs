@@ -1,4 +1,5 @@
 import next from 'eslint-config-next'
+import { RAW_FETCH_ALLOWLIST_FILES } from './eslint.rawFetchAllowlist.mjs'
 
 // Flat config (ESLint 9). Replaces the legacy .eslintrc.json:
 //   extends ["next/core-web-vitals", "next/typescript"]  ->  ...next
@@ -36,18 +37,14 @@ const QUERY_KEY_RULES = [
 // (lib/api/client.ts — cookies, refresh, error normalisation, base URL). Raw
 // `fetch(` is sanctioned ONLY for the SSE stream readers (axios can't stream a
 // POST body) and Next's server/ISR fetches (which need `next: { revalidate }`).
-// Those sites are enumerated here; adding one is a reviewed decision, not a
-// disable comment. Rule-12 gate for the audit's "never raw fetch again".
-const RAW_FETCH_ALLOWLIST = [
-  'app/sitemap.ts',
-  'lib/serverApi.ts',
-  'features/summaries/api/summaries-api.ts',
-  'features/filings/api/copilot-api.ts',
-  'features/analysis/api/analysis-api.ts',
-]
+// The sanctioned files live in eslint.rawFetchAllowlist.mjs (one source of
+// truth, shared with tests/unit/rawFetchAllowlist.spec.ts, which pins each
+// file's call count and keeps the list shrink-only); adding one is a reviewed
+// decision, not a disable comment. Rule-12 gate for "never raw fetch again".
+const RAW_FETCH_ALLOWLIST = RAW_FETCH_ALLOWLIST_FILES
 const RAW_FETCH_MESSAGE =
   'Raw fetch() is forbidden — route HTTP through the shared axios client (lib/api/client.ts). ' +
-  'SSE readers and Next server/ISR fetches are the only exceptions, allow-listed in eslint.config.mjs (RAW_FETCH_ALLOWLIST).'
+  'SSE readers and Next server/ISR fetches are the only exceptions, allow-listed in eslint.rawFetchAllowlist.mjs.'
 const RAW_FETCH_RULES = [
   { selector: "CallExpression[callee.name='fetch']", message: RAW_FETCH_MESSAGE },
   {
