@@ -145,7 +145,7 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 
 ### The `edgar/` layer
 
-`client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (two-tier cached XBRL),
+`client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
@@ -215,6 +215,24 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 
 ### Data-integrity invariants
+
+- Domestic annual/quarterly amendments are ingested alongside originals. The additive
+  `Filing.superseded_by_accession` column links older same-company, base-form, report-period
+  rows to the newest amendment under a per-company non-key row lock. No report period means no inferred link. All ingestion paths
+  call `filing_amendment_service`; Change Report orders by earlier report period, then filing
+  date, preserving the selected filing's own content.
+- Per-filing discrete-quarter facts retain fiscal labels anchored to the XBRL filing focus and
+  their own distance from its report date. Comparative quarters move across fiscal years;
+  non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
+  New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
+  deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
+  company row and preserve a known newer accession. The per-filing writer also preserves untied
+  current companyfacts rows when their filing chronology cannot be established; the bulk writer
+  uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
+  available for their own filing even when they are not the current company value.
+- Reconciliation flags follow values and the actual inputs used in growth calculations through
+  analysis charts, metrics, citations and Excel exports. Citation verification is traceability,
+  distinct from the financial value's reconciliation quality.
 
 - `Filing.sec_url` / `Filing.document_url` are **NOT NULL**, enforced by SQLAlchemy event
   listeners (`before_insert` derives `sec_url` from the loaded Company's CIK + accession and

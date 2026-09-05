@@ -6,6 +6,8 @@ export interface Filing {
   filing_date: string
   report_date?: string
   accession_number: string
+  /** Accession of the known later amendment; originals remain readable. */
+  superseded_by_accession?: string | null
   document_url: string
   sec_url: string
   company?: {

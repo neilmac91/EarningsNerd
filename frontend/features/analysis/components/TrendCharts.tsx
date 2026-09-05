@@ -40,6 +40,7 @@ import {
   periodAxisLabel,
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import ReconciliationBadge from './ReconciliationBadge'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -168,6 +169,15 @@ function PanelCard({
   const barSeries = panel.bar && series[panel.bar[0]] ? series[panel.bar[0]] : null
   if (!barSeries && lineEntries.length === 0) return null
 
+  const visiblePeriods = new Set(dataset.periods.map((period) => period.key))
+  const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
+  const hasUnverified = plottedSeries.some((item) => item.points.some(
+    (point) => visiblePeriods.has(point.period) && point.value != null && (
+      point.reconciled === false ||
+      (panel.growthLine && typeof point.yoy === 'number' && point.yoy_reconciled === false)
+    ),
+  ))
+
   // One row per period; keys are concept names (+ `growth` for the yoy line).
   const data = dataset.periods.map((period) => {
     const row: Record<string, string | number | null> = { period: period.key }
@@ -234,7 +244,7 @@ function PanelCard({
         header: {
           company: dataset.company_name,
           ticker: dataset.ticker,
-          title: panel.title,
+          title: hasUnverified ? `${panel.title} (includes unverified figures)` : panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],
         },
       }
@@ -259,6 +269,7 @@ function PanelCard({
             {panel.title}
           </h3>
           <PanelLegend items={legendItems} />
+          <ReconciliationBadge reconciled={hasUnverified ? false : undefined} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {exportEnabled && (

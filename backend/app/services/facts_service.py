@@ -24,6 +24,7 @@ from typing import Any, Callable, Optional
 from app.services.event_loop import get_app_loop
 
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_
 
 from app.models import Company, Filing, FinancialFact, Watchlist
 
@@ -180,8 +181,8 @@ def normalize_standardized_to_facts(
                     # reporting currency rather than silently defaulting to USD.
                     "unit": _unit_for(concept, point.get("currency") or standardized.get("reporting_currency")),
                     "period_end": period_end,
-                    "fiscal_year": period_end.year,
-                    "fiscal_period": _fiscal_period(point_form),
+                    "fiscal_year": point.get("fiscal_year") or period_end.year,
+                    "fiscal_period": point.get("fiscal_period") or _fiscal_period(point_form),
                     "value": float(value),
                     "form": point_form,
                     "accession": accession,
@@ -496,6 +497,15 @@ def _running_loop_in_this_thread() -> Optional[asyncio.AbstractEventLoop]:
         return None
 
 
+def _lock_fact_companies(db: Session, facts: list[dict[str, Any]]) -> None:
+    """Serialize both fact writers; non-key locks stay compatible with child-row FK checks."""
+    if facts:
+        with db.no_autoflush:
+            db.query(Company.id).filter(Company.id.in_({f["company_id"] for f in facts})).order_by(
+                Company.id
+            ).with_for_update(key_share=True).all()
+
+
 def upsert_facts(
     db: Session,
     facts: list[dict[str, Any]],
@@ -513,9 +523,11 @@ def upsert_facts(
     then cross-checked against it (§3.5 step 2) — confirmed or corrected to the SEC value.
     Idempotent on the full identity key — if a row with the same (company, concept, period_end,
     fiscal_period, unit, accession) already exists it is skipped; otherwise any current ``is_latest``
-    row for the same (company, concept, period_end, fiscal_period, unit) is demoted and this one
-    inserted as latest. Callers should upsert in chronological order so the newest value wins.
+    row for the same (company, concept, period_end, fiscal_period, unit) is demoted unless its
+    accession is known to be newer. Untied companyfacts rows are preserved conservatively because
+    their filing dates are not stored here. Older own-filing facts remain queryable by filing ID.
     """
+    _lock_fact_companies(db, facts)
     rejected = 0
     if reconcile and facts:
         company_id = facts[0]["company_id"]
@@ -534,6 +546,9 @@ def upsert_facts(
 
     inserted = 0
     skipped = 0
+    filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
+        Filing.accession_number.in_({f["accession"] for f in facts})
+    ).all()) if facts else {}
     for fact in facts:
         fact = dict(fact)
         reconciled = fact.pop("reconciled", False)
@@ -552,17 +567,31 @@ def upsert_facts(
             skipped += 1
             continue
 
-        # Demote the prior current value for this (company, concept, period, fiscal_period, unit).
-        db.query(FinancialFact).filter_by(
+        # A labelled quarter also replaces its legacy unlabelled twin; otherwise deriving a
+        # period would leave two current rows for the same reported figure.
+        period_filter = FinancialFact.fiscal_period == fact["fiscal_period"]
+        if fact["fiscal_period"] in ("Q1", "Q2", "Q3", "Q4"):
+            period_filter = or_(period_filter, FinancialFact.fiscal_period.is_(None))
+        current = db.query(FinancialFact).filter_by(
             company_id=fact["company_id"],
             concept=fact["concept"],
             period_end=fact["period_end"],
-            fiscal_period=fact["fiscal_period"],
             unit=fact["unit"],
             is_latest=True,
-        ).update({"is_latest": False})
+        ).filter(period_filter)
+        incoming_date = filing_dates.get(fact["accession"])
+        newer_filing = Filing.id.isnot(None) if incoming_date is None else or_(
+            Filing.filing_date > incoming_date,
+            and_(Filing.filing_date == incoming_date, Filing.accession_number > fact["accession"]),
+        )
+        newer = current.outerjoin(Filing, FinancialFact.accession == Filing.accession_number).filter(
+            FinancialFact.accession != fact["accession"],
+            or_(newer_filing, and_(FinancialFact.source == "companyfacts", Filing.id.is_(None))),
+        ).first() is not None
+        if not newer:
+            current.update({"is_latest": False})
 
-        db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
+        db.add(FinancialFact(**fact, is_latest=not newer, reconciled=reconciled))
         inserted += 1
 
     if commit:  # commit=False lets a caller fold this into one per-filing transaction (remediation)
@@ -1655,7 +1684,7 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
 def upsert_facts_bulk(
     db: Session, facts: list[dict[str, Any]], *, commit: bool = True
 ) -> dict[str, int]:
-    """Batched writer with ``upsert_facts`` semantics for a full-history companyfacts batch.
+    """Batched writer for latest-filed winners from a full-history companyfacts payload.
 
     A full ingest is ~23 concepts × up to ~50 periods — the per-row two-query loop in
     ``upsert_facts`` would be thousands of round trips. This prefetches the company's existing
@@ -1663,10 +1692,13 @@ def upsert_facts_bulk(
     demotion per (concept, period_end, fiscal_period, unit), plus the D1 rule — a labelled
     Q1..Q4 row demotes the legacy NULL-``fiscal_period`` twin for the same period so a quarter
     never has two current rows. Facts must already carry ``reconciled`` (no gate runs here —
-    see ``normalize_companyfacts``).
+    see ``normalize_companyfacts``). Known Filing dates also protect an already-stored newer
+    accession from a delayed SEC response; rows without local Filing metadata retain the
+    normalizer's latest-filed ordering within that response.
     """
     if not facts:
         return {"inserted": 0, "skipped": 0, "demoted": 0}
+    _lock_fact_companies(db, facts)
     company_id = facts[0]["company_id"]
     concepts = {f["concept"] for f in facts}
     rows = (
@@ -1674,6 +1706,10 @@ def upsert_facts_bulk(
         .filter(FinancialFact.company_id == company_id, FinancialFact.concept.in_(list(concepts)))
         .all()
     )
+    accessions = {f["accession"] for f in facts} | {row.accession for row in rows}
+    filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
+        Filing.accession_number.in_(accessions)
+    ).all())
     existing_identity: set[tuple] = set()
     latest_by_key: dict[tuple, list[FinancialFact]] = {}
     null_fp_latest: dict[tuple, list[FinancialFact]] = {}
@@ -1700,19 +1736,30 @@ def upsert_facts_bulk(
             continue
         existing_identity.add(identity)
 
-        for row in latest_by_key.pop(
-            (fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"]), []
-        ):
-            if row.is_latest:
-                row.is_latest = False
-                demoted += 1
+        key = (fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"])
+        null_key = (fact["concept"], fact["period_end"], fact["unit"])
+        current = list(latest_by_key.get(key, []))
         if fact["fiscal_period"] in _QUARTER_PERIODS:
-            for row in null_fp_latest.pop((fact["concept"], fact["period_end"], fact["unit"]), []):
+            current.extend(null_fp_latest.get(null_key, []))
+        incoming_date = filing_dates.get(fact["accession"])
+        newer = any(
+            row.is_latest and row.accession != fact["accession"]
+            and filing_dates.get(row.accession) is not None
+            and (incoming_date is None or
+                 (filing_dates[row.accession], row.accession) > (incoming_date, fact["accession"]))
+            for row in current
+        )
+        if not newer:
+            for row in current:
                 if row.is_latest:
                     row.is_latest = False
                     demoted += 1
-
-        db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
+        inserted_row = FinancialFact(**fact, is_latest=not newer, reconciled=reconciled)
+        db.add(inserted_row)
+        if not newer:
+            latest_by_key[key] = [inserted_row]
+            if fact["fiscal_period"] is None:
+                null_fp_latest[null_key] = [inserted_row]
         inserted += 1
 
     if commit:

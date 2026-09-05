@@ -6,6 +6,7 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
+import ReconciliationBadge from './ReconciliationBadge'
 import type {
   AnalysisDataset,
   AnalysisSeries,
@@ -16,12 +17,14 @@ import type {
 interface Kpi {
   label: string
   value: number
+  reconciled?: boolean
   format: (v: number) => string
   tone: SeriesTone | null | undefined
   isPercent: boolean
   /** Window growth: CAGR (annual, non-percent series), window pp change (annual, percent
    *  series — CAGR doesn't apply to a percentage), or same-quarter YoY (quarterly). */
   growth: GrowthValue | null
+  growthReconciled?: boolean | null
   growthLabel: string
   /** Basis-window tooltip ("Computed over FY2016..FY2025") — annual cards only. */
   growthTitle?: string
@@ -48,12 +51,14 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
       <div className="tnum font-data mt-1 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         {animated}
       </div>
+      <ReconciliationBadge reconciled={kpi.reconciled} />
       {text && (
         <div
           className={`tnum font-data mt-0.5 text-xs ${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`}
           title={kpi.growthTitle}
         >
           {kpi.growthLabel} {text}
+          <ReconciliationBadge reconciled={kpi.growthReconciled} label="Unverified growth" />
         </div>
       )}
     </Card>
@@ -87,10 +92,14 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     kpis.push({
       label: `${series.label} (${point.period})`,
       value: point.value as number,
+      reconciled: point.reconciled,
       format: spec.format ?? ((v: number) => fmtCurrency(v, { compact: true })),
       tone: series.tone,
       isPercent: series.percent,
       growth,
+      growthReconciled: isAnnual
+        ? (win.isPercent ? series.window_pp_reconciled : series.cagr_reconciled)
+        : point.yoy_reconciled,
       growthLabel: isAnnual ? win.label : 'YoY',
       growthTitle: isAnnual && window ? `Computed over ${window}` : undefined,
     })

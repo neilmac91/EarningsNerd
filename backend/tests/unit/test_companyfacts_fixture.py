@@ -112,13 +112,16 @@ def test_eps_series_prefers_basic_over_diluted(parsed: dict):
     assert not diluted_values.intersection(e["value"] for e in eps)
 
 
-def test_fallback_parser_ignores_liabilities_and_cash(parsed: dict):
-    """Characterization of a genuine limitation: the fallback parser declares
-    `total_liabilities` and `cash_and_equivalents` buckets but never populates
-    them, even though the fixture supplies `Liabilities` and
-    `CashAndCashEquivalentsAtCarryingValue` facts across two periods."""
-    assert parsed["total_liabilities"] == []
-    assert parsed["cash_and_equivalents"] == []
+def test_fallback_parser_preserves_liabilities_and_cash(parsed: dict):
+    """WS-7 closes the former missing-bucket limitation, retaining accession and period."""
+    assert parsed["total_liabilities"] == [
+        {"period": "2023-12-31", "value": 22_540_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+        {"period": "2022-12-31", "value": 20_880_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+    ]
+    assert parsed["cash_and_equivalents"] == [
+        {"period": "2023-12-31", "value": 5_120_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+        {"period": "2022-12-31", "value": 4_760_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+    ]
 
 
 def test_extract_standardized_metrics_shapes_current_prior_change(parsed: dict):
@@ -142,6 +145,8 @@ def test_extract_standardized_metrics_shapes_current_prior_change(parsed: dict):
     # parser produced (3.142B / 24.318B for FY2023).
     assert metrics["net_margin"]["current"]["value"] == pytest.approx(12.92, abs=0.01)
 
-    # Liabilities/cash were never extracted, so no such downstream metrics exist.
-    assert "total_liabilities" not in metrics
-    assert "cash_and_equivalents" not in metrics
+    for concept, current, prior in [("total_liabilities", 22_540_000_000, 20_880_000_000),
+                                    ("cash_and_equivalents", 5_120_000_000, 4_760_000_000)]:
+        assert metrics[concept]["current"]["value"] == current
+        assert metrics[concept]["prior"]["value"] == prior
+        assert metrics[concept]["change"]["absolute"] == current - prior
