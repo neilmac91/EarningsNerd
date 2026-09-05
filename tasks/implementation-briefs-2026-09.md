@@ -330,10 +330,13 @@ independent refuters per serious finding before merge; confirmed findings were f
 | #661 + #675 | WS-8 (b)–(e) | merged `41abb26`, `89481d7`, deploys green | env / sec.gov / Filing-URL / read-only-GET gates; app-loop bridge for the sync SEC path |
 | #655 | WS-4 | merged `49dd399`, deploy green | FMP stable API first, partial-list abort, 100-day age gate; needs `FMP_API_KEY` secret (founder) |
 | #671 + #676 | WS-5 items 3, 4, 7 | merged `d535c4b`, `d8cca89` | risk headings, casing, mobile jump-nav, a11y; casing verified live |
-| #658 | WS-2 | in review (fix round pushed `01e29c1`) | ledger seeds on first deploy after merge: expect `applied=32 skipped=0` |
-| #660 | WS-5 items 1, 2, 6, 8, 9 | in review (fix round pending) | frontend-only; #674 is stacked on it |
-| #674 | WS-3 | in review; retarget to `main` after #660 | supersedes #659, #662–#670; founder: Vercel Node 22 before merge |
-| #672 | D6 backend minor group | held | split: non-edgartools bumps now, edgartools 5.40→5.51 alone through the eval gate |
+| #658 + #678 | WS-2 | merged `c6eaddf`, hotfix `f8e7728`, deploy green | first ledger deploy adopted a legacy prod `schema_migrations` table via IF NOT EXISTS; hotfix renames the ledger to `migration_ledger`, plants a CI decoy, amends ADR-0007; seed verified `applied=32 skipped=0`. Founder: drop the legacy table |
+| #660 | WS-5 items 1, 2, 6, 8, 9 | merged `ffb0b61` | frontend-only; Sentry-wired boundary, SSR pricing, noindex auth pages, two-directional raw-fetch gate |
+| #674 | WS-3 | in review; rebasing onto `main` after #660 | supersedes #659, #662–#670; four confirmed review fixes in flight; founder: Vercel Node 22 before merge |
+| #679 | D6 backend minor group (a) | merged `fbbccc5` | the 13 non-edgartools bumps from #672, lock regenerated with pip-tools |
+| #680 | D6 backend minor group (b) | in review; rebasing onto `main` after #679 | edgartools 5.40.1→5.55.0 alone; eval regression gate PASS, 0 warnings; close #672 after merge |
+| #677 | plan hygiene | this PR | todo + dispatch log + CLAUDE.md integrations list |
+| — | WS-1/2/8 follow-up | agent running | INVALID-index check after CONCURRENTLY, checksum-order pin, teardown package-dir gate |
 
 Still held for wave 2: WS-5 item 5 (sitemap fetch); WS-6 (eval key confirmed available in the
 implementing session); WS-7; WS-9; WS-10 docs sweep. Founder console actions (D8) run in parallel

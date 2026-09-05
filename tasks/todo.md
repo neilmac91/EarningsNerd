@@ -21,23 +21,23 @@ Founder merges; each phase is one or a few PRs. Items marked **(founder)** need 
 ## Phase 1 — Priority 1: reliability floor (≈4 engineer-days + founder console time)
 
 - [x] **(founder decision)** Migration design: DO-block guard only (status quo, gated) vs `schema_migrations` ledger (recommended; ADR supersedes rule-3 wording) — *decided 2026-09-04: ledger (PR #658, ADR-0007)*
-- [ ] Implement the chosen migration design — *PR #658 (`schema_migrations` ledger + `apply_migrations.sh` + real-Postgres CI job) in review 2026-09-05*; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**
+- [x] Implement the chosen migration design — *PR #658 merged 2026-09-05 (`c6eaddf`); its first deploy failed because prod already had a foreign `schema_migrations` table, fixed by hotfix PR #678 (`f8e7728`, ledger renamed `migration_ledger`, CI decoy gate, ADR-0007 amendment, lesson `ops-deploy-owned-state-needs-a-distinctive-name.md`); seed deploy verified `applied=32 skipped=0`, health green*; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**; **(founder)** inspect and drop the legacy prod `schema_migrations` table
 - [x] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) — *PR #656 merged 2026-09-05 (`f340bb0`), deploy green*
-- [ ] Ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` (most plausible `statement_timeout` trip) — *falls out of PR #658*
+- [x] Ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` — *ledger live since #678; the file ran once at seed and is now skipped*
 - [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
 - [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
-- [ ] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 in review 2026-09-05*; Sentry source-map env in Vercel **(founder)**
+- [x] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 merged 2026-09-05 (`ffb0b61`)*; Sentry source-map env in Vercel **(founder)**
 - [x] Dependabot triage: merge #635 #636 #639 #640 #641 #642 — *all merged 2026-09-04, deploys green*
 - [ ] Close #629 (TS 7) + add `typescript` to major-ignore (*ignore entry in PR #674*); close #570; close #662–#670 (superseded by #674) **(founder: closes)**
-- [ ] Split #672 (was #651): pandas 3.0.5 (yanked 3.0.4) + fastapi/lxml/posthog/etc. now; edgartools 5.40→5.51 alone through the eval gate (RUNBOOK)
+- [x] Split #672: non-edgartools bumps (pandas 3.0.5, fastapi, stripe, posthog, …) — *PR #679 merged 2026-09-05 (`fbbccc5`)*; edgartools 5.40.1→5.55.0 alone through the eval gate — *PR #680 in review (regression gate PASS, 0 warnings)*; close #672 after #680
 - [ ] Next.js ≥16.3.4 by hand: `GlobalErrorBoundary.tsx:52` fix (in #660) and `::highlight` moved to a constructed stylesheet (in #674) — *PR #674 in review 2026-09-05; #659 recreate after merge*
 - [ ] Add dependency-audit gates to CI: `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` (advisory first, then blocking) — *advisory steps in PR #674*
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
 - [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; first scheduled run needs `FMP_API_KEY` **(founder: secret)**
-- [ ] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 in review*
+- [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*
 - [ ] Node 20 → 22 (`engines`, `.nvmrc`, CI — *PR #674*) **(founder: Vercel project setting, before #674 merges)**
 - [x] Quick wins: `ops.yml` push trigger removed + `cloud-sql-proxy` sha256 pinned (*#656*); `hot_filings.py` and the trending refresh route deleted outright (*#657*, so the admin-token compare and rate limit are moot)
-- [ ] Drop `"log"` from client Sentry console levels — *PR #660*
+- [x] Drop `"log"` from client Sentry console levels — *PR #660 merged 2026-09-05*
 - [x] Rule-8 gate: env-access allow-list test — *PR #661 merged 2026-09-05 (`41abb26`), deploy green*
 
 ## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
