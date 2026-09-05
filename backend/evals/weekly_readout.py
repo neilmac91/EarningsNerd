@@ -86,6 +86,8 @@ async def measure() -> tuple[dict, dict]:
 
     filings = load_cohort()
     harness = runner._harness_metadata(JUDGE_MODEL)
+    harness.update(candidates=["baseline"], runs_per_candidate=3,
+                   filings=[{"ticker": f["ticker"], "filing_type": f["filing_type"]} for f in filings])
     if (not re.fullmatch(r"[0-9a-f]{40}", harness.get("source_sha", ""))
             or harness.get("use_statement_financials") is not True
             or harness.get("stream_section_reveal") is not True

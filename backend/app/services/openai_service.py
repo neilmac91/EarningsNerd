@@ -12,7 +12,9 @@ import json
 # ``app.services.openai_service`` stays the single import surface for every existing caller; the
 # re-exported public names are pinned in ``__all__`` at the bottom of this module.
 from app.services.ai.bank_guards import _is_no_total_bank, _sanitize_bank_financial_highlights
-from app.services.ai.model_flags import _thinking_disabled_model
+from app.services.ai.provider_requests import (
+    _ProviderRequestsMixin, bounded_summary, close_stream, fallback_client,
+)
 from app.services.ai.normalize import _normalize_risk_factors, _section_has_content
 from app.services.ai.xbrl_narrative import (
     build_xbrl_narrative_section,
@@ -62,6 +64,7 @@ def _segments_not_applicable(coverage_map: Dict[str, bool], xbrl_metrics: Option
 
 
 class OpenAIService(
+    _ProviderRequestsMixin,
     _ExtractionMixin,
     _JsonRepairMixin,
     _MarkdownRenderMixin,
@@ -69,44 +72,16 @@ class OpenAIService(
     _CopilotChatMixin,
 ):
     def __init__(self):
-        # Use Google AI Studio base URL if configured
-        base_url = settings.OPENAI_BASE_URL if hasattr(settings, 'OPENAI_BASE_URL') else None
-        self.client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=base_url
-        )
-        # Model name constants for maintainability
-        # Primary model sourced from settings for single source of truth
-        self._MODEL_GEMINI_3_PRO = settings.AI_DEFAULT_MODEL  # From config.py
-        self._MODEL_GEMINI_2_5_PRO = "gemini-2.5-pro"
-        self._MODEL_GEMINI_2_5_FLASH = "gemini-2.5-flash"
-
-        # Google AI Studio model names
-        # Updated to use Gemini Pro 3.0 for highest quality outputs
-        self.model = self._MODEL_GEMINI_3_PRO  # Sourced from settings.AI_DEFAULT_MODEL
-        # Fallback models in case primary is rate-limited
-        self._fallback_models = [
-            self._MODEL_GEMINI_3_PRO,
-            self._MODEL_GEMINI_2_5_PRO,
-            self._MODEL_GEMINI_2_5_FLASH
-        ]
-        # Set optimized models for each filing type - all use Gemini Pro 3.0
-        self._model_overrides = {
-            "10-K": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-K
-            "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
-        }
-        # Task-specific model selection - all use Gemini 3 Pro for maximum quality
-        # Per-task model routing. Extraction and editorial stay on the Pro model (quality bar).
-        # Section recovery may opt into a cheaper model (A11) — defaults to Pro until an operator
-        # sets AI_SECTION_RECOVERY_MODEL or AI_FAST_MODEL, so behavior is unchanged out of the box.
-        _section_recovery_model = (
-            settings.AI_SECTION_RECOVERY_MODEL.strip()
-            or settings.AI_FAST_MODEL.strip()
-            or self._MODEL_GEMINI_3_PRO
-        )
+        # Application requests own retry/deadline policy; SDK retries must not multiply it.
+        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY,
+                                  base_url=settings.OPENAI_BASE_URL, max_retries=0)
+        self.fallback_client = fallback_client()
+        self.model = settings.AI_DEFAULT_MODEL
+        self._model_overrides = {"10-K": self.model, "10-Q": self.model}
         self._task_models = {
-            "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
-            "section_recovery": _section_recovery_model,         # Cheaper-model candidate (A11)
+            "structured_extraction": self.model,
+            "section_recovery": (settings.AI_SECTION_RECOVERY_MODEL.strip()
+                                 or settings.AI_FAST_MODEL.strip() or self.model),
         }
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting
@@ -115,12 +90,7 @@ class OpenAIService(
         self._recovery_semaphore = asyncio.Semaphore(max_concurrency)
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
-        """Return the model to use for a given filing type.
-
-        Using Gemini Pro 3.0 for highest quality outputs:
-        - 10-Q: gemini-3-pro-preview (Gemini Pro 3.0)
-        - 10-K: gemini-3-pro-preview (Gemini Pro 3.0)
-        """
+        """Return the configured primary model for this filing type."""
         if not filing_type:
             return self.model
         return self._model_overrides.get(filing_type.upper(), self.model)
@@ -184,6 +154,7 @@ class OpenAIService(
             # (or if it is, we should return it too, but looking at previous code it wasn't used)
         }
 
+    @bounded_summary()
     async def generate_structured_summary(
         self,
         filing_text: str,
@@ -199,9 +170,8 @@ class OpenAIService(
         When ``stream_cb`` is provided (A5 progressive reveal), the primary model is streamed and
         ``stream_cb(partial_markdown)`` is awaited with throttled preview renders as the JSON fills
         in; the COMPLETE content is then assembled through the same path as the non-streaming branch,
-        so the final result is identical. ``stream_cb`` errors / streaming failures propagate to the
-        caller (``summarize_filing``), which falls back to non-streaming — streaming never degrades
-        the output, it only adds the preview."""
+        so both use the same assembly. Transient streaming failures discard buffered content and
+        retry non-streaming within the shared deadline; callback errors remain best-effort."""
         from fastapi.concurrency import run_in_threadpool
 
         filing_type_key = (filing_type or "10-K").upper()
@@ -406,134 +376,27 @@ Rules:
 - EVIDENCE IS PROSE — `supporting_evidence` in `results_that_matter` and `notable_footnotes` must be NARRATIVE PROSE: a sentence or a contiguous sentence fragment, never a transcription of table rows or cells (a bare metric label followed only by its figures). A table has no single linear text form, so a row transcription can never be located by exact search and is discarded downstream; the table columns already carry those figures. A prose sentence that contains figures is fine — that is exactly the desired evidence. COPY, don't COMPOSE: the `supporting_evidence` span must EXIST in the filing text — never write a sentence of your own that restates figures, however accurate; a composed sentence cannot be located by exact search, making it fabricated evidence — worse than the honest "". Example (illustrative only — NOT from the filing you are summarizing): a filing says "Demand for the Meridian platform exceeded our production capacity during the period." RIGHT: "Demand for the Meridian platform exceeded our production capacity" (an existing span, shortened only to a contiguous span). WRONG: "Meridian demand exceeded capacity" (a sentence you composed — it does not exist in the filing and cannot be located by exact search).
 - Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
 
-        import asyncio
-        models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
-        models_to_try = list(dict.fromkeys(models_to_try))
-
-        if stream_cb is not None:
-            # A5: best-effort progressive reveal. Stream the primary model once, emitting throttled
-            # partial-markdown previews as the JSON fills in, then assemble the COMPLETE content
-            # through the SAME path as the non-streaming branch (identical final output). Any error
-            # propagates so summarize_filing can fall back to non-streaming generation.
-            stream_model = models_to_try[0]
-            stream_timeout = config.get("ai_timeout", 45.0)
-            stream_kwargs: Dict[str, Any] = dict(
-                model=stream_model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a structured data extraction engine for financial journalism. "
-                            "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
-                            "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
-                            "Adhere strictly to the requested schema. "
-                            "Fill in 'Not disclosed' when data is missing. "
-                            "Never invent prior-period figures."
-                        ),
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.1 if structured_mode else 0.2,
-                max_tokens=config.get("max_tokens", 1500),
-                stream=True,
-                response_format={"type": "json_object"},
-            )
-            if _thinking_disabled_model(stream_model, getattr(settings, "OPENAI_BASE_URL", None)):
-                stream_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
-            else:
-                stream_kwargs["max_tokens"] = min(stream_kwargs["max_tokens"], 8192)
-            streamed_content = await asyncio.wait_for(
-                self._stream_collect(stream_kwargs, stream_cb, filing_type_key, xbrl_metrics),
-                timeout=stream_timeout,
-            )
-            return await self._assemble_structured_summary(
-                streamed_content, filing_text, filing_type_key, filing_sample, xbrl_metrics
-            )
-
-        response = None
-        last_error: Optional[Exception] = None
-        max_retries = 1  # Reduced from 3 to limit worst-case latency
-        base_timeout = config.get("ai_timeout", 45.0)  # Reduced from 90s
-        
-        for model_name in models_to_try:
-            # Try each model with limited retries (no exponential backoff)
-            for attempt in range(max_retries):
-                try:
-                    # Fixed timeout (no exponential scaling) for predictable latency
-                    timeout = base_timeout
-                    create_kwargs: Dict[str, Any] = dict(
-                        model=model_name,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are a structured data extraction engine for financial journalism. "
-                                    "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
-                                    "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
-                                    "Adhere strictly to the requested schema. "
-                                    "Fill in 'Not disclosed' when data is missing. "
-                                    "Never invent prior-period figures."
-                                ),
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        # Roadmap S1: pin extraction temperature low (0.1) in structured mode for
-                        # determinism; otherwise keep the prior 0.2.
-                        temperature=0.1 if structured_mode else 0.2,
-                        max_tokens=config.get("max_tokens", 1500),
-                    )
-                    # Always enforce JSON at the API layer (provider-agnostic) so validity never
-                    # depends on the model resolving a prompt-vs-schema conflict. Critical for
-                    # reliable extraction across Gemini/DeepSeek and for avoiding non-object output.
-                    create_kwargs["response_format"] = {"type": "json_object"}
-                    # Reasoning models (DeepSeek V4, Zhipu GLM via z.ai) default to "thinking" mode;
-                    # disable it for this deterministic extraction task and keep full max_tokens
-                    # headroom (prevents mid-JSON truncation). For everything else (e.g. Gemini),
-                    # cap max_tokens to the provider's ~8192 output ceiling.
-                    if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
-                        create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
-                    else:
-                        create_kwargs["max_tokens"] = min(create_kwargs["max_tokens"], 8192)
-                    response = await asyncio.wait_for(
-                        self.client.chat.completions.create(**create_kwargs),
-                        timeout=timeout,
-                    )
-                    # Success - break out of retry loop
-                    break
-                except asyncio.TimeoutError as timeout_error:
-                    last_error = timeout_error
-                    logger.warning(f"AI request timed out after {timeout:.1f}s for {model_name}")
-                    # No retry delay - move to next model immediately
-                    break
-                except Exception as model_error:
-                    error_msg = str(model_error)
-                    last_error = model_error
-                    if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                        logger.warning(f"Structured extraction model {model_name} failed ({error_msg[:120]}). Trying next model...")
-                        break
-                    raise
-            
-            # Validate response content before breaking
-            if response is not None:
-                # Safety check for malformed API response (missing choices)
-                if not getattr(response, 'choices', None) or not response.choices:
-                    logger.warning(f"Model {model_name} returned malformed response (no choices). Treating as failure and trying next model...")
-                    last_error = ValueError("Malformed AI response: no choices returned")
-                    continue
-                content = response.choices[0].message.content
-                # Check for empty content (blocked/filtered) or just whitespace
-                if not content or not content.strip():
-                    logger.warning(f"Model {model_name} returned empty payload. Treating as failure and trying next model...")
-                    last_error = ValueError("Empty payload received from AI model")
-                    continue
-                
-                # Valid response received
-                break
-
-        if response is None:
-            raise last_error if last_error else RuntimeError("All extraction models failed.")
-
-        content = response.choices[0].message.content
+        create_kwargs: Dict[str, Any] = dict(
+            model=self.get_model_for_filing(filing_type_key),
+            messages=[
+                {"role": "system", "content": (
+                    "You are a structured data extraction engine for financial journalism. "
+                    "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
+                    "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
+                    "Adhere strictly to the requested schema. "
+                    "Fill in 'Not disclosed' when data is missing. "
+                    "Never invent prior-period figures."
+                )},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1 if structured_mode else 0.2,
+            max_tokens=config.get("max_tokens", 1500),
+            response_format={"type": "json_object"},
+        )
+        content = await self._request_content(
+            create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
+            xbrl_metrics=xbrl_metrics,
+        )
         return await self._assemble_structured_summary(
             content, filing_text, filing_type_key, filing_sample, xbrl_metrics
         )
@@ -618,32 +481,41 @@ Rules:
         stream_cb: Any,
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
+        *, _client=None, _observation=None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
         rendering and ``stream_cb`` are best-effort — they never affect the returned content."""
         parts: List[str] = []
         emitted_at = 0
-        stream = await self.client.chat.completions.create(**create_kwargs)
-        async for chunk in stream:
-            choices = getattr(chunk, "choices", None)
-            if not choices:
-                continue
-            delta = getattr(choices[0], "delta", None)
-            piece = getattr(delta, "content", None) if delta is not None else None
-            if not piece:
-                continue
-            parts.append(piece)
-            total = sum(len(p) for p in parts)
-            # Re-render a preview every ~1500 new chars to keep preview frames modest.
-            if total - emitted_at >= 1500:
-                emitted_at = total
-                preview = self._partial_markdown_preview("".join(parts), xbrl_metrics)
-                if preview:
-                    try:
-                        await stream_cb(preview)
-                    except Exception:  # noqa: BLE001 — a consumer error must never abort generation
-                        pass
+        stream = await (_client or self.client).chat.completions.create(**create_kwargs)
+        try:
+            async for chunk in stream:
+                if _observation is not None:
+                    if getattr(chunk, "model", None):
+                        _observation["model"] = chunk.model
+                    if getattr(chunk, "usage", None) is not None:
+                        _observation["usage"] = chunk.usage
+                choices = getattr(chunk, "choices", None)
+                if not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                piece = getattr(delta, "content", None) if delta is not None else None
+                if not piece:
+                    continue
+                parts.append(piece)
+                total = sum(len(p) for p in parts)
+                # Re-render a preview every ~1500 new chars to keep preview frames modest.
+                if total - emitted_at >= 1500:
+                    emitted_at = total
+                    preview = self._partial_markdown_preview("".join(parts), xbrl_metrics)
+                    if preview:
+                        try:
+                            await stream_cb(preview)
+                        except Exception:  # noqa: BLE001 — a consumer error must never abort generation
+                            pass
+        finally:
+            await close_stream(stream)
         return "".join(parts)
 
     def _partial_markdown_preview(self, partial_content: str, xbrl_metrics: Optional[Dict]) -> Optional[str]:
@@ -659,6 +531,7 @@ Rules:
         except Exception:  # noqa: BLE001 — partial JSON frequently won't parse cleanly; skip this frame
             return None
 
+    @bounded_summary(report=True)
     async def summarize_filing(
         self,
         filing_text: str,
@@ -671,64 +544,20 @@ Rules:
     ) -> Dict:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases.
 
-        ``stream_cb`` (A5) opts into progressive reveal: the extraction is streamed and
-        ``stream_cb(partial_markdown)`` is awaited as sections fill in. If streaming fails for any
-        non-timeout reason it falls back to non-streaming generation, so the result is never
-        degraded — the final assembled summary is identical either way."""
+        ``stream_cb`` opts into progressive previews. The provider request policy owns bounded
+        transient retries; exhausted/authentication failures retain the existing error contract."""
         import asyncio
 
         filing_type_key = (filing_type or "10-K").upper()
         try:
-            try:
-                structured_summary = await self.generate_structured_summary(
-                    filing_text,
-                    company_name,
-                    filing_type,
-                    previous_filings=previous_filings,
-                    xbrl_metrics=xbrl_metrics,
-                    filing_excerpt=filing_excerpt,
-                    stream_cb=stream_cb,
-                )
-            except asyncio.TimeoutError:
-                raise
-            except Exception as stream_error:
-                if stream_cb is None:
-                    raise
-                logger.warning(
-                    f"Streaming extraction failed ({str(stream_error)[:160]}); "
-                    "falling back to non-streaming generation"
-                )
-                structured_summary = await self.generate_structured_summary(
-                    filing_text,
-                    company_name,
-                    filing_type,
-                    previous_filings=previous_filings,
-                    xbrl_metrics=xbrl_metrics,
-                    filing_excerpt=filing_excerpt,
-                    stream_cb=None,
-                )
+            structured_summary = await self.generate_structured_summary(
+                filing_text, company_name, filing_type, previous_filings=previous_filings,
+                xbrl_metrics=xbrl_metrics, filing_excerpt=filing_excerpt, stream_cb=stream_cb,
+            )
 
         except asyncio.TimeoutError:
-            timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
-            logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
-            return {
-                "status": "error",
-                "message": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
-                "summary_title": f"{company_name} {filing_type_key} Filing Summary",
-                "sections": [],
-                "insights": {
-                    "sentiment": "Neutral",
-                    "growth_drivers": [],
-                    "risk_signals": []
-                },
-                # Legacy fields
-                "business_overview": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
-                "financial_highlights": {},
-                "risk_factors": [],
-                "management_discussion": "",
-                "key_changes": "",
-                "raw_summary": {"error": "structured_extraction_timeout", "timeout_seconds": timeout_seconds},
-            }
+            # The single orchestrator owns deterministic partial fallback on deadline exhaustion.
+            raise
         except Exception as extraction_error:
             error_msg = str(extraction_error)
             logger.error(f"Structured extraction error: {error_msg}")

@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # (guarded by companies.history_backfilled_at so it never re-walks a company).
     ENABLE_HISTORY_BACKFILL_ON_VISIT: bool = True
 
-    # OpenAI-compatible API (Google AI Studio recommended)
+    # OpenAI-compatible API (DeepSeek default; ADR-0006)
     # Check environment variable first, then .env file
     # Pydantic Settings automatically prioritizes env vars, but we'll make it explicit
     OPENAI_API_KEY: str = ""
@@ -289,6 +289,11 @@ class Settings(BaseSettings):
 
     # AI Model Settings
     AI_DEFAULT_MODEL: str = "deepseek-v4-pro"  # Primary model (DeepSeek V4 migration, non-thinking; chose pro over flash on the quality preference). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
+    # Optional fallback: same origin may reuse primary auth; other origins require their own key.
+    AI_FALLBACK_BASE_URL: str = ""
+    AI_FALLBACK_MODEL: str = ""
+    AI_FALLBACK_API_KEY: str = ""
+
 
     # Optional cheaper model for low-risk sub-tasks (cost/latency — roadmap A11).
     # Both default to "" → fall back to AI_DEFAULT_MODEL, so behavior is UNCHANGED until set.

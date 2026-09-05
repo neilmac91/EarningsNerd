@@ -136,41 +136,13 @@ class _SectionRecoveryMixin:
         # falls to JSON repair and can turn a recoverable section into a hard miss.
         max_tokens: int = 500,
     ) -> Optional[str]:
-        import asyncio
-
-        # Section recovery uses the configured recovery model (Pro by default; can opt into a
-        # cheaper model via AI_SECTION_RECOVERY_MODEL / AI_FAST_MODEL — see config.py / A11).
-        models_to_try = [self.get_model_for_task("section_recovery", filing_type_key)] + self._fallback_models
-        models_to_try = list(dict.fromkeys(models_to_try))
-        last_error: Optional[Exception] = None
-        for model_name in models_to_try:
-            try:
-                response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
-                        model=model_name,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": RECOVERY_SYSTEM_MESSAGE,
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        temperature=0.1,
-                        max_tokens=max_tokens,
-                    ),
-                    timeout=timeout,
-                )
-                return response.choices[0].message.content if response.choices else None
-            except Exception as model_error:
-                error_msg = str(model_error)
-                last_error = model_error
-                if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                    logger.warning(f"Secondary completion model {model_name} failed ({error_msg[:120]}). Trying next model...")
-                    continue
-                break
-        if last_error:
-            raise last_error
-        return None
+        return await self._request_content(
+            {"model": self.get_model_for_task("section_recovery", filing_type_key),
+             "messages": [{"role": "system", "content": RECOVERY_SYSTEM_MESSAGE},
+                          {"role": "user", "content": prompt}],
+             "temperature": 0.1, "max_tokens": max_tokens},
+            operation="section_recovery", timeout=timeout,
+        )
 
     async def _recover_single_section(
         self,

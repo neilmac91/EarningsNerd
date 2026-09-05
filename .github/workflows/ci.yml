@@ -456,7 +456,7 @@ jobs:
         # traffic, so a failed migration blocks the deploy and the new code never hits a missing
         # column. The apply logic lives in backend/scripts/apply_migrations.sh (ADR-0007), shared
         # verbatim with the migrations-postgres CI job: it skips files already recorded in the
-        # schema_migrations ledger (filename + sha256) so converged DDL never re-acquires a table
+        # migration_ledger ledger (filename + sha256) so converged DDL never re-acquires a table
         # lock, and applies the rest under lock_timeout/statement_timeout with a SQLSTATE-keyed
         # bounded retry and a blocker dump on failure (2026-07-16 incident;
         # lessons/ops-migrations-need-lock-timeout.md). The first deploy after the ledger lands

@@ -28,7 +28,8 @@ roadmap is archived at [`history/plans/DATA_COMPLIANCE_PLAN.md`](./history/plans
 | Resend | Transactional email | Email, name, message content |
 | PostHog | Analytics | User ID, events (gated by cookie consent) |
 | Sentry | Error tracking | Stack traces, user context |
-| Google AI Studio (Gemini) | AI summaries | SEC filing content (no PII) |
+| DeepSeek (OpenAI-compatible API; ADR-0006) | AI summaries and filing Q&A | Selected public SEC filing content/XBRL and filing Q&A; no account PII in summary prompts |
+| Optional configured AI fallback | Bounded failed-request recovery; disabled by default | Same selected filing inputs; another provider requires an explicit API base/model and separate credential, with processor review before enabling |
 | SEC EDGAR | Filing data | Ticker queries (no PII) |
 
 ## Open items
