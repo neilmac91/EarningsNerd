@@ -83,6 +83,15 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > (the inert repo-root `/vercel.json` was removed). Build/dev/install commands are relative to
 > `frontend/`, so there is **no** `cd frontend` prefix.
 >
+> **Node.js version moves in lockstep — four places.** The runtime is pinned in
+> `frontend/.nvmrc` (exact), `frontend/package.json` `engines.node` (major line), and the three
+> `node-version:` sites in `.github/workflows/ci.yml`; the fourth is the **Vercel project setting**
+> (Project → Settings → General → *Node.js Version*), which is console-only and is what production
+> actually builds and serves on. When a PR bumps the Node major (20 → 22 in Sept 2026), the founder
+> switches the Vercel setting to the same major **before** that PR merges, so CI and the Vercel build
+> never run on different majors. Vercel also reads `engines.node` at build time and refuses a
+> version outside the project setting, so a mismatch fails the build rather than silently drifting.
+>
 > **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
 > reads `SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN`; `instrumentation-client.ts` reads

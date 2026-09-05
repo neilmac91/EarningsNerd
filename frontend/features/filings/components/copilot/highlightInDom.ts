@@ -13,6 +13,30 @@ import { flashElement } from '@/lib/citationFlash'
 
 const HIGHLIGHT_NAME = 'copilot-citation'
 
+/**
+ * Paint for `::highlight(copilot-citation)`. Registered from here as a constructed stylesheet rather
+ * than in `app/globals.css`: Next 16.3's CSS pipeline (lightningcss) does not recognise the
+ * `::highlight()` pseudo-element and warns "Parsing CSS source code failed" on every build. Same
+ * visual as before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight
+ * API exists, which implies constructable stylesheets too.
+ */
+export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
+
+let highlightSheet: CSSStyleSheet | null = null
+
+/** Adopt the `::highlight(copilot-citation)` rule once per document. Safe to call repeatedly. */
+export function ensureCitationHighlightStyle(): void {
+  if (highlightSheet) return
+  try {
+    const sheet = new CSSStyleSheet()
+    sheet.replaceSync(CITATION_HIGHLIGHT_CSS)
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+    highlightSheet = sheet
+  } catch {
+    // No constructable stylesheets (jsdom, very old engines): the block flash below still shows.
+  }
+}
+
 interface NodeSpan {
   node: Text
   start: number
@@ -77,6 +101,7 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string): 
   const w = window as unknown as { Highlight?: new (r: Range) => unknown }
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
   if (typeof w.Highlight === 'function' && highlights) {
+    ensureCitationHighlightStyle()
     highlights.delete(HIGHLIGHT_NAME)
     highlights.set(HIGHLIGHT_NAME, new w.Highlight(range))
   }
