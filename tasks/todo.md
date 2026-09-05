@@ -1,5 +1,27 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## WS-10 verified engineering handover — final synchronization
+
+Verified backend checkpoint: #704 (`123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`).
+Its deployment is healthy. Original handover §7 is not complete: the first actual strong-judge
+readout, dependent activation and founder production operations still need evidence.
+
+- [ ] Knowledge Curator (plan_rules): synchronize the active handover, ledger, briefs, todo,
+  dark-surface and launch checklists with observed merges, gates and deployments. Attribute
+  independently merged #673 separately; preserve accepted D1–D8 and every outstanding boundary.
+- [ ] Knowledge Curator: archive finished implementation plans and the exact earlier ledger;
+  preserve existing archives and the original definition of done verbatim. Keep mixed-stage
+  readout, broader coverage and founder residuals active rather than marking them completed.
+- [ ] Chief engineer: verify archive bytes, local links/anchors, exact commit references and
+  documentation-only scope. Root, plan_correctness and plan_gates independently review the
+  final documentation; serious findings require two refuters before correction.
+- [ ] Chief engineer: inspect required CI, merge with the freshly read head, and publish a
+  standalone engineering handover with the evidence and a single founder action list. Pause
+  the hourly check-in when no authorized work remains in flight.
+
+This stage changes only task documentation. The owning evaluation RUNBOOK was corrected in
+#704. No backend path, feature flag, threshold, baseline, job, secret or production data changes.
+
 ## WS-7 reporting-date wiring — prospective reconciliation correction
 
 Base: #703 merged and its backend deployment is verified healthy. The persisted Filing model
