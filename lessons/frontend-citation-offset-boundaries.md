@@ -11,5 +11,6 @@ character's node. Empty text nodes own no characters. Pin the actual flashed and
 the range's start node, and an excerpt ending at the last character in the document.
 
 **Evidence**: `frontend/features/filings/components/copilot/highlightInDom.ts` and
-`frontend/tests/unit/highlightInDom.spec.ts`; the regression and mutation proof are required before
-this draft can leave review.
+`frontend/tests/unit/highlightInDom.spec.ts` and `frontend/tests/e2e/copilot-highlight-css.spec.ts`
+(PR #691). Restoring the inclusive-start predicate makes the exact-target assertions fail;
+removing end affinity fails the terminal and internal-boundary range assertions.
