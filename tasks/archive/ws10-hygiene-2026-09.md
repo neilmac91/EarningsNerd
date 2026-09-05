@@ -1,6 +1,6 @@
 # WS-10 — configuration and script placement hygiene
 
-Implementation candidate: PR #696; merge held for WS-7 documentation/default integration and independent review.
+Implementation candidate: PR #696; WS-7 integrated, independent review and CI required before merge.
 
 
 
@@ -40,5 +40,18 @@ Its public API variable was corrected to NEXT_PUBLIC_API_BASE_URL, used by the a
 frontend client. No real deployment, package installation, or email was triggered by
 these script proofs.
 
-Follow-up before merge: incorporate WS-7, retain its statement-aware extraction
-section, change the inventory default to true, and refresh full gate evidence.
+WS-7 integration: main99e91ba7 is incorporated at candidate5893a79d. The inventory
+now records `USE_STATEMENT_FINANCIALS=true`; the statement-aware extraction section
+and SIC backfill instructions are retained verbatim from main. Refreshed full gate:
+
+```text
+ruff check .: All checks passed! (exit 0)
+bandit -r app -ll: No issues identified. (exit 0)
+python -m pytest: 1910 passed, 2 deselected, 72 warnings in 143.01s (exit 0)
+```
+
+The repeated proof on this candidate passed (`1 passed, 1 warning in 0.10s`). Both
+removed-field and incorrect-default mutations again failed (`1 failed, 1 warning
+in 0.09s` each), and the script AST/bootstrap/stubbed-shell checks passed. Mutations
+were restored byte-for-byte; no application source or tests changed after the gate.
+Independent review and observed CI remain the merge prerequisites.

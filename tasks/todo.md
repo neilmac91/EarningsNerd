@@ -155,4 +155,4 @@ launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; wa
 ## WS-10 — configuration and script placement hygiene
 
 - [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
-- [ ] Integrate WS-7 statement default/docs, refresh gate, and complete independent review before merge.
+- [x] Integrate WS-7 statement default/docs and refresh gate (1910 passed); independent review and CI remain required before merge.
