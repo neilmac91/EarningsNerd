@@ -1,5 +1,27 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## WS-7 reporting-date wiring — prospective reconciliation correction
+
+Base: #703 merged and its backend deployment is verified healthy. The persisted Filing model
+has period_end_date; the per-filing fact writer reads nonexistent period_of_report, so its
+existing local current-period mismatch check receives None. This predates this remediation wave.
+
+- [ ] Backend Developer (plan_correctness): pass the actual reporting calendar date into the
+  existing reconciliation gate, preserving missing metadata and all source values/identities.
+- [ ] Backend Developer: add real persisted ORM integration controls for matching, mismatching,
+  missing dates, comparative rows, shared backfill and unchanged existing-row skip behavior;
+  prove every new test with intended-assertion mutations and exact restoration.
+- [ ] Backend Developer: correct stale writer/backfill and architecture documentation. Describe
+  prospective inserts, optional companyfacts cross-check policy, and lack of general historical
+  flag repair; do not imply deployment or existing backfill repairs old identities.
+- [ ] Chief engineer: run exact pinned full backend gates. Database/data-integrity (plan_rules),
+  integration/eval (plan_gates), and root independently review; use two refuters per serious finding.
+- [ ] Chief engineer: inspect required actual CI and eval artifacts, merge using freshly read
+  head SHA, then verify migrations, traffic and detailed production health before another merge.
+
+No migration, extraction change, period_start inference, threshold change, baseline re-pin,
+production backfill or founder operation is included. Closing docs follow the verified deployment.
+
 ## WS-6 Copilot — observed first live failure and corrective plan
 
 Run 33984283703 retained all 18 completed/scored attempts, zero execution errors, and four
