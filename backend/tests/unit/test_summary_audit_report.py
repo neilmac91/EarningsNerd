@@ -100,10 +100,12 @@ def test_each_audit_family_uses_its_own_valid_snapshot_population(sessions):
     ("forward_quote_audit", "checked", -1), ("forward_quote_audit", "checked", 2.0),
     ("forward_quote_audit", "verified", True), ("forward_quote_audit", "near_miss", 2),
     ("forward_quote_audit", "unverified", "not a list"), ("forward_quote_audit", "unverified", [{}]),
+    ("forward_quote_audit", "unverified", [{"score": 95.0}]),
     ("forward_quote_audit", "armed", "false"), ("forward_quote_audit", "dropped", [{"speaker": "CEO", "quote": "text"}]),
     ("evidence_snap_audit", "checked", True), ("evidence_snap_audit", "exact", -1),
     ("evidence_snap_audit", "would_snap", "not a list"), ("evidence_snap_audit", "snapped", [{}]),
     ("evidence_snap_audit", "left", [{"surface": "notable_footnotes", "score": float("nan")}]),
+    ("evidence_snap_audit", "left", [{"score": 0.0}]),
     ("evidence_snap_audit", "armed", True),
 ])
 def test_malformed_family_does_not_add_a_recorded_zero(sessions, family, field, value):
