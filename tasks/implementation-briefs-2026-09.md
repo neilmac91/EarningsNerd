@@ -337,7 +337,7 @@ independent refuters per serious finding before merge; confirmed findings were f
 | #680 | D6 backend minor group (b) | merged `083247d`, deploy green | edgartools 5.40.1→5.55.0 alone; eval regression gate PASS, 0 warnings; #672 closed |
 | #677 | plan hygiene | merged `16c56cb` | todo + dispatch log + CLAUDE.md integrations list |
 | #681 | WS-1/2/8 follow-up | merged `9a7a578`, deploy green | INVALID-index check after CONCURRENTLY (passed silently against prod), checksum-order pin, teardown package-dir gate |
-| #682 | plan hygiene | this PR | wave-1 close-out |
+| #687 | plan hygiene | this PR | wave-1 close-out |
 
 **Wave 1 closed 2026-09-05 08:25Z.** Every backend deploy since the ledger seed reports
 `apply_migrations: applied=0 skipped=32`; production health green after each of the day's ten
