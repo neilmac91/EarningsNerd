@@ -1,5 +1,38 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## WS-6 Copilot — implementation plan after verified hygiene deployment
+
+Owners: AI Engineer (plan_gates) owns service/snapshot/currency, eval schema/scorers/runner,
+source-only bootstrap, goldens/workflow and docs; plan_rules owns copilot_tools and tool tests.
+Base: #702 merged `efc81adcd5f4891836b2d6c5b4d28460d08b3fa9`; deployment 33981155212
+applied 0/skipped 34, revision `00267-2kc` serves all traffic; detailed health is healthy.
+
+- [ ] Bind trusted accession and native reporting currency from detached filing snapshot into
+  every numeric tool branch; missing scope cannot fall back to company-wide latest facts.
+- [ ] Preserve own-filing comparatives and historical rows; require compatible units and known
+  duration basis for derived arithmetic. Missing period_start remains basis_unavailable; no
+  invented dates, currency conversions, or expanded fact-writer scope.
+- [ ] Retain direct/derived operand provenance in citations; verify all declared XBRL citations
+  before numeric filtering and reject contradictory currency labels adjacent to their figures.
+  Distinct derived expressions must not share a marker; absence of prose currency is not USD.
+- [ ] Verify six researched accessions/five issuers with stable question IDs, periods and units;
+  retain old unverified QA explicitly pending. Preserve existing trust/refusal/numeric hard bars.
+- [ ] Prepare only actual SEC-layer documents/XBRL/sections in fresh scratch file SQLite, then
+  production excerpt/fact normalization. Source manifest is separate from golden answers;
+  save source hashes and extraction evidence, and abort before provider calls on missing inputs.
+- [ ] Require one valid terminal completion and exact planned accession/question/run identities;
+  errors/skips/missing rows cannot disappear from denominators. Save actual inputs and outputs.
+- [ ] Add same-repository PR workflow gated by !draft and ready_for_review: root opts in only after
+  offline full gates and three reviews. Run the complete cohort at least three times with the
+  existing Actions generator credential, upload evidence even on failure, never extract secrets.
+- [ ] Prove every new/changed test by intended-assertion mutation, restore exactly, run the full
+  pinned backend gate and separate summary regression against the sole unchanged baseline.
+- [ ] Correct owning historical service/RUNBOOK provider comments; record actual Copilot evidence
+  before root merge/deployment. First strong-judge readout and evidence-snap arming remain held.
+
+No production DB/backfill/prewarm, new credentials, live email, model swap, threshold relaxation,
+or baseline re-pin. This deterministic Copilot run is not the first weekly judged readout.
+
 ## WS-6 hygiene — implementation plan after verified resilience deployment
 
 Owner: AI Engineer (plan_gates), with Knowledge Curator (plan_rules) owning RUNBOOK updates.
