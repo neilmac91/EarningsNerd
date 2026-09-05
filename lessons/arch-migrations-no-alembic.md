@@ -1,4 +1,4 @@
-# No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the schema_migrations ledger
+# No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 
 Date: 2026-07-06 (ledger: 2026-09-04)   Area: arch
 
@@ -9,14 +9,14 @@ EVERY deploy; that equated *idempotent* with *safe*, and the 2026-07-16 hang sho
 converged `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE
 (`ops-migrations-need-lock-timeout.md`). ADR-0007 replaced re-apply-all with a ledger:
 `backend/scripts/apply_migrations.sh` records `(filename, sha256, applied_at)` in
-`schema_migrations` and skips recorded files, so converged DDL never re-acquires a lock.
+`migration_ledger` and skips recorded files, so converged DDL never re-acquires a lock.
 
 **Rule**: Any change to an existing table = a new SQL file in `backend/migrations/`
 (date-prefixed name). It runs once per (filename, content) — but write it to be safe under
 re-application anyway (`IF NOT EXISTS`, constraint-existence checks in `DO $$` blocks, UPDATEs
 whose predicates no-op once converged): a ledger reset, an edited file (new hash → one
 re-run), or a crash between apply and record all re-run it, and CI's `migrations-postgres`
-job re-runs every file after `DELETE FROM schema_migrations`. Never edit an applied
+job re-runs every file after `DELETE FROM migration_ledger`. Never edit an applied
 migration — the one-shot re-apply is an escape hatch, not a workflow. Never apply migration
 SQL outside the script (a hand `psql -f` bypasses the ledger); the gate that enforces this
 covers `ci.yml` only — `ops.yml`'s manual psql steps are outside it and must call the script if

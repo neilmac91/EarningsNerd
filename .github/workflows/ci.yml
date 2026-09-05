@@ -48,10 +48,13 @@ jobs:
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
   # production deploy step. Seeds a postgres:15 service the way a fresh DB is created (create_all),
   # then runs the SAME script deploy-backend runs, three times:
-  #   pass 1 — every file applies and is recorded in schema_migrations (ledger seeding)
+  #   pass 1 — every file applies and is recorded in migration_ledger (ledger seeding)
   #   pass 2 — zero files apply (ledger skip: converged DDL takes no lock on a deploy)
-  #   pass 3 — after DELETE FROM schema_migrations every file applies again (files stay idempotent;
+  #   pass 3 — after DELETE FROM migration_ledger every file applies again (files stay idempotent;
   #            the edited-file and crashed-between-apply-and-record paths depend on it)
+  # A decoy `schema_migrations` table is planted before pass 1: prod has a legacy table of that name
+  # and the first ledger deploy adopted it via CREATE TABLE IF NOT EXISTS (2026-09-05). The ledger
+  # must live in `migration_ledger` and never read or write the legacy name.
   # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
   migrations-postgres:
     runs-on: ubuntu-latest
@@ -96,6 +99,8 @@ jobs:
           SKIP_REDIS_INIT: 'true'
           PWNED_PASSWORD_CHECK_ENABLED: 'false'
         run: python -c "from app.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine); print('create_all:', len(Base.metadata.tables), 'tables')"
+      - name: Plant a decoy schema_migrations table (prod has one the ledger must never adopt)
+        run: psql -X -v ON_ERROR_STOP=1 -c "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
       # Each pass pipes the script through `tee`; an unspecified `shell:` runs `bash -e {0}` WITHOUT
       # pipefail, so the script's exit status would be swallowed by tee's. `set -euo pipefail` makes
       # the script's failure fail the step on its own; the grep is the second, independent check.
@@ -115,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           N=$(ls backend/migrations/*.sql | wc -l)
-          psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations;"
+          psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"
           bash backend/scripts/apply_migrations.sh | tee pass3.log
           grep -qx "apply_migrations: applied=$N skipped=0" pass3.log
 

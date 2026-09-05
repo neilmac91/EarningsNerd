@@ -11,7 +11,7 @@ EarningsNerd runs on two platforms:
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
 | **Custom domain** | `api.earningsnerd.io` → Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only) | — |
 
-> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are applied by the CI deploy job through the `schema_migrations` ledger ([ADR-0007](./adr/0007-schema-migrations-ledger.md)): each file runs once per (filename, sha256) and is skipped on later deploys (plus `ensure_additive_columns` self-heals additive columns at startup). Files must still be safe to re-run — a ledger reset, an edited file, or a crash between apply and record re-runs them.
+> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are applied by the CI deploy job through the `migration_ledger` table ([ADR-0007](./adr/0007-schema-migrations-ledger.md)): each file runs once per (filename, sha256) and is skipped on later deploys (plus `ensure_additive_columns` self-heals additive columns at startup). Files must still be safe to re-run — a ledger reset, an edited file, or a crash between apply and record re-runs them.
 
 ---
 
@@ -26,14 +26,14 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded
 `backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (download verified against a
-pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `schema_migrations` ledger
+pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `migration_ledger` table
 skips files whose filename + sha256 are recorded; the psql session is pinned to `lock_timeout=10s` /
 `statement_timeout=120s`; up to 5 retries only when psql's stderr carries a lock-contention SQLSTATE
 (`55P03` lock timeout, `57014` statement timeout, `40P01` deadlock — any other error is final); a
 `pg_stat_activity` + `pg_locks` dump names the blocker on final failure — see
 `lessons/ops-migrations-need-lock-timeout.md`. The same script runs three passes against a
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
-to re-run in prod: `DELETE FROM schema_migrations WHERE filename = '<file>.sql';` then re-run the
+to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
 traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
 filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
