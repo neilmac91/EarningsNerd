@@ -1,12 +1,22 @@
 {
-  "snapshot_date": "2026-07-13T20:11:01Z",
-  "source_report": "eval_20260713T201101Z.json",
+  "snapshot_date": "2026-09-05T11:19:51Z",
+  "source_report": "eval_20260905T111951Z.json",
   "golden_set_size": 26,
   "runs_per_candidate": 3,
   "harness": {
     "model": "deepseek-v4-pro",
+    "base_url": "https://api.deepseek.com/v1",
     "use_structured_output": false,
-    "judge": false
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": false,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "judge": false,
+    "source_sha": "f5b46ba96b3023f93554087e431937ed9daba3c4",
+    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3"
   },
   "candidates": {
     "baseline": {
@@ -21,17 +31,17 @@
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.9786,
-      "mean_specificity": 0.9922,
+      "mean_financial_depth": 0.9402,
+      "mean_specificity": 0.9889,
       "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9457,
-      "mean_delta_consistency": 0.9423,
+      "mean_redundancy": 0.9618,
+      "mean_delta_consistency": 0.9466,
       "mean_forward_quote_fidelity": 0.9487,
-      "mean_citation_fidelity": 0.6887,
-      "mean_citation_checked": 6.2692,
+      "mean_citation_fidelity": 0.7012,
+      "mean_citation_checked": 6.0897,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "mean_latency_seconds": 40.029
+      "mean_latency_seconds": 30.299
     }
   }
 }

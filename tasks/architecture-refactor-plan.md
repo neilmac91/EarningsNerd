@@ -190,7 +190,7 @@ suite green), just serialized. Cumulative: **61 files, −2625 LOC** (exceeds th
   `CMD uvicorn main:app …` in `backend/Dockerfile` — not this Render relic), `scripts/update_contact_schema.py`
   (superseded by the ContactSubmission ORM model + create_all, NOT a migration — and its deletion makes
   the CLAUDE.md:844 / ADR-0001 "was removed" claims finally true). Kept `cleanup-branches.sh`,
-  `performance-comparison.sh`, `test_resend_simple.py`.
+  `performance-comparison.sh`, `backend/scripts/smoke_resend.py` (manual live email smoke; relocated in WS-10).
 - **D6 — archived 34 finished tasks/ docs.** Top-level `tasks/*.md` 43 → 9. Kept: the active plan +
   `todo.md`, `lessons.md`, the operational runbooks (gcp-deploy/launch/security_privacy), and the docs
   cited by live surfaces (council-prep/earnings-calendar-strategy/fpi-support-roadmap). Link-check: the

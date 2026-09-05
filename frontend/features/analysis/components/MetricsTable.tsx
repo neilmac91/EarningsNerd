@@ -8,6 +8,7 @@ import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import ReconciliationBadge from './ReconciliationBadge'
 
 const currencyFromUnit = (unit: string | undefined): string => {
   const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
@@ -56,13 +57,16 @@ export default function MetricsTable({
           return <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
         }
         const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
-        const growthLabel = dataset.mode === 'quarterly' && point.qoq !== undefined ? 'QoQ' : 'YoY'
+        const growthReconciled = dataset.mode === 'quarterly' && point.qoq != null
+          ? point.qoq_reconciled : point.yoy_reconciled
+        const growthLabel = dataset.mode === 'quarterly' && point.qoq != null ? 'QoQ' : 'YoY'
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
         return (
           <div className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-1">
               {formatSeriesValue(point.value, row.series)}
+              <ReconciliationBadge reconciled={point.reconciled} />
               {point.derived && (
                 <span
                   className="cursor-help text-warning-light dark:text-warning-dark"
@@ -76,6 +80,7 @@ export default function MetricsTable({
             {growthText && (
               <span className={`text-xs ${directionText[tone]}`}>
                 {growthLabel} {growthText}
+                <ReconciliationBadge reconciled={growthReconciled} label="Unverified growth" />
               </span>
             )}
           </div>
@@ -120,6 +125,10 @@ export default function MetricsTable({
             title={windowTooltip}
           >
             {text}
+            <ReconciliationBadge
+              reconciled={win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled}
+              label="Unverified growth"
+            />
           </span>
         ) : (
           <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>

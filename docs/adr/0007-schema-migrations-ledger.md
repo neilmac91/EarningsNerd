@@ -1,4 +1,4 @@
-# ADR 0007 — Track applied SQL migrations in a `schema_migrations` ledger
+# ADR 0007 — Track applied SQL migrations in a `migration_ledger` table
 
 - **Status:** Accepted
 - **Deciders:** EarningsNerd maintainers
@@ -36,13 +36,14 @@ D1 in the September 2026 briefs):
 **(b).** A ledger table
 
 ```sql
-CREATE TABLE IF NOT EXISTS schema_migrations (
+CREATE TABLE IF NOT EXISTS migration_ledger (
     filename   TEXT PRIMARY KEY,
     sha256     TEXT NOT NULL,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
+(named `schema_migrations` when this ADR was accepted — see the 2026-09-05 amendment below)
 owned and created by the deploy step itself — `backend/scripts/apply_migrations.sh` — never by
 `create_all` and never in the serving container (`lessons/ops-no-ddl-in-startup-path.md`).
 
@@ -56,11 +57,11 @@ sha256, **skips** it when `(filename, sha256)` is recorded, otherwise applies it
 - **Edited files.** A file whose content changes gets a new hash and re-applies exactly once. That is
   the *escape hatch* (e.g. a hand-fix that must reach prod through CI), not a workflow: "never edit
   an applied migration" still stands. The other escape hatch is
-  `DELETE FROM schema_migrations WHERE filename = '…'` to force one re-run.
+  `DELETE FROM migration_ledger WHERE filename = '…'` to force one re-run.
 - **One script, two callers.** `deploy-backend` (through `cloud-sql-proxy`) and the new
   `migrations-postgres` CI job run the identical file — no duplicated bash. The CI job seeds a
   `postgres:15` service with `create_all`, then runs the script three times: pass 1 must apply every
-  file, pass 2 must apply zero (ledger skip), pass 3 after `DELETE FROM schema_migrations` must
+  file, pass 2 must apply zero (ledger skip), pass 3 after `DELETE FROM migration_ledger` must
   apply every file again (files stay re-runnable). `deploy-backend` depends on it, so a migration
   that fails on real Postgres blocks the release instead of being discovered in the deploy step.
 - **Rule 3 wording** becomes: each file is applied once per (filename, content) by the ledger, but
@@ -85,6 +86,10 @@ sha256, **skips** it when `(filename, sha256)` is recorded, otherwise applies it
   `BEGIN`/`COMMIT`, and a future `CREATE INDEX CONCURRENTLY` cannot run inside one). A crash between
   them re-applies the file next deploy — acceptable only because files stay idempotent, which is
   why CI pass 3 exists.
+- The ledger can record a file whose `CREATE INDEX CONCURRENTLY` never finished: a build cancelled
+  by `statement_timeout` leaves an INVALID index that `IF NOT EXISTS` then treats as present, so the
+  script ends every run by failing on any `pg_index` row with `indisvalid = false` (remedy printed:
+  `DROP INDEX CONCURRENTLY`, then delete the ledger row so the file re-applies).
 - The ledger is deploy-owned state that `create_all` knows nothing about. A developer's local
   Postgres gets the table the first time they run the script; SQLite dev databases never have it
   (the script is Postgres-only, as the migrations always were).
@@ -95,6 +100,23 @@ sha256, **skips** it when `(filename, sha256)` is recorded, otherwise applies it
   SQL steps sets its own `PGOPTIONS` (`lock_timeout=10s`, statement budget per step), and any future
   migration-applying step there must call this script rather than `psql -f` a migration file.
 - Still no down-migrations and no dependency graph between files — unchanged from before.
+
+## Amendment 2026-09-05 — the table is `migration_ledger`, not `schema_migrations`
+
+The first ledger deploy (CI run 33941732087, main `c6eaddf`) failed in the migration step with
+`column "sha256" does not exist`: production already had a `schema_migrations` table — created
+outside this repository (no commit ever referenced the name before this ADR), with a different
+shape — and `CREATE TABLE IF NOT EXISTS` adopted it silently. The `migrations-postgres` CI job
+could not catch this because its database is fresh.
+
+- The ledger is renamed to `migration_ledger` (script, CI, tests, docs). The legacy prod
+  `schema_migrations` table is left untouched for the founder to inspect and drop.
+- The CI job now plants a decoy `schema_migrations (version TEXT PRIMARY KEY, …)` before pass 1, so
+  every pass proves the script never reads or writes the legacy name (rule 12: the incident is a
+  gate, not a comment). `test_migration_lock_safety.py` pins both the decoy step and the absence of
+  `schema_migrations` from the script's executable lines.
+- Lesson: `CREATE TABLE IF NOT EXISTS` for state the deploy owns is only safe under a name nothing
+  else could plausibly have created; a conventional name is a collision waiting to happen.
 
 ## When to revisit
 

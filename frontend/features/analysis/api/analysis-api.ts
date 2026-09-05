@@ -57,6 +57,8 @@ export interface AnalysisPoint {
   raw_tag?: string | null
   derived?: boolean
   reconciled?: boolean
+  yoy_reconciled?: boolean | null
+  qoq_reconciled?: boolean | null
   /** For a `percent`-unit series (margins), already a percentage-POINT delta — do not ×100 and
    *  do not treat as relative growth. Every other series: relative growth as a fraction. */
   yoy?: GrowthValue | null
@@ -76,6 +78,8 @@ export interface AnalysisSeries {
   /** Optional only for fixtures/deploy skew — every fresh dataset ships it. Missing = 'normal'. */
   tone?: SeriesTone | null
   cagr: number | null
+  cagr_reconciled?: boolean | null
+  window_pp_reconciled?: boolean | null
   /** The basis window the CAGR was computed over ("FY2016..FY2025") — can be narrower than the
    *  selected range when a concept was first reported mid-window. */
   cagr_window?: string | null
@@ -115,6 +119,7 @@ export interface AnalysisCitation {
   value?: number
   period?: string
   derived?: boolean
+  reconciled?: boolean | null
 }
 
 export interface AnalysisCompletion {

@@ -368,7 +368,7 @@ def render_daily_digest(
 
 _DQ_FOOTER = (
     "Automated weekly data-quality report — a recurrence check over the remediation's detections. "
-    "Empty sections are the healthy state."
+    "Empty detection sections are healthy; missing audit or judge evidence is unavailable."
 )
 
 
@@ -403,9 +403,65 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
     gaps = report.get("coverage_gaps") or []
     anom = report.get("filing_anomalies") or []
     partials = report.get("partial_reasons") or []
+    coverage = report.get("universe_coverage") or {}
+    jobs = report.get("job_health") or []
+    coverage_rows = [{"metric": key.replace("_", " "), "value": "unavailable" if value is None else value}
+                     for key, value in coverage.items()]
+    job_rows = [{**job, "last_success": job["last_success"] or "never observed",
+                 "health": "STALE" if job["stale"] else "current"} for job in jobs]
+    audits = report.get("summary_audits") or {}
+    audit_rows = []
+    for name, family in audits.get("families", {}).items():
+        counters = "; ".join(f"{key.replace('_', ' ')}={value}" for key, value in family["counts"].items())
+        flag_label = {"figure_trace": "snapshots with untraceable figures",
+                      "forward_quotes": "snapshots with unverified quotes",
+                      "evidence_snap": "snapshots with unrepaired evidence",
+                      "machine_sections_only": "machine-only snapshots", "quality": "partial snapshots"}[name]
+        flag_rate = "unavailable" if family["flagged_pct"] is None else f"{family['flagged_pct']}% of recorded"
+        audit_rows.append({"family": name.replace("_", " "),
+            "population": f"recorded {family['recorded']} / snapshots {audits['snapshot_population']}",
+            "unavailable": f"unavailable {family['unavailable']} (missing {family['missing']}, malformed {family['malformed']})",
+            "counts": f"{flag_label}: {family['flagged']} ({flag_rate}); {counters}" if family["recorded"] else "counts unavailable"})
+    if not audit_rows:
+        audit_rows = [{"family": "Audits unavailable", "population": "No recorded population",
+                       "unavailable": "No family evidence supplied", "counts": "counts unavailable"}]
+    audit_note = (
+        "Retained summary snapshots, not weekly generation attempts. Each family has its own "
+        "recorded denominator. Missing audit may mean legacy data, unavailable grounding or no "
+        "eligible content. An empty recorded figure list does not prove grounding was available. "
+        "Would snap counts candidates; snapped counts performed replacements."
+    )
+    readout = report.get("weekly_readout") or {}
+    readout_rows = [{"metric": "status", "value": readout.get("status", "unavailable")},
+                    {"metric": "reason", "value": (readout.get("reason") or "none") if readout else "No weekly readout supplied"}]
+    for key in ("expected", "completed", "scored", "errors", "missing", "negative_judgments",
+                "deterministic_vetoes", "generator_model", "judge_model", "judge_backend",
+                "source_sha", "cohort_sha256", "golden_set_sha256", "run_url", "artifact_url"):
+        value = readout.get(key)
+        label = {"generator_model": "configured generator model", "judge_model": "configured judge model"}.get(key, key.replace("_", " "))
+        readout_rows.append({"metric": label, "value": "unavailable" if value is None else value})
+    for key, value in (readout.get("dimensions") or {}).items():
+        readout_rows.append({"metric": key, "value": "unavailable" if value is None else value})
+    readout_note = (
+        "Weekly generation cohort, separate from stored snapshots. Complete means all expected "
+        "judge records were received; negative judgments remain visible. Unavailable or partial "
+        "reports do not satisfy the first-readout prerequisite. This report never activates guards."
+    )
 
     html_body = (
         '<p style="margin:0 0 16px;">Automated weekly scan of the data-quality detections.</p>'
+        + _dq_section("Persisted summary audit snapshots", _dq_rows(
+            audit_rows, [lambda x: x["family"], lambda x: x["population"],
+                         lambda x: x["unavailable"], lambda x: x["counts"]]), len(audit_rows))
+        + f"<p>{html.escape(audit_note)}</p>"
+        + _dq_section("Weekly judged generation readout", _dq_rows(
+            readout_rows, [lambda x: x["metric"], lambda x: x["value"]]), len(readout_rows))
+        + f"<p>{html.escape(readout_note)}</p>"
+        + _dq_section("Universe coverage (any stored summary; stubs have no summary)", _dq_rows(
+            coverage_rows, [lambda x: x["metric"], lambda x: x["value"]]), len(coverage_rows))
+        + _dq_section("Job health (stale after twice maximum cadence)", _dq_rows(
+            job_rows, [lambda x: x["job"], lambda x: x["latest_status"],
+                       lambda x: x["last_success"], lambda x: x["health"]]), len(job_rows))
         + _dq_section("Ticker mismatches (stored ≠ SEC primary)", _dq_rows(
             mism, [lambda x: x["ticker"], lambda x: f'→ {x["primary"]}', lambda x: f'CIK {x["cik"]}']), len(mism))
         + _dq_section("Coverage gaps (concept lags total assets ≥2y)", _dq_rows(
@@ -421,6 +477,16 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
     )
 
     text_lines = [
+        "Persisted summary audit snapshots:",
+        *[f"  {r['family']}: {r['population']}; {r['unavailable']}; {r['counts']}" for r in audit_rows],
+        audit_note,
+        "Weekly judged generation readout:",
+        *[f"  {r['metric']}: {r['value']}" for r in readout_rows],
+        readout_note,
+        "Universe coverage (any stored summary; stubs have no summary):",
+        *[f"  {r['metric']}: {r['value']}" for r in coverage_rows],
+        "Job health (stale after twice maximum cadence):",
+        *[f"  {r['job']}: {r['latest_status']}; last success {r['last_success']}; {r['health']}" for r in job_rows],
         f"Ticker mismatches: {len(mism)}",
         *[f"  {m['ticker']} -> {m['primary']} (CIK {m['cik']})" for m in mism],
         f"Coverage gaps: {len(gaps)}",

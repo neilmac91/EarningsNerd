@@ -74,7 +74,10 @@ exists — a site this young with zero backlinks essentially doesn't get discove
   companies listed only with ≥1 filing, filings only with a generated summary, column-only
   queries with a 45k cap, 1-hour in-process cache, `/terms` added. The API host's robots.txt is
   now `Disallow: /` (crawlers belong on www, which proxies the sitemap hourly). Frontend
-  fallback sitemap synced to the same static list.
+  fallback sitemap synced to the same static list. The frontend caches the rendered sitemap
+  for one hour (`dynamic = 'force-static'`, `revalidate = 3600`) and bypasses Next's fetch Data
+  Cache (`cache: 'no-store'`), so regeneration consumes the backend response rather than an
+  independently stale Next fetch entry. The backend retains its own one-hour process cache.
 
 ### S5 — Google has never been told the site exists **[FOUNDER ACTION]**
 - No Search Console verification (your report), so: no sitemap submission, no index-coverage

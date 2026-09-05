@@ -82,7 +82,8 @@ set_identity(EDGAR_IDENTITY)
 # v2 entries can hold a bank's fee-income-only "revenue" subset and must age out unread.
 # v4: T5.3 shareholder-returns concepts (dividends_paid, share_repurchases) — v3 entries lack the
 # new keys and must age out so the §4 deterministic feed sees them without a manual refresh.
-_XBRL_CACHE_VERSION = "v4"
+# v5: retain fiscal-quarter metadata in newly extracted snapshots.
+_XBRL_CACHE_VERSION = "v5"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
@@ -463,6 +464,18 @@ def _extract_from_filing_instance_sync(
     if not any(result.get(key) for key in anchor_keys):
         logger.info(f"No usable consolidated facts in instance for {accession_number}")
         return None
+    if base_form == "10-Q":
+        from .fiscal_periods import fiscal_label
+        entity = getattr(xb, "entity_info", None)
+        if isinstance(entity, dict):
+            for values in result.values():
+                if isinstance(values, list):
+                    for point in values:
+                        if isinstance(point, dict) and point.get("period"):
+                            point.update(fiscal_label(
+                                point["period"], period_of_report,
+                                entity.get("fiscal_year"), entity.get("fiscal_period"),
+                            ))
     return result
 
 
@@ -575,7 +588,7 @@ class EdgarXBRLService:
         This method maintains backward compatibility with the legacy
         xbrl_service.get_xbrl_data() interface.
 
-        Uses two-tier caching:
+        Reads the persisted filing snapshot first, then uses two-tier caching:
         - L1: In-memory cache (fast, process-local)
         - L2: Redis cache (persistent, shared across instances)
 
@@ -595,6 +608,12 @@ class EdgarXBRLService:
             }
         """
         global _xbrl_cache, _cache_hits, _cache_misses
+
+        # Persisted data is accession-specific and survives process/cache eviction. Release the
+        # short read session before touching Redis or SEC; parsing/generation never holds it open.
+        persisted = await asyncio.to_thread(self._persisted_xbrl, accession_number, cik)
+        if persisted is not None:
+            return persisted
 
         # Build cache keys (versioned — see _XBRL_CACHE_VERSION)
         memory_key = f"{_XBRL_CACHE_VERSION}:{cik}:{accession_number}"
@@ -641,6 +660,33 @@ class EdgarXBRLService:
             logger.debug(f"XBRL NOT cached for {memory_key} (no data)")
 
         return result
+
+    @staticmethod
+    def _persisted_xbrl(accession_number: str, cik: str) -> Optional[Dict[str, Any]]:
+        from app.database import SessionLocal
+        from app.models import Company, Filing
+
+        normalized_cik = str(cik).strip().lstrip("0") or "0"
+        try:
+            with SessionLocal() as db:
+                payload = (
+                    db.query(Filing.xbrl_data)
+                    .join(Company, Filing.company_id == Company.id)
+                    .filter(
+                        Filing.accession_number == accession_number,
+                        Company.cik.in_((normalized_cik, normalized_cik.zfill(10))),
+                    ).scalar()
+                )
+                # Empty/legacy malformed snapshots must not suppress a real extraction.
+                return payload if isinstance(payload, dict) and any(
+                    isinstance(payload.get(key), list) and payload[key]
+                    for key in ("revenue", "net_income", "earnings_per_share", "total_assets",
+                                "total_liabilities", "cash_and_equivalents", "net_interest_income",
+                                "noninterest_income")
+                ) else None
+        except Exception as exc:
+            logger.warning("Persisted XBRL read failed for %s: %s", accession_number, type(exc).__name__)
+            return None
 
     async def _get_from_redis(self, key: str) -> Optional[Dict[str, Any]]:
         """Get XBRL data from Redis cache (L2)."""
@@ -1050,8 +1096,25 @@ class EdgarXBRLService:
             return best_data
 
         def append_items(metric: str, data: list) -> None:
+            from .fiscal_periods import fiscal_label
+            from app.services.facts_service import _classify_duration
+
+            target = [item for item in data if _is_target(item)]
+            anchor = max(target, key=lambda item: item.get("end", "")) if target else {}
             for item in filter_and_sort(data):
+                label = {}
+                # Classify the actual duration before treating the filing focus as a quarter.
+                # Instant facts share the selected filing's report-period anchor.
+                try:
+                    discrete = not item.get("start") or _classify_duration(
+                        date.fromisoformat(item["start"]), date.fromisoformat(item["end"])
+                    ) == "Q"
+                except (ValueError, TypeError):
+                    discrete = False
+                if discrete and (item.get("form") or "").removesuffix("/A") == "10-Q" and _is_target(item):
+                    label = fiscal_label(item["end"], anchor.get("end"), anchor.get("fy"), anchor.get("fp"))
                 result[metric].append({
+                    **label,
                     "period": item.get("end"),
                     "value": item.get("val"),
                     "form": item.get("form"),
@@ -1071,6 +1134,8 @@ class EdgarXBRLService:
             append_items("net_income", select_fact_data(
                 ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
             append_items("total_assets", select_fact_data(["Assets"]))
+            append_items("total_liabilities", select_fact_data(["Liabilities"]))
+            append_items("cash_and_equivalents", select_fact_data(CASH_TAG_CANDIDATES))
             append_items("earnings_per_share", select_fact_data(
                 ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
                 unit_keys=("USD/shares", "USD", "pure")))
@@ -1116,6 +1181,8 @@ class EdgarXBRLService:
                     "value": entry.get("value"),
                     "form": entry.get("form"),
                     "currency": entry.get("currency"),
+                    **{key: entry[key] for key in ("fiscal_year", "fiscal_period")
+                       if entry.get(key) is not None},
                     # raw_tag rides through so financial_fact records which XBRL concept a value came
                     # from (audit trail) and the change report can detect a concept that flips
                     # between filings. None for legacy/pre-fix series.
@@ -1173,7 +1240,7 @@ class EdgarXBRLService:
         # The 2.6 keys (investing/financing CF, current assets/liabilities) only carry a series when
         # RICHER_FINANCIALS_ENABLED was on at extraction, so listing them here is inert until then.
         for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
-                    "operating_income", "total_assets", "cash_and_equivalents",
+                    "operating_income", "total_assets", "total_liabilities", "cash_and_equivalents",
                     "shareholders_equity", "long_term_debt",
                     "investing_cash_flow", "financing_cash_flow",
                     "current_assets", "current_liabilities",
@@ -1302,6 +1369,18 @@ class EdgarXBRLService:
         if isinstance(segments, list) and segments:
             metrics["segments"] = segments
 
+        # Same-period derived ratios/flows inherit the fiscal label of their source values.
+        labels = {}
+        for entry in metrics.values():
+            if isinstance(entry, dict):
+                for point in entry.get("series", []):
+                    if point.get("fiscal_period"):
+                        labels[point["period"]] = {k: point[k] for k in ("fiscal_year", "fiscal_period")}
+        for entry in metrics.values():
+            if isinstance(entry, dict):
+                for point in entry.get("series", []):
+                    if point["period"] in labels and not point.get("fiscal_period"):
+                        point.update(labels[point["period"]])
         return metrics
 
 

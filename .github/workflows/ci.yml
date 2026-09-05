@@ -10,6 +10,12 @@ on:
         description: 'eval-baseline: number of golden filings (blank = full verified set)'
         required: false
         default: ''
+      eval_runs:
+        description: 'eval-baseline: repeats per filing (3 for an authoritative baseline pin)'
+        type: choice
+        options: ['2', '3']
+        required: true
+        default: '2'
 
 jobs:
   backend-tests:
@@ -35,6 +41,12 @@ jobs:
         run: |
           # Scan app directory, skipping tests
           cd backend && bandit -r app -ll
+      - name: Dependency audit (pip-audit, advisory)
+        # ADVISORY for now: continue-on-error keeps a new upstream CVE from blocking a deploy until
+        # the requirements file audits clean; then drop continue-on-error and it becomes a gate.
+        # pip-audit itself is pinned in backend/requirements-dev.txt (installed above) — rule 12.
+        continue-on-error: true
+        run: pip-audit -r backend/requirements.txt
       - name: Run pytest
         # Fast lane: pytest.ini deselects the performance suite by default (slow-marked tests run
         # here in the default lane). conftest.py sets SECRET_KEY at import, so no env is needed.
@@ -48,10 +60,13 @@ jobs:
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
   # production deploy step. Seeds a postgres:15 service the way a fresh DB is created (create_all),
   # then runs the SAME script deploy-backend runs, three times:
-  #   pass 1 — every file applies and is recorded in schema_migrations (ledger seeding)
+  #   pass 1 — every file applies and is recorded in migration_ledger (ledger seeding)
   #   pass 2 — zero files apply (ledger skip: converged DDL takes no lock on a deploy)
-  #   pass 3 — after DELETE FROM schema_migrations every file applies again (files stay idempotent;
+  #   pass 3 — after DELETE FROM migration_ledger every file applies again (files stay idempotent;
   #            the edited-file and crashed-between-apply-and-record paths depend on it)
+  # A decoy `schema_migrations` table is planted before pass 1: prod has a legacy table of that name
+  # and the first ledger deploy adopted it via CREATE TABLE IF NOT EXISTS (2026-09-05). The ledger
+  # must live in `migration_ledger` and never read or write the legacy name.
   # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
   migrations-postgres:
     runs-on: ubuntu-latest
@@ -78,7 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -96,6 +111,8 @@ jobs:
           SKIP_REDIS_INIT: 'true'
           PWNED_PASSWORD_CHECK_ENABLED: 'false'
         run: python -c "from app.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine); print('create_all:', len(Base.metadata.tables), 'tables')"
+      - name: Plant a decoy schema_migrations table (prod has one the ledger must never adopt)
+        run: psql -X -v ON_ERROR_STOP=1 -c "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
       # Each pass pipes the script through `tee`; an unspecified `shell:` runs `bash -e {0}` WITHOUT
       # pipefail, so the script's exit status would be swallowed by tee's. `set -euo pipefail` makes
       # the script's failure fail the step on its own; the grep is the second, independent check.
@@ -115,7 +132,7 @@ jobs:
         run: |
           set -euo pipefail
           N=$(ls backend/migrations/*.sql | wc -l)
-          psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations;"
+          psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"
           bash backend/scripts/apply_migrations.sh | tee pass3.log
           grep -qx "apply_migrations: applied=$N skipped=0" pass3.log
 
@@ -126,11 +143,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+        working-directory: frontend
+      - name: Dependency audit (npm audit, advisory)
+        # ADVISORY for now: continue-on-error until the lockfile stays clean at this level for a
+        # release or two, then drop it and this becomes a gate. Production deps only (--omit=dev):
+        # the dev-only @lhci/cli chain is tracked separately and must not block deploys.
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
       - name: Lint
         run: npm run lint
@@ -166,7 +190,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -264,16 +288,25 @@ jobs:
           OPENAI_BASE_URL: https://api.deepseek.com/v1
           AI_DEFAULT_MODEL: deepseek-v4-pro
           USE_STRUCTURED_OUTPUT: 'false'
+          USE_STATEMENT_FINANCIALS: 'true'
+          STREAM_SECTION_REVEAL: 'true'
+          EVAL_RUNS: ${{ github.event.inputs.eval_runs || '2' }}
+          EVAL_LIMIT: ${{ github.event.inputs.limit }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            LIMIT="${{ github.event.inputs.limit }}"
+            LIMIT="$EVAL_LIMIT"
           else
             LIMIT=""
           fi
-          ARGS="--candidates baseline --runs 1"
-          [ -n "$LIMIT" ] && ARGS="$ARGS --limit $LIMIT"
-          echo "Running: python -m evals.runner $ARGS"
-          python -m evals.runner $ARGS
+          # Bound spend and avoid interpolating dispatch text into executable shell.
+          case "$EVAL_RUNS" in 2|3) ;; *) echo "eval_runs must be 2 or 3"; exit 1 ;; esac
+          if [ -n "$LIMIT" ] && ! [[ "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "limit must be blank or a positive integer"; exit 1
+          fi
+          ARGS=(--candidates baseline --runs "$EVAL_RUNS")
+          [ -n "$LIMIT" ] && ARGS+=(--limit "$LIMIT")
+          echo "Running: python -m evals.runner ${ARGS[*]}"
+          python -m evals.runner "${ARGS[@]}"
       - name: Regression gate vs pinned baseline
         if: steps.key.outputs.have == 'true'
         working-directory: backend
@@ -283,7 +316,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: eval-report-${{ github.run_id }}
-          path: backend/evals/reports/eval_*.json
+          path: |
+            backend/evals/reports/eval_*.json
+            backend/evals/reports/eval_*.md
           retention-days: 14
 
   e2e-tests:
@@ -294,7 +329,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20.19.0'
+          node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -484,7 +519,7 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2 \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2,ENABLE_FPI_FILINGS=true \
             --quiet
       - name: Update filing-scan + digest + backfill-facts + earnings-calendar job images
         if: steps.changes.outputs.backend == 'true'

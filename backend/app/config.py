@@ -414,9 +414,9 @@ class Settings(BaseSettings):
     # when True, XBRL extraction reads industry-correct revenue/component lines
     # (net interest income + non-interest income for banks; the reported total-revenue line for
     # insurers/asset-managers/BDCs) from `xbrl.statements.income_statement()` for financial
-    # institutions only. Non-financial filers are unaffected. Default False until the eval bake-off
-    # confirms no regression; set USE_STATEMENT_FINANCIALS=true to enable, then remediate persisted data.
-    USE_STATEMENT_FINANCIALS: bool = False
+    # institutions only. Non-financial filers are unaffected. WS-7 graduates the default; an
+    # explicit env override remains supported. SIC backfill/remediation is a separate founder run.
+    USE_STATEMENT_FINANCIALS: bool = True
 
     # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
     # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —

@@ -80,7 +80,32 @@ def test_tombstoned_integrations_have_no_new_importers():
 
 
 def test_tombstoned_integration_modules_are_deleted():
-    """The clients themselves must stay deleted — not merely unimported (WS-8a teardown)."""
+    """The clients themselves must stay deleted — not merely unimported (WS-8a teardown).
+
+    Both spellings of the module path are checked: `integrations/fmp.py` AND the package form
+    `integrations/fmp/__init__.py`, which resolves to the same `app.integrations.fmp` and slipped
+    past the file-only check under mutation.
+    """
     for name in TOMBSTONED_INTEGRATIONS:
-        rel = Path(*name.split(".")[1:]).with_suffix(".py")
-        assert not (APP_DIR / rel).exists(), f"{rel} was resurrected; see this file's docstring"
+        rel = Path(*name.split(".")[1:])
+        assert not (APP_DIR / rel.with_suffix(".py")).exists(), f"{rel}.py was resurrected; see this file's docstring"
+        assert not (APP_DIR / rel).is_dir(), (
+            f"{rel}/ was resurrected as a package (same module path as {rel}.py); see this file's docstring"
+        )
+
+
+def test_tombstoned_integrations_are_not_named_as_strings_in_app():
+    """Dynamic imports — importlib.import_module("app.integrations.fmp"), __import__, a lazy-loader
+    table — are string literals the AST importer scan above cannot see. A plain-text scan of every
+    app/ source file for the dotted module names closes that hole."""
+    hits: dict[str, list[str]] = {}
+    for py in APP_DIR.rglob("*.py"):
+        text = py.read_text(encoding="utf-8")
+        for name in TOMBSTONED_INTEGRATIONS:
+            if name in text:
+                hits.setdefault(name, []).append(py.relative_to(APP_DIR).as_posix())
+    assert hits == {}, (
+        f"app/ source mentions tombstoned integration module path(s): {hits}\n"
+        "Static imports are caught by test_tombstoned_integrations_have_no_new_importers; this catches "
+        "importlib/__import__/string-keyed loaders. Do NOT build on a dead/unlicensed integration."
+    )

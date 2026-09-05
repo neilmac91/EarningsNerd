@@ -31,7 +31,7 @@ from app.services.notification_service import evaluate_delivery, get_or_create_p
 
 logger = logging.getLogger(__name__)
 
-SCAN_FORM_TYPES = ["10-K", "10-Q", "8-K"]
+SCAN_FORM_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K"]
 # FPI forms added to the scan only behind ENABLE_FPI_FILINGS — the roadmap warns against a blanket
 # global default (each extra form is one more SEC get_filings call per watched company per tick, and
 # the watched universe is overwhelmingly domestic). Per-form alert eligibility is still gated by the
@@ -117,7 +117,9 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
             new_filings.append(filing)
         result.append(filing)
 
-    if new_filings:
+    from app.services.filing_amendment_service import mark_superseded_filings
+    changed_links = mark_superseded_filings(db, company.id)
+    if new_filings or changed_links:
         db.commit()
         for f in new_filings:
             db.refresh(f)
@@ -200,7 +202,7 @@ async def run_filing_scan(
         from app.services.edgar.compat import sec_edgar_service
         fetch_filings = sec_edgar_service.get_filings
 
-    stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0}
+    stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0, "source_errors": 0}
 
     company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
     form_types = _scan_form_types()  # resolve once (flag read + concat) — not per company
@@ -215,6 +217,7 @@ async def run_filing_scan(
         try:
             sec_filings = await fetch_filings(company.cik, filing_types=form_types, limit=per_company_limit)
         except Exception as e:  # EdgarError / CircuitOpenError — skip this company, keep scanning
+            stats["source_errors"] += 1
             logger.warning("Filing fetch failed for %s (%s): %s", company.ticker, company.cik, e)
             continue
 

@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
-const { withSentryConfig } = require('@sentry/nextjs')
+const { withSentryConfig } = require('@sentry/nextjs/config')
 
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['recharts'],
+  typescript: {
+    // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
+    // Since 16.3 the build walks tsconfig.json's full `include` (tests/** too); specs are exercised
+    // by Vitest/Playwright and carry their own type debt, so they stay out of the production gate.
+    tsconfigPath: 'tsconfig.ci.json',
+  },
   images: {
     // Logo.dev's ticker-keyed logo CDN (see CompanyLogo.tsx). Hotlinked directly —
     // no proxy needed since its token is a publishable, client-safe identifier.
@@ -90,9 +96,17 @@ const nextConfig = {
   },
 }
 
+// Source-map upload is enabled only when Vercel supplies SENTRY_AUTH_TOKEN + SENTRY_ORG +
+// SENTRY_PROJECT (build-time env, never committed). With them unset the plugin logs a warning and
+// skips the upload — the build still succeeds (CI builds run without them). `silent` was dropped so
+// a failed upload is visible in the Vercel build log instead of being swallowed.
 const sentryOptions = {
-  // Avoid Sentry CLI noise during local builds.
-  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Upload every client chunk (not just the entry bundles) so stack traces from lazily-loaded
+  // routes resolve too.
+  widenClientFileUpload: true,
 }
 
 module.exports = withSentryConfig(nextConfig, sentryOptions)

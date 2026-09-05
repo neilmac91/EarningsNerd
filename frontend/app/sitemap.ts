@@ -2,7 +2,9 @@ import type { MetadataRoute } from 'next'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
-// Re-fetch the backend sitemap hourly.
+// Cache the rendered sitemap hourly, but fetch a fresh backend body on regeneration.
+// Without force-static, a no-store fetch opts this route out of ISR as well as the Data Cache.
+export const dynamic = 'force-static'
 export const revalidate = 3600
 
 // Resolved inline (instead of importing lib/api/client) to keep axios and its
@@ -42,7 +44,7 @@ const VALID_FREQUENCIES = new Set([
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const res = await fetch(`${getBackendUrl()}/sitemap.xml`, {
-      next: { revalidate: 3600 },
+      cache: 'no-store',
       // Cap the fetch well under Vercel's 60s per-route export limit. A cold backend container can
       // make /sitemap.xml slow, and a hanging fetch never throws — so without this the production
       // build (which prerenders this route) blocks for 60s and aborts. On timeout we fall through to

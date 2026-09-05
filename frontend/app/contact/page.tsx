@@ -3,7 +3,8 @@ import ContactForm from '@/features/contact/components/ContactForm'
 
 export const metadata: Metadata = {
   title: 'Contact Us | EarningsNerd',
-  description: 'Get in touch with the EarningsNerd team. We&apos;re here to help with questions, feedback, or support.',
+  description: "Get in touch with the EarningsNerd team. We're here to help with questions, feedback, or support.",
+  alternates: { canonical: '/contact' },
 }
 
 export default function ContactPage() {

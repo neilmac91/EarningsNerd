@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "runs": 3,
+  "filings": [
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "accession_number": "0000320193-25-000079"
+    },
+    {
+      "ticker": "JPM",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-26-008131"
+    },
+    {
+      "ticker": "NVDA",
+      "filing_type": "10-Q",
+      "accession_number": "0001045810-26-000052"
+    },
+    {
+      "ticker": "KO",
+      "filing_type": "10-Q",
+      "accession_number": "0001628280-26-028802"
+    },
+    {
+      "ticker": "BYND",
+      "filing_type": "10-Q",
+      "accession_number": "0001655210-26-000037"
+    },
+    {
+      "ticker": "ASML",
+      "filing_type": "20-F",
+      "accession_number": "0001628280-26-011378"
+    },
+    {
+      "ticker": "BABA",
+      "filing_type": "20-F",
+      "accession_number": "0001193125-26-231755"
+    },
+    {
+      "ticker": "MELI",
+      "filing_type": "10-K",
+      "accession_number": "0001099590-26-000006"
+    }
+  ]
+}

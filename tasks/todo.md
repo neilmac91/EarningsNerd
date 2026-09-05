@@ -4,6 +4,63 @@ Source: `docs/ENGINEERING_AUDIT_2026-09.md` (synthesis) + `docs/audit-2026-09/` 
 appendices with file:line evidence). Lens: invite-only beta, product quality wins ties.
 Founder merges; each phase is one or a few PRs. Items marked **(founder)** need the founder.
 
+## Wave 2 execution — 2026-09-05
+
+Owner: chief engineer (Codex); founder has authorized engineering merges and deployments.
+Accepted D1–D8 remain in force. Existing unchecked decision rows below are historical tracking,
+not requests to revisit accepted decisions. Founder-only actions remain founder-only.
+
+Current checkpoint: main `c925cfa83647f521583b6fa4dd257ac9027461db` (#697).
+[Interim ledger](wave2-ledger-2026-09.md) records exact merges and observed gates. #697 deployment
+33962267301 is verified: `applied=1 skipped=33`, revision `00263-kzt`, detailed health healthy.
+Vercel production also succeeded for #697.
+#673 remains untouched; #684 is held for resilience; #685 merged and #686 split/closed.
+CI's authorized DeepSeek runner produced #698's corrected 52-output parity pass; final 26 × 3
+run 33962580838 is in progress on integrated `f5b46ba9`; the baseline is unchanged.
+No usable strong-judge credential is available for the first weekly readout,
+so evidence-snap activation stays held. This macOS host differs from the historical cloud host.
+The saved Claude Workflow runtime is unavailable in Codex; reproduce its three independent
+review lenses and two independent refuters per serious finding with Codex subagents.
+Missing verifier output is unverified and must be hand-verified before merge.
+
+- [x] Chief engineer: execution plan merged #689 (`47d65a2c`), reviewed and CI green.
+- [x] Backend Developer + Database Specialist: WS-7 steps 1–2 merged #690 (`99e91ba7`); graduate statement
+  financials default, prepare SIC backfill instructions, implement distinctive job heartbeat
+  storage with a new lock-safe migration, instrument every job, report coverage/stubs/age/last success.
+- [ ] Chief engineer: serialize backend merges; verify deploy-backend, exact migration summary,
+  and healthy detailed health after each merge before the next backend merge.
+- [ ] Founder: trigger SIC backfill; supply observed completion before declaring SIC data backfilled.
+- [x] Backend Developer: WS-7 remaining code steps merged #697 (`c925cfa8`): 10-Q periods/unit assertions and
+  reconciliation labels; amendments/supersession/Change Report; persisted XBRL first and missing
+  balance-sheet facts; FPI + 10-Q pregeneration and universe Company seeding preparation.
+- [ ] AI Engineer: #698 draft; corrected two-run measurement passed; final merged-state three-run pin pending. Read eval RUNBOOK;
+  parity (statement env, JPM G5, streaming, tolerance, note preservation), then one honest re-pin.
+- [ ] AI Engineer: WARN figure-trace dimension, persisted audit counters, weekly judged readout
+  workflow and first observed readout; resilience with #684, real fallback configuration,
+  bounded retries, usage/model telemetry and empty-grounding protection; full backend + live eval gates.
+- [ ] AI Engineer: delete previous_filings with AST pin; labelled recovery context; copilot currency,
+  accession-scoped facts, at least five verified golden entries and observed copilot gate.
+- [ ] Chief engineer: arm AI_EVIDENCE_SNAP in ci.yml only after first judged readout; founder triggers drain.
+- [x] Frontend Developer: sitemap freshness + /terms + SEO correction merged #693 (`157e6a39`).
+- [x] Frontend Developer: locate boundary and regression/mutation proof merged #691 (`a2c7fa70`).
+- [x] Frontend Developer: #686 split/closed through #694 (`6e169de8`) and #695 (`919aa862`);
+  full lint/typecheck/vitest/build and Playwright with no backend for each candidate.
+- [x] Security/Backend Developer: #685 compatibility/backend gate and verified deployment (`5cb23b8a`).
+- [x] Backend + Frontend Developers: WS-9 preparation merged #692 (`60d8015e`); activation remains held;
+  Analysis requires confirmed Vercel value + warmed companyfacts; Notable requires founder-created
+  job, seed and a week of review before repository flag flip. Calendar and Insiders stay off.
+- [ ] Knowledge Curator (rolling, owners fix docs with their code): correct migration stack truth,
+  report/eval/config/deployment docs; resolve script/test placement; archive completed FPI plans
+  with explicit residuals. Do not archive unfinished work as complete.
+- [ ] Founder: pregeneration off-peak only after WS-7 prerequisites; console/secrets/licence actions
+  remain as listed in handover §6, with exact instructions in the relevant PR.
+- [ ] Chief engineer: hourly quiet check-in while work is in flight; close-out only on handover §7
+  evidence, update todo and briefs dispatch log on fresh main branch, report SHAs and held items.
+
+Every implementation PR is draft immediately, uses a worktree under `.claude/worktrees/`,
+and includes exact gate tails and mutation proofs. Locked contracts, migration allow-lists,
+and AI baseline protections remain unchanged unless explicitly permitted by the mandate.
+
 ## Phase 0 — this PR: make releases safe, land the audit
 
 - [x] Explicit ruff rule set (`select = ["E4","E7","E9","F"]`) + pinned `requirements-dev.txt`; CI and the local gate install from it
@@ -21,68 +78,74 @@ Founder merges; each phase is one or a few PRs. Items marked **(founder)** need 
 ## Phase 1 — Priority 1: reliability floor (≈4 engineer-days + founder console time)
 
 - [x] **(founder decision)** Migration design: DO-block guard only (status quo, gated) vs `schema_migrations` ledger (recommended; ADR supersedes rule-3 wording) — *decided 2026-09-04: ledger (PR #658, ADR-0007)*
-- [ ] Implement the chosen migration design; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**
-- [ ] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) and ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` (most plausible `statement_timeout` trip)
+- [x] Implement the chosen migration design — *PR #658 merged 2026-09-05 (`c6eaddf`); its first deploy failed because prod already had a foreign `schema_migrations` table, fixed by hotfix PR #678 (`f8e7728`, ledger renamed `migration_ledger`, CI decoy gate, ADR-0007 amendment, lesson `ops-deploy-owned-state-needs-a-distinctive-name.md`); seed deploy verified `applied=32 skipped=0`, health green*; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**; **(founder)** inspect and drop the legacy prod `schema_migrations` table
+- [x] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) — *PR #656 merged 2026-09-05 (`f340bb0`), deploy green*
+- [x] Ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` — *ledger live since #678; the file ran once at seed and is now skipped*
 - [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
 - [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
-- [ ] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; Sentry source-map env in Vercel **(founder)**; delete the dead frontend `signup_completed` helper (`lib/analytics.ts:50-57`; emitted server-side by `posthog_client.py`); pre-consent PostHog strategy
-- [ ] Dependabot triage: merge #635 #636 #639 #640 #641 #642; close #629 (TS 7) with `@dependabot ignore this major version` + add `typescript` to major-ignore; close #570 **(founder: merges/closes)**
-- [ ] Split #651: pandas 3.0.5 (yanked 3.0.4) + fastapi/lxml/posthog/etc. now; edgartools 5.40→5.51 alone through the eval gate (RUNBOOK)
-- [ ] Next.js ≥16.3.4 by hand: fix `components/GlobalErrorBoundary.tsx:52` (new lint rule) and `app/globals.css:408` (`::highlight` rejected by Next 16.3 build), then `@dependabot recreate` #652
-- [ ] Add dependency-audit gates to CI: `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` (advisory first, then blocking)
+- [x] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 merged 2026-09-05 (`ffb0b61`)*; Sentry source-map env in Vercel **(founder)**
+- [x] Dependabot triage: merge #635 #636 #639 #640 #641 #642 — *all merged 2026-09-04, deploys green*
+- [x] Dependabot closes: #629 and #570 closed 2026-09-04; `typescript` major-ignore landed in #674; #662–#670 closed as superseded by #674 and #672 closed as superseded by #679 + #680; #659 closed so Dependabot re-creates the remaining 15 minors against Next 16.3.4 / Node 22 — *2026-09-05*; **(founder)** if no fresh group PR appears at the next Dependabot run, trigger a recreate from the Dependabot UI
+- [ ] Remaining major #684 `openai` 2.44 → 3.7: take with WS-6 resilience and live eval gates. #685 merged; #683 merged; #686 closed as superseded by #694/#695.
+- [x] Split #672: non-edgartools bumps (pandas 3.0.5, fastapi, stripe, posthog, …) — *PR #679 merged 2026-09-05 (`fbbccc5`)*; edgartools 5.40.1→5.55.0 alone through the eval gate — *PR #680 merged (`083247d`, regression gate PASS, 0 warnings)*; #672 closed
+- [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
+- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; flip to blocking once `cryptography` 49→50 and the `@lhci/cli` chain are resolved
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
-- [ ] Universe refresh: replace the dead Wikipedia Nasdaq-100 source (FMP with key **(founder)** or another keyless source); committed-list age gate test (fail if >100 days old)
-- [ ] Pricing page SSR (`useSearchParams` → Suspense-scoped child / post-hydration read) + Product/Offer JSON-LD; contact meta-description entity
-- [ ] Node 20 → 22 (`engines`, `.nvmrc`, CI, Vercel project) **(founder: Vercel setting)**
-- [ ] Quick wins: constant-time `X-Admin-Token` compare (`hot_filings.py`); rate-limit `GET /api/trending_tickers/refresh-prices`; drop `"log"` from client Sentry console levels; remove the dead `ops.yml` push trigger (its branch no longer exists on origin); pin `cloud-sql-proxy` sha256
-- [ ] Rule-8 gate: `main.py:21,26,29` (Sentry) and `config.py:511,514` — move to `settings` or sanction explicitly + AST allow-list test for `os.getenv`/`os.environ`
+- [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; first scheduled run needs `FMP_API_KEY` **(founder: secret)**
+- [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*
+- [x] Node 20 → 22.23.2 (`.nvmrc`, `engines`, CI ×3, lockstep gate `nodeVersionLockstep.spec.ts`) — *PR #674*; **(founder)** set the Vercel project Node.js Version to 22 so the dashboard matches the `engines.node` override that already governs the build
+- [x] Quick wins: `ops.yml` push trigger removed + `cloud-sql-proxy` sha256 pinned (*#656*); `hot_filings.py` and the trending refresh route deleted outright (*#657*, so the admin-token compare and rate limit are moot)
+- [x] Drop `"log"` from client Sentry console levels — *PR #660 merged 2026-09-05*
+- [x] Rule-8 gate: env-access allow-list test — *PR #661 merged 2026-09-05 (`41abb26`), deploy green*
 
 ## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
 
 - [ ] Pin `mean_untraceable_dollar_figures` (figure-trace) as an eval dimension — WARN first, floor after one re-pin cycle
 - [ ] Scheduled judged eval run (8 filings, `--runs 3`, judge on) with a weekly readout; keep judge off in PR CI
 - [ ] Roll the five audit counters (figure-trace, forward-quote, evidence-snap, machine-sections-only, quality gate) into the weekly data-quality report from persisted `raw_summary` audits
-- [ ] **(founder decision)** Arm `AI_EVIDENCE_SNAP` (measured +0.17 citation fidelity) after the first readout; then decide `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`
+- [ ] Arm `AI_EVIDENCE_SNAP` only after the first judged readout (D5 accepted); figure-trace and forward-quote remain advisory. Strong-judge credential/readout currently unavailable
 - [ ] Retry/fallback: delete the dead Gemini chain in `openai_service.py`; bounded backoff on the primary; env-configured `AI_FALLBACK_BASE_URL`/`AI_FALLBACK_MODEL`; fix the retry unit test to use real names
 - [ ] Per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
 - [ ] Eval ↔ prod parity: `USE_STATEMENT_FINANCIALS` in eval env; restore JPM bank-gate facts (G5 re-arm); exercise the streaming branch in `evals/runner.py`; re-pin baseline; fix `--runs 1` single-veto flakiness (granularity-aware tolerance or `--runs 2`)
 - [ ] Copilot on live FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); grow the Copilot golden set from 2 unverified entries; run `evals.copilot_runner`
-- [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(founder: ~$10 model spend)**
-- [ ] Reading surface on the filing page: real risk titles (frontend fallback from first clause + backend `title`), mobile section jump-nav, live region for streaming progress, title-cased company names; both-theme preview check
+- [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(D4 spend approved; execution pending)**
+- [x] Reading surface on the filing page: distinct risk headings, mobile section jump-nav, skip-to-content + live region, company-name casing — *PRs #671 + #676 merged 2026-09-05, casing verified live*
 - [ ] Section-recovery grounding: build context from labelled excerpt sections (~30k cap) instead of raw HTML with a 6,000-char cap
 - [ ] Delete the latent `previous_filings` prompt path + AST pin (rule 2 hygiene)
-- [ ] **(founder spend call)** Drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing)
+- [ ] **D4 spend approved; founder execution pending:** drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing), after D5's judged-readout and evidence-snap prerequisites
 - [ ] Docs: RUNBOOK:428 FPI status, report-quality plan header, Gemini-era comments in `openai_service.py`, `DATA_COMPLIANCE.md` processor table (DeepSeek, not Gemini)
 
 ## Phase 3 — Priority 3: coverage and data integrity for the beta universe (≈8 engineer-days)
 
-- [ ] **(founder spend call ~$25–50 one-time)** Universe-wide pregeneration: latest 10-K + 10-Q for the 515-name universe in batches via `precompute`; add `10-Q` to the weekly pregenerate; seed Company rows for the 237 members without one
-- [ ] Weekly report: summary coverage of universe, stub ratio, universe-list age, per-job last-success (`job_runs` heartbeat table written by every job script)
-- [ ] SIC backfill (`backfill_facts.py --backfill-company-sic`) and graduate `USE_STATEMENT_FINANCIALS` default to True in code; add `ENABLE_FPI_FILINGS` to the pregenerate job env
-- [ ] Amendments: list/ingest 10-K/A and 10-Q/A; mark superseded originals; prefer amendment in the Change Report
-- [ ] Derive `fiscal_period` for 10-Q per-filing facts; unit/decimals assertions on the statement path; badge `reconciled=False` on every surface
-- [ ] Rule-5 gate: route `facts_service._fetch_companyfacts_sync` through the SEC limiter; AST allow-list test — only `services/edgar/**` and `integrations/sec_api.py` may reference `sec.gov`
-- [ ] Rule-10 gate: URL-format validation at the Filing boundary; remove the `cik="0"` fallback fabrication (raise instead); unit tests for the NOT NULL listeners
-- [ ] Sitemap: `app/sitemap.ts` stops fetch-caching the upstream document (or sitemap index past 45k URLs); regression test; correct `docs/SEO_AUDIT.md`; add `/terms`
+- [ ] **D4 spend approved; founder execution pending (~$25–50 one-time):** universe-wide pregeneration, latest 10-K + 10-Q for the 515-name universe in batches via `precompute`; weekly 10-Q and Company seed tooling merged #697; founder seed/SIC enrichment and off-peak generation still pending (237 missing rows was the audit snapshot)
+- [x] Weekly coverage/stub/universe-age/job-heartbeat report implementation — #690. Live report/backfill evidence remains required.
+- [ ] **(founder)** Execute SIC backfill and retain completion/report evidence. Code default True shipped #690; pregenerate FPI env shipped #697; neither proves data was backfilled.
+- [x] Amendments: list/ingest 10-K/A and 10-Q/A; supersession and Change Report — #697; existing rows link on refresh/backfill.
+- [x] Fiscal periods, unit/decimals assertions and reconciliation UI/exports — #697; old snapshots need deliberate re-extraction.
+- [x] Rule-5 gate: `_fetch_companyfacts_sync` through the SEC limiter via the app-loop bridge (`app/services/event_loop.py`); `sec.gov` allow-list test — *PRs #661 + #675 merged 2026-09-05*
+- [x] Rule-10 gate: `app/utils/sec_urls.py::build_sec_archive_url` + listener tests — *PR #661 merged 2026-09-05*
+- [x] Sitemap: hourly ISR with uncached upstream fetch, regression tests, `/terms` and SEO doc — #693.
 - [ ] 6-K classifier (earnings vs governance vs press release): the 6-K summary path exists behind `ENABLE_FPI_FILINGS` (`prompts/6k-*.md`, `summary_pipeline.py:358-489`) but every 6-K gets one prompt; add 6-K golden-set entries
-- [ ] Dead-integration teardown PR: `trending.py`/`trending_service.py`/`TrendingTickers.tsx`, `hot_filings.py` (zero frontend consumers), `integrations/fmp.py` + `FMP_*`, `TWITTER_BEARER_TOKEN`; shrink `test_dead_integrations_allowlist.py` to empty **(founder: approve)**
+- [x] Dead-integration teardown: trending, hot_filings, fmp, finnhub, stocktwits and their consumers removed — *PR #657 merged 2026-09-05 (`9ff8da6`), deploy green, old routes 404*
 - [ ] Clear the four standing weekly-report anomalies: `backfill-filing-history` for C, MS, WFC, GS; grant deployer SA access to `INTERNAL_JOB_TOKEN`
-- [ ] `_parse_company_facts`: populate `total_liabilities` / `cash_and_equivalents`; PS5: read persisted `Filing.xbrl_data` before live SEC
-- [ ] **(founder decision)** Notable filings: flip `NOTABLE_FILINGS_ENABLED` after a one-week quality look (job + seed + flag per `DEPLOYMENT.md`), or kill the slot; archive the homepage-sections findings doc
-- [ ] Archive `tasks/fpi-support-roadmap.md` with a status block (Phases 0–5 shipped, flag on); residual: 6-K classifier, post-flip `backfill_facts` run
+- [x] Liabilities/cash fallback and persisted accession-specific XBRL first — #697.
+- [ ] **D3 accepted; execution pending:** founder creates/seeds the Notable job and reviews one week of output before `NOTABLE_FILINGS_ENABLED` activation per `DEPLOYMENT.md`; homepage findings archive completed #692
+- [x] FPI roadmap archive and status block — #692. Residual 6-K classifier and founder backfill remain open.
 
-## Founder decisions (engineering is blocked on these)
+## Accepted policies — execution and verification pending
 
-- [ ] Migration design (guard-only vs ledger) — Phase 1
-- [ ] Arm/keep-advisory per trust gate after readout — Phase 2
-- [ ] Spend: universe pregeneration, v1→v2 drain, golden-set runs, FMP key
-- [ ] Dark surfaces for beta: Multi-Period Analysis (prod flag state unknown — confirm), Notable filings, Calendar (+ Alpha Vantage licence), Insiders
+- [x] Migration design (guard-only vs ledger) — *ledger, 2026-09-04*
+- [ ] **D5 accepted:** obtain the first judged readout, then arm `AI_EVIDENCE_SNAP`; figure-trace and forward-quote remain advisory. The strong-judge credential/readout prerequisite is outstanding.
+- [ ] **Execution pending; D4 spend approved:** universe pregeneration, v1→v2 drain and golden-set runs; FMP secret remains founder-owned
+- [ ] **D3 accepted:** confirm the Analysis production flag and warm companyfacts before activation; complete Notable job/seed/one-week review prerequisites. Calendar remains off pending the licence decision; Insiders remains off.
+
+## Remaining founder decisions and console actions
+
 - [ ] Alpha Vantage: licence or EDGAR-only
 - [ ] Legal: Terms §7e counsel pass; processor DPAs; legal entity / governing law
 - [ ] `WAITLIST_MODE` intent; LAUNCH_CHECKLIST founder-only actions (GSC, Bing, apex 307→308, Vercel plan, `NEXT_PUBLIC_EXAMPLE_FILING_ID`)
 - [ ] Pro trial timing; delete retired reverse-trial code?
 - [ ] `USE_STRUCTURED_OUTPUT`: bake-off or delete
-- [ ] Close #570 and #629; merge the six safe Dependabot PRs; approve dead-integration teardown
 - [ ] GCP console: PITR + deletion protection; uptime/alert policies; Turnstile keys; confirm `REGISTRATION_MODE` and flags via `ops.yml describe-service`
 
 ## Deferred (tracked in appendix 06, not scheduled)
@@ -91,3 +154,43 @@ SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13
 A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
+
+## WS-6 step 1 — eval parity and one measured baseline (2026-09-05)
+
+- [x] Audit production/eval configuration and streaming calls; explicitly pin statement-financials parity, restore JPM bank-component ground truth, and test streaming/non-streaming final-result equivalence without touching locked contracts.
+- [x] Use two runs for routine CI evaluation, retain hard tolerances, and provide a bounded three-run CI measurement using the existing provider secret; preserve baseline notes and provenance.
+- [ ] Prove new tests by mutation and run the exact full backend gate.
+- [x] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
+- [ ] Record artifact provenance and independent review; merge/deploy remains with the chief engineer. Later WS-6 measurement/resilience/hygiene/Copilot/arming steps remain separate PRs in that order.
+
+Authoritative evidence: [run 33962580838](https://github.com/neilmac91/EarningsNerd/actions/runs/33962580838)
+measured source `f5b46ba96b3023f93554087e431937ed9daba3c4` after #697 deployed. Artifact
+`9968531910`, `eval_20260905T111951Z.json`, contains 26 × 3 = 78 unique filing runs,
+zero execution errors and hard vetoes; the old-baseline gate passed with zero warnings.
+The sole pin records that report's actual harness (judge off), source/golden hashes and measured
+statistics; citation fidelity is 0.7012. All 78 requested streaming and yielded 518 previews;
+no fallback warning was observed, which does not prove transport never fell back.
+The final pin-helper change only rejects vetoed/incomplete gate evidence before overwriting an
+existing baseline. Its seven new CLI cases pass; removing result/summary checks causes four/three
+real assertion failures. Generation/scorer source is unchanged from the measured commit.
+Final full gate and review of the pin commit remain pending. First strong-judge readout remains
+unavailable without its credential; this deterministic measurement does not authorize evidence-snap.
+
+## WS-7 implementation — archived
+
+Steps 1–6 are merged (#690/#697). [Completed steps 3–6 and proof](archive/ws7-completeness-2026-09.md).
+Founder execution and live data evidence remain unchecked above and in the ledger; #697 deployment is verified.
+
+## WS-10 — configuration and script placement hygiene
+
+- [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
+- [x] WS-7 default/docs integrated; 1910-test gate, independent review and CI passed; #696 merged (`0e0e7762`), deployment verified.
+
+## WS-6 step 2 — advisory measurement and weekly judged readout
+
+- [ ] Measure untraceable dollar figures on actual raw v2 sections with explicit numeric-grounding availability; preserve hard gates, aggregate weights and the single parity pin.
+- [ ] Add stored audit-snapshot counts with per-family valid/missing/malformed denominators to the operational report and both email formats.
+- [ ] Schedule an exact eight-filing, three-repeat strong-judge readout with provenance, complete/error/missing denominators and a bounded validated handoff to the existing report job.
+- [ ] Check generator and strong-judge credentials before any model calls; missing credentials mean unavailable and do not constitute the first readout.
+- [ ] Prove new tests with mutations, run exact full backend gates, inspect actual CI evaluation and obtain independent review.
+- [ ] First actual strong-judge readout remains held for the founder credential; no live weekly email dispatch, evidence-snap activation, or cosmetic baseline pin in this implementation PR.

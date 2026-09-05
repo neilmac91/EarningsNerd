@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from app.services.ai.fi_signals import fi_components_present
+from app.services.ai.bank_guards import _is_no_total_bank
 
 # ±200% plausibility band for the ROE/ROA returns read, shared by BOTH model-facing surfaces — the
 # grounding narrative here and the machine-authored §4 line (markdown_render's `_ratio_clause`
@@ -41,7 +42,7 @@ def returns_ratio_in_band(value: Any) -> bool:
 _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Revenue", "revenue", "usd"),
     # Financial-institution revenue components/totals (self-gating — only present for banks/insurers/
-    # BDCs). A bank shows Net Interest Income + Non-Interest Income and NO single "Revenue".
+    # BDCs). Banks show components and, when reported, their legitimate revenue total.
     ("Net Interest Income", "net_interest_income", "usd"),
     ("Non-Interest Income", "noninterest_income", "usd"),
     ("Premiums Earned (Net)", "premiums_earned", "usd"),
@@ -149,17 +150,23 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         return ""
     header = "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):"
     body = header + "\n" + "\n".join(rows)
-    # Financial-institution guard: a bank has no single "revenue" line (its generic revenue tag is
-    # only fee income), so the model must report the components separately instead of inventing a
-    # conflated composite — the root of the cross-section revenue mismatch this addresses.
+    # Financial institutions need separate components, with a reported total preserved only
+    # when available. A generic fee-income tag must never become an invented composite.
     # Shares fi_components_present with bank_guards and assess_quality (P0-2): the instruction
     # and the checks that judge its output are driven by the same predicate.
     if fi_components_present(xbrl_metrics):
-        body += (
-            "\nNOTE — financial institution: there is NO single revenue line here. Report Net "
-            "Interest Income and Non-Interest Income as the SEPARATE figures given above; do NOT sum "
-            'them into, or invent, a single "Revenue" number.'
-        )
+        if _is_no_total_bank(xbrl_metrics):
+            body += (
+                "\nNOTE — financial institution: there is NO single revenue line here. Report Net "
+                "Interest Income and Non-Interest Income as the SEPARATE figures given above; do NOT sum "
+                'them into, or invent, a single "Revenue" number.'
+            )
+        else:
+            body += (
+                "\nNOTE — financial institution: the Revenue figure above is a reported total. "
+                "Preserve it and report the available Net Interest Income and Non-Interest Income "
+                "components separately; do not invent a total or substitute one component for it."
+            )
         # Industrial checklist → bank fabrication: the analyst prompt's working-capital / current-ratio
         # / capex-driven-FCF items have no meaning for a bank (unclassified balance sheet; cash flow is
         # lending/deposit/trading-driven), and the model was observed inventing a "FCF negative due to

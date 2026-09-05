@@ -19,13 +19,18 @@
 
    Also pinned here (WS-1, audit 2026-09): the retry in `apply_with_retry` keys on the lock-contention
    SQLSTATEs (55P03/57014/40P01) in psql's stderr rather than on any error; the blocker dump shows
-   every backend and joins `pg_locks` to `pg_class`; the `cloud-sql-proxy` download is verified
-   against one sha256 shared by `ci.yml` and `ops.yml`; and `ops.yml` is dispatch-only, sets the
+   every backend and joins `pg_locks` to `pg_class`; the script ends every run by failing on any
+   INVALID index (`pg_index.indisvalid = false` — what a CONCURRENTLY build cancelled by
+   statement_timeout leaves behind, which `IF NOT EXISTS` then treats as present); the
+   `cloud-sql-proxy` download is verified against one sha256 shared by `ci.yml` and `ops.yml`,
+   BEFORE `chmod`/exec and under `set -euo pipefail`; and `ops.yml` is dispatch-only, sets the
    same `PGOPTIONS`, and refuses to run while a main push is in flight.
 
    Since ADR-0007 (WS-2) the apply logic — PGOPTIONS, `apply_with_retry`, `dump_blockers` — lives in
-   `backend/scripts/apply_migrations.sh`, which records each applied file in the `schema_migrations`
-   ledger (filename + sha256) and skips it on later deploys. The retry/dump pins above therefore read
+   `backend/scripts/apply_migrations.sh`, which records each applied file in the `migration_ledger`
+   table (filename + sha256) and skips it on later deploys. The ledger is NOT `schema_migrations`:
+   prod already had a table of that name and the first ledger deploy adopted it via IF NOT EXISTS
+   (2026-09-05); the CI job plants a decoy `schema_migrations` so the script can never depend on it. The retry/dump pins above therefore read
    the SCRIPT (comment-stripped); the proxy-pin and job-level pins keep reading `ci.yml`. The deploy
    step and the `migrations-postgres` CI job (postgres:15 service, three passes: seed, skip,
    reset-and-reapply) must both run that one script — no second copy of the psql loop anywhere.
@@ -75,8 +80,11 @@ MIGRATIONS_JOB = "migrations-postgres"
 CI_PSQL_ALLOWLIST = {
     "- name: Install psql",
     "run: command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)",
-    'psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations;"',
+    'psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"',
+    'run: psql -X -v ON_ERROR_STOP=1 -c "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"',
 }
+LEDGER_TABLE = "migration_ledger"
+LEGACY_LEDGER_NAME = "schema_migrations"  # exists in prod with a foreign shape; the script must never touch it
 _SET_PIPEFAIL = re.compile(r"^\s*set -[a-z]*o pipefail\b", re.M)
 REQUIREMENTS_DEV = BACKEND_DIR / "requirements-dev.txt"
 RUFF_TOML = BACKEND_DIR / "ruff.toml"
@@ -373,13 +381,47 @@ def test_apply_script_sets_lock_and_statement_timeouts_and_keeps_a_ledger():
             "lock_timeout one open transaction parks the whole deploy."
         )
     assert "ON_ERROR_STOP=1" in script, "every psql call must fail the script on the first SQL error"
-    assert "CREATE TABLE IF NOT EXISTS schema_migrations" in script, "the script owns the ledger DDL (not create_all)"
+    assert f"CREATE TABLE IF NOT EXISTS {LEDGER_TABLE}" in script, "the script owns the ledger DDL (not create_all)"
+    assert LEGACY_LEDGER_NAME not in script, (
+        f"apply_migrations.sh must never reference `{LEGACY_LEDGER_NAME}`: prod has a legacy table of that name "
+        "with a different shape, and CREATE TABLE IF NOT EXISTS silently adopted it on 2026-09-05 "
+        f"(deploy failed on the missing sha256 column). The ledger is `{LEDGER_TABLE}`."
+    )
     assert "ON CONFLICT (filename) DO UPDATE" in script, "an edited file (new sha256) must re-apply once and re-record"
     assert re.search(r"sha256sum|shasum -a 256", script), "ledger entries are keyed on the file's sha256"
     assert "skipped" in script and "applied=" in script, "the CI job asserts on the `applied=N skipped=M` summary line"
     bash = shutil.which("bash")
     assert bash, "bash is required to syntax-check the migration script"
     subprocess.run([bash, "-n", str(APPLY_SCRIPT)], check=True)  # fixed argv, no user input
+
+
+def test_apply_script_fails_the_run_on_an_invalid_index():
+    """A cancelled CREATE INDEX CONCURRENTLY leaves an INVALID index; the deploy must not go green.
+
+    Under statement_timeout=120s a large CONCURRENTLY build that is cancelled (57014 — the retryable
+    class) leaves the index behind with indisvalid=false. The retry re-runs the file, IF NOT EXISTS
+    sees the relation and skips with a NOTICE, the ledger records the file, exit 0 — and the planner
+    never uses the index. The script must query pg_index after the loop and exit non-zero on hits.
+    """
+    script = _script()
+    query = re.search(r"psql .*FROM pg_index WHERE NOT indisvalid", script)
+    assert query, "apply_migrations.sh must run `SELECT … FROM pg_index WHERE NOT indisvalid` after the per-file loop"
+    assert script.index('record_applied "$name" "$sha"') < query.start(), (
+        "the INVALID-index check must run AFTER the per-file loop, once every file has been applied"
+    )
+    tail = script[query.start():]
+    heading = tail.find("INVALID INDEX")
+    assert heading != -1, "the report must be printed under a clear `INVALID INDEX` heading"
+    assert "DROP INDEX CONCURRENTLY" in tail and f"DELETE FROM {LEDGER_TABLE} WHERE filename" in tail, (
+        "the report must state the remedy: DROP INDEX CONCURRENTLY <name>; then delete the file's ledger row"
+    )
+    assert re.search(r"^\s*exit 1\b", tail[heading:], re.M), (
+        "the script must `exit 1` after reporting INVALID indexes — a printed warning with exit 0 is no gate"
+    )
+    summary = tail.find('echo "apply_migrations: applied=')
+    assert summary != -1 and tail.index("exit 1", heading) < summary, (
+        "the check must fail the run before the `applied=N skipped=M` success summary is printed"
+    )
 
 
 def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
@@ -414,7 +456,15 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     none_applied = 'grep -qx "apply_migrations: applied=0 skipped=$N"'
     assert all_applied in passes[0] and all_applied in passes[2], "passes 1 and 3 must assert applied=$N skipped=0"
     assert none_applied in passes[1], "pass 2 must assert applied=0 skipped=$N"
-    assert any("DELETE FROM schema_migrations" in run for run in runs), "the third pass must reset the ledger first"
+    assert any(f"DELETE FROM {LEDGER_TABLE}" in run for run in runs), "the third pass must reset the ledger first"
+    # The decoy must exist BEFORE the first pass so every pass proves the script ignores the legacy name.
+    step_names = [str(step.get("name", "")) for step in job["steps"]]
+    decoy = next((i for i, n in enumerate(step_names) if "decoy schema_migrations" in n), None)
+    first_pass = next(i for i, run in enumerate(runs) if "backend/scripts/apply_migrations.sh" in run)
+    assert decoy is not None and decoy < first_pass, (
+        "migrations-postgres must plant a decoy `schema_migrations` table before pass 1 (prod has a legacy "
+        "table of that name; the ledger must never adopt it)"
+    )
     # A soft-failing gate is no gate.
     assert job.get("continue-on-error") is not True, "migrations-postgres must be blocking"
     assert all(step.get("continue-on-error") is not True for step in job["steps"]), "no step may soft-fail"
@@ -467,6 +517,17 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
         assert 'echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -' in run, (
             f"{step_name!r} must verify the download with `sha256sum -c` before chmod/exec"
         )
+        # A bare substring pin is order-blind: moving the verification below `chmod`/`./cloud-sql-proxy … &`
+        # or dropping `set -euo pipefail` (so a failed `sha256sum -c` no longer aborts the step) both
+        # passed it under mutation. Pin the order and the errexit, on executable lines only.
+        assert re.search(r"^\s*set -euo pipefail\b", run, re.M), (
+            f"{step_name!r} must `set -euo pipefail` so a failed checksum aborts the step instead of being ignored"
+        )
+        for consumer in ("chmod +x cloud-sql-proxy", "./cloud-sql-proxy --port"):
+            assert consumer in run, f"{step_name!r} must `{consumer}` after verifying the download"
+            assert run.index("sha256sum -c -") < run.index(consumer), (
+                f"{step_name!r} must verify the checksum BEFORE `{consumer}` — verifying after exec protects nothing"
+            )
         pins.append((version, sha))
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
@@ -515,14 +576,26 @@ def test_lint_toolchain_is_installed_from_pinned_dev_requirements():
         "ci.yml must not `pip install ruff`/`bandit` unpinned — install from backend/requirements-dev.txt."
     )
     assert "backend/requirements-dev.txt" in text
-    pins = {
-        line.split("==")[0].strip(): line.split("==")[1].strip()
+    dev_lines = [
+        line.strip()
         for line in REQUIREMENTS_DEV.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
-    }
-    for tool in ("ruff", "bandit"):
-        assert tool in pins and re.fullmatch(r"\d+\.\d+\.\d+", pins[tool]), (
-            f"requirements-dev.txt must pin {tool} to an exact version (found {pins.get(tool)!r})."
+    ]
+    pins: dict[str, str] = {}
+    for line in dev_lines:
+        assert "==" in line and re.fullmatch(r"[A-Za-z0-9_.\-]+==\d+\.\d+\.\d+", line), (
+            f"requirements-dev.txt line {line!r} must be an exact `tool==x.y.z` pin — every tool CI installs "
+            "from this file is a gate, and an unpinned gate drifts with the tool."
+        )
+        name, version = line.split("==")
+        pins[name] = version
+    for tool in ("ruff", "bandit", "pip-audit"):
+        assert tool in pins, f"requirements-dev.txt must pin {tool} (CI runs it from this file)."
+    for tool in pins:
+        # A pinned tool nobody runs is dead weight; a tool CI runs must come from the pinned file.
+        assert re.search(rf"(?<![\w-]){re.escape(tool)}(?![\w-])", text), (
+            f"{tool} is pinned in requirements-dev.txt but no executable ci.yml step references it — "
+            "wire it into the workflow or drop the pin."
         )
 
 

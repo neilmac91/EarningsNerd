@@ -15,12 +15,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import hashlib
 import os
 import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from evals.figure_measurement import measure_figures, summarize_figures
 from evals.judge import judge_summary
 from evals.models import REGISTRY, ModelConfig, call_model, cost_usd
 from evals.schema import GoldenFiling
@@ -135,13 +137,24 @@ async def _maybe_judge(
     """Run the optional LLM judge (secondary signal) and return a serializable verdict."""
     if not judge_model or not isinstance(payload, dict):
         return None
+    # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
+    from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
+    xbrl_text = json.dumps(grounding["xbrl_metrics"], default=str) if grounding["xbrl_metrics"] else ""
+    lengths = {"summary_chars": len(json.dumps(payload, indent=2)),
+               "excerpt_chars": len(grounding["excerpt"] or ""), "xbrl_chars": len(xbrl_text)}
+    if (lengths["summary_chars"] > _JUDGE_SUMMARY_CHAR_CAP or lengths["excerpt_chars"] > _JUDGE_EXCERPT_CHAR_CAP
+            or lengths["xbrl_chars"] > _JUDGE_XBRL_CHAR_CAP):
+        return {"passed": False, "verdict": "FAIL", "mean_dimension": None, "gate_failures": [],
+                "dimensions": {}, "error": "Judge input exceeds full-coverage bounds",
+                "input_complete": False, "input_lengths": lengths}
     verdict = await judge_summary(
         payload, filing.company_name, filing.filing_type,
-        grounding["excerpt"], _xbrl_to_text(grounding["xbrl_metrics"]), model_id=judge_model,
+        grounding["excerpt"], xbrl_text, model_id=judge_model,
     )
     return {"passed": verdict.passed, "verdict": verdict.verdict,
             "mean_dimension": verdict.mean_dimension, "gate_failures": verdict.gate_failures,
-            "dimensions": verdict.dimensions, "error": verdict.error}
+            "dimensions": verdict.dimensions, "error": verdict.error,
+            "input_complete": True, "input_lengths": lengths}
 
 
 async def _run_one(
@@ -157,10 +170,22 @@ async def _run_one(
         if candidate == "baseline":
             from app.services.openai_service import openai_service
 
+            from app.config import settings
+
+            preview_count = 0
+
+            async def observe_preview(_markdown: str) -> None:
+                nonlocal preview_count
+                preview_count += 1
+
+            # Match summary_pipeline: the production flag controls whether a callback
+            # selects streaming extraction. Preview text is never substituted for final output.
+            stream_cb = observe_preview if settings.STREAM_SECTION_REVEAL else None
             started = time.time()
             summary = await openai_service.summarize_filing(
                 grounding["filing_text"], filing.company_name, filing.filing_type,
                 xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
+                stream_cb=stream_cb,
             )
             latency = round(time.time() - started, 3)
             payload = _baseline_to_canonical(summary)
@@ -176,7 +201,12 @@ async def _run_one(
             judge = await _maybe_judge(judge_model, payload, filing, grounding)
             return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
-                    "latency_seconds": latency, "cost_usd": 0.0, "error": None}
+                    "latency_seconds": latency, "cost_usd": 0.0, "error": None,
+                    "stream_requested": stream_cb is not None, "preview_count": preview_count,
+                    "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
+                    "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    "grounding_excerpt": grounding["excerpt"],
+                    "figure_trace": measure_figures(summary, grounding["xbrl_metrics"], grounding["excerpt"])}
 
         cfg: ModelConfig = REGISTRY[candidate]
         user = _grounding_user_prompt(
@@ -225,6 +255,7 @@ def _summarize(
         passes = [bool(r.get("passed_gates")) and r["aggregate"] >= pass_threshold for r in scored]
         judged = [r["judge"] for r in rs if r.get("judge")]
         summary[candidate] = {
+            **summarize_figures(rs),
             "n": len(rs),
             "errors": sum(1 for r in rs if r.get("error")),
             "mean_aggregate": round(statistics.mean(aggs), 4) if aggs else 0.0,
@@ -251,11 +282,35 @@ def _summarize(
     return summary
 
 
-def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Path:
+def _harness_metadata(judge_model: Optional[str] = None) -> Dict[str, Any]:
+    """Non-secret configuration captured where generation runs, not where a report is pinned."""
+    from app.config import settings
+
+    return {
+        "model": settings.AI_DEFAULT_MODEL,
+        "base_url": settings.OPENAI_BASE_URL,
+        "use_structured_output": settings.USE_STRUCTURED_OUTPUT,
+        "use_statement_financials": settings.USE_STATEMENT_FINANCIALS,
+        "stream_section_reveal": settings.STREAM_SECTION_REVEAL,
+        "use_edgartools_sections": settings.USE_EDGARTOOLS_SECTIONS,
+        "richer_financials_enabled": settings.RICHER_FINANCIALS_ENABLED,
+        "ai_evidence_snap": settings.AI_EVIDENCE_SNAP,
+        "ai_figure_trace_gate": settings.AI_FIGURE_TRACE_GATE,
+        "ai_forward_quote_gate": settings.AI_FORWARD_QUOTE_GATE,
+        "judge": judge_model or False,
+        "source_sha": os.environ.get("GITHUB_SHA", ""),
+        "golden_set_sha256": hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest(),
+    }
+
+
+def _write_report(
+    summary: Dict[str, Any], results: List[Dict[str, Any]],
+    harness: Optional[Dict[str, Any]] = None,
+) -> Path:
     REPORTS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     (REPORTS_DIR / f"eval_{stamp}.json").write_text(
-        json.dumps({"summary": summary, "results": results}, indent=2) + "\n"
+        json.dumps({"summary": summary, "results": results, "harness": harness or {}}, indent=2) + "\n"
     )
     lines = [f"# Summary-quality bake-off — {stamp}", "",
              "Ranked by pass_rate (gate-passing runs clearing the aggregate threshold), then mean aggregate.",
@@ -272,6 +327,15 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
             f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | {s.get('mean_currency_consistency', '-')} | "
             f"{judge_pass} | {s['total_cost_usd']} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
+    lines += ["", "## Dollar-figure trace (advisory; raw v2 model prose)", "",
+              "Mean counts use measured runs only; missing grounding is unavailable, not zero.",
+              "| candidate | mean untraceable | measured | unavailable | errors |",
+              "|---|---|---|---|---|"]
+    for cand, stats in ranked:
+        value = stats.get("mean_untraceable_dollar_figures")
+        lines.append(f"| {cand} | {value if value is not None else 'unavailable'} | "
+                     f"{stats.get('figure_trace_measured', 0)} | {stats.get('figure_trace_unavailable', 0)} | "
+                     f"{stats.get('figure_trace_errors', 0)} |")
     lines += [
         "",
         "## Adoption rule",
@@ -352,7 +416,7 @@ async def main(
     results: List[Dict[str, Any]] = [r for sub in per_filing_results for r in sub]
 
     summary = _summarize(results, pass_threshold=pass_threshold)
-    md_path = _write_report(summary, results)
+    md_path = _write_report(summary, results, _harness_metadata(judge_model))
     print("\n=== SUMMARY ===")
     print(json.dumps(summary, indent=2))
     print(f"\nReport: {md_path}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pre-generate example summaries for zero-wait first-visit activation.
 
-For each ticker, this script resolves the company's latest 10-K, ensures a
+For each domestic ticker, this script resolves the latest 10-K and 10-Q (BABA: annual 20-F), ensures a
 ``Company`` and ``Filing`` row exist in the database, and triggers/awaits AI
 summary generation so the ``Summary`` is cached. A first-time visitor can then
 deep-link straight to ``/filing/{id}`` with no generation wait (roadmap Q2).
@@ -53,7 +53,7 @@ DEFAULT_TICKERS = [
 _ANNUAL_FORM_BY_TICKER = {"BABA": "20-F"}
 
 
-async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
+async def pregenerate_for_ticker(ticker: str, force: bool = False, *, form: str | None = None) -> dict:
     """Resolve the latest annual filing (10-K, or 20-F for foreign issuers) for ``ticker``,
     persist it, and cache its summary.
 
@@ -65,7 +65,7 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
     # Deferred import so the module parses without app config (and SKIP_REDIS_INIT is set first).
     from app.services.precompute_service import precompute_one
 
-    form = _ANNUAL_FORM_BY_TICKER.get(ticker.upper().strip(), "10-K")
+    form = form or _ANNUAL_FORM_BY_TICKER.get(ticker.upper().strip(), "10-K")
     r = await precompute_one(ticker, form, force=force)
     cached = r["status"] in ("generated", "already_cached")
     detail = "summary cached" if cached else r["status"].replace("_", " ")
@@ -73,22 +73,29 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
         print(f"{r['ticker']}: filing_id={r['filing_id']} accession={r['accession']} -> {detail}")
     else:
         print(f"{r['ticker']}: {detail}")
+    return r
 
 
-async def main(tickers: list[str], force: bool = False) -> None:
+async def main(tickers: list[str], force: bool = False, *, annual_only: bool = False) -> None:
     mode = " (force refresh)" if force else ""
     print(f"Pre-generating example summaries for {len(tickers)} ticker(s){mode}: {', '.join(tickers)}")
-    for ticker in tickers:
-        try:
-            await pregenerate_for_ticker(ticker, force=force)
-        except Exception as exc:  # noqa: BLE001 — keep going for remaining tickers
-            logger.exception("Failed to pre-generate example for %s", ticker)
-            print(f"{ticker.upper()}: ERROR — {exc}")
+    from app.services.job_run_service import track_job
 
-    print(
-        "\nDone. Copy a chosen filing id into NEXT_PUBLIC_EXAMPLE_FILING_ID "
-        "(frontend) to enable the zero-wait 'See an Example' CTA."
-    )
+    with track_job("pregenerate") as attempt:
+        stats: dict[str, int] = {}
+        for ticker in tickers:
+            annual = _ANNUAL_FORM_BY_TICKER.get(ticker.upper().strip(), "10-K")
+            forms = [annual] if annual_only or annual != "10-K" else [annual, "10-Q"]
+            for form in forms:
+                try:
+                    result = await pregenerate_for_ticker(ticker, force=force, form=form)
+                    status = result["status"]
+                except Exception:  # keep going, then fail the job with the observed counts
+                    logger.exception("Failed to pre-generate example for %s %s", ticker, form)
+                    status = "errors"
+                stats[status] = stats.get(status, 0) + 1
+        attempt.record(stats)
+        print("Pre-generation complete; per-ticker outcomes:", stats)
 
 
 if __name__ == "__main__":
@@ -112,6 +119,7 @@ if __name__ == "__main__":
         help="Reset each filing's existing summary + cached excerpt before regenerating, so the "
              "refresh picks up the current extraction/prompts instead of skipping cached filings.",
     )
+    parser.add_argument("--annual-only", action="store_true", help="Resolve annual reports only.")
     args = parser.parse_args()
 
     if args.tickers:
@@ -119,4 +127,4 @@ if __name__ == "__main__":
     else:
         ticker_list = list(DEFAULT_TICKERS)
 
-    asyncio.run(main(ticker_list, force=args.force))
+    asyncio.run(main(ticker_list, force=args.force, annual_only=args.annual_only))

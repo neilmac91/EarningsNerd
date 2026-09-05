@@ -11,7 +11,7 @@ EarningsNerd runs on two platforms:
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
 | **Custom domain** | `api.earningsnerd.io` → Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only) | — |
 
-> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are applied by the CI deploy job through the `schema_migrations` ledger ([ADR-0007](./adr/0007-schema-migrations-ledger.md)): each file runs once per (filename, sha256) and is skipped on later deploys (plus `ensure_additive_columns` self-heals additive columns at startup). Files must still be safe to re-run — a ledger reset, an edited file, or a crash between apply and record re-runs them.
+> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are applied by the CI deploy job through the `migration_ledger` table ([ADR-0007](./adr/0007-schema-migrations-ledger.md)): each file runs once per (filename, sha256) and is skipped on later deploys (plus `ensure_additive_columns` self-heals additive columns at startup). Files must still be safe to re-run — a ledger reset, an edited file, or a crash between apply and record re-runs them.
 
 ---
 
@@ -26,14 +26,14 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded
 `backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (download verified against a
-pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `schema_migrations` ledger
+pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `migration_ledger` table
 skips files whose filename + sha256 are recorded; the psql session is pinned to `lock_timeout=10s` /
 `statement_timeout=120s`; up to 5 retries only when psql's stderr carries a lock-contention SQLSTATE
 (`55P03` lock timeout, `57014` statement timeout, `40P01` deadlock — any other error is final); a
 `pg_stat_activity` + `pg_locks` dump names the blocker on final failure — see
 `lessons/ops-migrations-need-lock-timeout.md`. The same script runs three passes against a
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
-to re-run in prod: `DELETE FROM schema_migrations WHERE filename = '<file>.sql';` then re-run the
+to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
 traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
 filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
@@ -83,6 +83,19 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > (the inert repo-root `/vercel.json` was removed). Build/dev/install commands are relative to
 > `frontend/`, so there is **no** `cd frontend` prefix.
 >
+> **Node.js version moves in lockstep — four places.** The runtime is pinned in
+> `frontend/.nvmrc` (exact), `frontend/package.json` `engines.node` (major line), and the three
+> `node-version:` sites in `.github/workflows/ci.yml`; the fourth is the **Vercel project setting**
+> (Project → Settings → Build and Deployment → *Node.js Version*), which is console-only. Per
+> Vercel's docs, `engines.node` in `package.json` **overrides** that project setting: with the
+> setting on 20.x and `engines.node` on `22.x`, Vercel deploys on the latest 22.x — so the repo pin,
+> not the console, is what production actually builds and serves on, and a mismatch drifts silently
+> rather than failing the build. Keep the two in agreement anyway: when a PR bumps the Node major
+> (20 → 22 in Sept 2026), the founder switches the Vercel setting to the same major alongside the
+> merge, so the dashboard states the truth and nothing depends on the override. A gate
+> (`frontend/tests/unit/nodeVersionLockstep.spec.ts`) keeps the three repo sites in step; the
+> console setting is the one it cannot see.
+>
 > **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
 > reads `SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN`; `instrumentation-client.ts` reads
@@ -91,6 +104,13 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > **Rotating the DSN:** `SENTRY_DSN` is read at runtime, so changing it in the dashboard takes effect
 > on the next request. `NEXT_PUBLIC_SENTRY_DSN`, however, is baked into the client bundle by Next.js
 > **at build time** — rotating it requires a **new deployment (rebuild)** to reach the browser.
+>
+> **Source maps (readable stack traces):** `next.config.js` passes `SENTRY_ORG`, `SENTRY_PROJECT`
+> and `SENTRY_AUTH_TOKEN` to `withSentryConfig` (with `widenClientFileUpload`). Set all three as
+> **build-time** Vercel env vars (Production and Preview; the token is a Sentry *internal
+> integration* / org auth token with `project:releases` + `org:read`). With them unset the Sentry
+> plugin logs a warning and skips the upload — the build still succeeds (CI builds run without
+> them), but production stack traces stay minified.
 
 ---
 
@@ -427,18 +447,34 @@ gcloud scheduler jobs create http notable-filings-scan --location=us-west1 \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-First rollout (the section ships dark):
+First rollout (**founder executes** job creation, Scheduler creation, smoke and seed; the section ships dark):
 ```bash
 # 1. Smoke-test, then seed a full week so the section isn't empty on day one:
 gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 --wait
 gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
   --args="scripts/notable_filings_job.py,--days,7" --wait
-# 2. Flip serving on (the scan runs regardless; the flag gates the API only):
-gcloud run services update earningsnerd-backend --region=us-west1 \
-  --update-env-vars=NOTABLE_FILINGS_ENABLED=true
-# 3. Probe, then check the homepage (ISR revalidates within ~15 min):
-#    curl "https://api.earningsnerd.io/api/notable_filings?limit=8"
+# Stop here: keep serving dark during the founder's one-week quality review.
+# The scan runs regardless of NOTABLE_FILINGS_ENABLED; a successful seed is not launch approval.
 ```
+
+After a full week of job output, the founder records the reviewed date range, representative
+accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering
+then proposes `NOTABLE_FILINGS_ENABLED=true` in the **service** `--update-env-vars` list in
+`.github/workflows/ci.yml`, in a reviewed PR with the readout linked and an independently
+required `backend/` change. The deploy path filter ignores workflow/docs-only changes; a flag-only
+PR would leave the service unchanged. If no backend change is ready, hold the flip rather than
+claiming a skipped deploy applied it. Do not flip it through a
+console command: D3 requires the serving state to be visible in the repository. A killed slot
+stays dark. Job creation, seed completion and the week of review are still outstanding as of
+2026-09-05; the last verified deployment log reports the job absent.
+
+After that backend-touching flag PR merges, verify the service deployment step actually ran
+inside `deploy-backend`, its migration summary, detailed health,
+`GET /api/notable_filings?limit=8`, and the homepage after revalidation (approximately 15 minutes).
+The endpoint legitimately returns an empty list with too few qualifying companies; assess
+accession validity, reason accuracy, company diversity and freshness against the stored output,
+not merely HTTP status. See [the wave-2 rollout checklist](../tasks/dark-surfaces-rollout-2026-09.md)
+for the evidence record and Analysis prerequisites.
 
 ---
 
@@ -456,3 +492,76 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 
 > Migrated off Render.com (June 2026). Superseded Render/Vercel/Firebase deployment notes are
 > archived under [`docs/history/`](./history/) for provenance.
+
+### Manual helper locations
+
+Normal frontend deployment uses Vercel Git integration. The optional manual production
+helper is `backend/scripts/deploy-vercel.sh`; it uses `NEXT_PUBLIC_API_BASE_URL` and
+resolves the frontend directory from the script location, so it can be invoked from
+any working directory. It installs missing CLI/dependencies, builds, and invokes
+`vercel --prod`; run only when intending a production deployment.
+
+`backend/scripts/smoke_resend.py` is an operator-run **live email** smoke to
+`neil@earningsnerd.io`, not a test suite member. It loads `backend/.env` relative to the
+script location. Do not run it in CI or as part of the backend gate.
+
+### WS-7 SIC backfill prerequisite (founder executes)
+
+`USE_STATEMENT_FINANCIALS` now defaults to true in code; an explicit deployment override still
+wins. Confirm the effective value with the existing `ops.yml` describe-service allow-list before
+claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
+The SIC command goes through the EDGAR service limiter/circuit breaker and is resumable: by
+default it selects only companies with missing SIC and commits batches of 100.
+
+After the backend deployment and its `earningsnerd_job_runs` migration succeed, Neil runs:
+
+```bash
+# Preview the missing-SIC cohort; does not write Company data or count as a successful backfill.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic,--dry-run" --wait
+# Populate the missing SIC/industry fields.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic" --wait
+# Re-check the remaining cohort. Any skipped IDs need a recorded explanation.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic,--dry-run" --wait
+```
+
+Retain execution IDs and the `scanned`, `updated`, `skipped`, `errors`, `updated_ids` and
+`skipped_ids` log output. An error count makes the script fail; skipped companies without SEC SIC
+remain explicitly unresolved. Do not claim SIC backfilled from a dry run or a deploy health probe.
+Pregeneration remains a separate founder spend trigger, held until WS-7 prerequisites and their
+production evidence are complete, then run off-peak. No trigger is executed by merging this PR.
+
+
+### WS-7 universe identity seed and weekly form coverage
+
+After the amendment-column migration and backend deployment are verified, the founder can run
+these commands through the existing backfill-facts job (execution argument overrides are scoped
+to that execution, leaving its scheduled arguments intact):
+
+```bash
+# Preview only; no Company writes or AI calls. A dry-run heartbeat is still recorded.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py" --wait
+# Create missing issuer identities from the committed universe and the SEC ticker file.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py,--apply" --wait
+# Confirm no remaining creations, then repeat the SIC backfill/preview sequence above.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py" --wait
+```
+
+Retain execution IDs, `created`, `would_create`, `existing`, `source_errors` and unresolved ticker
+output. Multiple share classes sharing a CIK reuse one Company and do not overwrite its canonical
+ticker; this seed is issuer-identity coverage, not proof every class ticker has its own row.
+Missing SEC mappings fail the execution visibly. Seed attempts use `universe-company-seed` and
+cannot advance the scheduled facts heartbeat. New identities need SIC enrichment before bank
+financial generation. Seeding does not generate summaries, apply facts backfills, or send email.
+
+The weekly example script now requests domestic 10-K and 10-Q, while BABA remains annual 20-F;
+CI sets `ENABLE_FPI_FILINGS=true` on the pregenerate job. The existing Monday 06:00 UTC schedule
+is unchanged. An explicit universe-wide generation run remains the separate approved off-peak
+founder operation after the data prerequisites and live report evidence; no such run was executed
+while implementing this change. Amendment relationships populate as companies are refreshed or
+history is backfilled; pre-existing rows are not rewritten by the additive migration.

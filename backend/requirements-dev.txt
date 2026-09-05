@@ -4,3 +4,6 @@
 # (see lessons/ops-pin-ci-toolchain.md). Runtime deps stay in requirements.txt.
 ruff==0.16.6
 bandit==1.9.4
+# Dependency-vulnerability audit for requirements.txt (ci.yml "Dependency audit" step; advisory
+# until the file audits clean, then blocking).
+pip-audit==2.10.1

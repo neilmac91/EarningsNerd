@@ -81,11 +81,11 @@ class AlphaVantageClient:
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
-    async def fetch_earnings_calendar(self) -> List[AVEarningsRow]:
-        """Fetch the whole US forward earnings calendar. Returns [] when unconfigured or on error.
+    async def fetch_earnings_calendar(self, *, raise_on_error: bool = False) -> List[AVEarningsRow]:
+        """Fetch the US forward calendar; missing configuration is an intentional empty source.
 
-        Never raises — a flaky bridge source must not break the daily ingest (the EDGAR layer
-        still produces reported + pattern-estimated rows on its own).
+        Existing callers degrade errors to []; the ingestion service opts into raised provider
+        errors so job health can distinguish failure from an empty, successful calendar.
         """
         if not self._api_key:
             logger.info("Alpha Vantage API key not configured; skipping bulk earnings calendar.")
@@ -103,6 +103,8 @@ class AlphaVantageClient:
                 body = response.text
         except httpx.HTTPError as exc:
             logger.warning("Alpha Vantage earnings calendar request failed: %s", exc)
+            if raise_on_error:
+                raise
             return []
 
         # A non-CSV body (JSON "Information"/"Note") means throttling or a bad key — AV returns 200
@@ -110,8 +112,12 @@ class AlphaVantageClient:
         stripped = body.lstrip()
         if not stripped or stripped[0] in "{[":
             logger.warning("Alpha Vantage returned a non-CSV body (rate limit or invalid key): %s", stripped[:160])
+            if raise_on_error:
+                raise ValueError("Alpha Vantage did not return an earnings-calendar CSV")
             return []
 
+        if raise_on_error and not {"symbol", "reportDate"}.issubset(csv.DictReader(io.StringIO(body)).fieldnames or []):
+            raise ValueError("Alpha Vantage earnings-calendar CSV is missing required columns")
         return self._parse_csv(body)
 
     @staticmethod

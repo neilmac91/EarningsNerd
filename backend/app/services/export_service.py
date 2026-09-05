@@ -280,6 +280,8 @@ class ExportService:
                 )
                 if point.get("derived"):
                     rendered += " †"
+                if point.get("reconciled") is False:
+                    rendered += " [unreconciled]"
                 cells.append(f'<td class="num">{escape(rendered)}</td>')
             body_rows.append(
                 f"<tr><td>{escape(series.get('label', series.get('concept', '')))}</td>"
@@ -289,7 +291,9 @@ class ExportService:
 
         citation_items = "".join(
             f"<li><strong>[{c.get('n')}]</strong> {escape(str(c.get('excerpt', '')))}"
-            f" <span class=\"ref\">{escape(str(c.get('section_ref') or ''))}</span></li>"
+            f" <span class=\"ref\">{escape(str(c.get('section_ref') or ''))}</span>"
+            + (" <strong>Unreconciled value — check source filing.</strong>" if c.get("reconciled") is False else "")
+            + "</li>"
             for c in (analysis.citations_json or [])
         )
         has_derived = any(
@@ -301,6 +305,15 @@ class ExportService:
             '<p class="footnote">† Computed fourth quarter, derived from the annual report: full year minus the reported year-to-date quarters (EPS: Q4 net income ÷ Q4 weighted shares).</p>'
             if has_derived
             else ""
+        )
+        has_unreconciled = any(
+            p.get("reconciled") is False
+            for series in dataset.get("series", []) for p in series.get("points", [])
+        ) or any(c.get("reconciled") is False for c in (analysis.citations_json or []))
+        quality_note = (
+            '<p class="footnote"><strong>Some values are unreconciled.</strong> Check flagged '
+            'figures and growth based on them against the source filing. Citation verification '
+            'confirms traceability, not financial reconciliation.</p>' if has_unreconciled else ""
         )
         # "Generated" = when the AI actually wrote this narrative (the row's timestamps) — a
         # cached analysis exported weeks later must not present itself as freshly generated.
@@ -314,6 +327,7 @@ class ExportService:
             f"Generated {generated_date} · Exported {exported_date}"
         )
         body_html = f"""
+            {quality_note}
             {self._narrative_to_html(analysis.narrative_md or "")}
 
             <section class="metrics-landscape">
@@ -376,4 +390,3 @@ class ExportService:
             raise Exception(f"Failed to generate PDF: {str(e)}")
 
 export_service = ExportService()
-

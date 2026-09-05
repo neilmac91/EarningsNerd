@@ -54,6 +54,8 @@ _CLI_TIMEOUT_SECONDS = 300  # subscription CLI can be slow on a 200k-char excerp
 # segment disclosures (which sit late in a 10-K) out of the judge's view, tanking faithfulness.
 # 200k chars (~50k tokens) covers observed excerpts and fits the judge model's context comfortably.
 _JUDGE_EXCERPT_CHAR_CAP = 200_000
+_JUDGE_SUMMARY_CHAR_CAP = 100_000
+_JUDGE_XBRL_CHAR_CAP = 40_000
 _anthropic_client: Any = None  # shared lazily across calls to reuse the connection pool
 
 _JUDGE_SYSTEM = (
@@ -110,11 +112,15 @@ def build_judge_messages(
     xbrl_text: str,
 ) -> Tuple[str, str]:
     """Construct (system, user) messages. Gives the judge the source so it verifies, not vibes."""
+    serialized = json.dumps(summary_payload, indent=2)
+    if (len(serialized) > _JUDGE_SUMMARY_CHAR_CAP or len(excerpt or "") > _JUDGE_EXCERPT_CHAR_CAP
+            or len(xbrl_text or "") > _JUDGE_XBRL_CHAR_CAP):
+        raise ValueError("Judge input exceeds full-coverage bounds")
     user = (
         f"Company: {company}\nFiling type: {filing_type}\n\n"
         f"=== XBRL FINANCIAL FACTS (ground truth) ===\n{xbrl_text or '(none available)'}\n\n"
-        f"=== SOURCE FILING EXCERPT ===\n{(excerpt or '')[:_JUDGE_EXCERPT_CHAR_CAP]}\n\n"
-        f"=== SUMMARY UNDER TEST ===\n{json.dumps(summary_payload, indent=2)[:20000]}\n\n"
+        f"=== SOURCE FILING EXCERPT ===\n{excerpt or ''}\n\n"
+        f"=== SUMMARY UNDER TEST ===\n{serialized}\n\n"
         f"{_JUDGE_INSTRUCTIONS}"
     )
     return _JUDGE_SYSTEM, user

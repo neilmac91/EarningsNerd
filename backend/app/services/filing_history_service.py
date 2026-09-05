@@ -11,7 +11,7 @@ sized so a company's per-window hit count stays under the ~100-hit page cap. Row
 through ``filing_scan_service.upsert_filings`` (NOT-NULL-safe, accession-deduped). Each company is
 stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it.
 
-Amendments (/A) are excluded, matching the company-filings display's form set (10-K, 10-Q).
+Annual and quarterly amendments are included; same-period originals remain available and are marked superseded.
 """
 from __future__ import annotations
 
@@ -29,9 +29,8 @@ from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
 
-# Forms we backfill + display. Amendments (/A) are intentionally excluded to match the
-# company-filings endpoint's default form set (no double-listing of restated periods).
-_BACKFILL_FORMS = ("10-K", "10-Q")
+# Match the company display: retain both originals and same-period amendments.
+_BACKFILL_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A")
 _ALLOWED_FILING_TYPES = frozenset(_BACKFILL_FORMS)
 # Transient-5xx retries scoped to THIS path — the shared limiter's execute_with_backoff only
 # retries rate-limit errors, not the sporadic 5xx EFTS emits, so we add a small bounded ladder.
@@ -56,7 +55,7 @@ def _hit_to_filing_dict(hit: Any) -> Optional[dict]:
     """Adapt an ``EftsHit`` to the ``upsert_filings`` dict shape, or ``None`` to skip.
 
     Skips rows missing the NOT-NULL keys (accession/sec_url/document_url), unknown/other forms,
-    and amendments — so only clean 10-K/10-Q rows are inserted."""
+    so only clean annual/quarterly reports and their amendments are inserted."""
     accession = getattr(hit, "accession_no", None)
     sec_url = getattr(hit, "sec_url", None)
     document_url = getattr(hit, "document_url", None)

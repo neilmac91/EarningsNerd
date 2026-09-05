@@ -128,8 +128,11 @@ def _write_point(
         return
     cell.value = value / 100 if percent else value
     cell.number_format = _number_format(unit, percent)
-    if point.get("derived"):
-        cell.comment = Comment(_DERIVED_COMMENT, "EarningsNerd")
+    warnings = [_DERIVED_COMMENT] if point.get("derived") else []
+    if point.get("reconciled") is False:
+        warnings.append("Unreconciled value: check the source filing before relying on this figure.")
+    if warnings:
+        cell.comment = Comment("\n".join(warnings), "EarningsNerd")
 
 
 def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
@@ -191,6 +194,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
             "Cells with a comment marker are computed Q4 estimates (full year minus reported "
             "year-to-date quarters; EPS shares-based) — shown as † in the product."
         )
+    if any(p.get("reconciled") is False for s in dataset.get("series", []) for p in s.get("points", [])):
+        notes.append("Unreconciled values and growth based on them carry cell comments; verify against the source filing.")
     row += 1
     for note in notes:
         ws.cell(row=row, column=1, value=note).font = _FOOTNOTE_FONT
@@ -258,6 +263,9 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
                 growth_cell.value = series["cagr"]
                 growth_cell.number_format = "0.0%"
                 window_cell.value = series.get("cagr_window") or ""
+            quality = series.get("window_pp_reconciled" if percent else "cagr_reconciled")
+            if quality is False:
+                growth_cell.comment = Comment("Growth uses an unreconciled endpoint; verify the source filing.", "EarningsNerd")
 
     ws.freeze_panes = "B2"
     ws.column_dimensions["A"].width = 24
@@ -303,6 +311,8 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any]) -> None:
         growth_cell = ws.cell(row=row_index, column=3)
         growth_cell.border = _CELL_BORDER
         yoy = point.get("yoy")
+        if point.get("yoy_reconciled") is False:
+            growth_cell.comment = Comment("Growth uses an unreconciled value; verify the source filing.", "EarningsNerd")
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
             growth_cell.number_format = "0.0%"

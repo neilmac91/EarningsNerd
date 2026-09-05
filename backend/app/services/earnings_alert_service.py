@@ -180,6 +180,7 @@ async def send_earnings_day_alerts(
         bucket["events"][ev.id] = (ticker, ev)
 
     emails = 0
+    failed = 0
     events_sent = 0
     for user_id, bucket in per_user.items():
         user = bucket["user"]
@@ -241,6 +242,7 @@ async def send_earnings_day_alerts(
             emails += 1
             events_sent += len(claimed)
         except Exception:
+            failed += 1
             logger.exception("Earnings-day alert send failed for user %s", user_id)
             status = "failed"  # ledger keeps the claim as non-terminal → retried next run
 
@@ -248,4 +250,4 @@ async def send_earnings_day_alerts(
             log.status = status
         db.commit()
 
-    return {"users": len(per_user), "emails": emails, "events": events_sent}
+    return {"users": len(per_user), "emails": emails, "events": events_sent, "failed": failed}

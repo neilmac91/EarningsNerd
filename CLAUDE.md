@@ -55,7 +55,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
    idempotent SQL file in `backend/migrations/`. The deploy applies each file ONCE per
-   (filename, sha256) through the `schema_migrations` ledger (`backend/scripts/apply_migrations.sh`,
+   (filename, sha256) through the `migration_ledger` table (`backend/scripts/apply_migrations.sh`,
    ADR-0007) and skips it afterwards — but files must still be safe to re-run (ledger reset, edited
    file, crash between apply and record; CI proves it with a triple pass on `postgres:15`). Never
    edit an applied migration — an edit re-applies it once; that is the escape hatch, not a workflow.
@@ -100,7 +100,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
   copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns all SEC traffic.
-  `app/integrations/` = third-party APIs (finnhub, fmp, stocktwits, alpha_vantage, sec_api).
+  `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
   `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys
   come from `lib/queryKeys.ts` (ESLint-enforced — no inline key arrays). All HTTP goes through the
@@ -127,7 +127,7 @@ CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend
 tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
 `deploy-backend` runs on push to main when `backend/` changed: applies not-yet-recorded
-`backend/migrations/*.sql` files to Cloud SQL through the `schema_migrations` ledger
+`backend/migrations/*.sql` files to Cloud SQL through the `migration_ledger` table
 (`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
 `postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron

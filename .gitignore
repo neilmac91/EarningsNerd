@@ -51,3 +51,4 @@ tasks/phase2-outputs*/
 
 # Temporary isolated agent worktrees
 .claude/worktrees/
+.worktrees/

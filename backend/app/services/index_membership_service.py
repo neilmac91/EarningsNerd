@@ -103,3 +103,15 @@ UNIVERSE_ALL: UniverseLabel = "all"
 def active_universe_label() -> UniverseLabel:
     """``"sp500_nasdaq100"`` when the index filter is active, else ``"all"`` (serving unfiltered)."""
     return UNIVERSE_INDEX if active_member_filter() is not None else UNIVERSE_ALL
+
+
+def universe_generated_on() -> str | None:
+    """Committed source date for reporting; malformed metadata is explicitly unavailable."""
+    from datetime import date
+
+    try:
+        value = json.loads(_DATA_PATH.read_text(encoding="utf-8"))["generated_on"]
+        return date.fromisoformat(value).isoformat()
+    except (OSError, ValueError, KeyError, TypeError):
+        logger.warning("Index universe generation date is unavailable", exc_info=True)
+        return None

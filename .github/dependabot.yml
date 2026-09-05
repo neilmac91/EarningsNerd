@@ -40,6 +40,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "recharts"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 (native compiler) is outside typescript-eslint's peer range (<6.1.0) and
+      # crashes ESLint (Dependabot PR #629). Take TS majors deliberately, with the lint stack.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     reviewers:
       - "neilmac91"
     commit-message:

@@ -26,6 +26,7 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import StreamingSummaryDisplay from './StreamingSummaryDisplay'
 import { TickerFilingsView } from '@/features/filings/components/TickerFilingsView'
+import SupersededFilingNotice from '@/features/filings/components/SupersededFilingNotice'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
@@ -295,6 +296,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
                     <Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>
                       {filing.filing_type}
                     </Badge>
+                    <SupersededFilingNotice filing={filing} />
                     <span className="flex items-center space-x-1">
                       <span>Filed:</span>
                       <span className="font-medium">{formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}</span>
@@ -314,6 +316,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
                   <p className="text-text-secondary-light dark:text-text-secondary-dark">
                     Filed: {formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}
                   </p>
+                  <SupersededFilingNotice filing={filing} />
                 </>
               )}
             </div>

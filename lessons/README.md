@@ -12,13 +12,15 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-reconciliation-follows-values-and-growth.md`](./arch-reconciliation-follows-values-and-growth.md) — Carry reconciliation quality through values, growth, citations and exports
+
 - [`arch-committed-universe-fail-open.md`](./arch-committed-universe-fail-open.md) — Bound discovery surfaces to a committed universe with a fail-open filter
 - [`arch-corroborate-semantic-events.md`](./arch-corroborate-semantic-events.md) — Corroborate a semantic event; never derive it from a regulatory category alone
 - [`arch-drop-neutral-amplifiers-with-risk.md`](./arch-drop-neutral-amplifiers-with-risk.md) — Don't ship an amplifier that adds no measurable quality but any fabrication risk
 - [`arch-edit-causal-directive-add-example.md`](./arch-edit-causal-directive-add-example.md) — Edit the directive that causes the behavior and pair it with a worked example
 - [`arch-fk-safe-bulk-deletes.md`](./arch-fk-safe-bulk-deletes.md) — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
 - [`arch-guard-every-model-facing-surface.md`](./arch-guard-every-model-facing-surface.md) — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
-- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the schema_migrations ledger
+- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 - [`arch-no-precomputed-deltas-in-grounding.md`](./arch-no-precomputed-deltas-in-grounding.md) — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - [`arch-one-summary-orchestrator.md`](./arch-one-summary-orchestrator.md) — There is ONE summary orchestrator — never add a second generation path
 - [`arch-per-process-state-on-cloud-run.md`](./arch-per-process-state-on-cloud-run.md) — In-memory state is per-process — count every Cloud Run instance and job before trusting it
@@ -60,6 +62,9 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-citation-offset-boundaries.md`](./frontend-citation-offset-boundaries.md) — Resolve citation starts to the first matched character's text node and pin the actual flash target
+- [`frontend-sitemap-cache-ownership.md`](./frontend-sitemap-cache-ownership.md) — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
+- [`frontend-jsdom-sdk-browser-entry.md`](./frontend-jsdom-sdk-browser-entry.md) — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - [`frontend-check-luminance-vs-background.md`](./frontend-check-luminance-vs-background.md) — Verify surface luminance against the actual background, not token validity
 - [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
@@ -73,11 +78,14 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
+
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
 - [`ops-fix-the-exact-cited-site.md`](./ops-fix-the-exact-cited-site.md) — Fix and test the plan's exact cited site, not an adjacent manifestation
 - [`ops-git-add-atomic-empty-status-gate.md`](./ops-git-add-atomic-empty-status-gate.md) — Require an empty git status after every completing commit; never chain add-path recovery
 - [`ops-grep-verify-negative-claims.md`](./ops-grep-verify-negative-claims.md) — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
+- [`ops-deploy-owned-state-needs-a-distinctive-name.md`](./ops-deploy-owned-state-needs-a-distinctive-name.md) — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool

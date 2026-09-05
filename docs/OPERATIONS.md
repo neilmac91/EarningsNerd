@@ -169,7 +169,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 ### Verification Scripts
 
 Located in `backend/scripts/`:
-- `apply_migrations.sh` - Apply `backend/migrations/*.sql` through the `schema_migrations` ledger (ADR-0007); the one script both `deploy-backend` and the `migrations-postgres` CI job run
+- `apply_migrations.sh` - Apply `backend/migrations/*.sql` through the `migration_ledger` table (ADR-0007); the one script both `deploy-backend` and the `migrations-postgres` CI job run
 - `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
 - `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
@@ -180,10 +180,84 @@ Located in `backend/scripts/`:
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
 - `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
 - `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)
-  - **Keep the recommended filing warm:** the company-page "Recommended" banner now points at a
-    company's *most recent* filing of any type (usually a 10-Q), but the precompute path
-    (`POST /internal/jobs/precompute` and this cron) defaults to `forms=["10-K"]`. So the A1 warm
-    covers the old recommendation, not the new one — a first click on a newly-recommended 10-Q
-    generates on demand. To close the gap, include `"10-Q"` in the `forms` list of the weekly
-    pregenerate payload (one-line change to the trigger's request body).
+  - Weekly examples cover the latest domestic 10-K and 10-Q; BABA uses its annual 20-F.
+    `--annual-only` keeps a manual run annual-only. The job's CI environment enables FPI.
+    The token-gated precompute endpoint still defaults to annual forms unless requested otherwise.
+- `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
+  writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+
+### Persisted audits and weekly judged readout (WS-6 measurement)
+
+The data-quality report keeps two populations separate. Persisted audit counters describe the
+currently retained Summary snapshots across the corpus; they are not a week's generation attempts.
+The query projects only summary identity, SIC and audit/quality JSON, never the full generated
+summary or excerpt. Each of the five families has its own recorded, missing and malformed counts:
+
+| Family | Recorded outcome |
+|---|---|
+| Figure trace | Snapshots with flagged figures and total unique recorded figures per snapshot |
+| Forward quotes | Checked, verified, unverified, near misses, other unverified and dropped quotes |
+| Evidence snap | Checked, exact, would-snap candidates, performed snaps and unrepaired evidence |
+| Machine sections only | Explicit true outcomes among snapshots with a recorded boolean |
+| Quality tier | Partial snapshots and distinct reasons per snapshot, with SIC-prefix grouping |
+
+Missing audits can mean legacy data, unavailable grounding or no eligible content. They never
+contribute a measured zero. Malformed counters, lists or contradictory action counts remain
+unavailable for that family. An empty recorded figure list does not establish that the tracer had
+grounding; the eval's separately measured availability is the relevant denominator for that claim.
+Rates use recorded snapshots only and are unavailable when that denominator is zero.
+
+The weekly workflow supplies a bounded summary-only base64 value through the report script's
+`--weekly-readout-b64` execution argument. The shared `app/services/ai_readout.py` validator owns
+that external boundary. Both dry-run JSON and email preserve its complete/partial/unavailable
+status, 24-attempt cohort counts, valid negative judgments, configured model identities,
+provenance and artifact links. Missing or invalid handoffs still allow the ordinary operational
+report to run, with the judged section explicitly unavailable. A complete measurement can contain
+negative judgments; neither it nor this receiver automatically activates any guard.
+
+No usable strong-judge credential was available when this change was implemented. An unavailable,
+partial, simulated or empty report does not meet D5's first-judged-readout prerequisite. Existing
+scheduled delivery is preserved; development verification uses mocked email transport and makes
+no live send or job dispatch.
+
+### Scheduled job outcomes and universe coverage (WS-7)
+
+Every scheduled job script records an attempt in `earningsnerd_job_runs`, using a transaction
+separate from its business work. The logical names are `pregenerate`, `filing-scan`,
+`filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
+`notable-filings`. The weekly report records `data-quality-report` separately, even though it
+runs on the filing-digest Cloud Run job. SIC backfill and financial remediation similarly use
+`backfill-company-sic` and `remediate-financials`; they cannot satisfy the scheduled facts heartbeat.
+
+Each attempt records start, completion, status and numeric counters. Returned provider/send/
+extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;
+services retain their best-effort return behavior for HTTP callers. Dry runs are recorded as
+`dry_run`, never success. An abruptly killed process can leave `running` without completion.
+Heartbeat storage failures fail the execution; they cannot manufacture success. No provider
+payload, exception text, email address or identifier list is stored in heartbeat counters.
+
+The existing `.github/workflows/data-quality-weekly.yml` runs Mondays at 13:00 UTC and emails the
+report through `scripts/data_quality_report.py`. Its new report sections mean:
+
+| Field | Definition |
+|---|---|
+| Company coverage | Distinct normalized committed-universe tickers with a Company row / committed tickers |
+| Summary coverage | Distinct committed-universe tickers with any stored Summary / committed tickers; does not assert latest-period or full-quality coverage |
+| Stub ratio | Stored filings without any Summary / stored filings, restricted to universe companies; a partial Summary is not a stub |
+| Universe age | UTC days since committed `index_membership.json.generated_on`; invalid/future date is unavailable |
+| Per-job last success | Most recent completed `succeeded` attempt, unaffected by later failed or dry runs |
+| Stale job | No successful completion, or last success older than twice the maximum schedule interval |
+
+The maximum intervals are one hour for scan, one day for digest/calendar/alerts, seven days for
+pregeneration/facts/report, and fourteen hours for Notable's longer overnight gap. All expected
+jobs appear even if never observed. In particular, Notable remains never observed until the
+founder creates and runs it. The current report attempt appears running in its own email; the
+last-success field refers to the previous completed report. Empty universe/filing denominators
+produce unavailable percentages, not a fabricated clean zero. Tick-count aliases normalize
+hyphens to dots, using the same helper as the committed universe filter.
+
+For a read-only report without sending email, the founder can execute the report script with
+`--dry-run` through the existing jobs channel and retain its JSON output. A healthy deployment
+alone does not prove scheduled scripts have executed: retain actual attempt/report output before
+claiming live coverage or heartbeat success.

@@ -1,6 +1,13 @@
 # Filing-Summary Quality & Design: Investigation and Tiered Improvement Plan
 
-**Date:** 2026-07-08 · **Status:** Proposed (investigation complete; no code changed)
+> **September 2026 status:** historical July investigation. Subsequent changes to the pipeline,
+> rendering and evaluation mean the original findings and line references below are not a current
+> implementation checklist. Follow the [remediation briefs](../tasks/implementation-briefs-2026-09.md)
+> and [eval runbook](../backend/evals/RUNBOOK.md) for measured results and remaining work.
+> Advisory figure tracing and persisted audit reporting do not prove a completed judged readout;
+> the first actual strong-judge readout and evidence-snap activation remain held.
+
+**Original date:** 2026-07-08 · **Original status:** Proposed (investigation complete; no code changed)
 **Scope:** the AI-generated filing summary — its content, design, grounding, and rendering across web, PDF, and CSV.
 **Reproduction case:** NVIDIA CORP 10-Q filed 2026-05-20 (CIK 1045810) — founder-annotated web screenshots plus the PDF/CSV exports of the same summary.
 

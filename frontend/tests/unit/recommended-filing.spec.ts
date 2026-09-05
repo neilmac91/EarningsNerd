@@ -16,6 +16,14 @@ const filing = (id: number, filing_type: string, filing_date: string): Filing =>
 })
 
 describe('selectRecommendedFiling', () => {
+  it('excludes superseded originals and keeps amendments eligible without inventing replacements', () => {
+    const original = { ...filing(1, '10-K', '2026-06-01'), superseded_by_accession: 'not-loaded' }
+    const amendment = filing(2, '10-K/A', '2026-05-01')
+    expect(selectRecommendedFiling([original, amendment])?.id).toBe(2)
+    expect(selectRecommendedFiling([original])).toBeNull()
+    expect(selectRecommendedFiling([amendment, filing(3, '10-Q', '2026-05-02')])?.id).toBe(3)
+  })
+
   it('picks the single most recent filing regardless of type', () => {
     // The reported bug: a newer 10-Q must beat the older 10-K, so the banner never claims a stale
     // annual report is "most recent" while quarterly reports have shipped since.
@@ -63,6 +71,13 @@ describe('selectRecommendedFiling', () => {
 })
 
 describe('recommendedFilingNoun', () => {
+  it('names amended annual and interim reports accurately', () => {
+    for (const form of ['10-K/A', '20-F/A', '40-F/A']) {
+      expect(recommendedFilingNoun(filing(1, form, '2026-05-01'))).toBe('annual report amendment')
+    }
+    expect(recommendedFilingNoun(filing(2, '10-Q/A', '2026-05-01'))).toBe('filing amendment')
+  })
+
   it('labels annual reports (10-K / 20-F / 40-F) as "annual report"', () => {
     expect(recommendedFilingNoun(filing(1, '10-K', '2025-07-30'))).toBe('annual report')
     expect(recommendedFilingNoun(filing(2, '20-F', '2025-07-30'))).toBe('annual report')
