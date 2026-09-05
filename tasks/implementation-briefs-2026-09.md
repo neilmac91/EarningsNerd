@@ -346,15 +346,33 @@ traps). The adversarial pre-merge review workflow is saved as `.claude/workflows
 `apply_migrations: applied=0 skipped=32`; production health green after each of the day's ten
 backend deploys; the only open PR is the founder's #673 (another session).
 
-Wave 2 (not started — dispatch on founder go, given two session-limit outages today): WS-6 summary
-fidelity (pin figure-trace, scheduled judged eval, arm `AI_EVIDENCE_SNAP` per D5), WS-7 data
-integrity, WS-9 dark surfaces per D3, WS-10 docs sweep, WS-5 item 5 (sitemap fetch). Founder console
-actions (D8) run in parallel and are not tracked here — the open ones are listed in `tasks/todo.md`
-as **(founder)** items: drop the legacy prod `schema_migrations` table, Vercel Node 22 setting,
-`FMP_API_KEY` secret, Sentry source-map env, Cloud SQL `idle_in_transaction_session_timeout`,
-create the `earningsnerd-notable-filings` job when D3 flips.
+## 7. Wave 2 dispatch checkpoint — 2026-09-05
 
-WS-10 placement resolution (PR #696): the root Vercel helper is now
-`backend/scripts/deploy-vercel.sh`; the live email smoke is
-`backend/scripts/smoke_resend.py` (manual only, never collected by CI). Both resolve
-paths from their own file location. The original paths above record the audit finding.
+Wave 2 is in progress under the authorized chief-engineer session. This table supersedes the
+wave-1 "not started" status; it does not close the programme. Full gate details and unresolved
+execution requirements are in the [interim evidence ledger](wave2-ledger-2026-09.md).
+
+| PR | Scope | Merge SHA | Observed evidence |
+|---|---|---|---|
+| [#689](https://github.com/neilmac91/EarningsNerd/pull/689) | Execution plan | `47d65a2c4f849ca700627a466d9a20dd0134219b` | Docs only; CI 33957293507 green |
+| [#692](https://github.com/neilmac91/EarningsNerd/pull/692) | WS-9 preparation and roadmap archives | `60d8015e68336c61c7355210fcbc0623ca8dd84f` | Docs only; CI 33957917465 green |
+| [#691](https://github.com/neilmac91/EarningsNerd/pull/691) | Locate text-node boundary | `a2c7fa70ff7282f823e1f0fca23aabd15c7a8cc1` | Vercel production deployment succeeded |
+| [#685](https://github.com/neilmac91/EarningsNerd/pull/685) | Cryptography 50 compatibility | `5cb23b8a3c3b080b428a5fe2004cc608bb0041ea` | Run 33958635353; applied=0 skipped=32; revision 00260-xfw; healthy |
+| [#693](https://github.com/neilmac91/EarningsNerd/pull/693) | Hourly ISR sitemap freshness | `157e6a39b5a427074cc04993a8efd902ea55d326` | Vercel production deployment succeeded |
+| [#690](https://github.com/neilmac91/EarningsNerd/pull/690) | WS-7 steps 1–2: statement default and job/report integrity | `99e91ba7721190e3df887d159beb9eb041094b62` | Run 33959305523; applied=1 skipped=32; revision 00261-z7x; healthy |
+| [#694](https://github.com/neilmac91/EarningsNerd/pull/694) | Non-Sentry frontend dependency split | `6e169de83cc55cbc55a881b69c2a581196d914e4` | CI 33959296135 green; supersedes #686 part 1 |
+| [#696](https://github.com/neilmac91/EarningsNerd/pull/696) | Configuration inventory and script placement | `0e0e7762cadda0fddd40407377467911550a28e3` | Run 33959884494; applied=0 skipped=33; revision 00262-4lj; healthy |
+| [#695](https://github.com/neilmac91/EarningsNerd/pull/695) | Sentry 10.73 with isolated Vitest compatibility | `919aa8629c6b53d2d29a98ad35b10dadfcbe6885` | Vercel production deployment succeeded; supersedes #686 part 2 |
+| [#697](https://github.com/neilmac91/EarningsNerd/pull/697) | WS-7 steps 3–6: periods, amendments, quality and seed tooling | `c925cfa83647f521583b6fa4dd257ac9027461db` | CI 33961912275 green; run 33962267301 applied=1 skipped=33; revision 00263-kzt; healthy; Vercel success |
+
+#698 remains draft: corrected 26 × 2 parity measurement passed with 52 outputs and zero hard
+gate failures; the final three-run pin after merged WS-7 is pending. Measurement, resilience
+(including #684), hygiene, Copilot and evidence-snap activation remain open. The first judged
+readout is held without a usable strong-judge credential; no guard is armed on an unavailable
+report. #697 production deployment, migration and detailed health are verified in the ledger.
+Final parity run 33962580838 is in progress at integrated source `f5b46ba9`; no new baseline is pinned.
+
+Founder boundaries remain unchanged: SIC/universe seed and off-peak generation, Notable job
+creation and one-week review, Analysis flag/warm confirmation, licence and console actions.
+#673 remains the founder's other session. See handover §6 and the unchecked founder items in
+`tasks/todo.md`; the D1–D8 decisions are accepted, not reopened.

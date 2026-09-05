@@ -1,3 +1,8 @@
+# Archived handover snapshot — before the wave-2 checkpoint
+
+Historical snapshot; current status is in `../handover-wave2-2026-09.md` and
+`../wave2-ledger-2026-09.md`. Original content is preserved below.
+
 # Handover — remaining waves of the September 2026 remediation programme
 
 Written 2026-09-05 08:50Z by the chief-engineer session that ran wave 1. Audience: the agent that
@@ -16,31 +21,22 @@ Companion documents (all on `main`):
 - `CLAUDE.md` (12 non-negotiable rules), `lessons/README.md` (scan the index; several lessons were
   added this week and are cited below), `backend/evals/RUNBOOK.md` (mandatory before WS-6).
 
-## 1. Current checkpoint — 2026-09-05
+## 1. State of the world
 
-Main is `c925cfa83647f521583b6fa4dd257ac9027461db` (merged #697). Exact merge SHAs and
-observed gate/deployment evidence are in the [interim ledger](wave2-ledger-2026-09.md) and
-[briefs dispatch log](implementation-briefs-2026-09.md#7-wave-2-dispatch-checkpoint--2026-09-05).
-This is ongoing work; founder execution and remaining WS-6 tasks are not complete.
-
-- Merged wave-2 engineering: #689, #692, #691, #685, #693, #690, #694, #696, #695, #697.
-  #686 closed as superseded by the independent #694/#695 dependency split.
-- Latest verified backend checkpoint: #697, run `33962267301`, revision `00263-kzt` at 100%
-  traffic, migration `applied=1 skipped=33`, detailed health healthy (database 5.74 ms).
-  Pregenerate FPI env updated; Notable job remains absent. Vercel also reports success.
-- #698 remains draft. Its corrected 52-output measurement passed the unchanged hard gate;
-  final integrated 26 × 3 run `33962580838` is in progress on `f5b46ba9`; the baseline is unchanged.
-  Strong-judge credentials are unavailable in the current session, so first judged readout and evidence-snap stay held.
-- #684 OpenAI major stays with WS-6 resilience/eval gates. #673 is the founder's separate work;
-  leave it untouched. Locate and Sentry task-card implementation is complete (#691/#695);
-  task-card dismissal itself is not claimed. Agent refresh and spec-file debt remain separate.
-- WS-7 code steps 1–6 are merged; SIC/universe seed, live report coverage, off-peak generation
-  and other founder production tasks remain open. [Finished implementation checklist](archive/ws7-completeness-2026-09.md).
-
-The original wave-1 handover is [preserved in the archive](archive/handover-wave1-to-wave2-2026-09.md).
-The operating procedure and trap notes below retain that historical context; explicit checkpoint
-notes supersede resolved items. The saved Claude Workflow runtime was unavailable in Codex;
-three independent lenses and two refuters per serious finding were reproduced with Codex agents.
+- `main` = `e6c68970` (merge of #683). Production API revision deployed from `9a7a578`/`2f2e48d`,
+  `/health/detailed` healthy (db ≈6 ms, SEC circuit closed). Vercel production is on Next 16.3.4 /
+  Node 22 (the `engines.node` override governs the build; the console setting is a founder item).
+- Ten backend deploys on 2026-09-05, all green. The migration ledger (`migration_ledger`,
+  ADR-0007) is live: every deploy since the seed reports `apply_migrations: applied=0 skipped=32`.
+  The INVALID-index check (#681) passed silently against prod, so prod holds no invalid index today.
+- Open PRs: #673 (founder's own, another session — leave it), #684 `openai` 2.44→3.7 (major, held),
+  #685 `cryptography` 49→50 (major, held), #686 Dependabot frontend minors (red — see §5.4).
+- Merged this programme: 653 654 635 636 639 640 641 642 655 656 657 658 660 661 671 674 675 676 677
+  678 679 680 681 683 687. Closed as superseded: 659 662–670 672; 629 and 570 closed 2026-09-04.
+- Task cards queued for the founder (Claude desktop): `task_baa03629` fix `locate()` text-node
+  boundary in `highlightInDom.ts`; `task_68af8770` land the frontend minors without
+  `@sentry/nextjs` 10.73; plus two older cards (agent-definition refresh; spec-file type debt).
+  If you own those topics, dismiss the card when you land the fix.
 
 ## 2. Decisions in force (from the founder, 2026-09-04: "go with your recommendations")
 
@@ -48,16 +44,16 @@ three independent lenses and two refuters per serious finding were reproduced wi
 |---|---|---|
 | D1 | Migration ledger | Done (#658 + hotfix #678). Table is `migration_ledger`, never `schema_migrations`. |
 | D2 | Universe refresh: FMP first, loud abort otherwise | Done (#655). Needs `FMP_API_KEY` repo secret (founder) before the age gate trips on 2026-10-16. |
-| D3 | Dark surfaces: Analysis on; Notable after a week of job output; Calendar off until AV licence; Insiders off | **Held at founder boundary.** #692 prepared the rollout/archive; job creation and one-week review remain outstanding. |
+| D3 | Dark surfaces: Analysis on; Notable after a week of job output; Calendar off until AV licence; Insiders off | **Wave 2 (WS-9).** Cloud Run job `earningsnerd-notable-filings` does not exist yet (deploy log says so on every run). |
 | D4 | Spend approved: pregeneration (~$25–50), v1→v2 drain, golden-set runs | **Wave 2.** Run pregeneration only after WS-7 steps 1–2 and off-peak. |
 | D5 | Arm `AI_EVIDENCE_SNAP` after the first weekly readout; figure-trace / forward-quote stay advisory | **Wave 2 (WS-6 step 6)** — needs the readout first. |
-| D6 | Dependabot triage | Wave-1 triage done; #685 merged with compatibility gates; #686 split/closed via #694/#695. #684 remains with WS-6. |
+| D6 | Dependabot triage | Done. New majors #684/#685 arrived after the baseline; not covered by D6 — see §5.4. |
 | D7 | Dead-integration teardown | Done (#657). |
 | D8 | Founder console actions | Founder-only; outstanding list in §6. |
 
 ## 3. Wave-2 scope and sequencing
 
-Original dependency order from briefs §3 (completed code is recorded in §1 and the ledger):
+Dependency order from the briefs §3, with what already happened folded in:
 
 ```
 WS-7 data integrity (steps 1–6)  ── Backend + Database
@@ -66,8 +62,8 @@ WS-7 data integrity (steps 1–6)  ── Backend + Database
 WS-9 dark-surface flips           ── Backend + Frontend   (D3; Notable needs the job created first — founder)
 WS-10 docs/lessons hygiene        ── Knowledge Curator    (rolling; each fix in the PR that changes the code)
 WS-5 item 5 sitemap fetch         ── Frontend             (independent, small)
-Remaining held major: #684 openai 3.x (through the eval gate, with WS-6)
-Completed: Sentry split #694/#695, locate() fix #691, sitemap #693
+Held Dependabot majors: #685 cryptography (check python-jose compat, merge), #684 openai 3.x (through the eval gate, with WS-6)
+Sentry split (task_68af8770), locate() fix (task_baa03629)  ── Frontend, independent
 ```
 
 **Hard rule across WS-6 and WS-7:** one eval re-pin, after parity lands (`USE_STATEMENT_FINANCIALS`
@@ -75,11 +71,7 @@ in the eval env, G5 JPM facts, streaming in the runner, edgartools already bumpe
 and gated with zero warnings). Re-pin again only when a listed trigger fires (briefs §3). Never
 re-pin to make a quality change look flat.
 
-### WS-7 — read briefs §4 WS-7. Historical implementation notes
-
-Steps 1–6 are now merged in #690/#697. The new heartbeat and amendment migrations are present;
-these notes describe their constraints, not requests to add duplicate migrations. Founder data
-backfill/generation and production verification remain separate.
+### WS-7 — read briefs §4 WS-7. Notes from wave 1
 - A new migration file is required for the `job_runs` heartbeat table. It must pass
   `backend/tests/unit/test_migration_lock_safety.py` (DO-guard for ALTERs on existing tables,
   `CREATE INDEX CONCURRENTLY … IF NOT EXISTS` outside a transaction for indexes on existing tables,
@@ -95,11 +87,6 @@ backfill/generation and production verification remain separate.
 - Company casing lives in `frontend/lib/formatCompanyName.ts` (#676); do not add another formatter.
 
 ### WS-6 — read `backend/evals/RUNBOOK.md` and `lessons/ops-eval-gate-for-ai-changes.md` first
-
-The historical one-run recipes below are not valid pin evidence for #698. Current parity CI uses
-two repeats; the final authoritative pin needs three repeats on the final merged extraction
-state. Existing GitHub DeepSeek credentials produced the observed runs; local Claude strong-judge
-authentication is unavailable. Remaining measurement/resilience/hygiene/Copilot work stays open.
 - `DEEPSEEK_API_KEY` is available in the Claude Code cloud environment; the runner needs
   `OPENAI_API_KEY=$DEEPSEEK_API_KEY`, `OPENAI_BASE_URL=https://api.deepseek.com/v1`,
   `AI_DEFAULT_MODEL=deepseek-v4-pro`, `USE_STRUCTURED_OUTPUT=false`, live EDGAR (edgar layer sets the
@@ -124,16 +111,16 @@ authentication is unavailable. Remaining measurement/resilience/hygiene/Copilot 
   Vercel; the value is not in the repo), warm companyfacts for the universe first, flip in
   `vercel.json`.
 - Calendar stays off until the Alpha Vantage licence decision (founder). Insiders stays off.
-- FPI and homepage findings archives landed in #692; 6-K classifier and founder backfill remain open.
+- Archive `tasks/fpi-support-roadmap.md` with a status block (finished plans → `tasks/archive/`).
 
 ### WS-10 — read briefs §4 WS-10
-Every doc fix lands with the code it describes. Completed: #693 corrected the sitemap/SEO
-status; #696 added the Settings inventory and moved the two misplaced scripts; #692 archived
-FPI/homepage plans with residuals. Remaining at this checkpoint: `docs/DATA_COMPLIANCE.md`
-processor table still names Gemini, Gemini-era façade comments await WS-6 resilience, and the
-`ci.yml` migration-step comment still says `schema_migrations` (executable ledger code is correct).
-The RUNBOOK FPI/status correction is in draft #698. Continue rolling doc corrections with their
-owning work; do not interpret the historical line-number list in the archive as current gaps.
+Every doc fix lands in the PR that changes the code it describes. Known stale spots not yet fixed:
+`docs/SEO_AUDIT.md:139` (6 jobs → 7), `RUNBOOK.md:428` FPI status, `docs/DATA_COMPLIANCE.md`
+processor table (DeepSeek, not Gemini), Gemini-era comments in `openai_service.py:77-100` (deleted
+with WS-6 step 3), `docs/CONFIGURATION.md` undocumented settings, `deploy-vercel.sh` executable at
+repo root, `scripts/test_resend_simple.py` outside the test roots, the `ci.yml` "Apply database
+migrations" step **comment** still says "the `schema_migrations` ledger" (executable lines are
+correct).
 
 ## 4. Operating procedure that worked (keep it)
 
@@ -187,7 +174,7 @@ owning work; do not interpret the historical line-number list in the archive as 
 3. **The auto-mode classifier blocks some Bash edits.** A python heredoc that rewrote several files
    was denied; the `Edit` tool (after `Read`) and plain `sed -i` for one-line substitutions were not.
    Do not fight it; switch tools.
-4. **Dependabot re-creates fast and can be red.** Resolved by #694/#695; #686 is closed. The original failure: #686 failed vitest because `@sentry/nextjs` 10.73
+4. **Dependabot re-creates fast and can be red.** #686 fails vitest because `@sentry/nextjs` 10.73
    evaluates `@sentry/server-utils`'s orchestrion bundler plugin at import time
    (`fileURLToPath(import.meta.url)` throws under jsdom): 18 spec files fail to load, all 392 tests
    that run pass. Land the other 13 minors separately; take Sentry alone with a vitest-scoped
@@ -201,9 +188,9 @@ owning work; do not interpret the historical line-number list in the archive as 
    22.23.0 and 22.23.2 were security releases. `frontend/tests/unit/nodeVersionLockstep.spec.ts`
    ties `.nvmrc` / `engines` / `ci.yml`; it does not check patch currency — check nodejs.org
    `index.json` when you bump.
-7. **`locate()` boundary defect, fixed in #691.** Historically it had an inclusive upper bound; an excerpt starting exactly at
+7. **`locate()` in `highlightInDom.ts` has an inclusive upper bound**; an excerpt starting exactly at
    a text-node boundary flashes the previous block. The e2e spec no longer depends on it; the fix is
-   task_baa03629, now implemented with range/scroll mutation tests. Preserve those assertions.
+   task_baa03629. Do not write a test that passes because of it.
 8. **Scratch Postgres in the cloud sandbox**: binaries in `/usr/lib/postgresql/16/bin`; you are
    root, so run `initdb`/`pg_ctl` as `nobody` via `setpriv --reuid=nobody --regid=nogroup
    --clear-groups` with the data dir under `/tmp/<name>` (the session scratchpad path is not
