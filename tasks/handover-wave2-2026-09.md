@@ -15,7 +15,8 @@ Verified backend/code checkpoint: #704, `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146
 [Production run 33988401306](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306)
 applied 0/skipped 34 migrations; `earningsnerd-backend-00270-4k6` serves 100% of traffic and
 detailed health is healthy (CI database 6.76 ms; independent probe 6.46 ms). Notable remains absent.
-Last verified frontend production checkpoint is #697. The [ledger](wave2-ledger-2026-09.md)
+Last verified frontend production checkpoint is #697 (Vercel moved to Pro on 2026-09-05; the
+daily deployment quota noted in #705 no longer applies). The [ledger](wave2-ledger-2026-09.md)
 contains exact merged SHAs, compact gate tails and CI/deployment links.
 
 - WS-7 implementation #690/#697 and prospective reporting-date correction #704 are deployed.
@@ -114,6 +115,9 @@ harness and remaining assertions were preserved. First strong-judge readout and 
   the deploy step already updates its image once it exists. Seed `--days 7`, then a week of founder
   review, then `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` `--update-env-vars` so the flag is visible
   in-repo (C6). Do not flip via the console.
+  Status 2026-09-05 (`eddcfbb7`): neither `NOTABLE_FILINGS_ENABLED` nor `AI_EVIDENCE_SNAP` appears in
+  `ci.yml` at all; `config.py` defaults hold both off. C6 visibility is unmet until wave-3 W3-2 pins
+  every guard flag explicitly (see [wave-3 handover](handover-wave3-2026-09.md)).
 - Analysis: confirm the prod value of `NEXT_PUBLIC_ENABLE_ANALYSIS` (founder can read it from
   Vercel; the value is not in the repo), warm companyfacts for the universe first, flip in
   `vercel.json`.
@@ -145,6 +149,8 @@ it does not rewrite old archives or quality-plan bodies. Broader agent/spec debt
    re-run with `resumeFromRunId` after a rate-limit outage — completed agents replay from cache.
    Wave-1 hit rate: roughly one confirmed should-fix per PR, two of which would have broken prod
    (a cross-loop asyncio lock; the dead FMP endpoint). It is worth the tokens.
+   The `Workflow` runtime is Claude-only; a non-Claude agent (the wave-3 GPT-6 Astra session) follows
+   the manual three-lens / two-refuter procedure in `AGENTS.md` and records it in the PR body.
 3. **Fix round on the branch, then un-draft, then merge** with the real head SHA read from the PR
    (`expectedHeadSha`). Never type a SHA from memory — a fabricated one cost a 409 and a retry.
 4. **One unverified backend deploy at a time.** Merge a backend-touching PR only after the previous

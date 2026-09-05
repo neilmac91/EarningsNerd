@@ -1,5 +1,25 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## Wave 3 — GPT-6 Astra session (2026-09)
+
+The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
+discrepancies (none invalidating the handover). The ordered plan, founder prerequisites and the
+per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md); non-Claude
+operating directives live in the root `AGENTS.md`. Work items (engineering unless marked founder):
+
+- [ ] W3-0 Review the three post-Codex docs commits of #705 (`c660e9a1..eddcfbb7`); no PR
+- [ ] W3-1 `ops.yml` allow-list exposes every guard flag; dispatch `describe-service` and record the output
+- [ ] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
+- [ ] W3-3 Universe refresh: **(founder)** `FMP_API_KEY`; engineering dispatches, merges the auto-PR, closes the failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
+- [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
+- [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
+- [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
+- [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
+- [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
+- [ ] W3-9 Historical reconciliation-flag audit/repair script (dry-run default) → **(founder)** executes
+- [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
+- [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
+
 ## WS-10 verified engineering handover — final synchronization
 
 Documentation-stage checkboxes below record the 2026-09-05 pre-merge source checkpoint
@@ -16,12 +36,13 @@ readout, dependent activation and founder production operations still need evide
 - [x] Knowledge Curator: archive finished implementation plans and the exact earlier ledger;
   preserve existing archives and the original definition of done verbatim. Keep mixed-stage
   readout, broader coverage and founder residuals active rather than marking them completed.
-- [ ] Chief engineer: verify archive bytes, local links/anchors, exact commit references and
+- [x] Chief engineer: verify archive bytes, local links/anchors, exact commit references and
   documentation-only scope. Root, plan_correctness and plan_gates independently review the
-  final documentation; serious findings require two refuters before correction.
-- [ ] Chief engineer: inspect required CI, merge with the freshly read head, and publish a
+  final documentation; serious findings require two refuters before correction. *Done in #705 (`eddcfbb7`).*
+- [x] Chief engineer: inspect required CI, merge with the freshly read head, and publish a
   standalone engineering handover with the evidence and a single founder action list. Pause
-  the hourly check-in when no authorized work remains in flight.
+  the hourly check-in when no authorized work remains in flight. *Done in #705 (`eddcfbb7`); the
+  handover was reviewed 2026-09-05 and its findings are tracked in wave 3 above.*
 
 This stage changes only task documentation. The owning evaluation RUNBOOK was corrected in
 #704. No backend path, feature flag, threshold, baseline, job, secret or production data changes.

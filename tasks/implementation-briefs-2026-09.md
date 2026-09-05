@@ -283,7 +283,7 @@ the same PR. **Size** ~2 days.
 
 ### WS-9 · Dark-surface flips — owner: Backend Developer + Frontend Developer — blocked on D3 and C6 confirmation
 
-Notable filings: create Cloud Run job + Scheduler (founder, `docs/DEPLOYMENT.md:371-410`), seed `--days 7`,
+Notable filings: create Cloud Run job + Scheduler (founder, `docs/DEPLOYMENT.md` §12 "Notable filings scan"), seed `--days 7`,
 one week of founder review, then `NOTABLE_FILINGS_ENABLED=true` **in `ci.yml`** (visible in repo).
 Analysis: confirm prod value of `NEXT_PUBLIC_ENABLE_ANALYSIS`; warm companyfacts; flip in `vercel.json`.
 Calendar: only after the Alpha Vantage licence decision (personal-use tier is live on a public surface today —
@@ -350,7 +350,7 @@ independent refuters per serious finding before merge; confirmed findings were f
 | #680 | D6 backend minor group (b) | merged `083247d`, deploy green | edgartools 5.40.1→5.55.0 alone; eval regression gate PASS, 0 warnings; #672 closed |
 | #677 | plan hygiene | merged `16c56cb` | todo + dispatch log + CLAUDE.md integrations list |
 | #681 | WS-1/2/8 follow-up | merged `9a7a578`, deploy green | INVALID-index check after CONCURRENTLY (passed silently against prod), checksum-order pin, teardown package-dir gate |
-| #687 | plan hygiene | this PR | wave-1 close-out |
+| #687 | plan hygiene | merged `7da70b95` | wave-1 close-out |
 
 **Handover for waves 2+:** `tasks/handover-wave2-2026-09.md` (state, decisions, sequencing, procedure,
 traps). The adversarial pre-merge review workflow is saved as `.claude/workflows/premerge-review.js`.

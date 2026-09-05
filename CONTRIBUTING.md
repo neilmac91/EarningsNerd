@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python **3.11**
-- Node.js **20.x** (see `frontend/.nvmrc`)
+- Node.js **22.23.2** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and `ci.yml` in lockstep)
 - Docker + Docker Compose (optional, for local Postgres/Redis)
 
 ## Local setup
