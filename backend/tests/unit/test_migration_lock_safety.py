@@ -23,6 +23,13 @@
    against one sha256 shared by `ci.yml` and `ops.yml`; and `ops.yml` is dispatch-only, sets the
    same `PGOPTIONS`, and refuses to run while a main push is in flight.
 
+   Since ADR-0007 (WS-2) the apply logic — PGOPTIONS, `apply_with_retry`, `dump_blockers` — lives in
+   `backend/scripts/apply_migrations.sh`, which records each applied file in the `schema_migrations`
+   ledger (filename + sha256) and skips it on later deploys. The retry/dump pins above therefore read
+   the SCRIPT (comment-stripped); the proxy-pin and job-level pins keep reading `ci.yml`. The deploy
+   step and the `migrations-postgres` CI job (postgres:15 service, three passes: seed, skip,
+   reset-and-reapply) must both run that one script — no second copy of the psql loop anywhere.
+
 2. The lint toolchain must be pinned. `pip install ruff` in CI let ruff 0.16's wider default rule set
    turn a clean tree into 2,767 findings with no code change (lessons/ops-pin-ci-toolchain.md). CI
    must install from `backend/requirements-dev.txt` with exact pins, and `ruff.toml` must select its
@@ -32,13 +39,17 @@ Known limits, by design: a table the same file CREATEs is exempt from both detec
 N+1 that table exists and its `CREATE INDEX IF NOT EXISTS` statements (32 today) still take SHARE
 locks; and that exemption is text-level, so a file that writes `CREATE TABLE IF NOT EXISTS <table
 that already exists>` before its ALTER/INDEX bypasses the gate (reviewers, not regexes, catch that).
-The migration ledger (WS-2, ADR-0007) removes re-application altogether and is the fix for that
-class; this gate stops the set of re-run lock acquisitions from growing until then. `ops.yml`'s
-deploy pre-flight is likewise a point-in-time, one-directional check (see its header).
+The migration ledger (WS-2, ADR-0007) removes re-application on deploys altogether; these detectors
+still matter because a ledger reset, an edited file (new sha256) and CI's third pass re-run every
+file, and because the first application of a new file takes the lock regardless. `ops.yml`'s deploy
+pre-flight is likewise a point-in-time, one-directional check (see its header); its psql steps are
+outside the "only the script applies SQL" pin below (they run ops SQL, never migration files).
 
 Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
 import re
+import shutil
+import subprocess
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
@@ -50,14 +61,17 @@ REPO_ROOT = BACKEND_DIR.parent
 CI_YML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 OPS_YML = REPO_ROOT / ".github" / "workflows" / "ops.yml"
 MIGRATIONS_DIR = BACKEND_DIR / "migrations"
+APPLY_SCRIPT = BACKEND_DIR / "scripts" / "apply_migrations.sh"
+MIGRATIONS_JOB = "migrations-postgres"
 REQUIREMENTS_DEV = BACKEND_DIR / "requirements-dev.txt"
 RUFF_TOML = BACKEND_DIR / "ruff.toml"
 
 MIGRATION_NAME = re.compile(r"^\d{8}_[a-z0-9_]+\.sql$")
 
-# Legacy files that issue a top-level ALTER TABLE on a table they did not create. They stay
-# re-applied every deploy (rule 3) and are protected only by the psql lock_timeout. Do NOT add to
-# this set: new files must use the DO-block guard. Remove an entry when its file is rewritten.
+# Legacy files that issue a top-level ALTER TABLE on a table they did not create. The ledger
+# (ADR-0007) runs each of them once, but a ledger reset or an edit re-runs them with only the psql
+# lock_timeout for protection. Do NOT add to this set: new files must use the DO-block guard.
+# Remove an entry when its file is rewritten.
 LEGACY_UNGUARDED_ALTERS = {
     "20260122_add_markdown_cache_columns.sql",
     "20260126_add_is_admin_to_users.sql",
@@ -304,25 +318,87 @@ def test_deploy_job_has_a_bounded_timeout():
     )
 
 
-def test_migration_step_sets_lock_and_statement_timeouts():
-    step = _step(_deploy_job(_load_ci()), "Apply database migrations")
-    run = step["run"]
-    for knob in ("lock_timeout=", "statement_timeout="):
-        assert knob in run, (
-            f"The migration step must set `{knob}` on the psql session (via PGOPTIONS). "
-            "`ALTER TABLE ... IF NOT EXISTS` takes ACCESS EXCLUSIVE before it checks; without a "
-            "lock_timeout one open transaction parks the whole deploy."
-        )
-    assert "psql" in run and "backend/migrations/*.sql" in run
-
-
 def _executable(text: str) -> str:
     """Drop `#` comment lines so no assertion below can be satisfied by prose (YAML or shell)."""
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
+def _script() -> str:
+    """The migration script's executable lines — its header documents every knob by name."""
+    return _executable(APPLY_SCRIPT.read_text(encoding="utf-8"))
+
+
+def test_migration_step_runs_only_the_shared_ledger_script():
+    ci = _load_ci()
+    step = _step(_deploy_job(ci), "Apply database migrations")
+    assert "bash backend/scripts/apply_migrations.sh" in _executable(step["run"]), (
+        "The deploy step must apply migrations by running backend/scripts/apply_migrations.sh — the "
+        "one script the migrations-postgres CI job also runs (ADR-0007). Do not inline a psql loop."
+    )
+    # The script is the ONLY place migration SQL is executed. A second `psql -f` / migrations glob
+    # in the workflow would bypass the schema_migrations ledger and drift from what CI proved.
+    text = _executable(CI_YML.read_text(encoding="utf-8"))
+    assert not re.search(r"\bpsql\b[^\n]*\s-f\s", text), "ci.yml must not run `psql -f` outside apply_migrations.sh"
+    assert not re.search(r"\bpsql\b[^\n]*migrations/", text), "ci.yml must not point psql at migration files directly"
+
+
+def test_apply_script_sets_lock_and_statement_timeouts_and_keeps_a_ledger():
+    script = _script()
+    for knob in ("lock_timeout=", "statement_timeout="):
+        assert knob in script, (
+            f"apply_migrations.sh must set `{knob}` on the psql session (via PGOPTIONS). "
+            "`ALTER TABLE ... IF NOT EXISTS` takes ACCESS EXCLUSIVE before it checks; without a "
+            "lock_timeout one open transaction parks the whole deploy."
+        )
+    assert "ON_ERROR_STOP=1" in script, "every psql call must fail the script on the first SQL error"
+    assert "CREATE TABLE IF NOT EXISTS schema_migrations" in script, "the script owns the ledger DDL (not create_all)"
+    assert "ON CONFLICT (filename) DO UPDATE" in script, "an edited file (new sha256) must re-apply once and re-record"
+    assert re.search(r"sha256sum|shasum -a 256", script), "ledger entries are keyed on the file's sha256"
+    assert "skipped" in script and "applied=" in script, "the CI job asserts on the `applied=N skipped=M` summary line"
+    bash = shutil.which("bash")
+    assert bash, "bash is required to syntax-check the migration script"
+    subprocess.run([bash, "-n", str(APPLY_SCRIPT)], check=True)  # fixed argv, no user input
+
+
+def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
+    ci = _load_ci()
+    job = ci["jobs"].get(MIGRATIONS_JOB)
+    assert job, f"ci.yml needs a `{MIGRATIONS_JOB}` job: the unit suite runs on SQLite and never executes the SQL files"
+    assert str(job["services"]["postgres"]["image"]).startswith("postgres:15"), "prod is Cloud SQL PostgreSQL 15"
+    runs = [str(step.get("run", "")) for step in job["steps"]]
+    passes = [run for run in runs if "backend/scripts/apply_migrations.sh" in run]
+    assert len(passes) >= 3, (
+        "The job must run apply_migrations.sh at least three times: seed the ledger, prove the skip "
+        f"(applied=0), then reset the ledger and prove every file still re-runs (found {len(passes)})."
+    )
+    # `script | tee` under GitHub's default `bash -e {0}` (no pipefail) reports tee's exit status, so a
+    # failing script would only be caught by the follow-up grep. Every pass must opt into pipefail
+    # itself, or the job must declare `shell: bash` (which GitHub runs with `-eo pipefail`).
+    job_shell = (job.get("defaults") or {}).get("run", {}).get("shell")
+    for run in passes:
+        assert "pipefail" in run or job_shell == "bash", (
+            "each pass step must `set -euo pipefail` (or the job must set defaults.run.shell: bash) so "
+            "the script's failure fails the step even though its output is piped through tee"
+        )
+    # Full-set applies (seed, reset) and the skip pass each assert the exact summary line.
+    all_applied = 'grep -qx "apply_migrations: applied=$N skipped=0"'
+    none_applied = 'grep -qx "apply_migrations: applied=0 skipped=$N"'
+    assert all_applied in passes[0] and all_applied in passes[2], "passes 1 and 3 must assert applied=$N skipped=0"
+    assert none_applied in passes[1], "pass 2 must assert applied=0 skipped=$N"
+    assert any("DELETE FROM schema_migrations" in run for run in runs), "the third pass must reset the ledger first"
+    # A soft-failing gate is no gate.
+    assert job.get("continue-on-error") is not True, "migrations-postgres must be blocking"
+    assert all(step.get("continue-on-error") is not True for step in job["steps"]), "no step may soft-fail"
+    assert MIGRATIONS_JOB in _deploy_job(ci)["needs"], (
+        "deploy-backend must `needs:` the migrations-postgres job so a file that fails on real Postgres "
+        "blocks the release instead of failing in the deploy step."
+    )
+
+
 def test_migration_retry_is_limited_to_lock_contention_sqlstates():
-    run = _executable(_step(_deploy_job(_load_ci()), "Apply database migrations")["run"])
+    # These lines moved from the ci.yml step into backend/scripts/apply_migrations.sh (ADR-0007);
+    # the pins are unchanged and read the script's executable lines.
+    run = _script()
     # psql prints SQLSTATE codes only under VERBOSITY=verbose; the retry must key on the codes in the
     # captured stderr, not on human-readable message text, and only for the contention class.
     assert re.search(r"psql\s.*-v VERBOSITY=verbose\s.*2>\"\$ERRLOG\"", run), (
@@ -458,8 +534,8 @@ def test_new_migrations_guard_alter_table_with_a_do_block():
         _scan_migrations(_unguarded_alter_targets),
         LEGACY_UNGUARDED_ALTERS,
         "LEGACY_UNGUARDED_ALTERS",
-        "New migration files must not issue a top-level ALTER TABLE on a pre-existing table — every "
-        "file is re-applied on EVERY deploy and `IF NOT EXISTS` still takes ACCESS EXCLUSIVE. Wrap it:\n"
+        "New migration files must not issue a top-level ALTER TABLE on a pre-existing table — a ledger "
+        "reset or an edit re-runs the file and `IF NOT EXISTS` still takes ACCESS EXCLUSIVE. Wrap it:\n"
         "  DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns\n"
         "      WHERE table_name = '<table>' AND column_name = '<col>') THEN\n"
         "    ALTER TABLE <table> ADD COLUMN <col> ...; END IF; END $$;",
@@ -471,8 +547,8 @@ def test_new_migrations_guard_create_index_with_a_do_block():
         _scan_migrations(_unguarded_index_targets),
         LEGACY_UNGUARDED_INDEXES,
         "LEGACY_UNGUARDED_INDEXES",
-        "New migration files must not CREATE INDEX on a pre-existing table at top level — the file is "
-        "re-applied on EVERY deploy and Postgres takes a SHARE lock on the table before it evaluates "
+        "New migration files must not CREATE INDEX on a pre-existing table at top level — a ledger reset "
+        "or an edit re-runs the file and Postgres takes a SHARE lock on the table before it evaluates "
         "`IF NOT EXISTS`. Wrap it:\n"
         "  DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = '<name>') THEN\n"
         "    CREATE INDEX <name> ON <table> (...); END IF; END $$;\n"

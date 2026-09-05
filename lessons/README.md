@@ -18,7 +18,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`arch-edit-causal-directive-add-example.md`](./arch-edit-causal-directive-add-example.md) — Edit the directive that causes the behavior and pair it with a worked example
 - [`arch-fk-safe-bulk-deletes.md`](./arch-fk-safe-bulk-deletes.md) — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
 - [`arch-guard-every-model-facing-surface.md`](./arch-guard-every-model-facing-surface.md) — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
-- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL re-applied on EVERY deploy
+- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the schema_migrations ledger
 - [`arch-no-precomputed-deltas-in-grounding.md`](./arch-no-precomputed-deltas-in-grounding.md) — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - [`arch-one-summary-orchestrator.md`](./arch-one-summary-orchestrator.md) — There is ONE summary orchestrator — never add a second generation path
 - [`arch-per-process-state-on-cloud-run.md`](./arch-per-process-state-on-cloud-run.md) — In-memory state is per-process — count every Cloud Run instance and job before trusting it

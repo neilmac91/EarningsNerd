@@ -87,7 +87,7 @@ backend/
 │   └── database.py       # session management + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
-├── migrations/           # idempotent SQL, re-applied on EVERY deploy (no Alembic)
+├── migrations/           # idempotent SQL, applied once via the schema_migrations ledger (ADR-0007; no Alembic)
 ├── scripts/              # operational one-offs & verification (see docs/OPERATIONS.md)
 ├── docs/                 # historical specs + edgartools-best-practices.md
 └── tests/                # unit/ integration/ smoke/ performance/ (config: pytest.ini;
@@ -226,7 +226,8 @@ unused since generation became account-required in #619; kept because migrations
   `app/utils/sec_urls.py::build_sec_archive_url()` (called from `edgar/client.py`,
   `integrations/sec_api.py`, the Filing listener and `scripts/fix_null_sec_urls.py`).
 - Schema: `Base.metadata.create_all()` at startup + `ensure_additive_columns`; all other
-  change via idempotent SQL in `backend/migrations/` (re-applied every deploy; no Alembic).
+  change via idempotent SQL in `backend/migrations/`, applied once per (filename, sha256) by
+  `scripts/apply_migrations.sh` through the `schema_migrations` ledger (ADR-0007; no Alembic).
 
 ## Patterns & invariants
 
