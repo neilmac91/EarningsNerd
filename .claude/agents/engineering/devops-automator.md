@@ -33,7 +33,7 @@
   frontend/package.json
   .env.example
   deploy.sh
-  deploy-vercel.sh
+  backend/scripts/deploy-vercel.sh
   ```
 * **Forbidden Actions:**
   - **NEVER** commit secrets, API keys, or credentials to version control

@@ -151,3 +151,8 @@ SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13
 A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
+
+## WS-10 — configuration and script placement hygiene
+
+- [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
+- [x] Integrate WS-7 statement default/docs and refresh gate (1910 passed); independent review and CI remain required before merge.
