@@ -55,6 +55,32 @@ def test_summary_distinguishes_attempts_from_scored_results():
 
 
 @pytest.mark.asyncio
+async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missing(monkeypatch):
+    from evals import weekly_readout
+
+    monkeypatch.setenv('OPENAI_API_KEY', 'offline-fixture')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'offline-fixture')
+    monkeypatch.setenv('GITHUB_SHA', 'a' * 40)
+    monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', True)
+    monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)
+    monkeypatch.setattr(settings, 'USE_STRUCTURED_OUTPUT', False)
+
+    async def missing(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr(runner, '_process_filing', missing)
+    readout, report = await weekly_readout.measure()
+    expected = [{'ticker': f['ticker'], 'filing_type': f['filing_type']}
+                for f in weekly_readout.load_cohort()]
+    assert len(expected) == 8
+    assert report['harness']['candidates'] == ['baseline']
+    assert report['harness']['runs_per_candidate'] == 3
+    assert report['harness']['filings'] == expected
+    assert report['results'] == []
+    assert readout['status'] != 'complete'
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('streaming', [True, False])
 async def test_timeout_retains_elapsed_and_observed_previews_without_scoring(monkeypatch, streaming):
     clock = iter([100.0, 175.125])
