@@ -89,6 +89,7 @@ async def test_real_summary_assembly_matches_streamed_and_complete_provider_json
     assert complete == streamed
     assert previews
     assert requests[1].pop('stream') is True
+    assert requests[1].pop('stream_options', None) == {'include_usage': True}
     assert requests[0] == requests[1]
     assert 'filing-grounded operating overview' in complete['business_overview']
 

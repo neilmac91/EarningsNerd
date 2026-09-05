@@ -198,6 +198,7 @@ async def stream_filing_summary(
     inflight_event: Optional[asyncio.Event] = None
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held = False
+    summary_task: Optional[asyncio.Task] = None
 
     async def run_sync_db(func, *args, **kwargs):
         """Helper to run DB operations in default thread pool"""
@@ -673,6 +674,7 @@ async def stream_filing_summary(
                 if time_in_stage > 75.0:
                     logger.warning(f"[stream:{filing_id}] AI summarization timed out after {time_in_stage:.1f}s. Switching to fallback.")
                     summary_task.cancel()
+                    await asyncio.gather(summary_task, return_exceptions=True)
                     # Use fallback with full filing context for meaningful partial results
                     summary_payload = generate_xbrl_summary(**fallback_kwargs)
                     # Break loop manually since task is cancelled/ignored
@@ -698,7 +700,12 @@ async def stream_filing_summary(
             if not summary_payload:
                 try:
                     summary_payload = await summary_task
+                except TimeoutError:
+                    # The service now owns the exact AI deadline, independent of heartbeat timing.
+                    summary_payload = generate_xbrl_summary(**fallback_kwargs)
                 except asyncio.CancelledError:
+                    if asyncio.current_task().cancelling():
+                        raise
                     # Looked like we already handled fallback, but ensure payload is set
                     if not summary_payload:
                         summary_payload = generate_xbrl_summary(**fallback_kwargs)
@@ -769,7 +776,8 @@ async def stream_filing_summary(
             # exactly the degraded population. The two are complementary (filing_text is emptied only when
             # the excerpt is in use), and ``untraceable_figures`` returns [] if BOTH are empty.
             quality = assess_quality(
-                summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt or filing_text
+                summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt or "",
+                trace_excerpt=excerpt or filing_text
             )
             raw_summary["quality"] = quality
             untraceable = quality.get("figures_untraceable") or []
@@ -1028,6 +1036,12 @@ async def stream_filing_summary(
 
         yield {'type': 'error', 'message': error_message}
     finally:
+        # This generator owns the provider task: disconnect/timeout must close its stream
+        # before releasing the slot and database session, with no background retry left running.
+        if summary_task is not None:
+            if not summary_task.done():
+                summary_task.cancel()
+            await asyncio.gather(summary_task, return_exceptions=True)
         # Release the generation slot first (only if actually acquired), then in-flight leadership,
         # so a queued generation can start as soon as this one is done.
         if generation_slot_held and generation_semaphore is not None:

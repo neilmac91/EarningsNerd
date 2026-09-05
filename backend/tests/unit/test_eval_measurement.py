@@ -85,6 +85,7 @@ def test_figure_denominators_and_existing_scores_are_independent():
 
 def test_advisory_warn_operates_without_pinned_reference_and_never_fails(tmp_path, capsys):
     stats = {
+        "n": 3, "scored": 3, "errors": 0,
         "gate_fail_rate": 0,
         "mean_untraceable_dollar_figures": 2,
         "figure_trace_measured": 2,
@@ -92,7 +93,13 @@ def test_advisory_warn_operates_without_pinned_reference_and_never_fails(tmp_pat
         "figure_trace_errors": 0,
     }
     report = tmp_path / "report.json"
-    report.write_text(json.dumps({"summary": {"baseline": stats}}))
+    report.write_text(json.dumps({
+        "summary": {"baseline": stats},
+        "harness": {"candidates": ["baseline"], "runs_per_candidate": 3,
+                    "filings": [{"ticker": "AAPL", "filing_type": "10-K"}]},
+        "results": [{"candidate": "baseline", "ticker": "AAPL", "filing_type": "10-K", "run": run,
+                     "score": {"coverage": 1}} for run in range(3)],
+    }))
     baseline = tmp_path / "baseline.json"
     baseline.write_text(json.dumps({"candidates": {"baseline": {"gate_fail_rate": 0}}}))
     assert regression_gate.main([str(report), "--baseline", str(baseline)]) == 0

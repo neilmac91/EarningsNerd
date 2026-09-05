@@ -109,6 +109,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `XBRL_CACHE_TTL_HOURS` | `24` | XBRL cache lifetime, hours. |
 | `STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS` | `3600` | Structured extraction retry cache lifetime, seconds. |
 | `AI_DEFAULT_MODEL` | `"deepseek-v4-pro"` | Primary provider model; CI explicitly sets this and OPENAI_BASE_URL. |
+| `AI_FALLBACK_BASE_URL` | `""` | Optional fallback API base; empty uses primary origin. HTTPS only; a different origin requires its separate credential. |
+| `AI_FALLBACK_MODEL` | `""` | Empty disables provider fallback. Configure only a model served by the fallback API after eval evidence. |
+| `AI_FALLBACK_API_KEY` | `""` | Separate fallback credential. Required across origins; same-origin fallback may use the primary key. Never send the primary key to an arbitrary provider. |
 | `AI_FAST_MODEL` | `""` | Optional cheaper task model; empty falls back to AI_DEFAULT_MODEL. Change only after evals. |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
 | `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. |

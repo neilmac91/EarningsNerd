@@ -1,6 +1,8 @@
 """Tests for the semantic quality verdict (roadmap S4)."""
 from app.services.summary_generation_service import assess_quality
 
+_EXCERPT = "The filing reports annual results and describes the company business and material risks."
+
 _XBRL = {
     "revenue": {"current": {"value": 383_285_000_000.0}},
     "net_income": {"current": {"value": 96_995_000_000.0}},
@@ -48,14 +50,14 @@ def test_partial_when_thin_coverage():
         "management_discussion": "n/a",
         "key_changes": "",
     }
-    verdict = assess_quality(summary, None)
+    verdict = assess_quality(summary, None, excerpt=_EXCERPT)
     assert verdict["tier"] == "partial"
     assert any("sections populated" in r for r in verdict["reasons"])
 
 
 def test_no_xbrl_does_not_force_partial_on_grounding():
     summary = _full_summary("A detailed multi-section overview of the business and its annual results.")
-    verdict = assess_quality(summary, None)
+    verdict = assess_quality(summary, None, excerpt=_EXCERPT)
     assert verdict["numeric_grounded"] is True  # nothing to contradict
     assert verdict["tier"] == "full"
 
@@ -109,13 +111,13 @@ def test_verdicts_on_fixed_9_section_taxonomy_at_4():
     HIDEABLE_SECTIONS at 3/7 (covered by the tests above)."""
     from app.services import summary_generation_service as svc
 
-    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None, excerpt=_EXCERPT)
     assert v["tier"] == "full" and (v["covered_count"], v["total_count"]) == (4, 9)
 
-    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3]), None)
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3]), None, excerpt=_EXCERPT)
     assert v["tier"] == "partial" and (v["covered_count"], v["total_count"]) == (3, 9)
 
-    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3], extra_covered=["hallucinated"]), None)
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3], extra_covered=["hallucinated"]), None, excerpt=_EXCERPT)
     assert (v["covered_count"], v["total_count"]) == (3, 9)  # stray key ignored
 
 
@@ -150,11 +152,11 @@ def test_na_segments_shrinks_the_denominator_only():
     from app.services import summary_generation_service as svc
 
     covered = tuple(s for s in _V2_SECTIONS if s != "segments")
-    v = svc.assess_quality(_v2_snapshot_payload(covered, not_applicable=["segments"]), None)
+    v = svc.assess_quality(_v2_snapshot_payload(covered, not_applicable=["segments"]), None, excerpt=_EXCERPT)
     assert (v["covered_count"], v["total_count"]) == (8, 8)
     assert v["tier"] == "full"
 
-    v = svc.assess_quality(_v2_snapshot_payload(covered), None)          # pre-T5.2b snapshot
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None, excerpt=_EXCERPT)          # pre-T5.2b snapshot
     assert (v["covered_count"], v["total_count"]) == (8, 9)
 
 
@@ -162,7 +164,7 @@ def test_na_is_ignored_for_a_covered_section():
     """per_section is truth: a COVERED section claimed not-applicable keeps its slot (total stays 9)."""
     from app.services import summary_generation_service as svc
 
-    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS, not_applicable=["segments"]), None)
+    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS, not_applicable=["segments"]), None, excerpt=_EXCERPT)
     assert (v["covered_count"], v["total_count"]) == (9, 9)
 
 
@@ -173,7 +175,7 @@ def test_na_untracked_and_duplicate_entries_cannot_shrink_the_total():
 
     covered = tuple(s for s in _V2_SECTIONS if s != "segments")
     v = svc.assess_quality(
-        _v2_snapshot_payload(covered, not_applicable=["segments", "segments", "hallucinated"]), None
+        _v2_snapshot_payload(covered, not_applicable=["segments", "segments", "hallucinated"]), None, excerpt=_EXCERPT
     )
     assert (v["covered_count"], v["total_count"]) == (8, 8)
 
@@ -187,7 +189,7 @@ def test_full_via_machine_sections_alone_is_marked():
     marked — `machine_sections_only` — for the pipeline's greppable counter and per-row audit."""
     from app.services import summary_generation_service as svc
 
-    v = svc.assess_quality(_v2_snapshot_payload(tuple(svc.MACHINE_COVERABLE_SECTIONS)), None)
+    v = svc.assess_quality(_v2_snapshot_payload(tuple(svc.MACHINE_COVERABLE_SECTIONS)), None, excerpt=_EXCERPT)
     assert v["tier"] == "full" and v["covered_count"] == 4
     assert v["machine_sections_only"] is True
 
@@ -198,11 +200,11 @@ def test_any_model_authored_coverage_clears_the_mark():
     from app.services import summary_generation_service as svc
 
     covered = ("earnings_quality", "value_drivers", "balance_sheet_liquidity", "the_print")
-    v = svc.assess_quality(_v2_snapshot_payload(covered), None)
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None, excerpt=_EXCERPT)
     assert v["tier"] == "full"
     assert v["machine_sections_only"] is False
 
-    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS), None)  # fully-covered normal run
+    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS), None, excerpt=_EXCERPT)  # fully-covered normal run
     assert v["machine_sections_only"] is False
 
 
@@ -212,7 +214,7 @@ def test_partial_verdicts_are_never_marked_machine_only():
     from app.services import summary_generation_service as svc
 
     covered = ("earnings_quality", "segments", "balance_sheet_liquidity")
-    v = svc.assess_quality(_v2_snapshot_payload(covered), None)
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None, excerpt=_EXCERPT)
     assert v["tier"] == "partial"
     assert v["machine_sections_only"] is False
 
@@ -222,11 +224,11 @@ def test_v1_and_legacy_payloads_are_never_marked():
     no-snapshot legacy payload both stay unmarked — the counter watches fresh v2 generations."""
     from app.services import summary_generation_service as svc
 
-    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)  # v1 names, full
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None, excerpt=_EXCERPT)  # v1 names, full
     assert v["tier"] == "full" and v["machine_sections_only"] is False
 
     legacy = _full_summary("A detailed multi-section overview of the business and its results.")
-    v = svc.assess_quality(legacy, None)  # no per_section snapshot at all
+    v = svc.assess_quality(legacy, None, excerpt=_EXCERPT)  # no per_section snapshot at all
     assert v["tier"] == "full" and v["machine_sections_only"] is False
 
 

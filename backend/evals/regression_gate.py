@@ -149,11 +149,14 @@ def evaluate_report(
     `notes` records candidates present in the report but absent from the pinned baseline (they
     can't be regression-checked — informational, not a failure)."""
     base_candidates = baseline.get("candidates", {})
-    report_summary = report.get("summary", {})
-    findings: List[Finding] = []
-    notes: List[str] = []
+    report_summary = report.get("summary") or {}
+    findings, notes = _check_completeness(report, only)
+    if not isinstance(report_summary, dict):
+        return findings, notes
     for candidate, cand_stats in report_summary.items():
         if only and candidate != only:
+            continue
+        if not isinstance(cand_stats, dict):
             continue
         base_stats = base_candidates.get(candidate)
         if not base_stats:
@@ -166,6 +169,87 @@ def evaluate_report(
             notes.append(f"{candidate}: figure trace measured={cand_stats.get('figure_trace_measured', 0)} "
                          f"unavailable={cand_stats.get('figure_trace_unavailable', 0)} errors={cand_stats.get('figure_trace_errors', 0)}; "
                          "unavailable is not measured zero")
+    return findings, notes
+
+
+def _check_completeness(report: Dict[str, Any], only: Optional[str]) -> tuple[List[Finding], List[str]]:
+    """Validate the requested attempt population before considering scored-only quality means.
+
+    The manifest is recorded before execution: inferring a cohort/repeat count from surviving
+    results would silently accept a missing final repeat or a wholly missing filing. Historical
+    summary-only reports cannot establish completeness; compare_candidate remains stats-only.
+    """
+    findings: List[Finding] = []
+    notes: List[str] = []
+
+    def fail(candidate: str, metric: str, value: int, label: str) -> None:
+        findings.append(Finding("HARD", candidate, metric, None, value, None, label))
+
+    harness = report.get("harness")
+    harness = harness if isinstance(harness, dict) else {}
+    candidates, runs, filings = (harness.get(k) for k in ("candidates", "runs_per_candidate", "filings"))
+    valid_candidates = (isinstance(candidates, list) and bool(candidates)
+                        and all(isinstance(c, str) and c.strip() for c in candidates)
+                        and len(set(candidates)) == len(candidates))
+    valid_filings = (isinstance(filings, list) and bool(filings)
+                     and all(isinstance(f, dict) and all(isinstance(f.get(k), str) and f[k].strip()
+                             for k in ("ticker", "filing_type")) for f in filings))
+    cohort = [(f["ticker"], f["filing_type"]) for f in filings] if valid_filings else []
+    valid_manifest = (valid_candidates and type(runs) is int and runs > 0
+                      and valid_filings and len(set(cohort)) == len(cohort))
+    if not valid_manifest:
+        fail(only or "report", "attempt_manifest", 1,
+             "missing/invalid requested candidates, filing cohort or repeat count; completeness unverified")
+
+    summary = report.get("summary")
+    if not isinstance(summary, dict) or not summary:
+        fail(only or "report", "attempt_summary", 1, "missing candidate summary")
+        summary = {}
+    raw_results = report.get("results")
+    if not isinstance(raw_results, list) or any(not isinstance(r, dict) for r in raw_results):
+        fail(only or "report", "attempt_results", 1, "missing/malformed attempt records")
+        raw_results = []
+    if valid_candidates:
+        unexpected = set(summary) - set(candidates)
+        unexpected_rows = sum(r.get("candidate") not in candidates for r in raw_results)
+        if unexpected or unexpected_rows:
+            fail("report", "unexpected_candidates", len(unexpected) + unexpected_rows,
+                 "summary or results contain candidates outside the requested manifest")
+        if only and only not in candidates:
+            fail(only, "selected_candidate", 1, "selected candidate was not requested")
+    selected = [only] if only else (candidates if valid_candidates else list(summary))
+    for candidate in selected:
+        rows = [r for r in raw_results if r.get("candidate") == candidate]
+        scored = sum(isinstance(r.get("score"), dict) and bool(r["score"]) for r in rows)
+        errors = sum(bool(r.get("error")) for r in rows)
+        stats = summary.get(candidate)
+        if not isinstance(stats, dict):
+            fail(candidate, "attempt_summary", 1, "requested candidate has no summary")
+            stats = {}
+        if errors or stats.get("errors", 0):
+            fail(candidate, "execution_errors", errors or 1, "evaluation execution errors block the gate")
+        if scored != len(rows) or not rows:
+            fail(candidate, "missing_scores", len(rows) - scored or 1, "attempts lack usable scores")
+        for key, actual in (("n", len(rows)), ("scored", scored), ("errors", errors)):
+            if type(stats.get(key)) is not int or stats[key] != actual:
+                fail(candidate, "attempt_counts", 1, f"summary {key} does not match observed attempts")
+        expected = len(cohort) * runs if valid_manifest else None
+        notes.append(f"{candidate}: expected={expected if expected is not None else 'unverified'} "
+                     f"attempted={len(rows)} scored={scored} errors={errors}; quality means use scored outputs only")
+        if valid_manifest:
+            identities = []
+            for row in rows:
+                if (type(row.get("run")) is not int
+                        or not all(isinstance(row.get(k), str) for k in ("ticker", "filing_type"))):
+                    fail(candidate, "attempt_identity", 1, "malformed filing/run identity")
+                    continue
+                identities.append((row["ticker"], row["filing_type"], row["run"]))
+            wanted = {(ticker, form, run) for ticker, form in cohort for run in range(runs)}
+            observed = set(identities)
+            missing, extra, duplicates = len(wanted - observed), len(observed - wanted), len(identities) - len(observed)
+            if missing or extra or duplicates:
+                fail(candidate, "incomplete_attempts", missing + extra + duplicates,
+                     f"requested attempt population differs: missing={missing} extra={extra} duplicates={duplicates}")
     return findings, notes
 
 

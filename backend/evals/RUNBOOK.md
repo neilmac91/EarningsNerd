@@ -225,7 +225,22 @@ python -m evals.regression_gate --latest                # diff it against baseli
 # or gate a specific report:
 python -m evals.regression_gate evals/reports/eval_<stamp>.json
 ```
-Exit 0 = no hard regression (warnings may print); exit 1 = at least one HARD regression. The gate
+Exit 0 = complete operational evidence with no hard regression (warnings may print); exit 1 =
+incomplete operational evidence or at least one HARD regression. Full reports must retain the
+pre-execution requested candidates, selected filing cohort and repeats in `harness`, with exactly
+one result per requested identity and matching `n`, `scored` and `errors` counts. Execution
+errors, missing scores, missing/duplicate/unrequested attempts and malformed counts block the
+gate even when the scored subset has perfect means. Quality means and their thresholds remain
+scored-output measurements; errors are not fabricated zero-quality scores. Historical reports
+without a declared plan cannot establish completeness through this CLI; the statistics-only
+`compare_candidate` API remains available for historical metric comparisons.
+
+The runner retains elapsed time, requested streaming and observed preview counts on generation
+errors, and its CLI emits only sanitized `ai_call`/`ai_summary` telemetry. Preview observations do
+not prove a stream completed, and missing usage remains unavailable. Weekly reports also retain
+their fixed eight-filing × three-run manifest; their separate strong-judge readout validation still
+determines judged completeness. A regression PASS does not establish a first judged readout or
+arm any feature. The gate
 **logic** is unit-tested offline (`tests/unit/test_eval_regression_gate.py`) — no network/AI — so it
 runs for free in `backend-tests` on every PR.
 
@@ -598,9 +613,12 @@ component rows, including their incompatible commentary/evidence, without invent
 verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
 future failures can distinguish extraction absence from generation omissions.
 
-This failed measurement was not pinned. The single authoritative three-run pin must
-include the final WS-7 extraction changes after #697 merges and this branch incorporates
-them; later judged measurement still requires an actual strong-judge credential/readout.
+This failed measurement was not pinned. The sole authoritative three-run measurement
+subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including deployed
+WS-7 #697, in run `33962580838` (artifact `9968531910`). All 78 results had no execution
+errors or hard vetoes. #698 committed the exact measured baseline and deployed; #700 later
+added measurement dimensions without changing that pin. The first actual weekly strong-judge
+readout remains credential-held and is still required before evidence-snap activation.
 
 
 ## Weekly strong-judge measurement (WS-6 step 2)

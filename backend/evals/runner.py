@@ -16,8 +16,10 @@ import argparse
 import asyncio
 import json
 import hashlib
+import logging
 import os
 import statistics
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -162,8 +164,9 @@ async def _run_one(
     run_index: int = 0, judge_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Returns a serializable result dict for one (candidate, filing, run_index)."""
-    import time
-
+    started = time.monotonic()
+    stream_requested = None
+    preview_count = 0
     base = {"candidate": candidate, "ticker": filing.ticker,
             "filing_type": filing.filing_type, "run": run_index}
     try:
@@ -172,22 +175,20 @@ async def _run_one(
 
             from app.config import settings
 
-            preview_count = 0
-
             async def observe_preview(_markdown: str) -> None:
                 nonlocal preview_count
                 preview_count += 1
 
             # Match summary_pipeline: the production flag controls whether a callback
             # selects streaming extraction. Preview text is never substituted for final output.
-            stream_cb = observe_preview if settings.STREAM_SECTION_REVEAL else None
-            started = time.time()
+            stream_requested = settings.STREAM_SECTION_REVEAL
+            stream_cb = observe_preview if stream_requested else None
             summary = await openai_service.summarize_filing(
                 grounding["filing_text"], filing.company_name, filing.filing_type,
                 xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                 stream_cb=stream_cb,
             )
-            latency = round(time.time() - started, 3)
+            latency = round(time.monotonic() - started, 3)
             payload = _baseline_to_canonical(summary)
             # Fidelity referent = the text the model GENERATED FROM (excerpt-first) — the same
             # rule as the production gate. The raw document is a different text RENDERING than the
@@ -227,7 +228,10 @@ async def _run_one(
                 "latency_seconds": latency, "input_tokens": in_tok, "output_tokens": out_tok,
                 "cost_usd": cost_usd(cfg, in_tok, out_tok), "error": None}
     except Exception as exc:  # noqa: BLE001
-        return {**base, "score": None, "aggregate": 0.0, "passed_gates": False,
+        diagnostics = {"latency_seconds": round(time.monotonic() - started, 3)}
+        if candidate == "baseline":
+            diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
+        return {**base, **diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}"}
 
 
@@ -257,6 +261,7 @@ def _summarize(
         summary[candidate] = {
             **summarize_figures(rs),
             "n": len(rs),
+            "scored": n,
             "errors": sum(1 for r in rs if r.get("error")),
             "mean_aggregate": round(statistics.mean(aggs), 4) if aggs else 0.0,
             "aggregate_stdev": round(statistics.pstdev(aggs), 4) if len(aggs) > 1 else 0.0,
@@ -406,6 +411,9 @@ async def main(
     print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s), "
           f"concurrency={concurrency}{f', judge={judge_model}' if judge_model else ''}...")
 
+    harness = _harness_metadata(judge_model)
+    harness.update(candidates=list(candidates), runs_per_candidate=runs,
+                   filings=[{"ticker": f.ticker, "filing_type": f.filing_type} for f in runnable])
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def _bounded(f: GoldenFiling) -> List[Dict[str, Any]]:
@@ -416,10 +424,22 @@ async def main(
     results: List[Dict[str, Any]] = [r for sub in per_filing_results for r in sub]
 
     summary = _summarize(results, pass_threshold=pass_threshold)
-    md_path = _write_report(summary, results, _harness_metadata(judge_model))
+    md_path = _write_report(summary, results, harness)
     print("\n=== SUMMARY ===")
     print(json.dumps(summary, indent=2))
     print(f"\nReport: {md_path}")
+
+
+def _configure_eval_telemetry() -> None:
+    """Emit only the sanitized AI metrics records; do not enable provider/request debug logs."""
+    logger = logging.getLogger("app.services.ai_metrics")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if not any(handler.name == "eval-ai-telemetry" for handler in logger.handlers):
+        handler = logging.StreamHandler()
+        handler.set_name("eval-ai-telemetry")
+        handler.setFormatter(logging.Formatter("%(name)s %(message)s"))
+        logger.addHandler(handler)
 
 
 if __name__ == "__main__":
@@ -448,6 +468,7 @@ if __name__ == "__main__":
                              "sequential). Bounded by EDGAR_THREAD_POOL_SIZE for the fetch side; the "
                              "AI-call side scales further. Set to 1 for the old fully-sequential behavior.")
     args = parser.parse_args()
+    _configure_eval_telemetry()
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
                      pass_threshold=args.pass_threshold, judge_model=args.judge,

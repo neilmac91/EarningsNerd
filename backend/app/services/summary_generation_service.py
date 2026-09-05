@@ -226,6 +226,7 @@ def assess_quality(
     *,
     sic: Optional[str] = None,
     excerpt: Optional[str] = None,
+    trace_excerpt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Deterministic quality verdict for a generated summary (roadmap S4).
 
@@ -235,8 +236,10 @@ def assess_quality(
     ``excerpt``; always attached for measurement, but only affects ``tier`` when
     ``AI_FIGURE_TRACE_GATE`` is on (advisory-first). ``machine_sections_only`` (T5.3) marks a full
     verdict reached with zero model-authored sections covered — observability, never a tier input.
-    "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
+    "partial" means absent filing grounding, thin coverage, or financials that don't match XBRL —
     the signal the UI surfaces honestly (quality badge) instead of silently stripping notices.
+    ``trace_excerpt`` may preserve raw filing source for figure tracing after extraction failure;
+    it never qualifies as proof of a usable extracted excerpt for the grounding presence check.
 
     Bank-aware top-line grounding (data-quality plan P0-2): a financial institution reports its
     top line as components (net interest income + noninterest income), and the pipeline's own
@@ -251,7 +254,20 @@ def assess_quality(
     covered, total, min_full = _verdict_coverage(summary_data)
     reasons: List[str] = []
 
-    numeric_grounded = True
+    import math
+    import re
+    from app.services.ai.figure_trace import xbrl_values
+
+    # Only the actual extracted excerpt counts: raw HTML fallback is not evidence that
+    # extraction succeeded. A finite standardized fact independently supplies grounding.
+    usable_excerpt = isinstance(excerpt, str) and bool(excerpt.strip()) and not re.search(
+        r"</?[A-Za-z][^>]*>|<![A-Za-z][^>]*>|<!--|<\?", excerpt
+    )
+    grounding_available = bool(usable_excerpt) or any(math.isfinite(v) for v in xbrl_values(xbrl_metrics))
+    if not grounding_available:
+        reasons.append("filing grounding unavailable: no usable excerpt or numeric XBRL data")
+
+    numeric_grounded = grounding_available
     if xbrl_metrics:
         import json as _json
 
@@ -305,7 +321,7 @@ def assess_quality(
             checks.append(_xbrl_value_appears(float(net_income_value), haystack))
 
         if checks:
-            numeric_grounded = all(checks)
+            numeric_grounded = grounding_available and all(checks)
             if not numeric_grounded:
                 # Literal contract with the badge de-escalation in SummaryDisplay.tsx
                 # (GROUNDING_REASON) — pinned on both sides (test_assess_quality_bank.py /
@@ -325,7 +341,11 @@ def assess_quality(
     from app.services.ai.figure_trace import untraceable_figures
 
     sections = (summary_data.get("raw_summary") or {}).get("sections")
-    figures_untraceable = untraceable_figures(sections, xbrl_metrics, excerpt)
+    # Raw filing text can corroborate a copied figure even if extraction failed; it does
+    # not attest that an actual usable excerpt exists for the hard presence check above.
+    figures_untraceable = untraceable_figures(
+        sections, xbrl_metrics, trace_excerpt if trace_excerpt is not None else excerpt
+    )
     trace_gate_active = bool(figures_untraceable) and settings.AI_FIGURE_TRACE_GATE
     if trace_gate_active:
         reasons.append(f"{len(figures_untraceable)} summary figure(s) not traceable to filing data")
