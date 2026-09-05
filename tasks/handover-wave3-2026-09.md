@@ -13,7 +13,7 @@ and the standalone wave-2 writeup. Companions: [wave-2 handover](handover-wave2-
 | Verified backend | #704 `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`; [run 33988401306](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306) `applied=0 skipped=34`, revision `00270-4k6`, healthy |
 | Verified frontend | #697 (Vercel). Vercel is on **Pro** since 2026-09-05; the daily deploy quota in #705's body no longer applies |
 | Open PRs / issues | none |
-| Codex review of #705 | no findings, but only at `c660e9a1`; three later docs-only commits were not re-reviewed |
+| Codex review of #705 | GitHub bot reviewed `c660e9a1`; three independent manual lenses covered final head `34350292`, whose tree exactly matches merged `eddcfbb7`. W3-0 adds a verification pass. |
 
 **Verdict on #705 and the writeup: sound and honest.** Every merge SHA, run id, gate tail and
 "not complete" boundary checks out against GitHub and the code. Discrepancies found, each with its
@@ -21,15 +21,15 @@ disposition:
 
 | # | Finding (verified at `eddcfbb7`) | Disposition |
 |---|---|---|
-| D1 | Prod guard flags are invisible in-repo: `ci.yml` line 510 `--update-env-vars` carries neither `NOTABLE_FILINGS_ENABLED` nor `AI_EVIDENCE_SNAP` (nor `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED`, `USE_STATEMENT_FINANCIALS`); only `backend/app/config.py` defaults hold prod state. C6 "visible in-repo" is unmet. | W3-2 |
+| D1 | The service `ci.yml` line 510 `--update-env-vars` omits `NOTABLE_FILINGS_ENABLED`, `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED` and `USE_STATEMENT_FINANCIALS`. `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` are already explicit in the eval job, not the service deploy line. Settings defaults apply only when no environment override exists; effective production values require W3-1 observation. C6 deploy-pin visibility is unmet. | W3-1 → W3-2 |
 | D2 | `backend/evals/RUNBOOK.md` (mandatory before AI changes) never mentions `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` (#701). A configured fallback silently changes which model produced an eval result. `docs/CONFIGURATION.md` does document them. | W3-2 |
-| D3 | Six of seven `.claude/agents/engineering/*.md` still teach Render/Firebase/Alembic/GPT-4; `.claude/agents/README.md` "Stack truth" is a disclaimer only. | `AGENTS.md` §2 now; W3-5 |
-| D4 | `.github/workflows/refresh-index-membership.yml` has never succeeded (2026-08-01 and 2026-09-01: Wikipedia's Nasdaq-100 table is gone and `FMP_API_KEY` is unset). No failure issue exists because the Sep 1 run executed the pre-#655 workflow (job 99868865843 has no issue step). Not a bug. Next cron 2026-10-01; the 100-day age gate trips 2026-10-16. | W3-3 |
+| D3 | All seven `.claude/agents/engineering/*.md` contain obsolete stack guidance: Render/Firebase/Alembic/GPT-4, frontend Vite/React Router (`frontend-developer.md:14`), or async SQLAlchemy (`api-architect.md:181`). README "Stack truth" provides precedence but does not repair or machine-gate those files. | `AGENTS.md` §2 now; W3-5 |
+| D4 | Both refresh runs in the complete available history (2026-08-01 and 2026-09-01) failed on old source `e8ea339f`, which explicitly selected Wikipedia and supplied no FMP input; the Nasdaq-100 parser found no usable constituents table. Both revisions lacked an issue step, so no failure issue is expected from them. The current FMP auto-selection/issue path has not yet run; `FMP_API_KEY` is absent from current repository secret names, which does not establish historical secret state. Next cron 2026-10-01; age gate trips 2026-10-16. | W3-3 |
 | D5 | No scheduled production smoke; `frontend/tests/e2e/prod-smoke.spec.ts` is opt-in via `SMOKE_BASE_URL`. This gap hid a seven-week frontend/backend skew earlier. | W3-4 |
 | D6 | Stale docs: `CONTRIBUTING.md` Node 20.x; briefs pointer to old DEPLOYMENT.md lines; briefs "#687 this PR"; dashboard plan config line numbers. | Fixed in the PR that added this file |
-| D7 | Advisory `ecdsa 0.19.2 / PYSEC-2026-1325`, no fix upstream; pulled only by `python-jose` (four call sites; the cryptography backend executes, so not exploitable here). The locked auth contract test does not import jose; two non-locked tests do. | W3-6 |
+| D7 | Advisory `ecdsa 0.19.2 / PYSEC-2026-1325` has no upstream fix; python-jose is its only direct dependency parent in the inspected environment. Four production modules import jose. Inspected default HS256 signing and explicit RS256 OAuth verification do not use the vulnerable private-key operations; the exact pinned local runtime selects cryptography backends. This is not proof about every deployed/configured path and does not remove the advisory. The locked auth contract test has no jose import; two non-locked test modules do. | W3-6 |
 | D8 | Two stale remote branches with no PR: `claude/earnings-nerd-audit-plan-8iikp3`, `claude/earningsnerd-sections-review-prompt-aw2u7c`. | Founder OK, then delete |
-| D9 | Codex reviewed #705 at `c660e9a1` only. | W3-0 |
+| D9 | The GitHub bot did not re-review after `c660e9a1`; final manual correctness/rules/evidence reviews covered `34350292`, and its tree equals the merge. Do not conflate the bot checkpoint with missing manual review. | W3-0 verified |
 | D10 | Vercel quota caveat is moot (Pro). | Recorded above |
 | D11 | Deploy trigger nuance: `ci.yml` line 430 deploys on any `^backend/` diff, **including `backend/tests/`**. Every rule-12 gate test therefore deploys (a no-op rebuild) and counts against "one unverified backend deploy at a time". Only docs, workflow and frontend changes are deploy-free. | `AGENTS.md` §6; PR grouping §4 |
 
@@ -77,9 +77,13 @@ Every item: goal, files, gate (rule 12), verification, done, held-until. Cite ex
 PR body. Re-read every file and line named here against `main` before editing; line numbers were
 verified on 2026-09-05 and drift.
 
-### W3-0 — Review the unreviewed tail of #705 (no PR)
-Read `git diff c660e9a1..eddcfbb7` (13 task Markdown files). Confirm links resolve and no claim
-contradicts code. Record the result in the W3-1 PR body. Ten minutes; no findings expected.
+### W3-0 — Verify the post-bot-review tail of #705 (completed)
+Additional review on 2026-09-06 checked `git diff c660e9a1..eddcfbb7`: 13 task Markdown files,
+43 valid local links/anchors, all 52 earlier archives unchanged, original §7 and earlier ledger
+copy preserved, and no product/document contradiction found. `git diff 34350292..eddcfbb7` is
+empty: the final tree already had three independent manual reviews. The GitHub bot checkpoint
+was earlier. Record this distinction and the bounded #706 claim corrections in the correction
+PR; W3-1 may cite that evidence. No application tests or production operation were needed.
 
 ### W3-1 — Ops visibility (workflow-only, no deploy)
 - **Goal:** make the effective production values of every guard flag readable from the repo's own

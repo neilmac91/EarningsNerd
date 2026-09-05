@@ -116,7 +116,8 @@ harness and remaining assertions were preserved. First strong-judge readout and 
   review, then `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` `--update-env-vars` so the flag is visible
   in-repo (C6). Do not flip via the console.
   Status 2026-09-05 (`eddcfbb7`): neither `NOTABLE_FILINGS_ENABLED` nor `AI_EVIDENCE_SNAP` appears in
-  `ci.yml` at all; `config.py` defaults hold both off. C6 visibility is unmet until wave-3 W3-2 pins
+  `ci.yml` at all. Their Settings defaults are false, but apply only without environment overrides;
+  effective production values require W3-1 observation. C6 visibility is unmet until W3-2 pins
   every guard flag explicitly (see [wave-3 handover](handover-wave3-2026-09.md)).
 - Analysis: confirm the prod value of `NEXT_PUBLIC_ENABLE_ANALYSIS` (founder can read it from
   Vercel; the value is not in the repo), warm companyfacts for the universe first, flip in

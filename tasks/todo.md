@@ -7,7 +7,8 @@ discrepancies (none invalidating the handover). The ordered plan, founder prereq
 per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md); non-Claude
 operating directives live in the root `AGENTS.md`. Work items (engineering unless marked founder):
 
-- [ ] W3-0 Review the three post-Codex docs commits of #705 (`c660e9a1..eddcfbb7`); no PR
+- [x] W3-0 Additional #705 tail verification: 13 task docs, 43 links valid, 52 earlier archives and original §7/ledger preserved. Final manual-reviewed `34350292` tree equals `eddcfbb7`; only the GitHub bot stopped at `c660e9a1`.
+- [ ] W3-0 documentation correction: qualify #706 review history, agent count, refresh failure cause, environment assumptions and dependency evidence; review/link check and draft PR before merge.
 - [ ] W3-1 `ops.yml` allow-list exposes every guard flag; dispatch `describe-service` and record the output
 - [ ] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: **(founder)** `FMP_API_KEY`; engineering dispatches, merges the auto-PR, closes the failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
