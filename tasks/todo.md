@@ -46,6 +46,26 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
 - [ ] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
   verify deployment and effective pins. No refresh or judged-readout dispatch in this PR.
 
+## W3-4 implementation — production smoke (active)
+
+Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
+Based on W3-2 candidate `7a1a6fbb`; no publication until its deployment is verified. The scheduled
+workflow reads a cached public filing as an unauthenticated visitor and never clicks generation
+or Copilot. The existing health policy accepts degraded serving status and rejects unhealthy.
+
+- [x] Add the daily/manual smoke workflow with safely bound filing input, bounded browser install,
+  retained API/browser artifacts and final create-or-comment failure issue.
+- [x] Extend the existing Node lockstep gate across all workflows while preserving its original
+  nonempty `ci.yml` assertion; add prod-smoke to the existing scheduled-failure tuple.
+  Review found the first extension lost CI-specific presence: both independent refuters confirmed;
+  correction and one missing-CI-pins proof supplement the retained wrong-new-workflow-pin proof.
+- [ ] Restore exact mutation bytes; run full backend and frontend gates on the combined candidate,
+  then independent review and draft publication. Adding the backend tuple causes an accepted
+  deployment with no migration change; verify it before subsequent backend merges.
+- [ ] After W3-2 and this candidate are verified, dispatch one genuine green and one deliberate
+  bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
+  deliberately induced failure issue. Live acceptance is pending; no live outcome is claimed.
+
 ## WS-10 verified engineering handover — final synchronization
 
 Documentation-stage checkboxes below record the 2026-09-05 pre-merge source checkpoint

@@ -5,7 +5,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEDULED_FAIL_LOUD = ("refresh-index-membership.yml",)
+SCHEDULED_FAIL_LOUD = ("refresh-index-membership.yml", "prod-smoke.yml")
 
 
 @pytest.mark.parametrize("name", SCHEDULED_FAIL_LOUD)

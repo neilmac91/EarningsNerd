@@ -47,6 +47,7 @@ describe('Node runtime is pinned in lockstep (nvmrc / engines / CI / Vercel)', (
 
   it('every workflow node-version equals .nvmrc exactly', () => {
     expect(workflowVersions.length, 'Workflows have no node-version: sites — did the setup-node steps move?').toBeGreaterThan(0)
+    expect(workflowVersions.some(({ file }) => file === 'ci.yml'), 'ci.yml has no node-version: sites — did the setup-node steps move?').toBe(true)
     for (const { file, version } of workflowVersions) {
       expect(version, `.github/workflows/${file} pins node-version ${version} but frontend/.nvmrc says ${nvmrc} — ${SITES}`).toBe(nvmrc)
     }
