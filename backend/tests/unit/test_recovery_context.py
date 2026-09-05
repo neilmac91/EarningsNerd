@@ -226,6 +226,8 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
             timers[0].reschedule(asyncio.get_running_loop().time())
             with pytest.raises(TimeoutError):
                 await asyncio.wait_for(asyncio.shield(task), 1)
+            assert task.done(), 'outer observation guard must not supply the generation timeout'
+            assert not task.cancelled() and isinstance(task.exception(), TimeoutError)
             assert wire == []
         finally:
             task.cancel()
