@@ -353,3 +353,8 @@ actions (D8) run in parallel and are not tracked here — the open ones are list
 as **(founder)** items: drop the legacy prod `schema_migrations` table, Vercel Node 22 setting,
 `FMP_API_KEY` secret, Sentry source-map env, Cloud SQL `idle_in_transaction_session_timeout`,
 create the `earningsnerd-notable-filings` job when D3 flips.
+
+WS-10 placement resolution (PR #696): the root Vercel helper is now
+`backend/scripts/deploy-vercel.sh`; the live email smoke is
+`backend/scripts/smoke_resend.py` (manual only, never collected by CI). Both resolve
+paths from their own file location. The original paths above record the audit finding.
