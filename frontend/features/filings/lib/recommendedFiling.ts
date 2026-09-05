@@ -19,14 +19,11 @@ const byFilingDateDesc = (a: Filing, b: Filing) =>
  * stable as the user filters. Superseded originals remain in history but are not recommended.
  * Amendments are eligible on their actual filing date. Returns null when none are eligible.
  *
- * NOTE (revisit when ENABLE_FPI_FILINGS ships): once the FPI program is on, the company-page list
- * gains 20-F / 6-K / 40-F, and active foreign issuers file 6-Ks continuously — so "most recent of
- * any type" would hand the banner to a thin 6-K press release for nearly every FPI, permanently
- * outranking the substantive 20-F (the dashboard feed already treats 6-K as second-class for this
- * reason). Decide then whether 6-K stays eligible for *selection*. Careful: simply excluding 6-K
- * here while the copy still says "most recent filing" would re-introduce the exact dishonesty this
- * fix removed (a newer, unpointed-to 6-K would exist) — an exclusion needs a matching copy branch
- * ("most recent report") in the banner, not just a filter in this helper.
+ * FPI policy: 20-F / 6-K / 40-F are already enabled. Active foreign issuers often file 6-Ks,
+ * so this newest-filing policy can recommend an interim release ahead of the annual 20-F.
+ * A future policy refinement may prefer substantive reports, but excluding 6-K must also change
+ * the banner copy from "most recent filing" to "most recent report"; a hidden newer filing must
+ * never make the recommendation's recency claim misleading.
  */
 export function selectRecommendedFiling(filings: Filing[] | undefined | null): Filing | null {
   return (filings ?? []).filter((filing) => !filing.superseded_by_accession).sort(byFilingDateDesc)[0] ?? null
