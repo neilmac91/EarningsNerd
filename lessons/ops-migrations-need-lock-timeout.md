@@ -22,8 +22,9 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
    (`55P03`, `57014`, `40P01` — read from psql stderr under `VERBOSITY=verbose`; a syntax or
    permission error is final), and on final failure prints `pg_stat_activity` (unfiltered — other
    roles' rows are NULL without `pg_read_all_stats`) plus a `pg_locks ⨝ pg_class` dump so the
-   blocker and the relation are visible from the CI log. The same `PGOPTIONS` apply to every other
-   workflow session that reaches Cloud SQL (`ops.yml`).
+   blocker and the relation are visible from the CI log. Every other workflow step that reaches
+   Cloud SQL (`ops.yml`) sets the same `lock_timeout`; its `statement_timeout` is scoped per step
+   (write path 120 s, read-only snapshots 600 s).
 2. Every deploy job carries `timeout-minutes` well under GitHub's 360-minute default.
 3. New migration files never issue a top-level `ALTER TABLE` on a pre-existing table. Wrap it in
    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns …) THEN ALTER … END IF; END $$;`

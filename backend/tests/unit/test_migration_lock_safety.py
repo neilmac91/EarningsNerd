@@ -28,10 +28,13 @@
    must install from `backend/requirements-dev.txt` with exact pins, and `ruff.toml` must select its
    rules explicitly.
 
-Known limit, by design: a table the same file CREATEs is exempt from both detectors, yet on deploy
+Known limits, by design: a table the same file CREATEs is exempt from both detectors, yet on deploy
 N+1 that table exists and its `CREATE INDEX IF NOT EXISTS` statements (32 today) still take SHARE
-locks. The migration ledger (WS-2, ADR-0007) removes re-application altogether and is the fix for
-that class; this gate stops the set of re-run lock acquisitions from growing until then.
+locks; and that exemption is text-level, so a file that writes `CREATE TABLE IF NOT EXISTS <table
+that already exists>` before its ALTER/INDEX bypasses the gate (reviewers, not regexes, catch that).
+The migration ledger (WS-2, ADR-0007) removes re-application altogether and is the fix for that
+class; this gate stops the set of re-run lock acquisitions from growing until then. `ops.yml`'s
+deploy pre-flight is likewise a point-in-time, one-directional check (see its header).
 
 Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
@@ -118,14 +121,18 @@ _IDENT = r'((?:"[^"]+"|\w+)(?:\.(?:"[^"]+"|\w+))?)'
 _ALTER = re.compile(r"\bALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?" + _IDENT, re.I)
 _CREATE = re.compile(r"\bCREATE\s+(?:UNLOGGED\s+|TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?" + _IDENT, re.I)
 # group(1) = CONCURRENTLY (sanctioned: builds without a SHARE lock on the table), group(2) = index
-# name, group(3) = table.
+# name (Postgres allows it to be omitted), group(3) = table.
 _CREATE_INDEX = re.compile(
-    r"\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?"
+    r"\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(?:"
     + _IDENT
-    + r"\s+ON\s+(?:ONLY\s+)?"
+    + r"\s+)?ON\s+(?:ONLY\s+)?"
     + _IDENT,
     re.I,
 )
+_IF_THEN = re.compile(r"\bIF\b.*?\bTHEN\b", re.S | re.I)
+_END_IF = re.compile(r"\bEND\s+IF\b", re.I)
+_TXN_OPEN = re.compile(r"^\s*(?:BEGIN|START\s+TRANSACTION)\b", re.I)
+_TXN_CLOSE = re.compile(r"^\s*(?:COMMIT|ROLLBACK)\b", re.I)
 
 
 def _strip_comments(sql: str) -> str:
@@ -144,9 +151,10 @@ def _unguarded_targets(
     """Tables `statement` will lock on every re-apply.
 
     Counts every top-level match (a regex over the whole comment-stripped text, so several
-    statements on one line are all seen) and matches inside a DO body that has no catalog/subquery
-    existence check. Ignores tables the same file CREATEs (a brand-new table has no readers to
-    block) and matches `table_of` maps to None (the sanctioned form, e.g. CONCURRENTLY).
+    statements on one line are all seen) and every match inside a DO body that is not enclosed by
+    an `IF <catalog check> THEN ... END IF` branch. Ignores tables the same file CREATEs (a
+    brand-new table has no readers to block) and matches `table_of` maps to None (the sanctioned
+    form, e.g. CONCURRENTLY).
     """
     sql = _strip_comments(sql)
     do_bodies = [m.group(2) for m in _DO_BLOCK.finditer(sql)]
@@ -154,9 +162,48 @@ def _unguarded_targets(
     created = {_norm(m) for m in _CREATE.findall(top)}
     hit = {table_of(m) for m in statement.finditer(top)}
     for body in do_bodies:
-        if statement.search(body) and not _GUARD.search(body):
-            hit.update(table_of(m) for m in statement.finditer(body))
+        hit |= _unguarded_in_do_body(body, statement, table_of)
     return sorted(t for t in hit if t and t not in created)
+
+
+def _unguarded_in_do_body(
+    body: str, statement: re.Pattern[str], table_of: Callable[[re.Match[str]], str | None]
+) -> set[str | None]:
+    """Matches in a DO body that no enclosing `IF <catalog check> THEN` branch protects.
+
+    Walks the body statement by statement (`;`) with a stack of open IF branches, so one catalog
+    check whitelists only the statements inside its own branch — never the whole block.
+    """
+    hit: set[str | None] = set()
+    guards: list[bool] = []
+    for chunk in body.split(";"):
+        opened = _IF_THEN.search(chunk)
+        if opened:
+            guards.append(bool(_GUARD.search(opened.group(0))))
+        if not any(guards):
+            hit.update(table_of(m) for m in statement.finditer(chunk))
+        if _END_IF.search(chunk) and guards:
+            guards.pop()
+    return hit
+
+
+def _concurrent_index_inside_transaction(sql: str) -> list[str]:
+    """Tables whose `CREATE INDEX CONCURRENTLY` sits between BEGIN and COMMIT.
+
+    Postgres rejects CONCURRENTLY inside a transaction block (SQLSTATE 25001), so such a file fails
+    on EVERY deploy, not just the first.
+    """
+    top = _DO_BLOCK.sub(" ", _strip_comments(sql))
+    in_txn = False
+    hit: set[str] = set()
+    for chunk in top.split(";"):
+        if _TXN_OPEN.match(chunk):
+            in_txn = True
+        elif _TXN_CLOSE.match(chunk):
+            in_txn = False
+        elif in_txn:
+            hit.update(_norm(m.group(3)) for m in _CREATE_INDEX.finditer(chunk) if m.group(1))
+    return sorted(hit)
 
 
 def _unguarded_alter_targets(sql: str) -> list[str]:
@@ -180,6 +227,19 @@ def test_unguarded_alter_detector_semantics():
     assert _unguarded_alter_targets("DO $$ BEGIN ALTER TABLE users ADD COLUMN x INT; END $$;") == ["users"]
     assert _unguarded_alter_targets(
         "DO $$ BEGIN ALTER TABLE users ADD COLUMN IF NOT EXISTS x INT; END $$;"
+    ) == ["users"]
+    # One catalog check guards only its own branch: a second ALTER outside the IF is still unguarded,
+    # and an IF on a plain variable (no catalog check) guards nothing.
+    assert _unguarded_alter_targets(
+        """DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='x') THEN
+            ALTER TABLE users ADD COLUMN x INT;
+        END IF;
+        ALTER TABLE accounts ADD COLUMN y INT;
+        END $$;"""
+    ) == ["accounts"]
+    assert _unguarded_alter_targets(
+        "DO $$ DECLARE go BOOLEAN := TRUE; BEGIN IF go THEN ALTER TABLE users ADD COLUMN x INT; END IF; END $$;"
     ) == ["users"]
     # Same-file CREATE + ALTER: a brand-new table has no readers to block.
     assert _unguarded_alter_targets("CREATE TABLE IF NOT EXISTS t (id INT); ALTER TABLE t ADD COLUMN y INT;") == []
@@ -208,7 +268,31 @@ def test_unguarded_index_detector_semantics():
         "CREATE INDEX i ON users (x); END IF; END $$;"
     ) == []
     assert _unguarded_index_targets("DO $$ BEGIN CREATE INDEX IF NOT EXISTS i ON users (x); END $$;") == ["users"]
+    # Unnamed indexes (Postgres picks the name) are caught too.
+    assert _unguarded_index_targets("CREATE INDEX ON users (x);") == ["users"]
+    assert _unguarded_index_targets("CREATE UNIQUE INDEX CONCURRENTLY ON users (x);") == []
+    # A guarded branch does not cover a sibling statement outside it.
+    assert _unguarded_index_targets(
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'i') THEN "
+        "CREATE INDEX i ON users (x); END IF; CREATE INDEX j ON accounts (y); END $$;"
+    ) == ["accounts"]
     assert _unguarded_index_targets("-- CREATE INDEX i ON users (x);\nSELECT 1;") == []
+
+
+def test_concurrent_index_in_transaction_detector_semantics():
+    assert _concurrent_index_inside_transaction(
+        "BEGIN;\nCREATE INDEX CONCURRENTLY IF NOT EXISTS i ON users (x);\nCOMMIT;"
+    ) == ["users"]
+    assert _concurrent_index_inside_transaction(
+        "BEGIN;\nALTER TABLE t ADD COLUMN x INT;\nCOMMIT;\nCREATE INDEX CONCURRENTLY i ON t (x);"
+    ) == []
+    assert _concurrent_index_inside_transaction("START TRANSACTION; CREATE INDEX CONCURRENTLY ON t (x); ROLLBACK;") == ["t"]
+    # A plain index inside the block is a lock question (previous detector), not a syntax error.
+    assert _concurrent_index_inside_transaction("BEGIN; CREATE INDEX i ON t (x); COMMIT;") == []
+    # `BEGIN` inside a DO body opens a PL/pgSQL block, not a transaction.
+    assert _concurrent_index_inside_transaction(
+        "DO $$ BEGIN PERFORM 1; END $$; CREATE INDEX CONCURRENTLY i ON t (x);"
+    ) == []
 
 
 def test_deploy_job_has_a_bounded_timeout():
@@ -232,20 +316,27 @@ def test_migration_step_sets_lock_and_statement_timeouts():
     assert "psql" in run and "backend/migrations/*.sql" in run
 
 
+def _executable(text: str) -> str:
+    """Drop `#` comment lines so no assertion below can be satisfied by prose (YAML or shell)."""
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+
+
 def test_migration_retry_is_limited_to_lock_contention_sqlstates():
-    run = _step(_deploy_job(_load_ci()), "Apply database migrations")["run"]
-    # psql prints SQLSTATE codes only under VERBOSITY=verbose; the retry must key on the codes, not
-    # on human-readable message text, and must be limited to the contention class.
-    assert "VERBOSITY=verbose" in run, "psql must run with -v VERBOSITY=verbose so SQLSTATEs reach stderr"
-    for code in ("55P03", "57014"):
-        assert code in run, f"retry must match SQLSTATE {code} in captured psql stderr"
-    assert re.search(r"grep\s+-[A-Za-z]*E[A-Za-z]*\s+'[^']*55P03[^']*'", run), (
-        "the retry decision must be a grep on the captured stderr for the SQLSTATE codes"
+    run = _executable(_step(_deploy_job(_load_ci()), "Apply database migrations")["run"])
+    # psql prints SQLSTATE codes only under VERBOSITY=verbose; the retry must key on the codes in the
+    # captured stderr, not on human-readable message text, and only for the contention class.
+    assert re.search(r"psql\s.*-v VERBOSITY=verbose\s.*2>\"\$ERRLOG\"", run), (
+        "psql must run with `-v VERBOSITY=verbose` and capture stderr to $ERRLOG"
+    )
+    assert "grep -qE '\\b(55P03|57014|40P01)\\b' \"$ERRLOG\"" in run, (
+        "the retry decision must be exactly a SQLSTATE grep on the captured stderr (55P03 lock "
+        "timeout, 57014 statement timeout, 40P01 deadlock) — update this pin deliberately"
     )
     # The blocker dump must show every backend (other roles' rows have NULL xact_start without
-    # pg_read_all_stats) and name the locked relation via pg_locks.
+    # pg_read_all_stats) and name the locked relation via pg_locks ⨝ pg_class.
     assert "xact_start IS NOT NULL" not in run
-    assert "pg_stat_activity" in run and "pg_locks" in run and "pg_class" in run
+    assert re.search(r"psql .*FROM pg_stat_activity", run), "dump must query pg_stat_activity"
+    assert re.search(r"psql .*FROM pg_locks l JOIN pg_class c", run), "dump must join pg_locks to pg_class"
 
 
 def _workflow_env_pin(workflow: dict, job: dict) -> tuple[str, str]:
@@ -264,36 +355,57 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
         version, sha = _workflow_env_pin(workflow, job)
         assert re.fullmatch(r"v\d+\.\d+\.\d+", version), f"CLOUD_SQL_PROXY_VERSION must be pinned (got {version!r})"
         assert re.fullmatch(r"[0-9a-f]{64}", sha), f"CLOUD_SQL_PROXY_SHA256 must be a sha256 hex digest (got {sha!r})"
-        run = _step(job, step_name)["run"]
-        assert "sha256sum -c" in run, f"{step_name!r} must verify the download with `sha256sum -c`"
-        assert "CLOUD_SQL_PROXY_VERSION" in run and "CLOUD_SQL_PROXY_SHA256" in run
+        run = _executable(_step(job, step_name)["run"])
+        assert '/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"' in run, (
+            f"{step_name!r} must download the pinned CLOUD_SQL_PROXY_VERSION"
+        )
+        assert 'echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -' in run, (
+            f"{step_name!r} must verify the download with `sha256sum -c` before chmod/exec"
+        )
         pins.append((version, sha))
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
 
+_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic"
+
+
 def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     ops = yaml.safe_load(OPS_YML.read_text(encoding="utf-8"))
+    job = ops["jobs"]["ops"]
     triggers = ops.get("on") or ops.get(True)  # PyYAML reads a bare `on:` key as boolean True
     assert set(triggers) == {"workflow_dispatch"}, (
         f"ops.yml must fire only from workflow_dispatch; its push trigger pointed at a branch that no "
         f"longer exists on origin (audit 2026-09). Found: {sorted(triggers)}"
     )
-    run = _step(ops["jobs"]["ops"], "Start Cloud SQL proxy and export connection env")["run"]
-    for knob in ("lock_timeout=", "statement_timeout="):
-        assert knob in run, f"ops.yml Cloud SQL sessions must set `{knob}` (PGOPTIONS), same as the deploy step"
-    assert "PGOPTIONS" in run
+    # PGOPTIONS is scoped per step: the read-only detection snapshots full-scan financial_fact and
+    # get a larger statement budget; the write path matches the deploy migration step exactly.
+    proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
+    assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
+    for step_name, statement_timeout in (
+        ("Run committed detection SQL (read-only snapshots)", "600s"),
+        ("Run ticker repair script", "120s"),
+    ):
+        opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
+        assert "-c lock_timeout=10s" in opts and f"-c statement_timeout={statement_timeout}" in opts, (
+            f"{step_name!r} must set env PGOPTIONS with lock_timeout=10s and statement_timeout={statement_timeout} "
+            f"(found {opts!r})"
+        )
     # A prose "do not dispatch while a deploy is in flight" rotted into an incident risk; the job
-    # must check for an in-flight main push itself (rule 12).
-    step = _step(ops["jobs"]["ops"], "Refuse to run while a main push (deploy) is in flight")
-    assert "workflow" in step["run"] and "ci.yml" in step["run"] and "in_progress" in step["run"]
+    # must check for an in-flight main push itself (rule 12), with the exemption list pinned.
+    step = _step(job, "Refuse to run while a main push (deploy) is in flight")
+    assert step["if"] == f"${{{{ !contains('{_OPS_PREFLIGHT_EXEMPT}', steps.request.outputs.operation) }}}}"
+    run = _executable(step["run"])
+    assert re.search(r"gh run list .*--workflow ci\.yml --branch main --event push", run), (
+        "pre-flight must list CI runs for pushes to main"
+    )
+    assert re.search(r'--status "\$1"', run) and "in_progress" in run and "queued" in run
+    assert "exit 1" in run, "pre-flight must fail the run (exit 1) when a main push is in flight, not just warn"
     assert ops["permissions"].get("actions") == "read"
 
 
 def test_lint_toolchain_is_installed_from_pinned_dev_requirements():
     # Only executable lines count — YAML comments may (and do) mention the anti-pattern by name.
-    text = "\n".join(
-        line for line in CI_YML.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")
-    )
+    text = _executable(CI_YML.read_text(encoding="utf-8"))
     assert not re.search(r"pip install\s+(?:[^\n]*\s)?(?:ruff|bandit)\b", text), (
         "ci.yml must not `pip install ruff`/`bandit` unpinned — install from backend/requirements-dev.txt."
     )
@@ -365,4 +477,13 @@ def test_new_migrations_guard_create_index_with_a_do_block():
         "  DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = '<name>') THEN\n"
         "    CREATE INDEX <name> ON <table> (...); END IF; END $$;\n"
         "or, for a large table, `CREATE INDEX CONCURRENTLY IF NOT EXISTS` OUTSIDE any BEGIN/COMMIT block.",
+    )
+
+
+def test_concurrent_index_is_never_inside_a_transaction_block():
+    found = _scan_migrations(_concurrent_index_inside_transaction)
+    assert not found, (
+        "`CREATE INDEX CONCURRENTLY` cannot run inside a transaction block (Postgres SQLSTATE 25001) — "
+        "the file would fail on EVERY deploy. Move the statement after `COMMIT;` (or drop the "
+        f"BEGIN/COMMIT wrapper for that file). offending: {found}"
     )

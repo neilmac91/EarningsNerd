@@ -17,8 +17,13 @@ name: Ops
 #     ONE pending run per group, so sharing `deploy-backend`'s group would let an ops dispatch
 #     silently cancel a queued release. Instead the pre-flight step below refuses to run while a
 #     CI run for a push to `main` is in flight (read-only inspection and rollback are exempt).
-#   - Every Cloud SQL session carries the deploy step's PGOPTIONS (lock_timeout/statement_timeout)
-#     and the proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
+#     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
+#     write operations when a backend merge is imminent.
+#   - Every Cloud SQL step sets PGOPTIONS with lock_timeout=10s (fail fast, never queue behind a
+#     held lock). statement_timeout is per step: the write path (repair script) matches the deploy
+#     migration step (120s); the read-only detection snapshots full-scan financial_fact and get
+#     600s. The proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -257,10 +262,6 @@ jobs:
           {
             echo "PGUSER=$PGUSER"; echo "PGPASSWORD=$PGPASSWORD"; echo "PGDATABASE=$PGDATABASE"
             echo "PGHOST=127.0.0.1"; echo "PGPORT=5432"; echo "DATABASE_URL=$LOCAL_URL"
-            # Same session guards as the deploy migration step: fail fast on a held lock instead of
-            # queueing behind it, and bound any single statement. libpq honours PGOPTIONS, so the
-            # SQLAlchemy-based repair script inherits it as well as psql.
-            echo "PGOPTIONS=-c lock_timeout=10s -c statement_timeout=120s"
           } >> "$GITHUB_ENV"
           nohup ./cloud-sql-proxy --port 5432 "$CONN" > /tmp/sql-proxy.log 2>&1 &
           for _ in $(seq 1 30); do
@@ -271,6 +272,10 @@ jobs:
 
       - name: Run committed detection SQL (read-only snapshots)
         if: steps.request.outputs.operation == 'detection-sql'
+        env:
+          # Read-only full scans of financial_fact: same fail-fast lock_timeout as the deploy step,
+          # a larger statement budget than the 120s write path.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=600s
         run: |
           set -euo pipefail
           for f in ops/detection/*.sql; do
@@ -290,7 +295,9 @@ jobs:
         working-directory: backend
         env:
           # Hermetic dummy env for Settings import (same shape as the CI eval job); DATABASE_URL
-          # points at the proxy from the step above.
+          # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
+          # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
