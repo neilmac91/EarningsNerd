@@ -1,0 +1,103 @@
+name: Production smoke
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+    inputs:
+      filing_path:
+        description: 'Public cached filing route (for example /filing/3)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: prod-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium
+        working-directory: frontend
+        run: |
+          timeout 300 npx playwright install --with-deps chromium && exit 0
+          echo "::warning::playwright --with-deps failed/stalled (apt); falling back to browsers-only Chromium"
+          npx playwright install chromium
+      - name: Probe API health
+        run: |
+          mkdir -p smoke-evidence
+          curl -fsS --connect-timeout 10 --max-time 30 \
+            https://api.earningsnerd.io/health/detailed -o smoke-evidence/health.json
+          cat smoke-evidence/health.json
+          # Match deploy health semantics: degraded-but-serving passes; unhealthy fails.
+          if grep -qE '"status": ?"unhealthy"' smoke-evidence/health.json; then
+            echo 'Production unhealthy — DB unreachable'
+            exit 1
+          fi
+      - name: Probe public filing UI
+        working-directory: frontend
+        env:
+          SMOKE_BASE_URL: https://earningsnerd.io
+          SMOKE_FILING_PATH: ${{ inputs.filing_path || vars.SMOKE_FILING_PATH || '/filing/3' }}
+        run: |
+          # Keep dispatch input on the public filing route, never an external URL or shell code.
+          if [[ ! "$SMOKE_FILING_PATH" =~ ^/filing/[A-Za-z0-9._-]+$ ]]; then
+            echo 'filing_path must be a local /filing/<id> route'
+            exit 1
+          fi
+          # The fresh unauthenticated browser reads a cached summary; it never clicks generation/chat.
+          npx playwright test prod-smoke
+      - name: Retain smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            smoke-evidence/
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Open or update a failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Production smoke failed $(date -u +%F)"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$BODY_FILE"' EXIT
+          cat > "$BODY_FILE" <<EOF_BODY
+          The daily production smoke failed: $RUN_URL
+
+          Inspect the failed step and retained API/browser artifacts. The smoke checks API availability
+          and the public filing summary plus Ask this Filing launcher; it does not generate a summary
+          or send a Copilot question. A missing cached example is a failed prerequisite.
+          EOF_BODY
+          EXISTING="$(gh issue list --state open --search '"Production smoke failed" in:title' --json number,title \
+            --jq '[.[] | select(.title | startswith("Production smoke failed"))] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi
