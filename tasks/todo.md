@@ -17,6 +17,12 @@ applied 0/skipped 34, revision `00267-2kc` serves all traffic; detailed health i
 - [ ] Retain direct/derived operand provenance in citations; verify all declared XBRL citations
   before numeric filtering and reject contradictory currency labels adjacent to their figures.
   Distinct derived expressions must not share a marker; absence of prose currency is not USD.
+- [ ] Close observed real-ORM snapshot gap: read actual period_end_date while the session is
+  live, retain plain ISO period after expiry/close, and verify context with a persisted ORM row.
+- [ ] Close observed same-value wrong-period scorer acceptance: declare expected period per QA
+  metric and bind used matching-fact citations to it, preserving explicit comparative questions.
+- [ ] Close observed Markdown-emphasis currency bypass: normalize supported inline delimiters
+  only in the currency check, retaining rendered text and valid non-USD formatting.
 - [ ] Verify six researched accessions/five issuers with stable question IDs, periods and units;
   retain old unverified QA explicitly pending. Preserve existing trust/refusal/numeric hard bars.
 - [ ] Prepare only actual SEC-layer documents/XBRL/sections in fresh scratch file SQLite, then

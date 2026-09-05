@@ -222,6 +222,17 @@ def score_copilot_answer(
         numeric_recall, missing = 1.0, []
 
     invalid_provenance = score_filing_provenance(citations, accession_number, period_of_report, reporting_currency)
+    used = set(re.findall(r"\[(\d+)\]", answer))
+    for cite in citations:
+        if not _is_xbrl_citation(cite) or str(cite.get('n')) not in used:
+            continue
+        metric = cite.get('concept')
+        expected_period = qa.expected_periods.get(metric)
+        expected_facts = [f for f in qa.expected_facts if f.metric == metric]
+        if expected_period and any(_fact_matches_adjacent_number(
+                {"value": f.value}, str(cite.get('value'))) for f in expected_facts):
+            if cite.get('period_end') != expected_period:
+                invalid_provenance.append(f"[{cite.get('n')}] wrong expected period for {metric}")
     contradictory_currencies = [f.metric for f in qa.expected_facts
         if not _fact_matches_adjacent_currency({"value": f.value, "unit": f.unit}, answer)]
     gate_failures: List[str] = []

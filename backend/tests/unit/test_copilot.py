@@ -45,7 +45,7 @@ def _fake_filing():
         filing_type="10-K",
         filing_date=None,
         accession_number="0000320193-23-000077",
-        period_of_report="2024-12-31",
+        period_end_date=None,
         document_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/aapl-10k.htm",
         sec_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/",
         xbrl_data=None,

@@ -507,7 +507,7 @@ filing text).
 ## Copilot citation-fidelity audit — can users trust the chips?
 
 The Copilot's promise is that every inline citation chip opens provenance for **exactly the claim
-it decorates**. Six layers protect that promise; audit them together whenever a prompt, model, or
+it decorates**. The layers below protect that promise; audit them together whenever a prompt, model, or
 `copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
 reused as year labels on gross-profit/net-income figures).
 
@@ -519,6 +519,8 @@ reused as year labels on gross-profit/net-income figures).
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
+| Filing origin | fact `[Fn]` | trusted viewed accession and native reporting currency bind every tool query; each returned fact and derived operand retains origin | unavailable tool result, no verified marker |
+| Currency adjacency | fact `[Fn]` | explicit ISO/symbol and supported textual currency labels, including inline emphasis/code formatting, must match the adjacent fact | occurrence stripped, counted as misplaced |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
 
@@ -527,16 +529,36 @@ reused as year labels on gross-profit/net-income figures).
 which re-runs the SAME production matcher + window rule over the final answer, so a resolver
 regression can't hide from the harness).
 
-**Live eval (operator, needs model API + ingested filings):**
-```bash
-cd backend && python -m evals.copilot_runner --runs 3
-```
-Read `evals/reports/copilot_eval_*.md` (one per run) + the printed cross-run aggregate:
-- `Cite faithful` < 1.00 → a text excerpt shipped that isn't verbatim filing text. Hard stop.
-- `Fact adj` < 1.00 → a fact chip shipped on the wrong figure — the adjacency guard regressed. Hard stop.
-- `Fact adj … (−N stripped)` → the guard caught N misplacements. Answers are safe, but a rising N
-  means the model's placement discipline is degrading — tighten the prompt's one-marker-one-figure
-  rule before it finds a shape the guard can't falsify.
+**Complete live acceptance (same-repository PR, explicit Ready for review opt-in):**
+`copilot-eval.yml` stays skipped while the PR is draft. After the full offline gate and three
+independent review lenses, the orchestrator marks it ready. The dedicated workflow responds to
+`ready_for_review` and subsequent non-draft pushes; existing summary CI does not claim an automatic
+restart on that event. Acceptance still requires its separate full summary artifact against the
+sole unchanged baseline.
+
+The workflow prepares six verified accessions/five issuers in a new file-backed SQLite database
+using only `copilot_sources.json` identities and the production SEC/excerpt/fact paths. It records
+source and database SHA-256 hashes. Questions and expected values never enter extraction. Both
+BABA accessions coexist, so a same-valued newer comparative cannot impersonate the viewed filing.
+Only after successful source preparation does the runner receive the existing Actions generator
+credential and run all six vetted numeric questions three times (18 attempts). Original unverified
+qualitative/refusal questions remain unchanged under `pending_cases`; they are not silently certified.
+
+The runner requires exactly one valid terminal completion per attempt, all planned identities,
+zero execution errors and no trust/accuracy veto. Every declared XBRL citation is checked before
+numeric filtering for viewed accession, finite value, unit and period; derived operands need their
+own origin and known basis. A used expected-metric citation must match that QA's declared period.
+Explicit wrong currency also vetoes a same-magnitude answer without a citation. Missing citation
+coverage remains advisory. Runtime per-filing facts currently omit duration starts: direct lookups
+remain available, but derived unknown-duration arithmetic returns `basis_unavailable` without
+inventing dates. No production backfill is needed for this gate.
+
+Artifacts always retain preparation evidence, complete emitted answers/citations, actual input
+messages, elapsed times, and denominator counts, including failures. `requested_model` is configured;
+`actual_model` remains unavailable in the report and per-call actual model/usage is recorded only by
+sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
+provider calls and requires diagnosis. No live acceptance result is claimed by implementation or
+offline tests. The first weekly strong-judge readout and evidence-snap activation remain held.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes

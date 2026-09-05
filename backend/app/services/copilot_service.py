@@ -140,9 +140,12 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
     """
     cache = getattr(filing, "content_cache", None)
     company = getattr(filing, "company", None)
+    report_period = getattr(filing, "period_end_date", None)
+    if report_period is not None:
+        report_period = report_period.date().isoformat() if hasattr(report_period, "date") else report_period.isoformat()
     return SimpleNamespace(
         accession_number=getattr(filing, "accession_number", None),
-        period_of_report=getattr(filing, "period_of_report", None),
+        period_of_report=report_period,
         filing_type=getattr(filing, "filing_type", None),
         filing_date=getattr(filing, "filing_date", None),
         document_url=getattr(filing, "document_url", None),
@@ -493,6 +496,8 @@ def _fact_matches_adjacent_currency(fact: dict, window: str) -> bool:
     if unit is None or unit in {"pure", "shares"}:
         return True
     expected = unit.split("/", 1)[0]
+    # Supported inline emphasis/code delimiters do not separate currency from its figure.
+    window = re.sub(r"[*_`]+", "", window)
     scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.I)
     for match in _NUMBER_TOKEN.finditer(scrubbed):
         if not _fact_matches_adjacent_number(fact, match[0]):

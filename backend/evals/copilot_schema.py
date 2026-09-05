@@ -28,12 +28,14 @@ class CopilotQACase:
     expected_section: str = ""
     notes: str = ""
     question_id: str = ""
+    expected_periods: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CopilotQACase":
         return cls(
             question=d["question"],
             question_id=d.get("question_id", ""),
+            expected_periods=d.get("expected_periods", {}),
             disclosed=bool(d.get("disclosed", True)),
             expected_facts=[GroundTruthFact(**f) for f in d.get("expected_facts", [])],
             expected_section=d.get("expected_section", ""),
