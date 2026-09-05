@@ -151,3 +151,11 @@ SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13
 A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
+
+## WS-6 step 1 — eval parity and one measured baseline (2026-09-05)
+
+- [ ] Audit production/eval configuration and streaming calls; explicitly pin statement-financials parity, restore JPM bank-component ground truth, and test streaming/non-streaming final-result equivalence without touching locked contracts.
+- [ ] Use two runs for routine CI evaluation, retain hard tolerances, and provide a bounded three-run CI measurement using the existing provider secret; preserve baseline notes and provenance.
+- [ ] Prove new tests by mutation and run the exact full backend gate.
+- [ ] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
+- [ ] Record artifact provenance and independent review; merge/deploy remains with the chief engineer. Later WS-6 measurement/resilience/hygiene/Copilot/arming steps remain separate PRs in that order.
