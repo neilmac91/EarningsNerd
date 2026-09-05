@@ -168,6 +168,24 @@ jobs:
               "USE_STATEMENT_FINANCIALS", "ENABLE_FPI_FILINGS",
               "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL", "OPENAI_BASE_URL", "ENVIRONMENT",
               "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN",
+              "NOTABLE_FILINGS_ENABLED", "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE",
+              "AI_FORWARD_QUOTE_GATE", "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
+              "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
+          }
+          # Defaults from app/config.py; never include credentials in this allow-list.
+          flag_defaults = {
+              "USE_STATEMENT_FINANCIALS": True,
+              "ENABLE_FPI_FILINGS": False,
+              "STREAM_SECTION_REVEAL": False,
+              "NOTABLE_FILINGS_ENABLED": False,
+              "AI_EVIDENCE_SNAP": False,
+              "AI_FIGURE_TRACE_GATE": False,
+              "AI_FORWARD_QUOTE_GATE": False,
+              "USE_STRUCTURED_OUTPUT": False,
+              "CALENDAR_INDEX_FILTER_ENABLED": False,
+              "REGISTRATION_MODE": "public",
+              "AI_FALLBACK_MODEL": "",
+              "AI_FALLBACK_BASE_URL": "",
           }
           seen = set()
           for c in tmpl:
@@ -180,9 +198,9 @@ jobs:
                       print(f"{name} = {e.get('value')!r}")
                   else:
                       print(f"{name} = <set; value withheld>")
-          for flag in ("USE_STATEMENT_FINANCIALS",):
+          for flag, default in flag_defaults.items():
               if flag not in seen:
-                  print(f"{flag} = <NOT SET -> Settings default applies (True)>")
+                  print(f"{flag} = <NOT SET -> Settings default applies ({default!r})>")
           print("latestReadyRevision:", svc.get("status", {}).get("latestReadyRevisionName"))
           PY
 
