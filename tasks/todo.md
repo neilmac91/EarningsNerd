@@ -59,8 +59,11 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   nonempty `ci.yml` assertion; add prod-smoke to the existing scheduled-failure tuple.
   Review found the first extension lost CI-specific presence: both independent refuters confirmed;
   correction and one missing-CI-pins proof supplement the retained wrong-new-workflow-pin proof.
-- [ ] Restore exact mutation bytes; run full backend and frontend gates on the combined candidate,
-  then independent review and draft publication. Adding the backend tuple causes an accepted
+- [x] Restore exact mutation bytes; run full backend and frontend gates on combined `b636780a`:
+  105 exact runtime/dev pins; Ruff/Bandit exit 0; 2382 passed, 2 deselected, 72 warnings (80.15s).
+  Frontend lint/TypeScript exit 0, 95 files/487 tests passed (49.74s), production build passed.
+  The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
+- [ ] Independent review and draft publication. Adding the backend tuple causes an accepted
   deployment with no migration change; verify it before subsequent backend merges.
 - [ ] After W3-2 and this candidate are verified, dispatch one genuine green and one deliberate
   bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
