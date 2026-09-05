@@ -15,7 +15,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from app.config import settings
 from app.services.ai.model_flags import _thinking_disabled_model
-from app.services.ai.provider_requests import close_stream, retry_delay, transient
+from app.services.ai.provider_requests import close_stream, is_timeout, retry_delay, transient
 from app.services.ai_metrics import record_ai_call
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ STREAM_ACTIVITY_SENTINEL = "\x00\x00__OPENAI_STREAM_ACTIVITY__\x00\x00"
 # Hold back this many chars of a tool round's prose before deciding it is a real answer —
 # inter-tool narration is short ("Let me compute the margins…"); real answers blow past it.
 _TOOL_ROUND_HOLDBACK_CHARS = 240
+_CHAT_SECONDS = 75.0
 
 
 class _CopilotChatMixin:
@@ -73,7 +74,7 @@ class _CopilotChatMixin:
                 raise
             except Exception as exc:
                 error = exc
-                outcome = "timeout" if isinstance(exc, TimeoutError) else "error"
+                outcome = "timeout" if is_timeout(exc) else "error"
                 if emitted or attempt == 1 or not transient(exc):
                     raise
             finally:
@@ -115,7 +116,7 @@ class _CopilotChatMixin:
         prefixed with ``STREAM_ERROR_SENTINEL`` (so a consumer can surface a real error rather than
         stream it as the answer) rather than raising, so the generator never breaks the SSE contract.
         """
-        deadline = asyncio.get_running_loop().time() + 75.0
+        deadline = asyncio.get_running_loop().time() + _CHAT_SECONDS
         model_name = model or self.model
         try:
             create_kwargs: Dict[str, Any] = {
@@ -185,7 +186,7 @@ class _CopilotChatMixin:
             prefixed with ``STREAM_ERROR_SENTINEL`` (so the consumer can surface a real error instead
             of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
-        deadline = asyncio.get_running_loop().time() + 75.0
+        deadline = asyncio.get_running_loop().time() + _CHAT_SECONDS
         model_name = model or self.model
         disable_thinking = _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None))
         try:
@@ -291,6 +292,8 @@ class _CopilotChatMixin:
                     yield STREAM_ACTIVITY_SENTINEL + json.dumps(
                         {"name": call["name"], "args": parsed_args, "phase": "start"}
                     )
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise TimeoutError("Chat deadline exhausted before tool execution")
                     result = run_tool(call["name"], parsed_args)
                     ok = not (isinstance(result, dict) and "error" in result)
                     yield STREAM_ACTIVITY_SENTINEL + json.dumps(

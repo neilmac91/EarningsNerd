@@ -75,6 +75,10 @@ def bounded_summary(*, report: bool = False):
     return decorate
 
 
+def is_timeout(error: Exception) -> bool:
+    return isinstance(error, (TimeoutError, APITimeoutError, httpx.TimeoutException, httpx2.TimeoutException))
+
+
 def transient(error: Exception) -> bool:
     if isinstance(error, APIStatusError):
         return error.status_code in (408, 409, 429) or error.status_code >= 500
@@ -208,9 +212,9 @@ class _ProviderRequestsMixin:
                 outcome = "cancelled"
                 raise
             except Exception as error:
-                outcome = "timeout" if isinstance(error, TimeoutError) else "error"
+                outcome = "timeout" if is_timeout(error) else "error"
                 last_error = error
-                if isinstance(error, (TimeoutError, APITimeoutError, httpx.TimeoutException, httpx2.TimeoutException)):
+                if is_timeout(error):
                     primary_timed_out = True
                 if not transient(error):
                     raise

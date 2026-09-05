@@ -235,6 +235,7 @@ async def test_malformed_exhaustion_never_reuses_old_response(observations):
 @pytest.mark.asyncio
 async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch, observations):
     monkeypatch.setattr(settings, "AI_FALLBACK_MODEL", "alternate")
+    monkeypatch.setattr(settings, "AI_FALLBACK_BASE_URL", "https://alternate.invalid/v1")
     calls = []
 
     async def primary(req):
@@ -242,6 +243,8 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
         await asyncio.sleep(10)
 
     def fallback(req):
+        body = json.loads(req.content)
+        assert body["model"] == "alternate" and "thinking" not in body
         calls.append("fallback")
         assert req.headers["authorization"] == "Bearer offline-alternate"
         return httpx2.Response(200, json=completion())
@@ -322,6 +325,7 @@ async def test_fallback_origin_requires_separate_key_and_sdk_retries_disabled(mo
 @pytest.mark.asyncio
 async def test_sdk_preheader_timeout_selects_fallback(monkeypatch, observations):
     monkeypatch.setattr(settings, "AI_FALLBACK_MODEL", "alternate")
+    monkeypatch.setattr(settings, "AI_FALLBACK_BASE_URL", "https://alternate.invalid/v1")
     calls = []
 
     def primary(req):
@@ -329,6 +333,8 @@ async def test_sdk_preheader_timeout_selects_fallback(monkeypatch, observations)
         raise httpx2.ReadTimeout("offline headers timeout", request=req)
 
     def fallback(req):
+        body = json.loads(req.content)
+        assert body["model"] == "alternate" and "thinking" not in body
         calls.append("fallback")
         return httpx2.Response(200, json=completion())
 
@@ -342,6 +348,7 @@ async def test_sdk_preheader_timeout_selects_fallback(monkeypatch, observations)
             service.fallback_client = client
             assert await service._request_content(KW) == '{"fresh":true}'
     assert calls == ["primary", "fallback"]
+    assert observations[0]["outcome"] == "timeout"
 
 
 @pytest.mark.asyncio
@@ -487,16 +494,20 @@ async def test_summary_context_reports_once_and_isolates_concurrent_records(monk
 
     async with service_for(handler) as service:
 
-        @requests.bounded_summary(report=True)
-        async def summarize():
+        async def generate(*args, **kwargs):
             await service._request_content(KW)
             await service._run_secondary_completion("10-K", "section")
-            return {"status": "partial"}
+            return {"metadata": {}, "sections": {}, "markdown": "Filing summary"}
 
         service._task_models = {"section_recovery": "deepseek-v4-pro"}
-        await asyncio.gather(summarize(), summarize())
+        service.generate_structured_summary = generate
+        results = await asyncio.gather(
+            service.summarize_filing("Selected filing", "Issuer", "10-K", filing_excerpt="Excerpt"),
+            service.summarize_filing("Selected filing", "Issuer", "10-K", filing_excerpt="Excerpt"),
+        )
     assert len(reports) == 2
-    assert all(outcome == "partial" and len(records) == 2 for records, outcome in reports)
+    assert [outcome for _, outcome in reports] == [result["status"] for result in results]
+    assert all(len(records) == 2 for records, outcome in reports)
     assert all([r["operation"] for r in records] == ["summary_primary", "section_recovery"] for records, _ in reports)
 
 
@@ -515,6 +526,52 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
         monkeypatch.setattr(requests, "SUMMARY_SECONDS", 0.02)
         started = asyncio.get_running_loop().time()
         with pytest.raises(TimeoutError):
-            await asyncio.wait_for(generate(), .2)
-        assert asyncio.get_running_loop().time() - started < .15
+            await asyncio.wait_for(generate(), 0.2)
+        assert asyncio.get_running_loop().time() - started < 0.15
     assert called == []
+
+
+@pytest.mark.asyncio
+async def test_delayed_tool_start_consumer_cannot_execute_after_deadline(monkeypatch):
+    from app.services.ai import copilot_chat
+
+    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.03)
+    calls, executed = [], []
+    data = (
+        event(
+            chunk(
+                choices=[
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call1",
+                                    "type": "function",
+                                    "function": {"name": "fact", "arguments": "{}"},
+                                }
+                            ]
+                        },
+                    }
+                ]
+            )
+        )
+        + b"data: [DONE]\n\n"
+    )
+
+    def handler(req):
+        calls.append(req)
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=data)
+
+    async with service_for(handler) as service:
+        gen = service.stream_chat_with_tools([], [], lambda *args: executed.append(args))
+        try:
+            first = await anext(gen)
+            assert first.startswith(copilot_chat.STREAM_ACTIVITY_SENTINEL)
+            await asyncio.sleep(0.04)
+            rest = [part async for part in gen]
+            assert len(rest) == 1 and rest[0].startswith(copilot_chat.STREAM_ERROR_SENTINEL)
+            assert executed == [] and len(calls) == 1
+        finally:
+            await gen.aclose()

@@ -556,26 +556,8 @@ Rules:
             )
 
         except asyncio.TimeoutError:
-            timeout_seconds = 75.0
-            logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
-            return {
-                "status": "error",
-                "message": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
-                "summary_title": f"{company_name} {filing_type_key} Filing Summary",
-                "sections": [],
-                "insights": {
-                    "sentiment": "Neutral",
-                    "growth_drivers": [],
-                    "risk_signals": []
-                },
-                # Legacy fields
-                "business_overview": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
-                "financial_highlights": {},
-                "risk_factors": [],
-                "management_discussion": "",
-                "key_changes": "",
-                "raw_summary": {"error": "structured_extraction_timeout", "timeout_seconds": timeout_seconds},
-            }
+            # The single orchestrator owns deterministic partial fallback on deadline exhaustion.
+            raise
         except Exception as extraction_error:
             error_msg = str(extraction_error)
             logger.error(f"Structured extraction error: {error_msg}")

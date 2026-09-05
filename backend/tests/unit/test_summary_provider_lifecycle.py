@@ -47,12 +47,13 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
 
     async with service_for(handler) as service:
 
-        async def summarize(*args, **kwargs):
+        async def generate(*args, **kwargs):
             await service._request_content(KW, stream_cb=lambda _: None)
             raise AssertionError("blocked request returned")
 
+        service.generate_structured_summary = generate
         with stream_boundaries():
-            monkeypatch.setattr(pipeline.openai_service, "summarize_filing", summarize)
+            monkeypatch.setattr(pipeline.openai_service, "summarize_filing", service.summarize_filing)
             monkeypatch.setattr(settings, "STREAM_HEARTBEAT_INTERVAL", 0.01)
             if stop == "service_timeout":
                 monkeypatch.setattr(provider_requests, "SUMMARY_SECONDS", 0.04)
