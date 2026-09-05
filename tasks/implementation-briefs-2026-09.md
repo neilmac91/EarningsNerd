@@ -202,11 +202,13 @@ sent to DeepSeek → 404s; `:455` `max_retries = 1`; `section_recovery.py:143` r
 `previous_filings_context` dead (only caller `summary_pipeline.py:632` passes `None`);
 `section_recovery.py:81-106,133-137` recovers from raw HTML / `excerpt[:6000]`; `openai_service.py:175`
 `filing_text[:15000]` raw HTML when enrichment times out (`summary_pipeline.py:143` 18 s).
-**Current checkpoint:** parity and its sole honest 26 × 3 pin shipped in #698 (`d696f408`),
-report `eval_20260905T111951Z.json`: 78 outputs, no execution errors/hard vetoes, actual gate
-PASS/0 warnings. The historical audit evidence above explains the work; the checkpoint supersedes
-its old parity defaults. D4/D5 are accepted policies, not new decision requests. The first actual
-strong-judge readout is held for the founder credential; unavailable/simulated output cannot arm a gate.
+**Current checkpoint (2026-09-05):** parity/sole 78-result pin #698, measurement #700,
+resilience #701, hygiene #702 and source-backed Copilot #703 are merged and deployed. #704's
+prospective reporting-date fix is also deployed; final summary 52/52 and Copilot 18/18 accepted.
+The historical audit evidence above and original scope below explain the work; current code/status
+is in the [ledger](wave2-ledger-2026-09.md). Six latest Copilot answers were uncited (advisory),
+and missing duration basis remains unavailable. D4/D5 are accepted policies. The first actual
+strong-judge readout is credential-held; unavailable/simulated/judge-off output cannot arm a guard.
 
 **Scope, in order (measure against the pinned bar; do not re-pin merely because scores move):**
 1. Parity: `USE_STATEMENT_FINANCIALS` in the eval env (and graduate the code default with WS-7);
@@ -313,6 +315,9 @@ outside the test roots. Each doc fix lands in the PR that changes the code it de
 
 ## 6. Dispatch log
 
+Historical wave-1 record; current state is in §7. In particular, the historical open-PR notes
+do not override externally merged #673 or the completed WS-6 stages below.
+
 **Wave 1 — 2026-09-04** (no deploy dependency; each on its own branch and draft PR):
 
 | Branch | Brief | Base | Owner agent |
@@ -358,7 +363,7 @@ backend deploys; the only open PR is the founder's #673 (another session).
 
 Wave 2 is in progress under the authorized chief-engineer session. This table supersedes the
 wave-1 "not started" status; it does not close the programme. Full gate details and unresolved
-execution requirements are in the [interim evidence ledger](wave2-ledger-2026-09.md).
+execution requirements are in the [evidence ledger](wave2-ledger-2026-09.md).
 
 | PR | Scope | Merge SHA | Observed evidence |
 |---|---|---|---|
@@ -372,15 +377,23 @@ execution requirements are in the [interim evidence ledger](wave2-ledger-2026-09
 | [#696](https://github.com/neilmac91/EarningsNerd/pull/696) | Configuration inventory and script placement | `0e0e7762cadda0fddd40407377467911550a28e3` | Run 33959884494; applied=0 skipped=33; revision 00262-4lj; healthy |
 | [#695](https://github.com/neilmac91/EarningsNerd/pull/695) | Sentry 10.73 with isolated Vitest compatibility | `919aa8629c6b53d2d29a98ad35b10dadfcbe6885` | Vercel production deployment succeeded; supersedes #686 part 2 |
 | [#697](https://github.com/neilmac91/EarningsNerd/pull/697) | WS-7 steps 3–6: periods, amendments, quality and seed tooling | `c925cfa83647f521583b6fa4dd257ac9027461db` | CI 33961912275 green; run 33962267301 applied=1 skipped=33; revision 00263-kzt; healthy; Vercel success |
+| [#699](https://github.com/neilmac91/EarningsNerd/pull/699) | Interim ledger (historical) | `4257de56823ec10a2a2fcc64b275967c712b028a` | Docs only; CI [33963048325](https://github.com/neilmac91/EarningsNerd/actions/runs/33963048325) |
+| [#698](https://github.com/neilmac91/EarningsNerd/pull/698) | Parity, G5 correction and sole measured pin | `d696f4081ff8987d197fc4785581f3d00a0d41db` | 78/78 accepted; CI [33963437020](https://github.com/neilmac91/EarningsNerd/actions/runs/33963437020) |
+| [#700](https://github.com/neilmac91/EarningsNerd/pull/700) | Persisted audit measurement and judged-readout implementation | `80314db6b978d38d49a2fe2f1b8719a13f08baff` | 52/52 accepted; CI [33965545733](https://github.com/neilmac91/EarningsNerd/actions/runs/33965545733) |
+| [#701](https://github.com/neilmac91/EarningsNerd/pull/701) | Resilience, actual usage/model telemetry and strict completeness | `f4c6041f50648fa2e5a5e4347afc1a4cd5085818` | 52/52 accepted; CI [33977112696](https://github.com/neilmac91/EarningsNerd/actions/runs/33977112696); #684 closed as integrated |
+| [#702](https://github.com/neilmac91/EarningsNerd/pull/702) | Filing-only inputs and labelled recovery context | `efc81adcd5f4891836b2d6c5b4d28460d08b3fa9` | 52/52 accepted; CI [33980331589](https://github.com/neilmac91/EarningsNerd/actions/runs/33980331589) |
+| [#703](https://github.com/neilmac91/EarningsNerd/pull/703) | Accession/currency-scoped Copilot and actual source-backed evaluation | `d7a2a269a0d993d3a7c6d19ef2c602babbe39061` | Summary 52/52; Copilot 18/18; CI [33985211897](https://github.com/neilmac91/EarningsNerd/actions/runs/33985211897) |
+| [#673](https://github.com/neilmac91/EarningsNerd/pull/673) | External logging/privacy work, preserved without edits by this task | `a1c108a38900886effe0b5eb9870893bb8f0f2fd` | Externally merged; deployment [33987415379](https://github.com/neilmac91/EarningsNerd/actions/runs/33987415379) verified |
+| [#704](https://github.com/neilmac91/EarningsNerd/pull/704) | Actual ORM reporting date into prospective reconciliation | `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c` | Summary 52/52; Copilot 18/18; union CI [33987628737](https://github.com/neilmac91/EarningsNerd/actions/runs/33987628737) |
 
-#698 remains draft: corrected 26 × 2 parity measurement passed with 52 outputs and zero hard
-gate failures; the final three-run pin after merged WS-7 is pending. Measurement, resilience
-(including #684), hygiene, Copilot and evidence-snap activation remain open. The first judged
-readout is held without a usable strong-judge credential; no guard is armed on an unavailable
-report. #697 production deployment, migration and detailed health are verified in the ledger.
-Final parity run 33962580838 is in progress at integrated source `f5b46ba9`; no new baseline is pinned.
+Verified backend/code checkpoint #704: `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`.
+Its [production deployment](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306)
+applied 0/skipped 34, revision `00270-4k6` serves 100% traffic, detailed health healthy.
+Last verified frontend remains #697. Complete exact gate/deploy evidence and retained first-red
+results are in the [ledger](wave2-ledger-2026-09.md); completed stage plans are archived via todo.
 
-Founder boundaries remain unchanged: SIC/universe seed and off-peak generation, Notable job
-creation and one-week review, Analysis flag/warm confirmation, licence and console actions.
-#673 remains the founder's other session. See handover §6 and the unchecked founder items in
-`tasks/todo.md`; the D1–D8 decisions are accepted, not reopened.
+#673 was externally merged and preserved by this task, not authored or merged by this session.
+#684 closed as integrated in #701; #686 closed via #694/#695. First strong-judge readout,
+evidence-snap activation, broader coverage and founder execution remain open. See the single
+[founder action list](handover-wave2-2026-09.md#6-founder-only-items-outstanding-do-not-do-these-yourself-keep-them-visible).
+Accepted D1–D8 are not reopened. Original programme definition remains unmet.

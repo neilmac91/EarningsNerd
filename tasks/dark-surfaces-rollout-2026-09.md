@@ -23,8 +23,10 @@ Calendar off until the Alpha Vantage licence decision; Insiders off.
 
 ## Notable filings
 
-The scanner, persistence, API and frontend already exist. The last inspected production deploy
-(run 33954400723, job 101275236022, 2026-09-05) printed:
+The scanner, persistence, API and frontend already exist. The earlier production observation
+(run 33954400723, job 101275236022, 2026-09-05) printed the message below. Latest verified
+[#704 deployment](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306), job
+101366418068, still reports the job absent; it has not been created by this programme:
 
 ```text
 earningsnerd-notable-filings not found — create it once per DEPLOYMENT.md. Skipping.
@@ -52,6 +54,9 @@ earningsnerd-notable-filings not found — create it once per DEPLOYMENT.md. Ski
 | Notable | Repository default false; effective service override unconfirmed | Job absent in last inspected deploy | Not started | Held | Pending |
 
 This checklist does not authorize Calendar or Insiders activation. Active residual FPI work
-(6-K classifier/golden breadth, post-flip facts backfill, pregeneration job environment) stays in
+(6-K classifier/golden breadth and founder data backfill) stays in
 `tasks/todo.md` and the WS-6/WS-7 briefs; archiving the historical FPI design is not completion
 of those residuals.
+
+Pregenerate FPI/10-Q job environment shipped in #697; this does not prove actual founder
+generation. See the [consolidated founder interfaces](handover-wave2-2026-09.md#6-founder-only-items-outstanding-do-not-do-these-yourself-keep-them-visible).

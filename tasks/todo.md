@@ -1,123 +1,42 @@
 # Remediation plan — from the September 2026 engineering audit
 
-## WS-7 reporting-date wiring — prospective reconciliation correction
+## WS-10 verified engineering handover — final synchronization
 
-Base: #703 merged and its backend deployment is verified healthy. The persisted Filing model
-has period_end_date; the per-filing fact writer reads nonexistent period_of_report, so its
-existing local current-period mismatch check receives None. This predates this remediation wave.
+Documentation-stage checkboxes below record the 2026-09-05 pre-merge source checkpoint
+`177f9ff4`. [PR #705](https://github.com/neilmac91/EarningsNerd/pull/705) is authoritative for
+subsequent review, CI and merge outcomes; unchecked items do not assert those later results failed.
 
-- [ ] Backend Developer (plan_correctness): pass the actual reporting calendar date into the
-  existing reconciliation gate, preserving missing metadata and all source values/identities.
-- [ ] Backend Developer: add real persisted ORM integration controls for matching, mismatching,
-  missing dates, comparative rows, shared backfill and unchanged existing-row skip behavior;
-  prove every new test with intended-assertion mutations and exact restoration.
-- [ ] Backend Developer: correct stale writer/backfill and architecture documentation. Describe
-  prospective inserts, optional companyfacts cross-check policy, and lack of general historical
-  flag repair; do not imply deployment or existing backfill repairs old identities.
-- [ ] Chief engineer: run exact pinned full backend gates. Database/data-integrity (plan_rules),
-  integration/eval (plan_gates), and root independently review; use two refuters per serious finding.
-- [ ] Chief engineer: record the already verified Copilot checkpoint in its owning RUNBOOK now;
-  its backend path otherwise causes an avoidable extra deployment during final docs synchronization.
-- [ ] Chief engineer: inspect required actual CI and eval artifacts, merge using freshly read
-  head SHA, then verify migrations, traffic and detailed production health before another merge.
+Verified backend checkpoint: #704 (`123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`).
+Its deployment is healthy. Original handover §7 is not complete: the first actual strong-judge
+readout, dependent activation and founder production operations still need evidence.
 
-No migration, extraction change, period_start inference, threshold change, baseline re-pin,
-production backfill or founder operation is included. Closing docs follow the verified deployment.
+- [x] Knowledge Curator (plan_rules): synchronize the active handover, ledger, briefs, todo,
+  dark-surface and launch checklists with observed merges, gates and deployments. Attribute
+  independently merged #673 separately; preserve accepted D1–D8 and every outstanding boundary.
+- [x] Knowledge Curator: archive finished implementation plans and the exact earlier ledger;
+  preserve existing archives and the original definition of done verbatim. Keep mixed-stage
+  readout, broader coverage and founder residuals active rather than marking them completed.
+- [ ] Chief engineer: verify archive bytes, local links/anchors, exact commit references and
+  documentation-only scope. Root, plan_correctness and plan_gates independently review the
+  final documentation; serious findings require two refuters before correction.
+- [ ] Chief engineer: inspect required CI, merge with the freshly read head, and publish a
+  standalone engineering handover with the evidence and a single founder action list. Pause
+  the hourly check-in when no authorized work remains in flight.
 
-## WS-6 Copilot — observed first live failure and corrective plan
+This stage changes only task documentation. The owning evaluation RUNBOOK was corrected in
+#704. No backend path, feature flag, threshold, baseline, job, secret or production data changes.
 
-Run 33984283703 retained all 18 completed/scored attempts, zero execution errors, and four
-hard vetoes (14 passed). GitHub incorrectly reported success because a shell pipeline hid
-the runner failure. Three MSFT answers contained the correct $13.64 but the Copilot scorer
-passed canonical `USD/shares` to a shared matcher expecting `_per_share`. AAPL draw 2 emitted
-an invented ellipsis inside a text citation; that citation veto is valid and remains mandatory.
-The original report, source database and source artifacts are retained unchanged.
+## Prospective reporting-date wiring — archived
 
-- [ ] Make both logged workflow pipelines fail when their Python command fails; prove actual
-  shell exit propagation for preparation and evaluation, retaining always-uploaded artifacts.
-- [ ] Adapt canonical per-share units only at the Copilot numeric-scoring boundary, preserving
-  native golden/source units and the shared summary matcher; prove exact mixed-unit MSFT
-  answers, wrong basic EPS and missing EPS without changing tolerances or expected values.
-- [ ] Clarify contiguous exact text excerpts and reuse of existing fact markers in the Copilot
-  prompt; keep the actual AAPL stitched quotation as a hard-failing regression. No automatic
-  deletion of invalid citations, coverage promotion, model change or baseline re-pin.
-- [ ] Obtain intended mutation failures for these new tests, independent review, and a fresh
-  full backend gate before root opts the draft PR back into a complete three-repeat live run.
-- [ ] Inspect the new actual Copilot and summary reports; a workflow badge alone is insufficient.
+- [x] #704 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws7-period-wiring-2026-09.md).
 
-## WS-6 Copilot — implementation plan after verified hygiene deployment
+## Filing-scoped Copilot — archived
 
-Owners: AI Engineer (plan_gates) owns service/snapshot/currency, eval schema/scorers/runner,
-goldens/workflow and docs; plan_rules owns copilot_tools and tool tests.
-plan_correctness owns source-only bootstrap, identity manifest and bootstrap tests; the other
-three reviewers independently review that component before acceptance.
-Base: #702 merged `efc81adcd5f4891836b2d6c5b4d28460d08b3fa9`; deployment 33981155212
-applied 0/skipped 34, revision `00267-2kc` serves all traffic; detailed health is healthy.
+- [x] #703 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-copilot-2026-09.md).
 
-- [ ] Bind trusted accession and native reporting currency from detached filing snapshot into
-  every numeric tool branch; missing scope cannot fall back to company-wide latest facts.
-- [ ] Preserve own-filing comparatives and historical rows; require compatible units and known
-  duration basis for derived arithmetic. Missing period_start remains basis_unavailable; no
-  invented dates, currency conversions, or expanded fact-writer scope.
-- [ ] Retain direct/derived operand provenance in citations; verify all declared XBRL citations
-  before numeric filtering and reject contradictory currency labels adjacent to their figures.
-  Distinct derived expressions must not share a marker; absence of prose currency is not USD.
-- [ ] Preserve the actual refusal terminal contract: default the absent strip count only for
-  a valid not_disclosed completion, while rejecting missing answer counts and malformed values.
-- [ ] Accept actual normalized source facts with nullable raw_tag, keeping absent tags explicit
-  and requiring concept, accession, finite value, unit and period without fabricating tags.
-- [ ] Close observed real-ORM snapshot gap: read actual period_end_date while the session is
-  live, retain plain ISO period after expiry/close, and verify context with a persisted ORM row.
-- [ ] Close observed same-value wrong-period scorer acceptance: declare expected period per QA
-  metric and bind used matching-fact citations to it, preserving explicit comparative questions.
-- [ ] Close observed Markdown-emphasis currency bypass: normalize supported inline delimiters
-  only in the currency check, retaining rendered text and valid non-USD formatting.
-- [ ] Verify six researched accessions/five issuers with stable question IDs, periods and units;
-  retain old unverified QA explicitly pending. Preserve existing trust/refusal/numeric hard bars.
-- [ ] Prepare only actual SEC-layer documents/XBRL/sections in fresh scratch file SQLite, then
-  production excerpt/fact normalization. Source manifest is separate from golden answers;
-  save source hashes and extraction evidence, and abort before provider calls on missing inputs.
-- [ ] Require one valid terminal completion and exact planned accession/question/run identities;
-  errors/skips/missing rows cannot disappear from denominators. Save actual inputs and outputs.
-- [ ] Add same-repository PR workflow gated by !draft and ready_for_review: root opts in only after
-  offline full gates and three reviews. Run the complete cohort at least three times with the
-  existing Actions generator credential, upload evidence even on failure, never extract secrets.
-- [ ] Prove every new/changed test by intended-assertion mutation, restore exactly, run the full
-  pinned backend gate and separate summary regression against the sole unchanged baseline.
-- [ ] Correct owning historical service/RUNBOOK provider comments; record actual Copilot evidence
-  before root merge/deployment. First strong-judge readout and evidence-snap arming remain held.
+## Filing-only input and recovery hygiene — archived
 
-No production DB/backfill/prewarm, new credentials, live email, model swap, threshold relaxation,
-or baseline re-pin. This deterministic Copilot run is not the first weekly judged readout.
-
-## WS-6 hygiene — implementation plan after verified resilience deployment
-
-Owner: AI Engineer (plan_gates), with Knowledge Curator (plan_rules) owning RUNBOOK updates.
-Base: #701 merged `f4c6041f50648fa2e5a5e4347afc1a4cd5085818`; deployment 33977786320
-applied 0/skipped 34 migrations, revision `00266-q6k` serves 100% traffic and health is healthy.
-#684 is closed by that integration. Hygiene implementation and its gates are pending.
-
-- [ ] Delete both prior-filing parameters, context construction/interpolation and all forwarding
-  callers; add a production AST gate for retired symbols and direct input/signature regressions.
-- [ ] Delete only the three locked-background references to the retired symbol, as explicitly
-  permitted by CLAUDE rule 6, plus the binding made unused by that removed assertion; preserve every other assertion and shared harness.
-- [ ] Prepare immutable labelled recovery blocks once in the existing parsing worker, preserving
-  exact per-form and recovered-window labels, multiple blocks and chosen-filing source only.
-- [ ] Allocate at most 30,000 context characters including labels/separators: families first,
-  then blocks, with deterministic redistribution and no combined-window duplication.
-- [ ] Prefer an existing plain excerpt; clean fallback HTML once, remove hidden/non-content
-  elements, fail closed on cleaning errors, and skip recovery when no usable source remains.
-- [ ] Remove the now-unused raw-recovery parser only after proving it has no remaining caller;
-  preserve the 75-second shared budget, off-loop parsing, actual usage and snap exclusions.
-- [ ] Correct both observed actual-producer heading losses: exact FINANCIAL DATA alias and the
-  first heading after the generated 50-equals prefix. Preserve primary excerpt bytes; prove
-  actual >60k extractor-to-native-request cases without dense-backfill masking.
-- [ ] Prove every new/changed test with an intended-assertion mutant; restore sources exactly,
-  run the full pinned backend gate and obtain three independent review lenses.
-- [ ] Inspect actual strict 26×2 CI report identities/errors/vetoes, source/figure replay and
-  provider telemetry against the unchanged single pin before merge/deployment.
-
-No model-prose tuning, re-pin, guard arming, founder operation or future Copilot feature work.
+- [x] #702 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-hygiene-2026-09.md).
 
 Source: `docs/ENGINEERING_AUDIT_2026-09.md` (synthesis) + `docs/audit-2026-09/` (six workstream
 appendices with file:line evidence). Lens: invite-only beta, product quality wins ties.
@@ -130,28 +49,20 @@ Owner: chief engineer (Codex); founder has authorized engineering merges and dep
 Accepted D1–D8 remain in force. Existing unchecked decision rows below are historical tracking,
 not requests to revisit accepted decisions. Founder-only actions remain founder-only.
 
-Current checkpoint: main `80314db6b978d38d49a2fe2f1b8719a13f08baff` (#700).
-The [interim ledger](wave2-ledger-2026-09.md) covers the earlier merges; subsequent verified
-parity and measurement results are recorded below. #700 deployment 33966302078 succeeded:
-`applied=0 skipped=34`, revision `00265-9js` serving all traffic, detailed health healthy.
-The last verified frontend production change is #697; later Vercel attempts reached the daily
-free deployment quota. #698 and #700 add no frontend production changes.
-#673 remains untouched; #684 is held for resilience; #685 merged and #686 split/closed.
-Parity #698 merged and deployed. Its sole authoritative pin uses the complete 26 × 3 actual
-run 33962580838. Measurement #700 merged and deployed with an actual 26 × 2 regression pass,
-including an honest absolute figure-trace advisory; the baseline was not re-pinned.
-No usable strong-judge credential is available for the first weekly readout,
-so evidence-snap activation stays held. This macOS host differs from the historical cloud host.
-The saved Claude Workflow runtime is unavailable in Codex; reproduce its three independent
-review lenses and two independent refuters per serious finding with Codex subagents.
-Missing verifier output is unverified and must be hand-verified before merge.
+Verified backend/code checkpoint #704: `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`.
+Deployment 33988401306: applied=0 skipped=34, revision `00270-4k6` at 100%, healthy.
+The [ledger](wave2-ledger-2026-09.md) records all accepted code/actual gates; last verified frontend
+remains #697. #673 was externally merged and preserved, not authored or merged by this task.
+#684 closed as integrated by #701; #685 merged; #686 split/closed by #694/#695.
+No usable strong-judge credential or actual first readout was available, so D5 remains held.
+The unavailable Claude Workflow runtime was replaced by three independent Codex review lenses
+and two refuters per serious finding; absent verifier output never counted as clearance.
 
 - [x] Chief engineer: execution plan merged #689 (`47d65a2c`), reviewed and CI green.
 - [x] Backend Developer + Database Specialist: WS-7 steps 1–2 merged #690 (`99e91ba7`); graduate statement
   financials default, prepare SIC backfill instructions, implement distinctive job heartbeat
   storage with a new lock-safe migration, instrument every job, report coverage/stubs/age/last success.
-- [ ] Chief engineer: serialize backend merges; verify deploy-backend, exact migration summary,
-  and healthy detailed health after each merge before the next backend merge.
+- [x] Chief engineer: backend deployments through #704 serialized and independently verified; retain this prerequisite for every future backend merge.
 - [ ] Founder: trigger SIC backfill; supply observed completion before declaring SIC data backfilled.
 - [x] Backend Developer: WS-7 remaining code steps merged #697 (`c925cfa8`): 10-Q periods/unit assertions and
   reconciliation labels; amendments/supersession/Change Report; persisted XBRL first and missing
@@ -162,10 +73,8 @@ Missing verifier output is unverified and must be hand-verified before merge.
   persisted audit counters and bounded weekly strong-judge workflow/readout handoff; deployed healthy.
 - [ ] AI Engineer / founder credential boundary: obtain the first actual weekly strong-judge readout.
   An unavailable artifact and routine judge-off regression runs do not satisfy this prerequisite.
-- [ ] AI Engineer: resilience #701 with #684, real fallback configuration, bounded retries,
-  usage/model telemetry and empty-grounding protection; full backend + live eval gates.
-- [ ] AI Engineer: delete previous_filings with AST pin; labelled recovery context; copilot currency,
-  accession-scoped facts, at least five verified golden entries and observed copilot gate.
+- [x] AI Engineer: resilience #701 integrated #684, optional real fallback, bounded retries, actual usage/model telemetry and missing-grounding protection; full backend and complete actual eval gates passed.
+- [x] AI Engineer: #702 filing-only AST/context hygiene; #703 scoped/native-currency Copilot with six verified accessions/five issuers and three actual draws each. Latest #704 18/18 accepted; uncited-answer coverage remains advisory.
 - [ ] Chief engineer: arm AI_EVIDENCE_SNAP in ci.yml only after first judged readout; founder triggers drain.
 - [x] Frontend Developer: sitemap freshness + /terms + SEO correction merged #693 (`157e6a39`).
 - [x] Frontend Developer: locate boundary and regression/mutation proof merged #691 (`a2c7fa70`).
@@ -175,50 +84,18 @@ Missing verifier output is unverified and must be hand-verified before merge.
 - [x] Backend + Frontend Developers: WS-9 preparation merged #692 (`60d8015e`); activation remains held;
   Analysis requires confirmed Vercel value + warmed companyfacts; Notable requires founder-created
   job, seed and a week of review before repository flag flip. Calendar and Insiders stay off.
-- [ ] Knowledge Curator (rolling, owners fix docs with their code): correct migration stack truth,
-  report/eval/config/deployment docs; resolve script/test placement; archive completed FPI plans
-  with explicit residuals. Do not archive unfinished work as complete.
+- [x] Owning PRs corrected migration/provider/report/eval/config docs and script placement; FPI plans archived with residuals. Final active-task synchronization and its review/CI/merge are tracked at the top.
 - [ ] Founder: pregeneration off-peak only after WS-7 prerequisites; console/secrets/licence actions
   remain as listed in handover §6, with exact instructions in the relevant PR.
-- [ ] Chief engineer: hourly quiet check-in while work is in flight; close-out only on handover §7
-  evidence, update todo and briefs dispatch log on fresh main branch, report SHAs and held items.
+- [ ] Chief engineer: finish final docs review/CI/merge and standalone handover, then pause the hourly quiet check-in when no authorized work remains in flight. Report original §7 as incomplete; do not wait for founder-held operations to claim engineering handover.
 
 Every implementation PR is draft immediately, uses a worktree under `.claude/worktrees/`,
 and includes exact gate tails and mutation proofs. Locked contracts, migration allow-lists,
 and AI baseline protections remain unchanged unless explicitly permitted by the mandate.
 
-## WS-6 resilience implementation — after #700
+## Resilience and complete-report gate — archived
 
-Base: measurement merged `80314db6`; deployment and detailed health are verified. Parity #698
-and measurement implementation #700 are complete; the first strong-judge readout remains
-credential-held. This stage does not re-pin, arm a guard, or perform founder operations.
-
-- [ ] Integrate exact OpenAI 3.7.0 / jiter 0.16 / native httpx2 lock, preserving cryptography 50.
-- [ ] Own one bounded call-local deadline and retry policy across primary, stream fallback,
-  optional independently authenticated provider fallback, and section recovery; close streams.
-- [ ] Record actual response model and usage per attempt, including empty-choice usage chunks;
-  expose bounded summary aggregates and preserve unknown values.
-- [ ] Require usable excerpt or numeric XBRL for full quality; preserve locked SSE/quota contracts.
-- [ ] Update fallback Settings/inventory/deployment instructions, processor and stale routing docs.
-- [ ] Prove native SDK request/retry/SSE/cancellation behavior offline, kill each new-test mutant,
-  run exact full backend gate, inspect actual full CI evaluation artifact, and obtain three lenses.
-
-### Re-plan after the first actual resilience evaluation
-
-CI `33975395335` completed, but artifact `9972247044` is incomplete: BABA 20-F run 0
-raised `TimeoutError`; only 51 of 52 attempts were scored. The existing regression gate
-reported PASS because errored attempts were excluded from quality means. This is not merge
-evidence. Keep the original artifact and the single baseline pin unchanged.
-
-- [ ] Gate owner (plan_rules): fail incomplete/error/missing-score reports with explicit attempt
-  denominators, preserving existing quality metrics and tolerances; prove the check by mutation.
-- [ ] AI Engineer (plan_gates): retain elapsed time, stream request and preview diagnostics on
-  error rows; expose sanitized actual attempt telemetry in eval logs and prove those paths.
-- [ ] Chief engineer: review the correction, run the complete backend gate and inspect a new
-  actual full evaluation before merging. Do not raise deadlines or re-pin without observed cause.
-
-The first report does not identify whether the timeout occurred in a provider attempt,
-recovery or the total summary deadline. No specific timeout cause is claimed yet.
+- [x] #701 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-resilience-2026-09.md).
 
 ## Phase 0 — this PR: make releases safe, land the audit
 
@@ -244,11 +121,11 @@ recovery or the total summary deadline. No specific timeout cause is claimed yet
 - [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
 - [x] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 merged 2026-09-05 (`ffb0b61`)*; Sentry source-map env in Vercel **(founder)**
 - [x] Dependabot triage: merge #635 #636 #639 #640 #641 #642 — *all merged 2026-09-04, deploys green*
-- [x] Dependabot closes: #629 and #570 closed 2026-09-04; `typescript` major-ignore landed in #674; #662–#670 closed as superseded by #674 and #672 closed as superseded by #679 + #680; #659 closed so Dependabot re-creates the remaining 15 minors against Next 16.3.4 / Node 22 — *2026-09-05*; **(founder)** if no fresh group PR appears at the next Dependabot run, trigger a recreate from the Dependabot UI
-- [ ] Remaining major #684 `openai` 2.44 → 3.7: take with WS-6 resilience and live eval gates. #685 merged; #683 merged; #686 closed as superseded by #694/#695.
+- [x] Dependabot closes: #629 and #570 closed 2026-09-04; `typescript` major-ignore landed in #674; #662–#670 closed as superseded by #674 and #672 closed as superseded by #679 + #680; #659 closed so Dependabot re-creates the remaining 15 minors against Next 16.3.4 / Node 22 — *2026-09-05*; the fresh #686 group appeared and was resolved by #694/#695
+- [x] #684 OpenAI 3.7 integrated and closed through #701 resilience/native SDK/full actual eval gates. #685/#683 merged; #686 superseded by #694/#695.
 - [x] Split #672: non-edgartools bumps (pandas 3.0.5, fastapi, stripe, posthog, …) — *PR #679 merged 2026-09-05 (`fbbccc5`)*; edgartools 5.40.1→5.55.0 alone through the eval gate — *PR #680 merged (`083247d`, regression gate PASS, 0 warnings)*; #672 closed
 - [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
-- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; flip to blocking once `cryptography` 49→50 and the `@lhci/cli` chain are resolved
+- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory; unresolved audit-chain/ecdsa findings require separate review before any blocking transition.
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
 - [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; first scheduled run needs `FMP_API_KEY` **(founder: secret)**
 - [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*
@@ -260,19 +137,20 @@ recovery or the total summary deadline. No specific timeout cause is claimed yet
 ## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
 
 - [x] Add `mean_untraceable_dollar_figures` as a measured absolute WARN dimension — #700. The parity pin has no reference for it; no invented zero baseline or new hard floor.
-- [ ] Scheduled judged eval run (8 filings, `--runs 3`, judge on) with a weekly readout; keep judge off in PR CI
+- [x] #700 implemented the fixed 8 × 3 weekly strong-judge workflow and report receiver; judge remains off in routine PR CI.
+- [ ] First actual strong-judge readout: founder credential/execution required; workflow also sends the report email.
 - [x] Roll the five audit counters into the weekly data-quality report from persisted `raw_summary` audits — #700, with separate valid/missing/malformed denominators.
 - [ ] Arm `AI_EVIDENCE_SNAP` only after the first judged readout (D5 accepted); figure-trace and forward-quote remain advisory. Strong-judge credential/readout currently unavailable
-- [ ] Retry/fallback: delete the dead Gemini chain in `openai_service.py`; bounded backoff on the primary; env-configured `AI_FALLBACK_BASE_URL`/`AI_FALLBACK_MODEL`; fix the retry unit test to use real names
-- [ ] Per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
+- [x] #701 retry/fallback: delete the dead Gemini chain in `openai_service.py`; bounded backoff on the primary; env-configured `AI_FALLBACK_BASE_URL`/`AI_FALLBACK_MODEL`; fix the retry unit test to use real names
+- [x] #701 per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
 - [x] Eval ↔ prod parity, restored JPM G5 components, actual production streaming, routine two-run gate and sole three-run baseline pin — #698.
-- [ ] Copilot on live FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); grow the Copilot golden set from 2 unverified entries; run `evals.copilot_runner`
+- [x] #703 Copilot on verified live-source FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); six verified accessions/five issuers, three actual draws each; older unverified entries remain pending
 - [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(D4 spend approved; execution pending)**
 - [x] Reading surface on the filing page: distinct risk headings, mobile section jump-nav, skip-to-content + live region, company-name casing — *PRs #671 + #676 merged 2026-09-05, casing verified live*
-- [ ] Section-recovery grounding: build context from labelled excerpt sections (~30k cap) instead of raw HTML with a 6,000-char cap
-- [ ] Delete the latent `previous_filings` prompt path + AST pin (rule 2 hygiene)
+- [x] #702 section-recovery grounding: build context from labelled excerpt sections (~30k cap) instead of raw HTML with a 6,000-char cap
+- [x] #702 deleted the latent `previous_filings` prompt path + AST pin (rule 2 hygiene)
 - [ ] **D4 spend approved; founder execution pending:** drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing), after D5's judged-readout and evidence-snap prerequisites
-- [ ] Docs: RUNBOOK:428 FPI status, report-quality plan header, Gemini-era comments in `openai_service.py`, `DATA_COMPLIANCE.md` processor table (DeepSeek, not Gemini)
+- [x] Owning #698–#704 PRs corrected RUNBOOK status, quality-plan headers, façade/provider and DATA_COMPLIANCE processor descriptions; historical quality-plan bodies preserved.
 
 ## Phase 3 — Priority 3: coverage and data integrity for the beta universe (≈8 engineer-days)
 
@@ -280,7 +158,9 @@ recovery or the total summary deadline. No specific timeout cause is claimed yet
 - [x] Weekly coverage/stub/universe-age/job-heartbeat report implementation — #690. Live report/backfill evidence remains required.
 - [ ] **(founder)** Execute SIC backfill and retain completion/report evidence. Code default True shipped #690; pregenerate FPI env shipped #697; neither proves data was backfilled.
 - [x] Amendments: list/ingest 10-K/A and 10-Q/A; supersession and Change Report — #697; existing rows link on refresh/backfill.
-- [x] Fiscal periods, unit/decimals assertions and reconciliation UI/exports — #697; old snapshots need deliberate re-extraction.
+- [x] Fiscal periods, unit/decimals assertions and reconciliation UI/exports — #697.
+- [x] #704 wires actual ORM reporting date into prospective reconciliation; existing-identity skips/cross-check policy preserved.
+- [ ] Engineering: design an explicit historical flag audit/repair capability before founder production repair. Ordinary backfill or freshness `--force` does not re-reconcile existing identities.
 - [x] Rule-5 gate: `_fetch_companyfacts_sync` through the SEC limiter via the app-loop bridge (`app/services/event_loop.py`); `sec.gov` allow-list test — *PRs #661 + #675 merged 2026-09-05*
 - [x] Rule-10 gate: `app/utils/sec_urls.py::build_sec_archive_url` + listener tests — *PR #661 merged 2026-09-05*
 - [x] Sitemap: hourly ISR with uncached upstream fetch, regression tests, `/terms` and SEO doc — #693.
@@ -305,7 +185,7 @@ recovery or the total summary deadline. No specific timeout cause is claimed yet
 - [ ] `WAITLIST_MODE` intent; LAUNCH_CHECKLIST founder-only actions (GSC, Bing, apex 307→308, Vercel plan, `NEXT_PUBLIC_EXAMPLE_FILING_ID`)
 - [ ] Pro trial timing; delete retired reverse-trial code?
 - [ ] `USE_STRUCTURED_OUTPUT`: bake-off or delete
-- [ ] GCP console: PITR + deletion protection; uptime/alert policies; Turnstile keys; confirm `REGISTRATION_MODE` and flags via `ops.yml describe-service`
+- [ ] GCP console: PITR + deletion protection; uptime/alert policies; Turnstile keys; confirm effective `REGISTRATION_MODE` in the console (`ops.yml describe-service` withholds its value); inspect other permitted flags
 
 ## Deferred (tracked in appendix 06, not scheduled)
 
@@ -314,28 +194,9 @@ A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — 
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
 
-## WS-6 step 1 — eval parity and one measured baseline (2026-09-05)
+## Parity and the sole measured baseline — archived
 
-- [x] Audit production/eval configuration and streaming calls; explicitly pin statement-financials parity, restore JPM bank-component ground truth, and test streaming/non-streaming final-result equivalence without touching locked contracts.
-- [x] Use two runs for routine CI evaluation, retain hard tolerances, and provide a bounded three-run CI measurement using the existing provider secret; preserve baseline notes and provenance.
-- [x] Prove new tests by mutation and run the exact full backend gate — #698 final local 1961 passed; CI 33963437020 passed.
-- [x] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
-- [x] Record parity artifact provenance and independent review; #698 merged/deployed. Measurement #700 subsequently merged/deployed; resilience, hygiene, Copilot and judged-readout-dependent arming remain unfinished.
-
-Authoritative evidence: [run 33962580838](https://github.com/neilmac91/EarningsNerd/actions/runs/33962580838)
-measured source `f5b46ba96b3023f93554087e431937ed9daba3c4` after #697 deployed. Artifact
-`9968531910`, `eval_20260905T111951Z.json`, contains 26 × 3 = 78 unique filing runs,
-zero execution errors and hard vetoes; the old-baseline gate passed with zero warnings.
-The sole pin records that report's actual harness (judge off), source/golden hashes and measured
-statistics; citation fidelity is 0.7012. All 78 requested streaming and yielded 518 previews;
-no fallback warning was observed, which does not prove transport never fell back.
-The final pin-helper change only rejects vetoed/incomplete gate evidence before overwriting an
-existing baseline. Its seven new CLI cases pass; removing result/summary checks causes four/three
-real assertion failures. Generation/scorer source is unchanged from the measured commit.
-Final full gate and independent review passed before #698 merged. Deployment 33964233483
-reported `applied=0 skipped=34`, revision `00264-ctx` serving all traffic and healthy detailed
-health. First strong-judge readout remains unavailable without its credential; this deterministic
-measurement does not authorize evidence-snap.
+- [x] #698 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-parity-2026-09.md).
 
 ## WS-7 implementation — archived
 
@@ -347,18 +208,6 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 - [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
 - [x] WS-7 default/docs integrated; 1910-test gate, independent review and CI passed; #696 merged (`0e0e7762`), deployment verified.
 
-## WS-6 step 2 — advisory measurement and weekly judged readout
+## Measurement implementation — archived
 
-- [x] Measure untraceable dollar figures on actual raw v2 sections with explicit numeric-grounding availability; preserve hard gates, aggregate weights and the single parity pin.
-- [x] Add stored audit-snapshot counts with per-family valid/missing/malformed denominators to the operational report and both email formats.
-- [x] Schedule an exact eight-filing, three-repeat strong-judge readout with provenance, complete/error/missing denominators and a bounded validated handoff to the existing report job.
-- [x] Check generator and strong-judge credentials before any model calls; missing credentials mean unavailable and do not constitute the first readout.
-- [x] Prove new tests with mutations, run exact full backend gates, inspect actual CI evaluation and obtain independent review.
-- [ ] First actual strong-judge readout remains held for the founder credential; no live weekly email dispatch, evidence-snap activation, or cosmetic baseline pin in this implementation PR.
-
-Measurement implementation merged #700, with 2026 local backend tests and final CI
-[33965545733](https://github.com/neilmac91/EarningsNerd/actions/runs/33965545733) passing.
-The actual 52-result artifact `9969393000` had zero errors/hard vetoes and one absolute
-figure-trace advisory: mean 2.1154, all 52 measured, no pinned reference. These flags include
-potentially derived amounts and are not confirmed fabrications. All retained measurement
-inputs replayed exactly. The first judged readout remains separate from this judge-off run.
+- [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).

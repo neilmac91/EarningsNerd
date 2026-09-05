@@ -1,16 +1,20 @@
 # Launch Runbook — Gate Flip & Phase 4 Measurement
 
-*Companion to `tasks/archive/homepage-redesign-v2.md` (Phases 0–3 shipped in PR #241).
-Every code prerequisite is done; the steps below are operator actions.*
+*The [homepage redesign archive](archive/homepage-redesign-v2.md) records Phases 0–3 shipped
+in historical PR #241. Updated 2026-09-05: code deployment does not verify the operator,
+cache, analytics or launch conditions below. Confirm current state before changing it;
+remaining accepted policies and founder boundaries are in the [handover](handover-wave2-2026-09.md).*
 
 ## A. Pre-flip (do in order)
 
-1. **Merge PR #241** and confirm the production deploys are green
+1. **PR #241 is historical and merged.** Confirm current production deployments against the
+   [verified engineering ledger](wave2-ledger-2026-09.md)
    (Vercel frontend + Cloud Run backend — `gcloud run services describe
    earningsnerd-backend --region=us-west1`).
-2. **Create the example-refresh job on Cloud Run** — `earningsnerd-pregenerate`
-   job + weekly Cloud Scheduler trigger, with secrets attached via
-   `--set-secrets` (see `tasks/gcp-deploy-runbook.md` Phase 9).
+2. **Verify the existing example-refresh job** — `earningsnerd-pregenerate`
+   image and FPI/10-Q environment updates were observed in deployment. Confirm its effective
+   secrets and weekly Scheduler trigger before execution (see `tasks/gcp-deploy-runbook.md` Phase 9);
+   do not create a duplicate job or infer the trigger is healthy from a service deploy.
 3. **Pre-generate the example summaries** (don't wait for the weekly cron):
    `gcloud run jobs execute earningsnerd-pregenerate --region=us-west1 --wait`,
    then copy the **AAPL filing id** from the execution logs
@@ -23,7 +27,7 @@ Every code prerequisite is done; the steps below are operator actions.*
 4. **Set the frontend env vars on Vercel** (Production):
    - `NEXT_PUBLIC_EXAMPLE_FILING_ID=<filing id from step 3>` — without it,
      every "see a live example" CTA silently degrades to `/company/AAPL`.
-   - `NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true` — aligns the homepage's
+   - Confirm effective `NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true` (already declared in repository config) — aligns the homepage's
      "honest about quality" claim with product behavior (S4 badge +
      regenerate, stops client-side notice-stripping).
    - Confirm `NEXT_PUBLIC_POSTHOG_KEY` is set — all frontend funnel events
@@ -48,9 +52,10 @@ Every code prerequisite is done; the steps below are operator actions.*
 
 ## B. The flip
 
-7. **Set `WAITLIST_MODE=false` on Vercel** (Production) and redeploy.
-   `/` now serves the homepage statically; middleware no longer 307s.
-   Rollback is the same env var set back to unset/`true`.
+7. **Confirm founder WAITLIST intent and effective Vercel state.** Repository config already
+   declares `WAITLIST_MODE=false`; a console override may differ. Make a coordinated change
+   only for the accepted launch state, then verify `/` and middleware behavior.
+   Rollback uses `WAITLIST_MODE=true` with redeployment.
 
 ## C. Immediately post-flip
 
@@ -85,7 +90,7 @@ Every code prerequisite is done; the steps below are operator actions.*
 ## Deferred / optional
 
 - **S1 adoption gate**: run the S3 eval harness (`backend/evals/`) with
-  `AI_USE_STRUCTURED_OUTPUT` on vs off in an environment with provider
+  `USE_STRUCTURED_OUTPUT` on vs off in an environment with provider
   keys; flip the default only if it wins on schema-validity + numeric
   accuracy + coverage.
 - **SB6 real counters**: build the cached COUNT endpoint and show live
