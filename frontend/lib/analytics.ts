@@ -47,14 +47,9 @@ export const analytics = {
     safeCapture('signup_started', { source: source || 'direct' })
   },
 
-  signupCompleted: (userId: string) => {
-    // Identify on the internal id only — no email/PII into PostHog person properties.
-    safeIdentify(userId, {
-      plan: 'free',
-      signup_date: new Date().toISOString(),
-    })
-    safeCapture('signup_completed')
-  },
+  // NOTE: there is deliberately no `signupCompleted` here — `signup_completed` is emitted
+  // server-side on e-mail verification (`posthog_client.EVENT_SIGNUP_COMPLETED`), so a client
+  // twin would double count.
 
   // Verify-first signup: register no longer auto-logs-in, so there's no user id to identify
   // yet. Capture an anonymous "submitted" step; identify happens later at login/verify and
