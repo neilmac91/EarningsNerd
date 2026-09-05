@@ -44,6 +44,31 @@ const dataset: AnalysisDataset = {
 }
 
 describe('MetricsTable', () => {
+  it('labels quarterly growth by its own reconciliation and selected QoQ/YoY basis', () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[0].reconciled = true
+    flagged.series[0].points[0].qoq = null
+    flagged.series[0].points[0].qoq_reconciled = true
+    flagged.series[0].points[0].yoy_reconciled = false
+    flagged.series[0].points[1].qoq_reconciled = false
+    render(<MetricsTable dataset={flagged} />)
+    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
+    expect(screen.getAllByText('Unverified growth')[0].parentElement).toHaveTextContent('YoY +5.0%')
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
+  it('labels flagged figures independently of derived Q4 and leaves other values unlabelled', () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[0].reconciled = false
+    flagged.series[0].points[1].reconciled = true
+    const { rerender } = render(<MetricsTable dataset={flagged} />)
+    expect(screen.getAllByText('Unverified')).toHaveLength(1)
+    expect(screen.getByText('Unverified').parentElement).toHaveTextContent('$310.0M')
+    expect(screen.getByLabelText('Derived value')).toBeInTheDocument()
+    rerender(<MetricsTable dataset={dataset} />)
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
   it('renders values, deltas, the derived dagger, and — for missing points', () => {
     render(<MetricsTable dataset={dataset} />)
 
@@ -149,6 +174,16 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByText('CAGR')).toBeInTheDocument()
     // 47.3% -> 38.3% is -9.0pp — never "-19.0%" (the relative-change convention this fixes).
     expect(screen.getByText(/YoY -9\.0pp/)).toBeInTheDocument()
+  })
+
+  it('marks annual window growth from flagged inputs separately from the period values', () => {
+    const flagged = structuredClone(annualDataset)
+    flagged.series[0].window_pp_reconciled = false
+    flagged.series[1].cagr_reconciled = false
+    render(<MetricsTable dataset={flagged} />)
+    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
+    expect(screen.getAllByText('Unverified growth')[0].parentElement).toHaveTextContent('-9.0pp')
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
   })
 
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {

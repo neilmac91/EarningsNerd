@@ -67,6 +67,34 @@ const annualDataset: AnalysisDataset = {
 }
 
 describe('KpiStrip', () => {
+  it('labels growth based on unverified history without labelling the verified current figure', () => {
+    const flagged = structuredClone(annualDataset)
+    flagged.series[0].points[0].reconciled = false
+    flagged.series[0].points[1].reconciled = true
+    flagged.series[0].cagr_reconciled = false
+    flagged.series[3].window_pp_reconciled = false
+    const { rerender } = render(<KpiStrip dataset={flagged} />)
+    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    flagged.mode = 'quarterly'
+    flagged.series[0].points[1].yoy = 0.2
+    flagged.series[0].points[1].yoy_reconciled = false
+    rerender(<KpiStrip dataset={flagged} />)
+    expect(screen.getAllByText('Unverified growth')).toHaveLength(1)
+  })
+
+  it('retains reconciliation on the latest populated KPI point', () => {
+    const flagged = structuredClone(annualDataset)
+    flagged.series[0].points[1].reconciled = false
+    flagged.series[0].points.push({ period: 'FY2026', value: null, reconciled: true })
+    flagged.series[1].points[1].reconciled = true
+    const { rerender } = render(<KpiStrip dataset={flagged} />)
+    expect(screen.getAllByText('Unverified')).toHaveLength(1)
+    expect(screen.getByText('Unverified').parentElement).toHaveTextContent('Revenue (FY2025)')
+    rerender(<KpiStrip dataset={annualDataset} />)
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
   it('shows CAGR for monetary KPI cards in annual mode', () => {
     render(<KpiStrip dataset={annualDataset} />)
     expect(screen.getByText(/CAGR \+13\.4%/)).toBeInTheDocument()

@@ -532,3 +532,36 @@ Retain execution IDs and the `scanned`, `updated`, `skipped`, `errors`, `updated
 remain explicitly unresolved. Do not claim SIC backfilled from a dry run or a deploy health probe.
 Pregeneration remains a separate founder spend trigger, held until WS-7 prerequisites and their
 production evidence are complete, then run off-peak. No trigger is executed by merging this PR.
+
+
+### WS-7 universe identity seed and weekly form coverage
+
+After the amendment-column migration and backend deployment are verified, the founder can run
+these commands through the existing backfill-facts job (execution argument overrides are scoped
+to that execution, leaving its scheduled arguments intact):
+
+```bash
+# Preview only; no Company writes or AI calls. A dry-run heartbeat is still recorded.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py" --wait
+# Create missing issuer identities from the committed universe and the SEC ticker file.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py,--apply" --wait
+# Confirm no remaining creations, then repeat the SIC backfill/preview sequence above.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/seed_universe_companies.py" --wait
+```
+
+Retain execution IDs, `created`, `would_create`, `existing`, `source_errors` and unresolved ticker
+output. Multiple share classes sharing a CIK reuse one Company and do not overwrite its canonical
+ticker; this seed is issuer-identity coverage, not proof every class ticker has its own row.
+Missing SEC mappings fail the execution visibly. Seed attempts use `universe-company-seed` and
+cannot advance the scheduled facts heartbeat. New identities need SIC enrichment before bank
+financial generation. Seeding does not generate summaries, apply facts backfills, or send email.
+
+The weekly example script now requests domestic 10-K and 10-Q, while BABA remains annual 20-F;
+CI sets `ENABLE_FPI_FILINGS=true` on the pregenerate job. The existing Monday 06:00 UTC schedule
+is unchanged. An explicit universe-wide generation run remains the separate approved off-peak
+founder operation after the data prerequisites and live report evidence; no such run was executed
+while implementing this change. Amendment relationships populate as companies are refreshed or
+history is backfilled; pre-existing rows are not rewritten by the additive migration.

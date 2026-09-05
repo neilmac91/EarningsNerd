@@ -10,6 +10,7 @@ import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/i
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
+import ReconciliationBadge from './ReconciliationBadge'
 
 const SOURCE_ROW_ID = (n: number | string) => `analysis-source-${n}`
 
@@ -100,7 +101,7 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (approximate figures)'
-          : 'Sources · cited figures verified against SEC XBRL data'}
+          : 'Sources · cited figures matched to SEC XBRL data'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -117,6 +118,7 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
                 at mobile widths instead of overflowing it. */}
             <span className="min-w-0 break-words">
               {citation.excerpt}
+              <ReconciliationBadge reconciled={citation.reconciled} />
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
                   · {citation.section_ref}
@@ -192,6 +194,9 @@ export default function NarrativePane({
             >
               {completion.grounded} verified citations
             </Badge>
+          )}
+          {state.status === 'done' && completion?.citations.some((citation) => citation.reconciled === false) && (
+            <ReconciliationBadge reconciled={false} label="Includes unverified figures" />
           )}
           {state.status === 'done' && completion?.cached && !sample && (
             <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">

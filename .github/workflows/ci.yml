@@ -502,7 +502,7 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2 \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2,ENABLE_FPI_FILINGS=true \
             --quiet
       - name: Update filing-scan + digest + backfill-facts + earnings-calendar job images
         if: steps.changes.outputs.backend == 'true'

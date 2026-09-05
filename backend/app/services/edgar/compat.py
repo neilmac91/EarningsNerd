@@ -252,6 +252,8 @@ class SECEdgarServiceCompat:
         """
         if filing_types is None:
             filing_types = ["10-K", "10-Q"]
+        from app.services.filing_amendment_service import expand_amendment_forms
+        filing_types = expand_amendment_forms(filing_types)
 
         try:
             # Non-strict resolution: known forms (incl. FPI 20-F/6-K/40-F) map to a member; only

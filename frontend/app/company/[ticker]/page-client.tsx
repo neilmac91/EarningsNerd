@@ -28,6 +28,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
 import { fiscalYear, groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
 import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
+import SupersededFilingNotice from '@/features/filings/components/SupersededFilingNotice'
 
 // How many filings to request once the visitor asks for the full backfilled history (vs the
 // backend's default recent cap). P1-6: deep 10-K/10-Q history since 2001 is well under this.
@@ -355,7 +356,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // accent; interim reports (10-Q + the foreign 6-K) share the info accent — so an FPI page reads
   // consistently with a domestic one (annual = brand, interim = info).
   const getFilingTypeStyles = (filingType: string) => {
-    switch (filingType) {
+    switch (filingType.replace(/\/A$/, '')) {
       case '10-K':
       case '20-F':
       case '40-F':
@@ -602,8 +603,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                   <div className="flex items-center space-x-3">
                                     <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
                                     <div>
-                                      <div className="flex items-center space-x-2">
+                                      <div className="flex flex-wrap items-center gap-2">
                                         <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
+                                        <SupersededFilingNotice filing={filing} filings={filings} />
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
                                           /* Solid emphasis chip — sits on the row's brand-weak tint,
                                              where the tint Badge would vanish (see banner note). */

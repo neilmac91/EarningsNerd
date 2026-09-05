@@ -51,13 +51,11 @@ def get_db():
         db.close()
 
 
-# Columns introduced after a table's original CREATE. `Base.metadata.create_all()` never ALTERs an
-# existing table, and this project applies SQL migrations in migrations/ by hand — but the prod DB
-# can't always be migrated manually in lockstep with a deploy, so these small ADDITIVE, defaulted
-# columns are self-applied at startup to keep the deployed code and schema in sync (the FPI alert
-# prefs from migrations/20260628_fpi_alert_prefs.sql would otherwise 500 the prefs API until the
-# manual SQL ran). Additive + defaulted ONLY — never destructive; see ensure_additive_columns.
+# Columns introduced after a table's original CREATE. `create_all` never ALTERs existing
+# tables. CI applies SQL files through migration_ledger before deployment (ADR-0007); this
+# additive startup fallback also repairs local/older databases. No destructive startup DDL.
 _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
+    ("filings", "superseded_by_accession", "TEXT"),
     ("notification_preferences", "notify_20f", "BOOLEAN NOT NULL DEFAULT TRUE"),
     ("notification_preferences", "notify_6k", "BOOLEAN NOT NULL DEFAULT FALSE"),
     # Per-company earnings-day alert opt-in (strategy §3.7). Prod has no Alembic, so an existing

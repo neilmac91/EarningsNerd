@@ -199,6 +199,8 @@ class Filing(Base):
     period_end_date = Column(DateTime(timezone=True), nullable=True)
     document_url = Column(String, nullable=False)
     sec_url = Column(String, nullable=False)
+    # Same-period amendment that replaces this filing; originals remain accessible by accession.
+    superseded_by_accession = Column(String, nullable=True)
     xbrl_data = Column(JSON, nullable=True)  # Store XBRL extracted data
     # When this filing's XBRL was last normalized into financial_fact (null = never). Lets the
     # scheduled backfill run incrementally over just the newly-arrived filings.
