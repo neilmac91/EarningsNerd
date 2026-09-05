@@ -190,7 +190,8 @@ async def _run_one(
             return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
-                    "stream_requested": stream_cb is not None, "preview_count": preview_count}
+                    "stream_requested": stream_cb is not None, "preview_count": preview_count,
+                    "payload": payload}
 
         cfg: ModelConfig = REGISTRY[candidate]
         user = _grounding_user_prompt(
