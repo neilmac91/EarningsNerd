@@ -2,6 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import json
+import re
 import threading
 from unittest.mock import AsyncMock
 
@@ -108,8 +109,12 @@ def test_short_family_releases_budget_and_label_heavy_family_keeps_body():
     result = context.build_recovery_context('results_that_matter', crowded + (blocks[1],), '')
     assert len(result) <= 30000 and 'Financial 0:\nB' in result and 'Management:\nM' in result
     assert result.count('M') > 14000
-    for rendered in result.split('\n\n'):
-        label, body = rendered.split(':\n', 1)
+    headings = list(re.finditer(r'^([^:\n]+):\n', result, re.M))
+    assert len(headings) > 2
+    for index, heading in enumerate(headings):
+        label = heading[1]
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(result)
+        body = result[heading.end():end].strip('\n')
         assert body and (f'BODY{label.split()[-1]}'.startswith(body) if label.startswith('Financial ') else set(body) == {'M'})
 
 
@@ -167,7 +172,9 @@ async def test_primary_wire_preserves_plain_excerpt_and_prepares_context_off_loo
     assert threads and all(t != threading.get_ident() for t in threads)
     prompt = requests[0]['messages'][1]['content']
     assert 'CRITICAL FILING EXCERPTS:\n' + source in prompt and 'UNSELECTED RAW' not in prompt
-    assert args[2] == source and args[4][0].text == 'SELECTED $125 million'
+    assert args[2] == source
+    assert args[4] == (context.RecoveryBlock('ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA',
+                                           'SELECTED $125 million', ('financials',)),)
 
 
 @pytest.mark.asyncio
@@ -181,6 +188,6 @@ async def test_real_assembly_marks_recovered_sections_for_snap_exclusion():
         sample = 'ITEM 1A - RISK FACTORS:\nSELECTED RISK'
         blocks = context.recovery_blocks(sample, service._SECTION_LAYOUT['10-K'])
         result = await service._assemble_structured_summary('{"metadata":{},"sections":{}}', '10-K', sample, None, blocks)
-    assert result['_recovered_sections'] == ['risks']
+    assert result.get('_recovered_sections') == ['risks']
     assert result['sections']['risks'][0]['supporting_evidence'] == 'SELECTED RISK'
     assert 'ITEM 1A - RISK FACTORS:\nSELECTED RISK' in seen[0]['messages'][1]['content']
