@@ -127,3 +127,13 @@ NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off:
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```
+
+### Statement-aware financial extraction
+
+`USE_STATEMENT_FINANCIALS` (boolean, default **true**) selects as-reported income-statement
+revenue/components for financial institutions. It avoids treating a bank's fee-income tag as total
+revenue. Non-financial issuers keep their existing extraction. An explicit false env value still
+overrides the default; all reads use `app.config.Settings`. The founder's SIC backfill and any
+persisted financial remediation are separate runs (see the WS-7 section of `DEPLOYMENT.md`).
+WS-6 coordinates the parity measurement and single honest baseline re-pin; the default change
+must carry observed eval gate evidence before merge.

@@ -492,3 +492,31 @@ for the evidence record and Analysis prerequisites.
 
 > Migrated off Render.com (June 2026). Superseded Render/Vercel/Firebase deployment notes are
 > archived under [`docs/history/`](./history/) for provenance.
+
+### WS-7 SIC backfill prerequisite (founder executes)
+
+`USE_STATEMENT_FINANCIALS` now defaults to true in code; an explicit deployment override still
+wins. Confirm the effective value with the existing `ops.yml` describe-service allow-list before
+claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
+The SIC command goes through the EDGAR service limiter/circuit breaker and is resumable: by
+default it selects only companies with missing SIC and commits batches of 100.
+
+After the backend deployment and its `earningsnerd_job_runs` migration succeed, Neil runs:
+
+```bash
+# Preview the missing-SIC cohort; does not write Company data or count as a successful backfill.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic,--dry-run" --wait
+# Populate the missing SIC/industry fields.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic" --wait
+# Re-check the remaining cohort. Any skipped IDs need a recorded explanation.
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/backfill_facts.py,--backfill-company-sic,--dry-run" --wait
+```
+
+Retain execution IDs and the `scanned`, `updated`, `skipped`, `errors`, `updated_ids` and
+`skipped_ids` log output. An error count makes the script fail; skipped companies without SEC SIC
+remain explicitly unresolved. Do not claim SIC backfilled from a dry run or a deploy health probe.
+Pregeneration remains a separate founder spend trigger, held until WS-7 prerequisites and their
+production evidence are complete, then run off-peak. No trigger is executed by merging this PR.

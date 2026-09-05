@@ -145,6 +145,7 @@ class ScanStats:
     # True when the final commit failed and the run was rolled back — the other counters then
     # describe work that was DISCARDED (same contract as RefreshStats.commit_failed).
     commit_failed: bool = False
+    source_errors: int = 0
     truncated_queries: List[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -161,6 +162,7 @@ class ScanStats:
             "upserted_updated": self.upserted_updated,
             "pruned": self.pruned,
             "commit_failed": self.commit_failed,
+            "source_errors": self.source_errors,
             "truncated_queries": self.truncated_queries,
         }
 
@@ -289,6 +291,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                 query=phrase, forms="8-K", start=start, end=end, max_pages=_EIGHT_K_PAGE_CAP,
             )
         except Exception:
+            stats.source_errors += 1
             logger.exception("Notable-filings 8-K sweep failed for %s", phrase)
 
     # 10-K / 10-Q cover-page sweeps (paginated).
@@ -299,6 +302,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                 query=query, forms=form, start=start, end=end, max_pages=cap,
             )
         except Exception:
+            stats.source_errors += 1
             logger.exception("Notable-filings %s sweep failed", form)
 
     # Low-volume query-less listings, one page-0 request per day in the window.
@@ -312,6 +316,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                     query=None, forms=form, start=iso, end=iso, max_pages=1,
                 )
             except Exception:
+                stats.source_errors += 1
                 logger.exception("Notable-filings %s listing failed for %s", form, iso)
             day += timedelta(days=1)
 

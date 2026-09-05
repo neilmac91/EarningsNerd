@@ -200,7 +200,7 @@ async def run_filing_scan(
         from app.services.edgar.compat import sec_edgar_service
         fetch_filings = sec_edgar_service.get_filings
 
-    stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0}
+    stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0, "source_errors": 0}
 
     company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
     form_types = _scan_form_types()  # resolve once (flag read + concat) — not per company
@@ -215,6 +215,7 @@ async def run_filing_scan(
         try:
             sec_filings = await fetch_filings(company.cik, filing_types=form_types, limit=per_company_limit)
         except Exception as e:  # EdgarError / CircuitOpenError — skip this company, keep scanning
+            stats["source_errors"] += 1
             logger.warning("Filing fetch failed for %s (%s): %s", company.ticker, company.cik, e)
             continue
 
