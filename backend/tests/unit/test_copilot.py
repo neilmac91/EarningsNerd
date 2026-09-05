@@ -44,6 +44,8 @@ def _fake_filing():
         company_id=1,
         filing_type="10-K",
         filing_date=None,
+        accession_number="0000320193-23-000077",
+        period_of_report="2024-12-31",
         document_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/aapl-10k.htm",
         sec_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/",
         xbrl_data=None,
@@ -400,7 +402,7 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
         "fiscal_year": 2024,
         "fiscal_period": "FY",
         "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "accession": "0000320193-24-000123",
+        "accession": "0000320193-23-000077",
     }
 
     # Fake stream: (a) call the passed run_tool for get_financial_fact, then (b) yield an answer that
@@ -415,7 +417,7 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
         copilot_service.openai_service, "stream_chat_with_tools", _fake_stream
     )
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
-                        lambda name, args, company_id: dict(revenue_fact))
+                        lambda name, args, company_id, **scope: dict(revenue_fact))
 
     events = await _collect(_fake_filing(), "How much revenue?")
     complete = next(e for e in events if e["type"] == "complete")
@@ -446,7 +448,7 @@ async def test_service_drops_uncited_xbrl_fact(monkeypatch):
         "fiscal_year": 2024,
         "fiscal_period": "FY",
         "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "accession": "0000320193-24-000123",
+        "accession": "0000320193-23-000077",
     }
 
     def _fake_stream(messages, tools, run_tool, **_kwargs):
@@ -457,7 +459,7 @@ async def test_service_drops_uncited_xbrl_fact(monkeypatch):
 
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
-                        lambda name, args, company_id: dict(revenue_fact))
+                        lambda name, args, company_id, **scope: dict(revenue_fact))
 
     events = await _collect(_fake_filing(), "How much revenue?")
     complete = next(e for e in events if e["type"] == "complete")
@@ -478,7 +480,7 @@ async def test_service_matches_fact_marker_case_and_space_insensitive(monkeypatc
         "fiscal_year": 2024,
         "fiscal_period": "FY",
         "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "accession": "0000320193-24-000123",
+        "accession": "0000320193-23-000077",
     }
 
     def _fake_stream(messages, tools, run_tool, **_kwargs):
@@ -489,7 +491,7 @@ async def test_service_matches_fact_marker_case_and_space_insensitive(monkeypatc
 
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
-                        lambda name, args, company_id: dict(revenue_fact))
+                        lambda name, args, company_id, **scope: dict(revenue_fact))
 
     events = await _collect(_fake_filing(), "How much revenue?")
     complete = next(e for e in events if e["type"] == "complete")
@@ -533,15 +535,15 @@ async def test_service_resolves_back_to_back_fact_markers(monkeypatch):
     unlinked literal bracket text in the field report this test guards against."""
     facts = [
         {"concept": "revenue", "value": 34124000000.0, "unit": "USD", "period_end": "2023-12-31",
-         "fiscal_year": 2023, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2023"},
+         "fiscal_year": 2023, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "0000320193-23-000077"},
         {"concept": "revenue", "value": 45043000000.0, "unit": "USD", "period_end": "2024-12-31",
-         "fiscal_year": 2024, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2024"},
+         "fiscal_year": 2024, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "0000320193-23-000077"},
         {"concept": "revenue", "value": 65179000000.0, "unit": "USD", "period_end": "2025-12-31",
-         "fiscal_year": 2025, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2025"},
+         "fiscal_year": 2025, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "0000320193-23-000077"},
     ]
     call_count = {"n": 0}
 
-    def _fake_run_tool(name, args, company_id):
+    def _fake_run_tool(name, args, company_id, **scope):
         fact = dict(facts[call_count["n"]])
         call_count["n"] += 1
         return fact
@@ -577,7 +579,7 @@ async def test_service_unifies_text_and_fact_citation_numbering(monkeypatch):
         "concept": "revenue", "value": 391035000000.0, "unit": "USD", "period_end": "2024-09-28",
         "fiscal_year": 2024, "fiscal_period": "FY",
         "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "accession": "0000320193-24-000123",
+        "accession": "0000320193-23-000077",
     }
     citations_json = '[{"n":1,"excerpt":"' + _KNOWN_SENTENCE + '","section":"Item 7 — MD&A"}]'
 
@@ -592,7 +594,7 @@ async def test_service_unifies_text_and_fact_citation_numbering(monkeypatch):
 
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
-                        lambda name, args, company_id: dict(revenue_fact))
+                        lambda name, args, company_id, **scope: dict(revenue_fact))
 
     events = await _collect(_fake_filing(), "How much revenue, per management?")
     complete = next(e for e in events if e["type"] == "complete")
@@ -1062,7 +1064,7 @@ def _revenue_fact(value: float, year: int) -> dict:
     return {
         "concept": "revenue", "value": value, "unit": "USD",
         "period_end": f"{year}-12-31", "fiscal_year": year, "fiscal_period": "FY",
-        "raw_tag": "us-gaap:Revenues", "accession": f"a-{year}",
+        "raw_tag": "us-gaap:Revenues", "accession": "0000320193-23-000077",
     }
 
 
@@ -1087,7 +1089,7 @@ async def test_service_strips_fact_marker_reused_on_wrong_figure(monkeypatch):
     facts = [_revenue_fact(81_460_000_000.0, 2022)]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = (
         "Total revenues were $81.46B in 2022 [F1]. "
@@ -1116,7 +1118,7 @@ async def test_service_keeps_fact_markers_on_matching_figures(monkeypatch):
     facts = [_revenue_fact(81_460_000_000.0, 2022), _revenue_fact(96_770_000_000.0, 2023)]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = "Revenues were $81.46B in 2022 [F1] and $96.77B in 2023 [F2]. ===CITATIONS===\n[]"
     monkeypatch.setattr(
@@ -1138,12 +1140,16 @@ async def test_service_adjacency_checks_percent_facts(monkeypatch):
     margin_fact = {
         "concept": "gross_profit", "value": 0.179, "unit": "pure", "kind": "margin",
         "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
-        "raw_tag": "us-gaap:GrossProfit", "accession": "a-2024",
+        "raw_tag": "us-gaap:GrossProfit", "accession": "0000320193-23-000077",
         "numerator_value": 17_450_000_000.0, "denominator_concept": "revenue",
         "denominator_value": 97_690_000_000.0,
     }
+    margin_fact["source_facts"] = [
+        {**_revenue_fact(17_450_000_000.0, 2024), "concept": "gross_profit", "period_start": "2024-01-01"},
+        {**_revenue_fact(97_690_000_000.0, 2024), "period_start": "2024-01-01"},
+    ]
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(margin_fact)
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(margin_fact)
     )
     answer = "Gross margin was 17.9% in 2024 [F1], down from 25.6% [F1]. ===CITATIONS===\n[]"
 
@@ -1171,7 +1177,7 @@ async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
     facts = [_revenue_fact(81_460_000_000.0, 2022)]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = "Revenue growth stalled in 2024 [F1]. ===CITATIONS===\n[]"
     monkeypatch.setattr(
@@ -1190,7 +1196,7 @@ def _growth_fact(value: float, year: int, marker: str) -> dict:
     return {
         "concept": "revenue", "kind": "yoy_growth", "value": value, "unit": "pure",
         "fiscal_year": year, "fiscal_period": "FY", "raw_tag": "derived",
-        "accession": f"a-{year}", "_marker": marker,
+        "accession": "0000320193-23-000077", "_marker": marker,
     }
 
 
@@ -1235,7 +1241,7 @@ async def test_service_strips_fact_marker_on_mislabeled_metric(monkeypatch):
     facts = [_revenue_fact(96_770_000_000.0, 2023)]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = "Operating income was $96.77B [F1]. ===CITATIONS===\n[]"
     monkeypatch.setattr(
@@ -1258,10 +1264,14 @@ async def test_service_concept_guard_keeps_own_metric_alongside_another(monkeypa
     margin_fact = {
         "concept": "gross_profit", "value": 0.179, "unit": "pure", "kind": "margin",
         "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
-        "raw_tag": "us-gaap:GrossProfit", "accession": "a-2024",
+        "raw_tag": "us-gaap:GrossProfit", "accession": "0000320193-23-000077",
     }
+    margin_fact["source_facts"] = [
+        {**_revenue_fact(17_450_000_000.0, 2024), "concept": "gross_profit", "period_start": "2024-01-01"},
+        {**_revenue_fact(97_690_000_000.0, 2024), "period_start": "2024-01-01"},
+    ]
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(margin_fact)
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(margin_fact)
     )
     answer = "Gross margin was 17.9% of revenue [F1]. ===CITATIONS===\n[]"
 
@@ -1288,12 +1298,12 @@ async def test_service_concept_guard_skips_unknown_concepts(monkeypatch):
     fact = {
         "concept": "free_cash_flow", "value": 3_580_000_000.0, "unit": "USD",
         "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
-        "raw_tag": "custom:FreeCashFlow", "accession": "a-2024",
+        "raw_tag": "custom:FreeCashFlow", "accession": "0000320193-23-000077",
     }
     facts = [fact]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = "Free cash flow reached $3.58B [F1]. ===CITATIONS===\n[]"
     monkeypatch.setattr(
@@ -1389,7 +1399,7 @@ async def test_service_complete_event_carries_coverage_counters(monkeypatch):
     facts = [_revenue_fact(97_690_000_000.0, 2024)]
     calls = iter(facts)
     monkeypatch.setattr(
-        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(next(calls))
     )
     answer = (
         "Revenue was $97.69B [F1]. Gross profit was $17.45B. ===CITATIONS===\n[]"

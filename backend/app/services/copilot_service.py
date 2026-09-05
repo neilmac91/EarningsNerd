@@ -14,13 +14,15 @@ provenance primitives that already power Trace-to-Source:
   than silently trusted — the same honest-labelling contract as the summary path.
 
 This module is transport-agnostic: it yields plain ``dict`` events. The SSE router formats them for
-the wire. **Out of scope for P1:** numeric/XBRL tool-use (that is P5) and any vector retrieval — the
-context is the cached excerpt, capped to ``COPILOT_CONTEXT_CHAR_CAP`` chars.
+the wire. Numeric tools use the viewed filing's accession and native currency; narrative
+context is the cached excerpt, capped to ``COPILOT_CONTEXT_CHAR_CAP`` chars. No vector retrieval.
 """
 from __future__ import annotations
 
 import json
 import logging
+import math
+from datetime import date
 import re
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Optional
@@ -139,6 +141,8 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
     cache = getattr(filing, "content_cache", None)
     company = getattr(filing, "company", None)
     return SimpleNamespace(
+        accession_number=getattr(filing, "accession_number", None),
+        period_of_report=getattr(filing, "period_of_report", None),
         filing_type=getattr(filing, "filing_type", None),
         filing_date=getattr(filing, "filing_date", None),
         document_url=getattr(filing, "document_url", None),
@@ -160,10 +164,57 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
     )
 
 
+def _reporting_currency(filing: Any) -> Optional[str]:
+    data = getattr(filing, "xbrl_data", None)
+    unit = copilot_tools.canonical_unit(data.get("reporting_currency")) if isinstance(data, dict) else None
+    return unit if unit and re.fullmatch(r"[A-Z]{3}", unit) else None
+
+
+def _valid_fact_provenance(fact: dict, accession: Optional[str], currency: Optional[str] = None) -> bool:
+    """The tool boundary must attest the trusted filing before a result earns a verified marker."""
+    if not isinstance(accession, str) or not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession):
+        return False
+    if not isinstance(fact, dict) or fact.get("accession") != accession:
+        return False
+    if any(not isinstance(fact.get(key), str) or not fact[key].strip() for key in ("concept", "raw_tag")):
+        return False
+    value = fact.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return False
+    unit = copilot_tools.canonical_unit(fact.get("unit"))
+    if unit is None or (currency and unit not in {"pure", "shares", currency, f"{currency}/shares"}):
+        return False
+    try:
+        end = date.fromisoformat(fact["period_end"])
+        start = date.fromisoformat(fact["period_start"]) if fact.get("period_start") else None
+        if start and start > end:
+            return False
+    except (KeyError, TypeError, ValueError):
+        return False
+    kind = fact.get("kind") or fact.get("value_kind")
+    if kind is not None and kind not in {"margin", "yoy_growth"}:
+        return False
+    if kind in {"margin", "yoy_growth"}:
+        operands = fact.get("source_facts")
+        if unit != "pure" or not isinstance(operands, list) or len(operands) != 2:
+            return False
+        if any(not _valid_fact_provenance(item, accession, currency) or item.get("kind") or item.get("value_kind")
+               for item in operands):
+            return False
+    return True
+
+
+def _fact_identity(fact: dict) -> str:
+    """One marker per exact fact/expression; different operands cannot alias a result."""
+    keys = ("concept", "raw_tag", "accession", "unit", "period_start", "period_end", "fiscal_year",
+            "fiscal_period", "kind", "value", "denominator_concept", "source_facts")
+    return json.dumps({key: fact.get(key) for key in keys}, sort_keys=True, separators=(",", ":"))
+
+
 def _compact_xbrl_block(xbrl_data: Any) -> str:
     """Render the filing's XBRL JSON compactly for context, or "" when absent/oversized.
 
-    Read-only context only — P1 does not let the model call XBRL tools (that is P5). Kept small so it
+    Numeric tools provide exact accession-scoped facts independently. This compact reference
     cannot crowd out the section excerpt.
     """
     if not xbrl_data:
@@ -188,9 +239,21 @@ def _build_context_message(filing: Any, source_text: str) -> str:
     excerpt = (source_text or "")[: settings.COPILOT_CONTEXT_CHAR_CAP]
     xbrl_block = _compact_xbrl_block(getattr(filing, "xbrl_data", None))
 
+    currency = _reporting_currency(filing)
+    currency_instruction = (
+        f"REPORTING CURRENCY: {currency}. Use this native currency explicitly for monetary figures; "
+        "never label them as another currency or use a bare dollar sign for non-USD amounts. "
+        "Per-share values retain their currency-per-share unit; do not convert convenience translations."
+        if currency else
+        "REPORTING CURRENCY: unavailable. Preserve explicit currency units from each source; "
+        "do not infer USD from a ticker, missing unit, or an ambiguous dollar symbol."
+    )
     parts = [
         f"FILING: {company_name} ({ticker}) — {form} filed {date_str}.",
         "",
+        f"VIEWED ACCESSION: {getattr(filing, 'accession_number', None) or 'unavailable'}. "
+        f"REPORT PERIOD: {getattr(filing, 'period_of_report', None) or 'unavailable'}.",
+        currency_instruction,
         "FILING CONTENT (the only source you may use):",
         excerpt or "(no cached content available for this filing)",
     ]
@@ -417,6 +480,36 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
     return False
 
 
+# Explicit currency labels attached to a financial figure; absent labels remain unknown.
+_CURRENCY_TOKEN = r"(?:U\.S\. dollars?|US dollars?|euros?|pounds sterling|Chinese yuan|renminbi|US\$|NT\$|HK\$|RMB|CNY|USD|TWD|EUR|GBP|JPY|CAD|AUD|HKD|DKK|CHF|€|£|\$)"
+_CURRENCY_BEFORE = re.compile(r"(?<![A-Za-z])(" + _CURRENCY_TOKEN + r")\s*$", re.I)
+_CURRENCY_AFTER = re.compile(r"^\s*(" + _CURRENCY_TOKEN + r")(?![A-Za-z])", re.I)
+_CURRENCY_ALIASES = {"US$": "USD", "$": "USD", "NT$": "TWD", "HK$": "HKD", "€": "EUR", "£": "GBP", "RMB": "CNY", "U.S. DOLLAR": "USD", "U.S. DOLLARS": "USD", "US DOLLAR": "USD", "US DOLLARS": "USD", "EURO": "EUR", "EUROS": "EUR", "POUNDS STERLING": "GBP", "CHINESE YUAN": "CNY", "RENMINBI": "CNY"}
+
+
+def _fact_matches_adjacent_currency(fact: dict, window: str) -> bool:
+    """Falsify explicit wrong currency on a matching figure, without guessing absent currency."""
+    unit = copilot_tools.canonical_unit(fact.get("unit"))
+    if unit is None or unit in {"pure", "shares"}:
+        return True
+    expected = unit.split("/", 1)[0]
+    scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.I)
+    for match in _NUMBER_TOKEN.finditer(scrubbed):
+        if not _fact_matches_adjacent_number(fact, match[0]):
+            continue
+        before = _CURRENCY_BEFORE.search(scrubbed[:match.start()].rstrip())
+        # The number token owns an optional bare $, so inspect the currency prefix including it.
+        if match[1]:
+            before = _CURRENCY_BEFORE.search(scrubbed[:match.start(1) + 1].rstrip())
+        after = _CURRENCY_AFTER.match(scrubbed[match.end():])
+        for declared in (before, after):
+            if declared:
+                label = declared[1].upper()
+                if _CURRENCY_ALIASES.get(label, label) != expected:
+                    return False
+    return True
+
+
 # How prose names each standardized concept — the vocabulary for the CONCEPT adjacency check.
 # Phrase-containment, lowercase. Deliberately curated and conservative: a paraphrase missing from
 # a fact's own list can only cause a KEPT marker (the check is falsification-only), never a strip.
@@ -602,9 +695,9 @@ def _resolve_citations(
         fact = facts_by_marker.get(key) if key not in text_citations_by_marker else None
         if fact is not None:
             window = _adjacency_window(full_answer, match.start(), prev_marker_end)
-            if not _fact_matches_adjacent_number(fact, window) or not _fact_matches_adjacent_concept(
-                fact, window
-            ):
+            if (not _fact_matches_adjacent_number(fact, window)
+                    or not _fact_matches_adjacent_concept(fact, window)
+                    or not _fact_matches_adjacent_currency(fact, window)):
                 misplaced += 1
                 pieces.append(full_answer[cursor:match.start()].rstrip(" "))
                 cursor = match.end()
@@ -682,24 +775,24 @@ async def answer_filing_question(
         normalized_source = normalize_for_match(source_text)
         messages = _build_messages(filing, source_text, question, history)
 
-        # P5/P6b numeric tool-use: bind the tools to this filing's company. ``run_tool`` opens its own
+        # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
         # DB session per call (the request session is gone by now). Each distinct successful fact is
-        # assigned a stable ``F#`` citation marker (deduped by raw_tag/accession/period_end/kind) that
+        # assigned a stable ``F#`` citation marker (deduped by exact provenance and expression operands) that
         # is fed back to the model via the tool result's ``cite`` field, so the model can cite the
         # figure inline as ``[F1]`` — rendering an inline chip, not just a Sources row.
         company_id = getattr(filing, "company_id", None)
+        accession = getattr(filing, "accession_number", None)
+        currency = _reporting_currency(filing)
         used_facts: list[dict] = []
-        _fact_markers: dict[tuple, str] = {}
+        _fact_markers: dict[str, str] = {}
 
         def _run_tool(name: str, args: dict) -> dict:
-            result = copilot_tools.run_tool(name, args, company_id)
+            result = copilot_tools.run_tool(name, args, company_id, accession_number=accession,
+                                            reporting_currency=currency)
             if isinstance(result, dict) and "error" not in result and "value" in result:
-                key = (
-                    result.get("raw_tag"),
-                    result.get("accession"),
-                    result.get("period_end"),
-                    result.get("kind"),
-                )
+                if not _valid_fact_provenance(result, accession, currency):
+                    return {"error": "invalid_filing_provenance"}
+                key = _fact_identity(result)
                 marker = _fact_markers.get(key)
                 if marker is None:
                     marker = f"F{len(used_facts) + 1}"

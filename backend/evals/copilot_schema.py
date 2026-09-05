@@ -27,11 +27,13 @@ class CopilotQACase:
     # Optional human hint for where the answer should come from (not hard-scored).
     expected_section: str = ""
     notes: str = ""
+    question_id: str = ""
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CopilotQACase":
         return cls(
             question=d["question"],
+            question_id=d.get("question_id", ""),
             disclosed=bool(d.get("disclosed", True)),
             expected_facts=[GroundTruthFact(**f) for f in d.get("expected_facts", [])],
             expected_section=d.get("expected_section", ""),
@@ -53,11 +55,15 @@ class CopilotGoldenCase:
     # Operator must confirm the filing + each case's answerability against EDGAR before trusting scores.
     verified: bool = False
     notes: str = ""
+    period_of_report: str = ""
+    reporting_currency: str = ""
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CopilotGoldenCase":
         return cls(
             ticker=d["ticker"],
+            period_of_report=d.get("period_of_report", ""),
+            reporting_currency=d.get("reporting_currency", ""),
             cik=str(d["cik"]),
             accession_number=d["accession_number"],
             filing_type=d["filing_type"],
@@ -88,6 +94,9 @@ class CopilotAnswerScore:
     grounded: int
     gate_failures: List[str]  # hard vetoes: REFUSAL / CITATION / ADJACENCY / NUMERIC
 
+    invalid_provenance: List[str] = field(default_factory=list)
+    contradictory_currencies: List[str] = field(default_factory=list)
+
     @property
     def passed(self) -> bool:
         return not self.gate_failures
@@ -109,4 +118,6 @@ class CopilotAnswerScore:
             "grounded": self.grounded,
             "gate_failures": self.gate_failures,
             "passed": self.passed,
+            "invalid_provenance": self.invalid_provenance,
+            "contradictory_currencies": self.contradictory_currencies,
         }

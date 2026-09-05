@@ -3,7 +3,9 @@
 ## WS-6 Copilot — implementation plan after verified hygiene deployment
 
 Owners: AI Engineer (plan_gates) owns service/snapshot/currency, eval schema/scorers/runner,
-source-only bootstrap, goldens/workflow and docs; plan_rules owns copilot_tools and tool tests.
+goldens/workflow and docs; plan_rules owns copilot_tools and tool tests.
+plan_correctness owns source-only bootstrap, identity manifest and bootstrap tests; the other
+three reviewers independently review that component before acceptance.
 Base: #702 merged `efc81adcd5f4891836b2d6c5b4d28460d08b3fa9`; deployment 33981155212
 applied 0/skipped 34, revision `00267-2kc` serves all traffic; detailed health is healthy.
 

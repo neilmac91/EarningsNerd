@@ -192,7 +192,7 @@ acceptable cost/latency. Then:
 - **Structured output (`USE_STRUCTURED_OUTPUT=true` / `gemini-json`) wins** → flip
   `USE_STRUCTURED_OUTPUT=true` in your env. True one-flag change. ✅
 - **A Claude/other model wins decisively** → NOT a one-line `AI_DEFAULT_MODEL` change. Production
-  summarization uses the OpenAI-compatible client pointed at Google; routing to Anthropic needs an
+  summarization uses the OpenAI-compatible client pointed at DeepSeek; routing to Anthropic needs an
   engineering follow-up in `openai_service.py`. The bake-off *justifies* that ticket.
 - **Nothing beats baseline** → keep flags off, file the report; it tells you which dimension to
   fix next (usually precision or coverage on the adversarial filings).
