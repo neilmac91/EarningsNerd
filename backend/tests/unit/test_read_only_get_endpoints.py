@@ -1,4 +1,7 @@
-"""Structural gate: no side-effecting GET endpoints (WS-8 (e), security audit).
+"""Structural gate: no GET endpoints NAMED as mutations (WS-8 (e), security audit).
+
+Scope: this checks handler-name verbs only — it cannot see what a body does. A GET named ``get_x``
+that writes is not caught here; that is a code-review concern.
 
 The API authenticates with cookies as well as bearer tokens, so a GET that mutates state is a
 CSRF vector (a cross-site top-level navigation carries SameSite=Lax cookies) and — unauthenticated —

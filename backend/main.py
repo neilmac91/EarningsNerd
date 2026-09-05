@@ -45,6 +45,7 @@ else:
         print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
 from app.database import engine, Base, get_db, ensure_additive_columns
+from app.services.event_loop import set_app_loop
 from app.services.logging_service import (
     configure_logging,
     CorrelationIdMiddleware,
@@ -86,6 +87,9 @@ from app.routers import (
 async def lifespan(app: FastAPI):
     # Startup - run sync DB operation in thread pool to avoid blocking event loop
     loop = asyncio.get_running_loop()
+    # Sync bridges (BackgroundTask bodies, threadpool work) hand coroutines to THIS loop via
+    # run_coroutine_threadsafe instead of spinning private loops — see app/services/event_loop.py.
+    set_app_loop(loop)
     await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
     # create_all() never ALTERs existing tables, so self-apply small additive columns that post-date
     # a table's original CREATE (e.g. the FPI alert prefs) — keeps deployed code + schema in sync
@@ -177,6 +181,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    set_app_loop(None)
     await close_redis()
     logger.info("Redis connections closed")
 

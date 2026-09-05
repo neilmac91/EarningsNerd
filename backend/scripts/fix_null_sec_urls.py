@@ -82,7 +82,11 @@ def fix_null_sec_urls(session, dry_run: bool = True, ticker: str = None):
         company_ticker = row["ticker"]
         company_name = row["name"]
 
-        new_sec_url = generate_sec_url(cik, accession_number)
+        try:
+            new_sec_url = generate_sec_url(cik, accession_number)
+        except ValueError as exc:
+            logger.warning(f"  Skipping filing {filing_id} ({accession_number}): {exc}")
+            continue
 
         logger.info(
             f"  {company_ticker} ({company_name}): "

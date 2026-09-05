@@ -861,6 +861,84 @@ class TestCompanyfactsSyncBridge:
         monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _boom)
         assert svc._fetch_companyfacts_sync("320193") is None
 
+    def test_sync_fetch_uses_the_registered_app_loop_not_a_private_one(self, monkeypatch):
+        """With an app loop registered, the coroutine runs THERE (run_coroutine_threadsafe)."""
+        import asyncio
+        import threading
+
+        import app.services.sec_rate_limiter as rl
+        from app.services import event_loop
+
+        ran_on: dict[str, object] = {}
+
+        async def _record(request_fn, *args, **kwargs):
+            ran_on["loop"] = asyncio.get_running_loop()
+            return {"facts": {}}
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _record)
+
+        def _no_private_loop(*_a, **_k):
+            raise AssertionError("asyncio.run must not be used while an app loop is registered")
+
+        monkeypatch.setattr(asyncio, "run", _no_private_loop)
+
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=loop.run_forever, daemon=True)
+        thread.start()
+        monkeypatch.setattr(event_loop, "_app_loop", loop)
+        try:
+            assert svc._fetch_companyfacts_sync("320193") == {"facts": {}}
+            assert ran_on["loop"] is loop
+        finally:
+            loop.call_soon_threadsafe(loop.stop)
+            thread.join(timeout=5)
+            loop.close()
+
+    def test_sync_fetch_falls_back_to_a_private_loop_when_none_is_registered(self, monkeypatch):
+        import asyncio
+
+        import app.services.sec_rate_limiter as rl
+        from app.services import event_loop
+
+        monkeypatch.setattr(event_loop, "_app_loop", None)
+
+        async def _ok(request_fn, *args, **kwargs):
+            return {"facts": {}}
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _ok)
+
+        def _not_threadsafe(*_a, **_k):
+            raise AssertionError("run_coroutine_threadsafe needs a registered loop")
+
+        monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", _not_threadsafe)
+        assert svc._fetch_companyfacts_sync("320193") == {"facts": {}}
+
+    def test_sync_fetch_ignores_a_closed_registered_loop(self, monkeypatch):
+        import asyncio
+
+        import app.services.sec_rate_limiter as rl
+        from app.services import event_loop
+
+        closed = asyncio.new_event_loop()
+        closed.close()
+        monkeypatch.setattr(event_loop, "_app_loop", closed)
+
+        async def _ok(request_fn, *args, **kwargs):
+            return {"facts": {}}
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _ok)
+        assert svc._fetch_companyfacts_sync("320193") == {"facts": {}}
+
+    def test_sync_fetch_returns_none_for_a_malformed_cik(self, monkeypatch):
+        import app.services.sec_rate_limiter as rl
+
+        async def _never(request_fn, *args, **kwargs):
+            raise AssertionError("no request should be attempted for a bad CIK")
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _never)
+        assert svc._fetch_companyfacts_sync("not-a-cik") is None
+        assert svc._fetch_companyfacts_sync("0") is None
+
     def test_sync_fetch_builds_the_companyfacts_url_via_the_shared_helper(self, monkeypatch):
         import app.services.sec_rate_limiter as rl
 

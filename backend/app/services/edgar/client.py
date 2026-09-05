@@ -487,11 +487,17 @@ class EdgarClient:
             if limit:
                 filings = filings[:limit]
 
-            # Transform to our Filing model
-            return [
-                self._transform_filing(f, ticker, edgar_company.cik)
-                for f in filings
-            ]
+            # Transform to our Filing model. A filing whose accession/CIK the URL builder rejects
+            # (malformed listing metadata) is skipped with a warning rather than failing the listing.
+            transformed: List[Filing] = []
+            for f in filings:
+                try:
+                    transformed.append(self._transform_filing(f, ticker, edgar_company.cik))
+                except ValueError as exc:
+                    logger.warning(
+                        f"Skipping filing {getattr(f, 'accession_number', '?')} for {ticker}: {exc}"
+                    )
+            return transformed
 
         except Exception as exc:
             if "not found" in str(exc).lower():
