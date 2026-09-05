@@ -16,6 +16,8 @@ existing local current-period mismatch check receives None. This predates this r
   flag repair; do not imply deployment or existing backfill repairs old identities.
 - [ ] Chief engineer: run exact pinned full backend gates. Database/data-integrity (plan_rules),
   integration/eval (plan_gates), and root independently review; use two refuters per serious finding.
+- [ ] Chief engineer: record the already verified Copilot checkpoint in its owning RUNBOOK now;
+  its backend path otherwise causes an avoidable extra deployment during final docs synchronization.
 - [ ] Chief engineer: inspect required actual CI and eval artifacts, merge using freshly read
   head SHA, then verify migrations, traffic and detailed production health before another merge.
 
