@@ -57,19 +57,28 @@ test.describe('Copilot citation highlight', () => {
       }).__copilotHighlight
       const highlights = (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights
 
+      // Two blocks separated by whitespace, like real rendered filing HTML. Excerpt 1 starts at the
+      // very first character; excerpt 2 starts mid-paragraph ("expenses …", not "Operating …") so
+      // its start offset lies strictly inside paragraph 2's text node — the flash target is then
+      // unambiguous and this spec does not depend on how `locate()` treats an offset that sits
+      // exactly on a text-node boundary.
       const container = document.createElement('div')
       container.innerHTML =
-        '<p>Net income rose on higher services revenue during the quarter.</p>' +
-        '<p>Operating expenses declined as headcount stayed flat through the period.</p>'
+        '<p data-para="1">Net income rose on higher services revenue during the quarter.</p>\n' +
+        '<p data-para="2">Operating expenses declined as headcount stayed flat through the period.</p>'
       document.body.appendChild(container)
+      const flashedParas = () =>
+        Array.from(container.querySelectorAll<HTMLElement>('.citation-flash')).map((el) => el.dataset.para ?? el.tagName)
 
       const found = m.highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter')
+      const flashedAfterFirst = flashedParas()
       const rule = document.adoptedStyleSheets
         .flatMap((s) => Array.from(s.cssRules))
         .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '::highlight(copilot-citation)')
       const registered = highlights.get('copilot-citation')
 
-      m.highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat through the period')
+      const foundSecond = m.highlightExcerptInDom(container, 'expenses declined as headcount stayed flat through the period')
+      const flashedAfterSecond = flashedParas()
       const sheetsAfterSecond = document.adoptedStyleSheets.length
 
       m.clearCitationHighlight()
@@ -78,16 +87,19 @@ test.describe('Copilot citation highlight', () => {
 
       return {
         found,
+        foundSecond,
         ruleText: rule?.cssText ?? null,
         background: rule?.style.backgroundColor ?? null,
         registeredRanges: registered?.size ?? null,
         sheetsAfterSecond,
         clearedStillRegistered,
-        flashed: container.querySelectorAll('.citation-flash').length,
+        flashedAfterFirst,
+        flashedAfterSecond,
       }
     })
 
     expect(result.found).toBe(true)
+    expect(result.foundSecond).toBe(true)
     expect(result.ruleText).toContain('::highlight(copilot-citation)')
     expect(result.background).toBe('rgba(79, 122, 99, 0.22)')
     // One Highlight holding exactly the matched Range.
@@ -95,6 +107,9 @@ test.describe('Copilot citation highlight', () => {
     // A second highlight reuses the adopted sheet rather than adding another.
     expect(result.sheetsAfterSecond).toBe(1)
     expect(result.clearedStillRegistered).toBe(false)
-    expect(result.flashed).toBe(1)
+    // The block flash lands on the paragraph that holds the excerpt — and only that one — and the
+    // first paragraph's flash (1.8 s) is still running when the second lands.
+    expect(result.flashedAfterFirst).toEqual(['1'])
+    expect(result.flashedAfterSecond).toEqual(['1', '2'])
   })
 })
