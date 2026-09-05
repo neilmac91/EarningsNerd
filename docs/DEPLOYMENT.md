@@ -447,18 +447,30 @@ gcloud scheduler jobs create http notable-filings-scan --location=us-west1 \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-First rollout (the section ships dark):
+First rollout (**founder executes** job creation, Scheduler creation, smoke and seed; the section ships dark):
 ```bash
 # 1. Smoke-test, then seed a full week so the section isn't empty on day one:
 gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 --wait
 gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
   --args="scripts/notable_filings_job.py,--days,7" --wait
-# 2. Flip serving on (the scan runs regardless; the flag gates the API only):
-gcloud run services update earningsnerd-backend --region=us-west1 \
-  --update-env-vars=NOTABLE_FILINGS_ENABLED=true
-# 3. Probe, then check the homepage (ISR revalidates within ~15 min):
-#    curl "https://api.earningsnerd.io/api/notable_filings?limit=8"
+# Stop here: keep serving dark during the founder's one-week quality review.
+# The scan runs regardless of NOTABLE_FILINGS_ENABLED; a successful seed is not launch approval.
 ```
+
+After a full week of job output, the founder records the reviewed date range, representative
+accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering
+then proposes `NOTABLE_FILINGS_ENABLED=true` in the **service** `--update-env-vars` list in
+`.github/workflows/ci.yml`, in a reviewed PR with the readout linked. Do not flip it through a
+console command: D3 requires the serving state to be visible in the repository. A killed slot
+stays dark. Job creation, seed completion and the week of review are still outstanding as of
+2026-09-05; the last verified deployment log reports the job absent.
+
+After that flag PR merges, verify `deploy-backend`, its migration summary, detailed health,
+`GET /api/notable_filings?limit=8`, and the homepage after revalidation (approximately 15 minutes).
+The endpoint legitimately returns an empty list with too few qualifying companies; assess
+accession validity, reason accuracy, company diversity and freshness against the stored output,
+not merely HTTP status. See [the wave-2 rollout checklist](../tasks/dark-surfaces-rollout-2026-09.md)
+for the evidence record and Analysis prerequisites.
 
 ---
 
