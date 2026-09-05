@@ -49,7 +49,7 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
 ## W3-4 implementation — production smoke (active)
 
 Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
-Based on W3-2 candidate `7a1a6fbb`; no publication until its deployment is verified. The scheduled
+Based on W3-2 candidate `56f44686`; no publication until its deployment is verified. The scheduled
 workflow reads a cached public filing as an unauthenticated visitor and never clicks generation
 or Copilot. The existing health policy accepts degraded serving status and rejects unhealthy.
 
