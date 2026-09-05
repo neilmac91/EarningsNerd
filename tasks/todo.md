@@ -163,3 +163,8 @@ founder backfill, job setup and off-peak universe generation remain separate exe
 - [ ] Read persisted accession-specific XBRL before external/cache fallback; complete the companyfacts liabilities/cash fallback.
 - [ ] Extend weekly examples to annual and quarterly forms and enable FPI on that job; provide an idempotent universe Company seed command without triggering AI generation.
 - [ ] Add mutation-proven regression tests, safe additive migration if required, accurate operational documentation, full backend/frontend gates for touched code, and independent review before merge.
+
+## WS-10 — configuration and script placement hygiene
+
+- [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
+- [x] Integrate WS-7 statement default/docs and refresh gate (1910 passed); independent review and CI remain required before merge.

@@ -64,6 +64,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-citation-offset-boundaries.md`](./frontend-citation-offset-boundaries.md) — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - [`frontend-sitemap-cache-ownership.md`](./frontend-sitemap-cache-ownership.md) — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
+- [`frontend-jsdom-sdk-browser-entry.md`](./frontend-jsdom-sdk-browser-entry.md) — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - [`frontend-check-luminance-vs-background.md`](./frontend-check-luminance-vs-background.md) — Verify surface luminance against the actual background, not token validity
 - [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
