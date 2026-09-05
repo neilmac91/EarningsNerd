@@ -51,6 +51,8 @@ def _violations(source):
             if _retired_literal(key):
                 hits.append((key.lineno, "runtime key", key.value))
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node.value in RETIRED:
+                hits.append((node.lineno, "retired literal", node.value))
             if PROMPT_MARKER in " ".join(node.value.upper().split()):
                 hits.append((node.lineno, "prior-context prompt", PROMPT_MARKER))
     return hits
@@ -69,7 +71,9 @@ def test_production_python_has_no_retired_cross_filing_summary_inputs():
 
 def test_gate_permits_current_filing_comparatives_and_separate_change_report():
     assert _violations('''
+# Historical previous_filings and previous_filings_context comments are not inputs.
 def build_change_report(current_filing, prior_filing):
+    """Historical API previous_filings was retired; this is a separate Change Report."""
     return {"current": current_filing, "prior": prior_filing}
 
 def summarize_current_filing(xbrl_metrics):
