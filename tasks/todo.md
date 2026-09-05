@@ -8,8 +8,8 @@ per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md);
 operating directives live in the root `AGENTS.md`. Work items (engineering unless marked founder):
 
 - [x] W3-0 Additional #705 tail verification: 13 task docs, 43 links valid, 52 earlier archives and original §7/ledger preserved. Final manual-reviewed `34350292` tree equals `eddcfbb7`; only the GitHub bot stopped at `c660e9a1`.
-- [ ] W3-0 documentation correction: qualify #706 review history, agent count, refresh failure cause, environment assumptions and dependency evidence; review/link check and draft PR before merge.
-- [ ] W3-1 `ops.yml` allow-list exposes every guard flag; dispatch `describe-service` and record the output
+- [x] W3-0 documentation correction: qualify #706 review history, agent count, refresh failure cause, environment assumptions and dependency evidence; review/link check and draft PR before merge.
+- [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [ ] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: **(founder)** `FMP_API_KEY`; engineering dispatches, merges the auto-PR, closes the failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
 - [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
@@ -20,6 +20,27 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [ ] W3-9 Historical reconciliation-flag audit/repair script (dry-run default) → **(founder)** executes
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
+
+## W3-2 implementation — production parity (active)
+
+Owner: AI engineer (plan_gates). Root owns GitHub publication, actual CI, merge and deployment.
+Entry evidence: W3-1 run 33996220468/job 101387131600; source image #704/123f99e.
+Founder correction: preserve service `CALENDAR_INDEX_FILTER_ENABLED=true` as an intentional
+production override, pregenerate=false, Settings default=false. Both fallback fields must be
+empty for new pins. Founder provided `FMP_API_KEY` in the GitHub `Production` environment;
+bind the existing refresh job to that environment without reading or changing the secret.
+Routine required CI evaluations are authorized; extra sweeps and strong-judge dispatch remain held.
+
+- [ ] Implement explicit service/job pins and three gate families: visibility/defaults/parity,
+  measured fallback provenance and pin refusal, scheduled failure notification structure.
+- [ ] Preserve serving-revision/traffic and distinct job observation through executable offline
+  ops renderer tests; extend existing eval tests without adding duplicate rules.
+- [ ] Wire refresh to `Production`; correct owning RUNBOOK/config/deployment/dark-surface/handover
+  docs, including the founder-approved calendar exception and current entry evidence.
+- [ ] Commit source; run one intended mutation proof per rule, restore exactly, run focused
+  workflow gates and exact-runtime full backend gate. Locked tests and sole baseline stay unchanged.
+- [ ] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
+  verify deployment and effective pins. No refresh or judged-readout dispatch in this PR.
 
 ## WS-10 verified engineering handover — final synchronization
 
