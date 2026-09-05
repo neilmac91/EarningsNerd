@@ -236,3 +236,52 @@ def test_report_script_emits_new_sections_and_uses_separate_identity(sessions, m
     with sessions() as db:
         row = db.query(JobRun).one()
         assert row.job_name == "data-quality-report" and row.status == "dry_run"
+
+
+def test_ops_describe_statement_default_matches_settings():
+    from app.config import Settings
+    workflow = Path(__file__).resolve().parents[3] / ".github/workflows/ops.yml"
+    default = Settings.model_fields["USE_STATEMENT_FINANCIALS"].default
+    assert f"Settings default applies ({default})" in workflow.read_text()
+
+
+def test_notable_midpagination_failure_is_not_success():
+    from app.services import notable_filings_service as notable
+    hit = SimpleNamespace(accession_no="one")
+    client = SimpleNamespace(search=AsyncMock(side_effect=[
+        SimpleNamespace(hits=[hit], total=2), RuntimeError("second page unavailable"),
+    ]))
+    stats = notable.ScanStats()
+    collected = []
+    asyncio.run(notable._paged_search(client, stats, set(), collected, query="earnings",
+                                     forms="8-K", start="2026-09-01", end="2026-09-05", max_pages=2))
+    assert collected == [hit] and stats.source_errors == 1
+    assert stats.truncated_queries == ["8-K:earnings@1"]
+
+
+@pytest.mark.parametrize("body", ['{"Information":"rate limited"}', 'bad,columns\n1,2', "http_failure"])
+def test_alpha_vantage_strict_ingest_exposes_provider_failure(monkeypatch, body):
+    import httpx
+    from app.integrations.alpha_vantage import AlphaVantageClient
+    client = AlphaVantageClient()
+    client._api_key = "fixture-key"
+    response = httpx.Response(503 if body == "http_failure" else 200, text=body,
+                              request=httpx.Request("GET", "https://example.test"))
+    transport = AsyncMock()
+    transport.__aenter__.return_value.get.return_value = response
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: transport)
+    assert asyncio.run(client.fetch_earnings_calendar()) == []
+    with pytest.raises(httpx.HTTPStatusError if body == "http_failure" else ValueError):
+        asyncio.run(client.fetch_earnings_calendar(raise_on_error=True))
+
+
+def test_calendar_opts_into_provider_error_visibility(sessions, monkeypatch):
+    from app.integrations.alpha_vantage import alpha_vantage_client
+    from app.services import earnings_calendar_service as calendar
+    fetch = AsyncMock(side_effect=RuntimeError("provider failed"))
+    monkeypatch.setattr(alpha_vantage_client, "fetch_earnings_calendar", fetch)
+    monkeypatch.setattr(calendar, "_sweep_edgar_2_02", AsyncMock(return_value=[]))
+    with sessions() as db:
+        stats = asyncio.run(calendar.run_refresh(db))
+    fetch.assert_awaited_once_with(raise_on_error=True)
+    assert stats.source_errors == 1

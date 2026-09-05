@@ -427,8 +427,11 @@ async def run_refresh(
     stats = RefreshStats()
 
     if av_client is None:
+        from functools import partial
         from app.integrations.alpha_vantage import alpha_vantage_client
-        av_client = alpha_vantage_client
+        fetch_calendar = partial(alpha_vantage_client.fetch_earnings_calendar, raise_on_error=True)
+    else:
+        fetch_calendar = av_client.fetch_earnings_calendar
     if efts_client is None:
         from app.integrations.sec_api import sec_full_text_search_client
         efts_client = sec_full_text_search_client
@@ -437,7 +440,7 @@ async def run_refresh(
 
     # 1. Alpha Vantage bulk estimates.
     try:
-        av_rows = await av_client.fetch_earnings_calendar()
+        av_rows = await fetch_calendar()
         stats.av_rows = len(av_rows)
         stats.av_upserted = ingest_alpha_vantage(db, av_rows, today=today, stats=stats)
     except Exception:  # never let the bridge break the engine

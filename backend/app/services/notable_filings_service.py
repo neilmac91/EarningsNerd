@@ -226,6 +226,7 @@ async def _paged_search(
             # 2026-07-06). Keep the hits already collected from earlier pages rather than
             # aborting the whole query; the overlapping next scan re-covers the window.
             if offset:
+                stats.source_errors += 1
                 stats.truncated_queries.append(f"{forms}:{query or 'listing'}@{offset}")
                 logger.warning(
                     "Notable-filings sweep aborted mid-pagination for %s:%s at offset %s "

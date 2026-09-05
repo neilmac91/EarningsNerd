@@ -8,12 +8,12 @@ from .client import EdgarCompany
 
 
 async def fetch_company_sic(cik: str) -> tuple[str, str | None] | None:
-    def fetch():
+    def fetch() -> tuple[str, str | None] | None:
         company = EdgarCompany(cik)
         sic = company.sic
         return (str(sic), company.industry) if sic else None
 
-    async def limited_fetch():
+    async def limited_fetch() -> tuple[str, str | None] | None:
         return await run_with_circuit_breaker(fetch)
 
     return await sec_rate_limiter.execute(limited_fetch)

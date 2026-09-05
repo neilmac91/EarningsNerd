@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterator
 from uuid import uuid4
 
@@ -85,11 +85,11 @@ def track_job(name: str, *, dry_run: bool = False) -> Iterator[JobAttempt]:
         _finish(run_id, "dry_run" if dry_run else "succeeded", attempt)
 
 
-def _aware(value):
+def _aware(value: datetime) -> datetime:
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
 
 
-def job_health(db: Session, *, now=None) -> list[dict]:
+def job_health(db: Session, *, now: datetime | None = None) -> list[dict]:
     """Every expected job is visible, including jobs never created or never observed."""
     now = _aware(now or utcnow())
     successes = dict(db.query(JobRun.job_name, func.max(JobRun.finished_at)).filter(
