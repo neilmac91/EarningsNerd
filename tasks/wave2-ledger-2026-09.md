@@ -134,6 +134,7 @@ figure-trace and forward-quote remain advisory. Completed plans are linked from 
   [founder list](handover-wave2-2026-09.md#6-founder-only-items-outstanding-do-not-do-these-yourself-keep-them-visible).
 
 #673 was externally merged during #704 validation; this task preserved that work and did not
-author or execute its merge. #704 was accepted on the union. Documentation PR #705 and its
-required review/CI/merge remain tracked in the active todo until observed. This is an engineering
+author or execute its merge. #704 was accepted on the union. As of the 2026-09-05 pre-merge source checkpoint
+`177f9ff4`, documentation review/CI/merge remained pending in todo. [PR #705](https://github.com/neilmac91/EarningsNerd/pull/705)
+is authoritative for its subsequent outcome. This is an engineering
 handover, not completion of original §7.

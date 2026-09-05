@@ -2,6 +2,10 @@
 
 ## WS-10 verified engineering handover — final synchronization
 
+Documentation-stage checkboxes below record the 2026-09-05 pre-merge source checkpoint
+`177f9ff4`. [PR #705](https://github.com/neilmac91/EarningsNerd/pull/705) is authoritative for
+subsequent review, CI and merge outcomes; unchecked items do not assert those later results failed.
+
 Verified backend checkpoint: #704 (`123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`).
 Its deployment is healthy. Original handover §7 is not complete: the first actual strong-judge
 readout, dependent activation and founder production operations still need evidence.

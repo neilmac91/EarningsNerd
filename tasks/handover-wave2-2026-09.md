@@ -151,7 +151,7 @@ it does not rewrite old archives or quality-plan bodies. Broader agent/spec debt
    deploy's `deploy-backend` job is green AND the migration step log shows
    `apply_migrations: applied=0 skipped=<N>` (or `applied=<new files>`) AND
    `curl https://api.earningsnerd.io/health/detailed` is healthy. Frontend-only and docs-only PRs
-   can merge in between (their deploy job skips). GitHub's `deploy-backend` concurrency group also
+   can merge in between (backend deployment is skipped when no backend paths changed). GitHub's `deploy-backend` concurrency group also
    serializes, but only keeps one pending run, so do not queue three merges.
 5. **Watch, don't poll.** Background `until … curl … api.github.com/…/actions/runs?head_sha=…`
    loops (unauthenticated works for this repo; `$GITHUB_TOKEN` is in the env for job logs) wake the
@@ -255,7 +255,9 @@ prerequisites remain separately unchecked in [todo](todo.md). Script paths below
 ### Current status against the preserved definition
 
 **Not complete.** The original criteria above remain verbatim; this matrix distinguishes code
-acceptance from outstanding live/operator evidence.
+acceptance from outstanding live/operator evidence. Documentation-stage status is recorded as of
+the 2026-09-05 pre-merge source checkpoint `177f9ff4`; [PR #705](https://github.com/neilmac91/EarningsNerd/pull/705)
+is authoritative for its subsequent review, CI and merge outcome.
 
 | Criterion | Verified engineering | Still required |
 |---|---|---|
