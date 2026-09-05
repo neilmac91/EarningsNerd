@@ -67,7 +67,6 @@ the pregenerate FPI environment; founder seed, SIC enrichment and actual generat
 | #696 | Full backend gate; 1910 passed; 2 existing performance deselections | Settings name/default mutations and moved-script file-relative/stubbed checks passed |
 | #697 local, source `6076fe7f` | Ruff/bandit pass; 1935 backend passed, 2 deselected, 72 warnings; clean frontend install, lint/typecheck, 487 tests, build; no-backend Playwright 21 passed / 3 existing skips | 32 backend, 10 Analysis UI and 5 supersession UI mutations all failed and were restored |
 | #697 [CI 33961912275](https://github.com/neilmac91/EarningsNerd/actions/runs/33961912275) | 1935 backend passes; 2 performance passes; 487 frontend tests; Playwright 21 passed / 3 existing skips | PostgreSQL seed/replay each applied 34; ledger rerun applied 0 / skipped 34 |
-
 | #698 | Local backend 1961 passed; actual 26 × 3 pin: 78 accepted, 0 errors/vetoes, PASS/0 warnings | Sole authoritative pin; subsequent stages do not re-pin |
 | #700 | Local backend 2026 passed / 2 deselected; actual 52/52 accepted, 0 errors/vetoes, one advisory | 52 valid mutations; judge-off regression is not the first readout |
 | #701 | `2138 passed, 2 deselected, 72 warnings in 41.03s`; actual 52/52 accepted | Resilience plus strict complete-report gate; initial 51/52 remains failed evidence |
