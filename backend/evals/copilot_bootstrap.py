@@ -112,7 +112,8 @@ def _artifact(output: Path, name: str, value: Any) -> dict:
     data = (value if isinstance(value, str) else json.dumps(value, sort_keys=True, default=str)).encode()
     path = output / name
     path.write_bytes(data)
-    return {"path": str(path), "sha256": _sha(data), "bytes": len(data)}
+    return {"path": str(path), "relative_path": f"{output.name}/{name}",
+            "sha256": _sha(data), "bytes": len(data)}
 
 
 def _date(value: str) -> datetime:
@@ -227,7 +228,17 @@ async def bootstrap(database_value: str, output_value: str) -> dict:
         if runtime is not None:
             runtime.engine.dispose()
             if report.get("database_path") and Path(report["database_path"]).is_file():
-                report["database_sha256"] = _sha(Path(report["database_path"]).read_bytes())
+                try:
+                    data = Path(report["database_path"]).read_bytes()
+                    report["database_sha256"] = _sha(data)
+                    archive = output / "prepared-source.db"
+                    if archive != Path(report["database_path"]):
+                        with archive.open("xb") as archived:
+                            archived.write(data)
+                    report["database_artifact_path"] = archive.name
+                except OSError as exc:
+                    report["status"] = "unavailable"
+                    report["errors"].append({"stage": "database_artifact", "error_type": type(exc).__name__})
         (output / "preparation.json").write_text(json.dumps(report, indent=2, sort_keys=True))
     return report
 

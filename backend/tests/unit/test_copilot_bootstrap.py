@@ -145,6 +145,10 @@ def test_actual_source_normalization_is_independent_of_expected_answers(tmp_path
     report = first["report"]
     assert report["status"] == "complete" and report["errors"] == []
     assert report["database_sha256"] == hashlib.sha256(Path(report["database_path"]).read_bytes()).hexdigest()
+    assert report.get("database_artifact_path") == "prepared-source.db"
+    archived = tmp_path / "one/evidence" / report["database_artifact_path"]
+    assert archived.is_file(), "portable source database was not archived"
+    assert archived.read_bytes() == Path(report["database_path"]).read_bytes()
     assert set(report["planned_accessions"]) == {r[0] for r in first["rows"]}
     assert len(first["calls"]) == 6
     for source in report["sources"]:
@@ -152,6 +156,9 @@ def test_actual_source_normalization_is_independent_of_expected_answers(tmp_path
         assert source["reporting_currency"] == "CNY"
         assert set(source["artifacts"]) == {"html", "xbrl", "sections", "excerpt"}
         for artifact in source["artifacts"].values():
+            relative = Path(source["accession_number"]) / Path(artifact["path"]).name
+            assert artifact.get("relative_path") == str(relative)
+            assert (tmp_path / "one/evidence" / relative).read_bytes() == Path(artifact["path"]).read_bytes()
             data = Path(artifact["path"]).read_bytes()
             assert artifact["sha256"] == hashlib.sha256(data).hexdigest() and artifact["bytes"] == len(data)
 
