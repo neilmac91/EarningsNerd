@@ -27,8 +27,11 @@ pip install -r requirements.txt
 pip install anthropic          # only for Claude candidates + the LLM judge
 
 # Load your normal backend .env, then add provider keys:
-export OPENAI_API_KEY=...       # baseline + gemini-json (Google AI Studio)
-export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export OPENAI_API_KEY=...       # baseline uses the OpenAI-compatible DeepSeek provider
+export OPENAI_BASE_URL=https://api.deepseek.com/v1
+export AI_DEFAULT_MODEL=deepseek-v4-pro
+export USE_STATEMENT_FINANCIALS=true
+export STREAM_SECTION_REVEAL=true  # exercise the same callback-selected extraction path as prod
 export ANTHROPIC_API_KEY=...    # claude-sonnet, claude-opus, and the Opus judge (API credits)
 # optional: QWEN_API_KEY / KIMI_API_KEY / DEEPSEEK_API_KEY
 # optional judge backends (see "Judge backends" in Step 6):
@@ -58,18 +61,17 @@ Cover the adversarial cases — that's where quality breaks: small-caps / non-fi
 even 10-K / 10-Q split. Find a CIK at
 `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&ticker=XXXX`.
 
-### Dormant G5 bank-component facts (JPM) — restore in A7/A8
+### G5 bank-component facts (JPM) — restored after statement-financials graduation
 
-JPM's `ground_truth` **intentionally omits** its two bank-component facts (`net_interest_income`,
-`noninterest_income`; values preserved in the entry's `notes`). Reason: the production
-standardized-metrics extractor does not yet emit those concepts, so the pipeline cannot surface them
-deterministically and the model does so only stochastically (0–1 of 3 runs) — leaving them in made
-`score_bank_revenue_integrity` (G5) fire as **pure noise** that hard-fails the epsilon-zero
-`gate_fail_rate` gate on unrelated PRs (PR #611). Removing them keeps the pinned `gate_fail_rate` at
-**0.0** (so the fabrication tripwire keeps meaning what rule 12 says) while JPM's other 5 facts still
-exercise recall/precision and the bank sanitizer. G5 is dormant-by-design until it has a component
-fact (see the scorer's own docstring). **A7/A8** (XBRL metric expansion) re-arms G5 by restoring
-these two facts to the entry and re-pinning.
+JPM's FY2025 ground truth includes net interest income **$95,443 million** and noninterest
+revenue **$87,004 million**, verified against the accession's
+[Consolidated Statements of Income](https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/R3.htm).
+These facts were temporarily removed in #611 while extraction could not emit the components
+reliably. WS-7 #690 graduated `USE_STATEMENT_FINANCIALS=true`; WS-6 restores both facts so
+G5 again requires them to surface separately. A total-revenue figure alone does not satisfy
+G5. Do not remove these facts to make a failing measurement green: inspect the extraction,
+streamed output and per-run failure first. SIC backfill and persisted-fact remediation remain
+separate founder-run production operations.
 
 ---
 
@@ -212,7 +214,7 @@ Three pieces:
 ### Running the gate locally
 ```bash
 cd backend
-python -m evals.runner --candidates baseline --runs 1   # produce a fresh report
+python -m evals.runner --candidates baseline --runs 2   # routine repeat measurement
 python -m evals.regression_gate --latest                # diff it against baseline_scores.json
 # or gate a specific report:
 python -m evals.regression_gate evals/reports/eval_<stamp>.json
@@ -293,6 +295,24 @@ These are eval-honesty fixes, not model changes: the summaries were already repo
 ADR-appropriate figures. A *fabricated* number still won't match any legitimate basis.
 
 ### Re-pinning the baseline
+
+Routine `eval-baseline` PR runs evaluate the complete verified set twice. Manual CI dispatch
+accepts only `eval_runs=2` or `3`; use **3 with blank limit** for the authoritative pin.
+The workflow uses its existing `DEEPSEEK_API_KEY` secret; do not extract it to a local machine.
+Inspect both the actual runner and regression-gate logs (the job is advisory), then download
+the JSON/Markdown `eval-report-<run_id>` artifact. Keep the run ID, source SHA and report name
+in the PR. Two repeats improve the granularity of mean/WARN measurements; they do **not**
+excuse a hard veto (one failed filing-run out of 52 still exceeds the 0.005 hard tolerance).
+
+Reports capture the actual model, provider URL, statement/stream/extraction and trust flags,
+judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
+uses that metadata, never the local machine's model environment. It refuses missing or
+changed golden-set provenance, fewer than three runs, a subset, missing/duplicate runs,
+errors or inconsistent counts. Older reports without this provenance must be measured anew.
+An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
+provenance and explain intentional bar changes rather than performing cosmetic re-pins.
+A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.
+
 Re-pin whenever you intentionally move the bar — flip `USE_STRUCTURED_OUTPUT`, change the default
 model/prompt, or adopt a quality improvement. From `backend/`:
 ```bash

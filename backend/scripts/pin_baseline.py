@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
+import hashlib
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional
 EVALS_DIR = Path(__file__).resolve().parent.parent / "evals"
 REPORTS_DIR = EVALS_DIR / "reports"
 BASELINE_PATH = EVALS_DIR / "baseline_scores.json"
+GOLDEN_PATH = EVALS_DIR / "golden_set.json"
 
 _STAMP_RE = re.compile(r"eval_(\d{8}T\d{6}Z)\.json$")
 
@@ -37,23 +38,46 @@ def _snapshot_date(report_path: Path) -> str:
     return f"{s[0:4]}-{s[4:6]}-{s[6:8]}T{s[9:11]}:{s[11:13]}:{s[13:15]}Z"
 
 
-def build_baseline(report: Dict[str, Any], report_path: Path) -> Dict[str, Any]:
+def build_baseline(
+    report: Dict[str, Any], report_path: Path, previous: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Pin only a complete measured baseline, preserving its recorded configuration and notes."""
     summary = report.get("summary") or {}
-    results: List[Dict[str, Any]] = report.get("results") or []
-    distinct = {(r.get("ticker"), r.get("filing_type")) for r in results if r.get("score")}
-    runs = max((r.get("run", 0) for r in results), default=0) + 1 if results else 0
-    return {
+    results = [r for r in report.get("results", []) if r.get("candidate") == "baseline"]
+    golden = json.loads(GOLDEN_PATH.read_text())["filings"]
+    expected = {(f["ticker"], f["filing_type"]) for f in golden if f.get("verified") and f.get("document_url")}
+    harness = report.get("harness") or {}
+    if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
+        raise ValueError("Report golden-set provenance is missing or differs from the committed set")
+    if not harness.get("model") or "judge" not in harness:
+        raise ValueError("Report must record the actual model and judge configuration")
+    if not results or any(r.get("error") or not r.get("score") for r in results):
+        raise ValueError("Cannot pin a report with missing scores or evaluation errors")
+    observed = {(r.get("ticker"), r.get("filing_type")) for r in results}
+    if observed != expected:
+        raise ValueError("A baseline pin requires the complete verified golden set")
+    runs = max(r.get("run", 0) for r in results) + 1
+    if runs < 3:
+        raise ValueError("A baseline pin requires at least three measured runs per filing")
+    identities = {(r.get("ticker"), r.get("filing_type"), r.get("run")) for r in results}
+    if len(identities) != len(results) or identities != {
+        (ticker, form, run) for ticker, form in expected for run in range(runs)
+    }:
+        raise ValueError("Every verified filing must have exactly one score for each run index")
+    stats = summary.get("baseline") or {}
+    if stats.get("n") != len(results) or stats.get("errors") != 0:
+        raise ValueError("Baseline summary counts do not match its successful filing runs")
+    baseline = {
         "snapshot_date": _snapshot_date(report_path),
         "source_report": report_path.name,
-        "golden_set_size": len(distinct),
+        "golden_set_size": len(expected),
         "runs_per_candidate": runs,
-        "harness": {
-            "model": os.environ.get("AI_DEFAULT_MODEL", "deepseek-v4-pro"),
-            "use_structured_output": os.environ.get("USE_STRUCTURED_OUTPUT", "false").lower() == "true",
-            "judge": False,
-        },
+        "harness": harness,
         "candidates": summary,
     }
+    if previous and "note" in previous:
+        baseline["note"] = previous["note"]
+    return baseline
 
 
 def _resolve_report(arg: Optional[str], latest: bool) -> Path:
@@ -72,11 +96,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("report", nargs="?", help="path to evals/reports/eval_*.json")
     parser.add_argument("--latest", action="store_true", help="use the newest report in evals/reports/")
     parser.add_argument("--out", default=str(BASELINE_PATH), help="output path (default: evals/baseline_scores.json)")
+    parser.add_argument("--note", help="explicit provenance note; otherwise preserve the existing note")
     args = parser.parse_args(argv)
 
     report_path = _resolve_report(args.report, args.latest)
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    baseline = build_baseline(report, report_path)
+    out = Path(args.out)
+    previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else None
+    baseline = build_baseline(report, report_path, previous)
+    if args.note is not None:
+        baseline["note"] = args.note
     if "baseline" not in baseline["candidates"]:
         raise SystemExit(f"report {report_path.name} has no 'baseline' candidate to pin")
 
