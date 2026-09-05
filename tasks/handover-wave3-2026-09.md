@@ -115,8 +115,13 @@ present with its exact value; **bidirectional**: each pinned bool equals
 (a default flip in `config.py` without a deploy-line change fails, and vice versa); **pipeline
 parity**: the pregenerate job step carries identical values for the AI subset (`AI_EVIDENCE_SNAP,
 AI_FIGURE_TRACE_GATE, AI_FORWARD_QUOTE_GATE, USE_STRUCTURED_OUTPUT, USE_STATEMENT_FINANCIALS`) —
-rule 1, same orchestrator. Also assert the `ops.yml` `allow` set is a superset of `PROD_ENV_PINS`
-keys (W3-1's gate).
+rule 1, same orchestrator. **Eval parity**: the `eval-baseline` job env in `ci.yml` (~lines 281-294)
+and the generation env in `data-quality-weekly.yml` must carry the same AI-subset values as the
+service line (today the eval job sets only `USE_STRUCTURED_OUTPUT`, `USE_STATEMENT_FINANCIALS`,
+`STREAM_SECTION_REVEAL`; add `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`
+explicitly) — extend `test_ci_parity_and_bounded_repeat_measurement` in `test_eval_parity.py`
+to compare the job env against the service pins rather than against literals. Also assert the
+`ops.yml` `allow` set is a superset of `PROD_ENV_PINS` keys (W3-1's gate).
 Mutation proofs: delete `NOTABLE_FILINGS_ENABLED=false` from line 510 → fail; set
 `AI_EVIDENCE_SNAP: bool = True` in `config.py` → fail; restore.
 
@@ -124,7 +129,11 @@ Mutation proofs: delete `NOTABLE_FILINGS_ENABLED=false` from line 510 → fail; 
 eval-baseline run env in `ci.yml` (~lines 281-294), `data-quality-weekly.yml` (~lines 53-68) and
 `copilot-eval.yml`. `evals/runner.py` harness block (~line 295) records `fallback_model` and
 `fallback_base_url`. `scripts/pin_baseline.py` `build_baseline` refuses when `harness["fallback_model"]`
-is non-empty (new `ValueError`, alongside the existing provenance checks ~lines 51-63).
+is non-empty, and refuses when the harness guard values the runner already records
+(`ai_evidence_snap`, `ai_figure_trace_gate`, `ai_forward_quote_gate`, `use_structured_output`,
+`use_statement_financials`) disagree with the service pins parsed from `.github/workflows/ci.yml`
+(new `ValueError`s alongside the existing provenance checks ~lines 51-63). A baseline can then
+never be pinned under a guard configuration production does not run.
 Gate: extend `test_ci_parity_and_bounded_repeat_measurement` (`test_eval_parity.py`) and
 `test_weekly_workflow_preserves_failure_evidence_and_operational_report` (`test_eval_measurement.py`)
 with `env["AI_FALLBACK_MODEL"] == ""` and `== ""` for the base URL; add a copilot-eval assertion
@@ -226,13 +235,17 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 - **Step 1 (engineering, then pause):** read the artifact; report the wrong-snap rate from the
   persisted `evidence_snap_audit` counters and the figure-trace advisory. **Pause for the arm
   decision** — this pause is legitimate; no threshold is on record.
-- **Step 2 (after the decision):** `AI_EVIDENCE_SNAP=true` at both `ci.yml` env lines; move the
-  key into `INTENTIONAL_PROD_OVERRIDES` in the W3-2 gate (config default stays `False`); this is
-  a listed re-pin trigger (RUNBOOK "Re-pinning the baseline": armed guard raises the citation
-  dimension): dispatch the eval workflow with `eval_runs=3` and no limit, `python scripts/pin_baseline.py`,
-  commit `baseline_scores.json` in the same PR. Record whether `data-quality-weekly.yml`'s
-  `AI_EVIDENCE_SNAP: 'false'` flips with prod (recommended: yes — the readout should measure what
-  users see) and update `test_eval_measurement.py` accordingly.
+- **Step 2 (after the decision):** in one PR set `AI_EVIDENCE_SNAP` to `true` in **all four** places
+  that the W3-2 parity gate ties together: the service deploy line, the pregenerate job line, the
+  `eval-baseline` job env, and `data-quality-weekly.yml`'s generation env (the readout should measure
+  what users see; update `test_eval_measurement.py`'s `== "false"` assertion with it). Move the key
+  into `INTENTIONAL_PROD_OVERRIDES` (config default stays `False`). The eval job must carry the flag
+  or the re-pin measures with snapping off while production snaps — `pin_baseline.py` refuses that
+  mismatch after W3-2, and the parity gate fails before it. Then, from that branch, dispatch the eval
+  workflow with `eval_runs=3` and no limit (a listed re-pin trigger: RUNBOOK "Re-pinning the
+  baseline", armed guard raises the citation dimension), confirm the report's
+  `harness.ai_evidence_snap` is `true`, run `python scripts/pin_baseline.py`, and commit
+  `baseline_scores.json` in the same PR.
 - **Then founder:** drain via `POST /api/admin/summaries/refresh-stale` (`dry_run=true` first,
   bounded batches).
 
