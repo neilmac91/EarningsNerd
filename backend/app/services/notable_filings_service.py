@@ -266,8 +266,8 @@ async def _paged_search(
 async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None) -> ScanStats:
     """Sweep EDGAR for the trailing window, score, upsert into ``notable_filings``, prune.
 
-    Never raises on a provider failure — a failed scheduled run must not page anyone; the next
-    run re-sweeps (the window overlaps runs by design). Request budget: worst case (peak
+    Provider failures retain partial work and return error counters; the CLI records failure
+    and exits nonzero, while API callers keep best-effort returns. Request budget: worst case (peak
     earnings/10-K season) ≈ 56 requests ≈ 6s of the job's own 10 req/s bucket; typical ≈ 25.
     """
     stats = ScanStats()
