@@ -191,3 +191,46 @@ async def test_real_assembly_marks_recovered_sections_for_snap_exclusion():
     assert result.get('_recovered_sections') == ['risks']
     assert result['sections']['risks'][0]['supporting_evidence'] == 'SELECTED RISK'
     assert 'ITEM 1A - RISK FACTORS:\nSELECTED RISK' in seen[0]['messages'][1]['content']
+
+
+@pytest.mark.asyncio
+async def test_actual_generation_deadline_covers_source_preparation_and_prevents_late_sdk(monkeypatch):
+    # Reschedule the real timeout only after the worker starts; no setup-speed assumption.
+    from types import SimpleNamespace
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    timers, wire = [], []
+    original = OpenAIService._parse_and_clean_text
+    def blocked(self, *args):
+        entered.set()
+        try:
+            assert release.wait(3), 'test did not release source worker'
+            return original(self, *args)
+        finally:
+            finished.set()
+    def timeout(seconds):
+        timer = asyncio.timeout(seconds)
+        timers.append(timer)
+        return timer
+    proxy = SimpleNamespace(timeout=timeout, get_running_loop=asyncio.get_running_loop,
+                            CancelledError=asyncio.CancelledError)
+    monkeypatch.setattr(provider_requests, 'asyncio', proxy)
+    monkeypatch.setattr(OpenAIService, '_parse_and_clean_text', blocked)
+    def handler(req):
+        wire.append(req)
+        return response({'metadata': {}, 'sections': {}})
+    async with native_service(handler) as service:
+        task = asyncio.create_task(service.generate_structured_summary('chosen text', 'Fixture', '10-K'))
+        try:
+            assert await asyncio.to_thread(entered.wait, 1), 'source worker never started'
+            assert len(timers) == 1 and 70 < timers[0].when() - asyncio.get_running_loop().time() <= 75
+            timers[0].reschedule(asyncio.get_running_loop().time())
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(asyncio.shield(task), 1)
+            assert wire == []
+        finally:
+            task.cancel()
+            release.set()
+            await asyncio.gather(task, return_exceptions=True)
+            assert await asyncio.to_thread(finished.wait, 1), 'source worker was not released'
+        await asyncio.sleep(0)
+        assert wire == []
