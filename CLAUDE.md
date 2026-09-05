@@ -100,7 +100,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
   copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns all SEC traffic.
-  `app/integrations/` = third-party APIs (finnhub, fmp, stocktwits, alpha_vantage, sec_api).
+  `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
   `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys
   come from `lib/queryKeys.ts` (ESLint-enforced — no inline key arrays). All HTTP goes through the
