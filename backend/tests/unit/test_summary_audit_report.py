@@ -47,7 +47,7 @@ def store(db, rows):
 
 def test_each_audit_family_uses_its_own_valid_snapshot_population(sessions):
     armed = snap()
-    armed.update(checked=2, armed=True, snapped=armed["would_snap"], would_snap=[], left=[])
+    armed.update(checked=3, armed=True, snapped=armed["would_snap"] + [deepcopy(armed["would_snap"][0])], would_snap=[], left=[])
     empty_forward = dict(checked=0, verified=0, near_miss=0, armed=False, unverified=[], dropped=[])
     rows = [
         {"sections": {"large_prose": "never load this" * 1000},
@@ -78,7 +78,7 @@ def test_each_audit_family_uses_its_own_valid_snapshot_population(sessions):
     assert families["quality"]["recorded"] == 3 and families["quality"]["counts"] == {"partial": 1}
     assert families["forward_quotes"]["counts"] == {"checked": 2, "verified": 1, "unverified": 1,
                                                   "near_miss": 1, "other_unverified": 0, "dropped": 0}
-    assert families["evidence_snap"]["counts"] == {"checked": 5, "exact": 2, "would_snap": 1, "snapped": 1, "left": 1}
+    assert families["evidence_snap"]["counts"] == {"checked": 6, "exact": 2, "would_snap": 1, "snapped": 2, "left": 1}
     expected_reasons = [{"sic_prefix": "60", "reason": reason, "count": 1} for reason in ("gap", "thin")]
     assert result["partial_reasons_by_sic"] == expected_reasons
     assert sorted(partials, key=lambda row: row["reason"]) == expected_reasons
@@ -89,7 +89,7 @@ def test_each_audit_family_uses_its_own_valid_snapshot_population(sessions):
     for rendered in (html, text):
         assert "recorded 2 / snapshots 5" in rendered
         assert "unavailable 3 (missing 2, malformed 1)" in rendered
-        assert "would snap=1" in rendered and "snapped=1" in rendered
+        assert "would snap=1" in rendered and "snapped=2" in rendered
         assert "snapshots with untraceable figures: 1 (50.0% of recorded)" in rendered
         assert "snapshots with unrepaired evidence: 1 (50.0% of recorded)" in rendered
         assert "not weekly generation attempts" in rendered
