@@ -52,7 +52,7 @@ dnspython==2.8.0
     # via email-validator
 ecdsa==0.19.2
     # via python-jose
-edgartools==5.40.1
+edgartools==5.55.0
     # via -r requirements.in
 email-validator==2.3.0
     # via -r requirements.in
@@ -82,7 +82,7 @@ httpx==0.28.1
     #   edgartools
     #   httpxthrottlecache
     #   openai
-httpxthrottlecache==0.3.5
+httpxthrottlecache==0.6.1
     # via edgartools
 humanize==4.15.0
     # via edgartools

@@ -34,7 +34,7 @@ weasyprint==69.0
 openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.40.1
+edgartools>=5.55.0
 posthog==7.45.3
 json-repair>=0.63.4
 sentry-sdk[fastapi]>=2.68.1
