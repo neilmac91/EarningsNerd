@@ -2,6 +2,17 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
+### W3-5 local preparation — agent stack truth
+
+Authorized independent preparation; no push or PR until the chief engineer releases the
+W3-2 verified-deployment prerequisite. Founder operations and existing ordered gates remain held.
+
+- [ ] Refresh all seven engineering briefs and README status using actual source pointers.
+- [ ] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
+- [ ] Prove the gate with one intended Firebase assertion failure, restore, and run pinned backend gates.
+- [ ] Obtain three independent reviews; only then follow the chief engineer's push/merge/deploy order.
+
+
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
 discrepancies (none invalidating the handover). The ordered plan, founder prerequisites and the
 per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md); non-Claude
