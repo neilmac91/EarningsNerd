@@ -1,6 +1,13 @@
 # EarningsNerd — Report Quality Improvement Plan
 
-> **Status: APPROVED 2026-06-14 — Phase 0 (quick wins) implemented; later phases pending.**
+> **September 2026 status:** historical investigation and approval record. The June results,
+> provider settings and branch status below are dated evidence, not the current production state
+> or active backlog. Current work is tracked in the [remediation briefs](../tasks/implementation-briefs-2026-09.md)
+> and [eval runbook](../backend/evals/RUNBOOK.md). The parity baseline is measured; the weekly
+> judged workflow and advisory audit reporting do not substitute for the still-held first actual
+> strong-judge readout or authorize evidence-snap activation.
+>
+> **Original status, 2026-06-14: APPROVED — Phase 0 (quick wins) implemented; later phases pending.**
 > The owner approved the plan and answered §10: ship quick-wins first; move toward DeepSeek for cost;
 > honest-but-rare degradation; objective single-filing summaries (diffing stays deferred). Phase-0
 > code changes (A1–A6) are now on `claude/nice-curie-ugassy` with tests green; before/after validation
