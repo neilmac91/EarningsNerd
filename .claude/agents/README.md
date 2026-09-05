@@ -176,11 +176,11 @@ All agents are calibrated for EarningsNerd's domain:
 
 ### Stack truth (2026-09) — overrides anything below or in an agent file
 
-The per-agent files were written for an earlier stack and still mention Render, Firebase, Vite,
-Alembic, Celery, async SQLAlchemy, GPT-4 and `/api/v1`. **None of that exists.** When an agent
-file and this block disagree, this block and `CLAUDE.md` win; a brief that cites an agent file
-must also cite this section. Until the agent files are refreshed, treat their "Key Files",
-code samples and platform names as illustrative only.
+The seven engineering agent files are refreshed against the current source and guarded by
+`backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files still contain historical
+stack examples; their explicit frozen allowlist tracks that remaining debt and only shrinks.
+When a file and this table disagree, actual source and `CLAUDE.md` govern. A brief that cites an
+agent file must also cite this section; non-engineering legacy examples remain illustrative.
 
 | Layer | Truth |
 |---|---|
