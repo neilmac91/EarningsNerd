@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from evals.figure_measurement import measure_figures, summarize_figures
 from evals.judge import judge_summary
 from evals.models import REGISTRY, ModelConfig, call_model, cost_usd
 from evals.schema import GoldenFiling
@@ -136,13 +137,24 @@ async def _maybe_judge(
     """Run the optional LLM judge (secondary signal) and return a serializable verdict."""
     if not judge_model or not isinstance(payload, dict):
         return None
+    # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
+    from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
+    xbrl_text = json.dumps(grounding["xbrl_metrics"], default=str) if grounding["xbrl_metrics"] else ""
+    lengths = {"summary_chars": len(json.dumps(payload, indent=2)),
+               "excerpt_chars": len(grounding["excerpt"] or ""), "xbrl_chars": len(xbrl_text)}
+    if (lengths["summary_chars"] > _JUDGE_SUMMARY_CHAR_CAP or lengths["excerpt_chars"] > _JUDGE_EXCERPT_CHAR_CAP
+            or lengths["xbrl_chars"] > _JUDGE_XBRL_CHAR_CAP):
+        return {"passed": False, "verdict": "FAIL", "mean_dimension": None, "gate_failures": [],
+                "dimensions": {}, "error": "Judge input exceeds full-coverage bounds",
+                "input_complete": False, "input_lengths": lengths}
     verdict = await judge_summary(
         payload, filing.company_name, filing.filing_type,
-        grounding["excerpt"], _xbrl_to_text(grounding["xbrl_metrics"]), model_id=judge_model,
+        grounding["excerpt"], xbrl_text, model_id=judge_model,
     )
     return {"passed": verdict.passed, "verdict": verdict.verdict,
             "mean_dimension": verdict.mean_dimension, "gate_failures": verdict.gate_failures,
-            "dimensions": verdict.dimensions, "error": verdict.error}
+            "dimensions": verdict.dimensions, "error": verdict.error,
+            "input_complete": True, "input_lengths": lengths}
 
 
 async def _run_one(
@@ -191,7 +203,10 @@ async def _run_one(
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
-                    "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"]}
+                    "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
+                    "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    "grounding_excerpt": grounding["excerpt"],
+                    "figure_trace": measure_figures(summary, grounding["xbrl_metrics"], grounding["excerpt"])}
 
         cfg: ModelConfig = REGISTRY[candidate]
         user = _grounding_user_prompt(
@@ -240,6 +255,7 @@ def _summarize(
         passes = [bool(r.get("passed_gates")) and r["aggregate"] >= pass_threshold for r in scored]
         judged = [r["judge"] for r in rs if r.get("judge")]
         summary[candidate] = {
+            **summarize_figures(rs),
             "n": len(rs),
             "errors": sum(1 for r in rs if r.get("error")),
             "mean_aggregate": round(statistics.mean(aggs), 4) if aggs else 0.0,
@@ -311,6 +327,15 @@ def _write_report(
             f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | {s.get('mean_currency_consistency', '-')} | "
             f"{judge_pass} | {s['total_cost_usd']} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
+    lines += ["", "## Dollar-figure trace (advisory; raw v2 model prose)", "",
+              "Mean counts use measured runs only; missing grounding is unavailable, not zero.",
+              "| candidate | mean untraceable | measured | unavailable | errors |",
+              "|---|---|---|---|---|"]
+    for cand, stats in ranked:
+        value = stats.get("mean_untraceable_dollar_figures")
+        lines.append(f"| {cand} | {value if value is not None else 'unavailable'} | "
+                     f"{stats.get('figure_trace_measured', 0)} | {stats.get('figure_trace_unavailable', 0)} | "
+                     f"{stats.get('figure_trace_errors', 0)} |")
     lines += [
         "",
         "## Adoption rule",

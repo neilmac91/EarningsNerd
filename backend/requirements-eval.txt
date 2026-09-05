@@ -1,0 +1,7 @@
+# Scheduled authoritative judge only; install alongside requirements.txt, never in the runtime image.
+# https://pypi.org/project/anthropic/1.3.0/
+anthropic==1.3.0
+# Additional judge-only dependencies; coexist with runtime httpx/OpenAI pins.
+docstring-parser==0.18.0
+httpx2==2.12.0
+httpcore2==2.12.0

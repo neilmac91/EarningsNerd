@@ -77,12 +77,14 @@ class Finding:
     severity: str  # "HARD" | "WARN"
     candidate: str
     metric: str
-    baseline: float
+    baseline: Optional[float]
     candidate_value: float
-    delta: float
+    delta: Optional[float]
     label: str
 
     def __str__(self) -> str:
+        if self.baseline is None:
+            return f"[{self.severity}] {self.candidate}: {self.metric} = {self.candidate_value:.4g} — {self.label}"
         arrow = "↑" if self.delta > 0 else "↓"
         return (
             f"[{self.severity}] {self.candidate}: {self.metric} {arrow} "
@@ -127,8 +129,13 @@ def compare_candidate(
     base_stats: Dict[str, Any], cand_stats: Dict[str, Any], candidate: str = "baseline"
 ) -> List[Finding]:
     """All HARD + WARN findings for one candidate's summary vs its pinned baseline stats."""
+    figure_findings = []
+    measured = cand_stats.get("mean_untraceable_dollar_figures")
+    if measured is not None and measured > 0:
+        figure_findings.append(Finding("WARN", candidate, "mean_untraceable_dollar_figures", None, measured, None,
+                                       "absolute advisory: untraceable dollar figures in measured raw prose"))
     return (
-        _check(_HARD_GATES, "HARD", candidate, base_stats, cand_stats)
+        figure_findings + _check(_HARD_GATES, "HARD", candidate, base_stats, cand_stats)
         + _check(_WARN_GATES, "WARN", candidate, base_stats, cand_stats)
     )
 
@@ -153,6 +160,12 @@ def evaluate_report(
             notes.append(f"no pinned baseline for candidate '{candidate}' — skipped")
             continue
         findings.extend(compare_candidate(base_stats, cand_stats, candidate))
+        if "mean_untraceable_dollar_figures" in cand_stats:
+            if base_stats.get("mean_untraceable_dollar_figures") is None:
+                notes.append(f"{candidate}: figure trace has no pinned reference measurement; absolute advisory only")
+            notes.append(f"{candidate}: figure trace measured={cand_stats.get('figure_trace_measured', 0)} "
+                         f"unavailable={cand_stats.get('figure_trace_unavailable', 0)} errors={cand_stats.get('figure_trace_errors', 0)}; "
+                         "unavailable is not measured zero")
     return findings, notes
 
 
