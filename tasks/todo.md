@@ -7,10 +7,15 @@
 Authorized independent preparation; no push or PR until the chief engineer releases the
 W3-2 verified-deployment prerequisite. Founder operations and existing ordered gates remain held.
 
-- [ ] Refresh all seven engineering briefs and README status using actual source pointers.
-- [ ] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
-- [ ] Prove the gate with one intended Firebase assertion failure, restore, and run pinned backend gates.
+- [x] Refresh all seven engineering briefs and README status using actual source pointers.
+- [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
+- [x] Prove the gate with one intended Firebase assertion failure, restore, and run pinned backend gates.
 - [ ] Obtain three independent reviews; only then follow the chief engineer's push/merge/deploy order.
+
+Local evidence: all 105 runtime/dev pins matched; Ruff/Bandit passed; backend
+`2355 passed, 2 deselected, 72 warnings in 52.52s`. The one injected obsolete-stack phrase
+failed the intended assertion; exact restoration passed (`1 passed in 0.03s`). No push or PR;
+W3-2 is held on the observed Calendar filter override and founder decision.
 
 
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven

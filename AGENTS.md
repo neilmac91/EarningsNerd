@@ -23,9 +23,10 @@ code > `CLAUDE.md` > `lessons/` > `tasks/handover-wave3-2026-09.md` > `tasks/tod
 > `tasks/handover-wave2-2026-09.md` and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
 
-The per-agent files under `.claude/agents/` still describe a stack that does not exist (Render,
-Firebase, Alembic, GPT-4). Until wave-3 item W3-5 rewrites them, treat them as illustrative
-only; the "Stack truth (2026-09)" table in `.claude/agents/README.md` overrides them.
+The seven engineering briefs under `.claude/agents/engineering/` are refreshed and guarded by
+`backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files retain historical stack
+examples under a frozen legacy allowlist; treat those examples as illustrative only. The
+"Stack truth (2026-09)" table in `.claude/agents/README.md` overrides conflicting agent guidance.
 
 ## 3. Bias to action
 
