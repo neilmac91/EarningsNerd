@@ -24,6 +24,29 @@ describe('deriveRiskTitle', () => {
     expect(deriveRiskTitle({ summary: 'Margins fell 3.5% on U.S. tariffs. More text.' }, 0)).toBe(
       'Margins fell 3.5% on U.S. tariffs',
     )
+    expect(deriveRiskTitle({ summary: 'Apple Inc. faces new tariff exposure. Details follow.' }, 0)).toBe(
+      'Apple Inc. faces new tariff exposure',
+    )
+    expect(deriveRiskTitle({ summary: 'Margins compressed in Q1 vs. Q2 on mix. More.' }, 0)).toBe(
+      'Margins compressed in Q1 vs. Q2 on mix',
+    )
+    expect(deriveRiskTitle({ summary: 'Concentration risks incl. supply chain remain. More.' }, 0)).toBe(
+      'Concentration risks incl. supply chain remain',
+    )
+    expect(deriveRiskTitle({ summary: 'Sales fell approx. ten percent. More.' }, 0)).toBe(
+      'Sales fell approx. ten percent',
+    )
+  })
+
+  it('treats a period followed by a lowercase word or a comma as not ending the sentence', () => {
+    expect(deriveRiskTitle({ summary: 'Costs rose 5 pct. year over year. More.' }, 0)).toBe(
+      'Costs rose 5 pct. year over year',
+    )
+    expect(deriveRiskTitle({ summary: 'Acme Corp., a subsidiary, lost its license. More.' }, 0)).toBe(
+      'Acme Corp., a subsidiary, lost its license',
+    )
+    // A capitalised next word after a plain period is still a sentence end.
+    expect(deriveRiskTitle({ summary: 'Demand softened. Management cut guidance.' }, 0)).toBe('Demand softened')
   })
 
   it('falls back to the description when the summary is empty, and sentence-cases the result', () => {

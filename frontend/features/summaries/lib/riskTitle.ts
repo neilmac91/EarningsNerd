@@ -24,10 +24,28 @@ interface RiskTitleSource {
   description?: string | null
 }
 
+// Abbreviations whose trailing period is not a sentence end ("Apple Inc. faces", "Q1 vs. Q2",
+// "risks incl. supply"). Lowercase here; the regex below is built case-insensitively per letter
+// so the surrounding character classes can stay case-sensitive.
+const ABBREVIATIONS = [
+  'inc', 'co', 'corp', 'ltd', 'llc', 'plc', 'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr',
+  'jr', 'sr', 'st', 'incl', 'est', 'etc', 'dept', 'govt', 'fig', 'mfg', 'intl', 'assn', 'bros', 'univ',
+]
+const caseInsensitive = (word: string): string =>
+  word.replace(/[a-z]/g, (c) => `[${c.toUpperCase()}${c}]`)
+const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
+
+// Spaced em dash / en dash / hyphen. Kept as a regex literal (not a string) so the copy-voice
+// em-dash gate, which scans string and template literals, never sees the character.
+const DASH_SEPARATOR = /\s[—–-]\s/
+
 // First sentence/clause boundary: a period/semicolon/colon followed by whitespace or end of text
-// (so "3.5%" survives), except a period right after a one-letter word ("U.S.", initials), or a
-// spaced em/en dash or hyphen used as a separator.
-const CLAUSE_BREAK = /(?<!\b[A-Za-z])\.(?=\s|$)|[;:](?=\s|$)|\s[—–-]\s/
+// (so "3.5%" and "Inc.," survive), or a spaced em/en dash or hyphen used as a separator. A period
+// is NOT a break when it closes a one-letter word ("U.S.", "e.g.", initials) or a known
+// abbreviation, or when the next word starts lowercase (a sentence end starts a capital).
+const CLAUSE_BREAK = new RegExp(
+  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))\\.(?=\\s|$)(?!\\s+[a-z])|[;:](?=\\s|$)|${DASH_SEPARATOR.source}`,
+)
 
 const firstClause = (text: string): string => {
   const idx = text.search(CLAUSE_BREAK)
