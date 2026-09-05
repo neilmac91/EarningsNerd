@@ -230,6 +230,13 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
+  missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
+  to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
+  authoritative companyfacts cross-checks can still clear local heuristic flags. There is no
+  general historical flag-repair CLI; financial remediation replaces only its affected revenue/
+  component concepts. A broader historical audit and scoped repair capability remains separate
+  engineering work, with production execution reserved for the founder.
 - Reconciliation flags follow values and the actual inputs used in growth calculations through
   analysis charts, metrics, citations and Excel exports. Citation verification is traceability,
   distinct from the financial value's reconciliation quality.
