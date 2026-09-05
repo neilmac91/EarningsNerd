@@ -10,6 +10,12 @@ and native edgartools sections are already on, structured-output mode remains of
 service deployment enables FPI filings and progressive section reveal. Do not infer live state
 from an old rollout example.
 
+Verified checkpoint (2026-09-05): resilience #701 merged as `f4c6041f`; deployment
+[33977786320](https://github.com/neilmac91/EarningsNerd/actions/runs/33977786320) applied 0
+migrations and skipped 34, with revision `00266-q6k` serving all traffic and detailed health
+healthy. The sole #698 baseline pin remains unchanged. Hygiene and Copilot work, the first
+actual strong-judge readout, and readout-dependent evidence-snap activation remain unfinished.
+
 ## What you're deciding
 
 Three separate decisions are represented in `app/config.py`; measure each explicitly:
@@ -215,7 +221,7 @@ Three pieces:
 |---|---|
 | `baseline_scores.json` | The pinned bar to protect — the `baseline` candidate's summary stats from a full verified-set run, committed to git. |
 | `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline. Exits non-zero on a HARD regression. |
-| `eval-baseline` CI job | Advisory (non-blocking) job in `.github/workflows/ci.yml` that runs the live pipeline on a few golden filings per AI-relevant PR and runs the gate. |
+| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness and quality against the pin. |
 
 ### Running the gate locally
 ```bash
@@ -270,28 +276,38 @@ that flag changes the prompt/temperature, not the output shape, so it can't move
 A malformed/empty object still fails.
 
 ### The advisory CI job (`eval-baseline`)
-- **Inert until armed.** It self-skips with a notice unless a `DEEPSEEK_API_KEY` **GitHub Actions
-  secret** exists. The prod key lives in GCP Secret Manager (used by `deploy-backend` via
-  `--update-secrets`), which CI cannot read — so arming the gate is a one-time owner action:
-  **Settings → Secrets and variables → Actions → New repository secret → `DEEPSEEK_API_KEY`.**
-- **Non-blocking.** `continue-on-error: true` and deliberately NOT in `deploy-backend`'s `needs:` —
-  a red gate is a signal to a reviewer, never a deploy block. (Same posture as `lighthouse`.)
-- **Path-filtered.** Runs only when `backend/app/**`, `backend/evals/**`, or `backend/prompts/**`
-  change (or on manual `workflow_dispatch`), so it spends tokens only on AI-relevant changes
-  (~$0.15–0.30 + a few minutes per qualifying PR once armed).
-- **PR vs dispatch.** Both run the **full verified set** at `--runs 1` — a subset's mean recall is
-  not apples-to-apples with the full-set pinned baseline (recall is non-saturated now that the
-  golden set carries cash-flow/liquidity facts) and would flake the gate, so PRs run the full set
-  too (~5–8 min via `--concurrency`, not a 6-filing smoke). Manual `workflow_dispatch` also runs the
-  full set and accepts a `limit` input to scope it down for cheap iteration.
-  > Caveat: a PR's single run has wider run-to-run variance than the 3-run pinned baseline, so
-  > `pass_rate` / `aggregate_stdev` (warn-only) can wobble. The HARD tolerances
-  > (precision/coverage/gate_fail 0.05, recall 0.10) are sized to absorb single-run jitter; for an
-  > authoritative re-pin, run `--runs 3`.
-- **Judge is OFF in the gate** — deterministic scorers only. The LLM judge is flaky and costly
-  (~$0.20/filing on Opus, 30–60s latency); keep it for manual pre-deploy spot-checks. For cheap
-  iteration use `--judge cli:sonnet` (subscription, no API credits) or `--judge glm-5.2`; reserve
-  `--judge claude-opus-4-8` for the authoritative before/after that gates a prompt change.
+
+- **Existing generator credential.** The `DEEPSEEK_API_KEY` GitHub Actions secret has powered
+  the actual #698, #700 and #701 evaluations. The key-check step still self-skips with a notice
+  if that secret is absent; a skipped job is not evaluation evidence. This is separate from
+  production GCP Secret Manager and from the still-unavailable strong-judge credential. Do not
+  extract the Actions secret to a local machine.
+- **Advisory workflow, required evidence review.** The job retains `continue-on-error: true`
+  and is absent from `deploy-backend`'s `needs:`. A green overall workflow therefore cannot prove
+  that the evaluation passed. Inspect the actual report and gate result before merging an
+  AI-relevant change; execution errors and incomplete attempts block that clearance even if
+  scored-only quality means are perfect.
+- **Path-filtered.** Runs when `backend/app/**`, `backend/evals/**`, or `backend/prompts/**`
+  change, or on manual `workflow_dispatch`. Each measurement makes real provider calls;
+  dispatching a limited run does not establish full-set evidence.
+- **PR vs dispatch.** PRs run the **full verified set twice** (`--runs 2`). Manual dispatch
+  defaults to two repeats and accepts only `eval_runs=2` or `3`, with an optional positive
+  `limit`. The sole authoritative #698 pin used three repeats with no limit; retain that pin
+  and the documented replacement conditions below. The runner records its requested cohort
+  and repeat count before execution, so missing attempts cannot shrink the measured population.
+- **Unchanged hard tolerances.** A `gate_fail_rate` increase greater than **0.005** fails;
+  precision/coverage drops greater than **0.05** and recall drops greater than **0.10** fail.
+  Two repeats improve measurement granularity, but one hard veto in 52 outputs still exceeds
+  the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes.
+- **Judge is off in routine regression CI.** These runs use deterministic scorers. The weekly
+  strong-judge workflow and any required authoritative judged comparison have separate evidence
+  requirements; their credential/readout prerequisite remains held. A judge-off pass, unavailable
+  readout or cheaper substitute cannot satisfy the first strong-judge readout or arm a guard.
+
+Historical context: before #698, this section described a one-run CI recipe and initial secret
+setup. Its old 0.05 veto tolerance and single-run jitter rationale are superseded by the current
+two-repeat workflow and 0.005 veto threshold above. The measured pin provenance and historical
+quality evidence below are retained.
 
 ### Golden-set figure semantics (legitimate alternate bases)
 

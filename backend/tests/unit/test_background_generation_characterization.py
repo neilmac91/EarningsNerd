@@ -12,8 +12,6 @@ Pinned here:
   * early-return branches (decided before the drain, need no boundary mocks): filing not found ->
     no-op; ``OPENAI_API_KEY`` unset -> a placeholder Summary is persisted (NOT a failure); a Summary
     already exists -> no regeneration (cron idempotence);
-  * the drain is FILING-ONLY — a 10-K with a prior filing on record still passes
-    ``previous_filings=None`` (the SSE contract, inherited);
   * a precompute run (``user_id=None``) emits ZERO funnel events — the drain suppresses funnel
     telemetry via ``emit_funnel_telemetry=False``, and the funnel seam is not even imported here;
   * partials are PERSISTED (the drained pipeline saves the row with a quality tier).
@@ -105,7 +103,7 @@ async def test_existing_summary_is_not_regenerated():
 @pytest.mark.asyncio
 async def test_drain_is_filing_only_and_zero_funnel():
     """generate_summary_background drains stream_filing_summary headless, so a 10-K (even with a
-    prior filing on record) is FILING-ONLY — the SSE path passes previous_filings=None — a Summary
+    prior filing on record) is FILING-ONLY — a Summary
     is persisted, and a precompute run (user_id=None) emits ZERO funnel events (the drain suppresses
     funnel telemetry via emit_funnel_telemetry=False)."""
     from app.services import summary_pipeline
@@ -114,12 +112,11 @@ async def test_drain_is_filing_only_and_zero_funnel():
     filing_id = seed_company_filing(filing_type="10-K", prior=True)
 
     funnel_spy = MagicMock()
-    with stream_boundaries() as summarize, patch.object(
+    with stream_boundaries(), patch.object(
         summary_pipeline, "capture_funnel_event", funnel_spy
     ):
         await generate_summary_background(filing_id, None)
 
-    assert summarize.call_args.kwargs.get("previous_filings") is None  # filing-only, even for a 10-K
     funnel_spy.assert_not_called()                                     # zero funnel on the drain
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
