@@ -125,22 +125,33 @@ def validate_preparation(path: Path, cases: list[CopilotGoldenCase]) -> dict:
             or {r.get('accession_number') for r in sources} != expected
             or any(r.get('status') != 'complete' for r in sources)):
         raise ValueError('source preparation cohort incomplete')
-    database = Path(prep.get('database_path', ''))
-    if not database.is_absolute() or not database.is_file() or database.suffix != '.db':
+    # Resolve only declared portable members inside the downloaded artifact directory. Original
+    # host paths remain provenance metadata; they are never fallback reads from another checkout.
+    bundle = path.resolve().parent
+    if prep.get('database_artifact_path') != 'prepared-source.db':
+        raise ValueError('portable prepared database locator unavailable')
+    database = bundle / 'prepared-source.db'
+    if not database.is_file() or database.is_symlink():
         raise ValueError('prepared scratch database is unavailable')
     if prep.get('database_sha256') != hashlib.sha256(database.read_bytes()).hexdigest():
         raise ValueError('prepared database changed')
     cases_by_accession = {c.accession_number: c for c in cases}
+    filenames = {'html':'filing.html', 'xbrl':'xbrl.json', 'sections':'sections.json', 'excerpt':'excerpt.txt'}
     for source in sources:
         case = cases_by_accession[source['accession_number']]
         if source.get('reporting_currency') != case.reporting_currency:
             raise ValueError('extracted native currency differs from verified source')
-        for kind in ('html', 'xbrl', 'sections', 'excerpt'):
+        for kind, filename in filenames.items():
             artifact = source.get('artifacts', {}).get(kind, {})
-            artifact_path = Path(artifact.get('path', ''))
-            if (not artifact_path.is_absolute() or not artifact_path.is_file()
+            expected = f"{case.accession_number}/{filename}"
+            artifact_path = bundle / expected
+            if (artifact.get('relative_path') != expected or artifact_path.is_symlink()
+                    or not artifact_path.is_file() or artifact_path.resolve().parent != (bundle / case.accession_number).resolve()
+                    or (bundle / case.accession_number).is_symlink()
                     or hashlib.sha256(artifact_path.read_bytes()).hexdigest() != artifact.get('sha256')):
                 raise ValueError('prepared source artifact changed or missing')
+    prep['original_database_path'] = prep.get('database_path')
+    prep['database_path'] = str(database)
     return prep
 
 
@@ -251,9 +262,32 @@ async def run(*, runs: int = 3, cases: list[CopilotGoldenCase] | None = None) ->
 
 
 def _write_report(report: dict, output: Path = REPORTS_DIR) -> Path:
+    """Keep full machine evidence and a readable status/count/row view, including preflight red."""
     output.mkdir(parents=True, exist_ok=True)
     path = output / 'copilot-eval.json'
     path.write_text(json.dumps(report, indent=2, allow_nan=False, default=str) + '\n')
+    summary = report.get('summary', {})
+    def cell(value):
+        return str(value).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('|','\\|').replace('\n',' ')
+    lines = ['# Copilot filing fidelity', '', '**' + ('PASS' if report.get('accepted') else 'FAIL / incomplete') + '**', '',
+        'Expected: ' + str(summary.get('expected', 'unavailable')) +
+        '; completed: ' + str(summary.get('completed', 'unavailable')) +
+        '; scored: ' + str(summary.get('scored', 'unavailable')) +
+        '; execution errors: ' + str(summary.get('errors', 'unavailable')) + '.', '',
+        'Requested model: ' + cell(report.get('requested_model', 'unavailable')) +
+        '. Actual per-call model: see sanitized provider telemetry; not inferred here.', '',
+        'Figure coverage is advisory. Missing cost measurement does not mean free. This is not the weekly strong-judge readout.', '',
+        'Failures: ' + cell('; '.join(report.get('failures', [])) or 'none') + '.', '',
+        '| Issuer | Accession | Question | Draw | Terminal | Verdict / error |',
+        '| --- | --- | --- | --- | --- | --- |']
+    for row in report.get('results', []):
+        score = row.get('score', {})
+        verdict = row.get('error') or ('PASS' if score.get('passed') else '; '.join(score.get('gate_failures', [])) or 'unscored')
+        lines.append('| ' + ' | '.join(cell(v) for v in (
+            row.get('ticker'),row.get('accession_number'),row.get('question_id'),row.get('run_index'),
+            row.get('terminal_complete'),verdict)) + ' |')
+    lines += ['', 'The accompanying JSON retains full answers, citations, initial messages, semantic tool results, source evidence and hashes.']
+    (output / 'copilot-eval.md').write_text('\n'.join(lines) + '\n')
     return path
 
 

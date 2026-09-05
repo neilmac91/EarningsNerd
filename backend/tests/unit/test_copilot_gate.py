@@ -194,18 +194,25 @@ def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts()
 def preparation(tmp_path):
     import hashlib
     cases = runner._load_cases(runner.GOLDEN_PATH)
-    db = tmp_path/'prepared.db'
+    db = tmp_path/'prepared-source.db'
     db.write_bytes(b'offline database bytes')
-    artifact = tmp_path/'source.txt'
-    artifact.write_text('actual source bytes')
-    record = {'path':str(artifact),'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    sources = []
+    for c in cases:
+        folder = tmp_path/c.accession_number
+        folder.mkdir()
+        artifacts = {}
+        for kind,filename in {'html':'filing.html','xbrl':'xbrl.json','sections':'sections.json','excerpt':'excerpt.txt'}.items():
+            artifact = folder/filename
+            artifact.write_text('actual source bytes')
+            artifacts[kind] = {'path':str(artifact),'relative_path':c.accession_number+'/'+filename,
+                               'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest()}
+        sources.append({'status':'complete','accession_number':c.accession_number,
+                        'reporting_currency':c.reporting_currency,'artifacts':artifacts})
     data = {'status':'complete','errors':[],
         'source_manifest_sha256':hashlib.sha256(runner.SOURCES_PATH.read_bytes()).hexdigest(),
-        'database_path':str(db),'database_sha256':hashlib.sha256(db.read_bytes()).hexdigest(),
-        'planned_accessions':[c.accession_number for c in cases],
-        'sources':[{'status':'complete','accession_number':c.accession_number,
-                    'reporting_currency':c.reporting_currency,
-                    'artifacts':{k:record.copy() for k in ('html','xbrl','sections','excerpt')}} for c in cases]}
+        'database_path':str(db),'database_artifact_path':'prepared-source.db',
+        'database_sha256':hashlib.sha256(db.read_bytes()).hexdigest(),
+        'planned_accessions':[c.accession_number for c in cases], 'sources': sources}
     return cases,data
 
 
@@ -272,7 +279,13 @@ async def test_actual_service_refusal_terminal_is_accepted_without_invented_coun
     async def stream(*args, **kwargs):
         yield '===NOT_DISCLOSED===This filing does not disclose that information.'
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
-    answer, cites, kind, stripped = await runner._answer(filing(), 'Undisclosed?')
+    result = None
+    try:
+        result = await runner._answer(filing(), 'Undisclosed?')
+    except ValueError:
+        pass
+    assert result is not None, 'valid production refusal was rejected'
+    answer, cites, kind, stripped = result
     assert kind == 'not_disclosed' and stripped == 0 and cites == []
     assert answer == 'This filing does not disclose that information.'
 
@@ -319,3 +332,42 @@ async def test_trace_retains_uncited_and_rejected_tools_and_restores_provider(st
     assert trace['tool_results'][0]['result']['raw_tag'] is None
     assert trace['tool_results'][1]['result'] == {'error':'invalid_filing_provenance'}
     assert trace['initial_messages'] and trace['tool_schema'] and trace['generation_options']['model']
+
+
+def test_downloaded_bundle_relocates_without_original_host_paths(tmp_path):
+    import shutil
+    original = tmp_path/'original'
+    original.mkdir()
+    cases,data = preparation(original)
+    (original/'preparation.json').write_text(json.dumps(data))
+    relocated = tmp_path/'downloaded'
+    shutil.copytree(original,relocated)
+    shutil.rmtree(original)
+    validated = None
+    try:
+        validated = runner.validate_preparation(relocated/'preparation.json',cases)
+    except ValueError:
+        pass
+    assert validated is not None, 'valid relocated source bundle was rejected'
+    assert validated['database_path'] == str(relocated/'prepared-source.db')
+    assert validated['original_database_path'] == str(original/'prepared-source.db')
+    data['sources'][0]['artifacts']['html']['relative_path'] = '../outside'
+    (relocated/'preparation.json').write_text(json.dumps(data))
+    with pytest.raises(ValueError,match='artifact changed or missing'):
+        runner.validate_preparation(relocated/'preparation.json',cases)
+
+
+@pytest.mark.parametrize('complete',[True,False])
+def test_human_readable_report_preserves_failures_counts_and_json(complete,tmp_path):
+    report = complete_report() if complete else {'accepted':False,'results':[], 'failures':['preflight unavailable']}
+    if complete:
+        report.update(accepted=False,failures=['NUMERIC veto'])
+        report['results'][0]['score'] = {'passed':False,'gate_failures':['NUMERIC veto']}
+    path = runner._write_report(report,tmp_path)
+    assert json.loads(path.read_text()) == report
+    readable = tmp_path/'copilot-eval.md'
+    assert readable.is_file()
+    text = readable.read_text()
+    assert 'FAIL / incomplete' in text
+    assert ('Expected: 18' in text and 'NUMERIC veto' in text) if complete else 'preflight unavailable' in text
+    assert 'not the weekly strong-judge readout' in text
