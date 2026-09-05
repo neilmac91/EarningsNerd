@@ -10,6 +10,12 @@ on:
         description: 'eval-baseline: number of golden filings (blank = full verified set)'
         required: false
         default: ''
+      eval_runs:
+        description: 'eval-baseline: repeats per filing (3 for an authoritative baseline pin)'
+        type: choice
+        options: ['2', '3']
+        required: true
+        default: '2'
 
 jobs:
   backend-tests:
@@ -282,16 +288,25 @@ jobs:
           OPENAI_BASE_URL: https://api.deepseek.com/v1
           AI_DEFAULT_MODEL: deepseek-v4-pro
           USE_STRUCTURED_OUTPUT: 'false'
+          USE_STATEMENT_FINANCIALS: 'true'
+          STREAM_SECTION_REVEAL: 'true'
+          EVAL_RUNS: ${{ github.event.inputs.eval_runs || '2' }}
+          EVAL_LIMIT: ${{ github.event.inputs.limit }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            LIMIT="${{ github.event.inputs.limit }}"
+            LIMIT="$EVAL_LIMIT"
           else
             LIMIT=""
           fi
-          ARGS="--candidates baseline --runs 1"
-          [ -n "$LIMIT" ] && ARGS="$ARGS --limit $LIMIT"
-          echo "Running: python -m evals.runner $ARGS"
-          python -m evals.runner $ARGS
+          # Bound spend and avoid interpolating dispatch text into executable shell.
+          case "$EVAL_RUNS" in 2|3) ;; *) echo "eval_runs must be 2 or 3"; exit 1 ;; esac
+          if [ -n "$LIMIT" ] && ! [[ "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "limit must be blank or a positive integer"; exit 1
+          fi
+          ARGS=(--candidates baseline --runs "$EVAL_RUNS")
+          [ -n "$LIMIT" ] && ARGS+=(--limit "$LIMIT")
+          echo "Running: python -m evals.runner ${ARGS[*]}"
+          python -m evals.runner "${ARGS[@]}"
       - name: Regression gate vs pinned baseline
         if: steps.key.outputs.have == 'true'
         working-directory: backend
@@ -301,7 +316,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: eval-report-${{ github.run_id }}
-          path: backend/evals/reports/eval_*.json
+          path: |
+            backend/evals/reports/eval_*.json
+            backend/evals/reports/eval_*.md
           retention-days: 14
 
   e2e-tests:

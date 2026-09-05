@@ -1,12 +1,18 @@
 # Adoption-Gate Runbook
 
-How to run `backend/evals/` as the **one-time adoption gate** that decides whether to enable the
-default-off summary re-architecture. Operator task — needs SEC EDGAR network access + provider
-API keys. (Offline scorer tests need neither: `pytest tests/unit/test_eval_*`.)
+How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
+Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
+secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+
+The original adoption steps below remain a procedure for future comparisons. Current code
+defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
+and native edgartools sections are already on, structured-output mode remains off, and CI's
+service deployment enables FPI filings and progressive section reveal. Do not infer live state
+from an old rollout example.
 
 ## What you're deciding
 
-Three independent, default-off changes live in `app/config.py`. The eval tells you which to enable:
+Three separate decisions are represented in `app/config.py`; measure each explicitly:
 
 | Change | Flag (field) | Truest way to test it |
 |---|---|---|
@@ -27,8 +33,11 @@ pip install -r requirements.txt
 pip install anthropic          # only for Claude candidates + the LLM judge
 
 # Load your normal backend .env, then add provider keys:
-export OPENAI_API_KEY=...       # baseline + gemini-json (Google AI Studio)
-export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export OPENAI_API_KEY=...       # baseline uses the OpenAI-compatible DeepSeek provider
+export OPENAI_BASE_URL=https://api.deepseek.com/v1
+export AI_DEFAULT_MODEL=deepseek-v4-pro
+export USE_STATEMENT_FINANCIALS=true
+export STREAM_SECTION_REVEAL=true  # exercise the same callback-selected extraction path as prod
 export ANTHROPIC_API_KEY=...    # claude-sonnet, claude-opus, and the Opus judge (API credits)
 # optional: QWEN_API_KEY / KIMI_API_KEY / DEEPSEEK_API_KEY
 # optional judge backends (see "Judge backends" in Step 6):
@@ -58,18 +67,17 @@ Cover the adversarial cases — that's where quality breaks: small-caps / non-fi
 even 10-K / 10-Q split. Find a CIK at
 `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&ticker=XXXX`.
 
-### Dormant G5 bank-component facts (JPM) — restore in A7/A8
+### G5 bank-component facts (JPM) — restored after statement-financials graduation
 
-JPM's `ground_truth` **intentionally omits** its two bank-component facts (`net_interest_income`,
-`noninterest_income`; values preserved in the entry's `notes`). Reason: the production
-standardized-metrics extractor does not yet emit those concepts, so the pipeline cannot surface them
-deterministically and the model does so only stochastically (0–1 of 3 runs) — leaving them in made
-`score_bank_revenue_integrity` (G5) fire as **pure noise** that hard-fails the epsilon-zero
-`gate_fail_rate` gate on unrelated PRs (PR #611). Removing them keeps the pinned `gate_fail_rate` at
-**0.0** (so the fabrication tripwire keeps meaning what rule 12 says) while JPM's other 5 facts still
-exercise recall/precision and the bank sanitizer. G5 is dormant-by-design until it has a component
-fact (see the scorer's own docstring). **A7/A8** (XBRL metric expansion) re-arms G5 by restoring
-these two facts to the entry and re-pinning.
+JPM's FY2025 ground truth includes net interest income **$95,443 million** and noninterest
+revenue **$87,004 million**, verified against the accession's
+[Consolidated Statements of Income](https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/R3.htm).
+These facts were temporarily removed in #611 while extraction could not emit the components
+reliably. WS-7 #690 graduated `USE_STATEMENT_FINANCIALS=true`; WS-6 restores both facts so
+G5 again requires them to surface separately. A total-revenue figure alone does not satisfy
+G5. Do not remove these facts to make a failing measurement green: inspect the extraction,
+streamed output and per-run failure first. SIC backfill and persisted-fact remediation remain
+separate founder-run production operations.
 
 ---
 
@@ -197,7 +205,7 @@ acceptable cost/latency. Then:
 
 ## Regression gate (B1) — pinned baseline + machine-checkable diff
 
-Steps 1–9 are the **one-time adoption gate**. B1 makes that durable: it pins the current
+Steps 1–9 describe the **adoption procedure**. B1 makes its evidence durable: it pins the current
 production-pipeline quality and gives a deterministic, CI-runnable check that a change hasn't
 eroded it — the safety net under any future output-quality work (and before a large precompute run).
 
@@ -212,7 +220,7 @@ Three pieces:
 ### Running the gate locally
 ```bash
 cd backend
-python -m evals.runner --candidates baseline --runs 1   # produce a fresh report
+python -m evals.runner --candidates baseline --runs 2   # routine repeat measurement
 python -m evals.regression_gate --latest                # diff it against baseline_scores.json
 # or gate a specific report:
 python -m evals.regression_gate evals/reports/eval_<stamp>.json
@@ -293,6 +301,24 @@ These are eval-honesty fixes, not model changes: the summaries were already repo
 ADR-appropriate figures. A *fabricated* number still won't match any legitimate basis.
 
 ### Re-pinning the baseline
+
+Routine `eval-baseline` PR runs evaluate the complete verified set twice. Manual CI dispatch
+accepts only `eval_runs=2` or `3`; use **3 with blank limit** for the authoritative pin.
+The workflow uses its existing `DEEPSEEK_API_KEY` secret; do not extract it to a local machine.
+Inspect both the actual runner and regression-gate logs (the job is advisory), then download
+the JSON/Markdown `eval-report-<run_id>` artifact. Keep the run ID, source SHA and report name
+in the PR. Two repeats improve the granularity of mean/WARN measurements; they do **not**
+excuse a hard veto (one failed filing-run out of 52 still exceeds the 0.005 hard tolerance).
+
+Reports capture the actual model, provider URL, statement/stream/extraction and trust flags,
+judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
+uses that metadata, never the local machine's model environment. It refuses missing or
+changed golden-set provenance, fewer than three runs, a subset, missing/duplicate runs,
+errors or inconsistent counts. Older reports without this provenance must be measured anew.
+An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
+provenance and explain intentional bar changes rather than performing cosmetic re-pins.
+A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.
+
 Re-pin whenever you intentionally move the bar — flip `USE_STRUCTURED_OUTPUT`, change the default
 model/prompt, or adopt a quality improvement. From `backend/`:
 ```bash
@@ -304,7 +330,11 @@ shows both the code change and the new bar. **BRK.B is `verified: false`** (no c
 fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
 is hand-filled.
 
-**Content-quality WARN dimensions (T3.0 scorers) — now pinned.** `mean_redundancy` (one-home rule,
+The dimension history below records the July 2026 pins and their measured variance. The
+current committed bar and source report are always `baseline_scores.json`; a later honest
+re-pin supersedes those historical numeric floors without discarding their provenance.
+
+**Content-quality WARN dimensions (T3.0 scorers) — historical pin rationale.** `mean_redundancy` (one-home rule,
 defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are computed
 on every scored run and reported alongside the aggregate (never folded into it). They ship as WARN
 gates — a breach prints but never fails the build. **As of `summary-2026-07-b` (pinned from
@@ -358,10 +388,12 @@ protects.)
 
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`
 
-Separate, default-off gate (`app/config.py` → `ENABLE_FPI_FILINGS`). It controls whether the
-company-filings endpoint lists + summarizes foreign-issuer forms (20-F/6-K/40-F) for ADRs like
-Alibaba. **What you're deciding:** are 20-F summaries + native-currency financials good enough to
-turn on for users. See `tasks/fpi-support-roadmap.md`.
+`ENABLE_FPI_FILINGS` has a false code default, while the CI service deployment explicitly
+sets it true. The original FPI adoption phases are archived in
+`tasks/archive/fpi-support-roadmap.md`; the steps below document their validation procedure
+for future changes. This page-scoped flag controls foreign-issuer form discovery/listing
+(20-F/6-K/40-F); job form sets have separate scope. The remaining 6-K classifier and backfill
+work are not implied complete by the service flag.
 
 The golden set ships verified FPI 20-Fs covering the currency/taxonomy + ADS-ratio matrix:
 
@@ -425,7 +457,8 @@ the eyeball check passes. Rollout (mirrors Step 9):
    later CI deploys (CI uses `--update-env-vars`, never `--set-env-vars`).
 2. **Make it durable** — once validated, add `ENABLE_FPI_FILINGS=true` to the `--update-env-vars`
    list in `.github/workflows/ci.yml` (the `gcloud run deploy` step) so it's declarative, not an
-   out-of-band setting. (Intentionally NOT added yet — that would flip prod on the next backend deploy.)
+   out-of-band setting. This declaration is already present in CI; do not repeat the rollout
+   simply because this historical procedure lists it.
 3. **Backfill FPI facts** so the fundamentals chart populates in the issuer's currency:
    `python scripts/backfill_facts.py` (or the `/internal/jobs/backfill-facts` job).
 4. **Re-run Step B/C** against prod config to confirm it matches.
@@ -548,3 +581,20 @@ dataset, the `copilot_scorers` pattern) is the intended automation of step 2.
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
 | FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
 | Huge 20-F section parse very slow (e.g. ASML >120s) | `get_filing_sections` caps at 40s and returns None → pipeline falls back to the fast dense-window extractor (lower precision, still usable). Expected, not a failure; don't raise the cap (it would block generation for minutes). |
+
+### September parity measurement: component omission
+
+The first parity run (CI `33960565273`, 26 verified filings × 2 repeats) completed
+with zero execution errors but failed the unchanged hard regression gate: both JPM
+results omitted noninterest income (G5; 2/52 vetoes). The component facts remain in
+the golden set. An independent live SEC extraction returned both components and
+JPM's legitimate reported total. The financial-institution directive now distinguishes
+reported totals from no-total banks, and existing deterministic summary assembly owns
+available component rows using aligned XBRL periods/currencies. It replaces model
+component rows, including their incompatible commentary/evidence, without inventing
+verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
+future failures can distinguish extraction absence from generation omissions.
+
+This failed measurement was not pinned. The single authoritative three-run pin must
+include the final WS-7 extraction changes after #697 merges and this branch incorporates
+them; later judged measurement still requires an actual strong-judge credential/readout.

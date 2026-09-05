@@ -204,10 +204,20 @@
           "metric": "financing_cash_flow",
           "value": 269533000000.0,
           "unit": "USD"
+        },
+        {
+          "metric": "net_interest_income",
+          "value": 95443000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "noninterest_income",
+          "value": 87004000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
-      "notes": "Financial issuer (different statement structure). G5 bank-component facts TEMPORARILY removed (net_interest_income 95443000000, noninterest_income 87004000000): the production standardized-metrics extractor does not yet emit these, so model surfacing is stochastic and G5 fired as pure noise (0-1 of 3 runs) — see PR #611 + RUNBOOK. A7/A8 (XBRL metric expansion) re-arms G5 by restoring these two facts."
+      "notes": "Financial issuer. G5 bank components restored after statement-financials graduated to default true in #690. FY2025 net interest income $95,443 million and noninterest revenue $87,004 million verified against the accession income statement: https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/R3.htm . Both components must surface separately; SIC backfill and historical fact remediation are separate production operations."
     },
     {
       "ticker": "KO",

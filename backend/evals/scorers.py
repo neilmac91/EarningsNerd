@@ -396,14 +396,12 @@ def score_bank_revenue_integrity(
 ) -> Tuple[float, List[str]]:
     """Bank revenue integrity (deterministic, Artifact-1 gate G5).
 
-    ACTIVE only when the ground truth carries bank COMPONENT facts
-    (``net_interest_income`` / ``noninterest_income``) — i.e. a bank that reports no single revenue
-    line. In that case both components must appear separately in the candidate's financial text, so a
-    summary that dropped them or replaced them with one conflated "revenue" fails. Returns
-    ``(score, failures)``; ``(1.0, [])`` for every non-bank filing, so a golden set that carries no
-    component facts is unaffected (this gate stays dormant until the golden set adds a no-total bank,
-    e.g. MCB). The generation-time sanitizer guarantees the *negative* (no fabricated total) in
-    production; this gate protects the *positive* (components surfaced) in the bake-off."""
+    Active when ground truth carries bank component facts (net_interest_income/noninterest_income).
+    Each supplied component must appear separately, including for banks such as JPM that also
+    report a legitimate total. Returns (1.0, []) for filings without component ground truth.
+    Generation guards reject invented totals and preserve available components; this eval gate
+    independently verifies that the scored final payload actually surfaces the required facts.
+    """
     components = [
         f for f in ground_truth
         if f.metric in ("net_interest_income", "noninterest_income")

@@ -155,6 +155,27 @@ A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — 
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
 
+## WS-6 step 1 — eval parity and one measured baseline (2026-09-05)
+
+- [x] Audit production/eval configuration and streaming calls; explicitly pin statement-financials parity, restore JPM bank-component ground truth, and test streaming/non-streaming final-result equivalence without touching locked contracts.
+- [x] Use two runs for routine CI evaluation, retain hard tolerances, and provide a bounded three-run CI measurement using the existing provider secret; preserve baseline notes and provenance.
+- [ ] Prove new tests by mutation and run the exact full backend gate.
+- [x] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
+- [ ] Record artifact provenance and independent review; merge/deploy remains with the chief engineer. Later WS-6 measurement/resilience/hygiene/Copilot/arming steps remain separate PRs in that order.
+
+Authoritative evidence: [run 33962580838](https://github.com/neilmac91/EarningsNerd/actions/runs/33962580838)
+measured source `f5b46ba96b3023f93554087e431937ed9daba3c4` after #697 deployed. Artifact
+`9968531910`, `eval_20260905T111951Z.json`, contains 26 × 3 = 78 unique filing runs,
+zero execution errors and hard vetoes; the old-baseline gate passed with zero warnings.
+The sole pin records that report's actual harness (judge off), source/golden hashes and measured
+statistics; citation fidelity is 0.7012. All 78 requested streaming and yielded 518 previews;
+no fallback warning was observed, which does not prove transport never fell back.
+The final pin-helper change only rejects vetoed/incomplete gate evidence before overwriting an
+existing baseline. Its seven new CLI cases pass; removing result/summary checks causes four/three
+real assertion failures. Generation/scorer source is unchanged from the measured commit.
+Final full gate and review of the pin commit remain pending. First strong-judge readout remains
+unavailable without its credential; this deterministic measurement does not authorize evidence-snap.
+
 ## WS-7 implementation — archived
 
 Steps 1–6 are merged (#690/#697). [Completed steps 3–6 and proof](archive/ws7-completeness-2026-09.md).
