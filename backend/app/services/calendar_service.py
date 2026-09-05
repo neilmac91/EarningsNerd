@@ -21,12 +21,8 @@ from app.services.earnings_calendar_service import today_eastern
 logger = logging.getLogger(__name__)
 
 
-async def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14, **_ignored) -> list[dict]:
-    """Return upcoming earnings events for the user's watched tickers, soonest first.
-
-    ``**_ignored`` keeps the old ``fmp=`` keyword accepted (some callers/tests still pass it) without
-    doing anything — the FMP dependency is gone.
-    """
+async def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> list[dict]:
+    """Return upcoming earnings events for the user's watched tickers, soonest first."""
     rows = (
         db.query(Company.ticker, Company.name)
         .join(Watchlist, Watchlist.company_id == Company.id)

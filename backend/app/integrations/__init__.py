@@ -1,13 +1,5 @@
-"""Third-party integrations for external market data sources."""
+"""Third-party integrations for external market data sources.
 
-from .finnhub import FinnhubClient, finnhub_client
-from .fmp import FMPClient, FMPEarningsEvent, fmp_client
-
-__all__ = [
-    "FinnhubClient",
-    "finnhub_client",
-    "FMPClient",
-    "FMPEarningsEvent",
-    "fmp_client",
-]
-
+Modules are imported directly (``from app.integrations.alpha_vantage import ...``); the
+package re-exported only the FMP/Finnhub clients, which were torn down in 2026-09 (WS-8a).
+"""

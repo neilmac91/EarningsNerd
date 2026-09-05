@@ -1,11 +1,9 @@
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
 
 // Rule 2.1: Direct imports, no barrel files
 import CompanySearch from '@/features/companies/components/CompanySearch'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
 import NotableFilings from '@/features/filings/components/NotableFilings'
-import TrendingTickers from '@/features/companies/components/TrendingTickers'
 import HeroExample from '@/features/marketing/components/HeroExample'
 import ExampleSummaryCard from '@/features/marketing/components/ExampleSummaryCard'
 import ReportingThisWeek from '@/features/calendar/components/ReportingThisWeek'
@@ -15,12 +13,10 @@ import FeatureShowcase from '@/features/marketing/components/FeatureShowcase'
 import AccuracySection from '@/features/marketing/components/AccuracySection'
 import CtaBanner from '@/features/marketing/components/CtaBanner'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
-import { Skeleton } from '@/components/ui'
-import { ENABLE_MARKET_MOVERS, exampleFilingHref } from '@/lib/featureFlags'
+import { exampleFilingHref } from '@/lib/featureFlags'
 import {
   fetchExampleData,
   fetchNotableFilings,
-  fetchTrendingInitial,
   fetchReportingThisWeek,
 } from '@/lib/serverApi'
 
@@ -67,36 +63,15 @@ const JSON_LD = {
   ],
 }
 
-// Rule 6.2: Hoist static skeleton components outside. v2 Skeleton bones —
-// the old brand-weak bone fill is near-invisible on the cream page (DS §6).
-function TrendingTickersSkeleton() {
-  return (
-    <div role="status" aria-live="polite" aria-label="Loading market movers">
-      <div className="mb-4 flex items-center gap-2">
-        <Skeleton className="h-5 w-5 rounded" />
-        <Skeleton className="h-6 w-32 rounded" />
-      </div>
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 w-52 flex-shrink-0 rounded-2xl" />
-        ))}
-      </div>
-      <span className="sr-only">Loading market movers…</span>
-    </div>
-  )
-}
-
 export default async function Home() {
   // The WAITLIST_MODE gate lives in middleware.ts (single source of truth) —
   // keeping this page free of redirects lets it render statically (ISR).
   // Live data is fetched server-side so the first paint shows the real
   // product; every fetcher returns null on failure and the page falls back
   // to static content.
-  const [example, notable, trendingInitial, reportingThisWeek] = await Promise.all([
+  const [example, notable, reportingThisWeek] = await Promise.all([
     fetchExampleData(),
     fetchNotableFilings(),
-    // Market Movers is flag-hidden (dead data path — findings review); skip its prefetch too.
-    ENABLE_MARKET_MOVERS ? fetchTrendingInitial() : Promise.resolve(null),
     fetchReportingThisWeek(),
   ])
 
@@ -196,21 +171,6 @@ export default async function Home() {
       <section className="py-20 sm:py-24">
         <AccuracySection />
       </section>
-
-      {/* ═══════════════════════════════════════════════════════════
-          MARKET MOVERS / TRENDING TICKERS — flag-hidden (dead FMP path;
-          no license-clean $0 source — findings review). Backend teardown
-          follows in a separate PR.
-          ═══════════════════════════════════════════════════════════ */}
-      {ENABLE_MARKET_MOVERS && (
-        <section id="trending" className="py-20 sm:py-24">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <Suspense fallback={<TrendingTickersSkeleton />}>
-              <TrendingTickers initialData={trendingInitial ?? undefined} />
-            </Suspense>
-          </div>
-        </section>
-      )}
 
       {/* ═══════════════════════════════════════════════════════════
           FINAL CTA

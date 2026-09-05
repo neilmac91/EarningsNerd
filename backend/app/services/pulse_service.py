@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-# Human-facing label + plain-language description + the signal source, per buzz component key emitted
-# by ``hot_filings.HotFilingRecord.buzz_components``.
+# Human-facing label + plain-language description + the signal source, per buzz component key. The
+# original producer (the hot-filings scorer) was torn down in 2026-09; the key set is kept as the
+# contract for the roadmap A3 gauge, so a future producer emits the same component names.
 _COMPONENT_META: dict[str, tuple[str, str, str]] = {
     "recency": ("Recently filed", "How recently this filing was submitted", "EDGAR"),
     "search_activity": ("Reader interest", "EarningsNerd searches for this company", "EarningsNerd"),

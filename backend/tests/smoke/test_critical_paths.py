@@ -310,3 +310,11 @@ class TestAnalysisEndpoints:
         # M5 teardown: the dark Compare feature is fully retired, not just hidden.
         response = client.post("/api/compare/", json={"filing_ids": [1, 2]})
         assert response.status_code == 404
+
+    def test_trending_and_hot_filings_routers_are_gone(self, client):
+        # WS-8a teardown: the FMP/Finnhub/Stocktwits-backed discovery endpoints are fully retired
+        # (zero frontend consumers), not just flag-hidden — lessons/arch-sweep-dead-integration-consumers.md.
+        assert client.get("/api/trending_tickers").status_code == 404
+        assert client.get("/api/trending_tickers/refresh-prices?symbols=AAPL").status_code == 404
+        assert client.get("/api/hot_filings").status_code == 404
+        assert client.post("/api/hot_filings/refresh").status_code == 404
