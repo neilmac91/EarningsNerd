@@ -151,3 +151,10 @@ SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13
 A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
 launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
+
+## WS-10 — configuration and script placement hygiene (2026-09-05)
+
+- [ ] Document every backend Settings field with actual defaults, validation and deployment overrides; preserve WS-7 statement-financials guidance.
+- [ ] Add a configuration completeness gate and prove it fails when a real field row is removed.
+- [ ] Move the Vercel helper and manual Resend smoke into backend/scripts; repair file-relative paths, update references, and verify without deployment or email.
+- [ ] Run full backend gates plus shell/AST/provenance checks; record exact evidence and request independent review before merge.
