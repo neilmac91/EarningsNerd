@@ -28,7 +28,7 @@ def score(cites, answer='Revenue for FY2025 was RMB996.347 billion [1].', questi
 
 
 @pytest.mark.parametrize('changes', [{'value': None}, {'value': True}, {'value': float('nan')},
-    {'accession': OTHER}, {'unit': None}, {'unit': 'USD'}, {'raw_tag': ''}, {'concept': ''},
+    {'accession': OTHER}, {'unit': None}, {'unit': 'USD'}, {'raw_tag': ''}, {'raw_tag': 7}, {'concept': ''},
     {'period_end': '2026-03-31'}, {'period_end': '2024-03-31'}, {'period_end': 'bad'}])
 def test_all_declared_xbrl_provenance_checked_before_numeric_filter(changes):
     result = score([citation(**changes)])
@@ -69,9 +69,10 @@ def completion(**changes):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('events', [[], [{'type':'token','text':'partial'}], [{'type':'error'}],
+@pytest.mark.parametrize('events', [[], [{'type':'token','text':'partial'}], [{'type':'error'}], [{'type':'error'}, completion()],
     [completion(), completion()], [completion(), {'type':'error'}],
     [completion(answer='')], [completion(citations=[None])],
+    [{k:v for k,v in completion().items() if k != 'misplaced_fact_markers'}],
     [completion(kind='error')], [completion(misplaced_fact_markers=True)]])
 async def test_terminal_completeness_is_required(events, monkeypatch):
     from app.services import copilot_service
@@ -111,6 +112,7 @@ def test_full_report_rejects_incomplete_or_red_evidence(damage):
         report['results'][-1] = deepcopy(report['results'][0])
     elif damage == 'error':
         report['results'][0]['error'] = {'type':'TimeoutError'}
+        report['summary']['errors'] = 1
     elif damage == 'score':
         report['results'][0].pop('score')
     elif damage == 'terminal':
@@ -120,8 +122,8 @@ def test_full_report_rejects_incomplete_or_red_evidence(damage):
     elif damage == 'count':
         report['summary']['scored'] = 17
     elif damage == 'plan':
-        report['planned_attempts'][0]['question_id'] = 'unverified-replacement'
-        report['results'][0]['question_id'] = 'unverified-replacement'
+        for row in report['planned_attempts'][:3] + report['results'][:3]:
+            row['question_id'] = 'unverified-replacement'
     else:
         report['runs'] = 1
     assert runner.validate_report(report)
@@ -155,7 +157,7 @@ async def test_runner_keeps_failed_attempt_in_denominator_and_full_inputs(monkey
     cases = runner._load_cases(runner.GOLDEN_PATH)
     calls = []
     monkeypatch.setattr(runner, '_snapshot_for_case', lambda c: filing())
-    async def answer(snap, question):
+    async def answer(snap, question, **kwargs):
         calls.append(question)
         if len(calls) == 1:
             raise TimeoutError('offline')
@@ -165,7 +167,8 @@ async def test_runner_keeps_failed_attempt_in_denominator_and_full_inputs(monkey
     assert len(calls) == len(report['results']) == 18
     assert report['summary']['expected'] == 18 and report['summary']['scored'] == 17
     assert report['summary']['errors'] == 1 and not report['accepted']
-    assert report['results'][0]['inputs']['messages']
+    assert isinstance(report['results'][0].get('inputs'), dict)
+    assert report['results'][0]['inputs']['initial_messages']
     assert report['results'][0]['elapsed_ms'] >= 0 and report['actual_model'] is None
     assert report['summary']['pass_rate'] == report['summary']['passed'] / 18
 
@@ -256,3 +259,63 @@ def test_cli_preflight_failure_retains_artifact_and_never_calls_model(failure,tm
     assert runner.main() == 1 and called == []
     report = json.loads((output/'copilot-eval.json').read_text())
     assert report['accepted'] is False and report['failures']
+
+
+def test_nullable_raw_tag_is_preserved_without_inventing_provenance():
+    result = score([citation(raw_tag=None)])
+    assert result.passed and result.invalid_provenance == []
+
+
+@pytest.mark.asyncio
+async def test_actual_service_refusal_terminal_is_accepted_without_invented_counter(monkeypatch):
+    from app.services import copilot_service
+    async def stream(*args, **kwargs):
+        yield '===NOT_DISCLOSED===This filing does not disclose that information.'
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    answer, cites, kind, stripped = await runner._answer(filing(), 'Undisclosed?')
+    assert kind == 'not_disclosed' and stripped == 0 and cites == []
+    assert answer == 'This filing does not disclose that information.'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('value', [None, True, -1, '0'])
+async def test_refusal_provided_malformed_counter_is_rejected(value, monkeypatch):
+    from app.services import copilot_service
+    async def stream(**kwargs):
+        yield completion(kind='not_disclosed', misplaced_fact_markers=value)
+    monkeypatch.setattr(copilot_service, 'answer_filing_question', stream)
+    with pytest.raises(ValueError, match='malformed terminal'):
+        await runner._answer(filing(), 'Undisclosed?')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('stop', ['complete', 'error', 'cancel'])
+async def test_trace_retains_uncited_and_rejected_tools_and_restores_provider(stop,monkeypatch):
+    import asyncio
+    from app.services import copilot_service
+    from app.services.ai.copilot_chat import STREAM_ERROR_SENTINEL
+    supplied = iter([fact(raw_tag=None), fact(accession=OTHER)])
+    monkeypatch.setattr(copilot_service.copilot_tools, 'run_tool', lambda *a, **kw: next(supplied))
+    async def stream(messages, tools, run_tool, **kwargs):
+        run_tool('get_financial_fact', {'concept':'revenue'})
+        run_tool('get_financial_fact', {'concept':'revenue','accession_number':OTHER})
+        if stop == 'cancel':
+            raise asyncio.CancelledError
+        if stop == 'error':
+            yield STREAM_ERROR_SENTINEL + 'offline failure'
+        else:
+            yield 'Revenue was RMB996.347 billion.'
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    trace = {}
+    if stop == 'complete':
+        result = await runner._answer(filing(),'Revenue?',trace=trace)
+        assert result[1] == []
+    else:
+        with pytest.raises(asyncio.CancelledError if stop == 'cancel' else ValueError):
+            await runner._answer(filing(),'Revenue?',trace=trace)
+    assert copilot_service.openai_service.stream_chat_with_tools is stream
+    assert len(trace.get('tool_results', [])) == 2
+    assert trace['tool_results'][0]['result']['cite'] == 'F1'
+    assert trace['tool_results'][0]['result']['raw_tag'] is None
+    assert trace['tool_results'][1]['result'] == {'error':'invalid_filing_provenance'}
+    assert trace['initial_messages'] and trace['tool_schema'] and trace['generation_options']['model']

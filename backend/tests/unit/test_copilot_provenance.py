@@ -51,7 +51,7 @@ def test_matching_alias_or_absent_currency_keeps_chip(unit, label):
 
 @pytest.mark.parametrize('change', [
     {'accession': OTHER}, {'accession': None}, {'value': None}, {'value': True},
-    {'value': float('nan')}, {'unit': None}, {'unit': 'USD'}, {'raw_tag': ''},
+    {'value': float('nan')}, {'unit': None}, {'unit': 'USD'}, {'raw_tag': ''}, {'raw_tag': 7},
     {'concept': ''}, {'period_end': 'invalid'}, {'period_start': '2026-01-01'},
     {'kind': 'invented'},
 ])
@@ -131,10 +131,17 @@ async def test_actual_closure_distinguishes_denominators_and_reuses_exact_expres
 
 
 @pytest.mark.asyncio
-async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatch):
+@pytest.mark.parametrize('raw_tag', [None, 'ifrs-full:Revenue'])
+async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatch, raw_tag):
     import json
     import httpx2
     from tests.unit.test_provider_resilience import service_for, chunk, event
+    from app.services.facts_service import normalize_standardized_to_facts
+    from app.models.financial_fact import FinancialFact
+    rows = normalize_standardized_to_facts(9, 7, ACC, '20-F', {'reporting_currency':'CNY',
+        'revenue': {'current': {'value':996347000000, 'period':'2025-03-31', 'raw_tag':raw_tag}}})
+    assert len(rows) == 1 and rows[0]['raw_tag'] == raw_tag
+    normalized = service.copilot_tools._fact_provenance(FinancialFact(**rows[0]))
     requests, lookups = [], []
     def handler(request):
         body = json.loads(request.content)
@@ -150,7 +157,7 @@ async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatc
                                content=event(data) + b'data: [DONE]\n\n')
     def lookup(name, args, company_id, **scope):
         lookups.append((name, company_id, scope))
-        return fact()
+        return dict(normalized)
     monkeypatch.setattr(service.copilot_tools, 'run_tool', lookup)
     async with service_for(handler) as sdk_service:
         monkeypatch.setattr(service, 'openai_service', sdk_service)
@@ -160,8 +167,10 @@ async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatc
     assert ACC in context and 'CNY' in context and '2025-03-31' in context
     assert lookups == [('get_financial_fact', 9, {'accession_number': ACC, 'reporting_currency': 'CNY'})]
     wire_fact = json.loads(requests[1]['messages'][-1]['content'])
+    assert 'error' not in wire_fact
     assert wire_fact['accession'] == ACC and wire_fact['unit'] == 'CNY' and wire_fact['cite'] == 'F1'
     assert final['type'] == 'complete' and final['citations'][0]['accession'] == ACC
+    assert wire_fact['raw_tag'] == raw_tag and final['citations'][0]['raw_tag'] == raw_tag
 
 
 def test_real_orm_snapshot_retains_period_and_sources_after_expiry_and_close(tmp_path):
@@ -190,3 +199,8 @@ def test_real_orm_snapshot_retains_period_and_sources_after_expiry_and_close(tmp
         assert 'REPORT PERIOD: 2025-03-31' in context and 'CNY' in context
     finally:
         engine.dispose()
+
+
+def test_unknown_native_currency_still_requires_explicit_fact_unit():
+    assert service._valid_fact_provenance(fact(), ACC, None)
+    assert not service._valid_fact_provenance(fact(unit=None), ACC, None)

@@ -538,23 +538,27 @@ sole unchanged baseline.
 
 The workflow prepares six verified accessions/five issuers in a new file-backed SQLite database
 using only `copilot_sources.json` identities and the production SEC/excerpt/fact paths. It records
-source and database SHA-256 hashes. Questions and expected values never enter extraction. Both
+source and database SHA-256 hashes, plus the source-only SQLite artifact. Questions and expected values never enter extraction. Both
 BABA accessions coexist, so a same-valued newer comparative cannot impersonate the viewed filing.
 Only after successful source preparation does the runner receive the existing Actions generator
 credential and run all six vetted numeric questions three times (18 attempts). Original unverified
 qualitative/refusal questions remain unchanged under `pending_cases`; they are not silently certified.
 
 The runner requires exactly one valid terminal completion per attempt, all planned identities,
-zero execution errors and no trust/accuracy veto. Every declared XBRL citation is checked before
+zero execution errors and no trust/accuracy veto. Valid refusal completions preserve the production
+contract, which omits the strip counter. Every declared XBRL citation is checked before
 numeric filtering for viewed accession, finite value, unit and period; derived operands need their
-own origin and known basis. A used expected-metric citation must match that QA's declared period.
+own origin and known basis. Normalized facts may have a null raw XBRL tag; absence is preserved
+without inventing a tag or discarding otherwise valid source provenance. A used expected-metric citation must match that QA's declared period.
 Explicit wrong currency also vetoes a same-magnitude answer without a citation. Missing citation
 coverage remains advisory. Runtime per-filing facts currently omit duration starts: direct lookups
 remain available, but derived unknown-duration arithmetic returns `basis_unavailable` without
 inventing dates. No production backfill is needed for this gate.
 
-Artifacts always retain preparation evidence, complete emitted answers/citations, actual input
-messages, elapsed times, and denominator counts, including failures. `requested_model` is configured;
+Artifacts always retain preparation evidence, complete emitted answers/citations, initial input
+messages, every actual tool name/arguments/result (including unused or rejected results), elapsed
+times, and denominator counts, including failures. This semantic tool trace is not claimed to be
+a full native HTTP conversation transcript. `requested_model` is configured;
 `actual_model` remains unavailable in the report and per-call actual model/usage is recorded only by
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or

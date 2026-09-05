@@ -6,6 +6,9 @@ DB inference, unverified-case promotion, or answered-only denominator is accepte
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
+from copy import deepcopy
+from unittest.mock import patch
 import asyncio
 import hashlib
 import json
@@ -153,25 +156,40 @@ def _snapshot_for_case(case: CopilotGoldenCase):
         return snapshot_filing(filing) if filing else None
 
 
-async def _answer(filing_snap, question: str) -> tuple[str, list[dict], str, int]:
-    from app.services.copilot_service import answer_filing_question
+async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> tuple[str, list[dict], str, int]:
+    from app.services.copilot_service import answer_filing_question, openai_service
+    original_stream = openai_service.stream_chat_with_tools
+    def observed_stream(messages, tools, run_tool, **kwargs):
+        trace['initial_messages'] = deepcopy(messages)
+        trace['tool_schema'] = deepcopy(tools)
+        trace['generation_options'] = {k: kwargs.get(k) for k in ('model','max_tokens','temperature')}
+        def observed_tool(name, args):
+            result = run_tool(name, args)
+            trace['tool_results'].append({'name': name, 'args': deepcopy(args), 'result': deepcopy(result)})
+            return result
+        return original_stream(messages, tools, observed_tool, **kwargs)
+    if trace is not None:
+        trace['tool_results'] = []
+    observer = patch.object(openai_service, 'stream_chat_with_tools', observed_stream) if trace is not None else nullcontext()
     complete = None
-    async for event in answer_filing_question(filing=filing_snap, question=question):
-        if not isinstance(event, dict):
-            raise ValueError('malformed stream event')
-        if complete is not None:
-            raise ValueError('event after terminal completion')
-        if event.get('type') == 'error':
-            raise ValueError('provider error event')
-        if event.get('type') == 'complete':
-            if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
-                    or event.get('kind') not in {'answer', 'not_disclosed'}
-                    or not isinstance(event.get('citations'), list)
-                    or any(not isinstance(c, dict) for c in event['citations'])
-                    or type(event.get('misplaced_fact_markers')) is not int
-                    or event['misplaced_fact_markers'] < 0):
-                raise ValueError('malformed terminal completion')
-            complete = event
+    with observer:
+        async for event in answer_filing_question(filing=filing_snap, question=question):
+            if not isinstance(event, dict):
+                raise ValueError('malformed stream event')
+            if complete is not None:
+                raise ValueError('event after terminal completion')
+            if event.get('type') == 'error':
+                raise ValueError('provider error event')
+            if event.get('type') == 'complete':
+                # The real refusal producer has no strip-count field. Only that omission is zero.
+                stripped = event.get('misplaced_fact_markers', 0 if event.get('kind') == 'not_disclosed' else None)
+                if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
+                        or event.get('kind') not in {'answer', 'not_disclosed'}
+                        or not isinstance(event.get('citations'), list)
+                        or any(not isinstance(c, dict) for c in event['citations'])
+                        or type(stripped) is not int or stripped < 0):
+                    raise ValueError('malformed terminal completion')
+                complete = {**event, 'misplaced_fact_markers': stripped}
     if complete is None:
         raise ValueError('stream ended without terminal completion')
     return complete['answer'], complete['citations'], complete['kind'], complete['misplaced_fact_markers']
@@ -207,11 +225,12 @@ async def run(*, runs: int = 3, cases: list[CopilotGoldenCase] | None = None) ->
             source = _source_text(snap)
             if not source.strip():
                 raise ValueError('prepared filing text unavailable')
-            row['inputs'] = {'messages': _build_messages(snap, source, qa.question, None),
+            row['inputs'] = {'initial_messages': _build_messages(snap, source, qa.question, None),
                              'source_text': source, 'xbrl_data': snap.xbrl_data,
                              'period_of_report': str(snap.period_of_report),
                              'accession_number': snap.accession_number}
-            answer, cites, kind, stripped = await _answer(snap, qa.question)
+            row['tool_trace'] = {}
+            answer, cites, kind, stripped = await _answer(snap, qa.question, trace=row['tool_trace'])
             row.update(answer=answer, citations=cites, kind=kind, terminal_complete=True,
                        stripped_misplaced_markers=stripped)
             row['score'] = score_copilot_answer(qa, answer=answer, citations=cites, kind=kind,

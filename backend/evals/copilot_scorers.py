@@ -161,7 +161,10 @@ def score_filing_provenance(citations: List[dict], accession: Optional[str],
         unit = canonical_unit(row.get('unit'))
         if unit is None or (currency and unit not in {currency, currency + '/shares', 'shares', 'pure'}):
             return False
-        if any(not isinstance(row.get(k), str) or not row[k].strip() for k in ('concept', 'raw_tag')):
+        if not isinstance(row.get('concept'), str) or not row['concept'].strip():
+            return False
+        tag = row.get('raw_tag')
+        if tag is not None and (not isinstance(tag, str) or not tag.strip()):
             return False
         try:
             end = date.fromisoformat(row['period_end'])

@@ -17,6 +17,10 @@ applied 0/skipped 34, revision `00267-2kc` serves all traffic; detailed health i
 - [ ] Retain direct/derived operand provenance in citations; verify all declared XBRL citations
   before numeric filtering and reject contradictory currency labels adjacent to their figures.
   Distinct derived expressions must not share a marker; absence of prose currency is not USD.
+- [ ] Preserve the actual refusal terminal contract: default the absent strip count only for
+  a valid not_disclosed completion, while rejecting missing answer counts and malformed values.
+- [ ] Accept actual normalized source facts with nullable raw_tag, keeping absent tags explicit
+  and requiring concept, accession, finite value, unit and period without fabricating tags.
 - [ ] Close observed real-ORM snapshot gap: read actual period_end_date while the session is
   live, retain plain ISO period after expiry/close, and verify context with a persisted ORM row.
 - [ ] Close observed same-value wrong-period scorer acceptance: declare expected period per QA

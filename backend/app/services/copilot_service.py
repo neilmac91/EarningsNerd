@@ -179,7 +179,10 @@ def _valid_fact_provenance(fact: dict, accession: Optional[str], currency: Optio
         return False
     if not isinstance(fact, dict) or fact.get("accession") != accession:
         return False
-    if any(not isinstance(fact.get(key), str) or not fact[key].strip() for key in ("concept", "raw_tag")):
+    if not isinstance(fact.get("concept"), str) or not fact["concept"].strip():
+        return False
+    raw_tag = fact.get("raw_tag")
+    if raw_tag is not None and (not isinstance(raw_tag, str) or not raw_tag.strip()):
         return False
     value = fact.get("value")
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
