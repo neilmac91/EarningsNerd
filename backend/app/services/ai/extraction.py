@@ -26,7 +26,6 @@ class _ExtractionMixin:
         # responses because financial data was being truncated before reaching the AI
         base_config: Dict[str, Any] = {
             "sample_length": 80000,  # Increased from 25000 to capture more content
-            "previous_section_limit": 30000,  # Increased from 15000
             "ai_timeout": 120.0,  # Increased for larger content processing
             "max_tokens": 8000,  # Large enough for the full multi-section JSON schema (avoids truncation)
             "max_sections": 8,  # Increased from 6 to include all key sections
@@ -70,7 +69,6 @@ class _ExtractionMixin:
             },
             "10-Q": {
                 "sample_length": 70000,  # Increased from 22000
-                "previous_section_limit": 25000,  # Increased from 15000
                 "ai_timeout": 100.0,  # Increased from 75
                 "max_tokens": 8000,  # Prevents mid-JSON truncation on the multi-section schema
                 "max_sections": 6,
@@ -526,158 +524,6 @@ class _ExtractionMixin:
         )
         return excerpt[:320000]
 
-    def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
-        """
-        Extract key sections from filing text with improved patterns.
-        
-        This method gracefully handles missing or corrupted sections by:
-        - Returning empty strings for sections that cannot be found
-        - Continuing processing even if some sections are missing
-        - Using multiple pattern variations to improve extraction success
-        - Applying length limits to prevent processing issues
-        
-        If any section is missing or corrupted, it will be skipped gracefully
-        and processing will continue with available sections.
-        """
-        sections = {
-            "business": "",
-            "risk_factors": "",
-            "financials": "",
-            "mda": "",
-            "liquidity": "",
-            "segments": "",
-            "guidance": "",
-            "footnotes": ""
-        }
-        
-        # Remove HTML/XML tags for cleaner extraction
-        filing_text_clean = filing_text
-        
-        config = self._get_type_config(filing_type)
-        section_limits = config.get("section_limits", {})
-
-        # Business section - Item 1
-        business_patterns = [
-            r"ITEM\s+1\.\s*BUSINESS[^\n]*\n(.*?)(?=ITEM\s+1A|ITEM\s+2|PART\s+II|$)",
-            r"PART\s+I[^\n]*\n.*?ITEM\s+1\.\s*BUSINESS[^\n]*\n(.*?)(?=ITEM\s+1A|ITEM\s+2|PART\s+II|$)",
-            r"Description\s+of\s+Business[^\n]*\n(.*?)(?=Risk\s+Factors|ITEM\s+1A|ITEM\s+2|$)"
-        ]
-        for pattern in business_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                limit = section_limits.get("business", 15000)
-                sections["business"] = match.group(1)[:limit].strip()
-                break
-        
-        # Risk Factors - Item 1A
-        risk_patterns = [
-            r"ITEM\s+1A\.\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)",
-            r"PART\s+I[^\n]*\n.*?ITEM\s+1A\.\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)",
-            r"Risk\s+Factors[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)"
-        ]
-        for pattern in risk_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("risk_factors", 15000)
-                sections["risk_factors"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-        
-        # MD&A - Item 7 (Part II)
-        mda_patterns = [
-            r"PART\s+II[^\n]*\n.*?ITEM\s+7\.\s*MANAGEMENT['\']?S\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s+7A|ITEM\s+8|ITEM\s+9|$)",
-            r"ITEM\s+7\.\s*MANAGEMENT['\']?S\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s+7A|ITEM\s+8|ITEM\s+9|$)",
-            r"Management['\']?s\s+Discussion\s+and\s+Analysis[^\n]*\n(.*?)(?=ITEM\s+8|Financial|$)"
-        ]
-        for pattern in mda_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("mda", 15000)
-                sections["mda"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-        
-        # Financials - Item 8 (Part II)
-        financial_patterns = [
-            r"PART\s+II[^\n]*\n.*?ITEM\s+8\.\s*FINANCIAL[^\n]*\n(.*?)(?=ITEM\s+9|ITEM\s+15|$)",
-            r"ITEM\s+8\.\s*FINANCIAL[^\n]*\n(.*?)(?=ITEM\s+9|ITEM\s+15|$)",
-            r"Consolidated\s+Statements\s+of\s+Operations[^\n]*\n(.*?)(?=ITEM\s+9|NOTE|$)"
-        ]
-        for pattern in financial_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("financials", 12000)
-                sections["financials"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-        
-        # Liquidity and capital resources (often in MD&A or separate section)
-        liquidity_patterns = [
-            r"LIQUIDITY\s+AND\s+CAPITAL\s+RESOURCES[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|CAPITAL|$)",
-            r"Liquidity\s+and\s+Capital\s+Resources[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|CAPITAL|$)",
-            r"Cash\s+Flows[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|$)"
-        ]
-        for pattern in liquidity_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("liquidity", 12000)
-                sections["liquidity"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-
-        # Segment performance
-        segment_patterns = [
-            r"SEGMENT\s+INFORMATION[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"SEGMENT\s+RESULTS[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"RESULTS\s+BY\s+SEGMENT[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"Our\s+Services\s+segment[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)"
-        ]
-        for pattern in segment_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("segments", 10000)
-                sections["segments"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-
-        # Guidance / outlook (often in MD&A)
-        guidance_patterns = [
-            r"OUTLOOK[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"GUIDANCE[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"Future\s+Outlook[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)",
-            r"Looking\s+Forward[^\n]*\n(.*?)(?=ITEM\s+8|ITEM\s+9|NOTE|$)"
-        ]
-        for pattern in guidance_patterns:
-            match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-            if match:
-                extracted = match.group(1).strip()
-                limit = section_limits.get("guidance", 8000)
-                sections["guidance"] = re.sub(r'\s+', ' ', extracted)[:limit].strip()
-                break
-
-        # Footnotes / other notes (capture first few Note sections)
-        footnote_matches = list(re.finditer(r"NOTE\s+\d+[^\n]*\n(.*?)(?=NOTE\s+\d+|ITEM|$)", filing_text_clean, re.IGNORECASE | re.DOTALL))
-        if footnote_matches:
-            # Combine first 3 notes
-            footnote_text = ""
-            for match in footnote_matches[:3]:
-                note_text = match.group(0).strip()
-                limit = section_limits.get("footnotes", 8000)
-                footnote_text += re.sub(r'\s+', ' ', note_text)[:limit] + "\n\n"
-            sections["footnotes"] = footnote_text[:section_limits.get("footnotes", 8000)].strip()
-
-        max_sections = config.get("max_sections")
-        if max_sections:
-            kept = 0
-            for key in config.get("section_priority", []):
-                content = sections.get(key)
-                if content:
-                    kept += 1
-                    if kept > max_sections:
-                        sections[key] = ""
-        
-        return sections
-    
     def extract_financial_data(self, text_content: str) -> Dict[str, list]:
         """Extract specific financial figures from filing text"""
         data = {

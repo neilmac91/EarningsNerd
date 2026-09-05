@@ -10,7 +10,7 @@ applied 0/skipped 34 migrations, revision `00266-q6k` serves 100% traffic and he
 - [ ] Delete both prior-filing parameters, context construction/interpolation and all forwarding
   callers; add a production AST gate for retired symbols and direct input/signature regressions.
 - [ ] Delete only the three locked-background references to the retired symbol, as explicitly
-  permitted by CLAUDE rule 6; preserve every other assertion and shared harness.
+  permitted by CLAUDE rule 6, plus the binding made unused by that removed assertion; preserve every other assertion and shared harness.
 - [ ] Prepare immutable labelled recovery blocks once in the existing parsing worker, preserving
   exact per-form and recovered-window labels, multiple blocks and chosen-filing source only.
 - [ ] Allocate at most 30,000 context characters including labels/separators: families first,
@@ -19,6 +19,9 @@ applied 0/skipped 34 migrations, revision `00266-q6k` serves 100% traffic and he
   elements, fail closed on cleaning errors, and skip recovery when no usable source remains.
 - [ ] Remove the now-unused raw-recovery parser only after proving it has no remaining caller;
   preserve the 75-second shared budget, off-loop parsing, actual usage and snap exclusions.
+- [ ] Correct both observed actual-producer heading losses: exact FINANCIAL DATA alias and the
+  first heading after the generated 50-equals prefix. Preserve primary excerpt bytes; prove
+  actual >60k extractor-to-native-request cases without dense-backfill masking.
 - [ ] Prove every new/changed test with an intended-assertion mutant; restore sources exactly,
   run the full pinned backend gate and obtain three independent review lenses.
 - [ ] Inspect actual strict 26×2 CI report identities/errors/vetoes, source/figure replay and

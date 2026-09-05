@@ -630,7 +630,6 @@ async def stream_filing_summary(
                 filing_text,
                 company_name,
                 filing_type,
-                previous_filings=None,
                 xbrl_metrics=xbrl_metrics,
                 filing_excerpt=excerpt,
                 stream_cb=summary_stream_cb,

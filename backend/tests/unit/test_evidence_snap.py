@@ -194,7 +194,7 @@ def test_walker_never_touches_risks_or_quotes():
 
 
 def test_recovery_authored_sections_are_skipped():
-    # Skeptic F3: recovery re-asks generate from extract_sections context, not the excerpt —
+    # Skeptic F3: recovery re-asks generate from separately selected recovery context, not the excerpt —
     # their verbatim-TRUE evidence can fail the excerpt check and must not be rewritten or
     # counted as noncompliance.
     sections = _sections(evidence_rtm=COMPOSED_EPS, evidence_fn=COMPOSED_EPS)

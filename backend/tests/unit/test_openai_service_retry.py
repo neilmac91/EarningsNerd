@@ -61,7 +61,6 @@ async def test_summarize_retries_on_empty_payload():
         filing_text="Full text",
         company_name="Test Corp",
         filing_type="10-K",
-        previous_filings=[],
         xbrl_metrics={},
         filing_excerpt="Excerpt"
     )

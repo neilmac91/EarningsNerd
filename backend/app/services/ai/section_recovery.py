@@ -16,6 +16,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.ai.normalize import _normalize_simple_string
+from app.services.ai.recovery_context import RecoveryBlock, build_recovery_context
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class _SectionRecoveryMixin:
         # `segments` is intentionally absent: the SECTION is machine-authored from XBRL (T5.2 — the
         # model contributes only transient commentary-only rows the filler harvests, T5.2b), so listing
         # it here would flag it "empty" on every single-segment filer and needlessly fire the recovery
-        # path (a full-filing extract_sections parse) even for fully-populated summaries.
+        # path (additional section-scoped model calls) even for fully-populated summaries.
         ordered_keys = [
             "the_print",
             "results_that_matter",
@@ -81,29 +82,10 @@ class _SectionRecoveryMixin:
     def _build_section_context(
         self,
         section_key: str,
-        extracted_sections: Dict[str, str],
+        recovery_sources: tuple[RecoveryBlock, ...],
         filing_sample: str,
     ) -> str:
-        section_sources = {
-            "the_print": ["mda", "business", "financials"],
-            "results_that_matter": ["financials", "mda"],
-            "earnings_quality": ["financials", "mda"],
-            "value_drivers": ["financials", "mda"],
-            "forward_signals": ["guidance", "mda"],
-            "risks": ["risk_factors"],
-            "balance_sheet_liquidity": ["liquidity", "financials"],
-            "notable_footnotes": ["footnotes"],
-        }
-        max_length = 6000
-        parts: List[str] = []
-        for source_key in section_sources.get(section_key, []):
-            snippet = extracted_sections.get(source_key)
-            if snippet:
-                parts.append(snippet)
-        if not parts and filing_sample:
-            parts.append(filing_sample)
-        combined = "\n\n".join(parts).strip()
-        return combined[:max_length]
+        return build_recovery_context(section_key, recovery_sources, filing_sample)
 
     def _get_section_schema_snippet(self, section_key: str) -> Optional[str]:
         # Parity note (T4 follow-up): recovery-authored content was measured as the
@@ -148,7 +130,7 @@ class _SectionRecoveryMixin:
         self,
         section_key: str,
         filing_type_key: str,
-        extracted_sections: Dict[str, str],
+        recovery_sources: tuple[RecoveryBlock, ...],
         filing_sample: str,
         metadata: Dict[str, Any],
     ) -> Tuple[str, Optional[Any]]:
@@ -169,7 +151,7 @@ class _SectionRecoveryMixin:
         if not schema_snippet:
             return section_key, None
 
-        context = self._build_section_context(section_key, extracted_sections, filing_sample)
+        context = self._build_section_context(section_key, recovery_sources, filing_sample)
         if not context:
             return section_key, None
 
@@ -228,7 +210,7 @@ Return JSON containing only the `{section_key}` key."""
         self,
         missing_sections: List[str],
         filing_type_key: str,
-        extracted_sections: Dict[str, str],
+        recovery_sources: tuple[RecoveryBlock, ...],
         filing_sample: str,
         metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
@@ -247,7 +229,7 @@ Return JSON containing only the `{section_key}` key."""
             self._recover_single_section(
                 section_key,
                 filing_type_key,
-                extracted_sections,
+                recovery_sources,
                 filing_sample,
                 metadata,
             )

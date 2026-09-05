@@ -25,7 +25,7 @@ Conservative postures:
 - **No source text → measure NOTHING.** Callers pass the EXCERPT (the model's true prompt
   input), never raw ``filing_text`` (the T5.4 blocking-finding rule).
 - **Recovery-authored sections are skipped** (``skip_sections``): the recovery re-ask generates
-  from ``extract_sections(filing_text)`` context, NOT the excerpt, so its verbatim-TRUE evidence
+  from separately selected context, potentially different from the exact primary excerpt, so its verbatim-TRUE evidence
   can fail the excerpt exact-check — snapping would rewrite correct filing text (adversarial
   finding F3). Callers thread the recovered section keys through.
 - **Two-tier relevance floor, empirically calibrated** (a flat high floor missed the exact
