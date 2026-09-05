@@ -1,16 +1,24 @@
 name: Refresh index membership
 
 # Regenerates backend/app/data/index_membership.json (the S&P 500 ∪ Nasdaq 100 universe the earnings
-# calendar filters to) from the current index constituents, and opens a PR ONLY when the indexes have
-# actually changed. This keeps the committed-list design — auditable, human-merged, un-corruptable by a
-# bad runtime fetch — while removing the manual toil. The indexes rebalance ~quarterly plus ad-hoc, so
-# this runs monthly and simply no-ops (no PR) on the months nothing changed.
+# calendar filters to) from the current index constituents and opens/updates a PR on EVERY successful
+# run. The script re-stamps the file's `generated_on` date each time, so the monthly PR is the
+# heartbeat that proves the refresh still works (and keeps the 100-day age gate in
+# tests/unit/test_index_membership_service.py honest); its diff shows any constituent changes
+# alongside the date bump. This keeps the committed-list design — auditable, human-merged,
+# un-corruptable by a bad runtime fetch — while removing the manual toil.
+#
+# Source: `--source auto` = FMP (stable API) for both indices when the FMP_API_KEY repo secret is set;
+# otherwise Wikipedia, which can only supply the S&P 500 half (its Nasdaq-100 article dropped the
+# constituents table in 2026). A keyless run therefore fails LOUDLY (exit 2, nothing written) instead
+# of shipping an S&P-only universe, and the last step opens/updates a "Universe refresh failed <date>"
+# issue so the failure is visible without watching the Actions tab. Fix = add the FMP_API_KEY secret.
 #
 # Auth note: a PR opened with the default GITHUB_TOKEN does NOT trigger other workflows, so CI won't run
 # on the auto-PR itself. The "Validate" step re-checks the file's integrity inline (mirrors
 # tests/unit/test_index_membership_service.py), and normal CI runs when the PR is merged to main. If your
 # branch protection requires status checks on the PR, create a fine-scoped PAT secret (e.g. REFRESH_PAT
-# with contents+PR write) and swap it for GITHUB_TOKEN in the last step so CI is triggered on the PR.
+# with contents+PR write) and swap it for GITHUB_TOKEN in the PR step so CI is triggered on the PR.
 
 on:
   schedule:
@@ -24,6 +32,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   refresh:
@@ -41,13 +50,16 @@ jobs:
 
       - name: Regenerate the membership list
         working-directory: backend
-        run: python scripts/refresh_index_membership.py --source wikipedia
+        env:
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: python scripts/refresh_index_membership.py --source auto
 
       - name: Validate the regenerated list
         working-directory: backend
         run: |
           python - <<'PY'
           import json
+          from datetime import date, datetime, timezone
           d = json.loads(open("app/data/index_membership.json", encoding="utf-8").read())
           members = d["members"]
           tickers = [m["ticker"] for m in members]
@@ -58,16 +70,21 @@ jobs:
               assert req in set(tickers), f"missing mega-cap {req}"
           assert not ({"FDXF", "HONA"} & set(tickers)), "non-trading spin-off artifact present"
           assert all(m.get("indices") for m in members), "entry missing an index label"
-          print(f"validated {len(tickers)} members")
+          labels = {i for m in members for i in m["indices"]}
+          assert labels == {"sp500", "nasdaq100"}, f"partial universe written: {labels}"
+          assert date.fromisoformat(d["generated_on"]) == datetime.now(timezone.utc).date(), "generated_on not today"
+          print(f"validated {len(tickers)} members generated {d['generated_on']} via {d['source']}")
           PY
 
-      - name: Open or update PR if the universe changed
+      # `generated_on` changes on every run, so this branch is always taken after a successful
+      # regeneration; the diff guard stays as a safety net in case the file is ever byte-identical.
+      - name: Open or update the refresh PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if git diff --quiet -- backend/app/data/index_membership.json; then
-            echo "No index membership changes this run — nothing to do."
+            echo "Committed list is byte-identical (unexpected: generated_on should have moved) — nothing to do."
             exit 0
           fi
           BRANCH="automation/refresh-index-membership"
@@ -82,5 +99,43 @@ jobs:
           else
             gh pr create --base main --head "$BRANCH" \
               --title "Refresh index membership (S&P 500 / Nasdaq 100)" \
-              --body "Automated monthly regeneration of \`backend/app/data/index_membership.json\` from the current S&P 500 + Nasdaq 100 constituents (Wikipedia). Opens only because the indexes changed since the committed list — review the added/removed tickers in the diff and merge to update the calendar's universe. Integrity-checked in-workflow (count >= 500, unique, normalized, mega-caps present, spin-off artifacts absent). Generated by \`.github/workflows/refresh-index-membership.yml\`."
+              --body "Automated monthly regeneration of \`backend/app/data/index_membership.json\` from the current S&P 500 + Nasdaq 100 constituents (source recorded in the file's \`source\` field; FMP stable API when the \`FMP_API_KEY\` secret is set). This PR opens on every successful run: the \`generated_on\` date bump is the monthly heartbeat that proves the refresh works and keeps the 100-day age gate in \`tests/unit/test_index_membership_service.py\` green — merge it even when no tickers changed. Review any added/removed tickers in the diff. Integrity-checked in-workflow (count >= 500, unique, normalized, mega-caps present, both index labels present, spin-off artifacts absent, generated today). Generated by \`.github/workflows/refresh-index-membership.yml\`."
+          fi
+
+      # Failure visibility: a monthly cron that fails silently lets the committed universe age past the
+      # 100-day test gate (tests/unit/test_index_membership_service.py) before anyone notices. One issue
+      # per outage — re-runs comment on the open issue instead of opening a new one.
+      - name: Open or update a failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HAS_KEY: ${{ secrets.FMP_API_KEY != '' }}
+        run: |
+          set -euo pipefail
+          TODAY="$(date -u +%F)"
+          TITLE="Universe refresh failed $TODAY"
+          if [ "$HAS_KEY" = "true" ]; then
+            CAUSE="The \`FMP_API_KEY\` secret IS set, so this is not the missing-key case. Check the run log: an FMP error (expired key or plan, endpoint change — the script uses the stable API \`/stable/sp500-constituent\` + \`/stable/nasdaq-constituent\`), a response that failed the per-index floors (S&P 500 >= 480, Nasdaq-100 >= 90), or a validation assertion.
+
+          Fix: repair the key/plan or the script, then re-run this workflow via *Run workflow*."
+          else
+            CAUSE="Most likely cause: the \`FMP_API_KEY\` repo secret is not set, so the script fell back to Wikipedia, which no longer publishes a Nasdaq-100 constituents table. The script refuses to write an S&P-500-only universe.
+
+          Fix: add the \`FMP_API_KEY\` secret (Settings → Secrets and variables → Actions), then re-run this workflow via *Run workflow*."
+          fi
+          BODY="The monthly index-membership refresh failed on $TODAY: $RUN_URL
+
+          $CAUSE
+
+          Details: \`docs/DEPLOYMENT.md\` → *Quarterly: refresh the membership list*. The committed list (\`backend/app/data/index_membership.json\`, field \`generated_on\`) fails \`tests/unit/test_index_membership_service.py\` once it is more than 100 days old."
+          EXISTING="$(gh issue list --state open --search '"Universe refresh failed" in:title' --json number,title \
+            --jq '[.[] | select(.title | startswith("Universe refresh failed"))] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            gh issue edit "$EXISTING" --title "$TITLE"
+            echo "Updated existing failure issue #$EXISTING."
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
           fi
