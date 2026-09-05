@@ -28,7 +28,7 @@ def test_sdk_and_vendor_cache_metadata_are_subsets_not_additional_tokens():
                               "cache_hit_tokens": 40, "cache_miss_tokens": None}
     vendor = SimpleNamespace(prompt_tokens=100, completion_tokens=20, total_tokens=120,
                              prompt_cache_hit_tokens=60, prompt_cache_miss_tokens=40,
-                             prompt_tokens_details=SimpleNamespace(cached_tokens=60))
+                             prompt_tokens_details=SimpleNamespace(cached_tokens=40))
     second = record(vendor)
     assert second["usage"] == {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120,
                                "cache_hit_tokens": 60, "cache_miss_tokens": 40}
