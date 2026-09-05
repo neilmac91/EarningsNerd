@@ -9,6 +9,7 @@ import { getCompanyFilings, type Filing } from '@/features/filings/api/filings-a
 import { CircleNotchIcon } from '@/lib/icons'
 import { Badge, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
+import SupersededFilingNotice from './SupersededFilingNotice'
 
 /**
  * Filing route with a ticker in the URL (e.g. /filing/AAPL) rather than a numeric id:
@@ -111,9 +112,8 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
             {filings && filings.length > 0 && (
               <div className="grid gap-3">
                 {filings.map((filing) => (
-                  <Link
+                  <div
                     key={filing.id}
-                    href={`/filing/${filing.id}`}
                     className="group flex flex-col gap-3 rounded-xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-white dark:bg-panel-dark dark:hover:bg-white/[0.06] shadow-e2 dark:shadow-none p-5 transition-colors duration-fast hover:border-brand-border dark:hover:border-brand-border-dark"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -123,10 +123,13 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                           {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
                         </p>
                       </div>
-                      <Badge variant="brand">Generate AI summary</Badge>
+                      <Link href={`/filing/${filing.id}`} aria-label={`Generate AI summary for ${filing.filing_type} ${filing.accession_number}`}>
+                        <Badge variant="brand">Generate AI summary</Badge>
+                      </Link>
                     </div>
+                    <SupersededFilingNotice filing={filing} filings={filings} />
                     <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Accession: {filing.accession_number}</div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}

@@ -16,7 +16,8 @@ const byFilingDateDesc = (a: Filing, b: Filing) =>
  * filed a 10-Q since (i.e. most of the year), making the banner read as inaccurate.
  *
  * Callers pass the FULL filing list (not the active type filter) so the recommendation stays
- * stable as the user filters. Returns null when there are no filings.
+ * stable as the user filters. Superseded originals remain in history but are not recommended.
+ * Amendments are eligible on their actual filing date. Returns null when none are eligible.
  *
  * NOTE (revisit when ENABLE_FPI_FILINGS ships): once the FPI program is on, the company-page list
  * gains 20-F / 6-K / 40-F, and active foreign issuers file 6-Ks continuously — so "most recent of
@@ -28,7 +29,7 @@ const byFilingDateDesc = (a: Filing, b: Filing) =>
  * ("most recent report") in the banner, not just a filter in this helper.
  */
 export function selectRecommendedFiling(filings: Filing[] | undefined | null): Filing | null {
-  return [...(filings ?? [])].sort(byFilingDateDesc)[0] ?? null
+  return (filings ?? []).filter((filing) => !filing.superseded_by_accession).sort(byFilingDateDesc)[0] ?? null
 }
 
 /**
@@ -37,6 +38,9 @@ export function selectRecommendedFiling(filings: Filing[] | undefined | null): F
  * most recent of any type, "annual report" only ever appears when that newest filing genuinely is
  * one — so the copy ("...'s most recent annual report") stays accurate.
  */
-export function recommendedFilingNoun(filing: Filing): 'annual report' | 'filing' {
-  return ANNUAL_FILING_TYPES.includes(filing.filing_type) ? 'annual report' : 'filing'
+export function recommendedFilingNoun(filing: Filing): 'annual report' | 'filing' | 'annual report amendment' | 'filing amendment' {
+  const amended = filing.filing_type.endsWith('/A')
+  const form = amended ? filing.filing_type.slice(0, -2) : filing.filing_type
+  const noun = ANNUAL_FILING_TYPES.includes(form) ? 'annual report' : 'filing'
+  return amended ? `${noun} amendment` : noun
 }
