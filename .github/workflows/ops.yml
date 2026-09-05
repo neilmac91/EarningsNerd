@@ -161,17 +161,56 @@ jobs:
           gcloud run services describe "$SERVICE" --region="$REGION" --format=json > /tmp/svc.json
           python3 - <<'PY'
           import json
+          import os
+          import subprocess
           svc = json.load(open("/tmp/svc.json"))
-          tmpl = svc["spec"]["template"]["spec"]["containers"]
+          status = svc["status"]
+          latest = status.get("latestReadyRevisionName")
+          traffic = [target for target in status.get("traffic", []) if target.get("percent", 0) > 0]
+          print("Serving traffic:", traffic)
+          if (not latest or status.get("latestCreatedRevisionName") != latest
+                  or len(traffic) != 1 or traffic[0].get("percent") != 100
+                  or traffic[0].get("revisionName") != latest):
+              raise SystemExit("Unresolved production configuration: require 100% traffic on the latest ready revision.")
+          def describe(kind, name):
+              return json.loads(subprocess.check_output([
+                  "gcloud", "run", kind, "describe", name,
+                  "--region=" + os.environ["REGION"], "--format=json",
+              ], text=True))
+          revision = describe("revisions", latest)
+          pregenerate = describe("jobs", "earningsnerd-pregenerate")
           # Only these non-sensitive flag/config values are echoed; everything else is name-only.
           allow = {
               "USE_STATEMENT_FINANCIALS", "ENABLE_FPI_FILINGS",
               "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL", "OPENAI_BASE_URL", "ENVIRONMENT",
               "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN",
+              "NOTABLE_FILINGS_ENABLED", "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE",
+              "AI_FORWARD_QUOTE_GATE", "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
+              "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
           }
-          seen = set()
-          for c in tmpl:
-              for e in c.get("env", []):
+          # Defaults from app/config.py; never include credentials in this allow-list.
+          flag_defaults = {
+              "USE_STATEMENT_FINANCIALS": True,
+              "ENABLE_FPI_FILINGS": False,
+              "STREAM_SECTION_REVEAL": False,
+              "NOTABLE_FILINGS_ENABLED": False,
+              "AI_EVIDENCE_SNAP": False,
+              "AI_FIGURE_TRACE_GATE": False,
+              "AI_FORWARD_QUOTE_GATE": False,
+              "USE_STRUCTURED_OUTPUT": False,
+              "CALENDAR_INDEX_FILTER_ENABLED": False,
+              "REGISTRATION_MODE": "public",
+              "AI_FALLBACK_MODEL": "",
+              "AI_FALLBACK_BASE_URL": "",
+          }
+          def show(label, containers):
+              if len(containers) != 1:
+                  raise SystemExit(f"Unresolved production configuration: {label} needs one application container.")
+              print(label)
+              print("image:", containers[0]["image"])
+              print("Absent values below use checkout Settings defaults; verify these against the reported image before pinning.")
+              seen = set()
+              for e in containers[0].get("env", []):
                   name = e.get("name", "?")
                   seen.add(name)
                   if "valueFrom" in e or "valueSource" in e:
@@ -180,10 +219,12 @@ jobs:
                       print(f"{name} = {e.get('value')!r}")
                   else:
                       print(f"{name} = <set; value withheld>")
-          for flag in ("USE_STATEMENT_FINANCIALS",):
-              if flag not in seen:
-                  print(f"{flag} = <NOT SET -> Settings default applies (True)>")
-          print("latestReadyRevision:", svc.get("status", {}).get("latestReadyRevisionName"))
+              for flag, default in flag_defaults.items():
+                  if flag not in seen:
+                      message = "Settings default applies (True)" if default is True else f"Settings default applies ({default!r})"
+                      print(f"{flag} = <NOT SET -> {message}>")
+          show("Serving revision: " + latest, revision["spec"]["containers"])
+          show("Job: earningsnerd-pregenerate", pregenerate["spec"]["template"]["spec"]["template"]["spec"]["containers"])
           PY
 
       - name: Describe job envs (names only) and entrypoints
