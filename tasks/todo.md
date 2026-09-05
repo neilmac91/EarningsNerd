@@ -84,6 +84,23 @@ credential-held. This stage does not re-pin, arm a guard, or perform founder ope
 - [ ] Prove native SDK request/retry/SSE/cancellation behavior offline, kill each new-test mutant,
   run exact full backend gate, inspect actual full CI evaluation artifact, and obtain three lenses.
 
+### Re-plan after the first actual resilience evaluation
+
+CI `33975395335` completed, but artifact `9972247044` is incomplete: BABA 20-F run 0
+raised `TimeoutError`; only 51 of 52 attempts were scored. The existing regression gate
+reported PASS because errored attempts were excluded from quality means. This is not merge
+evidence. Keep the original artifact and the single baseline pin unchanged.
+
+- [ ] Gate owner (plan_rules): fail incomplete/error/missing-score reports with explicit attempt
+  denominators, preserving existing quality metrics and tolerances; prove the check by mutation.
+- [ ] AI Engineer (plan_gates): retain elapsed time, stream request and preview diagnostics on
+  error rows; expose sanitized actual attempt telemetry in eval logs and prove those paths.
+- [ ] Chief engineer: review the correction, run the complete backend gate and inspect a new
+  actual full evaluation before merging. Do not raise deadlines or re-pin without observed cause.
+
+The first report does not identify whether the timeout occurred in a provider attempt,
+recovery or the total summary deadline. No specific timeout cause is claimed yet.
+
 ## Phase 0 — this PR: make releases safe, land the audit
 
 - [x] Explicit ruff rule set (`select = ["E4","E7","E9","F"]`) + pinned `requirements-dev.txt`; CI and the local gate install from it
