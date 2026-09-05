@@ -261,7 +261,7 @@ def assess_quality(
     # Only the actual extracted excerpt counts: raw HTML fallback is not evidence that
     # extraction succeeded. A finite standardized fact independently supplies grounding.
     usable_excerpt = isinstance(excerpt, str) and bool(excerpt.strip()) and not re.search(
-        r"</?[A-Za-z][^>]*>|<![A-Za-z][^>]*>", excerpt
+        r"</?[A-Za-z][^>]*>|<![A-Za-z][^>]*>|<!--|<\?", excerpt
     )
     grounding_available = bool(usable_excerpt) or any(math.isfinite(v) for v in xbrl_values(xbrl_metrics))
     if not grounding_available:

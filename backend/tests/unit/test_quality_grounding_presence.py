@@ -17,6 +17,7 @@ SUMMARY = {
     (None, None), ("", {}), (" \n\t", {"reporting_currency": "USD", "fiscal_year": 2025}),
     ("<html><body>Raw filing content</body></html>"[:15000], {}),
     ("<div> </div>", None), ("<!DOCTYPE html>", None),
+    ("<!-- metadata only -->", None), ("<?xml version='1.0'?>", None),
     (None, {"cash": {"current": {"value": True}}}),
     (None, {"cash": {"current": {"value": float("inf")}}}),
     (None, {"cash": {"series": [{"value": float("nan")} ]}}),
