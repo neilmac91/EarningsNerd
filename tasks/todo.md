@@ -18,8 +18,12 @@ Ruff/Bandit passed; backend
 failed the intended assertion; exact restoration passed (`1 passed in 0.03s`). No push or PR;
 The founder approved preserving service calendar=true / pregenerate=false. This local branch
 is rebased onto [#709](https://github.com/neilmac91/EarningsNerd/pull/709) candidate `7a1a6fbb`;
-its production verification remains pending. W3-5 is unpublished; combined local gates and
-three independent reviews precede release after that deployment is verified.
+its production verification remains pending. W3-5 is unpublished. Combined local gates at
+`29f1dc61`: 105 exact pins, Ruff/Bandit clean; `2382 passed, 2 deselected, 72 warnings in 53.66s`.
+All four locked contracts and the sole baseline are byte-identical to the #709 candidate.
+The seven briefs and structural gate are unchanged from the valid original mutation proof;
+78 source paths and 31 Markdown links/anchors resolve. Three independent reviews and
+verified #709 deployment still precede W3-5 release.
 
 
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
