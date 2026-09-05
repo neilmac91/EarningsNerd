@@ -575,3 +575,18 @@ async def test_delayed_tool_start_consumer_cannot_execute_after_deadline(monkeyp
             assert executed == [] and len(calls) == 1
         finally:
             await gen.aclose()
+
+
+@pytest.mark.asyncio
+async def test_facade_propagates_earlier_request_timeout_to_orchestrator(monkeypatch):
+    reports = []
+    monkeypatch.setattr(requests, "record_ai_summary", lambda records, outcome: reports.append(outcome))
+    async with service_for(lambda req: None) as service:
+
+        async def generate(*args, **kwargs):
+            raise TimeoutError("request deadline exhausted before outer timer fired")
+
+        service.generate_structured_summary = generate
+        with pytest.raises(TimeoutError, match="request deadline exhausted"):
+            await service.summarize_filing("Selected filing", "Issuer", "10-K")
+    assert reports == ["timeout"]
