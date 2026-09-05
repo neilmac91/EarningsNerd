@@ -2,8 +2,8 @@
 
 Owner: Frontend Developer. Source: handover §5.4 and Dependabot PR #686.
 
-- [ ] Land the 13 non-Sentry updates from #686, preserving the resolved Sentry SDK tree.
-- [ ] Run lint, CI TypeScript, the full Vitest suite, production build and Playwright against
+- [x] Implement the 13 non-Sentry updates from #686, preserving the resolved Sentry SDK tree.
+- [x] Run lint, CI TypeScript, the full Vitest suite, production build and Playwright against
   `next start` with no backend; record exact output in the PR.
 - [ ] Handle Sentry 10.73 separately: reproduce its server/bundler import failure under jsdom,
   resolve the browser SDK within Vitest, preserve real capture assertions, and run every gate.
@@ -11,3 +11,8 @@ Owner: Frontend Developer. Source: handover §5.4 and Dependabot PR #686.
 
 No production flags, console changes, or weakened tests belong to this split. Each candidate
 stays draft until its own gate evidence exists. Founder actions: none.
+
+Non-Sentry candidate #694: clean Node 22.23.2 installation, lint and CI TypeScript pass;
+Vitest 92 files / 470 tests pass; production build passes; Playwright against `next start`
+without a backend passes 20 tests with 3 existing skips. Every resolved `@sentry` package
+entry remains identical to main's 10.63.0 tree. Separate Sentry candidate: #695.
