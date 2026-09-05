@@ -57,15 +57,12 @@ test.describe('Copilot citation highlight', () => {
       }).__copilotHighlight
       const highlights = (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights
 
-      // Two blocks separated by whitespace, like real rendered filing HTML. Excerpt 1 starts at the
-      // very first character; excerpt 2 starts mid-paragraph ("expenses …", not "Operating …") so
-      // its start offset lies strictly inside paragraph 2's text node — the flash target is then
-      // unambiguous and this spec does not depend on how `locate()` treats an offset that sits
-      // exactly on a text-node boundary.
+      // Adjacent blocks share a flat-text boundary. The second excerpt must flash paragraph 2,
+      // not paragraph 1's end, and must still match through the document's final character.
       const container = document.createElement('div')
       container.innerHTML =
-        '<p data-para="1">Net income rose on higher services revenue during the quarter.</p>\n' +
-        '<p data-para="2">Operating expenses declined as headcount stayed flat through the period.</p>'
+        '<p data-para="1">Net income rose on higher services revenue during the quarter.</p>' +
+        '<p data-para="2">Operating expenses declined as headcount stayed flat through the period</p>'
       document.body.appendChild(container)
       const flashedParas = () =>
         Array.from(container.querySelectorAll<HTMLElement>('.citation-flash')).map((el) => el.dataset.para ?? el.tagName)
@@ -77,7 +74,7 @@ test.describe('Copilot citation highlight', () => {
         .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '::highlight(copilot-citation)')
       const registered = highlights.get('copilot-citation')
 
-      const foundSecond = m.highlightExcerptInDom(container, 'expenses declined as headcount stayed flat through the period')
+      const foundSecond = m.highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat through the period')
       const flashedAfterSecond = flashedParas()
       const sheetsAfterSecond = document.adoptedStyleSheets.length
 

@@ -23,8 +23,10 @@ describe('highlightExcerptInDom', () => {
     const found = highlightExcerptInDom(container, 'Revenue increased to $391.0B this year')
 
     expect(found).toBe(true)
-    expect(container.querySelectorAll('.citation-flash').length).toBe(1)
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    const [intro, passage] = container.querySelectorAll('p')
+    expect(intro).not.toHaveClass('citation-flash')
+    expect(passage).toHaveClass('citation-flash')
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toEqual([passage])
 
     document.body.removeChild(container)
   })
@@ -86,6 +88,43 @@ describe('highlightExcerptInDom', () => {
       if (saved.adopted === undefined) delete doc.adoptedStyleSheets
       else doc.adoptedStyleSheets = saved.adopted
     })
+
+    it.each(['following paragraph', 'empty boundary nodes', 'document end'] as const)(
+      'maps the exact range and scroll target at a %s',
+      (scenario) => {
+        const container = document.createElement('div')
+        const excerpt = 'Operating expenses declined as headcount stayed flat'
+        container.innerHTML = `<p>Some intro.</p><p>${excerpt}</p>`
+        const [intro, passage] = container.querySelectorAll('p')
+        const text = passage.firstChild as Text
+        if (scenario !== 'document end') {
+          const following = document.createElement('p')
+          following.textContent = 'The next disclosure begins here'
+          container.appendChild(following)
+        }
+        if (scenario === 'empty boundary nodes') {
+          intro.appendChild(document.createTextNode(''))
+          passage.insertBefore(document.createTextNode(''), text)
+          passage.appendChild(document.createTextNode(''))
+        }
+        document.body.appendChild(container)
+        try {
+          expect(highlightExcerptInDom(container, excerpt)).toBe(true)
+          const highlight = highlights.get('copilot-citation') as { range: Range }
+          expect(highlight.range.startContainer).toBe(text)
+          expect(highlight.range.startOffset).toBe(0)
+          expect(highlight.range.endContainer).toBe(text)
+          expect(highlight.range.endOffset).toBe(excerpt.length)
+          expect(highlight.range.toString()).toBe(excerpt)
+          expect(container.querySelectorAll('.citation-flash')).toHaveLength(1)
+          expect(passage).toHaveClass('citation-flash')
+          expect(intro).not.toHaveClass('citation-flash')
+          expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toEqual([passage])
+        } finally {
+          container.remove()
+        }
+      },
+    )
 
     it('adopts the ::highlight stylesheet once and registers the highlight', () => {
       const container = document.createElement('div')
