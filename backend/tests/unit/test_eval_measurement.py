@@ -14,6 +14,7 @@ from app.services.ai_readout import DIMENSIONS, JUDGE_MODEL, decode_readout, enc
 from app.services.openai_service import openai_service
 from evals import figure_measurement, judge, regression_gate, runner, weekly_readout
 from evals.schema import GoldenFiling
+from scripts import pin_baseline
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -293,7 +294,11 @@ def test_weekly_workflow_preserves_failure_evidence_and_operational_report():
     assert upload["if"] == "always()"
     generation = next(s for s in measure["steps"] if s.get("run") == "python -m evals.weekly_readout")
     assert generation["env"]["ANTHROPIC_API_KEY"] == "${{ secrets.ANTHROPIC_API_KEY }}"
-    assert generation["env"]["AI_EVIDENCE_SNAP"] == "false"
+    production = pin_baseline.production_env()
+    for key in pin_baseline.AI_GUARD_ENV:
+        assert generation["env"].get(key) == production[key]
+    for key in ("AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL"):
+        assert generation["env"].get(key) == ""
     assert "steps.dependencies.outcome" in generation["if"]
     sender = report["steps"][-1]
     assert sender["env"]["READOUT_B64"] == "${{ needs.measure.outputs.readout }}"

@@ -23,7 +23,10 @@ Calendar off until the Alpha Vantage licence decision; Insiders off.
 
 ## Notable filings
 
-The scanner, persistence, API and frontend already exist. The earlier production observation
+The scanner, persistence, API and frontend already exist. W3-1 observed the serving flag
+absent on the verified #704 image, whose default is false. W3-2 explicitly pins
+`NOTABLE_FILINGS_ENABLED=false` in the service and pregenerate deploy env; merge/deployment
+verification remains pending at this source checkpoint. Activation prerequisites are unchanged. The earlier production observation
 (run 33954400723, job 101275236022, 2026-09-05) printed the message below. Latest verified
 [#704 deployment](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306), job
 101366418068, still reports the job absent; it has not been created by this programme:
@@ -51,9 +54,11 @@ earningsnerd-notable-filings not found — create it once per DEPLOYMENT.md. Ski
 | Surface | Production flag evidence | Warm-up / seed execution | Review dates / observations | Flag PR / SHA | Deployment / smoke |
 |---|---|---|---|---|---|
 | Analysis | Pending founder | Pending prerequisites | Preview pending | Held | Pending |
-| Notable | Repository default false; effective service override unconfirmed | Job absent in last inspected deploy | Not started | Held | Pending |
+| Notable | W3-1 verified image default false; W3-2 explicit false pin awaiting deployment | Job absent in last inspected deploy | Not started | Held | Pending |
 
-This checklist does not authorize Calendar or Insiders activation. Active residual FPI work
+The founder-approved calendar universe filter is service=true / pregenerate=false; W3-2
+records this existing override explicitly. This checklist does not authorize Calendar UI or
+Insiders activation. Active residual FPI work
 (6-K classifier/golden breadth and founder data backfill) stays in
 `tasks/todo.md` and the WS-6/WS-7 briefs; archiving the historical FPI design is not completion
 of those residuals.

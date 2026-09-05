@@ -359,10 +359,15 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
 ```
 
 **Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
-`CALENDAR_INDEX_FILTER_ENABLED` (ships off) and reads the committed
+`CALENDAR_INDEX_FILTER_ENABLED` (Settings default false) and reads the committed
 `backend/app/data/index_membership.json` (~515 tickers, S&P 500 ∪ Nasdaq 100). It fails **open** —
 a missing/short list serves the calendar unfiltered rather than empty, so it can only ever hide
-long-tail names, never blank the page. First rollout:
+long-tail names, never blank the page. W3-1 observed service=true and pregenerate unset/default=false
+on the verified #704 images. The founder approved preserving that service override on 2026-09-06;
+W3-2 makes service=true and pregenerate=false explicit in `ci.yml` without changing Settings.
+This filter does not activate the Calendar UI or authorize a data purge. W3-2 deployment is
+pending at this source checkpoint; verify effective values after merge. The earlier rollout
+recipe below remains founder-operated and is not a new instruction to toggle the approved state:
 
 ```bash
 # 1. Purge the long-tail rows already in the table (dry-run first; add ,--execute to apply). The
@@ -386,13 +391,19 @@ month + `workflow_dispatch`) does this automatically and opens (or updates) a PR
 run**: the file's `generated_on` date is re-stamped each time, so the monthly PR is the heartbeat that
 proves the refresh still works, and its diff shows any constituent changes alongside the date bump.
 Merge it even when only the date moved — that is what keeps the 100-day age gate in
-`tests/unit/test_index_membership_service.py` green. **Source order:** with the `FMP_API_KEY` repo
-secret set, both indices come from FMP's stable API (`/stable/sp500-constituent`,
+`tests/unit/test_index_membership_service.py` green. The workflow opens its auto-PR as a draft;
+review and required validation precede readiness and merge. **Source order:** with the `FMP_API_KEY`
+secret in the GitHub `Production` environment, both indices come from FMP's stable API (`/stable/sp500-constituent`,
 `/stable/nasdaq-constituent`; the legacy `/api/v3` was cut off 2026-07-03); without it the script
 falls back to Wikipedia, which can supply only the S&P 500 half — its Nasdaq-100 article dropped the
 constituents table in 2026 — so the run **fails with exit 2, writes nothing, and opens/updates a
 "Universe refresh failed <date>" issue**. Every source must deliver both halves at plausible size
 (S&P 500 ≥ 480, Nasdaq-100 ≥ 90) or the run aborts the same way; an S&P-only universe is never shipped.
+
+Configure the secret at **Settings → Environments → Production**, not merely on the Cloud Run
+service. The refresh job binds `environment: Production`. Its secret-name metadata was verified
+on 2026-09-06 without accessing the value; W3-2 merge/deployment and the subsequent W3-3
+refresh/auto-PR evidence remain pending. No key rotation or refresh dispatch is part of W3-2.
 
 ```bash
 cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # --check = dry-run diff only
@@ -456,6 +467,11 @@ gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
 # Stop here: keep serving dark during the founder's one-week quality review.
 # The scan runs regardless of NOTABLE_FILINGS_ENABLED; a successful seed is not launch approval.
 ```
+
+W3-2 explicitly pins `NOTABLE_FILINGS_ENABLED=false` in both the service and pregenerate
+deploy env. At this source-preparation checkpoint, merge/deployment verification is pending;
+this is a visibility change, not activation. W3-1 observed the flag absent with the verified
+image default false.
 
 After a full week of job output, the founder records the reviewed date range, representative
 accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering

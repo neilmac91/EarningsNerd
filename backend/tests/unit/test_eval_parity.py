@@ -100,11 +100,15 @@ async def test_report_records_actual_harness_not_pinning_environment(monkeypatch
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', True)
     monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)
     monkeypatch.setattr(settings, 'AI_DEFAULT_MODEL', 'measured-model')
+    monkeypatch.setattr(settings, 'AI_FALLBACK_MODEL', 'measured-fallback')
+    monkeypatch.setattr(settings, 'AI_FALLBACK_BASE_URL', 'https://fallback.example/v1')
     monkeypatch.setenv('GITHUB_SHA', 'measured-source')
     monkeypatch.setattr(runner, '_process_filing', AsyncMock(return_value=[]))
     await runner.main(['baseline'], 1, False, runs=3)
     report = json.loads(next(tmp_path.glob('eval_*.json')).read_text())
     assert report['harness']['model'] == 'measured-model'
+    assert report['harness'].get('fallback_model') == 'measured-fallback'
+    assert report['harness'].get('fallback_base_url') == 'https://fallback.example/v1'
     assert report['harness']['use_statement_financials'] is True
     assert report['harness']['stream_section_reveal'] is True
     assert report['harness']['source_sha'] == 'measured-source'
@@ -119,7 +123,9 @@ def pin_report():
                 'passed_gates': True, 'error': None}
                for f in filings if f['verified'] and f['document_url'] for run in range(3)]
     return {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True,
-                        'stream_section_reveal': True,
+                        'stream_section_reveal': True, 'fallback_model': '', 'fallback_base_url': '',
+                        'ai_evidence_snap': False, 'ai_figure_trace_gate': False,
+                        'ai_forward_quote_gate': False, 'use_structured_output': False,
                         'golden_set_sha256': hashlib.sha256(runner.GOLDEN_PATH.read_bytes()).hexdigest()},
             'summary': {'baseline': {'n': len(results), 'errors': 0, 'gate_fail_rate': 0.0, 'pass_rate': 1.0}}, 'results': results}
 
@@ -175,7 +181,17 @@ def test_ci_parity_and_bounded_repeat_measurement():
     assert workflow['on']['workflow_dispatch']['inputs']['eval_runs']['options'] == ['2', '3']
     steps = workflow['jobs']['eval-baseline']['steps']
     run = next(s for s in steps if s.get('name', '').startswith('Run baseline eval'))
-    assert run['env']['USE_STATEMENT_FINANCIALS'] == 'true'
+    production = pin_baseline.production_env()
+    for key in pin_baseline.AI_GUARD_ENV:
+        assert run['env'].get(key) == production[key]
+    for key in ('AI_FALLBACK_MODEL', 'AI_FALLBACK_BASE_URL'):
+        assert run['env'].get(key) == ''
+    copilot = yaml.load((ROOT/'.github/workflows/copilot-eval.yml').read_text(), Loader=yaml.BaseLoader)
+    job = copilot['jobs']['copilot-eval']
+    generation = next(s for s in job['steps'] if s.get('name') == 'Run every verified question three times')
+    effective_env = {**copilot.get('env', {}), **job.get('env', {}), **generation.get('env', {})}
+    for key in ('AI_FALLBACK_MODEL', 'AI_FALLBACK_BASE_URL'):
+        assert effective_env.get(key) == ''
     assert run['env']['STREAM_SECTION_REVEAL'] == 'true'
     assert run['env']['EVAL_RUNS'] == "${{ github.event.inputs.eval_runs || '2' }}"
     assert 'case "$EVAL_RUNS" in 2|3)' in run['run']
@@ -183,7 +199,11 @@ def test_ci_parity_and_bounded_repeat_measurement():
     assert 'python -m evals.runner "${ARGS[@]}"' in run['run']
 
 
-@pytest.mark.parametrize('defect', ['failed-gate', 'missing-gate', 'veto-list', 'missing-veto-list', 'veto-rate', 'missing-rate', 'pass-rate'])
+@pytest.mark.parametrize('defect', ['failed-gate', 'missing-gate', 'veto-list', 'missing-veto-list', 'veto-rate', 'missing-rate', 'pass-rate',
+                                          'fallback-model', 'fallback-url', 'fallback-missing',
+                                          'guard-ai_evidence_snap', 'guard-ai_figure_trace_gate',
+                                          'guard-ai_forward_quote_gate', 'guard-use_structured_output',
+                                          'guard-use_statement_financials', 'guard-missing', 'guard-type'])
 def test_pin_cli_refuses_hard_veto_evidence_without_overwriting(tmp_path, pin_report, defect):
     first = pin_report['results'][0]
     stats = pin_report['summary']['baseline']
@@ -201,6 +221,19 @@ def test_pin_cli_refuses_hard_veto_evidence_without_overwriting(tmp_path, pin_re
         del stats['gate_fail_rate']
     elif defect == 'pass-rate':
         stats['pass_rate'] = 1 - 1 / len(pin_report['results'])
+    elif defect == 'fallback-model':
+        pin_report['harness']['fallback_model'] = 'other-model'
+    elif defect == 'fallback-url':
+        pin_report['harness']['fallback_base_url'] = 'https://other.example/v1'
+    elif defect == 'fallback-missing':
+        del pin_report['harness']['fallback_model']
+    elif defect.startswith('guard-') and defect not in {'guard-missing', 'guard-type'}:
+        key = defect.removeprefix('guard-')
+        pin_report['harness'][key] = not pin_report['harness'][key]
+    elif defect == 'guard-missing':
+        del pin_report['harness']['ai_figure_trace_gate']
+    elif defect == 'guard-type':
+        pin_report['harness']['ai_figure_trace_gate'] = 0
     report = tmp_path / 'eval_20260905T100000Z.json'
     report.write_text(json.dumps(pin_report))
     output = tmp_path / 'baseline.json'

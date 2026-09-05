@@ -44,7 +44,7 @@ independent lenses and two refuters per serious finding. Missing review output w
 | # | Decision | Status |
 |---|---|---|
 | D1 | Migration ledger | Done (#658 + hotfix #678). Table is `migration_ledger`, never `schema_migrations`. |
-| D2 | Universe refresh: FMP first, loud abort otherwise | Done (#655). Needs `FMP_API_KEY` repo secret (founder) before the age gate trips on 2026-10-16. |
+| D2 | Universe refresh: FMP first, loud abort otherwise | Code done (#655). `FMP_API_KEY` is now verified by name in the GitHub `Production` environment; W3-2 binds the refresh job there. W3-3 successful refresh/auto-PR remains pending before 2026-10-16. |
 | D3 | Dark surfaces: Analysis on; Notable after a week of job output; Calendar off until AV licence; Insiders off | **Held at founder boundary.** #692 prepared the rollout/archive; job creation and one-week review remain outstanding. |
 | D4 | Spend approved: pregeneration (~$25–50), v1→v2 drain, golden-set runs | **Approved; founder execution pending.** Seed/SIC prerequisites before off-peak pregeneration; drain after D5. |
 | D5 | Arm `AI_EVIDENCE_SNAP` after the first weekly readout; figure-trace / forward-quote stay advisory | **Accepted; held** until the first actual strong-judge readout. |
@@ -115,10 +115,11 @@ harness and remaining assertions were preserved. First strong-judge readout and 
   the deploy step already updates its image once it exists. Seed `--days 7`, then a week of founder
   review, then `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` `--update-env-vars` so the flag is visible
   in-repo (C6). Do not flip via the console.
-  Status 2026-09-05 (`eddcfbb7`): neither `NOTABLE_FILINGS_ENABLED` nor `AI_EVIDENCE_SNAP` appears in
-  `ci.yml` at all. Their Settings defaults are false, but apply only without environment overrides;
-  effective production values require W3-1 observation. C6 visibility is unmet until W3-2 pins
-  every guard flag explicitly (see [wave-3 handover](handover-wave3-2026-09.md)).
+  W3-1 observation (#708, run 33996220468) verified the serving #704 image: `NOTABLE_FILINGS_ENABLED`
+  and `AI_EVIDENCE_SNAP` were absent with false defaults. W3-2 now explicitly pins both flags
+  false in the service and pregenerate deploy env.
+  At this source checkpoint, C6 deployment verification remains pending; no activation is claimed
+  (see [wave-3 handover](handover-wave3-2026-09.md)).
 - Analysis: confirm the prod value of `NEXT_PUBLIC_ENABLE_ANALYSIS` (founder can read it from
   Vercel; the value is not in the repo), warm companyfacts for the universe first, flip in
   `vercel.json`.
@@ -236,9 +237,9 @@ prerequisites remain separately unchecked in [todo](todo.md). Script paths below
 | Notable D3 prerequisites | Create job/Scheduler per `docs/DEPLOYMENT.md` §12; seed `python scripts/notable_filings_job.py --days 7`; review one full subsequent week and record retain/kill. Job remains absent in #704's deploy log. Engineering's repository flag action follows that evidence; a seven-day seed is not a week of observation. |
 | Coverage anomalies and historical data | Run `scripts/backfill_filing_history.py --tickers C,MS,WFC,GS` with required job token access; retain live report evidence. #704 is prospective: existing fact identities skip reconciliation. Historical flag audit/repair needs a separate engineering capability and reviewed production execution; ordinary backfill or freshness `--force` is not that repair. |
 | Cloud SQL and incident follow-up | Inspect/drop foreign legacy `schema_migrations` (actual ledger is `migration_ledger`); idle-transaction timeout, PITR/deletion protection, backups/export and rehearsed restore. Review July 16–17 incident window in todo. |
-| Alerts and effective service settings | Detailed-health uptime, job/log alerts, Actions failure notifications; Turnstile keys. Confirm effective `REGISTRATION_MODE` in the console: `ops.yml describe-service` exposes its name but withholds its value. Repository `invite_only` is a deployment declaration, not an observed override. |
+| Alerts and effective service settings | Detailed-health uptime, job/log alerts, Actions failure notifications; Turnstile keys. W3-1 `ops.yml describe-service` run 33996220468 observed serving `REGISTRATION_MODE=invite_only` on revision `00270-4k6`; no additional console confirmation of that observed value is pending. |
 | Vercel, search and launch | Project Node 22, Sentry build credentials/org/project, Analysis flag, live example filing ID, plan, GSC/Bing and apex 307→308. Confirm effective WAITLIST/quality-badge settings and analytics; follow the [launch checklist](launch-runbook.md). |
-| Universe refresh secret | `FMP_API_KEY` repository secret before the 2026-10-16 age gate. No alternate silent provider. |
+| Universe refresh secret | `FMP_API_KEY` secret-name metadata is verified in GitHub `Production`; W3-2 environment binding and W3-3 successful refresh/auto-PR evidence remain pending before the 2026-10-16 age gate. No alternate silent provider. |
 | Remaining product/legal choices | Alpha Vantage licence or EDGAR-only (Calendar off); Insiders stays off. `USE_STRUCTURED_OUTPUT` bake-off/delete; WAITLIST intent; Pro trial timing and retired reverse-trial question. Trial remains default 0: Stripe checklist before coordinated backend 7 days/frontend trial flag. Terms §7e counsel, processor DPAs, entity and governing law. |
 
 ## 7. Definition of done for wave 2
