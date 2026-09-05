@@ -16,9 +16,37 @@ describe('formatCompanyName', () => {
     expect(formatCompanyName(input)).toBe(expected)
   })
 
+  // Live sec.gov company_tickers.json: ~1,300-1,600 of 10,412 titles are ALL CAPS except the legal
+  // suffix. A cased suffix must not exempt the shouting body in front of it.
+  it.each([
+    ['ELI LILLY & Co', 'Eli Lilly & Co'],
+    ['PROCTER & GAMBLE Co', 'Procter & Gamble Co'],
+    ['NIKE, Inc.', 'NIKE, Inc.'], // NIKE is KEEP_UPPER: the company styles its own name that way
+    ['CVS HEALTH Corp', 'CVS Health Corp'],
+    ['RTX Corp', 'RTX Corp'],
+    ['CARRIER GLOBAL Corp', 'Carrier Global Corp'],
+    ['NEWMONT Corp /DE/', 'Newmont Corp /DE/'],
+    ['NORTHERN TRUST Corp', 'Northern Trust Corp'],
+  ])('cases the body when only the legal suffix is cased: %s -> %s', (input, expected) => {
+    expect(formatCompanyName(input)).toBe(expected)
+  })
+
+  it('resolves initialisms and overrides through glued punctuation', () => {
+    expect(formatCompanyName('INTERNATIONAL BUSINESS MACHINES CORP (IBM)')).toBe(
+      'International Business Machines Corp (IBM)',
+    )
+    expect(formatCompanyName('JPMORGAN CHASE & CO.')).toBe('JPMorgan Chase & Co.')
+    expect(formatCompanyName('(JPMORGAN) HOLDINGS')).toBe('(JPMorgan) Holdings')
+    expect(formatCompanyName('IBM, LLC')).toBe('IBM, LLC')
+    expect(formatCompanyName('AT&T, INC.')).toBe('AT&T, Inc.')
+    expect(formatCompanyName('BANK OF AMERICA, N.A.')).toBe('Bank of America, N.A.')
+  })
+
   it('leaves an already-cased name untouched', () => {
     expect(formatCompanyName('Alphabet Inc.')).toBe('Alphabet Inc.')
     expect(formatCompanyName('eBay Inc.')).toBe('eBay Inc.')
+    expect(formatCompanyName('Nike, Inc.')).toBe('Nike, Inc.')
+    expect(formatCompanyName('Alphabet Group Inc')).toBe('Alphabet Group Inc')
   })
 
   it('never adds punctuation: CORP stays CORP-shaped, INC. keeps its period', () => {

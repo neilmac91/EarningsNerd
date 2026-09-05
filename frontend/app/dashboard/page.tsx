@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
@@ -243,7 +244,7 @@ export default function DashboardPage() {
                             href={`/filing/${item.summary.filing_id}`}
                             className="font-semibold text-text-primary-light hover:text-brand-strong transition-colors dark:text-text-primary-dark dark:hover:text-brand-strong-dark"
                           >
-                            {item.company.name} - {item.filing.filing_type}
+                            {formatCompanyName(item.company.name)} - {item.filing.filing_type}
                           </Link>
                           <p className="text-sm text-text-secondary-light mt-1 dark:text-text-secondary-dark">
                             {item.filing.filing_date && format(new Date(item.filing.filing_date), 'MMM dd, yyyy')}
@@ -258,7 +259,7 @@ export default function DashboardPage() {
                           onClick={() => deleteSummaryMutation.mutate(item.id)}
                           className="text-error-light hover:bg-error-light/10 p-2 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:text-error-dark dark:hover:bg-error-dark/15"
                           title="Delete"
-                          aria-label={`Delete summary for ${item.company.name}`}
+                          aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >
                           <TrashIcon className="h-5 w-5" />
                         </button>

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -92,10 +93,10 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                     href={`/company/${insight.company.ticker}`}
                     className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <CompanyLogo ticker={insight.company.ticker} name={insight.company.name} size={28} />
+                    <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
-                        {insight.company.name}
+                        {formatCompanyName(insight.company.name)}
                       </div>
                       <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {insight.company.ticker}
@@ -119,7 +120,7 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                       disabled={removeMutation.isPending}
                       className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
                       title="Remove from watchlist"
-                      aria-label={`Remove ${insight.company.name} from watchlist`}
+                      aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
                     >
                       <XIcon className="h-5 w-5" />
                     </button>

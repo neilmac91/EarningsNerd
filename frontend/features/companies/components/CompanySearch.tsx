@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { queryKeys } from '@/lib/queryKeys'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
@@ -265,8 +266,8 @@ export default function CompanySearch({
               }`}
             >
               <div className="flex items-center gap-2">
-                <CompanyLogo ticker={company.ticker} name={company.name} size={24} />
-                <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</div>
+                <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={24} />
+                <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</div>
               </div>
               <div className="flex flex-col space-y-1 text-sm">
                 <div className="flex items-center space-x-2">

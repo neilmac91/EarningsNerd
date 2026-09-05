@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -118,9 +119,9 @@ export default function WatchlistAddSearch() {
               className="flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 disabled:opacity-50"
             >
               <span className="flex min-w-0 items-center gap-2.5">
-                <CompanyLogo ticker={company.ticker} name={company.name} size={28} />
+                <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
                 <span className="min-w-0">
-                  <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{company.name}</span>
+                  <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</span>
                   <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
                 </span>
               </span>

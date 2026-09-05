@@ -1,3 +1,4 @@
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
@@ -62,12 +63,12 @@ export default function ReportingThisWeek({
               className="group flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition duration-base hover:-translate-y-1 motion-reduce:hover:translate-y-0 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
               data-testid={`reporting-this-week-${company.ticker}`}
             >
-              <CompanyLogo ticker={company.ticker} name={company.name} size={40} />
+              <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={40} />
               <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {company.ticker}
               </div>
               <div className="truncate w-full text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {company.name}
+                {formatCompanyName(company.name)}
               </div>
               <div className="mt-1 inline-flex items-center rounded-full border border-border-light px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-brand-strong dark:border-white/10 dark:text-brand-strong-dark">
                 {dayLabel(company.earnings_date)}
