@@ -15,6 +15,7 @@ from app.services.ai.bank_guards import _is_no_total_bank, _sanitize_bank_financ
 from app.services.ai.provider_requests import (
     _ProviderRequestsMixin, bounded_summary, close_stream, fallback_client,
 )
+from app.services.ai.recovery_context import RecoveryBlock, clean_filing_source, recovery_blocks
 from app.services.ai.normalize import _normalize_risk_factors, _section_has_content
 from app.services.ai.xbrl_narrative import (
     build_xbrl_narrative_section,
@@ -118,40 +119,21 @@ class OpenAIService(
         Helper method to run heavy parsing in a separate thread.
         This isolates CPU-intensive BeautifulSoup and regex operations from the main event loop.
         """
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(filing_text, 'html.parser')
-            # Extract text
-            filing_text_clean = soup.get_text(separator='\n', strip=False)
-            
-            # Explicitly clear the soup tree to free memory immediately
-            # This is critical for 10-K filings which can parse into very large trees
-            soup.decompose()  # Destroys the tree
-            del soup
-        except Exception:
-            # Fallback if parsing fails
-            filing_text_clean = filing_text
+        if filing_excerpt and filing_excerpt.strip():
+            filing_sample = clean_filing_source(filing_excerpt)
+        else:
+            clean = clean_filing_source(filing_text)
+            filing_sample = self.extract_critical_sections(
+                filing_text, filing_type_key, cleaned_text=clean
+            ) if clean.strip() else ""
+            if not filing_sample:
+                filing_sample = clean[:15000]
 
-        # Use the provided excerpt or extract critical sections (regex intensive)
-        # PASS cleaned_text to avoid double parsing!
-        filing_sample = filing_excerpt or self.extract_critical_sections(
-            filing_text, 
-            filing_type_key, 
-            cleaned_text=filing_text_clean
-        )
-        
-        if not filing_sample:
-            # Fallback to first 15k chars if extraction fails
-            filing_sample = filing_text[:15000]
-            
-        # Extract financial data (regex/search intensive)
-        financial_data = self.extract_financial_data(filing_sample[:25000])  # slightly larger window
-        
+        layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
         return {
             "filing_sample": filing_sample,
-            "financial_data": financial_data,
-            # We don't return filing_text_clean as it's not used in the downstream flow 
-            # (or if it is, we should return it too, but looking at previous code it wasn't used)
+            "financial_data": self.extract_financial_data(filing_sample[:25000]),
+            "recovery_sources": recovery_blocks(filing_sample, layout),
         }
 
     @bounded_summary()
@@ -160,7 +142,6 @@ class OpenAIService(
         filing_text: str,
         company_name: str,
         filing_type: str,
-        previous_filings: Optional[list] = None,
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
@@ -187,6 +168,7 @@ class OpenAIService(
         
         filing_sample = parsing_result["filing_sample"]
         financial_data = parsing_result["financial_data"]
+        recovery_sources = parsing_result["recovery_sources"]
         
         # Explicit clean up
         del parsing_result
@@ -208,21 +190,6 @@ EXTRACTED FINANCIAL SIGNALS:
 - Guidance references: {', '.join(financial_data['guidance'][:2]) if financial_data['guidance'] else 'Not observed'}
 {xbrl_section if xbrl_section else ''}
 """.strip()
-
-        previous_filings_context = ""
-        if filing_type_key == "10-K" and previous_filings:
-            previous_filings_context = "\n\n## PREVIOUS 10-K EXCERPTS FOR CONTEXT:\n"
-            for i, prev_filing in enumerate(previous_filings[:1], 1):
-                prev_filing_date = prev_filing.get("filing_date", "Unknown date")
-                prev_text = prev_filing.get("text", "")
-                # Prefer an edgartools-parsed excerpt built upstream; fall back to the legacy
-                # regex extractor, then to a raw slice.
-                prev_sample = (
-                    prev_filing.get("excerpt")
-                    or self.extract_critical_sections(prev_text, "10-K")
-                    or prev_text[:12000]
-                )
-                previous_filings_context += f"\n### Prior 10-K {i} ({prev_filing_date}):\n{prev_sample}\n"
 
         focus_guidance = {
             "10-Q": [
@@ -358,7 +325,7 @@ Guidance for emphasis:
 
 CRITICAL FILING EXCERPTS:
 {filing_sample}
-{previous_filings_context}
+
 {output_reference}
 
 Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty (exceptions: `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
@@ -398,16 +365,16 @@ Rules:
             xbrl_metrics=xbrl_metrics,
         )
         return await self._assemble_structured_summary(
-            content, filing_text, filing_type_key, filing_sample, xbrl_metrics
+            content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
         )
 
     async def _assemble_structured_summary(
         self,
         content: Optional[str],
-        filing_text: str,
         filing_type_key: str,
         filing_sample: str,
         xbrl_metrics: Optional[Dict],
+        recovery_sources: tuple[RecoveryBlock, ...],
     ) -> Dict[str, Any]:
         """Parse the model's JSON response → recover empty sections → apply fallbacks → return the
         structured summary dict. Shared by the non-streaming path and the streaming (progressive
@@ -449,18 +416,17 @@ Rules:
 
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
-            detailed_sections = self.extract_sections(filing_text, filing_type_key)
             recovered = await self._recover_missing_sections(
                 missing_sections,
                 filing_type_key,
-                detailed_sections,
+                recovery_sources,
                 filing_sample,
                 metadata,
             )
             if recovered:
                 sections_info.update(recovered)
                 # Evidence auto-snap (skeptic F3): recovery re-asks generate from
-                # extract_sections(filing_text) context, NOT the excerpt, so their verbatim-TRUE
+                # separately selected context, which may differ from the exact primary excerpt; its verbatim-TRUE
                 # evidence can fail the excerpt exact-check — the snap must not touch it.
                 # summarize_filing pops this private key before assembling the stored payload.
                 summary_data["_recovered_sections"] = sorted(recovered.keys())
@@ -537,7 +503,6 @@ Rules:
         filing_text: str,
         company_name: str,
         filing_type: str,
-        previous_filings: Optional[list] = None,
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
@@ -551,7 +516,7 @@ Rules:
         filing_type_key = (filing_type or "10-K").upper()
         try:
             structured_summary = await self.generate_structured_summary(
-                filing_text, company_name, filing_type, previous_filings=previous_filings,
+                filing_text, company_name, filing_type,
                 xbrl_metrics=xbrl_metrics, filing_excerpt=filing_excerpt, stream_cb=stream_cb,
             )
 
@@ -636,7 +601,7 @@ Rules:
         # is the founder's call on the fleet would_snap forensics. Same placement rules as the
         # quote gate: the same sections_info object, BEFORE the coverage snapshot and render,
         # EXCERPT-ONLY grounding; recovery-authored sections are skipped (their context is
-        # extract_sections(filing_text), not the excerpt — skeptic F3); and the candidate scan
+        # separately selected context, potentially different from the exact primary excerpt); and the candidate scan
         # (~0.5s on a 320k excerpt) runs off the event loop (skeptic F5).
         from fastapi.concurrency import run_in_threadpool
 
