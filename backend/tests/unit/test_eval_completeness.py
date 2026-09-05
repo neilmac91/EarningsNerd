@@ -107,10 +107,12 @@ def test_missing_or_invalid_requested_manifest_never_passes(report, defect):
     assert "attempt_manifest" in _hard(report)
 
 
-@pytest.mark.parametrize("defect", ["no_summary", "no_results", "malformed_result", "empty_results",
+@pytest.mark.parametrize("defect", ["empty_report", "no_summary", "no_results", "malformed_result", "empty_results",
                                     "unplanned_row", "unplanned_summary", "missing_candidate"])
 def test_missing_and_unexpected_candidates_cannot_disappear(report, defect):
-    if defect == "no_summary":
+    if defect == "empty_report":
+        report.clear()
+    elif defect == "no_summary":
         del report["summary"]
     elif defect == "no_results":
         del report["results"]
@@ -125,7 +127,7 @@ def test_missing_and_unexpected_candidates_cannot_disappear(report, defect):
     else:
         report["harness"]["candidates"].append("missing")
     metrics = _hard(report)
-    expected = {"no_summary": "attempt_summary", "no_results": "attempt_results",
+    expected = {"empty_report": "attempt_summary", "no_summary": "attempt_summary", "no_results": "attempt_results",
                 "malformed_result": "attempt_results", "empty_results": "missing_scores",
                 "unplanned_row": "unexpected_candidates", "unplanned_summary": "unexpected_candidates",
                 "missing_candidate": "attempt_summary"}[defect]
@@ -136,7 +138,9 @@ def test_candidate_filter_still_requires_requested_complete_candidate(report):
     report["harness"]["candidates"].append("other")
     report["summary"]["other"] = dict(report["summary"]["baseline"], mean_coverage=0)
     report["results"] += [dict(r, candidate="other") for r in report["results"]]
-    assert _hard(report, only="baseline") == set()
+    pinned = {"candidates": dict(BASELINE["candidates"], other=BASELINE["candidates"]["baseline"])}
+    findings, _ = regression_gate.evaluate_report(report, pinned, only="baseline")
+    assert not any(f.severity == "HARD" for f in findings)
     assert "selected_candidate" in _hard(report, only="typo")
     report["results"].pop(0)
     assert "incomplete_attempts" in _hard(report, only="baseline")
