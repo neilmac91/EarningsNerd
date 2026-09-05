@@ -339,6 +339,9 @@ independent refuters per serious finding before merge; confirmed findings were f
 | #681 | WS-1/2/8 follow-up | merged `9a7a578`, deploy green | INVALID-index check after CONCURRENTLY (passed silently against prod), checksum-order pin, teardown package-dir gate |
 | #687 | plan hygiene | this PR | wave-1 close-out |
 
+**Handover for waves 2+:** `tasks/handover-wave2-2026-09.md` (state, decisions, sequencing, procedure,
+traps). The adversarial pre-merge review workflow is saved as `.claude/workflows/premerge-review.js`.
+
 **Wave 1 closed 2026-09-05 08:25Z.** Every backend deploy since the ledger seed reports
 `apply_migrations: applied=0 skipped=32`; production health green after each of the day's ten
 backend deploys; the only open PR is the founder's #673 (another session).
