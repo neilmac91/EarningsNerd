@@ -29,6 +29,11 @@
    the SCRIPT (comment-stripped); the proxy-pin and job-level pins keep reading `ci.yml`. The deploy
    step and the `migrations-postgres` CI job (postgres:15 service, three passes: seed, skip,
    reset-and-reapply) must both run that one script — no second copy of the psql loop anywhere.
+   "Only the script" is an allow-list of the executable ci.yml lines that mention psql
+   (CI_PSQL_ALLOWLIST), not a deny-list regex: `psql -f"$f"`, `psql --file=…`, `cat "$f" | psql`,
+   `psql < "$f"` and `psql -c "ALTER TABLE …"` all slipped past the regex version under mutation.
+   Likewise the pipefail pin reads executable lines with an anchored `set -…o pipefail`, because a
+   `# no pipefail here` comment satisfied the raw-text version.
 
 2. The lint toolchain must be pinned. `pip install ruff` in CI let ruff 0.16's wider default rule set
    turn a clean tree into 2,767 findings with no code change (lessons/ops-pin-ci-toolchain.md). CI
@@ -63,6 +68,16 @@ OPS_YML = REPO_ROOT / ".github" / "workflows" / "ops.yml"
 MIGRATIONS_DIR = BACKEND_DIR / "migrations"
 APPLY_SCRIPT = BACKEND_DIR / "scripts" / "apply_migrations.sh"
 MIGRATIONS_JOB = "migrations-postgres"
+
+# The only executable lines in ci.yml allowed to mention psql (trimmed, verbatim). Migration SQL is
+# applied by backend/scripts/apply_migrations.sh alone; the workflow may install the client and reset
+# the CI ledger between passes, nothing else. Extend deliberately, never with a `-f`/`--file`/stdin form.
+CI_PSQL_ALLOWLIST = {
+    "- name: Install psql",
+    "run: command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)",
+    'psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations;"',
+}
+_SET_PIPEFAIL = re.compile(r"^\s*set -[a-z]*o pipefail\b", re.M)
 REQUIREMENTS_DEV = BACKEND_DIR / "requirements-dev.txt"
 RUFF_TOML = BACKEND_DIR / "ruff.toml"
 
@@ -335,11 +350,18 @@ def test_migration_step_runs_only_the_shared_ledger_script():
         "The deploy step must apply migrations by running backend/scripts/apply_migrations.sh — the "
         "one script the migrations-postgres CI job also runs (ADR-0007). Do not inline a psql loop."
     )
-    # The script is the ONLY place migration SQL is executed. A second `psql -f` / migrations glob
-    # in the workflow would bypass the schema_migrations ledger and drift from what CI proved.
-    text = _executable(CI_YML.read_text(encoding="utf-8"))
-    assert not re.search(r"\bpsql\b[^\n]*\s-f\s", text), "ci.yml must not run `psql -f` outside apply_migrations.sh"
-    assert not re.search(r"\bpsql\b[^\n]*migrations/", text), "ci.yml must not point psql at migration files directly"
+    # The script is the ONLY place migration SQL is executed. Deny-list regexes (`psql -f`, `psql …
+    # migrations/`) were mutation-tested and let `-f"$f"`, `--file=`, `cat "$f" | psql`, `psql < "$f"`
+    # and `psql -c "ALTER TABLE …"` through — so this is an allow-list: every EXECUTABLE ci.yml line
+    # that mentions psql must be one of these two, verbatim (trimmed). Anything else fails, naming it.
+    psql_lines = {
+        line.strip() for line in _executable(CI_YML.read_text(encoding="utf-8")).splitlines() if "psql" in line
+    }
+    assert psql_lines == CI_PSQL_ALLOWLIST, (
+        "ci.yml may invoke psql only to install it and to reset the CI ledger before pass 3; migration SQL "
+        "runs through backend/scripts/apply_migrations.sh alone (ADR-0007).\n"
+        f"  unexpected: {sorted(psql_lines - CI_PSQL_ALLOWLIST)}\n  missing: {sorted(CI_PSQL_ALLOWLIST - psql_lines)}"
+    )
 
 
 def test_apply_script_sets_lock_and_statement_timeouts_and_keeps_a_ledger():
@@ -364,6 +386,11 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     ci = _load_ci()
     job = ci["jobs"].get(MIGRATIONS_JOB)
     assert job, f"ci.yml needs a `{MIGRATIONS_JOB}` job: the unit suite runs on SQLite and never executes the SQL files"
+    minutes = job.get("timeout-minutes")
+    assert isinstance(minutes, int) and 0 < minutes <= 30, (
+        f"{MIGRATIONS_JOB} needs `timeout-minutes` (<= 30): three passes against a fresh service container "
+        "take ~5 min; a hung psql must not hold the PR gate for GitHub's 6 h default."
+    )
     assert str(job["services"]["postgres"]["image"]).startswith("postgres:15"), "prod is Cloud SQL PostgreSQL 15"
     runs = [str(step.get("run", "")) for step in job["steps"]]
     passes = [run for run in runs if "backend/scripts/apply_migrations.sh" in run]
@@ -374,9 +401,11 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     # `script | tee` under GitHub's default `bash -e {0}` (no pipefail) reports tee's exit status, so a
     # failing script would only be caught by the follow-up grep. Every pass must opt into pipefail
     # itself, or the job must declare `shell: bash` (which GitHub runs with `-eo pipefail`).
+    # Matched on executable lines with an anchored `set -…o pipefail`: a comment saying "pipefail"
+    # (mutation-tested) must not satisfy it.
     job_shell = (job.get("defaults") or {}).get("run", {}).get("shell")
     for run in passes:
-        assert "pipefail" in run or job_shell == "bash", (
+        assert _SET_PIPEFAIL.search(_executable(run)) or job_shell == "bash", (
             "each pass step must `set -euo pipefail` (or the job must set defaults.run.shell: bash) so "
             "the script's failure fails the step even though its output is piped through tee"
         )

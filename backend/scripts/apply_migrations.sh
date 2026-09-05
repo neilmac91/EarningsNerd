@@ -107,7 +107,8 @@ if [ "${#files[@]}" -eq 0 ]; then
 fi
 
 # The ledger. A brand-new table on first run; a catalog no-op (no table lock) on every later run.
-psql -X -q -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
+# client_min_messages=warning silences the per-deploy "relation already exists, skipping" NOTICE.
+psql -X -q -v ON_ERROR_STOP=1 -c "SET client_min_messages = warning; CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
 psql -X -q -v ON_ERROR_STOP=1 -At -c "SELECT filename || ' ' || sha256 FROM schema_migrations;" > "$RECORDED"
 
 applied=0
