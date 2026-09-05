@@ -4,6 +4,62 @@ Source: `docs/ENGINEERING_AUDIT_2026-09.md` (synthesis) + `docs/audit-2026-09/` 
 appendices with file:line evidence). Lens: invite-only beta, product quality wins ties.
 Founder merges; each phase is one or a few PRs. Items marked **(founder)** need the founder.
 
+## Wave 2 execution — 2026-09-05
+
+Owner: chief engineer (Codex); founder has authorized engineering merges and deployments.
+Accepted D1–D8 remain in force. Existing unchecked decision rows below are historical tracking,
+not requests to revisit accepted decisions. Founder-only actions remain founder-only.
+
+Preflight: main `aae3b57a66d042aae7f2884a40c77e333cb37915` includes handover PR #688;
+production `/health/detailed` reports healthy, database 6.77 ms, SEC circuit closed.
+Open PRs: #673 (leave to its owner), #684, #685, #686. Migration code uses
+`migration_ledger`, skips matching filename/checksum pairs, and checks INVALID indexes;
+CI plants the legacy-table decoy and proves seed/skip/reset. Deployment-log verification pending.
+This execution host is macOS, not the handover's `/home/user/EarningsNerd` cloud environment.
+`DEEPSEEK_API_KEY` is absent here; live eval evidence is blocked until an authorized runner
+has the key. No baseline pin or AI flag will be accepted without observed gate evidence.
+The saved Claude Workflow runtime is unavailable in Codex; reproduce its three independent
+review lenses and two independent refuters per serious finding with Codex subagents.
+Missing verifier output is unverified and must be hand-verified before merge.
+
+- [ ] Chief engineer: land this docs-only plan after adversarial review and green applicable CI.
+- [ ] Backend Developer + Database Specialist review: WS-7 steps 1–2 first; graduate statement
+  financials default, prepare SIC backfill instructions, implement distinctive job heartbeat
+  storage with a new lock-safe migration, instrument every job, report coverage/stubs/age/last success.
+- [ ] Chief engineer: serialize backend merges; verify deploy-backend, exact migration summary,
+  and healthy detailed health after each merge before the next backend merge.
+- [ ] Founder: trigger SIC backfill; supply observed completion before declaring SIC data backfilled.
+- [ ] Backend Developer: WS-7 remaining steps in brief order: 10-Q periods/unit assertions and
+  reconciliation labels; amendments/supersession/Change Report; persisted XBRL first and missing
+  balance-sheet facts; FPI + 10-Q pregeneration and universe Company seeding preparation.
+- [ ] AI Engineer (held until WS-7 steps 1–2 merged/deployed): read eval RUNBOOK and #680 recipe;
+  parity (statement env, JPM G5, streaming, tolerance, note preservation), then one honest re-pin.
+- [ ] AI Engineer: WARN figure-trace dimension, persisted audit counters, weekly judged readout
+  workflow and first observed readout; resilience with #684, real fallback configuration,
+  bounded retries, usage/model telemetry and empty-grounding protection; full backend + live eval gates.
+- [ ] AI Engineer: delete previous_filings with AST pin; labelled recovery context; copilot currency,
+  accession-scoped facts, at least five verified golden entries and observed copilot gate.
+- [ ] Chief engineer: arm AI_EVIDENCE_SNAP in ci.yml only after first judged readout; founder triggers drain.
+- [ ] Frontend Developer: independent WS-5 sitemap freshness + /terms + SEO doc correction.
+- [ ] Frontend Developer: independent locate() text-node boundary fix with regression/mutation proof.
+- [ ] Frontend Developer: split #686 non-Sentry minors from Sentry 10.73 vitest compatibility;
+  full lint/typecheck/vitest/build and Playwright with no backend for each candidate.
+- [ ] Security/Backend Developer: independent #685 python-jose compatibility check and backend gate.
+- [ ] Backend + Frontend Developers: WS-9 prepare Analysis and Notable to founder boundary;
+  Analysis requires confirmed Vercel value + warmed companyfacts; Notable requires founder-created
+  job, seed and a week of review before repository flag flip. Calendar and Insiders stay off.
+- [ ] Knowledge Curator (rolling, owners fix docs with their code): correct migration stack truth,
+  report/eval/config/deployment docs; resolve script/test placement; archive completed FPI plans
+  with explicit residuals. Do not archive unfinished work as complete.
+- [ ] Founder: pregeneration off-peak only after WS-7 prerequisites; console/secrets/licence actions
+  remain as listed in handover §6, with exact instructions in the relevant PR.
+- [ ] Chief engineer: hourly quiet check-in while work is in flight; close-out only on handover §7
+  evidence, update todo and briefs dispatch log on fresh main branch, report SHAs and held items.
+
+Every implementation PR is draft immediately, uses a worktree under `.claude/worktrees/`,
+and includes exact gate tails and mutation proofs. Locked contracts, migration allow-lists,
+and AI baseline protections remain unchanged unless explicitly permitted by the mandate.
+
 ## Phase 0 — this PR: make releases safe, land the audit
 
 - [x] Explicit ruff rule set (`select = ["E4","E7","E9","F"]`) + pinned `requirements-dev.txt`; CI and the local gate install from it
