@@ -613,10 +613,12 @@ def process_filing_facts(
     loop) and the post-summary event hook, so a freshly-summarized filing populates its own facts
     without waiting for a batch run.
 
-    No network unless ``authoritative`` (a companyfacts map) is supplied — the local-invariant gate
-    in ``upsert_facts`` runs regardless. Pass ``standardized`` to reuse metrics the caller already
+    No network here: a supplied pre-fetched ``authoritative`` map enables the optional companyfacts
+    cross-check; the backfill caller owns that fetch. The local-invariant gate runs regardless. Pass ``standardized`` to reuse metrics the caller already
     extracted (the SSE path) and skip re-extraction. Returns the upsert result, or ``None`` when the
-    filing has no ``xbrl_data`` to process.
+    filing has no ``xbrl_data`` to process. The persisted ``period_end_date`` supplies the local
+    current-period check. Existing fact identities are skipped, including their stored flags;
+    this is not a historical repair. Authoritative cross-checks retain their existing override policy.
     """
     if standardized is None:
         if getattr(filing, "xbrl_data", None) is None:
@@ -633,10 +635,14 @@ def process_filing_facts(
     # upsert never commits here — this function owns the single commit so the fact rows and the
     # ``processed_facts_at`` stamp land together (and a caller can defer it with commit=False for a
     # larger per-filing transaction, e.g. remediation's xbrl_data write + delete + re-insert).
+    # Reporting periods are calendar dates, not instants to shift into another timezone.
+    report_date = getattr(filing, "period_end_date", None)
+    if isinstance(report_date, datetime):
+        report_date = report_date.date()
     result = upsert_facts(
         db,
         facts,
-        period_of_report=getattr(filing, "period_of_report", None),
+        period_of_report=report_date,
         authoritative=authoritative,
         commit=False,
     )
@@ -658,7 +664,8 @@ def backfill_facts(
     """Populate ``financial_fact`` from filings that already carry ``xbrl_data``.
 
     Reuses the standardized-metrics extractor + the pure normalizer + the writer. Idempotent
-    (``upsert_facts`` skips rows that already exist). Filings are processed oldest-first so the
+    (``upsert_facts`` skips rows that already exist, including their stored reconciliation flags).
+    A full pass does not repair historical flags. Filings are processed oldest-first so the
     newest reported value wins ``is_latest``, and each is stamped with ``processed_facts_at`` so we
     can tell which filings have been normalized. ``extract`` is injectable for tests.
 
@@ -714,8 +721,8 @@ def backfill_facts(
                 )
             authoritative = auth_by_company[filing.company_id]
 
-        # Per-filing normalize → upsert → stamp (shared with the post-summary hook). `period_of_report`
-        # isn't a Filing column today; process_filing_facts reads it defensively.
+        # Shared processing uses Filing.period_end_date for the local current-period check.
+        # Reprocessing still skips existing identities; it does not refresh their flags.
         result = process_filing_facts(
             db, filing, standardized=standardized, authoritative=authoritative
         )

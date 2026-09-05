@@ -10,11 +10,18 @@ and native edgartools sections are already on, structured-output mode remains of
 service deployment enables FPI filings and progressive section reveal. Do not infer live state
 from an old rollout example.
 
-Verified checkpoint (2026-09-05): resilience #701 merged as `f4c6041f`; deployment
-[33977786320](https://github.com/neilmac91/EarningsNerd/actions/runs/33977786320) applied 0
-migrations and skipped 34, with revision `00266-q6k` serving all traffic and detailed health
-healthy. The sole #698 baseline pin remains unchanged. Hygiene and Copilot work, the first
-actual strong-judge readout, and readout-dependent evidence-snap activation remain unfinished.
+Verified AI checkpoint (2026-09-05): hygiene #702 and Copilot #703 are merged. Copilot merge
+`d7a2a269` passed [production deployment](https://github.com/neilmac91/EarningsNerd/actions/runs/33986181022)
+with the evidence below. The sole #698 baseline pin remains unchanged. The first actual
+strong-judge readout and readout-dependent evidence-snap activation remain held.
+
+| Verified checkpoint | Actual result |
+| --- | --- |
+| Migration tail | `apply_migrations: applied=0 skipped=34` |
+| Backend revision / traffic | `00268-jn7` / 100% |
+| Detailed health | Healthy in deployment and independent post-deploy checks |
+| [Summary evaluation](https://github.com/neilmac91/EarningsNerd/actions/runs/33985211897) | 52 planned/scored, errors 0, hard vetoes 0; PASS with 1 advisory warning |
+| [Copilot evaluation](https://github.com/neilmac91/EarningsNerd/actions/runs/33985648605) | 18 planned/completed/scored/passed, errors 0 |
 
 ## What you're deciding
 
@@ -520,8 +527,13 @@ citations; their coverage remains an advisory measurement, not sourced-answer ev
 
 The concurrent summary run `33984195172` also failed its actual completeness gate:
 52 attempts, 51 scored, one BABA timeout. A workflow-level success badge does not override
-that failed evaluation. Corrective full gates and fresh actual reports remain pending;
+that failed evaluation. Corrective full gates and fresh actual reports subsequently passed;
 no tolerance, expected fact, model, pinned baseline or evidence-snap setting changes.
+
+The accepted runs are linked in the checkpoint above; they do not replace the retained failed
+reports. Citation coverage remains advisory: the accepted Copilot run includes five answers
+without citations, so acceptance is not a claim that every answer is sourced. Derived arithmetic
+still returns unavailable when the stored facts do not supply a compatible duration start.
 
 ## Copilot citation-fidelity audit — can users trust the chips?
 
