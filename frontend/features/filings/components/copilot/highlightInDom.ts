@@ -15,10 +15,11 @@ const HIGHLIGHT_NAME = 'copilot-citation'
 
 /**
  * Paint for `::highlight(copilot-citation)`. Registered from here as a constructed stylesheet rather
- * than in `app/globals.css`: Next 16.3's CSS pipeline (lightningcss) does not recognise the
- * `::highlight()` pseudo-element and warns "Parsing CSS source code failed" on every build. Same
- * visual as before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight
- * API exists, which implies constructable stylesheets too.
+ * than in `app/globals.css`: lightningcss (Next 16.3's CSS pipeline) does not know the `::highlight()`
+ * pseudo-element — it emits a SelectorError warning and, with error recovery, keeps the rule, but
+ * Next's build surfaces that as "Parsing CSS source code failed" on every build. Same visual as
+ * before — the sage of `.citation-flash`, 22% — and it only ever runs where the Highlight API exists,
+ * which implies constructable stylesheets too.
  */
 export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { background-color: rgba(79, 122, 99, 0.22); color: inherit; }`
 
@@ -35,6 +36,11 @@ export function ensureCitationHighlightStyle(): void {
   } catch {
     // No constructable stylesheets (jsdom, very old engines): the block flash below still shows.
   }
+}
+
+/** Test-only: forget the adopted sheet so each spec starts from a fresh document. */
+export function __resetCitationHighlightStyleForTests(): void {
+  highlightSheet = null
 }
 
 interface NodeSpan {

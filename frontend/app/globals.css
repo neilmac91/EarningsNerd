@@ -406,9 +406,10 @@
    e.g. class="num text-gain-text dark:text-gain-dark" (never the 600-level as text) */
 
 /* The exact-span paint, `::highlight(copilot-citation)`, is registered as a constructed stylesheet
-   in features/filings/components/copilot/highlightInDom.ts (CITATION_HIGHLIGHT_CSS) — lightningcss
-   in Next 16.3 rejects the ::highlight() pseudo-element here. Keep its colour in step with
-   .citation-flash below. */
+   in features/filings/components/copilot/highlightInDom.ts (CITATION_HIGHLIGHT_CSS). lightningcss
+   (Next 16.3's CSS pipeline) does not know the ::highlight() pseudo-element: it emits a SelectorError
+   warning and, with error recovery, keeps the rule, but Next's build surfaces that as "Parsing CSS
+   source code failed" on every build. Keep its colour in step with .citation-flash below. */
 @keyframes citation-flash {
   0% { background-color: rgba(79, 122, 99, 0.30); }
   100% { background-color: transparent; }
