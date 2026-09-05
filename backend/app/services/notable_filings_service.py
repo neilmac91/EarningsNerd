@@ -145,6 +145,7 @@ class ScanStats:
     # True when the final commit failed and the run was rolled back — the other counters then
     # describe work that was DISCARDED (same contract as RefreshStats.commit_failed).
     commit_failed: bool = False
+    source_errors: int = 0
     truncated_queries: List[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -161,6 +162,7 @@ class ScanStats:
             "upserted_updated": self.upserted_updated,
             "pruned": self.pruned,
             "commit_failed": self.commit_failed,
+            "source_errors": self.source_errors,
             "truncated_queries": self.truncated_queries,
         }
 
@@ -224,6 +226,7 @@ async def _paged_search(
             # 2026-07-06). Keep the hits already collected from earlier pages rather than
             # aborting the whole query; the overlapping next scan re-covers the window.
             if offset:
+                stats.source_errors += 1
                 stats.truncated_queries.append(f"{forms}:{query or 'listing'}@{offset}")
                 logger.warning(
                     "Notable-filings sweep aborted mid-pagination for %s:%s at offset %s "
@@ -263,8 +266,8 @@ async def _paged_search(
 async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None) -> ScanStats:
     """Sweep EDGAR for the trailing window, score, upsert into ``notable_filings``, prune.
 
-    Never raises on a provider failure — a failed scheduled run must not page anyone; the next
-    run re-sweeps (the window overlaps runs by design). Request budget: worst case (peak
+    Provider failures retain partial work and return error counters; the CLI records failure
+    and exits nonzero, while API callers keep best-effort returns. Request budget: worst case (peak
     earnings/10-K season) ≈ 56 requests ≈ 6s of the job's own 10 req/s bucket; typical ≈ 25.
     """
     stats = ScanStats()
@@ -289,6 +292,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                 query=phrase, forms="8-K", start=start, end=end, max_pages=_EIGHT_K_PAGE_CAP,
             )
         except Exception:
+            stats.source_errors += 1
             logger.exception("Notable-filings 8-K sweep failed for %s", phrase)
 
     # 10-K / 10-Q cover-page sweeps (paginated).
@@ -299,6 +303,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                 query=query, forms=form, start=start, end=end, max_pages=cap,
             )
         except Exception:
+            stats.source_errors += 1
             logger.exception("Notable-filings %s sweep failed", form)
 
     # Low-volume query-less listings, one page-0 request per day in the window.
@@ -312,6 +317,7 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
                     query=None, forms=form, start=iso, end=iso, max_pages=1,
                 )
             except Exception:
+                stats.source_errors += 1
                 logger.exception("Notable-filings %s listing failed for %s", form, iso)
             day += timedelta(days=1)
 

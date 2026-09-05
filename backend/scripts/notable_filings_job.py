@@ -34,12 +34,16 @@ async def _main(*, days: Optional[int]) -> None:
     from app.database import SessionLocal
     from app.services import notable_filings_service
 
-    db = SessionLocal()
-    try:
-        stats = await notable_filings_service.run_scan(db, days=days)
-        logger.info("Notable-filings scan complete: %s", stats.as_dict())
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("notable-filings", dry_run=False) as attempt:
+        db = SessionLocal()
+        try:
+            stats = await notable_filings_service.run_scan(db, days=days)
+            attempt.record(stats.as_dict())
+            logger.info("Notable-filings scan complete: %s", stats.as_dict())
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

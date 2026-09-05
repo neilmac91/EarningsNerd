@@ -27,15 +27,18 @@ async def _main(dry_run: bool) -> None:
     from app.database import SessionLocal
     from app.services import data_quality_service
 
-    db = SessionLocal()
-    try:
-        if dry_run:
-            report = await data_quality_service.build_report(db)
-            print(json.dumps(report, indent=2, default=str))
-        else:
-            await data_quality_service.run_and_email(db)
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("data-quality-report", dry_run=dry_run):
+        db = SessionLocal()
+        try:
+            if dry_run:
+                report = await data_quality_service.build_report(db)
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                await data_quality_service.run_and_email(db)
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

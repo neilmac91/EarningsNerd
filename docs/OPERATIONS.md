@@ -187,3 +187,44 @@ Located in `backend/scripts/`:
     generates on demand. To close the gap, include `"10-Q"` in the `forms` list of the weekly
     pregenerate payload (one-line change to the trigger's request body).
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+
+### Scheduled job outcomes and universe coverage (WS-7)
+
+Every scheduled job script records an attempt in `earningsnerd_job_runs`, using a transaction
+separate from its business work. The logical names are `pregenerate`, `filing-scan`,
+`filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
+`notable-filings`. The weekly report records `data-quality-report` separately, even though it
+runs on the filing-digest Cloud Run job. SIC backfill and financial remediation similarly use
+`backfill-company-sic` and `remediate-financials`; they cannot satisfy the scheduled facts heartbeat.
+
+Each attempt records start, completion, status and numeric counters. Returned provider/send/
+extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;
+services retain their best-effort return behavior for HTTP callers. Dry runs are recorded as
+`dry_run`, never success. An abruptly killed process can leave `running` without completion.
+Heartbeat storage failures fail the execution; they cannot manufacture success. No provider
+payload, exception text, email address or identifier list is stored in heartbeat counters.
+
+The existing `.github/workflows/data-quality-weekly.yml` runs Mondays at 13:00 UTC and emails the
+report through `scripts/data_quality_report.py`. Its new report sections mean:
+
+| Field | Definition |
+|---|---|
+| Company coverage | Distinct normalized committed-universe tickers with a Company row / committed tickers |
+| Summary coverage | Distinct committed-universe tickers with any stored Summary / committed tickers; does not assert latest-period or full-quality coverage |
+| Stub ratio | Stored filings without any Summary / stored filings, restricted to universe companies; a partial Summary is not a stub |
+| Universe age | UTC days since committed `index_membership.json.generated_on`; invalid/future date is unavailable |
+| Per-job last success | Most recent completed `succeeded` attempt, unaffected by later failed or dry runs |
+| Stale job | No successful completion, or last success older than twice the maximum schedule interval |
+
+The maximum intervals are one hour for scan, one day for digest/calendar/alerts, seven days for
+pregeneration/facts/report, and fourteen hours for Notable's longer overnight gap. All expected
+jobs appear even if never observed. In particular, Notable remains never observed until the
+founder creates and runs it. The current report attempt appears running in its own email; the
+last-success field refers to the previous completed report. Empty universe/filing denominators
+produce unavailable percentages, not a fabricated clean zero. Tick-count aliases normalize
+hyphens to dots, using the same helper as the committed universe filter.
+
+For a read-only report without sending email, the founder can execute the report script with
+`--dry-run` through the existing jobs channel and retain its JSON output. A healthy deployment
+alone does not prove scheduled scripts have executed: retain actual attempt/report output before
+claiming live coverage or heartbeat success.

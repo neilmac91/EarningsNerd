@@ -123,7 +123,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job can populate while this is false. Arm only after the seed/quality rollout checklist. |
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
-| `USE_STATEMENT_FINANCIALS` | `false` | Financial institutions use reported income-statement revenue; enable with eval evidence and remediate persisted facts separately. |
+| `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). |
 | `PRO_SUMMARY_MONTHLY_CAP` | `300` | Invisible Pro anti-abuse ceiling for fresh generations per month; 0 disables; billing remains unlimited. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
 | `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls. |
@@ -260,3 +260,13 @@ NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off:
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```
+
+### Statement-aware financial extraction
+
+`USE_STATEMENT_FINANCIALS` (boolean, default **true**) selects as-reported income-statement
+revenue/components for financial institutions. It avoids treating a bank's fee-income tag as total
+revenue. Non-financial issuers keep their existing extraction. An explicit false env value still
+overrides the default; all reads use `app.config.Settings`. The founder's SIC backfill and any
+persisted financial remediation are separate runs (see the WS-7 section of `DEPLOYMENT.md`).
+WS-6 coordinates the parity measurement and single honest baseline re-pin; the default change
+must carry observed eval gate evidence before merge.

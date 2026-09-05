@@ -1,6 +1,6 @@
 """Weekly data-quality report (P1-9): the recurrence umbrella over the remediation's detections.
 
-Four sections, each an ORM reimplementation of a committed ``ops/detection/*.sql`` probe (the SQL
+The original four sections are ORM reimplementations of a committed ``ops/detection/*.sql`` probe (the SQL
 stays the read-only ops-console spec; app code is ORM-only per CLAUDE.md):
 
   (a) ticker integrity   — every ``companies.ticker`` diffed against the SEC primary-per-CIK ticker
@@ -10,6 +10,9 @@ stays the read-only ops-console spec; app code is ORM-only per CLAUDE.md):
   (c) filing anomalies   — deep fact history (≥5 fiscal years) but ≤2 stored 10-K rows (P1-6 signal)
   (d) partial reasons    — tier="partial" summary quality reasons, bucketed by SIC prefix (P0-2)
 
+Universe coverage, summary-less filing ratio, source-list age and durable job health complete the
+report.
+
 ``build_report`` returns a plain dict (JSON-friendly, unit-testable without email); ``run_and_email``
 renders it and sends to ``settings.DATA_QUALITY_REPORT_EMAIL``.
 """
@@ -17,6 +20,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from datetime import date
 from typing import Any
 
 from sqlalchemy import distinct, func
@@ -24,6 +28,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Company, Filing, FinancialFact, Summary
+from app.services import index_membership_service
+from app.services.job_run_service import job_health
+from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +157,51 @@ def partial_reason_counts(db: Session) -> list[dict]:
     ]
 
 
+def universe_coverage(db: Session, *, today: date | None = None) -> dict:
+    """Stored summary coverage of committed tickers; a stub is a filing without a Summary.
+
+    This measures any stored summary, not latest-quarter or full-quality coverage. Distinct
+    normalized tickers keep class-share spelling differences from inflating the denominator.
+    Partial-tier summaries count as summaries; their reasons remain in the existing section.
+    """
+    members = index_membership_service.member_tickers()
+    companies: set[str] = set()
+    summarized: set[str] = set()
+    filing_count = summary_count = 0
+    rows = db.query(
+        Company.ticker, func.count(distinct(Filing.id)), func.count(distinct(Summary.id)),
+    ).outerjoin(Filing, Filing.company_id == Company.id).outerjoin(
+        Summary, Summary.filing_id == Filing.id,
+    ).group_by(Company.id, Company.ticker).all()
+    for ticker, filings, summaries in rows:
+        ticker = index_membership_service.normalize_ticker(ticker)
+        if ticker not in members:
+            continue
+        companies.add(ticker)
+        if summaries:
+            summarized.add(ticker)
+        filing_count += filings
+        summary_count += summaries
+    generated_on = index_membership_service.universe_generated_on()
+    age = ((today or utcnow().date()) - date.fromisoformat(generated_on)).days if generated_on else None
+    if age is not None and age < 0:
+        age = None
+    return {
+        "universe_members": len(members),
+        "companies_present": len(companies),
+        "companies_with_summary": len(summarized),
+        "company_coverage_pct": round(100 * len(companies) / len(members), 2) if members else None,
+        "summary_coverage_pct": round(100 * len(summarized) / len(members), 2) if members else None,
+        "stored_filings": filing_count,
+        "summaryless_filings": filing_count - summary_count,
+        "stub_ratio_pct": round(100 * (filing_count - summary_count) / filing_count, 2) if filing_count else None,
+        "generated_on": generated_on,
+        "universe_age_days": age,
+    }
+
+
 async def build_report(db: Session) -> dict[str, Any]:
-    """Assemble all four sections into a JSON-friendly dict."""
+    """Assemble detection, universe coverage and durable job-health sections."""
     tickers = await ticker_integrity(db)
     return {
         "ticker_mismatches": tickers["mismatches"],
@@ -159,6 +209,8 @@ async def build_report(db: Session) -> dict[str, Any]:
         "coverage_gaps": coverage_gaps(db),
         "filing_anomalies": filing_anomalies(db),
         "partial_reasons": partial_reason_counts(db),
+        "universe_coverage": universe_coverage(db),
+        "job_health": job_health(db),
     }
 
 
