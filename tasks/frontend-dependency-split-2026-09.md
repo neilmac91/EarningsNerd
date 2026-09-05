@@ -14,5 +14,6 @@ stays draft until its own gate evidence exists. Founder actions: none.
 
 Non-Sentry candidate #694: clean Node 22.23.2 installation, lint and CI TypeScript pass;
 Vitest 92 files / 470 tests pass; production build passes; Playwright against `next start`
-without a backend passes 20 tests with 3 existing skips. Every resolved `@sentry` package
-entry remains identical to main's 10.63.0 tree. Separate Sentry candidate: #695.
+without a backend passes 20 tests with 3 existing skips. Every `@sentry/*` package entry remains identical to main. Review identified unrelated
+OpenTelemetry, import-in-the-middle and cjs-module-lexer lock churn; those transitive entries
+were restored from main before the final gate. Separate Sentry candidate: #695.
