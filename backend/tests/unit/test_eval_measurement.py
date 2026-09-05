@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 import yaml
 
+from app.config import settings
 from app.services.ai_readout import DIMENSIONS, JUDGE_MODEL, decode_readout, encode_readout
 from app.services.openai_service import openai_service
 from evals import figure_measurement, judge, regression_gate, runner, weekly_readout
@@ -188,7 +189,9 @@ def test_fixed_cohort_and_valid_negative_judgments_are_complete(weekly_evidence)
         ("BABA", "20-F"),
         ("MELI", "10-K"),
     ]
+    rows[0]["passed_gates"] = False
     readout = weekly_readout.build_readout(rows, filings, harness)
+    assert readout["deterministic_vetoes"] == 1
     assert (
         readout["status"],
         readout["expected"],
@@ -239,6 +242,8 @@ async def test_missing_either_credential_prevents_all_generation(monkeypatch, mi
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-judge")
     monkeypatch.delenv(missing)
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
     process = AsyncMock()
     monkeypatch.setattr(runner, "_process_filing", process)
     readout, report = await weekly_readout.measure()
@@ -251,6 +256,7 @@ async def test_missing_source_provenance_prevents_generation(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-judge")
     monkeypatch.delenv("GITHUB_SHA", raising=False)
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
     process = AsyncMock()
     monkeypatch.setattr(runner, "_process_filing", process)
     readout, _ = await weekly_readout.measure()
