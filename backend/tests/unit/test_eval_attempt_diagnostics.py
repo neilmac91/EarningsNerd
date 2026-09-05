@@ -109,6 +109,7 @@ async def test_timeout_retains_elapsed_and_observed_previews_without_scoring(mon
 def test_actual_cli_emits_sanitized_ai_records_once_without_enabling_request_logs(monkeypatch, capsys):
     logger = ai_metrics.logger
     monkeypatch.setattr(logger, 'handlers', [])
+    monkeypatch.setattr(logger, '_cache', {})
     monkeypatch.setattr(logger, 'level', logging.WARNING)
     monkeypatch.setattr(logger, 'propagate', True)
     monkeypatch.setattr(ai_metrics, '_calls', {})

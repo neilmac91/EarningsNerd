@@ -225,7 +225,22 @@ python -m evals.regression_gate --latest                # diff it against baseli
 # or gate a specific report:
 python -m evals.regression_gate evals/reports/eval_<stamp>.json
 ```
-Exit 0 = no hard regression (warnings may print); exit 1 = at least one HARD regression. The gate
+Exit 0 = complete operational evidence with no hard regression (warnings may print); exit 1 =
+incomplete operational evidence or at least one HARD regression. Full reports must retain the
+pre-execution requested candidates, selected filing cohort and repeats in `harness`, with exactly
+one result per requested identity and matching `n`, `scored` and `errors` counts. Execution
+errors, missing scores, missing/duplicate/unrequested attempts and malformed counts block the
+gate even when the scored subset has perfect means. Quality means and their thresholds remain
+scored-output measurements; errors are not fabricated zero-quality scores. Historical reports
+without a declared plan cannot establish completeness through this CLI; the statistics-only
+`compare_candidate` API remains available for historical metric comparisons.
+
+The runner retains elapsed time, requested streaming and observed preview counts on generation
+errors, and its CLI emits only sanitized `ai_call`/`ai_summary` telemetry. Preview observations do
+not prove a stream completed, and missing usage remains unavailable. Weekly reports also retain
+their fixed eight-filing × three-run manifest; their separate strong-judge readout validation still
+determines judged completeness. A regression PASS does not establish a first judged readout or
+arm any feature. The gate
 **logic** is unit-tested offline (`tests/unit/test_eval_regression_gate.py`) — no network/AI — so it
 runs for free in `backend-tests` on every PR.
 
