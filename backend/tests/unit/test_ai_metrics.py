@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 import pytest
 from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
 
-from app.config import settings
 from app.services import ai_metrics, metrics_service
 
 
@@ -60,7 +59,7 @@ def test_contradictory_provider_counters_do_not_become_claimed_totals():
 
 def test_untrusted_labels_and_usage_fields_are_never_logged(caplog):
     caplog.set_level("INFO", logger=ai_metrics.__name__)
-    secret = "filing-123-private-prompt"
+    secret = "filing 123 private prompt"
     result = ai_metrics.record_ai_call(operation=secret, provider=secret, actual_model=secret,
                                       usage={"prompt": secret, "api_key": secret}, outcome=secret)
     assert (result["operation"], result["provider"], result["actual_model"], result["outcome"]) == (
@@ -69,11 +68,10 @@ def test_untrusted_labels_and_usage_fields_are_never_logged(caplog):
     assert "ai_call" in caplog.text
 
 
-def test_configured_actual_model_identity_is_bounded_even_if_configuration_changes(monkeypatch):
+def test_actual_model_identity_has_a_hard_lifetime_cardinality_bound():
     labels = []
     for index in range(20):
         name = f"configured-model-{index}"
-        monkeypatch.setattr(settings, "AI_FALLBACK_MODEL", name)
         labels.append(ai_metrics.record_ai_call(operation="summary_fallback", provider="fallback",
                       actual_model=name, usage=None, outcome="success")["actual_model"])
     assert labels[:16] == [f"configured-model-{i}" for i in range(16)]
@@ -84,12 +82,18 @@ def test_configured_actual_model_identity_is_bounded_even_if_configuration_chang
     assert missing["actual_model"] is None
 
 
-@pytest.mark.parametrize("setting", ["AI_SECTION_RECOVERY_MODEL", "AI_FAST_MODEL"])
-def test_actual_configured_recovery_models_are_recognized(monkeypatch, setting):
-    monkeypatch.setattr(settings, setting, "configured-recovery-model")
+@pytest.mark.parametrize("actual_model", ["deepseek-v4-pro-20260905", "configured-recovery-model"])
+def test_actual_response_model_is_preserved_even_when_different_from_requested(actual_model):
     result = ai_metrics.record_ai_call(operation="section_recovery", provider="primary",
-                                       actual_model="configured-recovery-model", usage=None, outcome="success")
-    assert result["actual_model"] == "configured-recovery-model"
+                                       actual_model=actual_model, usage=None, outcome="success")
+    assert result["actual_model"] == actual_model
+
+
+def test_chat_stream_operation_retains_separate_attempts_without_summary_count():
+    result = ai_metrics.record_ai_call(operation="chat_stream", provider="primary", actual_model=None,
+                                       usage=None, outcome="cancelled")
+    assert result["operation"] == "chat_stream" and result["outcome"] == "cancelled"
+    assert ai_metrics.get_ai_metrics()["summaries"] == {}
 
 
 def test_summary_aggregate_is_call_local_and_does_not_double_count(caplog):

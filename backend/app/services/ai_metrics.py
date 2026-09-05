@@ -15,14 +15,11 @@ import re
 from threading import Lock
 from typing import Any
 
-from app.config import settings
-
 logger = logging.getLogger(__name__)
-_OPERATIONS = frozenset({"summary_primary", "summary_fallback", "section_recovery"})
+_OPERATIONS = frozenset({"summary_primary", "summary_fallback", "section_recovery", "chat_stream"})
 _PROVIDERS = frozenset({"primary", "fallback"})
 _OUTCOMES = frozenset({"success", "complete", "partial", "error", "timeout", "cancelled"})
 _TOKEN_FIELDS = ("prompt_tokens", "completion_tokens", "total_tokens", "cache_hit_tokens", "cache_miss_tokens")
-_KNOWN_MODELS = frozenset({"deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"})
 _MAX_MODEL_LABELS = 16
 _model_labels: set[str] = set()
 _calls: dict[tuple, dict] = {}
@@ -59,12 +56,9 @@ def _usage(usage: Any) -> dict[str, int | None]:
 
 
 def _model(actual_model: Any) -> str | None:
-    allowed = _KNOWN_MODELS | {settings.AI_DEFAULT_MODEL, settings.AI_SECTION_RECOVERY_MODEL,
-                               settings.AI_FAST_MODEL, getattr(settings, "AI_FALLBACK_MODEL", "")}
-    if (not isinstance(actual_model, str) or actual_model not in allowed
-            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", actual_model)):
+    if not isinstance(actual_model, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", actual_model):
         return None
-    # Even runtime configuration churn cannot create unbounded metric cardinality.
+    # Preserve actual returned version/routing drift, with a hard lifetime cardinality cap.
     if actual_model not in _model_labels and len(_model_labels) >= _MAX_MODEL_LABELS:
         return None
     _model_labels.add(actual_model)
