@@ -460,12 +460,16 @@ gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
 After a full week of job output, the founder records the reviewed date range, representative
 accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering
 then proposes `NOTABLE_FILINGS_ENABLED=true` in the **service** `--update-env-vars` list in
-`.github/workflows/ci.yml`, in a reviewed PR with the readout linked. Do not flip it through a
+`.github/workflows/ci.yml`, in a reviewed PR with the readout linked and an independently
+required `backend/` change. The deploy path filter ignores workflow/docs-only changes; a flag-only
+PR would leave the service unchanged. If no backend change is ready, hold the flip rather than
+claiming a skipped deploy applied it. Do not flip it through a
 console command: D3 requires the serving state to be visible in the repository. A killed slot
 stays dark. Job creation, seed completion and the week of review are still outstanding as of
 2026-09-05; the last verified deployment log reports the job absent.
 
-After that flag PR merges, verify `deploy-backend`, its migration summary, detailed health,
+After that backend-touching flag PR merges, verify the service deployment step actually ran
+inside `deploy-backend`, its migration summary, detailed health,
 `GET /api/notable_filings?limit=8`, and the homepage after revalidation (approximately 15 minutes).
 The endpoint legitimately returns an empty list with too few qualifying companies; assess
 accession validity, reason accuracy, company diversity and freshness against the stored output,

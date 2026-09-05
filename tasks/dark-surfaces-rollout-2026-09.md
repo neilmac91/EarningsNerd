@@ -36,8 +36,11 @@ earningsnerd-notable-filings not found — create it once per DEPLOYMENT.md. Ski
   representative accessions, reason accuracy, freshness, diversity and duplicate/noise findings.
 - [ ] Founder: record retain/kill and the reviewed dates. A seed is not a week of observation.
 - [ ] Engineering: if retained, add `NOTABLE_FILINGS_ENABLED=true` to the service deploy env in
-  `.github/workflows/ci.yml`, with the review evidence in its PR. Complete backend and relevant
-  frontend gates; merge with a freshly read head SHA, then verify deployment/migrations/health.
+  `.github/workflows/ci.yml`, with the review evidence in a PR that also contains an independently
+  required `backend/` change. The current deploy filter skips workflow/docs-only pushes; if no
+  backend change is ready, hold the flip. Complete backend and relevant
+  frontend gates; merge with a freshly read head SHA, then verify that the service deployment
+  step actually ran, the migration summary, and detailed health.
 - [ ] Engineering: probe the API and homepage after ISR; if killed, leave the slot dark and
   record the decision in todo/dispatch log. No Notable serving flag is changed by this preparation.
 
