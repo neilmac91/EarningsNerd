@@ -37,6 +37,18 @@ const doneState = (overrides: Partial<NarrativeState> = {}): NarrativeState => (
 })
 
 describe('NarrativePane citation chips', () => {
+  it('keeps citation grounding separate from an unreconciled source value', () => {
+    const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
+    const { rerender } = render(<NarrativePane state={state} />)
+    expect(screen.getByText('1 verified citations')).toBeInTheDocument()
+    expect(screen.getByText('Includes unverified figures')).toBeInTheDocument()
+    expect(screen.getByText('Unverified').closest('li')).toHaveTextContent(citation.excerpt)
+    expect(screen.getByText('Sources · cited figures matched to SEC XBRL data')).toBeInTheDocument()
+    rerender(<NarrativePane state={doneState()} />)
+    expect(screen.queryByText('Includes unverified figures')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
   beforeEach(() => {
     // jsdom doesn't implement scrollIntoView — stub it (same pattern as highlightInDom.spec.ts).
     Element.prototype.scrollIntoView = vi.fn()

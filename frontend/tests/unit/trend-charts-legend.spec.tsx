@@ -97,6 +97,32 @@ const dataset: AnalysisDataset = {
 }
 
 describe('TrendCharts legends', () => {
+  it('flags plotted growth even when the visible raw values passed reconciliation', () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[1].reconciled = true
+    flagged.series[0].points[1].yoy_reconciled = false
+    render(<TrendCharts dataset={flagged} />)
+    expect(screen.getAllByText('Unverified')).toHaveLength(1)
+    expect(screen.getByText('Unverified').closest('section')).toHaveTextContent('Revenue & growth')
+  })
+
+  it('labels only panels with plotted flagged values and preserves the caveat in PNG exports', async () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[1].reconciled = false
+    // An out-of-window flag must not contaminate another visible panel.
+    flagged.series[1].points.push({ period: 'FY1999', value: 50, reconciled: false })
+    const { rerender } = render(<TrendCharts dataset={flagged} exportEnabled />)
+    expect(screen.getAllByText('Unverified')).toHaveLength(1)
+    const panel = screen.getByRole('heading', { name: 'Revenue & growth' }).closest('section')!
+    expect(within(panel).getByText('Unverified')).toBeInTheDocument()
+    fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
+    expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      header: expect.objectContaining({ title: 'Revenue & growth (includes unverified figures)' }),
+    }))
+    rerender(<TrendCharts dataset={dataset} />)
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
   it('shows a legend naming each line for a multi-series panel (Margins)', () => {
     render(<TrendCharts dataset={dataset} />)
     expect(screen.getByText('Margins')).toBeInTheDocument()
