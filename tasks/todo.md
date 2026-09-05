@@ -2,7 +2,8 @@
 
 Source: `docs/ENGINEERING_AUDIT_2026-09.md` (synthesis) + `docs/audit-2026-09/` (six workstream
 appendices with file:line evidence). Lens: invite-only beta, product quality wins ties.
-Founder merges; each phase is one or a few PRs. Items marked **(founder)** need the founder.
+Each phase is one or a few reviewed PRs. Engineering merges are authorized for the chief
+engineer; items marked **(founder)** still require the founder.
 
 ## Wave 2 execution — 2026-09-05
 
@@ -10,13 +11,16 @@ Owner: chief engineer (Codex); founder has authorized engineering merges and dep
 Accepted D1–D8 remain in force. Existing unchecked decision rows below are historical tracking,
 not requests to revisit accepted decisions. Founder-only actions remain founder-only.
 
-Current checkpoint: main `c925cfa83647f521583b6fa4dd257ac9027461db` (#697).
-[Interim ledger](wave2-ledger-2026-09.md) records exact merges and observed gates. #697 deployment
-33962267301 is verified: `applied=1 skipped=33`, revision `00263-kzt`, detailed health healthy.
-Vercel production also succeeded for #697.
+Current checkpoint: main `80314db6b978d38d49a2fe2f1b8719a13f08baff` (#700).
+The [interim ledger](wave2-ledger-2026-09.md) covers the earlier merges; subsequent verified
+parity and measurement results are recorded below. #700 deployment 33966302078 succeeded:
+`applied=0 skipped=34`, revision `00265-9js` serving all traffic, detailed health healthy.
+The last verified frontend production change is #697; later Vercel attempts reached the daily
+free deployment quota. #698 and #700 add no frontend production changes.
 #673 remains untouched; #684 is held for resilience; #685 merged and #686 split/closed.
-CI's authorized DeepSeek runner produced #698's corrected 52-output parity pass; final 26 × 3
-run 33962580838 is in progress on integrated `f5b46ba9`; the baseline is unchanged.
+Parity #698 merged and deployed. Its sole authoritative pin uses the complete 26 × 3 actual
+run 33962580838. Measurement #700 merged and deployed with an actual 26 × 2 regression pass,
+including an honest absolute figure-trace advisory; the baseline was not re-pinned.
 No usable strong-judge credential is available for the first weekly readout,
 so evidence-snap activation stays held. This macOS host differs from the historical cloud host.
 The saved Claude Workflow runtime is unavailable in Codex; reproduce its three independent
@@ -33,11 +37,14 @@ Missing verifier output is unverified and must be hand-verified before merge.
 - [x] Backend Developer: WS-7 remaining code steps merged #697 (`c925cfa8`): 10-Q periods/unit assertions and
   reconciliation labels; amendments/supersession/Change Report; persisted XBRL first and missing
   balance-sheet facts; FPI + 10-Q pregeneration and universe Company seeding preparation.
-- [ ] AI Engineer: #698 draft; corrected two-run measurement passed; final merged-state three-run pin pending. Read eval RUNBOOK;
-  parity (statement env, JPM G5, streaming, tolerance, note preservation), then one honest re-pin.
-- [ ] AI Engineer: WARN figure-trace dimension, persisted audit counters, weekly judged readout
-  workflow and first observed readout; resilience with #684, real fallback configuration,
-  bounded retries, usage/model telemetry and empty-grounding protection; full backend + live eval gates.
+- [x] AI Engineer: parity and sole honest pin merged #698 (`d696f408`), deployed with healthy detailed health.
+  Statement env, JPM G5 components, production streaming and safe baseline provenance are verified.
+- [x] AI Engineer: measurement code merged #700 (`80314db6`): WARN figure-trace dimension,
+  persisted audit counters and bounded weekly strong-judge workflow/readout handoff; deployed healthy.
+- [ ] AI Engineer / founder credential boundary: obtain the first actual weekly strong-judge readout.
+  An unavailable artifact and routine judge-off regression runs do not satisfy this prerequisite.
+- [ ] AI Engineer: resilience #701 with #684, real fallback configuration, bounded retries,
+  usage/model telemetry and empty-grounding protection; full backend + live eval gates.
 - [ ] AI Engineer: delete previous_filings with AST pin; labelled recovery context; copilot currency,
   accession-scoped facts, at least five verified golden entries and observed copilot gate.
 - [ ] Chief engineer: arm AI_EVIDENCE_SNAP in ci.yml only after first judged readout; founder triggers drain.
@@ -63,7 +70,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 
 ## WS-6 resilience implementation — after #700
 
-Base: measurement merged `80314db6`; root owns its deployment verification. Parity #698
+Base: measurement merged `80314db6`; deployment and detailed health are verified. Parity #698
 and measurement implementation #700 are complete; the first strong-judge readout remains
 credential-held. This stage does not re-pin, arm a guard, or perform founder operations.
 
@@ -116,13 +123,13 @@ credential-held. This stage does not re-pin, arm a guard, or perform founder ope
 
 ## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
 
-- [ ] Pin `mean_untraceable_dollar_figures` (figure-trace) as an eval dimension — WARN first, floor after one re-pin cycle
+- [x] Add `mean_untraceable_dollar_figures` as a measured absolute WARN dimension — #700. The parity pin has no reference for it; no invented zero baseline or new hard floor.
 - [ ] Scheduled judged eval run (8 filings, `--runs 3`, judge on) with a weekly readout; keep judge off in PR CI
-- [ ] Roll the five audit counters (figure-trace, forward-quote, evidence-snap, machine-sections-only, quality gate) into the weekly data-quality report from persisted `raw_summary` audits
+- [x] Roll the five audit counters into the weekly data-quality report from persisted `raw_summary` audits — #700, with separate valid/missing/malformed denominators.
 - [ ] Arm `AI_EVIDENCE_SNAP` only after the first judged readout (D5 accepted); figure-trace and forward-quote remain advisory. Strong-judge credential/readout currently unavailable
 - [ ] Retry/fallback: delete the dead Gemini chain in `openai_service.py`; bounded backoff on the primary; env-configured `AI_FALLBACK_BASE_URL`/`AI_FALLBACK_MODEL`; fix the retry unit test to use real names
 - [ ] Per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
-- [ ] Eval ↔ prod parity: `USE_STATEMENT_FINANCIALS` in eval env; restore JPM bank-gate facts (G5 re-arm); exercise the streaming branch in `evals/runner.py`; re-pin baseline; fix `--runs 1` single-veto flakiness (granularity-aware tolerance or `--runs 2`)
+- [x] Eval ↔ prod parity, restored JPM G5 components, actual production streaming, routine two-run gate and sole three-run baseline pin — #698.
 - [ ] Copilot on live FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); grow the Copilot golden set from 2 unverified entries; run `evals.copilot_runner`
 - [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(D4 spend approved; execution pending)**
 - [x] Reading surface on the filing page: distinct risk headings, mobile section jump-nav, skip-to-content + live region, company-name casing — *PRs #671 + #676 merged 2026-09-05, casing verified live*
@@ -175,9 +182,9 @@ launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; wa
 
 - [x] Audit production/eval configuration and streaming calls; explicitly pin statement-financials parity, restore JPM bank-component ground truth, and test streaming/non-streaming final-result equivalence without touching locked contracts.
 - [x] Use two runs for routine CI evaluation, retain hard tolerances, and provide a bounded three-run CI measurement using the existing provider secret; preserve baseline notes and provenance.
-- [ ] Prove new tests by mutation and run the exact full backend gate.
+- [x] Prove new tests by mutation and run the exact full backend gate — #698 final local 1961 passed; CI 33963437020 passed.
 - [x] Observe the actual CI runner and regression logs/artifact on the complete parity candidate, investigate any regression, then make one honest full-set three-run baseline pin with preserved notes.
-- [ ] Record artifact provenance and independent review; merge/deploy remains with the chief engineer. Later WS-6 measurement/resilience/hygiene/Copilot/arming steps remain separate PRs in that order.
+- [x] Record parity artifact provenance and independent review; #698 merged/deployed. Measurement #700 subsequently merged/deployed; resilience, hygiene, Copilot and judged-readout-dependent arming remain unfinished.
 
 Authoritative evidence: [run 33962580838](https://github.com/neilmac91/EarningsNerd/actions/runs/33962580838)
 measured source `f5b46ba96b3023f93554087e431937ed9daba3c4` after #697 deployed. Artifact
@@ -189,8 +196,10 @@ no fallback warning was observed, which does not prove transport never fell back
 The final pin-helper change only rejects vetoed/incomplete gate evidence before overwriting an
 existing baseline. Its seven new CLI cases pass; removing result/summary checks causes four/three
 real assertion failures. Generation/scorer source is unchanged from the measured commit.
-Final full gate and review of the pin commit remain pending. First strong-judge readout remains
-unavailable without its credential; this deterministic measurement does not authorize evidence-snap.
+Final full gate and independent review passed before #698 merged. Deployment 33964233483
+reported `applied=0 skipped=34`, revision `00264-ctx` serving all traffic and healthy detailed
+health. First strong-judge readout remains unavailable without its credential; this deterministic
+measurement does not authorize evidence-snap.
 
 ## WS-7 implementation — archived
 
@@ -204,9 +213,16 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 
 ## WS-6 step 2 — advisory measurement and weekly judged readout
 
-- [ ] Measure untraceable dollar figures on actual raw v2 sections with explicit numeric-grounding availability; preserve hard gates, aggregate weights and the single parity pin.
-- [ ] Add stored audit-snapshot counts with per-family valid/missing/malformed denominators to the operational report and both email formats.
-- [ ] Schedule an exact eight-filing, three-repeat strong-judge readout with provenance, complete/error/missing denominators and a bounded validated handoff to the existing report job.
-- [ ] Check generator and strong-judge credentials before any model calls; missing credentials mean unavailable and do not constitute the first readout.
-- [ ] Prove new tests with mutations, run exact full backend gates, inspect actual CI evaluation and obtain independent review.
+- [x] Measure untraceable dollar figures on actual raw v2 sections with explicit numeric-grounding availability; preserve hard gates, aggregate weights and the single parity pin.
+- [x] Add stored audit-snapshot counts with per-family valid/missing/malformed denominators to the operational report and both email formats.
+- [x] Schedule an exact eight-filing, three-repeat strong-judge readout with provenance, complete/error/missing denominators and a bounded validated handoff to the existing report job.
+- [x] Check generator and strong-judge credentials before any model calls; missing credentials mean unavailable and do not constitute the first readout.
+- [x] Prove new tests with mutations, run exact full backend gates, inspect actual CI evaluation and obtain independent review.
 - [ ] First actual strong-judge readout remains held for the founder credential; no live weekly email dispatch, evidence-snap activation, or cosmetic baseline pin in this implementation PR.
+
+Measurement implementation merged #700, with 2026 local backend tests and final CI
+[33965545733](https://github.com/neilmac91/EarningsNerd/actions/runs/33965545733) passing.
+The actual 52-result artifact `9969393000` had zero errors/hard vetoes and one absolute
+figure-trace advisory: mean 2.1154, all 52 measured, no pinned reference. These flags include
+potentially derived amounts and are not confirmed fabrications. All retained measurement
+inputs replayed exactly. The first judged readout remains separate from this judge-off run.

@@ -598,9 +598,12 @@ component rows, including their incompatible commentary/evidence, without invent
 verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
 future failures can distinguish extraction absence from generation omissions.
 
-This failed measurement was not pinned. The single authoritative three-run pin must
-include the final WS-7 extraction changes after #697 merges and this branch incorporates
-them; later judged measurement still requires an actual strong-judge credential/readout.
+This failed measurement was not pinned. The sole authoritative three-run measurement
+subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including deployed
+WS-7 #697, in run `33962580838` (artifact `9968531910`). All 78 results had no execution
+errors or hard vetoes. #698 committed the exact measured baseline and deployed; #700 later
+added measurement dimensions without changing that pin. The first actual weekly strong-judge
+readout remains credential-held and is still required before evidence-snap activation.
 
 
 ## Weekly strong-judge measurement (WS-6 step 2)

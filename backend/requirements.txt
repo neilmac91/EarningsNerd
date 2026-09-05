@@ -13,6 +13,7 @@ annotated-types==0.7.0
 anyio==4.13.0
     # via
     #   httpx
+    #   httpx2
     #   openai
     #   starlette
     #   watchfiles
@@ -45,9 +46,7 @@ cryptography==50.0.0
 cssselect2==0.9.0
     # via weasyprint
 distro==1.9.0
-    # via
-    #   openai
-    #   posthog
+    # via posthog
 dnspython==2.8.0
     # via email-validator
 ecdsa==0.19.2
@@ -71,9 +70,12 @@ greenlet==3.5.1
 h11==0.16.0
     # via
     #   httpcore
+    #   httpcore2
     #   uvicorn
 httpcore==1.0.9
     # via httpx
+httpcore2==2.12.0
+    # via httpx2
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
@@ -81,7 +83,8 @@ httpx==0.28.1
     #   -r requirements.in
     #   edgartools
     #   httpxthrottlecache
-    #   openai
+httpx2==2.12.0
+    # via openai
 httpxthrottlecache==0.6.1
     # via edgartools
 humanize==4.15.0
@@ -91,12 +94,13 @@ idna==3.18
     #   anyio
     #   email-validator
     #   httpx
+    #   httpx2
     #   requests
 iniconfig==2.3.0
     # via pytest
 jinja2==3.1.6
     # via edgartools
-jiter==0.15.0
+jiter==0.16.0
     # via openai
 json-repair==0.63.4
     # via -r requirements.in
@@ -116,7 +120,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==2.44.0
+openai==3.7.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -235,16 +239,18 @@ tinycss2==1.5.1
 tinyhtml5==2.1.0
     # via weasyprint
 tqdm==4.68.2
+    # via edgartools
+truststore==0.10.4
     # via
     #   edgartools
-    #   openai
-truststore==0.10.4
-    # via edgartools
+    #   httpcore2
+    #   httpx2
 typing-extensions==4.15.0
     # via
     #   anyio
     #   beautifulsoup4
     #   fastapi
+    #   httpx2
     #   openai
     #   posthog
     #   pydantic

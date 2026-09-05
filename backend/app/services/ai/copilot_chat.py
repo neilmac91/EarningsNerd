@@ -8,12 +8,15 @@ raising, so the SSE contract stays intact. Mixed into ``OpenAIService``; methods
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from app.config import settings
 from app.services.ai.model_flags import _thinking_disabled_model
+from app.services.ai.provider_requests import close_stream, retry_delay, transient
+from app.services.ai_metrics import record_ai_call
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,53 @@ _TOOL_ROUND_HOLDBACK_CHARS = 240
 class _CopilotChatMixin:
     """Streaming chat + tool-use wrappers for the copilot path, mixed into OpenAIService."""
 
+    async def _chat_chunks(self, kwargs: dict, usage_sink: Optional[dict], deadline: float):
+        """Retry only before yielding any SDK chunk; never replay append-only prose/tool deltas."""
+        for attempt in range(2):
+            stream = None
+            emitted = False
+            actual_model = usage = None
+            outcome = "error"
+            error = None
+            try:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    raise TimeoutError("Chat deadline exhausted")
+                async with asyncio.timeout(remaining):
+                    stream = await self.client.chat.completions.create(**kwargs)
+                    async for chunk in stream:
+                        if getattr(chunk, "model", None):
+                            actual_model = chunk.model
+                        if getattr(chunk, "usage", None) is not None:
+                            usage = chunk.usage
+                        emitted = True
+                        yield chunk
+                outcome = "success"
+                return
+            except (asyncio.CancelledError, GeneratorExit):
+                outcome = "cancelled"
+                raise
+            except Exception as exc:
+                error = exc
+                outcome = "timeout" if isinstance(exc, TimeoutError) else "error"
+                if emitted or attempt == 1 or not transient(exc):
+                    raise
+            finally:
+                try:
+                    if stream is not None:
+                        await close_stream(stream)
+                finally:
+                    record = record_ai_call(operation="chat_stream", provider="primary",
+                                            actual_model=actual_model, usage=usage, outcome=outcome)
+                    if usage_sink is not None:
+                        for key, value in record["usage"].items():
+                            if value is not None:
+                                usage_sink[key] = usage_sink.get(key, 0) + value
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise TimeoutError("Chat deadline exhausted")
+            await asyncio.sleep(min(retry_delay(error, attempt), remaining))
+
     async def stream_chat(
         self,
         messages: List[Dict[str, str]],
@@ -65,6 +115,7 @@ class _CopilotChatMixin:
         prefixed with ``STREAM_ERROR_SENTINEL`` (so a consumer can surface a real error rather than
         stream it as the answer) rather than raising, so the generator never breaks the SSE contract.
         """
+        deadline = asyncio.get_running_loop().time() + 75.0
         model_name = model or self.model
         try:
             create_kwargs: Dict[str, Any] = {
@@ -76,31 +127,18 @@ class _CopilotChatMixin:
             }
             if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
                 create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
-            if usage_sink is not None:
-                create_kwargs["stream_options"] = {"include_usage": True}
-            stream = await self.client.chat.completions.create(**create_kwargs)
-            async for chunk in stream:
-                if not chunk.choices:
-                    # The include_usage final chunk: empty choices + a `usage` payload (dict on some
-                    # OpenAI-compatible gateways, object on others) — same handling as the tools
-                    # variant so both meters price identically.
-                    if usage_sink is not None:
-                        u = getattr(chunk, "usage", None)
-                        if u is not None:
-                            is_dict = isinstance(u, dict)
-                            for sink_key, provider_key in (
-                                ("prompt_tokens", "prompt_tokens"),
-                                ("completion_tokens", "completion_tokens"),
-                                ("total_tokens", "total_tokens"),
-                                ("cache_hit_tokens", "prompt_cache_hit_tokens"),
-                                ("cache_miss_tokens", "prompt_cache_miss_tokens"),
-                            ):
-                                tok = (u.get(provider_key) if is_dict else getattr(u, provider_key, 0)) or 0
-                                usage_sink[sink_key] = usage_sink.get(sink_key, 0) + tok
-                    continue
-                delta = chunk.choices[0].delta
-                if delta and delta.content:
-                    yield delta.content
+            create_kwargs["stream_options"] = {"include_usage": True}
+            stream = self._chat_chunks(create_kwargs, usage_sink, deadline)
+            try:
+                async for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
+            finally:
+                await stream.aclose()
+
         except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
             error_msg = str(e)
             logger.warning(f"stream_chat failed for {model_name}: {error_msg[:200]}")
@@ -147,6 +185,7 @@ class _CopilotChatMixin:
             prefixed with ``STREAM_ERROR_SENTINEL`` (so the consumer can surface a real error instead
             of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
+        deadline = asyncio.get_running_loop().time() + 75.0
         model_name = model or self.model
         disable_thinking = _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None))
         try:
@@ -164,10 +203,9 @@ class _CopilotChatMixin:
                     create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
                 # Ask for token usage on the final (choices-empty) chunk when the caller wants to
                 # meter cost. Opt-in, so the default streaming contract is otherwise unchanged.
-                if usage_sink is not None:
-                    create_kwargs["stream_options"] = {"include_usage": True}
+                create_kwargs["stream_options"] = {"include_usage": True}
 
-                stream = await self.client.chat.completions.create(**create_kwargs)
+                stream = self._chat_chunks(create_kwargs, usage_sink, deadline)
 
                 # Assemble tool calls across chunks, keyed by their delta index. Each entry holds the
                 # call id, function name, and the concatenated arguments-string fragments. Whether any
@@ -186,55 +224,38 @@ class _CopilotChatMixin:
                 held_len = 0
                 streaming_live = False
 
-                async for chunk in stream:
-                    if not chunk.choices:
-                        # The include_usage final chunk has empty choices + a `usage` payload;
-                        # accumulate it across tool rounds (best-effort, only when requested). Some
-                        # OpenAI-compatible gateways return usage as a dict rather than an object, so
-                        # handle both — getattr on a dict would silently zero the token counts.
-                        if usage_sink is not None:
-                            u = getattr(chunk, "usage", None)
-                            if u is not None:
-                                is_dict = isinstance(u, dict)
-                                p_tok = (u.get("prompt_tokens") if is_dict else getattr(u, "prompt_tokens", 0)) or 0
-                                c_tok = (u.get("completion_tokens") if is_dict else getattr(u, "completion_tokens", 0)) or 0
-                                t_tok = (u.get("total_tokens") if is_dict else getattr(u, "total_tokens", 0)) or 0
-                                # DeepSeek-specific: input tokens served from the context cache (HIT)
-                                # vs not (MISS), priced ~120x apart. Absent on providers that don't
-                                # cache → 0, and the cost estimate then treats all input as a miss.
-                                hit_tok = (u.get("prompt_cache_hit_tokens") if is_dict else getattr(u, "prompt_cache_hit_tokens", 0)) or 0
-                                miss_tok = (u.get("prompt_cache_miss_tokens") if is_dict else getattr(u, "prompt_cache_miss_tokens", 0)) or 0
-                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + p_tok
-                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + c_tok
-                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + t_tok
-                                usage_sink["cache_hit_tokens"] = usage_sink.get("cache_hit_tokens", 0) + hit_tok
-                                usage_sink["cache_miss_tokens"] = usage_sink.get("cache_miss_tokens", 0) + miss_tok
-                        continue
-                    choice = chunk.choices[0]
-                    delta = choice.delta
-                    if delta is None:
-                        continue
-                    if delta.content:
-                        content_parts.append(delta.content)
-                        if streaming_live:
-                            yield delta.content
-                        elif not tool_calls:
-                            held.append(delta.content)
-                            held_len += len(delta.content)
-                            if held_len >= _TOOL_ROUND_HOLDBACK_CHARS:
-                                streaming_live = True
-                                yield "".join(held)
-                                held = []
-                        # else: a tool round's narration — dropped from the stream.
-                    for tc in (delta.tool_calls or []):
-                        slot = tool_calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
-                        if tc.id:
-                            slot["id"] = tc.id
-                        if tc.function:
-                            if tc.function.name:
-                                slot["name"] = tc.function.name
-                            if tc.function.arguments:
-                                slot["arguments"] += tc.function.arguments
+                try:
+                    async for chunk in stream:
+                        if not chunk.choices:
+                            continue
+                        choice = chunk.choices[0]
+                        delta = choice.delta
+                        if delta is None:
+                            continue
+                        if delta.content:
+                            content_parts.append(delta.content)
+                            if streaming_live:
+                                yield delta.content
+                            elif not tool_calls:
+                                held.append(delta.content)
+                                held_len += len(delta.content)
+                                if held_len >= _TOOL_ROUND_HOLDBACK_CHARS:
+                                    streaming_live = True
+                                    yield "".join(held)
+                                    held = []
+                            # else: a tool round's narration — dropped from the stream.
+                        for tc in (delta.tool_calls or []):
+                            slot = tool_calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                            if tc.id:
+                                slot["id"] = tc.id
+                            if tc.function:
+                                if tc.function.name:
+                                    slot["name"] = tc.function.name
+                                if tc.function.arguments:
+                                    slot["arguments"] += tc.function.arguments
+
+                finally:
+                    await stream.aclose()
 
                 # No tool calls → this round's content was the final answer; flush anything the
                 # hold-back was still sitting on (a short answer that never crossed the cap).
@@ -259,6 +280,8 @@ class _CopilotChatMixin:
                     ],
                 })
                 for call in assembled:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise TimeoutError("Chat deadline exhausted before tool execution")
                     try:
                         parsed_args = json.loads(call["arguments"] or "{}")
                     except (ValueError, TypeError):

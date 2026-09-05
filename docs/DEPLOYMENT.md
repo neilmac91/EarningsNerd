@@ -565,3 +565,26 @@ is unchanged. An explicit universe-wide generation run remains the separate appr
 founder operation after the data prerequisites and live report evidence; no such run was executed
 while implementing this change. Amendment relationships populate as companies are refreshed or
 history is backfilled; pre-existing rows are not rewritten by the additive migration.
+
+
+### Optional AI fallback (WS-6 resilience)
+
+Production keeps its current DeepSeek model/base/key. Provider fallback is implemented but
+**disabled by default**: no alternate provider credential is provisioned by this change.
+`AI_FALLBACK_MODEL` opts in; `AI_FALLBACK_BASE_URL` selects its HTTPS OpenAI-compatible API
+(empty means the primary base). Another origin requires a separately reviewed/licensed
+processor and `AI_FALLBACK_API_KEY`; primary credentials are never forwarded to it.
+
+After founder credential provisioning and observed eval evidence, wire the non-secret base/model
+through the service and relevant job `--update-env-vars` in `ci.yml`; mount the separate Secret
+Manager version as `AI_FALLBACK_API_KEY` through `--update-secrets`. Do not put keys in repository
+variables, workflow literals, shell arguments or docs. The API, pregeneration and other model-using
+jobs must use the same reviewed route. This PR performs none of those production operations.
+
+Summary generation has one 75-second budget including parsing, streamed/nonstreamed requests,
+retry delay and section recovery. Provider attempts are capped at 45 seconds (recovery 12), SDK
+internal retries are disabled, and at most three primary-chain requests run; the third uses the
+explicit fallback if enabled, while a primary timeout routes there on the next attempt so the
+alternate has an opportunity within the remaining budget. Recovery allows at most two requests per missing section inside
+that same deadline/concurrency limit. Timeout/disconnect cancels and drains the owned provider
+task before releasing its slot. Unknown token usage is unavailable, not free inference.
