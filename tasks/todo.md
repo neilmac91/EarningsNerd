@@ -12,10 +12,14 @@ W3-2 verified-deployment prerequisite. Founder operations and existing ordered g
 - [x] Prove the gate with one intended Firebase assertion failure, restore, and run pinned backend gates.
 - [ ] Obtain three independent reviews; only then follow the chief engineer's push/merge/deploy order.
 
-Local evidence: all 105 runtime/dev pins matched; Ruff/Bandit passed; backend
+Initial local evidence before the W3-2 rebase: all 105 runtime/dev pins matched;
+Ruff/Bandit passed; backend
 `2355 passed, 2 deselected, 72 warnings in 52.52s`. The one injected obsolete-stack phrase
 failed the intended assertion; exact restoration passed (`1 passed in 0.03s`). No push or PR;
-W3-2 is held on the observed Calendar filter override and founder decision.
+The founder approved preserving service calendar=true / pregenerate=false. This local branch
+is rebased onto [#709](https://github.com/neilmac91/EarningsNerd/pull/709) candidate `7a1a6fbb`;
+its production verification remains pending. W3-5 is unpublished; combined local gates and
+three independent reviews precede release after that deployment is verified.
 
 
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
