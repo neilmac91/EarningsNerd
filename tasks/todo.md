@@ -61,6 +61,22 @@ Every implementation PR is draft immediately, uses a worktree under `.claude/wor
 and includes exact gate tails and mutation proofs. Locked contracts, migration allow-lists,
 and AI baseline protections remain unchanged unless explicitly permitted by the mandate.
 
+## WS-6 resilience implementation — after #700
+
+Base: measurement merged `80314db6`; root owns its deployment verification. Parity #698
+and measurement implementation #700 are complete; the first strong-judge readout remains
+credential-held. This stage does not re-pin, arm a guard, or perform founder operations.
+
+- [ ] Integrate exact OpenAI 3.7.0 / jiter 0.16 / native httpx2 lock, preserving cryptography 50.
+- [ ] Own one bounded call-local deadline and retry policy across primary, stream fallback,
+  optional independently authenticated provider fallback, and section recovery; close streams.
+- [ ] Record actual response model and usage per attempt, including empty-choice usage chunks;
+  expose bounded summary aggregates and preserve unknown values.
+- [ ] Require usable excerpt or numeric XBRL for full quality; preserve locked SSE/quota contracts.
+- [ ] Update fallback Settings/inventory/deployment instructions, processor and stale routing docs.
+- [ ] Prove native SDK request/retry/SSE/cancellation behavior offline, kill each new-test mutant,
+  run exact full backend gate, inspect actual full CI evaluation artifact, and obtain three lenses.
+
 ## Phase 0 — this PR: make releases safe, land the audit
 
 - [x] Explicit ruff rule set (`select = ["E4","E7","E9","F"]`) + pinned `requirements-dev.txt`; CI and the local gate install from it
