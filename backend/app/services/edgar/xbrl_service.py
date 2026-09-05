@@ -1181,8 +1181,8 @@ class EdgarXBRLService:
                     "value": entry.get("value"),
                     "form": entry.get("form"),
                     "currency": entry.get("currency"),
-                    "fiscal_year": entry.get("fiscal_year"),
-                    "fiscal_period": entry.get("fiscal_period"),
+                    **{key: entry[key] for key in ("fiscal_year", "fiscal_period")
+                       if entry.get(key) is not None},
                     # raw_tag rides through so financial_fact records which XBRL concept a value came
                     # from (audit trail) and the change report can detect a concept that flips
                     # between filings. None for legacy/pre-fix series.

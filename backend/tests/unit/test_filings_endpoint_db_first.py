@@ -141,14 +141,18 @@ def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monke
         assert s.query(Filing).filter(Filing.accession_number == "0000895421-26-000010").count() == 1
 
 
-def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch):
+@pytest.mark.parametrize("synced_forms, expected_fetches", [
+    (["10-K", "10-Q", "10-K/A", "10-Q/A"], 0),
+    (["10-K", "10-Q"], 1),  # An original-only fetch never proves amendment freshness.
+])
+def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch, synced_forms, expected_fetches):
     tc, TestingSession = client
     with TestingSession() as s:
         company = _seed_company(s)
         _seed_filing(s, company, "0000895421-25-000010", "10-K", 2025)
 
-    # Mark this (ticker, types) freshly synced → fast path, no live call at all.
-    filings_mod._mark_filings_synced("TESTCO", ["10-K", "10-Q"])
+    # Only a stamp covering every requested form can suppress the background refresh.
+    filings_mod._mark_filings_synced("TESTCO", synced_forms)
     sec_mock = AsyncMock(return_value=[])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", sec_mock)
 
@@ -156,8 +160,9 @@ def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch):
 
     assert resp.status_code == 200
     assert len(resp.json()) == 1
-    # Fresh stamp → neither a synchronous nor a background SEC fetch.
-    assert sec_mock.await_count == 0
+    assert sec_mock.await_count == expected_fetches
+    if expected_fetches:
+        assert sec_mock.await_args.args[1] == ["10-K", "10-Q", "10-K/A", "10-Q/A"]
 
 
 def _seed_history(session, company, n, start_year=2000):
@@ -179,7 +184,7 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
         s.commit()
         _seed_history(s, company, 25)
     # Freshly-synced → DB-first serves without any SEC round-trip.
-    filings_mod._mark_filings_synced("TESTCO", ["10-K", "10-Q"])
+    filings_mod._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     # Default: capped at CACHED_FILINGS_LIMIT (behaviour unchanged).
