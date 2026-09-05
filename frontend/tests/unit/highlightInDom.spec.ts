@@ -114,6 +114,34 @@ describe('highlightExcerptInDom', () => {
       }
     })
 
+    it('re-adopts the same sheet if something replaced document.adoptedStyleSheets without spreading', () => {
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<p>Net income rose on higher services revenue during the quarter.</p>' +
+        '<p>Operating expenses declined as headcount stayed flat through the period.</p>'
+      document.body.appendChild(container)
+      try {
+        expect(
+          highlightExcerptInDom(container, 'Net income rose on higher services revenue during the quarter'),
+        ).toBe(true)
+        const adopted = doc.adoptedStyleSheets?.[0]
+        expect(adopted).toBeInstanceOf(FakeSheet)
+
+        // Third-party code clobbers the list (no spread) — our sheet is dropped, memo still set.
+        doc.adoptedStyleSheets = []
+
+        expect(
+          highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat through the period'),
+        ).toBe(true)
+        expect(doc.adoptedStyleSheets).toHaveLength(1)
+        // Re-adopted, and it is the SAME sheet object — the CSS text is not re-parsed.
+        expect(doc.adoptedStyleSheets?.[0]).toBe(adopted)
+        expect(replaceSync).toHaveBeenCalledTimes(1)
+      } finally {
+        document.body.removeChild(container)
+      }
+    })
+
     it('re-adopts after the memo is reset (fresh document semantics)', () => {
       const container = document.createElement('div')
       container.innerHTML = '<p>Gross margin expanded on a favourable product mix this quarter.</p>'

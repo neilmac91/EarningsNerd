@@ -25,12 +25,16 @@ export const CITATION_HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_NAME}) { backgrou
 
 let highlightSheet: CSSStyleSheet | null = null
 
-/** Adopt the `::highlight(copilot-citation)` rule once per document. Safe to call repeatedly. */
+/**
+ * Adopt the `::highlight(copilot-citation)` rule once per document. Safe to call repeatedly: the
+ * memo alone is not trusted — if some other code reassigned `document.adoptedStyleSheets` without
+ * spreading the existing list, our sheet is gone while the memo says installed, so re-adopt.
+ */
 export function ensureCitationHighlightStyle(): void {
-  if (highlightSheet) return
+  if (highlightSheet && document.adoptedStyleSheets.includes(highlightSheet)) return
   try {
-    const sheet = new CSSStyleSheet()
-    sheet.replaceSync(CITATION_HIGHLIGHT_CSS)
+    const sheet = highlightSheet ?? new CSSStyleSheet()
+    if (!highlightSheet) sheet.replaceSync(CITATION_HIGHLIGHT_CSS)
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
     highlightSheet = sheet
   } catch {

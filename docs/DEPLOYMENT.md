@@ -86,11 +86,15 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > **Node.js version moves in lockstep — four places.** The runtime is pinned in
 > `frontend/.nvmrc` (exact), `frontend/package.json` `engines.node` (major line), and the three
 > `node-version:` sites in `.github/workflows/ci.yml`; the fourth is the **Vercel project setting**
-> (Project → Settings → General → *Node.js Version*), which is console-only and is what production
-> actually builds and serves on. When a PR bumps the Node major (20 → 22 in Sept 2026), the founder
-> switches the Vercel setting to the same major **before** that PR merges, so CI and the Vercel build
-> never run on different majors. Vercel also reads `engines.node` at build time and refuses a
-> version outside the project setting, so a mismatch fails the build rather than silently drifting.
+> (Project → Settings → Build and Deployment → *Node.js Version*), which is console-only. Per
+> Vercel's docs, `engines.node` in `package.json` **overrides** that project setting: with the
+> setting on 20.x and `engines.node` on `22.x`, Vercel deploys on the latest 22.x — so the repo pin,
+> not the console, is what production actually builds and serves on, and a mismatch drifts silently
+> rather than failing the build. Keep the two in agreement anyway: when a PR bumps the Node major
+> (20 → 22 in Sept 2026), the founder switches the Vercel setting to the same major alongside the
+> merge, so the dashboard states the truth and nothing depends on the override. A gate
+> (`frontend/tests/unit/nodeVersionLockstep.spec.ts`) keeps the three repo sites in step; the
+> console setting is the one it cannot see.
 >
 > **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
