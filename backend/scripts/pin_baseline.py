@@ -53,6 +53,8 @@ def build_baseline(
         raise ValueError("Report must record the actual model and judge configuration")
     if not results or any(r.get("error") or not r.get("score") for r in results):
         raise ValueError("Cannot pin a report with missing scores or evaluation errors")
+    if any(r.get("passed_gates") is not True or r["score"].get("gate_failures") != [] for r in results):
+        raise ValueError("Cannot pin a report with hard vetoes or missing gate evidence")
     observed = {(r.get("ticker"), r.get("filing_type")) for r in results}
     if observed != expected:
         raise ValueError("A baseline pin requires the complete verified golden set")
@@ -67,6 +69,9 @@ def build_baseline(
     stats = summary.get("baseline") or {}
     if stats.get("n") != len(results) or stats.get("errors") != 0:
         raise ValueError("Baseline summary counts do not match its successful filing runs")
+    if (type(stats.get("gate_fail_rate")) not in (int, float) or stats["gate_fail_rate"] != 0
+            or type(stats.get("pass_rate")) not in (int, float) or stats["pass_rate"] != 1):
+        raise ValueError("Cannot pin a summary with hard vetoes or inconsistent pass rates")
     baseline = {
         "snapshot_date": _snapshot_date(report_path),
         "source_report": report_path.name,

@@ -114,12 +114,13 @@ async def test_report_records_actual_harness_not_pinning_environment(monkeypatch
 def pin_report():
     filings = json.loads(runner.GOLDEN_PATH.read_text())['filings']
     results = [{'candidate': 'baseline', 'ticker': f['ticker'], 'filing_type': f['filing_type'],
-                'run': run, 'score': {'schema_valid': True}, 'error': None}
+                'run': run, 'score': {'schema_valid': True, 'gate_failures': []},
+                'passed_gates': True, 'error': None}
                for f in filings if f['verified'] and f['document_url'] for run in range(3)]
     return {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True,
                         'stream_section_reveal': True,
                         'golden_set_sha256': hashlib.sha256(runner.GOLDEN_PATH.read_bytes()).hexdigest()},
-            'summary': {'baseline': {'n': len(results), 'errors': 0}}, 'results': results}
+            'summary': {'baseline': {'n': len(results), 'errors': 0, 'gate_fail_rate': 0.0, 'pass_rate': 1.0}}, 'results': results}
 
 
 def test_pin_cli_preserves_note_and_measured_configuration(monkeypatch, tmp_path, pin_report):
@@ -179,3 +180,31 @@ def test_ci_parity_and_bounded_repeat_measurement():
     assert 'case "$EVAL_RUNS" in 2|3)' in run['run']
     assert 'ARGS=(--candidates baseline --runs "$EVAL_RUNS")' in run['run']
     assert 'python -m evals.runner "${ARGS[@]}"' in run['run']
+
+
+@pytest.mark.parametrize('defect', ['failed-gate', 'missing-gate', 'veto-list', 'missing-veto-list', 'veto-rate', 'missing-rate', 'pass-rate'])
+def test_pin_cli_refuses_hard_veto_evidence_without_overwriting(tmp_path, pin_report, defect):
+    first = pin_report['results'][0]
+    stats = pin_report['summary']['baseline']
+    if defect == 'failed-gate':
+        first['passed_gates'] = False
+    elif defect == 'missing-gate':
+        del first['passed_gates']
+    elif defect == 'veto-list':
+        first['score']['gate_failures'] = ['G5 bank component missing']
+    elif defect == 'missing-veto-list':
+        del first['score']['gate_failures']
+    elif defect == 'veto-rate':
+        stats['gate_fail_rate'] = 1 / len(pin_report['results'])
+    elif defect == 'missing-rate':
+        del stats['gate_fail_rate']
+    elif defect == 'pass-rate':
+        stats['pass_rate'] = 1 - 1 / len(pin_report['results'])
+    report = tmp_path / 'eval_20260905T100000Z.json'
+    report.write_text(json.dumps(pin_report))
+    output = tmp_path / 'baseline.json'
+    previous = b'{"note": "Existing honest baseline must survive rejection."}\n'
+    output.write_bytes(previous)
+    with pytest.raises(ValueError, match='Cannot pin'):
+        pin_baseline.main([str(report), '--out', str(output)])
+    assert output.read_bytes() == previous
