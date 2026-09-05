@@ -28,22 +28,29 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
 2. Every deploy job carries `timeout-minutes` well under GitHub's 360-minute default.
 3. New migration files never issue a top-level `ALTER TABLE` on a pre-existing table. Wrap it in
    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns …) THEN ALTER … END IF; END $$;`
-   so re-application on every deploy is a true no-op that takes no table lock
-   (pattern: `backend/migrations/20260705_summary_filing_id_unique.sql`).
-4. "Idempotent" in rule 3 of CLAUDE.md means *re-runnable*, not *lock-free*. Treat every re-applied
-   DDL statement as a lock acquisition on a live table.
-
+   so any re-application (ledger reset, edited file, CI's triple pass) is a true no-op that takes no
+   table lock (pattern: `backend/migrations/20260705_summary_filing_id_unique.sql`).
+4. "Idempotent" in rule 3 of CLAUDE.md means *re-runnable*, not *lock-free*. Treat every DDL
+   statement as a lock acquisition on a live table. Since ADR-0007 the `migration_ledger` table
+   (`backend/scripts/apply_migrations.sh`) stops converged files from being re-executed on a deploy
+   at all — the durable fix for this incident class.
 5. Plain `CREATE [UNIQUE] INDEX IF NOT EXISTS` on a pre-existing table is the same trap in a
    smaller lock (SHARE, taken before the existence check). New files use the same `DO $$` catalog
    guard (`pg_indexes`) or `CREATE INDEX CONCURRENTLY` outside a transaction block.
 
-Enforced by `backend/tests/unit/test_migration_lock_safety.py` (workflow knobs, SQLSTATE-only retry,
-proxy checksum pin, `ops.yml` dispatch-only + `PGOPTIONS`, and two frozen, shrink-only allow-lists:
-the 17 legacy unguarded-ALTER files and the 7 legacy unguarded-index files).
+Enforced by `backend/tests/unit/test_migration_lock_safety.py` (job knobs and proxy checksum pin in
+`ci.yml`; PGOPTIONS, SQLSTATE-only retry and the blocker dump in `backend/scripts/apply_migrations.sh`,
+the only place migration SQL runs; `ops.yml` dispatch-only + per-step `PGOPTIONS`; the real-Postgres
+triple-apply job; and two frozen, shrink-only allow-lists: the 17 legacy unguarded-ALTER files and
+the 7 legacy unguarded-index files).
 
 ## Evidence
 
 - CI run 29524625738 / job 87710378965: step 7 "Apply database migrations" 18:40:23Z → 00:38:50Z
   (`cancelled`); steps 8–11 `skipped`. Log tail: `psql:backend/migrations/20260122_add_markdown_cache_columns.sql:7: server closed the connection unexpectedly`.
-- `.github/workflows/ci.yml` migration step (PGOPTIONS + `apply_with_retry`), `deploy-backend.timeout-minutes`.
+- `backend/scripts/apply_migrations.sh` (PGOPTIONS + `apply_with_retry` + `dump_blockers`; run by the
+  `ci.yml` "Apply database migrations" step and by the `migrations-postgres` job),
+  `deploy-backend.timeout-minutes`. `ops.yml`'s psql steps run ops SQL, never migration files, so they
+  are outside that script and the ledger; each sets its own `PGOPTIONS` (lock_timeout=10s; statement
+  budget per step).
 - `docs/ENGINEERING_AUDIT_2026-09.md` §1 for the full timeline and the production-drift list.

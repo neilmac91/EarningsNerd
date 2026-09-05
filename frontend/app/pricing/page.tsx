@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { CheckIcon, CircleNotchIcon } from '@/lib/icons'
+import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
@@ -14,6 +14,7 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
+import { PRICE_VARIANTS } from './prices'
 
 interface CurrentUser {
   id: number
@@ -23,23 +24,33 @@ interface CurrentUser {
   email_verified?: boolean
 }
 
-// Pricing anchor: $39/mo · $390/yr (annual = 2 months free) — the prosumer-band anchor the council
-// set (kill $14, which reads as "toy" for an accountability product). Beta members still pay $0 via
-// the 100%-off forever promo; this only changes the displayed/anchored price + the analytics value.
-//
-// Fake-door $39-vs-$29 A/B (roadmap 2.3): the `pricing-experiment` PostHog flag picks the arm.
-// Display-only — both arms route to the same checkout, so the charge path is unchanged. Only the
-// explicit `price_29` arm lowers the anchor; an unset/missing flag (or PostHog being down) falls
-// through to the $39 control, so there's no regression if the experiment isn't configured. Module-
-// scoped (it's static) so it isn't re-allocated on every render.
-const PRICE_VARIANTS = {
-  control: { monthly: 39, yearly: 390, monthlyDisplay: '$39', yearlyDisplay: '$390' },
-  price_29: { monthly: 29, yearly: 290, monthlyDisplay: '$29', yearlyDisplay: '$290' },
-} as const
+// Price anchor + the $39-vs-$29 A/B arms live in ./prices (shared with the layout's Product JSON-LD).
+
+// The ONLY consumer of useSearchParams() on this page, isolated so it is the only thing inside the
+// Suspense boundary. useSearchParams() bails its nearest Suspense subtree out of the server HTML;
+// while it lived in PricingContent the whole body (H1, plans, prices, FAQ) shipped as the spinner
+// fallback and crawlers saw no content. Renders nothing — it only reacts to Stripe's
+// ?success / ?canceled return params.
+function PricingQueryEffects() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // Handle success/cancel from Stripe
+    if (searchParams.get('success') === 'true') {
+      // Refresh subscription status
+      router.refresh()
+    }
+    if (searchParams.get('canceled') === 'true') {
+      // Handle cancellation
+    }
+  }, [searchParams, router])
+
+  return null
+}
 
 function PricingContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   // Default to annual — it's the better value (2 months free) and the plan's preferred cycle.
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
@@ -71,17 +82,6 @@ function PricingContent() {
     retry: false,
     enabled: isAuthenticated,
   })
-
-  useEffect(() => {
-    // Handle success/cancel from Stripe
-    if (searchParams.get('success') === 'true') {
-      // Refresh subscription status
-      router.refresh()
-    }
-    if (searchParams.get('canceled') === 'true') {
-      // Handle cancellation
-    }
-  }, [searchParams, router])
 
   useEffect(() => {
     if (!hasTrackedPricingView.current) {
@@ -238,7 +238,7 @@ function PricingContent() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-4">Pricing</h2>
+          {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
           <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
@@ -455,13 +455,12 @@ function PricingContent() {
 
 export default function PricingPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-      </div>
-    }>
+    <>
+      <Suspense fallback={null}>
+        <PricingQueryEffects />
+      </Suspense>
       <PricingContent />
-    </Suspense>
+    </>
   )
 }
 

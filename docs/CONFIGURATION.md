@@ -114,6 +114,9 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_POSTHOG_KEY=...
 NEXT_PUBLIC_SENTRY_DSN=...
+SENTRY_AUTH_TOKEN=...                              # Build-time only (Vercel): Sentry source-map upload. Unset = no upload, build still succeeds
+SENTRY_ORG=...                                     # Sentry org slug for the source-map upload (pairs with SENTRY_AUTH_TOKEN)
+SENTRY_PROJECT=...                                 # Sentry project slug for the source-map upload (pairs with SENTRY_AUTH_TOKEN)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...                 # Pairs with backend TURNSTILE_SECRET_KEY
 NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token for CompanyLogo (blank = monogram fallback only)
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false

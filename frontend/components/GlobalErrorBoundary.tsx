@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { ArrowsClockwiseIcon, HouseIcon, WarningIcon } from '@/lib/icons'
 import { Button, GuidanceCard } from '@/components/ui'
 
@@ -35,12 +36,12 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     // Store error info for display
     this.setState({ errorInfo })
 
-    // Report to Sentry if available (guard window first — this can run during SSR)
-    if (typeof window !== 'undefined') {
-      const sentry = (window as unknown as {
-        Sentry?: { captureException?: (error: unknown) => void }
-      }).Sentry
-      sentry?.captureException?.(error)
+    // Report to Sentry through the SDK module (the old `window.Sentry` global was never set, so
+    // every boundary catch was a silent no-op). No-op when the DSN is unset; never let it throw.
+    try {
+      Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } })
+    } catch {
+      /* monitoring must never break the fallback UI */
     }
   }
 
@@ -49,7 +50,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleGoHome = () => {
-    window.location.href = '/'
+    // Absolute URL, not a relative '/' — satisfies @next/next/no-location-assign-relative-destination
+    // (Next 16.3) and can't be re-based by a <base> tag.
+    window.location.assign(new URL('/', window.location.origin))
   }
 
   private handleRetry = () => {
@@ -65,7 +68,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               variant="error"
               icon={<WarningIcon className="h-5 w-5" />}
               title="Something went wrong"
-              description="The error has been reported and we'll look into it."
+              description="This has been reported automatically. Try again, or head back home."
               action={
                 <>
                   <Button onClick={this.handleRetry} leftIcon={<ArrowsClockwiseIcon className="h-4 w-4" />}>

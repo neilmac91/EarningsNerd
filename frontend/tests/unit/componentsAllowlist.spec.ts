@@ -25,7 +25,6 @@ const ALLOWLIST = [
   'GlobalErrorBoundary.tsx',
   'Header.tsx',
   'SecondaryHeader.tsx',
-  'SentryTestButton.tsx',
   'SiteChrome.tsx',
   'ThemeProvider.tsx',
   'ThemeToggle.tsx',

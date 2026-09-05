@@ -18,7 +18,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`arch-edit-causal-directive-add-example.md`](./arch-edit-causal-directive-add-example.md) — Edit the directive that causes the behavior and pair it with a worked example
 - [`arch-fk-safe-bulk-deletes.md`](./arch-fk-safe-bulk-deletes.md) — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
 - [`arch-guard-every-model-facing-surface.md`](./arch-guard-every-model-facing-surface.md) — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
-- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL re-applied on EVERY deploy
+- [`arch-migrations-no-alembic.md`](./arch-migrations-no-alembic.md) — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
 - [`arch-no-precomputed-deltas-in-grounding.md`](./arch-no-precomputed-deltas-in-grounding.md) — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - [`arch-one-summary-orchestrator.md`](./arch-one-summary-orchestrator.md) — There is ONE summary orchestrator — never add a second generation path
 - [`arch-per-process-state-on-cloud-run.md`](./arch-per-process-state-on-cloud-run.md) — In-memory state is per-process — count every Cloud Run instance and job before trusting it
@@ -78,6 +78,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-git-add-atomic-empty-status-gate.md`](./ops-git-add-atomic-empty-status-gate.md) — Require an empty git status after every completing commit; never chain add-path recovery
 - [`ops-grep-verify-negative-claims.md`](./ops-grep-verify-negative-claims.md) — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
+- [`ops-deploy-owned-state-needs-a-distinctive-name.md`](./ops-deploy-owned-state-needs-a-distinctive-name.md) — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool

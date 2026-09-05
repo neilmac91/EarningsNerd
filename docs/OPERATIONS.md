@@ -169,6 +169,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 ### Verification Scripts
 
 Located in `backend/scripts/`:
+- `apply_migrations.sh` - Apply `backend/migrations/*.sql` through the `migration_ledger` table (ADR-0007); the one script both `deploy-backend` and the `migrations-postgres` CI job run
 - `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
 - `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data

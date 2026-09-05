@@ -44,6 +44,86 @@ jobs:
         # ini addopts and scope to the performance dir so it doesn't collect the whole tree.
         run: cd backend && python -m pytest -o addopts= -m performance tests/performance
 
+  # Real-Postgres migration gate (ADR-0007; CLAUDE.md rule 12). backend-tests runs on SQLite, so
+  # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
+  # production deploy step. Seeds a postgres:15 service the way a fresh DB is created (create_all),
+  # then runs the SAME script deploy-backend runs, three times:
+  #   pass 1 — every file applies and is recorded in migration_ledger (ledger seeding)
+  #   pass 2 — zero files apply (ledger skip: converged DDL takes no lock on a deploy)
+  #   pass 3 — after DELETE FROM migration_ledger every file applies again (files stay idempotent;
+  #            the edited-file and crashed-between-apply-and-record paths depend on it)
+  # A decoy `schema_migrations` table is planted before pass 1: prod has a legacy table of that name
+  # and the first ledger deploy adopted it via CREATE TABLE IF NOT EXISTS (2026-09-05). The ledger
+  # must live in `migration_ledger` and never read or write the legacy name.
+  # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
+  migrations-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: earningsnerd
+          POSTGRES_PASSWORD: earningsnerd
+          POSTGRES_DB: earningsnerd
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: earningsnerd
+      PGPASSWORD: earningsnerd
+      PGDATABASE: earningsnerd
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        # Only create_all needs Python; the migrations themselves run through psql.
+        run: pip install -r backend/requirements.txt
+      - name: Install psql
+        run: command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
+      - name: Seed schema with create_all (what a fresh database gets at startup)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+          SECRET_KEY: migrations-gate-secret-key-for-ci-0123456789
+          STRIPE_SECRET_KEY: sk_test_ci_migrations
+          STRIPE_WEBHOOK_SECRET: whsec_ci_migrations
+          SKIP_REDIS_INIT: 'true'
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+        run: python -c "from app.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine); print('create_all:', len(Base.metadata.tables), 'tables')"
+      - name: Plant a decoy schema_migrations table (prod has one the ledger must never adopt)
+        run: psql -X -v ON_ERROR_STOP=1 -c "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
+      # Each pass pipes the script through `tee`; an unspecified `shell:` runs `bash -e {0}` WITHOUT
+      # pipefail, so the script's exit status would be swallowed by tee's. `set -euo pipefail` makes
+      # the script's failure fail the step on its own; the grep is the second, independent check.
+      - name: Pass 1 — apply every file and seed the ledger
+        run: |
+          set -euo pipefail
+          N=$(ls backend/migrations/*.sql | wc -l)
+          bash backend/scripts/apply_migrations.sh | tee pass1.log
+          grep -qx "apply_migrations: applied=$N skipped=0" pass1.log
+      - name: Pass 2 — the ledger skips every recorded file
+        run: |
+          set -euo pipefail
+          N=$(ls backend/migrations/*.sql | wc -l)
+          bash backend/scripts/apply_migrations.sh | tee pass2.log
+          grep -qx "apply_migrations: applied=0 skipped=$N" pass2.log
+      - name: Pass 3 — reset the ledger; every file must still re-run cleanly
+        run: |
+          set -euo pipefail
+          N=$(ls backend/migrations/*.sql | wc -l)
+          psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"
+          bash backend/scripts/apply_migrations.sh | tee pass3.log
+          grep -qx "apply_migrations: applied=$N skipped=0" pass3.log
+
   frontend-tests:
     runs-on: ubuntu-latest
     steps:
@@ -292,7 +372,7 @@ jobs:
     # A normal deploy is ~10 min. Without this, a migration waiting on a Postgres lock held the job
     # for GitHub's 6 h default on 2026-07-16 and the release never shipped (lessons/ops-migrations-need-lock-timeout.md).
     timeout-minutes: 30
-    needs: [backend-tests, frontend-tests, e2e-tests]
+    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_WIF_PROVIDER != ''
     concurrency:
       group: deploy-backend
@@ -344,11 +424,13 @@ jobs:
         # existing table — so additive column/table migrations in backend/migrations/*.sql must be
         # applied to the prod Cloud SQL DB explicitly. Run them here, BEFORE the new revision serves
         # traffic, so a failed migration blocks the deploy and the new code never hits a missing
-        # column. All migration files are idempotent (IF NOT EXISTS / DROP NOT NULL), so re-applying
-        # the full set every deploy is safe — but NOT lock-free: `ALTER TABLE ... IF NOT EXISTS` still
-        # takes ACCESS EXCLUSIVE before it checks, so one open transaction on that table parks the
-        # deploy. lock_timeout/statement_timeout make that a fast, retried, diagnosable failure
-        # instead of a 6 h hang (2026-07-16 incident; lessons/ops-migrations-need-lock-timeout.md).
+        # column. The apply logic lives in backend/scripts/apply_migrations.sh (ADR-0007), shared
+        # verbatim with the migrations-postgres CI job: it skips files already recorded in the
+        # schema_migrations ledger (filename + sha256) so converged DDL never re-acquires a table
+        # lock, and applies the rest under lock_timeout/statement_timeout with a SQLSTATE-keyed
+        # bounded retry and a blocker dump on failure (2026-07-16 incident;
+        # lessons/ops-migrations-need-lock-timeout.md). The first deploy after the ledger lands
+        # applies every file once and records it.
         #
         # Prerequisite (one-time, granted out-of-band): the deployer SA (vars.GCP_DEPLOYER_SA) needs
         #   roles/cloudsql.client  AND  roles/secretmanager.secretAccessor on the DATABASE_URL secret.
@@ -379,50 +461,7 @@ jobs:
             sleep 1
           done
 
-          # Fail fast instead of queueing behind an open transaction; bound any single statement.
-          export PGOPTIONS="-c lock_timeout=10s -c statement_timeout=120s"
-          ERRLOG="$(mktemp)"
-
-          dump_blockers() {
-            # pg_stat_activity nulls state/xact_start/wait_event for OTHER roles' backends unless this
-            # role has pg_read_all_stats, so never filter on them (a human Cloud SQL Studio session
-            # would vanish). pg_locks is visible to every role and names the relation.
-            echo "Sessions in this database (NULL columns = another role's backend):"
-            psql -X -c "SELECT pid, usename, application_name, backend_type, state, wait_event_type, now() - xact_start AS xact_age FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() ORDER BY xact_start NULLS LAST;" || true
-            echo "Relation locks held or awaited in this database:"
-            psql -X -c "SELECT l.pid, l.mode, l.granted, c.relname FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE l.locktype = 'relation' AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND c.relnamespace = 'public'::regnamespace AND l.pid <> pg_backend_pid() ORDER BY c.relname, l.pid;" || true
-          }
-
-          apply_with_retry() {
-            local f="$1" attempt rc
-            for attempt in 1 2 3 4 5; do
-              rc=0
-              # VERBOSITY=verbose makes psql print the SQLSTATE (e.g. `ERROR:  55P03: ...`) so the
-              # retry decision keys on the code, not on message wording.
-              psql -X -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f "$f" 2>"$ERRLOG" || rc=$?
-              cat "$ERRLOG" >&2
-              if [ "$rc" -eq 0 ]; then
-                return 0
-              fi
-              # Retry only the contention class: lock_timeout 55P03, statement_timeout 57014,
-              # deadlock 40P01. A syntax or permission error is final on the first attempt.
-              if ! grep -qE '\b(55P03|57014|40P01)\b' "$ERRLOG"; then
-                echo "::error::$(basename "$f") failed with a non-retryable error (see above)."
-                return 1
-              fi
-              echo "::warning::$(basename "$f") hit a lock/statement timeout (attempt $attempt/5); retrying in 15s"
-              sleep 15
-            done
-            echo "::error::$(basename "$f") still blocked after 5 attempts. Terminate the blocker below, then re-run the job."
-            dump_blockers
-            return 1
-          }
-
-          for f in backend/migrations/*.sql; do
-            echo "== applying $(basename "$f") =="
-            apply_with_retry "$f"
-          done
-          echo "All migrations applied."
+          bash backend/scripts/apply_migrations.sh
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
