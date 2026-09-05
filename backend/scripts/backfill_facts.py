@@ -40,12 +40,16 @@ def _main(*, only_unprocessed: bool, limit: int | None) -> None:
     from app.database import SessionLocal
     from app.services import facts_service
 
-    db = SessionLocal()
-    try:
-        stats = facts_service.backfill_facts(db, limit=limit, only_unprocessed=only_unprocessed)
-        logger.info("Facts backfill complete: %s", stats)
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("backfill-facts", dry_run=False) as attempt:
+        db = SessionLocal()
+        try:
+            stats = facts_service.backfill_facts(db, limit=limit, only_unprocessed=only_unprocessed)
+            attempt.record(stats)
+            logger.info("Facts backfill complete: %s", stats)
+        finally:
+            db.close()
 
 
 def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -> None:
@@ -77,14 +81,18 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
                 old[key] = fresh[key]
         return old
 
-    db = SessionLocal()
-    try:
-        stats = facts_service.remediate_industry_facts(
-            db, refetch=refetch, tickers=tickers, limit=limit, dry_run=dry_run
-        )
-        logger.info("Financial-institution remediation complete (dry_run=%s): %s", dry_run, stats)
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("remediate-financials", dry_run=dry_run) as attempt:
+        db = SessionLocal()
+        try:
+            stats = facts_service.remediate_industry_facts(
+                db, refetch=refetch, tickers=tickers, limit=limit, dry_run=dry_run
+            )
+            attempt.record(stats)
+            logger.info("Financial-institution remediation complete (dry_run=%s): %s", dry_run, stats)
+        finally:
+            db.close()
 
 
 def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -> None:
@@ -93,27 +101,26 @@ def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool
     remediation's SIC-band selection match nothing. Idempotent (only fills blanks by default)."""
     from app.database import SessionLocal
     from app.services import facts_service
-    from edgar import Company as EdgarCompany, set_identity
-
-    set_identity(os.environ.get("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io"))
+    from app.services.edgar.company_sic import fetch_company_sic_sync
 
     def fetch_sic(company):
         cik = str(getattr(company, "cik", "") or "").strip()
         if not cik:
             return None
-        ec = EdgarCompany(cik)
-        sic = getattr(ec, "sic", None)
-        industry = getattr(ec, "industry", None)
-        return (str(sic), industry) if sic else None
+        return fetch_company_sic_sync(cik)
 
-    db = SessionLocal()
-    try:
-        stats = facts_service.backfill_company_sic(
-            db, fetch_sic=fetch_sic, tickers=tickers, limit=limit, dry_run=dry_run
-        )
-        logger.info("Company SIC backfill complete (dry_run=%s): %s", dry_run, stats)
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("backfill-company-sic", dry_run=dry_run) as attempt:
+        db = SessionLocal()
+        try:
+            stats = facts_service.backfill_company_sic(
+                db, fetch_sic=fetch_sic, tickers=tickers, limit=limit, dry_run=dry_run
+            )
+            attempt.record(stats)
+            logger.info("Company SIC backfill complete (dry_run=%s): %s", dry_run, stats)
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

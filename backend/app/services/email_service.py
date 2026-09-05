@@ -403,9 +403,21 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
     gaps = report.get("coverage_gaps") or []
     anom = report.get("filing_anomalies") or []
     partials = report.get("partial_reasons") or []
+    coverage = report.get("universe_coverage") or {}
+    jobs = report.get("job_health") or []
+    coverage_rows = [{"metric": key.replace("_", " "), "value": "unavailable" if value is None else value}
+                     for key, value in coverage.items()]
+    job_rows = [{**job, "last_success": job["last_success"] or "never observed",
+                 "health": "STALE" if job["stale"] else "current"} for job in jobs]
+
 
     html_body = (
         '<p style="margin:0 0 16px;">Automated weekly scan of the data-quality detections.</p>'
+        + _dq_section("Universe coverage (any stored summary; stubs have no summary)", _dq_rows(
+            coverage_rows, [lambda x: x["metric"], lambda x: x["value"]]), len(coverage_rows))
+        + _dq_section("Job health (stale after twice maximum cadence)", _dq_rows(
+            job_rows, [lambda x: x["job"], lambda x: x["latest_status"],
+                       lambda x: x["last_success"], lambda x: x["health"]]), len(job_rows))
         + _dq_section("Ticker mismatches (stored ≠ SEC primary)", _dq_rows(
             mism, [lambda x: x["ticker"], lambda x: f'→ {x["primary"]}', lambda x: f'CIK {x["cik"]}']), len(mism))
         + _dq_section("Coverage gaps (concept lags total assets ≥2y)", _dq_rows(
@@ -421,6 +433,10 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
     )
 
     text_lines = [
+        "Universe coverage (any stored summary; stubs have no summary):",
+        *[f"  {r['metric']}: {r['value']}" for r in coverage_rows],
+        "Job health (stale after twice maximum cadence):",
+        *[f"  {r['job']}: {r['latest_status']}; last success {r['last_success']}; {r['health']}" for r in job_rows],
         f"Ticker mismatches: {len(mism)}",
         *[f"  {m['ticker']} -> {m['primary']} (CIK {m['cik']})" for m in mism],
         f"Coverage gaps: {len(gaps)}",

@@ -39,22 +39,27 @@ logger = logging.getLogger(__name__)
 async def _main(*, alerts: bool, sweep_from: Optional[date] = None, sweep_to: Optional[date] = None) -> None:
     from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        if alerts:
-            from app.services import earnings_alert_service
+    from app.services.job_run_service import track_job
 
-            stats = await earnings_alert_service.send_earnings_day_alerts(db)
-            logger.info("Earnings-day alerts complete: %s", stats)
-        else:
-            from app.services import earnings_calendar_service
+    with track_job("earnings-day-alerts" if alerts else "earnings-calendar-refresh", dry_run=False) as attempt:
+        db = SessionLocal()
+        try:
+            if alerts:
+                from app.services import earnings_alert_service
 
-            stats = await earnings_calendar_service.run_refresh(
-                db, sweep_from=sweep_from, sweep_to=sweep_to
-            )
-            logger.info("Earnings-calendar refresh complete: %s", stats.as_dict())
-    finally:
-        db.close()
+                stats = await earnings_alert_service.send_earnings_day_alerts(db)
+                attempt.record(stats)
+                logger.info("Earnings-day alerts complete: %s", stats)
+            else:
+                from app.services import earnings_calendar_service
+
+                stats = await earnings_calendar_service.run_refresh(
+                    db, sweep_from=sweep_from, sweep_to=sweep_to
+                )
+                attempt.record(stats.as_dict())
+                logger.info("Earnings-calendar refresh complete: %s", stats.as_dict())
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

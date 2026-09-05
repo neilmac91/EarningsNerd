@@ -166,6 +166,7 @@ class RefreshStats:
     # describe work that was DISCARDED. Surfaced in the job log for monitoring (the job itself
     # deliberately never raises, matching filing_scan's contract).
     commit_failed: bool = False
+    source_errors: int = 0
 
     def as_dict(self) -> dict:
         return {
@@ -179,6 +180,7 @@ class RefreshStats:
             "stale_downgraded": self.stale_downgraded,
             "scored": self.scored,
             "commit_failed": self.commit_failed,
+            "source_errors": self.source_errors,
         }
 
 
@@ -425,8 +427,11 @@ async def run_refresh(
     stats = RefreshStats()
 
     if av_client is None:
+        from functools import partial
         from app.integrations.alpha_vantage import alpha_vantage_client
-        av_client = alpha_vantage_client
+        fetch_calendar = partial(alpha_vantage_client.fetch_earnings_calendar, raise_on_error=True)
+    else:
+        fetch_calendar = av_client.fetch_earnings_calendar
     if efts_client is None:
         from app.integrations.sec_api import sec_full_text_search_client
         efts_client = sec_full_text_search_client
@@ -435,10 +440,11 @@ async def run_refresh(
 
     # 1. Alpha Vantage bulk estimates.
     try:
-        av_rows = await av_client.fetch_earnings_calendar()
+        av_rows = await fetch_calendar()
         stats.av_rows = len(av_rows)
         stats.av_upserted = ingest_alpha_vantage(db, av_rows, today=today, stats=stats)
     except Exception:  # never let the bridge break the engine
+        stats.source_errors += 1
         logger.exception("Alpha Vantage ingest failed")
 
     # 2. EDGAR 8-K Item 2.02 sweep for the last two days (covers weekend/holiday gaps).
@@ -449,24 +455,27 @@ async def run_refresh(
         stats.edgar_hits = len(hits)
         stats.edgar_reported = ingest_edgar_reported(db, hits, stats=stats)
     except Exception:
+        stats.source_errors += 1
         logger.exception("EDGAR 8-K sweep failed")
 
     # 3. Downgrade past-dated estimates that never got their reported flip.
     try:
         stats.stale_downgraded = downgrade_stale_estimates(db, today=today)
     except Exception:
+        stats.source_errors += 1
         logger.exception("Stale-estimate downgrade failed")
 
     # 4. Rescore the forward window.
     try:
         stats.scored = recompute_scores(db, only_from=today - timedelta(days=7))
     except Exception:
+        stats.source_errors += 1
         logger.exception("Anticipation-score recompute failed")
 
     # Guard the single commit: if any in-run duplicate slipped past the per-insert flush, a rollback
     # keeps the DB consistent (previous good snapshot) rather than half-applying. Errors are logged
-    # and surfaced via stats.commit_failed, not raised — a failed daily job must not page anyone;
-    # the next run re-ingests.
+    # and surfaced via stats.commit_failed, not raised here; the job wrapper records failure
+    # and exits nonzero, while the service remains best-effort for API callers.
     try:
         db.commit()
     except Exception:

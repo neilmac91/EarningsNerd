@@ -185,7 +185,7 @@ code samples and platform names as illustrative only.
 | Layer | Truth |
 |---|---|
 | Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); 7 Cloud Run jobs |
-| Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` re-applied on every deploy (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
+| Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` applied once per filename/checksum through `migration_ledger` and skipped afterwards (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
 | Auth | Own JWT (HS256, `Authorization: Bearer`), rotated refresh tokens, OAuth (Google/Apple) — **no Firebase** |
 | AI | OpenAI-compatible client → DeepSeek (`deepseek-v4-pro` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |
 | Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/{ui,chrome}` — there is no `frontend/src`, no Vite, no React Router |

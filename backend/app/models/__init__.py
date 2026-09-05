@@ -17,6 +17,7 @@ from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
 from app.models.feedback import Feedback
+from app.models.job_run import JobRun
 
 logger = logging.getLogger(__name__)
 

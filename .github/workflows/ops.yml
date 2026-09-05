@@ -182,7 +182,7 @@ jobs:
                       print(f"{name} = <set; value withheld>")
           for flag in ("USE_STATEMENT_FINANCIALS",):
               if flag not in seen:
-                  print(f"{flag} = <NOT SET -> Settings default applies (False)>")
+                  print(f"{flag} = <NOT SET -> Settings default applies (True)>")
           print("latestReadyRevision:", svc.get("status", {}).get("latestReadyRevisionName"))
           PY
 

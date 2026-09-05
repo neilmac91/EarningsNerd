@@ -33,22 +33,27 @@ async def _main(*, digest: bool, dry_run: bool, cadence_minutes: int) -> None:
     async def _noop_send(**_kwargs):  # used in --dry-run
         return None
 
-    db = SessionLocal()
-    try:
-        if digest:
-            stats = await filing_scan_service.run_daily_digest(
-                db, send_digest=_noop_send if dry_run else None
-            )
-            logger.info("Daily digest complete: %s", stats)
-        else:
-            stats = await filing_scan_service.run_filing_scan(
-                db,
-                send_alert=_noop_send if dry_run else None,
-                cadence_minutes=cadence_minutes,
-            )
-            logger.info("Filing scan complete: %s", stats)
-    finally:
-        db.close()
+    from app.services.job_run_service import track_job
+
+    with track_job("filing-digest" if digest else "filing-scan", dry_run=dry_run) as attempt:
+        db = SessionLocal()
+        try:
+            if digest:
+                stats = await filing_scan_service.run_daily_digest(
+                    db, send_digest=_noop_send if dry_run else None
+                )
+                attempt.record(stats)
+                logger.info("Daily digest complete: %s", stats)
+            else:
+                stats = await filing_scan_service.run_filing_scan(
+                    db,
+                    send_alert=_noop_send if dry_run else None,
+                    cadence_minutes=cadence_minutes,
+                )
+                attempt.record(stats)
+                logger.info("Filing scan complete: %s", stats)
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

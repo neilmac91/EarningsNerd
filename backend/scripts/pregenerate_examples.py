@@ -53,7 +53,7 @@ DEFAULT_TICKERS = [
 _ANNUAL_FORM_BY_TICKER = {"BABA": "20-F"}
 
 
-async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
+async def pregenerate_for_ticker(ticker: str, force: bool = False) -> dict:
     """Resolve the latest annual filing (10-K, or 20-F for foreign issuers) for ``ticker``,
     persist it, and cache its summary.
 
@@ -73,22 +73,26 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
         print(f"{r['ticker']}: filing_id={r['filing_id']} accession={r['accession']} -> {detail}")
     else:
         print(f"{r['ticker']}: {detail}")
+    return r
 
 
 async def main(tickers: list[str], force: bool = False) -> None:
     mode = " (force refresh)" if force else ""
     print(f"Pre-generating example summaries for {len(tickers)} ticker(s){mode}: {', '.join(tickers)}")
-    for ticker in tickers:
-        try:
-            await pregenerate_for_ticker(ticker, force=force)
-        except Exception as exc:  # noqa: BLE001 — keep going for remaining tickers
-            logger.exception("Failed to pre-generate example for %s", ticker)
-            print(f"{ticker.upper()}: ERROR — {exc}")
+    from app.services.job_run_service import track_job
 
-    print(
-        "\nDone. Copy a chosen filing id into NEXT_PUBLIC_EXAMPLE_FILING_ID "
-        "(frontend) to enable the zero-wait 'See an Example' CTA."
-    )
+    with track_job("pregenerate") as attempt:
+        stats: dict[str, int] = {}
+        for ticker in tickers:
+            try:
+                result = await pregenerate_for_ticker(ticker, force=force)
+                status = result["status"]
+            except Exception:  # keep going, then fail the job with the observed counts
+                logger.exception("Failed to pre-generate example for %s", ticker)
+                status = "errors"
+            stats[status] = stats.get(status, 0) + 1
+        attempt.record(stats)
+        print("Pre-generation complete; per-ticker outcomes:", stats)
 
 
 if __name__ == "__main__":
