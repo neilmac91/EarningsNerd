@@ -346,19 +346,23 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 **Quarterly: refresh the membership list** (the indexes rebalance ~quarterly). Regenerate, review the
 diff in a PR, merge — the served universe only ever changes via a reviewed commit, never a live fetch.
 The `Refresh index membership` workflow (`.github/workflows/refresh-index-membership.yml`, 1st of each
-month + `workflow_dispatch`) does this automatically and opens a PR only when the constituents changed.
-**Source order:** with the `FMP_API_KEY` repo secret set, both indices come from FMP
-(`/sp500_constituent`, `/nasdaq_constituent`); without it the script falls back to Wikipedia, which
-can supply only the S&P 500 half — its Nasdaq-100 article dropped the constituents table in 2026 — so
-the run **fails with exit 2, writes nothing, and opens/updates a "Universe refresh failed <date>"
-issue**. It never ships an S&P-only universe. The file's `generated_on` date is gated by
-`tests/unit/test_index_membership_service.py`, which fails CI once the list is more than 100 days old.
+month + `workflow_dispatch`) does this automatically and opens (or updates) a PR on **every successful
+run**: the file's `generated_on` date is re-stamped each time, so the monthly PR is the heartbeat that
+proves the refresh still works, and its diff shows any constituent changes alongside the date bump.
+Merge it even when only the date moved — that is what keeps the 100-day age gate in
+`tests/unit/test_index_membership_service.py` green. **Source order:** with the `FMP_API_KEY` repo
+secret set, both indices come from FMP's stable API (`/stable/sp500-constituent`,
+`/stable/nasdaq-constituent`; the legacy `/api/v3` was cut off 2026-07-03); without it the script
+falls back to Wikipedia, which can supply only the S&P 500 half — its Nasdaq-100 article dropped the
+constituents table in 2026 — so the run **fails with exit 2, writes nothing, and opens/updates a
+"Universe refresh failed <date>" issue**. Every source must deliver both halves at plausible size
+(S&P 500 ≥ 480, Nasdaq-100 ≥ 90) or the run aborts the same way; an S&P-only universe is never shipped.
 
 ```bash
 cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # --check = dry-run diff only
 #   Prints the added/removed tickers and rewrites app/data/index_membership.json; commit it via PR.
 #   Aborts without writing if the fetch yields < 450 tickers (never truncates the committed list)
-#   or if only one index half could be fetched (exit 2; the message names the FMP_API_KEY fix).
+#   or if either index half is missing/short (exit 2; the message names the fix, e.g. FMP_API_KEY).
 ```
 
 The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers

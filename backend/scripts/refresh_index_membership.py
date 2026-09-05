@@ -7,16 +7,20 @@ file, and a human reviews the diff in a PR before it ships. That keeps the calen
 auditable and impossible to corrupt from a bad/empty API response at runtime.
 
 Source precedence (``--source auto``, the workflow default):
-  1. FMP  (``FMP_API_KEY`` set)  — /sp500_constituent + /nasdaq_constituent for BOTH indices.
+  1. FMP  (``FMP_API_KEY`` set)  — stable-API /sp500-constituent + /nasdaq-constituent for BOTH
+     indices (the legacy /api/v3 endpoints were cut off 2026-07-03).
   2. Wikipedia (keyless) — the "List of S&P 500 companies" table only. The "Nasdaq-100" article no
      longer carries a constituents table (verified live 2026-09-04), so a keyless run fetches the
      S&P 500 half, then ABORTS with exit code 2 and a message naming the fix (add ``FMP_API_KEY``).
      It never writes an S&P-only file: the served universe is "S&P 500 ∪ Nasdaq 100", and a partial
      list would silently drop ~100 Nasdaq-only names from the calendar.
 
-Safety: a fetch that yields fewer than ``SANITY_FLOOR`` unique tickers ABORTS without writing, so a
-provider hiccup can never truncate the committed list. The written file carries ``generated_on``
-(UTC date); ``tests/unit/test_index_membership_service.py`` fails once that date is >100 days old.
+Safety: EVERY source must deliver both halves at plausible size (S&P 500 >= ``SP500_FLOOR``,
+Nasdaq-100 >= ``NASDAQ100_FLOOR``) and the union must clear ``SANITY_FLOOR``, else the run ABORTS
+without writing — a provider hiccup or an empty index response can never truncate the committed
+list or drop one index. The written file carries ``generated_on`` (UTC date), stamped on every run
+so the monthly workflow PR doubles as a heartbeat; ``tests/unit/test_index_membership_service.py``
+fails once that date is >100 days old.
 
 Usage:
     python scripts/refresh_index_membership.py            # regenerate + write, print diff
@@ -41,6 +45,11 @@ logger = logging.getLogger(__name__)
 
 # ~525 unique across both indexes; abort below this so a failed parse never writes a stub list.
 SANITY_FLOOR = 450
+# Per-index floors: the union floor alone is satisfied by the S&P 500 by itself, so an empty or
+# truncated Nasdaq-100 response would otherwise pass and silently ship an S&P-only universe.
+# S&P 500 holds ~503 tickers (dual classes); the Nasdaq-100 ~101.
+SP500_FLOOR = 480
+NASDAQ100_FLOOR = 90
 
 # Tickers Wikipedia pre-lists for announced-but-not-yet-trading spin-offs (e.g. FedEx Freight,
 # Honeywell Aerospace). They can never match an Alpha Vantage earnings event because they don't
@@ -52,7 +61,11 @@ NONTRADING_ARTIFACTS = {"FDXF", "HONA"}
 _WIKI_UA = "EarningsNerd/1.0 (https://earningsnerd.io; contact@earningsnerd.io) python-httpx"
 _SP500_WIKI = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 _NASDAQ100_WIKI = "https://en.wikipedia.org/wiki/Nasdaq-100"
-_FMP_BASE = "https://financialmodelingprep.com/api/v3"
+# FMP "stable" API. The legacy /api/v3 (sp500_constituent, nasdaq_constituent) was cut off on
+# 2026-07-03 — see tests/unit/test_dead_integrations_allowlist.py — and 403s even with a valid key.
+_FMP_BASE = "https://financialmodelingprep.com/stable"
+_FMP_SP500_PATH = "sp500-constituent"
+_FMP_NASDAQ100_PATH = "nasdaq-constituent"
 
 _DATA_PATH = Path(__file__).resolve().parents[1] / "app" / "data" / "index_membership.json"
 
@@ -93,8 +106,8 @@ def fetch_fmp(api_key: str) -> Tuple[Dict[str, str], Dict[str, str]]:
                 out[sym] = str(r.get("name") or r.get("companyName") or "").strip()
         return out
 
-    sp = to_map(_fetch_fmp("sp500_constituent", api_key))
-    nd = to_map(_fetch_fmp("nasdaq_constituent", api_key))
+    sp = to_map(_fetch_fmp(_FMP_SP500_PATH, api_key))
+    nd = to_map(_fetch_fmp(_FMP_NASDAQ100_PATH, api_key))
     return sp, nd
 
 
@@ -151,6 +164,20 @@ def fetch_wikipedia() -> Tuple[Dict[str, str], Dict[str, str]]:
 
 # --------------------------------------------------------------------------- build + write
 
+def require_both_halves(sp500: Dict[str, str], nasdaq100: Dict[str, str], source: str) -> None:
+    """Source-agnostic guard: both indices present at plausible size, else ``PartialUniverseError``.
+
+    Applies to FMP too — an empty ``nasdaq-constituent`` response (plan change, outage, endpoint
+    move) would otherwise clear the union floor on the S&P 500 alone and write a partial file.
+    """
+    if len(sp500) < SP500_FLOOR or len(nasdaq100) < NASDAQ100_FLOOR:
+        raise PartialUniverseError(
+            f"{source} returned sp500={len(sp500)} (floor {SP500_FLOOR}) and "
+            f"nasdaq100={len(nasdaq100)} (floor {NASDAQ100_FLOOR}); one index half is missing or "
+            "truncated, so the S&P 500 ∪ Nasdaq 100 universe cannot be rebuilt. Nothing written."
+        )
+
+
 def build_entries(sp500: Dict[str, str], nasdaq100: Dict[str, str]) -> List[dict]:
     """Merge the two maps into sorted entries with an ``indices`` list per ticker."""
     entries: Dict[str, dict] = {}
@@ -193,24 +220,25 @@ def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
     if use_fmp and not api_key:
         logger.error("source=fmp but FMP_API_KEY is unset")
         return 2
-    if not use_fmp:
+    label = "fmp" if use_fmp else "wikipedia"
+    if source == "auto" and not use_fmp:
         logger.warning(
             "FMP_API_KEY unset — falling back to Wikipedia, which can only supply the S&P 500 half; "
             "this run will fail unless the Nasdaq-100 table has been restored."
         )
     try:
         sp500, nasdaq100 = fetch_fmp(api_key) if use_fmp else fetch_wikipedia()
+        require_both_halves(sp500, nasdaq100, label)
     except PartialUniverseError as exc:
         logger.error("ABORT (partial universe, nothing written): %s", exc)
         return 2
     except Exception as exc:  # noqa: BLE001 - degrade with a clear message, never half-write
-        logger.error("fetch failed (%s): %s", "fmp" if use_fmp else "wikipedia", exc)
+        logger.error("fetch failed (%s): %s", label, exc)
         return 2
 
     entries = build_entries(sp500, nasdaq100)
     logger.info(
-        "fetched via %s: sp500=%d nasdaq100=%d union=%d",
-        "fmp" if use_fmp else "wikipedia", len(sp500), len(nasdaq100), len(entries),
+        "fetched via %s: sp500=%d nasdaq100=%d union=%d", label, len(sp500), len(nasdaq100), len(entries),
     )
     if len(entries) < SANITY_FLOOR:
         logger.error(
@@ -227,7 +255,10 @@ def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
     payload = {
         "_comment": "Generated by scripts/refresh_index_membership.py. S&P 500 ∪ Nasdaq 100. "
                     "Review diffs in PRs; do not hand-edit casually. Tickers are AV/dot format.",
-        "source": "fmp" if use_fmp else "wikipedia",
+        "source": label,
+        # Stamped on every run (the monthly workflow PR is then a heartbeat, and the 100-day test gate
+        # stays honest). Stdlib rather than app.utils.datetimes.utcnow(): this script runs in the
+        # workflow's bare venv (httpx + pandas only) and must not import the app package.
         "generated_on": datetime.now(timezone.utc).date().isoformat(),
         "count": len(entries),
         "members": entries,
