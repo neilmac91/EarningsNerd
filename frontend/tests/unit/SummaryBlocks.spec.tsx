@@ -196,6 +196,39 @@ describe('SummaryBlocks', () => {
     expect(screen.queryByText(/tone was/i)).not.toBeInTheDocument()
   })
 
+  it('renders a compact mobile jump-nav whose anchors mirror the desktop TOC', () => {
+    render(<SummaryBlocks sections={sections} summary={summary} />)
+    const mobileNav = screen.getByRole('navigation', { name: 'Jump to section' })
+    const desktopNav = screen.getByRole('navigation', { name: 'Summary sections' })
+    for (const section of sections) {
+      expect(mobileNav.querySelector(`a[href="#${section.id}"]`)).not.toBeNull()
+      expect(desktopNav.querySelector(`a[href="#${section.id}"]`)).not.toBeNull()
+    }
+    // Chips are real anchors (keyboard-reachable, no onChange navigation), one per section.
+    expect(mobileNav.querySelectorAll('a')).toHaveLength(sections.length)
+  })
+
+  it('gives untitled risks distinct derived headings instead of repeating "Risk Factor"', () => {
+    const riskSections: RenderedSection[] = [
+      { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
+    ]
+    const untitled = {
+      business_overview: 'x',
+      raw_summary: {
+        sections: {
+          risk_factors: [
+            { summary: 'Customer concentration remains high. Two customers were 40% of revenue.', supporting_evidence: 'Item 1A: verbatim quote one.' },
+            { summary: 'FX headwinds persist; the euro weakened 8%.', supporting_evidence: 'Item 1A: verbatim quote two.' },
+          ],
+        },
+      },
+    } as unknown as Summary
+    render(<SummaryBlocks sections={riskSections} summary={untitled} />)
+    const headings = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)
+    expect(headings).toEqual(['Customer concentration remains high', 'FX headwinds persist'])
+    expect(screen.queryByText('Risk Factor')).not.toBeInTheDocument()
+  })
+
   it('matches the risks section by role and filters placeholder-evidence risks', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },

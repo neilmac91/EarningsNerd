@@ -55,6 +55,17 @@ const buildLoadingSteps = (filingType: string) => [
   { stage: 'summarizing', label: 'Generating investment analysis' },
 ]
 
+// Screen-reader announcement for the live region. Derived from the STAGE only (never the
+// percent), so the polite region updates exactly once per stage transition instead of chattering
+// on every optimistic-progress tick.
+const stageAnnouncement = (stage: string, filingType: string): string => {
+  if (stage === 'completed') return 'Summary ready.'
+  const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
+  if (step) return `${step.label}.`
+  if (stage === 'initializing' || stage === 'queued') return 'Starting summary generation.'
+  return 'Generating your analysis.'
+}
+
 const STAGE_PROGRESS_MAP: Record<string, number> = {
   'queued': 5,
   'fetching': 10,
@@ -281,6 +292,12 @@ export default function StreamingSummaryDisplay({
           error surface, so the bar/steps/whimsy never duplicate the failure state. */}
       {!isError && (
         <Card className="p-6 sm:p-8">
+          {/* Live region: one polite announcement per stage transition (the progressbar's value
+              changes every tick and is deliberately NOT live). */}
+          <p role="status" aria-live="polite" className="sr-only">
+            {stageAnnouncement(stage, filing.filing_type)}
+          </p>
+
           {/* Header: title + live status + count-up percent */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">

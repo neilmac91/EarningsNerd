@@ -1,3 +1,4 @@
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import FilingPageClient from './page-client'
@@ -31,7 +32,7 @@ const filingTitle = (filing: Filing) => {
   const year = filing.filing_date?.slice(0, 4) ?? ''
   const company = filing.company
   return company
-    ? `${company.name} (${company.ticker}) ${filing.filing_type} ${year}: AI Summary | EarningsNerd`
+    ? `${formatCompanyName(company.name)} (${company.ticker}) ${filing.filing_type} ${year}: AI Summary | EarningsNerd`
     : `${filing.filing_type} ${year} Filing: AI Summary | EarningsNerd`
 }
 
@@ -67,7 +68,7 @@ export async function generateMetadata({ params }: FilingPageProps): Promise<Met
   const summary = summaryResult.status === 'ok' ? summaryResult.data : undefined
   const hasContent = summaryHasDisplayableContent(summary)
   const filedDate = formatLocalDate(filing.filing_date, 'MMMM d, yyyy')
-  const companyName = filing.company?.name ?? 'this company'
+  const companyName = formatCompanyName(filing.company?.name) || 'this company'
 
   const title = filingTitle(filing)
   // With a summary: its own opening sentences (unique per page). Without: an honest template.
@@ -106,7 +107,7 @@ const buildJsonLd = (filing: Filing) => {
           {
             '@type': 'ListItem',
             position: 2,
-            name: `${company.name} (${company.ticker})`,
+            name: `${formatCompanyName(company.name)} (${company.ticker})`,
             item: `${SITE_URL}/company/${company.ticker}`,
           },
         ]
