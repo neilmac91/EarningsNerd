@@ -54,17 +54,22 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    route was retired (smoke test `test_compare_router_is_gone` locks it at 404).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
-   idempotent SQL file in `backend/migrations/` — CI re-applies ALL files on every deploy, so every
-   file must stay safe to re-run forever. Never edit an applied migration. Idempotent is not
-   lock-free: `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE, so new files wrap ALTERs
-   on existing tables in a `DO $$ … IF NOT EXISTS … $$` guard (gate:
+   idempotent SQL file in `backend/migrations/`. The deploy applies each file ONCE per
+   (filename, sha256) through the `schema_migrations` ledger (`backend/scripts/apply_migrations.sh`,
+   ADR-0007) and skips it afterwards — but files must still be safe to re-run (ledger reset, edited
+   file, crash between apply and record; CI proves it with a triple pass on `postgres:15`). Never
+   edit an applied migration — an edit re-applies it once; that is the escape hatch, not a workflow.
+   Idempotent is not lock-free: `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE, so new
+   files wrap ALTERs on existing tables in a `DO $$ … IF NOT EXISTS … $$` guard (gate:
    `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
 5. **SEC calls:** all sec.gov traffic goes through the edgar service layer
    (`app/services/edgar/` — rate limiter + circuit breaker). Never raw httpx to sec.gov outside
    it. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
-   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket).
+   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket). Gate:
+   `tests/unit/test_sec_gov_importers_allowlist.py` (sec.gov literals only in the edgar layer,
+   `integrations/sec_api.py`, `utils/sec_urls.py`, `config.py`).
 6. **Contract tests are locked.** The SSE stream contract, background-generation
    characterization, auth flow, and Stripe webhook tests may be edited ONLY to delete references
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
@@ -75,12 +80,15 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
    Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
-   `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity).
+   `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity) plus `Settings.__init__`
+   itself — enforced by `tests/unit/test_os_getenv_allowlist.py`.
 9. **Boundaries:** validate external data where it enters (SEC responses, Stripe webhooks, AI
    output); do NOT re-validate internally-produced data downstream.
-10. **Data integrity:** `Filing.sec_url`/`document_url` are NOT NULL (event-listener enforced).
-    URL format: `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading
-    zeros stripped and accession dashes removed (see `lessons/sec-filing-url-format.md`).
+10. **Data integrity:** `Filing.sec_url`/`document_url` are NOT NULL (event-listener enforced;
+    the listener raises rather than fabricating a URL when the Company isn't loaded). URL format:
+    `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading zeros stripped
+    and accession dashes removed — build it ONLY with `app/utils/sec_urls.py` (see
+    `lessons/sec-filing-url-format.md`; tests in `tests/unit/test_filing_url_listeners.py`).
 11. **Design system:** any theme/token change is app-wide (public + authed). Done-gate = the
     legacy-color grep in `DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
@@ -118,8 +126,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend gate = eslint +
 tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
-`deploy-backend` runs on push to main when `backend/` changed: applies `backend/migrations/*.sql`
-idempotently to Cloud SQL, deploys the Cloud Run service (`earningsnerd-backend`, project
+`deploy-backend` runs on push to main when `backend/` changed: applies not-yet-recorded
+`backend/migrations/*.sql` files to Cloud SQL through the `schema_migrations` ledger
+(`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
+`postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
 (Mondays 06:00 UTC), and updates the image on all 7 Cloud Run jobs (pregenerate, filing-scan,
 filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts, notable-filings).

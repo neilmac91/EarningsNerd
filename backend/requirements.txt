@@ -130,7 +130,7 @@ pandas==3.0.4
     #   edgartools
 passlib==1.7.4
     # via -r requirements.in
-pillow==12.2.0
+pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
@@ -140,7 +140,7 @@ psycopg2-binary==2.9.12
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
-pyasn1==0.6.3
+pyasn1==0.6.4
     # via
     #   python-jose
     #   rsa

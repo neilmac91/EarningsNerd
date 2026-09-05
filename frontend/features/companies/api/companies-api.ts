@@ -26,38 +26,6 @@ export interface Company {
   coverage_reason?: string
 }
 
-export interface TrendingTicker {
-  symbol: string
-  name?: string | null
-  watchlist_count?: number | null
-  price?: number | null
-  change?: number | null
-  change_percent?: number | null
-  // Legacy fields for backward compatibility
-  tweet_volume?: number | null
-  sentiment_score?: number | null
-}
-
-export interface TrendingTickerResponse {
-  tickers: TrendingTicker[]
-  source: string
-  timestamp: string
-  status?: string
-  message?: string
-  filtered_count?: number
-}
-
-export interface PriceData {
-  price?: number | null
-  change?: number | null
-  change_percent?: number | null
-}
-
-export interface PriceRefreshResponse {
-  prices: Record<string, PriceData>
-  timestamp: string
-}
-
 // Company APIs
 export const searchCompanies = async (query: string): Promise<Company[]> => {
   const response = await api.get('/api/companies/search', {
@@ -74,21 +42,6 @@ export const getCompany = async (ticker: string): Promise<Company> => {
 export const getTrendingCompanies = async (limit: number = 10): Promise<Company[]> => {
   const response = await api.get('/api/companies/trending', {
     params: { limit },
-  })
-  return response.data
-}
-
-export const getTrendingTickers = async (): Promise<TrendingTickerResponse> => {
-  const response = await api.get('/api/trending_tickers')
-  return response.data
-}
-
-export const refreshTickerPrices = async (symbols: string[]): Promise<PriceRefreshResponse> => {
-  const response = await api.get('/api/trending_tickers/refresh-prices', {
-    params: { symbols },
-    paramsSerializer: {
-      indexes: null, // Use repeated params: ?symbols=AAPL&symbols=MSFT
-    },
   })
   return response.data
 }

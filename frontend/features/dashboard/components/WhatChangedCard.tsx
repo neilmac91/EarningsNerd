@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
 import { ArrowRightIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
@@ -67,10 +68,10 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       <Card interactive className="h-full p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <CompanyLogo ticker={company.ticker} name={company.name} size={28} />
+            <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {company.name}
+                {formatCompanyName(company.name)}
               </span>
               <span className="rounded-full bg-panel-light px-2 py-0.5 text-xs font-semibold text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark">
                 {company.ticker}

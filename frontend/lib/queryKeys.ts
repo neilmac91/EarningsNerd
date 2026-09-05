@@ -30,7 +30,6 @@ export const queryKeys = {
   adminInvites: () => ['admin-invites'] as const,
   dashboardFeed: () => ['dashboard-feed'] as const,
   dashboardCalendar: () => ['dashboard-calendar'] as const,
-  trendingTickers: () => ['trending-tickers'] as const,
   notifications: () => ['notifications'] as const,
   notificationPreferences: () => ['notification-preferences'] as const,
   authConnections: () => ['auth-connections'] as const,

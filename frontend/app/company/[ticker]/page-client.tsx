@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -318,7 +319,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           <GuidanceCard
             variant="empty"
             icon={<FileTextIcon className="h-5 w-5" />}
-            title={company.name || normalizedTicker}
+            title={formatCompanyName(company.name) || normalizedTicker}
             description={
               company.coverage_reason ||
               'This issuer does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.'
@@ -337,6 +338,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // TypeScript type guard: company is definitely defined at this point (checked above)
   // Use non-null assertion since we've already verified company exists
   const companyData = company!
+  // Display casing only: analytics/cache payloads above keep the raw EDGAR name as the data value.
+  const companyDisplayName = formatCompanyName(companyData.name)
 
   const toggleYear = (year: string) => {
     const newExpanded = new Set(expandedYears)
@@ -395,8 +398,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
               </Link>
               <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
-                  <CompanyLogo ticker={companyData.ticker} name={companyData.name} size={40} priority />
-                  <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyData.name}</h1>
+                  <CompanyLogo ticker={companyData.ticker} name={companyDisplayName} size={40} priority />
+                  <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyDisplayName}</h1>
                   {currentUser && (
                     <button
                       onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}
@@ -525,7 +528,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
+                      Not sure where to start? This is {companyDisplayName}&apos;s most recent{' '}
                       {recommendedFilingNoun(recommendedFiling)}. Start with its AI summary.
                     </p>
                   </div>

@@ -22,6 +22,7 @@ import httpx
 
 from app.config import settings
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.sec_urls import build_sec_archive_url
 
 logger = logging.getLogger(__name__)
 
@@ -91,16 +92,17 @@ def _build_urls(
 ) -> Tuple[Optional[str], Optional[str]]:
     """Construct (filing index URL, matched-document URL) for a hit.
 
-    Mirrors the archive-URL convention in ``edgar/client.py:_transform_filing``:
-    CIK has leading zeros stripped, accession has dashes removed.
+    Uses the shared archive-URL builder (``app.utils.sec_urls``); a hit whose CIK or accession is
+    missing or malformed yields ``(None, None)`` — EFTS hits are best-effort search results.
     """
 
     if not cik or not accession_no:
         return None, None
 
-    cik_clean = cik.lstrip("0") or "0"
-    accession_nodash = accession_no.replace("-", "")
-    index_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_nodash}/"
+    try:
+        index_url = build_sec_archive_url(cik, accession_no)
+    except ValueError:
+        return None, None
     document_url = index_url + document if document else index_url
     return index_url, document_url
 

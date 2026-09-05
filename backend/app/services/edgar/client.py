@@ -28,6 +28,7 @@ from urllib.parse import urljoin
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
 from app.utils.datetimes import utcnow
+from app.utils.sec_urls import build_sec_archive_url
 
 from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
@@ -486,11 +487,17 @@ class EdgarClient:
             if limit:
                 filings = filings[:limit]
 
-            # Transform to our Filing model
-            return [
-                self._transform_filing(f, ticker, edgar_company.cik)
-                for f in filings
-            ]
+            # Transform to our Filing model. A filing whose accession/CIK the URL builder rejects
+            # (malformed listing metadata) is skipped with a warning rather than failing the listing.
+            transformed: List[Filing] = []
+            for f in filings:
+                try:
+                    transformed.append(self._transform_filing(f, ticker, edgar_company.cik))
+                except ValueError as exc:
+                    logger.warning(
+                        f"Skipping filing {getattr(f, 'accession_number', '?')} for {ticker}: {exc}"
+                    )
+            return transformed
 
         except Exception as exc:
             if "not found" in str(exc).lower():
@@ -576,11 +583,8 @@ class EdgarClient:
         # Determine filing type enum - use non-strict mode to get UNKNOWN for unrecognized forms
         filing_type = FilingType.from_string(edgar_filing.form, strict=False)
 
-        # Generate SEC filing URL
-        # Format: https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/
-        accession_clean = edgar_filing.accession_number.replace("-", "")
-        cik_clean = cik.lstrip("0") or "0"  # Remove leading zeros, but keep at least "0"
-        sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
+        # Canonical archive URL (CIK zeros stripped, accession dashless) — the ONE builder for it.
+        sec_url = build_sec_archive_url(cik, edgar_filing.accession_number)
 
         # Resolve the absolute document URL from listing metadata only. EntityFiling
         # carries `primary_document` as a plain attribute; do NOT touch `filing_url`,

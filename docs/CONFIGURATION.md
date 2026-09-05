@@ -87,25 +87,17 @@ FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset
 # Analytics & Monitoring
 POSTHOG_API_KEY=...
 SENTRY_DSN=...                    # Sentry error tracking DSN
-
-# External APIs - Finnhub
-FINNHUB_API_KEY=...               # Required for sentiment analysis
-FINNHUB_API_BASE=https://finnhub.io/api/v1
-FINNHUB_TIMEOUT_SECONDS=6.0       # Timeout for Finnhub API calls
-FINNHUB_MAX_CONCURRENCY=4         # Max concurrent Finnhub requests
+SENTRY_RELEASE=...                # Release tag for Sentry events (CI sets $GITHUB_SHA; empty = SDK default)
 
 # External APIs - Financial Modeling Prep (FMP)
-FMP_API_KEY=...                   # Stock validation, price data, earnings calendar
-FMP_API_BASE=https://financialmodelingprep.com/api/v3
-FMP_TIMEOUT_SECONDS=6.0
-FMP_MAX_CONCURRENCY=4
-
-# External APIs - Stocktwits (no key required for trending endpoint)
-STOCKTWITS_TIMEOUT_SECONDS=6.0
-
-# Hot Filings
-HOT_FILINGS_REFRESH_TOKEN=...     # Token for hot filings service
-HOT_FILINGS_USER_AGENT=...        # Custom User-Agent for hot filings
+# The in-app FMP/Finnhub/Stocktwits clients and the trending/hot-filings surfaces were torn down
+# (WS-8a, 2026-09). FMP_API_KEY is read ONLY by the operator-run
+# backend/scripts/refresh_index_membership.py (index constituents; `--source wikipedia` is keyless).
+# Removed 2026-09-04 (delete from any local .env — Settings forbids unknown keys and fails at import):
+# FINNHUB_API_KEY, FINNHUB_API_BASE, FINNHUB_TIMEOUT_SECONDS, FINNHUB_MAX_CONCURRENCY,
+# STOCKTWITS_TIMEOUT_SECONDS, FMP_API_BASE, FMP_TIMEOUT_SECONDS, FMP_MAX_CONCURRENCY,
+# TWITTER_BEARER_TOKEN, HOT_FILINGS_REFRESH_TOKEN, HOT_FILINGS_USER_AGENT.
+FMP_API_KEY=...
 
 # Streaming Configuration
 STREAM_HEARTBEAT_INTERVAL=3       # Heartbeat interval in seconds
@@ -129,7 +121,6 @@ NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
-NEXT_PUBLIC_ENABLE_MARKET_MOVERS=true|false        # Homepage Market Movers (default off — dead FMP path, no license-clean source; findings review)
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```

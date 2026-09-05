@@ -1,6 +1,6 @@
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
-import type { Company, TrendingTickerResponse } from '@/features/companies/api/companies-api'
+import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { Summary } from '@/features/summaries/api/summaries-api'
 
@@ -163,10 +163,6 @@ export interface NotableFilingsResponse {
  * serve-cache TTL. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
   fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 900)
-
-/** Initial trending-tickers payload so the first paint shows real data, not skeletons. */
-export const fetchTrendingInitial = (): Promise<TrendingTickerResponse | null> =>
-  fetchJson<TrendingTickerResponse>('/api/trending_tickers', 300)
 
 export interface ReportingCompany {
   ticker: string

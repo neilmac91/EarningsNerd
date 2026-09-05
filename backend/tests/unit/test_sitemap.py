@@ -67,7 +67,7 @@ def _seed_company(session, ticker, cik):
 
 
 def _seed_filing(session, company, accession, year=2025):
-    sec_url = f"https://www.sec.gov/Archives/edgar/data/1/{accession}/"
+    sec_url = f"https://sec.example/{accession}/"
     filing = Filing(
         company_id=company.id,
         accession_number=accession,

@@ -84,6 +84,6 @@ async def get_upcoming_calendar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upcoming earnings dates for the user's watched companies (empty when FMP is unconfigured)."""
+    """Upcoming earnings dates for the user's watched companies (empty until earnings_events is seeded)."""
     events = await calendar_service.upcoming_for_user(db, current_user.id, days_ahead=days)
     return {"events": events}

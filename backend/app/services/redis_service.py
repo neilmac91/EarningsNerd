@@ -58,9 +58,6 @@ class CacheTTL(int, Enum):
     SESSION = 1800
     RATE_LIMIT = 1800
 
-    # Ephemeral data (5 minutes)
-    HOT_FILINGS = 300
-    TRENDING = 300
 
 
 class CacheNamespace(str, Enum):

@@ -34,8 +34,8 @@ def _seed_filing(markdown):
         accession_number=f"acc-{suffix}",
         filing_type="10-K",
         filing_date=datetime.datetime(2026, 1, 1),
-        document_url="https://www.sec.gov/Archives/edgar/data/1/x/doc.htm",
-        sec_url="https://www.sec.gov/Archives/edgar/data/1/x/",
+        document_url="https://www.sec.gov/Archives/edgar/data/1/000000000100000001/doc.htm",
+        sec_url="https://www.sec.gov/Archives/edgar/data/1/000000000100000001/",
     )
     db.add(filing)
     db.commit()

@@ -26,8 +26,8 @@ def _hit(accession, form, filed="2020-02-14", period="2019-12-31", doc="a.htm"):
     return EftsHit(
         accession_no=accession, form=form, filed_date=filed, period_ending=period,
         cik="0000019617", company="JPM", ticker="JPM", document=doc,
-        sec_url="https://www.sec.gov/Archives/edgar/data/19617/x/",
-        document_url="https://www.sec.gov/Archives/edgar/data/19617/x/" + doc, items=[],
+        sec_url="https://www.sec.gov/Archives/edgar/data/19617/000001961720000001/",
+        document_url="https://www.sec.gov/Archives/edgar/data/19617/000001961720000001/" + doc, items=[],
     )
 
 
@@ -58,8 +58,8 @@ def test_hit_to_filing_dict_keeps_clean_reports():
     assert d == {
         "accession_number": "0000019617-20-000012", "filing_type": "10-K",
         "filing_date": "2020-02-14", "report_date": "2019-12-31",
-        "sec_url": "https://www.sec.gov/Archives/edgar/data/19617/x/",
-        "document_url": "https://www.sec.gov/Archives/edgar/data/19617/x/a.htm",
+        "sec_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961720000001/",
+        "document_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961720000001/a.htm",
     }
     # dashed accession is preserved verbatim (the upsert key is the dashed form).
     assert d["accession_number"] == "0000019617-20-000012"

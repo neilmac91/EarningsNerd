@@ -72,8 +72,8 @@ def _seed(filing_type, stamps, saved_indices=()):
                 accession_number=acc,
                 filing_type=filing_type,
                 filing_date=datetime(2026, 1, i + 1, tzinfo=timezone.utc),
-                document_url=f"https://sec.gov/{acc}.htm",
-                sec_url=f"https://sec.gov/{acc}/",
+                document_url=f"https://sec.example/{acc}.htm",
+                sec_url=f"https://sec.example/{acc}/",
             )
             db.add(filing)
             db.commit()

@@ -1,3 +1,4 @@
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CompanyPageClient from './page-client'
@@ -25,10 +26,10 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
   const ticker = rawTicker.toUpperCase()
   const result = await fetchCompanyServer(ticker)
   const company = result.status === 'ok' ? result.data : null
-  const displayName = company?.name || ticker
+  const displayName = formatCompanyName(company?.name) || ticker
 
   const title = company
-    ? `${company.name} (${ticker}) SEC Filings & AI Summaries | EarningsNerd`
+    ? `${displayName} (${ticker}) SEC Filings & AI Summaries | EarningsNerd`
     : `${ticker} SEC Filings & AI Summaries | EarningsNerd`
   const description =
     `${displayName} 10-K and 10-Q filings with AI summaries: financial highlights, ` +
@@ -68,14 +69,14 @@ const buildJsonLd = (company: Company) => ({
         {
           '@type': 'ListItem',
           position: 2,
-          name: `${company.name} (${company.ticker})`,
+          name: `${formatCompanyName(company.name)} (${company.ticker})`,
           item: `${SITE_URL}/company/${company.ticker}`,
         },
       ],
     },
     {
       '@type': 'Corporation',
-      name: company.name,
+      name: formatCompanyName(company.name),
       tickerSymbol: company.ticker,
       url: `${SITE_URL}/company/${company.ticker}`,
       ...(company.cik

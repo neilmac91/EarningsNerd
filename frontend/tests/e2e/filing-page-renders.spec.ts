@@ -16,7 +16,7 @@ test.describe('Filing Page Rendering', () => {
 
     // Navigate to a filing page. CI runs Playwright against `next start` with NO backend, so this
     // is guarded below and skips when the filing data can't load.
-    await page.goto('http://localhost:3000/filing/932')
+    await page.goto('/filing/932')
 
     // Wait for the page to load
     await page.waitForLoadState('networkidle', { timeout: 15000 })

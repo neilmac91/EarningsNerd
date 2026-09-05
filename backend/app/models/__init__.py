@@ -1,9 +1,10 @@
 import logging
-from sqlalchemy import Column, Integer, SmallInteger, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, SmallInteger, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event, inspect, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.utils.sec_urls import build_sec_archive_url, is_acceptable_filing_url
 from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
@@ -346,41 +347,72 @@ __all__ = [
 
 
 # SQLAlchemy event listeners for data validation
-# These catch issues at the Python level before they hit the database
+# These catch issues at the Python level before they hit the database. URL format per
+# lessons/sec-filing-url-format.md (canonical archive URL, CIK zeros stripped, accession dashless).
+
+_FILING_URL_FIELDS = ("sec_url", "document_url")
+
+
+def _validate_filing_url(target, field: str) -> None:
+    """Raise unless ``target.<field>`` passes the Filing URL boundary rule (never None/placeholder)."""
+    value = getattr(target, field)
+    if value is None:
+        raise ValueError(
+            f"Filing {target.accession_number}: {field} cannot be None (NOT NULL constraint)"
+        )
+    if not is_acceptable_filing_url(value):
+        raise ValueError(
+            f"Filing {target.accession_number}: {field} {value!r} is not an absolute URL, or is an "
+            "SEC-hosted URL that is not the canonical archive form (CIK without leading zeros, "
+            "18-digit dashless accession folder). Build it with app.utils.sec_urls.build_sec_archive_url; "
+            "see lessons/sec-filing-url-format.md."
+        )
+
 
 @event.listens_for(Filing, "before_insert")
 def validate_filing_before_insert(mapper, connection, target):
-    """Validate Filing required fields before INSERT."""
+    """Validate Filing required fields before INSERT.
+
+    ``sec_url`` may be omitted ONLY when the Company relationship is loaded on the instance — it is
+    then derived from ``company.cik`` + ``accession_number``. Without a loaded company we refuse
+    rather than fabricate a ``cik=0`` placeholder URL (the pre-2026-09 behaviour) that pointed at
+    nothing and silently corrupted the row.
+    """
     if target.sec_url is None:
-        # Generate sec_url if missing (defensive fallback)
-        if target.accession_number:
-            accession_clean = target.accession_number.replace("-", "")
-            # Try to get CIK from company relationship or use placeholder
-            cik = "0"
-            if hasattr(target, 'company') and target.company and target.company.cik:
-                cik = target.company.cik.lstrip("0") or "0"
-            target.sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_clean}/"
-            logger.warning(
-                f"Filing {target.accession_number}: sec_url was None, "
-                f"auto-generated: {target.sec_url}"
-            )
-        else:
+        if not target.accession_number:
             raise ValueError(
                 "Filing sec_url cannot be None and accession_number is required to generate it"
             )
-
-    if target.document_url is None:
-        raise ValueError(
-            f"Filing {target.accession_number}: document_url cannot be None "
-            f"(NOT NULL constraint)"
+        company = target.company  # not auto-loaded on a pending row: None unless assigned by the caller
+        if company is None or not company.cik:
+            raise ValueError(
+                f"Filing {target.accession_number}: sec_url is None and the Company relationship is "
+                "not loaded, so it cannot be derived. Pass sec_url explicitly (from the edgar client's "
+                "listing) or assign filing.company before adding the row."
+            )
+        target.sec_url = build_sec_archive_url(company.cik, target.accession_number)
+        logger.warning(
+            f"Filing {target.accession_number}: sec_url was None, derived from company CIK: {target.sec_url}"
         )
+
+    for field in _FILING_URL_FIELDS:
+        _validate_filing_url(target, field)
 
 
 @event.listens_for(Filing, "before_update")
 def validate_filing_before_update(mapper, connection, target):
-    """Validate Filing required fields before UPDATE."""
-    if target.sec_url is None:
-        raise ValueError(
-            f"Filing {target.accession_number}: Cannot set sec_url to None "
-            f"(NOT NULL constraint)"
-        )
+    """Validate Filing required fields before UPDATE.
+
+    Nulling either URL always raises. The format check runs only for a URL that is being CHANGED in
+    this flush: rows that pre-date the canonical format (legacy ``cgi-bin/viewer`` URLs, migrated
+    lazily by routers/filings.py) must remain updatable — stamping ``processed_facts_at`` or
+    ``xbrl_data`` on such a row is not the moment to reject its URL.
+    """
+    state = inspect(target)
+    for field in _FILING_URL_FIELDS:
+        if getattr(target, field) is None:
+            raise ValueError(
+                f"Filing {target.accession_number}: Cannot set {field} to None (NOT NULL constraint)"
+            )
+        if state.attrs[field].history.has_changes():
+            _validate_filing_url(target, field)

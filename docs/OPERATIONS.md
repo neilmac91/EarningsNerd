@@ -166,13 +166,10 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
 | `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrades, `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`): a row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
 
-Outside `/api/admin/`, two token/ops refresh endpoints exist for the discovery caches:
-`POST /api/hot_filings/refresh` (gated by `X-Admin-Token` = `HOT_FILINGS_REFRESH_TOKEN`;
-returns 501 when the token is unset) and `GET /api/trending_tickers/refresh-prices`.
-
 ### Verification Scripts
 
 Located in `backend/scripts/`:
+- `apply_migrations.sh` - Apply `backend/migrations/*.sql` through the `schema_migrations` ledger (ADR-0007); the one script both `deploy-backend` and the `migrations-postgres` CI job run
 - `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
 - `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data

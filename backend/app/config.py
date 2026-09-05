@@ -105,6 +105,9 @@ class Settings(BaseSettings):
 
     # Sentry (error tracking)
     SENTRY_DSN: str = ""  # Get from Sentry.io project settings
+    # Deployed revision for Sentry release tagging (CI sets it to $GITHUB_SHA on Cloud Run).
+    # Empty → Sentry's default release detection.
+    SENTRY_RELEASE: str = ""
 
     # Resend
     RESEND_API_KEY: str = ""
@@ -117,9 +120,6 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "https://earningsnerd.io"
     # Recipient for the weekly data-quality report (P1-9). Founder inbox by default.
     DATA_QUALITY_REPORT_EMAIL: str = "neil@earningsnerd.io"
-
-    # X / Twitter API
-    TWITTER_BEARER_TOKEN: str = ""
 
     # JWT
     SECRET_KEY: str
@@ -269,23 +269,11 @@ class Settings(BaseSettings):
     def CORS_ORIGINS(self) -> List[str]:
         """Parse CORS_ORIGINS from comma-separated string"""
         return [origin.strip() for origin in self.CORS_ORIGINS_STR.split(',') if origin.strip()]
-    HOT_FILINGS_REFRESH_TOKEN: str = ""
-    HOT_FILINGS_USER_AGENT: str = (
-        "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"
-    )
-    FINNHUB_API_BASE: str = "https://finnhub.io/api/v1"
-    FINNHUB_API_KEY: str = ""
-    FINNHUB_TIMEOUT_SECONDS: float = 6.0
-    FINNHUB_MAX_CONCURRENCY: int = 4
-
-    # Stocktwits API (no key required for trending endpoint)
-    STOCKTWITS_TIMEOUT_SECONDS: float = 6.0
-
-    # Financial Modeling Prep (FMP) API
+    # Financial Modeling Prep (FMP). The in-app FMP client, Finnhub, Stocktwits and the
+    # trending/hot-filings surfaces they fed were torn down in 2026-09 (WS-8a; FMP's legacy API is
+    # dead and both ToS bar this use). The key stays ONLY for the operator-run
+    # scripts/refresh_index_membership.py (index constituents; ``--source wikipedia`` is keyless).
     FMP_API_KEY: str = ""
-    FMP_API_BASE: str = "https://financialmodelingprep.com/api/v3"
-    FMP_TIMEOUT_SECONDS: float = 6.0
-    FMP_MAX_CONCURRENCY: int = 4
 
     # Alpha Vantage — bulk US earnings calendar (one CSV call = whole market, 3mo forward).
     # Bridge source (personal-use free tier; see tasks/earnings-calendar-strategy.md §3.6): the

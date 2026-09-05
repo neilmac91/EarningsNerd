@@ -11,7 +11,7 @@ EarningsNerd runs on two platforms:
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
 | **Custom domain** | `api.earningsnerd.io` → Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only) | — |
 
-> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are re-applied by the CI deploy job on **every** deploy (plus `ensure_additive_columns` self-heals additive columns at startup), so every file must stay safe to re-run forever.
+> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are applied by the CI deploy job through the `schema_migrations` ledger ([ADR-0007](./adr/0007-schema-migrations-ledger.md)): each file runs once per (filename, sha256) and is skipped on later deploys (plus `ensure_additive_columns` self-heals additive columns at startup). Files must still be safe to re-run — a ledger reset, an edited file, or a crash between apply and record re-runs them.
 
 ---
 
@@ -21,13 +21,20 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 
 - the push is to `main`, **and**
 - `backend/` changed, **and**
-- all test jobs (`backend-tests`, `frontend-tests`, `e2e-tests`) passed.
+- all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
-(`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every
-`backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (psql session pinned to
-`lock_timeout=10s` / `statement_timeout=120s`, 5 bounded retries, `pg_stat_activity` dump on
-failure — see `lessons/ops-migrations-need-lock-timeout.md`), runs `gcloud run deploy` and routes
+(`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded
+`backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (download verified against a
+pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `schema_migrations` ledger
+skips files whose filename + sha256 are recorded; the psql session is pinned to `lock_timeout=10s` /
+`statement_timeout=120s`; up to 5 retries only when psql's stderr carries a lock-contention SQLSTATE
+(`55P03` lock timeout, `57014` statement timeout, `40P01` deadlock — any other error is final); a
+`pg_stat_activity` + `pg_locks` dump names the blocker on final failure — see
+`lessons/ops-migrations-need-lock-timeout.md`. The same script runs three passes against a
+`postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
+to re-run in prod: `DELETE FROM schema_migrations WHERE filename = '<file>.sql';` then re-run the
+deploy. It then runs `gcloud run deploy` and routes
 traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
 filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
 notable-filings), and health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
@@ -133,7 +140,6 @@ printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_WEBHOOK_SECRET --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_API_KEY        --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_FROM_EMAIL     --data-file=-
-printf '%s' 'PASTE_VALUE' | gcloud secrets create FINNHUB_API_KEY       --data-file=-
 ```
 
 ### 5. Grant the runtime service account access
@@ -157,8 +163,8 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
 ```
 
 ### 7. Verify
@@ -354,12 +360,25 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 ```
 
 **Quarterly: refresh the membership list** (the indexes rebalance ~quarterly). Regenerate, review the
-diff in a PR, merge — the served universe only ever changes via a reviewed commit, never a live fetch:
+diff in a PR, merge — the served universe only ever changes via a reviewed commit, never a live fetch.
+The `Refresh index membership` workflow (`.github/workflows/refresh-index-membership.yml`, 1st of each
+month + `workflow_dispatch`) does this automatically and opens (or updates) a PR on **every successful
+run**: the file's `generated_on` date is re-stamped each time, so the monthly PR is the heartbeat that
+proves the refresh still works, and its diff shows any constituent changes alongside the date bump.
+Merge it even when only the date moved — that is what keeps the 100-day age gate in
+`tests/unit/test_index_membership_service.py` green. **Source order:** with the `FMP_API_KEY` repo
+secret set, both indices come from FMP's stable API (`/stable/sp500-constituent`,
+`/stable/nasdaq-constituent`; the legacy `/api/v3` was cut off 2026-07-03); without it the script
+falls back to Wikipedia, which can supply only the S&P 500 half — its Nasdaq-100 article dropped the
+constituents table in 2026 — so the run **fails with exit 2, writes nothing, and opens/updates a
+"Universe refresh failed <date>" issue**. Every source must deliver both halves at plausible size
+(S&P 500 ≥ 480, Nasdaq-100 ≥ 90) or the run aborts the same way; an S&P-only universe is never shipped.
 
 ```bash
-cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # or --source wikipedia (keyless)
+cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # --check = dry-run diff only
 #   Prints the added/removed tickers and rewrites app/data/index_membership.json; commit it via PR.
-#   Aborts without writing if the fetch yields < 450 tickers (never truncates the committed list).
+#   Aborts without writing if the fetch yields < 450 tickers (never truncates the committed list)
+#   or if either index half is missing/short (exit 2; the message names the fix, e.g. FMP_API_KEY).
 ```
 
 The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers
