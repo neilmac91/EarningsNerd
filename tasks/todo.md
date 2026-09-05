@@ -185,3 +185,12 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 
 - [x] Implementation and current-main local gates complete in PR #696; [archived proof](archive/ws10-hygiene-2026-09.md).
 - [x] WS-7 default/docs integrated; 1910-test gate, independent review and CI passed; #696 merged (`0e0e7762`), deployment verified.
+
+## WS-6 step 2 — advisory measurement and weekly judged readout
+
+- [ ] Measure untraceable dollar figures on actual raw v2 sections with explicit numeric-grounding availability; preserve hard gates, aggregate weights and the single parity pin.
+- [ ] Add stored audit-snapshot counts with per-family valid/missing/malformed denominators to the operational report and both email formats.
+- [ ] Schedule an exact eight-filing, three-repeat strong-judge readout with provenance, complete/error/missing denominators and a bounded validated handoff to the existing report job.
+- [ ] Check generator and strong-judge credentials before any model calls; missing credentials mean unavailable and do not constitute the first readout.
+- [ ] Prove new tests with mutations, run exact full backend gates, inspect actual CI evaluation and obtain independent review.
+- [ ] First actual strong-judge readout remains held for the founder credential; no live weekly email dispatch, evidence-snap activation, or cosmetic baseline pin in this implementation PR.
