@@ -20,13 +20,13 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; CI, Vercel production and canonical pricing response verified. Pricing and activation decisions remain held |
-| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a reviewed and integrated with `ee3ac988`; explicit publication approval and 2563-test full gate recorded. PR/release pending; fleet admission/quotas remain separate |
-| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
+| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a #735 released as `96d7658`; CI/evals, production migration/revision and independent health verified. Fleet admission/quotas remain separate |
+| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 and saved-status lookup #730 (`e2e94956`) released; production verification recorded by root. Other hot reads remain separate |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a PR #737 integrated `96d7658`; unchanged source and 2576-test full gate. Prior CI timeout failure retained; current-head CI/release pending. E15b partitioning and eligible DB count remain unresolved |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 and E13a #736 (`414ea91`) released; production verification recorded by root |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a #734 (`ee3ac988`) released; E14b local browser success/both-theme acceptance recorded, denial test-only; publication pending |
+| E15 | Partition sitemap and align eligible content | Independent | E15a #737 merged as `93e30b0`; production verification pending. E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -312,6 +312,18 @@ numeric units together. Final full frontend gate passed 98 files / 513 tests in 
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
 
+### E14b local canonical-link action
+
+Source `2ee65a7` from `ee3ac988` adds a Copy filing link action using actual filing.id and
+the existing canonical origin. Awaited clipboard completion, pending activation ownership,
+inline status/failure/manual link and success-only `filing_link_copied` with filing_id preserve
+existing save/export/access/quality behavior. One new real-parent regression home: seven
+cases; one coordinated original mutation failed six with one control passing, then restored.
+Full pinned frontend gate passed lint/typecheck, 99 files / 520 tests and build 27/27 pages.
+No backend, dependencies, locked tests, account URL/query copying, share endpoint or referral
+policy changed. Existing SDK enrichment/pageviews are outside this slice; no global telemetry
+redaction or actual sharing metric is claimed. Root owns review, released-E10b integration,
+responsive/both-theme/denial preview and publication. Exact local logs/proof are in tasks/todo.md.
 ### E15a approved update checkpoint
 
 The founder's 2026-09-06 “approved” response to all five exact requested actions explicitly
@@ -343,6 +355,23 @@ in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens 
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
 
+E14b integration `9974f4d` incorporates exact E10b main `e2e94956` and its login/CI history.
+Only task-document conflicts required resolution; E14b source remains byte-identical to
+reviewed `2ee65a7`, backend/CI equal main and E10b's six runtime/test files are preserved.
+Root source review and three-lens integration review are clear. Original mutation retained,
+no repeat. Combined frontend lint/typecheck/build passed; **100 files / 525 tests** passed
+in **56.11s**, build static pages **27/27**. Exact logs in tasks/todo.md. Actual responsive,
+both-theme and clipboard-denial preview plus publication remain root-owned and pending.
+
+E14b root local-browser acceptance: existing Next build on 4197, guest cached Apple filing 3,
+copy wrote exactly `https://www.earningsnerd.io/filing/3`. Action/success verified at 320×844,
+390×844 and 1280×900 in both themes; measured DOM width equaled scrollWidth at 390/1280.
+Transient incomplete post-resize paint resolved in stable captures without source changes.
+Loopback proxy 4198 sent `Permissions-Policy: clipboard-write=()` but copying still succeeded;
+actual browser denial is unverified, with automated tests the denial evidence. Theme, empty
+clipboard and viewport restored; temporary tab closed and both servers stopped. No live
+authenticated/Pro fixture, signup, generation or policy operation. Source unchanged; no gate
+repeat. Root retains publication until E09/E15 release sequencing permits it.
 ### E15a latest released-main integration
 
 Merge `7474eb6` includes exact main `414ea913` with sitemap source/test/lesson identical to
@@ -370,3 +399,18 @@ Ruff clean; Bandit zero medium/high; 2570 passed / 2 deselected / 23 warnings in
 all three PostgreSQL URLs enabled, no skips. Three-lens integration review is clear; original
 mutations retained and locked contracts/frontend match main. Authorized normal branch update
 follows the evidence commit. Root owns fresh actual CI/eval acceptance and serial release.
+
+### E14b final publication preparation
+
+Merge `523e15e` integrates exact sitemap main `93e30b0` and preserves both task histories.
+The whole frontend tree equals full-tested `9974f4d`; backend/CI equal main, and four E14b
+runtime/test files equal reviewed `2ee65a7`. No new source, locked-test or dependency change.
+Retain lint/typecheck, 100 files / 525 tests and 27/27 build, plus the original six-failure
+mutation and root's local both-theme/mobile success evidence without repetition. Actual
+browser denial remains test-only evidence. All three integration-review lenses are clear;
+root owns publication and remote acceptance. Exact logs and limitations are in tasks/todo.md.
+
+Current release rows supersede historical pending checkpoints: root reports #730, #734,
+#735 and #736 released; #737 merged as `93e30b0`, production verification pending. #735
+production run `34044729118` / deploy `101518082921` succeeded, `applied=0 skipped=36`,
+revision `earningsnerd-backend-00288-kgv` at 100% traffic; independent DB health 7.31 ms.

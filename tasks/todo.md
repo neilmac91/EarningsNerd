@@ -1,3 +1,141 @@
+## E14b — Final sitemap-main integration (2026-09-06)
+
+- [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
+  `523e15e232a98fd35954adc8bdc2fabd5c9e7678`, retaining both task-document histories.
+- [x] Verify the entire frontend tree equals full-tested `9974f4d`; backend and `.github`
+  equal `93e30b0`. All four E14b runtime/test files still equal reviewed `2ee65a7`.
+- [x] Retain original mutation and combined full frontend evidence without repetition.
+- [x] Refresh the local PR draft; keep push, draft PR, CI and release root-owned.
+
+Current release state, reported by root: #730, #734, #735 and #736 are released.
+#737 is merged as `93e30b0`, with production verification pending. Root verified #735
+production run `34044729118`, deploy job `101518082921`, `applied=0 skipped=36`, revision
+`earningsnerd-backend-00288-kgv` at 100% traffic and independent DB health 7.31 ms.
+Older pending/failed checkpoints below are retained as history, not current release status.
+
+Tree identity proves gate applicability: frontend `6e4a99d7f0b2b81de998d3a313dacc9d925ff6c3`
+matches `9974f4d`; backend `99e5e820f2eb06afbc888faaf686cec6da6ece74` and CI tree
+`c5f0c34483e2c39cd7fec6983dc033d9f1b2d31d` match `93e30b0`. No runtime, test, locked-file
+or dependency change was needed. Three-lens final review remains clear: copy identity and
+pending ownership are unchanged, all scope constraints hold, and the original regression
+home/proof and 525-test integrated gate remain applicable. No source or mutation repeats.
+
+Retained combined gate: lint/typecheck clean; **100 files / 525 tests passed in 56.11s**;
+build exit 0, compiled **6.0s**, TypeScript **14.8s**, **27/27** static pages in 1758ms.
+Logs: `/private/tmp/earningsnerd-e14b-integrated-{lint,typecheck,vitest,build}.log`.
+The original proof on `2ee65a7` failed **6 cases with 1 control passing**, then exact bytes
+were restored. Root's local 320/390/1280 px both-theme success evidence remains as recorded
+below. Browser denial remains unverified; automated rejection/missing-API cases cover it.
+No new test execution, push, PR, production operation or account operation in this checkpoint.
+
+## E14b — Copy the canonical filing link (engineering, 2026-09-06)
+
+### Root local-browser checkpoint (documentation only)
+
+Root used the existing local Next production build on port 4197 and the guest-readable cached
+Apple filing 3. Activating Copy filing link wrote exactly
+`https://www.earningsnerd.io/filing/3`. Root visually verified the action and success feedback
+at **320×844**, **390×844** and **1280×900** in both themes. At widths 390 and 1280, measured
+DOM width matched scrollWidth. Initial immediate post-resize captures had incomplete paint;
+stable screenshots resolved those captures without any source correction. No numeric width
+claim is made for 320 beyond the actual visual acceptance.
+
+The controlled loopback GET proxy on port 4198 sent
+`Permissions-Policy: clipboard-write=()`, but the browser still copied successfully. This
+attempt did **not** verify real browser denial; automated rejection/missing-API tests remain
+the denial evidence. Root restored the original light theme, originally empty browser
+clipboard and viewport, closed the temporary tab, and stopped both local servers.
+
+This covers a guest cached summary only. No live authenticated/Pro fixture, signup,
+generation or policy change was exercised. Root source and three-lens review remain clear.
+Source/tests are unchanged from `9974f4d`; full-gate and original proof evidence below remain
+valid, with no repeats for this docs-only checkpoint. Keep the branch local pending root's
+E09/E15 release sequencing and publication instruction.
+
+### Integration checkpoint
+
+Root independently reviewed runtime, tests, Button and analytics across all three lenses;
+source `2ee65a7` is clear. Integrated exact E10b main
+`e2e94956f5410d372324c1cb98bb8352da7b338f` as `9974f4d`. Conflicts were confined to the
+checklist and execution ledger; both E14b and incoming E10b/login histories are retained.
+Four E14b runtime/test files remain byte-identical to `2ee65a7`; backend and CI equal main,
+including the Stripe, usage and login PostgreSQL lanes. E10b's status consumer and tests
+are preserved; no query/API owner or locked contract changed. The original one-time proof
+was retained without repetition. No backend gate was required for this frontend-only diff.
+
+Combined pinned frontend gate on `9974f4d`: lint `--max-warnings 0` and typecheck clean;
+**100 files / 525 tests passed in 56.11s**. Build exit 0: compiled **6.0s**, TypeScript
+**14.8s**, static pages **27/27** in 1758ms. Logs:
+`/private/tmp/earningsnerd-e14b-integrated-{lint,typecheck,vitest,build}.log`.
+Three-lens integration review is clear: copy action/state is unchanged, incoming gates and
+save-status behavior remain intact, and all original test/proof boundaries survive integration.
+This is local source/gate acceptance. Root still owns actual responsive/both-theme and
+clipboard-denial preview plus publication; no push/PR/deployment here.
+
+Base `ee3ac988`. Existing readers can copy only the canonical filing URL from a deliberate
+summary action. No public share endpoint, payload snapshot, access expansion, social posting,
+referral policy or current-location query/token copying. Root holds publication pending E10b.
+
+- [x] Read AGENTS/CLAUDE, design system, wave-3 and relevant frontend/test lessons.
+- [x] Pass actual filing.id to the existing action bar; add a secondary copy action for all
+  readers while retaining save/export gates and normal destination quality behavior.
+- [x] Await clipboard success, prevent concurrent activation, show accessible failure/retry
+  and manual canonical link; emit only filing_link_copied with filing_id after success.
+- [x] One new test home `frontend/tests/unit/filing-link-copy.spec.tsx` exercising real parent,
+  action and analytics boundary; one coordinated canonical/acknowledgment mutation, restore.
+- [x] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
+- [x] Root independent source review and exact E10b-main integration; combined frontend gate.
+- [x] Root local responsive/both-theme copy-success preview at 320/390/1280 px.
+- [x] Record non-operative browser-denial attempt; actual denial remains unverified and is
+  supported only by the existing automated tests.
+- [ ] Root release sequencing/publication; no push/PR/deployment by this agent until instructed.
+
+Plan `4bebdf6`; source `2ee65a7`. The parent passes the actual filing ID and keys the
+action bar by that ID so a pending old write cannot update the next filing's feedback.
+The button uses existing DS styling; status/alert feedback and the manual canonical link
+stay inline beside it. Ref-backed pending ownership also protects two synchronous activations.
+The only new analytics event is `filing_link_copied` with explicit `{ filing_id }`, emitted
+following successful Clipboard API completion; telemetry exceptions cannot change success.
+Manual copying cannot be measured by this event. No share/recipient/conversion count is claimed.
+
+One new regression home renders the real SummaryDisplay, SummaryActionsBar and analytics
+helper, mocking provider/browser boundaries and export handlers. Seven cases cover polluted
+current URL versus actual filing ID, guest/Free/Pro controls and full/partial/unknown quality,
+pending/duplicate activation, denial/manual link/retry, missing Clipboard API, telemetry error,
+and switching filings before a write settles. Initial unknown-quality fixture accidentally
+used its default full value; fixed before source commit/proof. No locked fixture was changed.
+
+The one planned coordinated mutation on committed `2ee65a7` replaced the canonical URL with
+`window.location.href` and acknowledged without awaiting the clipboard promise (absorbing its
+rejection to keep the proof controlled). Tail from
+`/private/tmp/earningsnerd-e14b-mutation-canonical-ack.log`:
+```text
+Test Files  1 failed (1)
+Tests       6 failed | 1 passed (7)
+```
+Exit 1; exact original bytes restored. The telemetry-error control remained passing.
+Restored full pinned Node 22.23.2 gate: lint `--max-warnings 0` and typecheck clean;
+**99 files / 520 tests passed in 40.88s**. Build exit 0, compiled in **18.7s**, TypeScript
+6.5s, static pages **27/27** in 1584ms. Logs under `/private/tmp/`:
+`earningsnerd-e14b-{lint,typecheck,full-vitest,build}.log`; focused seven-case log
+`earningsnerd-e14b-focused.log`. Build used narrowly approved configured-font network access;
+no dependencies changed, no local Sentry release/source-map upload token was present.
+
+Three-lens self-review found no actionable source issue: actual filing identity, successful
+write timing and pending ownership are preserved; scope/entitlements/quality/access remain
+unchanged; one meaningful test home, original proof restored, locked bytes match `ee3ac988`.
+Custom analytics fields contain only filing_id. Existing consent-aware PostHog initialization,
+SDK enrichment and pageviews are unchanged; posthog-provider.tsx:14–23 still constructs its
+existing pageview URL with search parameters. This is a clean copied/manual URL and explicit
+event-field guarantee, not a new app-wide telemetry-redaction guarantee.
+
+Root independent review, released-E10b integration and actual responsive/both-theme plus
+clipboard-denial preview remain pending. No E10b files or query owners were changed, and no
+push, PR or deployment was performed here.
+
+Targets: existing SummaryDisplay.tsx, SummaryActionsBar.tsx, lib/analytics.ts; the new test
+home above. No backend, dependencies, locked tests, query keys or E10b consumer edits.
+CLAUDE rules 2/4/6/9/11/12 apply. Existing root-owned release histories remain intact.
 ## E15a — Integrate released login and summary handoff (2026-09-06)
 
 The founder's exact five-action approval also covers this latest-main integration, required
