@@ -65,6 +65,24 @@ all three proof histories remain unchanged. Run one combined full backend gate w
 Stripe PostgreSQL cases, review integration/locked bytes, then push the authorized branch.
 Root owns PR creation and serial release; E07b remains design-only.
 
+Combined source `6136389` against released main
+`cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` passed the final gate: Ruff clean, Bandit 0
+medium/high severity, **2531 passed, 2 deselected, 23 warnings in 50.70s**, exit 0. Actual Stripe
+PostgreSQL cases ran against disposable schemas. The pre-existing closed logging-stream teardown
+diagnostic followed the passing summary. No workflow or Node-related files changed, so their
+additional workflow-only checks do not apply. No new failure or mutation repeat occurred.
+
+Integration review is clear across correctness, rules/brief and tests/gates: the registry claim has
+no intervening await, previously joined followers retain their claim through the fresh persisted
+read, the original overall timeout and owner-only cleanup remain intact, and no second generation
+path, quota policy, prompt/model/flag, schema or baseline change is introduced. Pipeline, dedup
+tests and scoped lesson match reviewed `fe6916c`; all locked anchors and E06 export/timezone/
+lifecycle-fixture corrections match `cab71f9`. Existing three mutation proofs remain valid.
+
+Combined logs: `/private/tmp/earningsnerd-e09-integrated-full.log` and
+`/private/tmp/earningsnerd-e09-integrated-bandit.log`. The branch push is authorized after this
+gate; root owns PR creation, actual CI/eval inspection and serial release. E07b is not implemented.
+
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
 CI run 34034568223 failed the existing nonlocked E03 lifetime case before provider readiness:

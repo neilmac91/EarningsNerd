@@ -147,3 +147,10 @@ establish fleet-safe admission. Three scoped invariant mutation proofs were rest
 locked contracts, model/prompt/flags and eval baseline remain unchanged. Final full gate on `fe6916c`: Ruff clean, Bandit 0 medium/high severity; 2483 passed,
 8 PostgreSQL-only skips, 2 deselected in 45.82s (exit 0). Root corrected-source review is clear.
 Independent acceptance, latest-main integration, actual CI/eval and production release remain separate.
+
+E09a integration `6136389` preserves reviewed `fe6916c` source and all E06 corrections from
+released main `cab71f9`. Full combined gate with actual Stripe PostgreSQL cases: Ruff clean,
+Bandit 0 medium/high, **2531 passed, 2 deselected, 23 warnings in 50.70s**, exit 0. Integration
+review across correctness/rules/tests is clear; locked anchors match main. All three original
+mutation proofs are retained without repetition. Authorized branch push follows; root owns
+PR creation, actual CI/evals and serial release. No fleet admission or reservation implementation.
