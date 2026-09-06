@@ -116,6 +116,7 @@ frontend/
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
+| `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; failure rolls back the event |
@@ -316,3 +317,12 @@ work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent stale-s
 updates for successfully committed calls. All old service and job writers must drain before the
 first-use protocol holds fleet-wide. This does not reserve admission, repair historical duplicate
 buckets or make best-effort completion metering strict billing accounting.
+
+Failed-login recording uses the existing `login_attempts.email_hash` primary key for concurrent
+insert/update and successful-clear ordering on PostgreSQL and SQLite. A failure waiting behind
+a committed success clear creates a new history; after a rolled-back clear it increments the
+retained history. Initial timestamps retain their database default, while updates stamp the
+existing failure clock explicitly. The change counts completed failures; credential checks
+already admitted before a lock are not reserved. Old revision writers must drain before their
+read-modify-write path can no longer overwrite counts. Per-IP memory bounds, row retention and
+new timeout/retry policy remain separate.

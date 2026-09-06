@@ -24,7 +24,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
@@ -185,6 +185,23 @@ clear; locked contracts match `cab71f9`, all E06 corrections are retained and E0
 unchanged. Authorized branch push follows; root owns PR publication and serial release. Prior
 mutation proofs are retained without repetition.
 
+E13a source `24a4d1c`: native PostgreSQL/SQLite failed-login upserts preserve reset/threshold
+and timestamp semantics, while successful-login clearing remains in the caller transaction.
+Focused real PostgreSQL, behavioral, unchanged auth and workflow checks: 66 passed. One original
+implementation mutation proved the concurrent-count and success-clear invariants (5 intended
+failures, 1 pass); one missing-CI-URL mutation failed its structural assertion. Exact source
+restored before the full backend gate: Ruff clean, Bandit 0 medium/high;
+`2446 passed, 2 deselected, 23 warnings in 47.75s`, exit 0 with login and Stripe PostgreSQL
+cases enabled. Workflow checks: 103 passed; Node pin: 3 passed. Root source review found no
+actionable issue. No schema, configuration, retention deletion, admission reservation or locked
+contract change. Root-owned integration/publication/remote CI/release remain pending.
+
+E13a integration `c1ec2bb` includes main `90fdc69` and preserves reviewed `24a4d1c` runtime/tests.
+All Stripe, usage and login PostgreSQL CI paths and structural entries are retained. Final combined
+Ruff/Bandit gate passed: **2552 passed, 2 deselected, 23 warnings in 45.98s**, exit 0, all three
+PostgreSQL URLs configured; workflow readers 104 passed and Node pin 3 passed. Integration review
+is clear across correctness/rules/tests, and locked anchors match main. Prior mutation proofs
+were not repeated. Authorized branch push follows; root owns PR and serial release.
 
 ### E06 verified release
 
@@ -233,3 +250,11 @@ and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labe
 numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
+
+E13a explicitly approved publication checkpoint: main `ee3ac988` is integrated as `4db2190`.
+Reviewed login runtime/tests remain byte-identical to `24a4d1c`; all main limiter, metrics,
+billing, usage and frontend changes are preserved. The full pinned gate passed with all three
+PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 23 warnings
+in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
+locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
+root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
