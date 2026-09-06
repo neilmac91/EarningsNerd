@@ -2,6 +2,26 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E10b — Bounded saved-summary status (engineering)
+
+The filing page currently downloads every saved summary, including summary/company content,
+to compute one selected-summary boolean. Preserve the dashboard library and save/update/delete
+contracts; add one authenticated status lookup for the selected summary instead.
+
+- [ ] Add `GET /api/saved-summaries/status/{summary_id}`: authenticate, return 404 for a missing
+  summary, and return only `is_saved` scoped to the current user using bounded ID projections.
+- [ ] Add the shared API client function and a user/summary-specific registry key under the
+  existing saved-summaries invalidation prefix; migrate only the filing-page consumer.
+- [ ] Verify backend ownership/auth/missing-summary and bounded response behavior in one new
+  nonlocked home; verify the real page consumer uses status, respects auth and refreshes after save.
+- [ ] Commit source, retain one mutation proof per new invariant, run full pinned backend and
+  frontend gates, and obtain independent review before returning the clean branch to root.
+
+Rules 4, 6, 9 and 12 apply; frontend query-key/client conventions and the design system remain
+unchanged. No schema, billing, generation, dashboard payload, locked test or visual changes.
+W3-9 facts repair and E05/E06/E07 billing work are independent; root serializes integration and
+backend release. Base `a5ba97e`; no push, PR, merge, production operation or new spend by this agent.
+
 ### E10a — Filing-first financial-facts index (engineering)
 
 Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
