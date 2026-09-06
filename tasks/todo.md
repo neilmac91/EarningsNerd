@@ -7,7 +7,7 @@ Root owns publication, normal live CI acceptance and serialized release. No push
 
 - [x] Read AGENTS/CLAUDE, applicable lessons, wave-3 context and full eval RUNBOOK.
 - [x] Add explicit CI cap and retain execution evidence separately from the unchanged harness.
-- [ ] Extend the existing parity test; execute one meaningful mutation and restore exact bytes.
+- [x] Extend the existing parity test; execute one meaningful mutation and restore exact bytes.
 - [ ] Full pinned Ruff/Bandit/backend with all three disposable PostgreSQL lanes; workflow
   readers, YAML parse and Node lockstep gate; three review lenses; commit with clean status.
 
@@ -17,6 +17,49 @@ provider-request cap. Overlap occurred in both failed and accepted E09 runs; no 
 production failure-rate or measured timeout improvement is claimed. The RUNBOOK edit is under
 `backend/evals`, so normal PR summary CI will trigger; it must retain actual results and
 unchanged hard acceptance criteria. Existing baseline authority is unaffected; no re-pin.
+
+### Local verification checkpoint
+
+Plan `e2c94d6`; source `8fb21a5e2004841f5b4ed9d5b88de7927a538981`.
+The workflow passes a cap of two and writes `ci-execution.txt` before generation using only
+source SHA, filing concurrency and shell-escaped argv. The existing parity test executes the
+actual shell with a harmless stub: PR ignores a supplied limit, dispatch preserves repeats/limit,
+and a failed invocation still retains evidence and its nonzero exit. Initial precommit fixture
+quoting/group-prefix typos were corrected before source commit and the meaningful proof.
+
+Exactly one original mutation changed `EVAL_CONCURRENCY=2` to `5` on committed source:
+`test_ci_parity_and_bounded_repeat_measurement` failed at captured argv index 7 (`5 != 2`),
+**1 failed, 1 warning in 1.82s**, exit 1. Exact workflow bytes were restored from committed
+source. Restored workflow readers: **104 passed, 16 warnings in 5.01s**. Node 22.23.2
+lockstep gate: **3 passed**, duration 1.24s. Ruff: `All checks passed!`; Bandit: zero
+medium/high issues. All workflow YAML parses; committed scope proof verifies every other CI
+job, trigger and eval environment/group is unchanged. Runtime, runner/harness, baseline,
+goldens, pin validator, locked anchors and frontend are byte-identical to released main.
+
+The first full gate supplied all three PostgreSQL URLs but sandbox socket access failed:
+**2552 passed, 2 deselected, 23 warnings, 24 errors in 59.01s**, exit 1. All 24 errors are
+PostgreSQL fixture setup failures (`Operation not permitted`), not passing/skipped lanes.
+A read-only socket `SELECT 1` outside sandbox succeeds. The subsequent full-gate request was
+rejected by automatic approval review before execution: it cited the existing local database
+and said CI-P1 was not specifically authorized by the approval it recognized for PR #738.
+No rejection bypass, repeated submission, test weakening or live provider call occurred.
+The three fixtures create UUID-named schemas, set their connection search_path and drop only
+those disposable schemas afterward; their source is unchanged. Full combined acceptance
+remains incomplete pending resolution of this execution permission boundary.
+
+Three review lenses: correctness confirms one argv array supplies actual invocation and
+retained evidence, with failure status preserved; rules-and-brief confirms unchanged baseline
+identity, required cohorts and founder holds; tests-and-gates confirms the original proof,
+restored passing gate and locked-byte identity. No actionable source finding remained after
+the two precommit fixture corrections. The environment gate remains an explicit blocker.
+Root independently reviewed the committed diff; publication, normal live CI and release stay
+root-owned. The RUNBOOK diff triggers ordinary summary CI when published; no live result is
+claimed by these offline checks.
+
+Evidence: `/private/tmp/earningsnerd-ci-pressure-evidence/` contains `mutation-cap.log`,
+`workflow-gates.log`, `node-gate.log`, `ruff.log`, `bandit.log`, `scope-proof.json`,
+`full-sandbox-denied.log` and `full-gate-review-rejection.txt`. The old `full.log` also retains
+the failed run until a separately permitted full gate can replace it.
 
 ## E14b — Final sitemap-main integration (2026-09-06)
 
