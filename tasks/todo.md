@@ -2,6 +2,32 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E13b — Latest-main release integration (engineering)
+
+Merged main `752f3a2728d99be851a0fd284e746ce338cf0b04` as `ff7403e`, preserving published
+history. The sole todo conflict retained E13b, E07a and E08a sections. Limiter implementation and
+its existing test home remain byte-identical to reviewed `ac4bc76`. Config and configuration
+docs retain both independent limiter and usage-lock settings. E07a's runtime, PostgreSQL tests
+and CI workflow, and E08a's entire frontend, remain byte-identical to latest main.
+
+The three integration lenses are clear: successful-hit ordering still supports expired-prefix
+cleanup without active eviction; all 12 rules and scope boundaries remain satisfied; existing
+behavioral gates and three original mutation proofs are retained, and locked tests match main.
+No runtime correction or mutation repeat was needed. Frontend gates are retained from E08a's
+release because this integration has no frontend delta against main.
+
+Full pinned backend gate on `ff7403e` enabled both `STRIPE_CONCURRENCY_TEST_DATABASE_URL` and
+`USAGE_CONCURRENCY_TEST_DATABASE_URL` against disposable local PostgreSQL schemas. Ruff clean;
+Bandit zero medium/high; **2557 passed, 2 deselected, 23 warnings in 53.64s**, exit 0, with no
+skips. The existing asynchronous shutdown logging diagnostic followed the passing summary.
+Logs: `/private/tmp/earningsnerd-e13b-evidence/latest-main-ruff.log`, `latest-main-bandit.log`
+and `latest-main-full.log` in that same directory. Conflict-marker checks and `git diff --check`
+passed before the authorized branch push.
+
+Root owns PR creation/readiness, remote CI and serialized deployment. The per-process 10000-key
+budget and legitimate-unseen-key rejection tradeoff remain explicit assumptions, not measured
+production capacity or a fleet/byte bound. No production state was changed by this integration.
+
 ### E13b — Bounded in-memory limiter keys (engineering)
 
 `RateLimiter._hits` retains every key indefinitely. Bound each limiter independently without
