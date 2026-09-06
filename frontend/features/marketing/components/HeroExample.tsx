@@ -50,7 +50,7 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   const delta = formatDelta(metric.deltaPercent)
   return (
     <div
-      className="rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
+      className="min-w-0 break-words rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
       <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
@@ -93,7 +93,7 @@ function HeroExample({
     : format(parsedDate, 'MMM d, yyyy')
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 max-w-full">
       {/* Browser frame — no ambient glow: DS §7, the only glow is the hero search. */}
       <div className="mockup-frame relative shadow-e5 dark:shadow-none">
         {/* Title bar */}
@@ -103,7 +103,7 @@ function HeroExample({
             <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
             <span className="h-3 w-3 rounded-full bg-brand/70" />
           </div>
-          <div className="mx-auto flex-1 max-w-xs">
+          <div className="mx-auto min-w-0 flex-1 max-w-xs">
             <div className="rounded border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
               earningsnerd.io · example summary
             </div>
@@ -154,7 +154,7 @@ function HeroExample({
           {/* Metrics — with the receipt: where the numbers come from */}
           {data.metrics.length > 0 && (
             <div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {data.metrics.map((metric) => (
                   <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
                 ))}
