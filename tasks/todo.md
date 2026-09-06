@@ -8,14 +8,26 @@ Owner: SEC limiter implementation agent; root owns review and any publication/de
 The founder approved commencement of the beta-to-scale plan. This bounded task preserves
 existing SEC transport ownership, Retry-After handling and per-process configuration.
 
-- [ ] Advance the refill accounting boundary after a completed token wait so the next caller
+- [x] Advance the refill accounting boundary after a completed token wait so the next caller
   cannot reuse elapsed time that already paid for the admitted request.
-- [ ] Extend the existing SEC limiter test home with one deterministic behavioural gate for
+- [x] Extend the existing SEC limiter test home with one deterministic behavioural gate for
   sustained calls, concurrent callers, delayed wakeup and cancellation; no SEC/network calls.
-- [ ] Commit the implementation, remove the correction for exactly one mutation proof, restore
+- [x] Commit the implementation, remove the correction for exactly one mutation proof, restore
   exact bytes, and run the pinned Ruff/Bandit/full pytest gate. Locked contracts stay unchanged.
 - [ ] Root reviews the prepared commits; no push, merge, flag or production change in this task.
 
+
+Source `4a196b7`: 102 exact runtime/dev pins matched (Python 3.11.16). Focused SEC
+checks: `14 passed, 1 warning in 0.10s`. Exactly one mutation removed the post-wakeup
+timestamp assignment; the sequential gate failed at the intended admission-time assertion
+(`1 failed, 1 warning in 0.16s`), and exact restoration passed. Full Ruff and Bandit
+exit 0; `2390 passed, 2 deselected, 23 warnings in 64.40s (0:01:04)`, exit 0.
+The first full run had two WeasyPrint native-library lookup failures; the installed Homebrew
+libraries were exposed via `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`, with no dependency
+or source change. EDGAR's test data directory was isolated under `/private/tmp`.
+The existing post-summary Yahoo-client shutdown logging error remains in the retained log.
+Locked SSE/background/auth/Stripe contracts and the eval baseline have empty main-to-HEAD
+diffs. Runtime correction is per-process only; aggregate API/job SEC pacing remains E09.
 
 ### W3-3 public-source replacement — 2026-09-06
 
