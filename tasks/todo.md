@@ -16,9 +16,9 @@ schema/unique constraint, historical repair or locked-test edit.
 - [x] Add one nonlocked usage transaction home with real PostgreSQL concurrency, stale-session,
   first-use, bounded-lock-wait, rollback and unchanged-history/background-cache behavior.
 - [x] Add explicit PostgreSQL CI execution and extend the existing structural workflow gate.
-- [ ] Commit source, retain exactly one mutation per new invariant with exact restoration, run
+- [x] Commit source, retain exactly one mutation per new invariant with exact restoration, run
   Ruff/Bandit/full backend and workflow/Node checks, and record evidence for independent review.
-- [ ] Return a clean committed branch to root; no push, PR, merge or deployment by this agent.
+- [x] Return a clean committed branch to root; no push, PR, merge or deployment by this agent.
 
 The guarantee covers successfully committed calls after old service/job writers drain. It does
 not reserve admission, fix historical duplicates or promise strict billing accounting. First-row
@@ -27,9 +27,19 @@ existing-bucket increments do not acquire that parent lock. The setting bounds l
 waits, not overall transaction duration or network/commit uncertainty.
 
 
-Focused source checkpoint: the new usage transaction home plus migration workflow gate passed
-37 checks on actual PostgreSQL with disposable schemas. Source commit, mutation proofs, full
-backend/workflow/Node gates and independent review remain pending.
+Source `60f28a0`: the usage transaction home plus migration workflow gate passed 37 checks on
+actual PostgreSQL with disposable schemas. Full backend gate with both Stripe and usage
+PostgreSQL cases enabled: Ruff clean; Bandit 0 medium/high;
+`2458 passed, 2 deselected, 23 warnings in 50.55s`, exit 0. Workflow-focused gates: 103 passed;
+Node-version gate: 3 passed on Node 22.23.2. No locked contracts or eval baseline changed.
+
+Exactly one mutation per new invariant: stale Python increment → 3 intended failures; removed
+first-use lock/re-read → 1 (three duplicate rows); missing lock timeout → 2; parent lock on an
+existing bucket → 1; connection-global timeout → 1; unbounded/fractional timeout setting → 6;
+updates across duplicate history → 1; uncertain-commit retry → 2; skipped legacy signed-in
+background-cache charge → 1; missing required PostgreSQL CI URL → 1. All ten proofs restored
+exact committed bytes before the successful full gate. No earlier workstream proof was repeated.
+Independent review and root-owned integration/publication/release remain pending.
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 

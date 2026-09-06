@@ -102,9 +102,13 @@ lifetime/health proofs and one additional exact-site lookup proof are retained. 
 publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
 
 
-E07a source checkpoint: SQL monthly increments preserve existing helper calls and history; only
+E07a source `60f28a0`: SQL monthly increments preserve existing helper calls and history; only
 first-bucket creation locks/re-reads the User. Transaction-local lock timeout defaults to 3000 ms,
 validated as whole milliseconds from 1 through 10000. Focused real PostgreSQL + workflow gate:
-37 passed. Old service/job writers must drain before the first-use protocol holds; this stage
-does not reserve admission, repair old duplicates or change existing best-effort meter policy.
-Mutation, full gate, independent review and root-owned release remain pending.
+37 passed. Ten distinct mutation proofs failed their intended assertions; exact source restored.
+Full backend with both PostgreSQL suites enabled: Ruff clean, Bandit 0 medium/high,
+`2458 passed, 2 deselected, 23 warnings in 50.55s`, exit 0. Workflow-focused checks: 103 passed;
+Node pin: 3 passed. Locked contracts and eval baseline are untouched. Old service/job writers
+must drain before the first-use protocol holds; this stage does not reserve admission, repair
+old duplicates or change existing best-effort meter policy. Independent review, integration and
+root-owned publication/release remain pending.
