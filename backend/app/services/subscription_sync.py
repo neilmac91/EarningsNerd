@@ -136,13 +136,13 @@ def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
         return None
     if stripe_sub_id and sub and sub.stripe_subscription_id == stripe_sub_id:
         # A late checkout is only a linking event; it cannot reactivate a canceled/past-due
-        # subscription or turn a Stripe trial into an active subscription. Returning None also
-        # avoids emitting another subscription_activated signal from the webhook router.
+        # subscription or turn a Stripe trial into an active subscription. Preserve the existing
+        # activation signal only while entitled; analytics exactly-once is a separate concern.
         logger.info(
             "Ignoring Stripe checkout user_id=%s subscription_id=%s reason=already_synchronized",
             user.id, stripe_sub_id,
         )
-        return None
+        return user if is_pro_user(user) else None
 
     sub = sub or _get_or_create_subscription(db, user)
     sub.plan = "pro"

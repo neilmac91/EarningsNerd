@@ -4,18 +4,38 @@
 
 ### E05a — Subscription identity and delayed-event guards (engineering)
 
-- [ ] Reject checkout bindings that conflict with existing customer/subscription ownership.
-- [ ] Preserve synchronized state when a matching checkout arrives after subscription events.
-- [ ] Ignore a deletion for an old subscription after its customer has a replacement.
-- [ ] Add adversarial sequences in `backend/tests/unit/test_subscription_identity.py`; keep
+- [x] Reject checkout bindings that conflict with existing customer/subscription ownership.
+- [x] Preserve synchronized state when a matching checkout arrives after subscription events.
+- [x] Ignore a deletion for an old subscription after its customer has a replacement.
+- [x] Add adversarial sequences in `backend/tests/unit/test_subscription_identity.py`; keep
   every locked checkout/webhook contract byte-identical and retain metadata-only bootstrap.
-- [ ] Commit source, restore original behavior for exactly one mutation experiment, restore
+- [x] Commit source, restore original behavior for exactly one mutation experiment, restore
   exact source bytes, and run Ruff, Bandit and the full backend pytest gate.
-- [ ] Record review/evidence and return the commit to the root agent without pushing or deploying.
+- [x] Record review/evidence and return the commit to the root agent without pushing or deploying.
 
 Scope: existing identity/state guards only. No price, promo, trial, schema or entitlement-policy
 change. E05b retains general same-subscription event ordering and concurrent-delivery handling;
 these checks do not introduce an event watermark or serialize webhook transactions.
+
+Verification: original source checkpoint `e7371c6`; exactly one mutation experiment restored
+`049cd4f`'s entire `subscription_sync.py`, producing `15 failed, 2 warnings in 0.48s` at the
+intended identity/state assertions. Exact restoration: `15 passed, 2 warnings in 0.46s`.
+Focused new/locked checkout, webhook and entitlement gates: `64 passed, 17 warnings in 2.59s`.
+The review correction preserves the existing activation return for already-synchronized users
+who remain entitled, and returns None for nonentitled late checkouts; its return-value assertions
+extend the existing cases. Final Ruff/Bandit exit 0; full pytest:
+`2405 passed, 2 deselected, 23 warnings in 46.03s`, exit 0. The existing post-summary asynchronous
+client shutdown logging error remains in the retained log. Tests used the pinned Python 3.11.16
+venv, Homebrew native-library lookup and an isolated temporary EDGAR data path.
+
+Independent correctness/rules/tests review found no further B1–B3 issues after the activation
+correction. Two refutation passes confirmed that existing entitlement truth permits canceled,
+past-due and expired-trial replacements while preserving active replacements against old events.
+Locked checkout/Stripe contracts are byte-identical. No schema, configuration, pricing, promo,
+trial, source-generation or production changes. E05b retains arbitrary upsert ordering,
+concurrent-delivery races and ambiguous replacement checkouts when the current subscription
+is nonentitled; analytics exactly-once also remains open for E05b/E06. Root owns publication,
+exact-head remote checks and serialized deployment verification.
 
 The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
 The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and

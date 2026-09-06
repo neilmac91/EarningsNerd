@@ -95,9 +95,10 @@ def test_checkout_after_subscription_event_preserves_authoritative_state(db, sta
         "cancel_at_period_end": True,
     })
     before = _state(user)
-    _apply(db, apply_checkout_completed, _checkout(user))
+    result = _apply(db, apply_checkout_completed, _checkout(user))
     assert _state(user) == before
     assert get_plan(user).value == ("pro" if status == "trialing" else "free")
+    assert result is (user if status == "trialing" else None)
 
 
 @pytest.mark.parametrize("old_status", ["canceled", "past_due", "trialing"])
