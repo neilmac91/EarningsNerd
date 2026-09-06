@@ -25,9 +25,11 @@ Use asynchronous I/O around the existing synchronous database ownership; do not 
 - `backend/app/models/__init__.py` and model submodules: persisted relationships and constraints.
 - `backend/app/database.py`: session lifecycle; `backend/app/config.py`: configuration access.
 - `backend/app/services/entitlements.py`: the only plan/limit authority.
-- `backend/app/services/edgar/`: SEC service layer and shared limiter/breaker facilities.
-  The existing `SECFullTextSearchClient` in `backend/app/integrations/sec_api.py` is the
-  sanctioned EFTS exception: shared limiter/backoff, without the circuit breaker. Do not add new bypasses.
+- `backend/app/services/edgar/`: SEC services; selected fetches use the breaker, local parsing does not.
+  Existing EFTS in `backend/app/integrations/sec_api.py` and companyfacts fetching in
+  `backend/app/services/facts_service.py` use shared limiter/backoff without the breaker;
+  the in-layer XBRL companyfacts fallback uses a single limiter wait without the breaker.
+  Follow existing transport ownership and pacing; do not add new bypasses.
 - `backend/app/services/summary_pipeline.py`: the single summary orchestrator.
 - `backend/app/utils/datetimes.py` and `backend/app/utils/sec_urls.py`: timestamp and filing URL boundaries.
 

@@ -14,8 +14,8 @@ REQUIRED_ENGINEERING_FILES = {
 }
 OBSOLETE_STACK = re.compile(
     r"Firebase|Firestore|Alembic|Celery|\bVite\b|React Router|GPT-4|GPT-3\.5|"
-    r"AsyncSession|create_async_engine|/api/v1|render\.yaml|on Render|"
-    r"Render dashboard|Deploy to Render",
+    r"AsyncSession|create_async_engine|/api/v1|render\.yaml|\bon Render\b|"
+    r"\bRender dashboard\b|\bDeploy to Render\b",
     re.IGNORECASE,
 )
 # Existing non-engineering debt; remove entries when corrected, never add engineering files.
@@ -32,6 +32,8 @@ LEGACY_FILES = {
 
 
 def test_agent_files_use_supported_stack_outside_frozen_legacy_files():
+    for phrase in ("render the chart", "section rendering", "JSON rendering"):
+        assert not OBSOLETE_STACK.search(phrase), f"Benign rendering phrase matched: {phrase}"
     paths = sorted(AGENTS.rglob("*.md"))
     assert paths, f"Agent documentation scan is empty: {AGENTS}"
     missing = REQUIRED_ENGINEERING_FILES - {

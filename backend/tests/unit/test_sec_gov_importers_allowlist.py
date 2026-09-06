@@ -1,17 +1,14 @@
-"""Structural gate for CLAUDE.md rule 5: all sec.gov traffic goes through the edgar service layer.
+"""Bound SEC URL-literal homes and keep URL-text exemptions free of HTTP imports.
 
-SEC's cap is 10 req/s per IP and its rate-limiter/circuit-breaker state is per-process, so every
-call path that builds a ``sec.gov`` URL outside ``app/services/edgar/`` is a potential bypass of the
-token bucket (the audit found one: the facts backfill's bare ``httpx.Client``). This test walks the
-AST of every ``app/**/*.py`` file and collects string constants containing ``sec.gov`` (f-string
-fragments included; docstrings and comments excluded — they carry no traffic). Any hit outside the
-allow-listed files fails with file:line and points the author at the edgar layer.
+This app-only AST gate locates ``sec.gov`` string constants (including f-string fragments,
+excluding docstrings/comments). It is not a request-callgraph or universal pacing/breaker proof:
+existing facts-service companyfacts requests use a pure URL helper, and filing documents can
+arrive as dynamic URLs. Review those transport paths separately under CLAUDE rule 5.
 
-Sanctioned homes beyond ``services/edgar/**``:
-- ``integrations/sec_api.py`` — EDGAR full-text search; already routed via ``sec_rate_limiter``.
-- ``utils/sec_urls.py`` — pure URL construction/validation, no I/O (the one archive-URL builder;
-  the Filing model imports it, so it cannot live under the edgar package — see its docstring).
-- ``config.py`` — Settings defaults for the SEC base URLs (configuration, not a call site).
+Sanctioned literal homes beyond ``services/edgar/**``:
+- ``integrations/sec_api.py`` — EFTS; existing shared limiter/backoff, no breaker.
+- ``utils/sec_urls.py`` — pure URL construction/validation, no I/O.
+- ``config.py`` — Settings URL defaults, not a call site.
 """
 import ast
 from pathlib import Path
@@ -65,10 +62,10 @@ def test_sec_gov_literals_only_in_the_edgar_layer():
         offenders.extend(f"app/{rel}:{lineno}" for lineno in _sec_gov_string_sites(py))
 
     assert not offenders, (
-        "`sec.gov` URL literals found outside the edgar service layer:\n  "
+        "`sec.gov` URL literals found outside sanctioned literal homes:\n  "
         + "\n  ".join(offenders)
-        + "\nAll SEC traffic must go through app/services/edgar/ (run_with_circuit_breaker for "
-        "edgartools, sec_rate_limiter.execute* for raw HTTP — see lessons/sec-edgar-resilience-layer.md). "
+        + "\nUse the existing paced SEC transports; this gate checks URL text, not request routing "
+        "or universal breaker coverage — see lessons/sec-edgar-resilience-layer.md. "
         "Build archive/companyfacts URLs with app.utils.sec_urls. If you are adding a genuinely new "
         "sanctioned home, extend the allow-list in this test in the same PR with the reason."
     )
@@ -108,5 +105,5 @@ def test_url_text_exemptions_import_no_http_client():
     assert not offenders, (
         "Files exempted from the sec.gov gate for URL text only must not import an HTTP client:\n  "
         + "\n  ".join(offenders)
-        + "\nPut the fetch in app/services/edgar/ behind the rate limiter / circuit breaker."
+        + "\nKeep these exemptions pure; use existing paced SEC transport paths for I/O."
     )

@@ -64,14 +64,17 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
-5. **SEC calls:** use the edgar service layer (`app/services/edgar/` — shared rate limiter
-   and circuit-breaker facilities). The existing `SECFullTextSearchClient` in
-   `app/integrations/sec_api.py` is the sanctioned EFTS exception: direct httpx through the
-   shared limiter/backoff, without the circuit breaker. Never add raw httpx SEC bypasses outside
-   these existing paths. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
-   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket). Gate:
-   `tests/unit/test_sec_gov_importers_allowlist.py` (sec.gov literals only in the edgar layer,
-   `integrations/sec_api.py`, `utils/sec_urls.py`, `config.py`).
+5. **SEC calls:** use the existing SEC service/transport paths and shared rate limiter.
+   `app/services/edgar/` provides breaker-wrapped fetches and deliberately breaker-exempt local
+   parsing. Existing raw-HTTP paths outside it — `SECFullTextSearchClient` in
+   `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+   use the shared limiter/backoff without the breaker. The in-layer XBRL companyfacts fallback
+   also uses the limiter without the breaker, with a single token wait. Do not add new unpaced
+   SEC paths or assume every existing call uses the breaker. SEC's cap is 10 req/s per IP;
+   limiter state is per-process (API service + Cloud Run jobs each carry their own bucket).
+   `tests/unit/test_sec_gov_importers_allowlist.py` bounds `sec.gov` URL literals and keeps the
+   URL-builder/Settings exemptions free of HTTP imports; it does not prove dynamic call routing.
+   See `lessons/sec-edgar-resilience-layer.md` for existing-path and diagnostic limitations.
 6. **Contract tests are locked.** The SSE stream contract, background-generation
    characterization, auth flow, and Stripe webhook tests may be edited ONLY to delete references
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
@@ -102,7 +105,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
   copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns the SEC service
-  layer; the existing EFTS client in `integrations/sec_api.py` shares its limiter/backoff but not its breaker.
+  layer; existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
+  raw-HTTP fetches share the limiter/backoff without the breaker.
   `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
   `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys

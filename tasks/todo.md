@@ -4,6 +4,17 @@
 
 ### W3-5 local preparation — agent stack truth
 
+Latest review confirmed two bounded gaps after independent refutation: companyfacts transport
+made the EFTS-only exception wording incomplete, and case-insensitive Render phrases matched
+benign rendering text. Earlier CI and mutation evidence remains scoped history.
+
+- [x] Correct active SEC guidance and literal-gate descriptions without changing runtime or
+  executable SEC checks; distinguish limiter-only paths, local parsing and the manual diagnostic.
+- [x] Bound the three Render platform phrases and assert benign rendering text in the same gate.
+- [ ] Prove one removed-boundary mutant fails the benign-phrase assertion, restore exactly,
+  run the coherent backend gate and documentation/preservation checks.
+- [ ] Independent delta review and root's corrected actual CI/merge/deployment verification.
+
 The final table audit corrected app-chrome placement to files directly under `frontend/components/`
 and distinguished seven configured job targets from verified provisioning. Root and two reviewers
 checked the entire stack table against source. Conflicting CLAUDE/deployment prose now preserves

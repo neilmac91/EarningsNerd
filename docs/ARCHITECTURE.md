@@ -150,10 +150,13 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
 period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, plus
-`config.py`/`exceptions.py`/`models.py`. The existing `SECFullTextSearchClient` in
-`app/integrations/sec_api.py` is the sanctioned EFTS exception: direct httpx through this
-layer's shared limiter/backoff, without its circuit breaker. New SEC bypasses are prohibited;
-the existing `test_sec_gov_importers_allowlist.py` gate bounds the allowed importers.
+`config.py`/`exceptions.py`/`models.py`. Breaker coverage is selective: the XBRL primary path
+uses plain timeouts for local parsing, and its raw companyfacts fallback uses a single limiter
+wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
+in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+use shared limiter/backoff without the breaker. Do not add new unpaced SEC paths.
+`test_sec_gov_importers_allowlist.py` checks URL-literal homes and pure-builder/Settings HTTP
+import exclusions; dynamic URLs and the full request graph are outside that gate's proof.
 
 ### Integrations (`app/integrations/`)
 
