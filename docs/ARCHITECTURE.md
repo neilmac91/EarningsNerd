@@ -117,7 +117,8 @@ frontend/
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
-| `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks and post-commit analytics; stale-event chronology remains separate |
+| `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
+| `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; failure rolls back the event |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |

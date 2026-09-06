@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
+    # One current-state read under the account lock; phase/inactivity limits, NOT a total deadline.
+    STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0, le=10, allow_inf_nan=False)
+    STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0, le=10, allow_inf_nan=False)
     # Price IDs from Stripe Dashboard > Products > Pricing
     # MUST be set via environment variables - no defaults to fail obviously if misconfigured
     STRIPE_PRICE_MONTHLY_ID: str = ""

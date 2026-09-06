@@ -45,6 +45,7 @@ EVENT_ANALYSIS_INFERENCE = "analysis_inference_cost"
 EVENT_INVITE_REDEEMED = "invite_redeemed"
 EVENT_SIGNUP_COMPLETED = "signup_completed"
 EVENT_TRIAL_STARTED = "trial_started"
+EVENT_INVOICE_PAYMENT_RECORDED = "invoice_payment_recorded"
 
 
 def get_posthog_client() -> Optional["Posthog"]:
