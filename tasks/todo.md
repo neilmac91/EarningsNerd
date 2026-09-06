@@ -15,7 +15,8 @@ case-insensitive scan requires no frozen-allowlist expansion. PR #715 remains dr
   `2383 passed, 2 deselected, 23 warnings in 54.83s`, exit 0. Prior proofs and CI remain
   scoped historical evidence. All 148 local links resolve; original archives/§7/ledger,
   locked contracts and sole baseline are preserved.
-- [ ] Complete independent case-delta evidence review.
+- [x] Independent correctness and tests/rules reviews cleared the case delta and actual
+  mutation/full-gate evidence; root verified the final documentation-only result update.
 - [ ] Root: inspect corrected actual CI before merge and deployment verification.
 
 PR #715 is draft during a bounded review correction. Two independent refutations confirmed
