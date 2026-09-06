@@ -6,18 +6,36 @@ Approved engineering scope from the beta-to-scale plan. Start: `7d06edc`.
 Keep the sole summary orchestrator, filing grounding, quota semantics and locked contracts.
 No prompt, flag, schema, capacity or W3-8b classifier change. Root owns publication/deployment.
 
-- [ ] Return plain filing/cache snapshots from worker-owned sessions; close progress/save/usage
+- [x] Return plain filing/cache snapshots from worker-owned sessions; close progress/save/usage
   sessions in their worker before network, admission or stream waits.
-- [ ] Close background preflight before draining the same orchestrator; preserve all early returns.
-- [ ] Release the request session before SSE, preserving current-user entitlement inputs and
+- [x] Close background preflight before draining the same orchestrator; preserve all early returns.
+- [x] Release the request session before SSE, preserving current-user entitlement inputs and
   the locked stand-in identity; offload the complete detailed-health DB probe.
-- [ ] Extend existing lifecycle and health test homes with real pool/ownership evidence.
-- [ ] Prove each new invariant with exactly one mutation, restoring committed implementation.
-- [ ] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
+- [x] Extend existing lifecycle and health test homes with real pool/ownership evidence.
+- [x] Prove each new invariant with exactly one mutation, restoring committed implementation.
+- [x] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
+- [ ] Independent review, publication, CI/eval inspection and serialized deployment (root).
 
 Runtime evidence: installed FastAPI `routing.py::request_response` closes its request dependency
 stack after `await response(...)`; `dependencies/utils.py` defaults yielded dependencies to that
 stack. The route's earlier "session is gone" comment is false for streaming on the pinned runtime.
+
+Local implementation evidence (`1dafb69`): Ruff `All checks passed!`; Bandit 0 medium/high
+findings; full pytest `2402 passed, 2 deselected, 23 warnings in 44.27s`. Locked SSE,
+background, auth, Stripe, expired-trial tests and recorded stream frames are byte-identical.
+The lifetime mutation retained the initial read session and failed with `follower retained a DB
+connection`; the health mutation moved the query back onto the event loop and failed both probe
+cases. Restoring committed bytes produced `45 passed, 17 warnings` across the two gate homes.
+One mutation per invariant; no live SEC/provider requests, flags or production operations.
+
+Precedence correction: the touched single-orchestrator lesson still named Multi-Period Analysis
+as the cross-filing insight destination. Its prose now names the labeled Change Report to match
+the higher-priority CLAUDE.md rule 2; existing Analysis behaviour is unchanged.
+
+Limits: local SQLite pool evidence is not a PostgreSQL load test. A running synchronous DB
+operation cannot be forcibly cancelled; its worker remains responsible for session cleanup.
+This change releases the summary route's transaction before streaming; it does not convert all
+synchronous route queries to async I/O, alter fleet capacity or change generation admission.
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 

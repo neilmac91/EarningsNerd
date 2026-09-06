@@ -15,8 +15,8 @@ suppressed, `current_user=None`). Any new consumer drains the same generator; an
 proposing a second generation code path must first read the S1 saga in
 `tasks/architecture-refactor-plan.md`'s delta log. Summaries are filing-only by product
 decision: no content from outside the chosen filing (prior filings included) may enter
-user-visible output — cross-filing insight belongs to explicit surfaces (Multi-Period
-Analysis).
+user-visible output — cross-filing insight belongs to the labeled Change Report
+(`GET /api/summaries/filing/{id}/what-changed`), as required by CLAUDE.md rule 2.
 
 **Evidence**: PRs #549/#565; T1/T2 anchors (`test_summary_stream_contract.py`,
 `test_background_generation_characterization.py`); founder decision record in the plan
