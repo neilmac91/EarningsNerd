@@ -4,27 +4,25 @@
 
 ### W3-5 local preparation — agent stack truth
 
-Authorized independent preparation; no push or PR until the chief engineer releases the
-W3-2 verified-deployment prerequisite. Founder operations and existing ordered gates remain held.
+W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
+[#711](https://github.com/neilmac91/EarningsNerd/pull/711) candidate `210c2883`; its deployment and
+live smoke acceptance remain pending. Root controls publication and serialized deployment.
+W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
+block this independent engineering work. Other founder boundaries remain unchanged.
 
 - [x] Refresh all seven engineering briefs and README status using actual source pointers.
 - [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
-- [x] Prove the gate with one intended Firebase assertion failure, restore, and run pinned backend gates.
-- [ ] Obtain three independent reviews; only then follow the chief engineer's push/merge/deploy order.
+- [x] Prove the gate with one intended Firebase assertion failure and exact restoration.
+- [x] Three independent lenses cleared the W3-5 source; unchanged source bytes retain that evidence.
+- [ ] Complete the combined backend gate on the #711 candidate, then obtain root release after
+  W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
 
-Initial local evidence before the W3-2 rebase: all 105 runtime/dev pins matched;
-Ruff/Bandit passed; backend
-`2355 passed, 2 deselected, 72 warnings in 52.52s`. The one injected obsolete-stack phrase
-failed the intended assertion; exact restoration passed (`1 passed in 0.03s`). No push or PR;
-The founder approved preserving service calendar=true / pregenerate=false. This local branch
-is rebased onto [#709](https://github.com/neilmac91/EarningsNerd/pull/709) candidate `56f44686` (the final #709 todo-only correction);
-its production verification remains pending. W3-5 is unpublished. Combined local gates at
-`29f1dc61`: 105 exact pins, Ruff/Bandit clean; `2382 passed, 2 deselected, 72 warnings in 53.66s`.
-All four locked contracts and the sole baseline are byte-identical to the #709 candidate.
-The seven briefs and structural gate are unchanged from the valid original mutation proof;
-78 source paths and 31 Markdown links/anchors resolve. Three independent reviews and
-verified #709 deployment still precede W3-5 release.
-
+Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
+intended assertion and restored with `1 passed in 0.03s`. Previous W3-2 union at `29f1dc61`:
+105 exact pins, Ruff/Bandit clean; `2382 passed, 2 deselected, 72 warnings in 53.66s`.
+The seven briefs and structural gate remain byte-identical to that mutation-proved source;
+all four locked contracts and the sole baseline remain unchanged. Source checks resolve
+78 paths and 31 Markdown links/anchors. The new base adds W3-4's scheduled workflow gate case.
 
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
 discrepancies (none invalidating the handover). The ordered plan, founder prerequisites and the
