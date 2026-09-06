@@ -101,6 +101,26 @@ async def get_saved_summaries(
         for saved_summary, summary, filing, company in rows
     ]
 
+class SavedSummaryStatus(BaseModel):
+    is_saved: bool
+
+
+@router.get("/status/{summary_id}", response_model=SavedSummaryStatus)
+def get_saved_summary_status(
+    summary_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check one summary without loading saved-library content or other users' bookmarks."""
+    if db.query(Summary.id).filter(Summary.id == summary_id).first() is None:
+        raise HTTPException(status_code=404, detail="Summary not found")
+    saved = db.query(SavedSummary.id).filter(
+        SavedSummary.user_id == current_user.id,
+        SavedSummary.summary_id == summary_id,
+    ).first()
+    return {"is_saved": saved is not None}
+
+
 @router.delete("/{saved_summary_id}")
 async def delete_saved_summary(
     saved_summary_id: int,
