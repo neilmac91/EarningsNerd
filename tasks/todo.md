@@ -1,3 +1,26 @@
+## E11a — Restrict digest filing materialization to its window (engineering, 2026-09-06)
+
+Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
+
+- [x] Read CLAUDE/AGENTS, wave-3, E11 queue, filing-scan service/models and locked tests;
+  applicable hermeticity, lock, original-proof and structural-gate lessons.
+- [ ] Add the normalized UTC lower window bound to the existing watched-company filing query.
+- [ ] Preserve baseline, form/entitlement, log, future-date, sender and retry behavior; correct
+  service/model prose claiming a unique log guarantees once-only external sending.
+- [ ] Add one new unlocked test home observing actual ORM-loaded Filing IDs for the boundary,
+  recent/old, watched/unwatched, baseline and preference cases with UTC/offset/naive `now`.
+- [ ] Commit source, run one mutation removing only the SQL date predicate, show the materialization
+  assertion failing and restore exact committed bytes. Run focused offline gates, Ruff and Bandit.
+- [ ] Three-lens source review and clean local checkpoint; root owns full gate, actual PostgreSQL
+  timestamp parity, publication and serialized release. No full suite or live operations here.
+
+Initial proposed test home was corrected before any edit: `test_filing_scan.py` is locked T7
+(`lessons/test-contract-tests-are-locked.md`; `tasks/architecture-refactor-plan.md:674,775`).
+Use new `backend/tests/unit/test_digest_window_query.py`; run the existing anchor unchanged.
+No upper date bound, LIMIT, schema/index, dependency, flag, entitlement, sender/retry, prompt,
+model, baseline or locked-contract edits. Residual: sends occur before unique logs; concurrent
+sends can duplicate and logged failed attempts suppress retries. E11a changes no delivery policy.
+
 ## E14b — Final sitemap-main integration (2026-09-06)
 
 - [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
