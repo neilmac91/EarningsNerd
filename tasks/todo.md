@@ -1,3 +1,36 @@
+## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)
+
+Depends on the account-cache release (#742). Prepared on a branch stacked on `82f988b`; rebased
+onto main after that merge. Findings F1/F2 and the state table are in the handover plan
+`billing-state-next-task.md` (Codex, read against `bbcba4c`; re-read here against current source).
+
+F1: `app/pricing/page.tsx` treats `Boolean(currentUser)` as "resolved" — an unresolved identity or
+an undefined subscription still labels Free "Current Plan", keeps the Pro action enabled and lets
+`handleUpgrade` emit `checkoutStarted` and request checkout without resolved, non-Pro data.
+F2: `BillingPanel.tsx` returns its blocking error card on any subscription `isError`, discarding
+retained same-account data (plan, renewal, portal action) after a failed refresh.
+
+- [ ] Pricing: distinguish identity pending / identity failed / confirmed guest / known user with
+  subscription pending / failed without data / retained data with failed refresh. No "Current
+  Plan", checkout, checkout event or guest redirect while account data is absent. Identity
+  failure gets a calm account notice with retry (not a guest). Trial/beta CTA copy waits for data.
+- [ ] Pricing: guard `handleUpgrade` before loading state, analytics or mutation — unresolved
+  identity returns; confirmed guest keeps registration routing; known user requires present
+  subscription data with `is_pro === false`. Free-card registration action gets the same
+  identity readiness. Rendered button state matches the guard.
+- [ ] Billing: blocking error only for identity failure or subscription failure WITHOUT data,
+  with retry through the existing queries. With retained same-account data and a failed
+  refresh: keep plan/renewal/customer action, show a refresh-failure `Notice` with retry.
+  Successful retry replaces data and clears the notice. Usage failure alone blocks nothing.
+- [ ] Tests in the existing homes (`PricingPage.spec.tsx`, `BillingPanel.spec.tsx`) with real
+  QueryClient + controlled promises; a test-only Button `onClick` capture exercises the actual
+  handler independently of DOM disabling. Existing trial/expired/paid/portal controls kept.
+- [ ] One original mutation per invariant (M1 missing-data presentation, M2 handler guard,
+  M3 Billing unconditional early return), each restored; tails recorded in the PR body.
+- [ ] Full frontend gate (lint, tsc, vitest, build); three review lenses; both-theme preview of
+  loading/error/retained states; draft PR; CI; release. No backend, API, price, trial, promo,
+  flag, entitlement or analytics-schema change. No live checkout.
+
 ## Account-cache integration and handover checkpoint (2026-09-06)
 
 Integrated released main `d7b0177908b6d580d8ad4a99387f54fb34d1849f` (#741) after an
