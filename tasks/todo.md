@@ -1,3 +1,23 @@
+## E15a — Integrate released login and summary handoff (2026-09-06)
+
+The founder's exact five-action approval also covers this latest-main integration, required
+hermetic gates and normal branch update. Root owns PR checks, merge and production verification.
+
+- [ ] Merge exact main `414ea91347df5b93a2ad12c1423b807ba35328fe`, preserving sitemap
+  source and original two proofs, all incoming history and all three PostgreSQL CI lanes.
+- [ ] Verify three review lenses, locked-byte identity and frontend identity to main.
+- [ ] Run full pinned Ruff/Bandit/backend pytest with Stripe, usage and login disposable
+  PostgreSQL test URLs; record exact evidence and push the reviewed branch without force.
+
+Previous-base CI acceptance is retained separately: PR #737 head `6f5e95e` / base `ee3ac988`,
+CI `34042764106` and ready Copilot `34042776146` succeeded. Migration replay was 36/0,
+0/36, 36/0; Stripe 24 and usage 18 passed; summary 52/52 had zero errors/vetoes and regression
+PASS with one untraceable-figure advisory (2.0769). Copilot accepted all 18 attempts with zero
+errors; 24 source hashes and scratch DB hash matched. The report inspector verified unchanged
+harness/golden and eval merge `15d33d90` parents exactly matched that old base/head. Artifacts
+`9992274632` and `9992228967`, logs, metadata and verification output are retained in
+`/private/tmp/earningsnerd-e15-evidence/approved-remote`. This is not CI evidence for a new head.
+
 ## E14a — grounded waitlist example (2026-09-06)
 
 Second preview finding: corrected `83dd208` shows the issuer at 320 px, but root's
