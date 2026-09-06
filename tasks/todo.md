@@ -271,6 +271,23 @@ login source and its concurrency tests remain the reviewed `24a4d1c` implementat
 combined full backend gate with all three PostgreSQL URLs, workflow readers and Node pin before
 an authorized branch push. Root owns PR creation/merge/release; E09 publication remains held.
 
+Combined source `c1ec2bb` against main `90fdc69` passed the pinned full backend gate:
+Ruff clean; Bandit 0 medium/high; **2552 passed, 2 deselected, 23 warnings in 45.98s**, exit 0.
+All three PostgreSQL URLs were configured; Stripe, usage and login cases ran in disposable
+schemas. Workflow readers: **104 passed**; Node 22.23.2 pin: **3 passed**. The pre-existing
+closed logging-stream teardown diagnostic followed pytest's passing summary.
+
+Integration review is clear across correctness, rules/brief and tests/gates. Runtime login code
+and its concurrency home match reviewed `24a4d1c`; reset comparisons, threshold/timestamps and
+caller-owned success clear remain unchanged. CI retains all three PostgreSQL steps and structural
+entries. E06 corrections, E07a runtime and every locked anchor/baseline match main. No schema,
+policy, deletion, config, reservation or E09 change was added. Original runtime and CI mutation
+proofs remain valid; neither was repeated. Diff/whitespace checks are clean.
+
+Combined logs: `/private/tmp/earningsnerd-e13-evidence/integrated-full.log`, `integrated-bandit.log`,
+`integrated-workflow.log` and `integrated-node.log` in that directory. Root authorized normal
+branch push after these gates; PR creation/merge and production verification remain root-owned.
+
 ### E13a — Atomic failed-login recording (engineering)
 
 Bounded implementation from `a5ba97e`: replace the race in durable failed-login recording with

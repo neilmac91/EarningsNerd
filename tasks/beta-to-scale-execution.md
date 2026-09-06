@@ -165,3 +165,10 @@ restored before the full backend gate: Ruff clean, Bandit 0 medium/high;
 cases enabled. Workflow checks: 103 passed; Node pin: 3 passed. Root source review found no
 actionable issue. No schema, configuration, retention deletion, admission reservation or locked
 contract change. Root-owned integration/publication/remote CI/release remain pending.
+
+E13a integration `c1ec2bb` includes main `90fdc69` and preserves reviewed `24a4d1c` runtime/tests.
+All Stripe, usage and login PostgreSQL CI paths and structural entries are retained. Final combined
+Ruff/Bandit gate passed: **2552 passed, 2 deselected, 23 warnings in 45.98s**, exit 0, all three
+PostgreSQL URLs configured; workflow readers 104 passed and Node pin 3 passed. Integration review
+is clear across correctness/rules/tests, and locked anchors match main. Prior mutation proofs
+were not repeated. Authorized branch push follows; root owns PR and serial release.
