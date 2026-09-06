@@ -101,6 +101,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `APPLE_REDIRECT_URI` | `"https://api.earningsnerd.io/api/auth/apple/callback"` | Apple OAuth callback URL; match provider registration. |
 | `TURNSTILE_SECRET_KEY` | `""` | Cloudflare bot verification; empty is a no-op. Pair with frontend site key. |
 | `TRUSTED_PROXY_HOPS` | `1` | Trusted proxies counted from the right of X-Forwarded-For; 0 ignores the header. CI sets 1 for direct Cloud Run ingress. |
+| `RATE_LIMITER_MAX_KEYS` | `10000` | Per-process, per-limiter retained-key ceiling (1–100000); reject unseen keys at capacity instead of evicting active windows. Expired keys are removed lazily; peeks do not extend retention. Not a fleet or byte limit. |
 | `ENVIRONMENT` | `"development"` | Environment label; production enables SQLite refusal and secure-cookie derivation. |
 | `COOKIE_NAME` | `"earningsnerd_access_token"` | Access-token cookie name. |
 | `COOKIE_SECURE` | `false` | Declared default false; constructor derives true in production unless COOKIE_SECURE exists in the process environment. See precedence note below. |
@@ -134,6 +135,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
 | `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `PRO_SUMMARY_MONTHLY_CAP` | `300` | Invisible Pro anti-abuse ceiling for fresh generations per month; 0 disables; billing remains unlimited. |
+| `USAGE_COUNTER_LOCK_TIMEOUT_MS` | `3000` | PostgreSQL transaction-local lock waits for monthly counter writes; whole milliseconds from 1 through 10000. Does not bound total transaction/network duration. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
 | `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls. |
 | `COPILOT_MONTHLY_QUESTION_CAP` | `1000` | Monthly question fair-use ceiling per Pro account. |

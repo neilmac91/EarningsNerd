@@ -53,8 +53,9 @@ export default function BillingPanel() {
     )
   }
 
-  const isTrialing = sub?.status === 'trialing'
   const isPro = Boolean(sub?.is_pro)
+  // The API resolves expired trial rows to Free even while their raw status stays trialing.
+  const isTrialing = isPro && sub?.status === 'trialing'
   const trialDays = isTrialing ? daysUntil(sub?.trial_end ?? null) : null
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
 

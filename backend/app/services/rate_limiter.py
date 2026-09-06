@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from threading import Lock
-from typing import Deque, Dict, Optional
+from typing import Deque, Optional
 
 from fastapi import HTTPException, Request, status
 
@@ -11,24 +11,41 @@ from app.config import settings
 
 
 class RateLimiter:
-    """Simple in-memory sliding window rate limiter."""
+    """Per-process sliding windows with bounded key cardinality and lazy idle cleanup."""
 
     def __init__(self, limit: int, window_seconds: int) -> None:
         self.limit = limit
         self.window_seconds = window_seconds
-        self._hits: Dict[str, Deque[float]] = defaultdict(deque)
+        self.max_keys = settings.RATE_LIMITER_MAX_KEYS
+        self._hits: OrderedDict[str, Deque[float]] = OrderedDict()
         self._lock = Lock()
 
+    def _remove_expired_keys(self, cutoff: float) -> None:
+        # Last accepted hits are ordered: only the expired prefix needs examining. Each key is
+        # removed at most once per insertion, and no auxiliary state survives _hits.clear().
+        while self._hits:
+            key, window = next(iter(self._hits.items()))
+            if window and window[-1] >= cutoff:
+                break
+            del self._hits[key]
+
     def allow(self, key: str) -> bool:
-        now = time.monotonic()
         with self._lock:
-            window = self._hits[key]
+            now = time.monotonic()
             cutoff = now - self.window_seconds
+            self._remove_expired_keys(cutoff)
+            window = self._hits.get(key)
+            if window is None:
+                if len(self._hits) >= self.max_keys:
+                    return False  # Never evict an active bucket and reset its allowance.
+                window = deque()
+                self._hits[key] = window
             while window and window[0] < cutoff:
                 window.popleft()
             if len(window) >= self.limit:
                 return False
             window.append(now)
+            self._hits.move_to_end(key)
             return True
 
     def is_exhausted(self, key: str) -> bool:
@@ -37,23 +54,25 @@ class RateLimiter:
         A read-only peek: unlike :meth:`allow` it does not record a hit, so callers can gate a
         request on prior activity (e.g. failed logins) without charging the current attempt.
         """
-        now = time.monotonic()
         with self._lock:
+            now = time.monotonic()
+            cutoff = now - self.window_seconds
+            self._remove_expired_keys(cutoff)
             window = self._hits.get(key)
             if not window:
                 return False
-            cutoff = now - self.window_seconds
             while window and window[0] < cutoff:
                 window.popleft()
             return len(window) >= self.limit
 
     def retry_after(self, key: str) -> Optional[int]:
-        now = time.monotonic()
         with self._lock:
+            now = time.monotonic()
+            cutoff = now - self.window_seconds
+            self._remove_expired_keys(cutoff)
             window = self._hits.get(key)
             if not window:
                 return None
-            cutoff = now - self.window_seconds
             while window and window[0] < cutoff:
                 window.popleft()
             if not window:
