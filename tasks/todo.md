@@ -2,6 +2,53 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E07a — Atomic completed-use counters (engineering)
+
+Approved implementation scope: preserve all three public monthly increment helpers/call sites,
+existing first-row history selection and billing timing. No reservation, quota-admission change,
+schema/unique constraint, historical repair or locked-test edit.
+
+- [x] Replace Python read-modify-write with SQL expression increments on the selected bucket;
+  only absent buckets lock the parent User, then re-read before creating the first row.
+- [x] Set a PostgreSQL transaction-local lock timeout through SQLAlchemy `set_config`, default
+  3000 ms, positive integral milliseconds up to 10000; never mutate global connection settings.
+  Errors retain existing caller policy; no retry after an uncertain commit.
+- [x] Add one nonlocked usage transaction home with real PostgreSQL concurrency, stale-session,
+  first-use, bounded-lock-wait, rollback and unchanged-history/background-cache behavior.
+- [x] Add explicit PostgreSQL CI execution and extend the existing structural workflow gate.
+- [x] Commit source, retain exactly one mutation per new invariant with exact restoration, run
+  Ruff/Bandit/full backend and workflow/Node checks, and record evidence for independent review.
+- [x] Return a clean committed branch to root; no push, PR, merge or deployment by this agent.
+
+The guarantee covers successfully committed calls after old service/job writers drain. It does
+not reserve admission, fix historical duplicates or promise strict billing accounting. First-row
+creation can contend with the Stripe account lock, bounded by the transaction-local lock timeout;
+existing-bucket increments do not acquire that parent lock. The setting bounds lock acquisition
+waits, not overall transaction duration or network/commit uncertainty.
+
+
+Source `60f28a0`: the usage transaction home plus migration workflow gate passed 37 checks on
+actual PostgreSQL with disposable schemas. Full backend gate with both Stripe and usage
+PostgreSQL cases enabled: Ruff clean; Bandit 0 medium/high;
+`2458 passed, 2 deselected, 23 warnings in 50.55s`, exit 0. Workflow-focused gates: 103 passed;
+Node-version gate: 3 passed on Node 22.23.2. No locked contracts or eval baseline changed.
+
+Exactly one mutation per new invariant: stale Python increment → 3 intended failures; removed
+first-use lock/re-read → 1 (three duplicate rows); missing lock timeout → 2; parent lock on an
+existing bucket → 1; connection-global timeout → 1; unbounded/fractional timeout setting → 6;
+updates across duplicate history → 1; uncertain-commit retry → 2; skipped legacy signed-in
+background-cache charge → 1; missing required PostgreSQL CI URL → 1. All ten proofs restored
+exact committed bytes before the successful full gate. No earlier workstream proof was repeated.
+Independent correctness/rules/tests review of `60f28a0` found no actionable issue. Main `a5ba97e`
+is integrated without changing E07a source; the combined full gate is deliberately deferred until
+E06 joins main. Prior mutation proofs remain valid and will not be repeated.
+
+Integration checkpoint: released E06 main `cab71f9` is now merged, including account export,
+timezone normalization and the worker-serialized lifetime fixture. Only checklist/ledger conflicts
+needed manual resolution; both workstreams were retained. Run one final combined backend gate
+with Stripe and usage PostgreSQL cases, workflow readers and Node pin before the authorized branch
+push. Root owns PR creation and serial deployment; E07b reservations remain unimplemented.
+
 
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
@@ -194,6 +241,26 @@ provider-wait cases extend their contention/cancellation coverage. The approved 
 patch context mechanically reduces to the exact base file; all other locked files are untouched.
 Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
 found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
+
+E07a combined integration `5c5f8b3` includes released E06 main
+`cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c`. Final pinned gate: Ruff clean; Bandit 0 medium/high;
+**2545 passed, 2 deselected, 23 warnings in 57.06s**, exit 0, with both Stripe and usage
+PostgreSQL URLs configured against disposable schemas. Workflow readers: **103 passed**; Node
+22.23.2 pin gate: **3 passed**. The existing closed logging-stream teardown diagnostic followed
+the passing pytest summary. No mutation was repeated; E07a source/tests/CI remain byte-identical
+to `714b686`, and E06 export/timezone/lifetime corrections match `cab71f9` exactly.
+
+Integration review is clear across all three lenses: correctness preserves public counter helpers,
+completion timing, selected history and bounded lock waits; rules/brief introduce no reservations,
+schema change, founder policy, new orchestrator or entitlement path; tests/gates retain the ten
+prior mutation proofs and execute real PostgreSQL cases in required CI. The only test differences
+against main are the new usage transaction home and the nonlocked parameterized CI structural
+check. All locked contracts and eval baselines are byte-identical to `cab71f9`.
+
+Exact combined logs: `/private/tmp/earningsnerd-e07-evidence/integrated-full.log`,
+`integrated-bandit.log`, `integrated-workflow.log` and `integrated-node.log` in that directory.
+The parent authorized branch push after this gate; PR creation/merge and production deployment
+remain root-owned. E07b is design-only and is not included.
 
 ### E10a — Filing-first financial-facts index (engineering)
 
