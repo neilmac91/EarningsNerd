@@ -5,16 +5,56 @@ HeroExample in a separate Suspense child; preserve signup, referral policy, home
 CTA defaults and filing quality. E14b canonical-copy action remains separate.
 
 - [x] Read AGENTS/CLAUDE, wave-3, design system and applicable testing/frontend lessons.
-- [ ] Replace anonymous preview; unavailable/placeholder data stays neutral, never Apple fallback.
-- [ ] Preserve same-filing source/metrics/quality and direct canonical preview CTA; sparse source visible.
-- [ ] Add one integration test home using real fetch boundary/shared rendering, including pending signup.
-- [ ] Commit source, run one coordinated mutation per meaningful invariant and restore exact bytes.
-- [ ] Full pinned frontend lint/typecheck/Vitest/build; review correctness, rules and gates.
+- [x] Replace anonymous preview; unavailable/placeholder data stays neutral, never Apple fallback.
+- [x] Preserve same-filing source/metrics/quality and direct canonical preview CTA; sparse source visible.
+- [x] Add one integration test home using real fetch boundary/shared rendering, including pending signup.
+- [x] Commit source, run one coordinated mutation per meaningful invariant and restore exact bytes.
+- [x] Full pinned frontend lint/typecheck/Vitest/build; review correctness, rules and gates.
 - [ ] Root independent review and both-theme preview (root owns PR/release; no push here).
 
 Constraints: CLAUDE rules 2, 6, 9, 11, 12; no backend, generation, access, flags, prices,
 locked tests, invite/referral changes or private data forwarding. Existing hourly public fetch
 is the sole data source. Source receipts describe a filing link, not excerpt-level verification.
+
+Evidence: plan `e485b33`; implementation `13a785f`; type-only predicate correction
+`3153078` preserves the caller's payload through a generic type guard. Main `cb2c1f8`
+merged cleanly as `43d554c`; frontend equals `3153078`, backend equals main. Existing
+predicate text is unchanged; only the example boundary now reuses it. Top waitlist CTA,
+headlines, referral form and homepage CTA defaults remain unchanged. New preview CTA has
+no demo/query parameters; this preserves normal destination behavior but does not enable
+the independently controlled quality-badge flag.
+
+New single test home `frontend/tests/unit/waitlist-example.spec.tsx`: nine cases resolve the
+real async child/fetch and render real HeroExample/ExampleCtaLink. A documented React 18
+Suspense resource adapts the server child for DOM tests; form/counter and analytics are
+stubbed. This proves signup placement while fetch is pending, not server streaming timing
+or live-account behavior. Source links identify the filing; excerpts do not gain a fabricated
+per-sentence citation claim. No new fetching, generation, access endpoint or credentials.
+
+One-time proofs on committed `3153078`, each restored byte-for-byte:
+
+| Invariant / mutation | Exact red tail | Log under `/private/tmp/` |
+| --- | --- | --- |
+| Live identity/quality/destination + unchanged homepage default, coordinated wrong issuer/link/default | `4 failed, 5 skipped`, exit 1 | `earningsnerd-e14-mutation-identity.log` |
+| Sparse source receipt, put source back under metrics condition | `1 failed, 8 skipped`, exit 1 | `earningsnerd-e14-mutation-sparse.log` |
+| Neutral absent/placeholder content, restore old predicate and Apple fallback | `3 failed, 6 skipped`, exit 1 | `earningsnerd-e14-mutation-unavailable.log` |
+| Signup independent of pending example, remove only child Suspense | `1 failed, 8 skipped`, exit 1; missing Join waitlist form | `earningsnerd-e14-mutation-pending.log` |
+
+Restored combined-source gate on `43d554c`, pinned Node v22.23.2: eslint `--max-warnings 0`
+clean, TypeScript clean; `98 passed` files, `513 passed` tests in `33.87s`; production build
+exit 0, compiled in `13.9s`. Logs: `/private/tmp/earningsnerd-e14-lint.log`,
+`earningsnerd-e14-typecheck.log`, `earningsnerd-e14-full-vitest.log`,
+`earningsnerd-e14-build.log` under the same directory. Build used narrowly approved network
+access for configured fonts; no dependency changes. Initial preparation failures (incorrect
+working-directory invocation, an incomplete analytics mock, and TypeScript narrowing that
+lost optional payload fields) were corrected before proofs/full gate; none is a pass claim.
+
+Three-lens self-review: correct same-filing data and sparse/unavailable handling; scope and
+CLAUDE/DS boundaries preserved; one test home, four deliberate red proofs, locked contracts
+byte-identical. Independent sec_refill review of `3153078` cleared source correctness. Root
+review/preview remains pending: the shared desktop hero is newly used on mobile, so inspect
+320/390 px and both themes before release. No speculative layout change or live preview
+claim. E14b copying canonical links remains a separate task. No push/PR/deploy here.
 
 # Remediation plan — from the September 2026 engineering audit
 
