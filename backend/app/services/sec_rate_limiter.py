@@ -87,6 +87,10 @@ class SECRateLimiter:
                 wait_time = (1.0 - self._tokens) / self.requests_per_second
                 logger.debug(f"Rate limiter: waiting {wait_time:.3f}s for token")
                 await asyncio.sleep(wait_time)
+                # The admitted request consumed the refill during this wait. Start
+                # accounting at wakeup so the next caller cannot spend it again.
+                # Discarding any scheduler oversleep is deliberately conservative.
+                self._last_update = time.monotonic()
                 self._tokens = 0.0
             else:
                 self._tokens -= 1.0

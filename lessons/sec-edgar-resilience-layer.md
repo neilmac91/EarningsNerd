@@ -37,3 +37,12 @@ authorization to run it. Do not copy that diagnostic transport into application 
 
 **Evidence**: PR #551 (S4) + its review; `backend/app/services/edgar/async_executor.py`,
 `circuit_breaker.py` (trip_exceptions), `compat.py` (bounded user-facing fetch).
+
+
+**Token accounting (2026-09-06)**: After a completed token wait, advance the refill
+boundary to wakeup. That elapsed interval already paid for the admitted request and
+must not refill the next request again. Cancellation does not admit a request; retain
+elapsed credit for its successor. Scheduler oversleep may be discarded conservatively.
+Gate: `backend/tests/unit/test_sec_rate_limiter.py::test_elapsed_refill_is_spent_once`
+uses a fake clock for sustained/concurrent calls, delayed wakeup and cancelled waits.
+This corrects each process's accounting; it does not create a fleet-wide SEC budget.
