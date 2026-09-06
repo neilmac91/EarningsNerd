@@ -116,6 +116,39 @@ claim. E14b copying canonical links remains a separate task. No push/PR/deploy h
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E15a — Exact approval and current-main publication checkpoint (engineering)
+
+On 2026-09-06 the founder replied “approved” to all five exact actions in
+`outputs/remaining-verification-publication-approval.md` in the audit workspace. That request
+explicitly includes updating existing branch `codex/wave3-sitemap-eligibility` in
+`neilmac91/EarningsNerd`, integrating already-approved main releases and rerunning the full
+hermetic backend gate with disposable schemas in the existing local PostgreSQL test database.
+The prior branch-update rejection was respected; this later exact approval supplies authority
+for the update and normal PR/CI/merge/verified release. Root owns PR and production actions.
+No policy, flag, spending, historical-data operation or locked-test edit is authorized here.
+
+Merge `8f52c8d` integrates exact main `ee3ac9882b74453bb670c69b5b05142338a53844`. Both
+task-document conflicts preserve E15a histories and incoming release rows. Sitemap runtime,
+its existing test home and eligibility lesson are byte-identical to reviewed `b922d32`
+(runtime source `348ef73`). Incoming billing, usage, limiter, metrics, workflows and frontend
+match main; locked contracts are unchanged. The historical two mutation proofs were retained
+without repetition, and the cached 567-URL observation below remains explicitly dated.
+
+Three-lens integration review is clear: the placeholder check remains case-sensitive and before
+the filing cap; the shared company predicate is reused; genuine partial content, dates and cache
+ownership are preserved. E14's generic server type guard retains the same runtime eligibility
+semantics. All 12 rules and slice boundaries remain intact. No frontend gate was repeated because
+the entire frontend matches main. This does not establish current eligible DB count, SEO indexing,
+whole-document partitioning or E15a deployment verification.
+
+Combined full pinned backend gate on `8f52c8d`, with both Stripe and usage PostgreSQL URLs:
+Ruff `All checks passed!`; Bandit zero medium/high severity; **2562 passed, 2 deselected,
+23 warnings in 49.89s**, exit 0, with no skips. The existing asynchronous client shutdown
+logging diagnostic followed the passing summary. Exact logs:
+`/private/tmp/earningsnerd-e15-evidence/approved-ruff.log`, `approved-bandit.log` and
+`approved-full.log` in that directory. Source-identity, lesson-link and conflict-marker checks
+and `git diff --check` passed before the explicitly approved branch update.
+
 ### E15a latest-main integration checkpoint
 
 Integrate current main `752f3a2728d99be851a0fd284e746ce338cf0b04`, preserving E07a counters and

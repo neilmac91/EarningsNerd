@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a reviewed; current main integration and explicit update approval recorded. E15b partitioning and eligible DB count remain unresolved |
+| E15 | Partition sitemap and align eligible content | Independent | E15a integrated with `ee3ac988`; exact update approval and 2562-test full gate recorded. PR/release pending; E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -268,3 +268,14 @@ and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labe
 numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
+
+### E15a approved update checkpoint
+
+The founder's 2026-09-06 “approved” response to all five exact requested actions explicitly
+clears the earlier sitemap branch-update hold and covers approved main integration and hermetic
+local gates. Merge `8f52c8d` includes main `ee3ac988`; source/tests/lesson match reviewed
+`b922d32`, both original proofs remain intact, and integration correctness/rules/tests review is
+clear. Full backend with Stripe and usage PostgreSQL URLs: Ruff clean, Bandit zero medium/high;
+**2562 passed, 2 deselected, 23 warnings in 49.89s**, exit 0, no skips. The old cached 567-URL
+observation remains dated evidence; no new DB census or SEO/deployment claim follows. Root owns
+PR creation, CI/eval acceptance and serialized release after this approved branch update.
