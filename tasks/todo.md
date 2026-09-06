@@ -9,18 +9,18 @@ created-thread counts, but no default AnyIO limiter pressure. Health probes and 
 units use this limiter. Read current CLAUDE/AGENTS, relevant test/operations lessons, handover,
 and the collector/health source. No production setting, capacity, schema or admission change.
 
-- [ ] Add only `scope = event_loop`, `total_tokens`, `borrowed_tokens` and `tasks_waiting`
+- [x] Add only `scope = event_loop`, `total_tokens`, `borrowed_tokens` and `tasks_waiting`
   under `thread_pool.anyio`, using the current default limiter's public statistics API. Preserve
   EDGAR keys. Never serialize borrower objects or acquire a worker token to collect the snapshot.
-- [ ] Reuse `backend/tests/unit/test_ai_metrics.py`, which already gates the admin collector.
+- [x] Reuse `backend/tests/unit/test_ai_metrics.py`, which already gates the admin collector.
   Exercise the real default limiter with one event-blocked worker and one waiting task; verify
   the collector returns before worker release and the counts drain afterward. Restore the exact
   original limiter capacity and finish all tasks in finally, with bounded waits.
-- [ ] Document GET /metrics admin authentication, per-loop aggregate snapshot interpretation,
+- [x] Document GET /metrics admin authentication, per-loop aggregate snapshot interpretation,
   and dependency-access limitations in `docs/OPERATIONS.md` without new alert thresholds.
-- [ ] Commit source, run one idle-snapshot mutation against the occupied/queued gate, restore
+- [x] Commit source, run one idle-snapshot mutation against the occupied/queued gate, restore
   exact source, then run Ruff/Bandit/full backend with Stripe and usage PostgreSQL URLs enabled.
-- [ ] Complete correctness/rules/tests review and return exact committed source to root for
+- [x] Complete correctness/rules/tests review and return exact committed source to root for
   independent review. No push, PR, deployment or live provider calls by this agent.
 
 Rules 6, 8 and 12 and the existing hermetic/one-home/proof lessons apply. This observes the
@@ -28,6 +28,37 @@ responding loop's default limiter, not CPU utilization, EDGAR/default-asyncio ex
 or generation queues, durations, historical peaks, or fleet totals. The existing admin endpoint
 still uses DB-backed authentication and a synchronous dependency, so saturation can delay the
 request itself. Startup/probe deadlines and E09 counters remain separate work.
+
+
+Source `80abcf0` adds aggregate AnyIO limiter statistics to the existing collector without
+worker acquisition or application capacity changes. EDGAR keys, route authentication and all
+locked tests remain byte-identical to base. Existing `test_ai_metrics.py` is the sole test home;
+its new test uses real worker dispatch and a queued task, verifies serialization and collection
+before release, then verifies drained counts and restores the exact original capacity in finally.
+
+Initial focused invocation omitted the local EDGAR cache override and failed during the existing
+collector's EDGAR import (sandbox denied the default cache directory); it did not reach snapshot
+assertions. Setting `EDGAR_LOCAL_DATA_DIR` to the task's temporary cache resolved it without source
+changes. The focused home passed 14 tests. Exactly one mutation replaced borrowed/waiting counts
+with zero and failed the intended occupied/queued assertion: **1 failed, 13 deselected, 2 warnings
+in 1.71s**. Exact committed bytes were restored; **14 passed, 2 warnings in 1.06s** afterward.
+
+Self-review and root's independent review of `80abcf0` cleared correctness, rules/brief and
+tests/gates. The public statistics API runs on the collector's event loop, scalar projection
+excludes borrower objects, test workers are bounded/cleaned up, and the operating guide preserves
+all snapshot/auth-path limitations. No additional mutation was repeated.
+
+Full pinned backend gate on `80abcf0` with both Stripe and usage PostgreSQL test URLs enabled:
+Ruff clean, Bandit zero medium/high severity; **2546 passed, 2 deselected, 23 warnings in
+54.05s**, exit 0, with no skips. The existing asynchronous client shutdown logging diagnostic
+followed pytest's successful summary. `git diff --check` passed; no runtime source changed
+after review or mutation restoration.
+
+Evidence: `/private/tmp/earningsnerd-e12-mutation-idle.log`,
+`earningsnerd-e12-restored-focused.log`, `earningsnerd-e12-ruff.log`,
+`earningsnerd-e12-bandit.log` and `earningsnerd-e12-full.log` in the same `/private/tmp/` directory.
+No tests outside the backend or product/provider calls were needed. Root owns integration,
+publication and serialized deployment; this branch remains local at this checkpoint.
 
 
 ### E08a — Render trial state from resolved entitlements (engineering)
