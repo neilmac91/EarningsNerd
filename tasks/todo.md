@@ -8,22 +8,35 @@ The founder asked to proceed with the next steps after verified E03/E05a release
 This prerequisite preserves all locked contracts. General stale-event reconciliation remains
 separate and needs approval for a provider stub in the locked webhook fixture.
 
-- [ ] Move verified Stripe-event database work into one worker-owned session/transaction.
-- [ ] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
+- [x] Move verified Stripe-event database work into one worker-owned session/transaction.
+- [x] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
   retry contention without acknowledging or recording an unprocessed event.
-- [ ] Commit subscription state and event ledger together; emit plain best-effort analytics only
+- [x] Commit subscription state and event ledger together; emit plain best-effort analytics only
   after successful commit and session cleanup. No ORM value crosses the worker boundary.
-- [ ] Add one nonlocked test home, `backend/tests/integration/test_subscription_event_transactions.py`,
+- [x] Add one nonlocked test home, `backend/tests/integration/test_subscription_event_transactions.py`,
   for thread/cancellation ownership, rollback/signals and actual PostgreSQL contention/delivery.
-- [ ] Run the PostgreSQL cases explicitly inside the existing migration CI job, with
+- [x] Run the PostgreSQL cases explicitly inside the existing migration CI job, with
   `STRIPE_CONCURRENCY_TEST_DATABASE_URL`; require PostgreSQL when supplied and skip only those
   fixtures when absent from the ordinary SQLite lane. Gate this CI execution path mechanically.
-- [ ] Retain one mutation proof per new invariant, full local backend/workflow checks, independent
-  review, draft PR, actual CI/eval reports and serialized production verification.
+- [x] Retain one mutation proof per new invariant, full local backend/workflow checks and independent review.
+- [ ] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
 
 No new Stripe network calls, schema migration, locked-test changes, pricing/trial/promo policy,
 production flag or capacity change. Per-user serialization does not establish Stripe chronology,
 cross-user identity uniqueness or exactly-once analytics. No event timestamp/ID tie-break is added.
+
+Source `19e0584`: full pinned local backend gate passed with PostgreSQL cases enabled:
+`2439 passed, 2 deselected, 23 warnings in 52.84s`, exit 0; Ruff clean; Bandit 0 medium/high.
+Focused PostgreSQL + unchanged locked billing gates: 59 passed. Local cluster PostgreSQL 15.15
+uses only a temporary Unix socket and disposable schemas; no production database was accessed.
+Workflow-related backend gates: 102 passed; Node-version gate: 3 passed. Documentation links checked.
+
+Exactly one mutation per new invariant: direct event-loop execution → 2 intended failures;
+bypassed account lock/recheck → 2; premature state commit → 1 (subscription without event receipt);
+analytics before commit/close → 1; missing PostgreSQL CI URL → 1. Every source mutation restored
+exact committed bytes; restored runtime gate 11 passed and restored CI gate 1 passed. Independent
+correctness/rules/tests review found no actionable issue. Locked contracts and baseline remain
+byte-identical. CI/eval and production outcomes are pending this source checkpoint.
 
 ### E05a — Subscription identity and delayed-event guards (engineering)
 
