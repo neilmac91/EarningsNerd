@@ -19,7 +19,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724, E05b #725 and E05c #727 released and independently verified; helper-only fixture approval preserved. Cross-ID policy remains separate |
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; account-cache isolation prepared locally at `25b360ff` with 553 frontend tests/full gate. Integration, publication and preview pending; pricing/activation decisions held |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; account-cache isolation #742 released as `555c9ba` (PR CI 34056429179, main CI 34057059586, backend deploy skipped, production Vercel serving verified). Billing-state honesty (pricing unknown state, cached Billing retention) is the next slice; remaining E08 copy/limits inventory and pricing/activation decisions held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a #735 released as `96d7658`; CI/evals, production migration/revision and independent health verified. Fleet admission/quotas remain separate |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 and saved-status lookup #730 (`e2e94956`) released; production verification recorded by root. Other hot reads remain separate |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | E11a #740 released (`c4ae631`), production 34050523535 verified. E11b-0 #741 merged (`d7b0177`), rollout verification pending. Delivery retry/ownership and return measurement remain separate |
@@ -428,8 +428,11 @@ analytics schema remain unchanged.
 
 Full pinned frontend lint/typecheck/Vitest/build passed; 101 files, 553 tests, 35.20s. Six original
 invariant proofs failed and restored exactly; details, source lineage, corrected review findings
-and the resolved ordinary AuthRefresh fixture classification are in the top account-cache
-section of `tasks/todo.md`. Named locked anchors remain unchanged. This is a local checkpoint,
-with root-owned integration/publication/CI/preview still pending. Browser Set-Cookie ordering,
-cross-tab transitions and other account caches are outside this bounded claim. Pricing's unknown
-subscription state and same-account cached Billing retention remain the next separate slice.
+and the resolved ordinary AuthRefresh fixture classification are in the account-cache
+sections of `tasks/todo.md`. Named locked anchors remain unchanged. Released 2026-09-06 as
+[#742](https://github.com/neilmac91/EarningsNerd/pull/742) → main `555c9ba4e0fb4107b1447c9dfa443f6df4ff81cc`:
+PR CI 34056429179 and main CI 34057059586 passed, backend deployment correctly skipped, no paid
+evaluation ran, and production Vercel served the new session-transition code by 20:10:54 UTC
+(verified from the served `/pricing` chunk). Browser Set-Cookie ordering, cross-tab transitions
+and other account caches are outside this bounded claim. Pricing's unknown subscription state
+and same-account cached Billing retention are the next separate slice (billing-state honesty).
