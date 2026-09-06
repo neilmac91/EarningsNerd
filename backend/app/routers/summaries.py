@@ -33,7 +33,9 @@ from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
 )
-from app.services.summary_pipeline import stream_filing_summary, to_sse
+from app.services.summary_pipeline import (
+    stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
+)
 from app.services.provenance_service import enrich_summary_provenance
 from app.services.change_report_service import build_change_report
 
@@ -203,13 +205,15 @@ async def generate_summary_stream(
 
             db.commit()
         else:
-            # Return existing summary as JSON
+            # Capture the response before closing the dependency's read transaction.
+            payload = {
+                'type': 'complete',
+                'summary': summary.business_overview,
+                'summary_id': summary.id,
+            }
+            db.close()
+
             async def existing_summary():
-                payload = {
-                    'type': 'complete',
-                    'summary': summary.business_overview,
-                    'summary_id': summary.id,
-                }
                 yield f"data: {json.dumps(payload)}\n\n"
             return StreamingResponse(
                 existing_summary(),
@@ -225,8 +229,7 @@ async def generate_summary_stream(
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
     # Activation funnel telemetry context. Plain values are captured eagerly here —
-    # the pipeline generator below runs after this request's DB session is gone, so ORM
-    # attribute access inside it would be unsafe. Prefer the client's PostHog
+    # this route releases its request session before streaming. Prefer the client's PostHog
     # distinct_id so server events join frontend events on the same person.
     telemetry_distinct_id = (ph_id or "")[:200] or str(current_user.id)
     telemetry_entry_point = (entry_point or "")[:64] or None
@@ -238,10 +241,17 @@ async def generate_summary_stream(
         "forced": force,
     }
 
+    # Copy loaded identity inputs without lazy SQL, then release the request connection.
+    # Resolve missing subscription inputs in a separate worker-owned transaction; neither
+    # the request session nor any ORM object crosses into that worker or the stream.
+    generation_user = snapshot_generation_user(current_user, user_id)
+    db.close()
+    generation_user = await run_in_threadpool(load_generation_user, generation_user)
+
     async def event_stream():
         async for event in stream_filing_summary(
             filing_id=filing_id,
-            current_user=current_user,
+            current_user=generation_user,
             user_id=user_id,
             telemetry_distinct_id=telemetry_distinct_id,
             telemetry_entry_point=telemetry_entry_point,

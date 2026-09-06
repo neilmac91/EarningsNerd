@@ -6,9 +6,8 @@ This module owns the end-to-end summary pipeline that was previously inlined as 
 the SSE endpoint can format them for the wire while the business logic lives here.
 
 Phase 1 (M7) goal: extract the logic with **zero behaviour change** to the SSE contract.
-The yielded dicts are exactly the payloads the router used to ``json.dumps`` inline, so the
-on-the-wire output is unchanged. A future phase can route the batch/cron path through the
-same generator to retire the duplicate in ``summary_generation_service.py``.
+The yielded dicts are the payloads formatted by the router. Background/cron callers drain
+this same generator; database operations own short sessions inside their worker threads.
 """
 from __future__ import annotations
 
@@ -17,16 +16,18 @@ import datetime
 import json
 import logging
 import time
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import AsyncIterator, List, Optional
 
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from app import database
 from app.config import settings
-from app.models import Filing, Summary, User
+from app.models import Filing, Summary, User, Subscription
 from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
@@ -64,6 +65,66 @@ logger = logging.getLogger(__name__)
 # off, and even when scaled it bounds redundant work per instance.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+@dataclass(frozen=True)
+class _GenerationSubscription:
+    status: Optional[str]
+    trial_end: Optional[datetime.datetime]
+
+
+@dataclass(frozen=True)
+class GenerationUserSnapshot:
+    id: int
+    is_pro: bool
+    subscription: Optional[_GenerationSubscription]
+    subscription_unloaded: bool = False
+
+
+def snapshot_generation_user(user: User, user_id: int) -> GenerationUserSnapshot:
+    """Copy identity inputs without triggering ORM loads on the request thread.
+
+    Already supplied subscription state stays authoritative for this request. An
+    unloaded relationship (or expired subscription fields) is resolved separately,
+    after the request session closes. This records inputs, not entitlement decisions.
+    """
+    state = sa_inspect(user, raiseerr=False)
+    if state is None:
+        # Standalone identities are supported by internal callers and locked anchors.
+        is_pro = bool(getattr(user, "is_pro", False))
+        subscription = getattr(user, "subscription", None)
+        unloaded = False
+    else:
+        is_pro = bool(state.dict.get("is_pro", False))
+        subscription = state.dict.get("subscription")
+        unloaded = "subscription" not in state.dict and state.identity is not None
+
+    copied_subscription = None
+    if subscription is not None:
+        sub_state = sa_inspect(subscription, raiseerr=False)
+        if sub_state is not None:
+            unloaded = sub_state.identity is not None and not {"status", "trial_end"}.issubset(sub_state.dict)
+            if not unloaded:
+                copied_subscription = _GenerationSubscription(
+                    sub_state.dict.get("status"), sub_state.dict.get("trial_end")
+                )
+        else:
+            copied_subscription = _GenerationSubscription(
+                getattr(subscription, "status", None), getattr(subscription, "trial_end", None)
+            )
+    return GenerationUserSnapshot(user_id, is_pro, copied_subscription, unloaded)
+
+
+def load_generation_user(snapshot: GenerationUserSnapshot) -> GenerationUserSnapshot:
+    """Resolve only missing subscription inputs in a fresh worker-owned transaction."""
+    if not snapshot.subscription_unloaded:
+        return snapshot
+    with database.SessionLocal() as session:
+        row = session.query(Subscription.status, Subscription.trial_end).filter(
+            Subscription.user_id == snapshot.id
+        ).first()
+        subscription = _GenerationSubscription(row.status, row.trial_end) if row else None
+        return replace(snapshot, subscription=subscription, subscription_unloaded=False)
 
 
 def _claim_inflight(filing_id: int) -> asyncio.Event:
@@ -151,7 +212,7 @@ def to_sse(event: dict) -> str:
 async def stream_filing_summary(
     *,
     filing_id: int,
-    current_user: Optional[User],
+    current_user: Optional[User | GenerationUserSnapshot],
     user_id: Optional[int],
     telemetry_distinct_id: str,
     telemetry_entry_point: Optional[str],
@@ -164,7 +225,8 @@ async def stream_filing_summary(
     Caller is responsible for HTTP concerns (rate limiting, auth — user-facing generation is
     account-required at the router boundary, the cached/existing
     summary short-circuit) and for capturing the telemetry context before invoking this — the
-    generator runs after the request's DB session is gone, so it manages its own session.
+    router releases its session before streaming. Each DB unit here owns its session
+    inside the worker; no ORM query result survives into an admission or provider wait.
     """
     pipeline_started_at = time.time()
     stage_started_at = pipeline_started_at
@@ -193,7 +255,6 @@ async def stream_filing_summary(
         stage_timings.append((stage_name, duration))
         stage_started_at = now
 
-    session = database.SessionLocal()
     # A3: set when this request becomes the generation leader; released in `finally`.
     inflight_event: Optional[asyncio.Event] = None
     generation_semaphore: Optional[asyncio.Semaphore] = None
@@ -201,8 +262,14 @@ async def stream_filing_summary(
     summary_task: Optional[asyncio.Task] = None
 
     async def run_sync_db(func, *args, **kwargs):
-        """Helper to run DB operations in default thread pool"""
+        """Run a complete, session-owning DB unit in the thread pool."""
         return await run_in_threadpool(func, *args, **kwargs)
+
+    def record_progress_sync(*args, **kwargs) -> None:
+        # record_progress refreshes its returned row after committing. Close that read
+        # transaction here too; the stream only needs the durable write, not the ORM row.
+        with database.SessionLocal() as progress_session:
+            record_progress(progress_session, *args, **kwargs)
 
     try:
         async with asyncio.timeout(PIPELINE_TIMEOUT_SECONDS):
@@ -211,26 +278,44 @@ async def stream_filing_summary(
 
             # DB OP: Query filing and check for existing summary
             def get_filing_and_summary_sync():
-                filing_in_session = session.query(Filing).options(
-                    joinedload(Filing.content_cache),
-                    joinedload(Filing.company)
-                ).filter(Filing.id == filing_id).first()
-                summary_in_session = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                return filing_in_session, summary_in_session
+                with database.SessionLocal() as session:
+                    filing = session.query(Filing).options(
+                        joinedload(Filing.content_cache),
+                        joinedload(Filing.company)
+                    ).filter(Filing.id == filing_id).first()
+                    summary = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    company = filing.company if filing else None
+                    cache = filing.content_cache if filing else None
+                    filing_fields = {
+                        "company_name": company.name if company else "Unknown company",
+                        "company_cik": company.cik if company else None,
+                        "company_sic": company.sic if company else None,
+                        "document_url": filing.document_url,
+                        "filing_type": filing.filing_type,
+                        "accession_number": filing.accession_number,
+                        "filing_date": filing.filing_date,
+                        "cache_excerpt": cache.critical_excerpt if cache else None,
+                        "cache_updated_at": cache.updated_at if cache else None,
+                        "cache_created_at": cache.created_at if cache else None,
+                    } if filing else None
+                    summary_fields = {
+                        "business_overview": summary.business_overview, "id": summary.id,
+                    } if summary else None
+                    return filing_fields, summary_fields
 
-            filing_in_session, summary_in_session = await run_sync_db(get_filing_and_summary_sync)
+            filing_fields, summary_fields = await run_sync_db(get_filing_and_summary_sync)
 
-            if not filing_in_session:
+            if not filing_fields:
                 logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
                 yield {'type': 'error', 'message': 'Filing not found'}
                 return
 
-            if summary_in_session and not force_regenerate:
+            if summary_fields and not force_regenerate:
                 logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
                 yield {
                     'type': 'complete',
-                    'summary': summary_in_session.business_overview,
-                    'summary_id': summary_in_session.id,
+                    'summary': summary_fields["business_overview"],
+                    'summary_id': summary_fields["id"],
                 }
                 return
 
@@ -267,21 +352,21 @@ async def stream_filing_summary(
             inflight_event = _claim_inflight(filing_id)
 
             # Cache company data and filing attributes from the fetched filing
-            company_name = filing_in_session.company.name if filing_in_session.company else "Unknown company"
-            company_cik = filing_in_session.company.cik if filing_in_session.company else None
-            company_sic = filing_in_session.company.sic if filing_in_session.company else None
-            filing_document_url = filing_in_session.document_url
-            filing_type = filing_in_session.filing_type
-            filing_accession_number = filing_in_session.accession_number
+            company_name = filing_fields["company_name"]
+            company_cik = filing_fields["company_cik"]
+            company_sic = filing_fields["company_sic"]
+            filing_document_url = filing_fields["document_url"]
+            filing_type = filing_fields["filing_type"]
+            filing_accession_number = filing_fields["accession_number"]
 
-            # Check for cached content
-            cached_content = filing_in_session.content_cache
+            # Check the plain cached-content snapshot (no ORM reads after session closure).
+            cached_excerpt = filing_fields["cache_excerpt"]
             cache_is_valid = False
             excerpt_from_cache = None
 
-            if cached_content and cached_content.critical_excerpt:
+            if cached_excerpt:
                 # Check age (valid if < 24 hours)
-                last_updated = cached_content.updated_at or cached_content.created_at
+                last_updated = filing_fields["cache_updated_at"] or filing_fields["cache_created_at"]
                 if not last_updated:
                     # Should not happen given database constraints, but safe fallback
                     last_updated = datetime.datetime.now(datetime.timezone.utc)
@@ -294,14 +379,16 @@ async def stream_filing_summary(
                 age = datetime.datetime.now(datetime.timezone.utc) - last_updated
                 if age < timedelta(hours=24):
                     cache_is_valid = True
-                    excerpt_from_cache = cached_content.critical_excerpt
+                    excerpt_from_cache = cached_excerpt
                     logger.info(f"[stream:{filing_id}] Using cached content (age: {age})")
 
             # Check usage limits for authenticated user
             if current_user:
-                can_generate, current_count, limit, user_is_unlimited = await run_sync_db(
-                    _check_usage_and_plan, current_user, session
-                )
+                def check_usage_sync() -> tuple[bool, int, Optional[int], bool]:
+                    with database.SessionLocal() as usage_session:
+                        return _check_usage_and_plan(current_user, usage_session)
+
+                can_generate, current_count, limit, user_is_unlimited = await run_sync_db(check_usage_sync)
                 if not can_generate:
                     # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
                     # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
@@ -338,7 +425,6 @@ async def stream_filing_summary(
                 # current_user=None is only reachable from the internal drains now (cron
                 # pregenerate / admin refresh) — the user-facing route requires an account.
                 logger.info(f"[stream:{filing_id}] Internal caller (no user) — per-user quota not applicable.")
-            # Note: We use cached values from outer scope, but filling_in_session is already populated.
 
             # Bound concurrent generations per process (protects the single vCPU). Acquired here —
             # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
@@ -430,7 +516,7 @@ async def stream_filing_summary(
 
             # Step 1: File Validation
             # DB OP: Record progress
-            await run_sync_db(record_progress, session, filing_id, "fetching")
+            await run_sync_db(record_progress_sync, filing_id, "fetching")
 
             logger.info(f"[stream:{filing_id}] Yielding fetching stage")
             yield {'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
@@ -542,7 +628,7 @@ async def stream_filing_summary(
 
             # Step 2: Section Parsing
             # DB OP: Record progress
-            await run_sync_db(record_progress, session, filing_id, "parsing")
+            await run_sync_db(record_progress_sync, filing_id, "parsing")
 
             yield {'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...', 'percent': 20}
 
@@ -572,7 +658,7 @@ async def stream_filing_summary(
 
             # Step 3: Content Analysis
             # DB OP: Record progress
-            await run_sync_db(record_progress, session, filing_id, "analyzing")
+            await run_sync_db(record_progress_sync, filing_id, "analyzing")
 
             yield {'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...', 'percent': 35}
 
@@ -580,7 +666,7 @@ async def stream_filing_summary(
             yield {'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...', 'percent': 45}
 
             # DB OP: Record progress
-            await run_sync_db(record_progress, session, filing_id, "summarizing")
+            await run_sync_db(record_progress_sync, filing_id, "summarizing")
 
             yield {'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...', 'percent': 50}
 
@@ -650,7 +736,7 @@ async def stream_filing_summary(
             fallback_kwargs = {
                 "xbrl_data": xbrl_metrics,
                 "company_name": company_name,
-                "filing_date": filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
+                "filing_date": filing_fields["filing_date"].isoformat() if filing_fields["filing_date"] else "Unknown",
                 "filing_text": filing_text,
                 "filing_type": filing_type,
                 "filing_excerpt": excerpt,
@@ -716,7 +802,7 @@ async def stream_filing_summary(
                 # Persist the error state so the /progress endpoint reports a retryable error
                 # immediately, instead of leaving "summarizing" to age out via the stale check.
                 try:
-                    await run_sync_db(record_progress, session, filing_id, "error", error=error_message[:200])
+                    await run_sync_db(record_progress_sync, filing_id, "error", error=error_message[:200])
                 except Exception as db_err:
                     logger.error(f"[stream:{filing_id}] Failed to record AI error progress: {db_err}", exc_info=True)
                 yield {'type': 'error', 'message': error_message}
@@ -733,8 +819,7 @@ async def stream_filing_summary(
             )
             if section_coverage:
                 await run_sync_db(
-                    record_progress,
-                    session,
+                    record_progress_sync,
                     filing_id,
                     "summarizing",
                     section_coverage=section_coverage,
@@ -869,76 +954,77 @@ async def stream_filing_summary(
 
             # DB OP: Persist summary
             def save_summary_sync():
-                filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                with database.SessionLocal() as session:
+                    filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
-                if force_regenerate:
-                    # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
-                    # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
-                    # delete+insert, guarded by a keep-better gate.
-                    existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    if existing is not None:
-                        stored_tier = ((existing.raw_summary or {}).get("quality") or {}).get("tier")
-                        new_tier = (quality or {}).get("tier")
-                        if quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
-                            # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
-                            # XBRL fallback comes back "partial"; keep the stored "full").
-                            logger.info(
-                                "[stream:%s] refresh keep-better: keeping stored tier=%s over new tier=%s",
-                                filing_id, stored_tier, new_tier,
-                            )
+                    if force_regenerate:
+                        # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
+                        # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
+                        # delete+insert, guarded by a keep-better gate.
+                        existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                        if existing is not None:
+                            stored_tier = ((existing.raw_summary or {}).get("quality") or {}).get("tier")
+                            new_tier = (quality or {}).get("tier")
+                            if quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
+                                # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
+                                # XBRL fallback comes back "partial"; keep the stored "full").
+                                logger.info(
+                                    "[stream:%s] refresh keep-better: keeping stored tier=%s over new tier=%s",
+                                    filing_id, stored_tier, new_tier,
+                                )
+                                return existing.id
+                            existing.business_overview = markdown
+                            existing.financial_highlights = normalized_financial_section
+                            existing.risk_factors = risk_section
+                            existing.management_discussion = management_section
+                            existing.key_changes = guidance_section
+                            # Reassign a NEW dict so SQLAlchemy marks the JSON column dirty and emits UPDATE.
+                            existing.raw_summary = raw_summary
+                            existing.schema_version = SUMMARY_SCHEMA_VERSION
+                            existing.prompt_version = SUMMARY_PROMPT_VERSION
+                            if filing_for_cache:
+                                upsert_content_cache(
+                                    session, filing_id, filing_for_cache.content_cache,
+                                    excerpt=excerpt, sections_payload=sections_info,
+                                )
+                            session.commit()
                             return existing.id
-                        existing.business_overview = markdown
-                        existing.financial_highlights = normalized_financial_section
-                        existing.risk_factors = risk_section
-                        existing.management_discussion = management_section
-                        existing.key_changes = guidance_section
-                        # Reassign a NEW dict so SQLAlchemy marks the JSON column dirty and emits UPDATE.
-                        existing.raw_summary = raw_summary
-                        existing.schema_version = SUMMARY_SCHEMA_VERSION
-                        existing.prompt_version = SUMMARY_PROMPT_VERSION
-                        if filing_for_cache:
-                            upsert_content_cache(
-                                session, filing_id, filing_for_cache.content_cache,
-                                excerpt=excerpt, sections_payload=sections_info,
-                            )
-                        session.commit()
-                        return existing.id
-                    # force on a filing with no stored summary yet: fall through to a normal INSERT.
+                        # force on a filing with no stored summary yet: fall through to a normal INSERT.
 
-                summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=markdown,
-                    financial_highlights=normalized_financial_section,
-                    risk_factors=risk_section,
-                    management_discussion=management_section,
-                    key_changes=guidance_section,
-                    raw_summary=raw_summary,
-                    schema_version=SUMMARY_SCHEMA_VERSION,
-                    prompt_version=SUMMARY_PROMPT_VERSION,
-                )
-                session.add(summary)
-
-                if filing_for_cache:
-                    upsert_content_cache(
-                        session,
-                        filing_id,
-                        filing_for_cache.content_cache,
-                        excerpt=excerpt,
-                        sections_payload=sections_info,
+                    summary = Summary(
+                        filing_id=filing_id,
+                        business_overview=markdown,
+                        financial_highlights=normalized_financial_section,
+                        risk_factors=risk_section,
+                        management_discussion=management_section,
+                        key_changes=guidance_section,
+                        raw_summary=raw_summary,
+                        schema_version=SUMMARY_SCHEMA_VERSION,
+                        prompt_version=SUMMARY_PROMPT_VERSION,
                     )
+                    session.add(summary)
 
-                try:
-                    session.commit()
-                    return summary.id
-                except IntegrityError:
-                    # A concurrent writer (cron / another instance) persisted this filing's summary
-                    # first — filing_id is UNIQUE. Serve the winner's row instead of erroring the
-                    # user's stream (S1 decision #3).
-                    session.rollback()
-                    existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    if existing is None:
-                        raise
-                    return existing.id
+                    if filing_for_cache:
+                        upsert_content_cache(
+                            session,
+                            filing_id,
+                            filing_for_cache.content_cache,
+                            excerpt=excerpt,
+                            sections_payload=sections_info,
+                        )
+
+                    try:
+                        session.commit()
+                        return summary.id
+                    except IntegrityError:
+                        # A concurrent writer (cron / another instance) persisted this filing's summary
+                        # first — filing_id is UNIQUE. Serve the winner's row instead of erroring the
+                        # user's stream (S1 decision #3).
+                        session.rollback()
+                        existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                        if existing is None:
+                            raise
+                        return existing.id
 
             saved_summary_id = await run_sync_db(save_summary_sync)
 
@@ -946,17 +1032,18 @@ async def stream_filing_summary(
 
             if user_id and count_usage:
                 def track_usage_sync():
-                    user = session.query(User).filter(User.id == user_id).first()
-                    if user:
-                        month = get_current_month()
-                        increment_user_usage(user.id, month, session)
+                    with database.SessionLocal() as session:
+                        user = session.query(User).filter(User.id == user_id).first()
+                        if user:
+                            month = get_current_month()
+                            increment_user_usage(user.id, month, session)
 
                 await run_sync_db(track_usage_sync)
 
             mark_stage("usage_tracking")
 
             # DB OP: Record complete
-            await run_sync_db(record_progress, session, filing_id, "completed")
+            await run_sync_db(record_progress_sync, filing_id, "completed")
 
             summary_status = summary_payload.get("status", "complete")
             summary_message = summary_payload.get("message")
@@ -993,10 +1080,8 @@ async def stream_filing_summary(
             entry_point=telemetry_entry_point,
             **telemetry_ctx,
         )
-        # Record on a FRESH session. asyncio.timeout cancels the pending await, but the
-        # threadpool worker behind it may still be using `session` (threads aren't
-        # cancellable) and SQLAlchemy Sessions aren't thread-safe — touching the shared one
-        # here would race. The shared session is cleaned up in `finally`.
+        # Each worker owns its session through cleanup, even if cancellation interrupts
+        # its caller. Error reporting uses another short worker-owned transaction.
         def record_timeout_progress():
             with database.SessionLocal() as err_session:
                 record_progress(err_session, filing_id, "error", error="Pipeline timeout")
@@ -1017,9 +1102,7 @@ async def stream_filing_summary(
             error=error_msg[:200],
             **telemetry_ctx,
         )
-        # Record on a fresh session: the shared session may carry a poisoned transaction from
-        # the failed op (and could still be in use by its threadpool worker). The shared
-        # session is rolled back/closed in `finally`.
+        # A failed worker closes its own transaction; error reporting owns another one.
         def record_stream_error_progress():
             with database.SessionLocal() as err_session:
                 record_progress(err_session, filing_id, "error", error=error_msg[:200])
@@ -1036,7 +1119,7 @@ async def stream_filing_summary(
         yield {'type': 'error', 'message': error_message}
     finally:
         # This generator owns the provider task: disconnect/timeout must close its stream
-        # before releasing the slot and database session, with no background retry left running.
+        # before releasing the slot, with no background retry left running.
         if summary_task is not None:
             if not summary_task.done():
                 summary_task.cancel()
@@ -1049,10 +1132,6 @@ async def stream_filing_summary(
         # Runs on completion, error, timeout, AND GeneratorExit (client disconnect) — never leaks a slot.
         if inflight_event is not None:
             _release_inflight(filing_id, inflight_event)
-        try:
-            session.close()
-        except Exception as e:
-            logger.error(f"[stream:{filing_id}] Failed to close session: {e}", exc_info=True)
 
         total_elapsed = time.time() - pipeline_started_at
         breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)

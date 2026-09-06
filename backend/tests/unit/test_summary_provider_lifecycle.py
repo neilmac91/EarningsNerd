@@ -2,9 +2,15 @@
 
 import asyncio
 from contextlib import suppress
+from copy import deepcopy
+import threading
+from types import SimpleNamespace
 
 import httpx2
 import pytest
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 from app.config import settings
 from app.services import summary_pipeline as pipeline
@@ -101,3 +107,219 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
     monkeypatch.undo()
     assert pipeline.openai_service.summarize_filing == original_summary
     assert settings.STREAM_HEARTBEAT_INTERVAL == original_heartbeat
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("boundary", ["provider", "follower", "semaphore", "background", "route", "cached_route", "db_worker", "real_route", "expired_sub_route", "loaded_sub_route"])
+@pytest.mark.parametrize("stop", ["complete", "cancel"])
+async def test_generation_waits_release_database_connections(boundary, stop, tmp_path, monkeypatch):
+    """A one-connection pool remains available while generation/streaming is suspended."""
+    from app import database
+    from app.models import Base, Summary, User, Subscription
+    from app.routers import summaries
+    from app.routers.auth import get_current_user
+    from app.services import summary_generation_service as background
+    from main import app
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD
+    from fastapi import Depends
+    import httpx
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'lifetime.db'}", connect_args={"check_same_thread": False},
+        poolclass=QueuePool, pool_size=1, max_overflow=0, pool_timeout=0.05,
+    )
+    Base.metadata.create_all(engine)
+    ownership_errors = []
+    loop_thread = threading.get_ident()
+    admission_started = False
+    subscription_threads = []
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def record_subscription_query(conn, cursor, statement, parameters, context, executemany):
+        if admission_started and "subscriptions" in statement.lower():
+            subscription_threads.append(threading.get_ident())
+
+    block_next_query = False
+    query_entered, query_finish, query_closed = (threading.Event() for _ in range(3))
+
+    class OwnedSession(Session):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.owner = threading.get_ident()
+            self.blocked = False
+
+        def execute(self, *args, **kwargs):
+            nonlocal block_next_query
+            result = super().execute(*args, **kwargs)
+            if block_next_query:
+                block_next_query = False
+                self.blocked = True
+                query_entered.set()
+                assert query_finish.wait(2), "test did not release the DB worker"
+            return result
+
+        def close(self):
+            if self.owner != threading.get_ident():
+                ownership_errors.append((self.owner, threading.get_ident()))
+            super().close()
+            if self.blocked:
+                query_closed.set()
+
+    sessions = sessionmaker(bind=engine, class_=OwnedSession)
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(background, "SessionLocal", sessions)
+    filing_id = seed_company_filing()
+    route_boundaries = {"route", "cached_route", "real_route", "expired_sub_route", "loaded_sub_route"}
+    real_routes = {"real_route", "expired_sub_route", "loaded_sub_route"}
+    if boundary in real_routes:
+        with sessions() as db:
+            user = User(email="real-user@example.com", is_active=True, is_pro=False)
+            db.add(user)
+            db.commit()
+            uid = user.id
+            db.add(Subscription(user_id=uid, status="active", plan="pro"))
+            db.commit()
+    ready, finish = asyncio.Event(), asyncio.Event()
+    events = []
+    reset_inflight()
+    leader = pipeline._claim_inflight(filing_id) if boundary == "follower" else None
+
+    class QueuedSemaphore(asyncio.Semaphore):
+        async def acquire(self):
+            ready.set()
+            return await super().acquire()
+
+    semaphore = QueuedSemaphore(0)
+    if boundary == "semaphore":
+        monkeypatch.setattr(pipeline, "_get_generation_semaphore", lambda: semaphore)
+
+    async def blocked_provider(*args, **kwargs):
+        ready.set()
+        await finish.wait()
+        return deepcopy(CANONICAL_PAYLOAD)
+
+    async def consume():
+        if boundary == "background":
+            await background.generate_summary_background(filing_id, None)
+        else:
+            async for frame in pipeline.stream_filing_summary(
+                filing_id=filing_id, current_user=None, user_id=None,
+                telemetry_distinct_id="offline", telemetry_entry_point=None, telemetry_ctx={},
+            ):
+                events.append(frame)
+                if frame.get("stage") == "queued":
+                    ready.set()
+
+    old_overrides = app.dependency_overrides.copy()
+
+    async def request_db():
+        with sessions() as db:
+            yield db
+
+    async def real_user(db=Depends(database.get_db)):
+        nonlocal admission_started
+        user = db.query(User).filter_by(id=uid).one()
+        assert "subscription" not in inspect(user).dict
+        if boundary in {"expired_sub_route", "loaded_sub_route"}:
+            subscription = user.subscription
+            if boundary == "expired_sub_route":
+                db.expire(subscription, ["status", "trial_end"])
+        admission_started = True
+        return user
+
+    async def checked_app(scope, receive, send):
+        async def checked_send(message):
+            if message["type"] == "http.response.start":
+                assert engine.pool.checkedout() == 0, "request transaction survived into SSE"
+                if boundary == "cached_route":
+                    ready.set()
+                    await finish.wait()
+            await send(message)
+        await app(scope, receive, checked_send)
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=checked_app), base_url="http://test") as client:
+            response = await client.post(f"/api/summaries/filing/{filing_id}/generate-stream")
+            assert response.status_code == 200
+            assert '"type": "complete"' in response.text
+
+    if boundary in route_boundaries:
+        app.dependency_overrides[database.get_db] = request_db
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=987654321, is_pro=False, subscription=None, email="offline@example.com", is_active=True,
+        )
+        monkeypatch.setattr(summaries, "enforce_rate_limit", lambda *a, **k: None)
+        if boundary in real_routes:
+            app.dependency_overrides[get_current_user] = real_user
+    if boundary == "cached_route":
+        with sessions() as db:
+            db.add(Summary(filing_id=filing_id, business_overview="STORED"))
+            db.commit()
+
+    task = None
+    try:
+        with stream_boundaries(), monkeypatch.context() as patch:
+            patch.setattr(pipeline.openai_service, "summarize_filing", blocked_provider)
+            patch.setattr(settings, "STREAM_HEARTBEAT_INTERVAL", 0.01)
+            block_next_query = boundary == "db_worker"
+            original_check = pipeline._check_usage_and_plan
+
+            def checked_plan(user, db):
+                result = original_check(user, db)
+                if boundary in real_routes:
+                    assert result[3] is True, "subscription, not the stale Free mirror, grants Pro"
+                return result
+
+            patch.setattr(pipeline, "_check_usage_and_plan", checked_plan)
+            task = asyncio.create_task(request() if boundary in route_boundaries else consume())
+            if boundary == "db_worker":
+                assert await asyncio.to_thread(query_entered.wait, 2)
+                if stop == "cancel":
+                    task.cancel()
+                    await asyncio.sleep(0)
+                    assert not query_closed.is_set(), "coroutine closed a worker's active transaction"
+                query_finish.set()
+                assert await asyncio.to_thread(query_closed.wait, 2)
+                if stop == "cancel":
+                    with pytest.raises(asyncio.CancelledError):
+                        await task
+                    assert engine.pool.checkedout() == 0
+                    assert ownership_errors == []
+                    return
+            await asyncio.wait_for(ready.wait(), timeout=2)
+            if boundary in real_routes - {"loaded_sub_route"}:
+                assert subscription_threads, "the unresolved subscription was never loaded"
+                assert loop_thread not in subscription_threads, "subscription SQL blocked the event loop"
+            if boundary == "loaded_sub_route":
+                assert subscription_threads == [], "already supplied billing state was unnecessarily refreshed"
+            assert engine.pool.checkedout() == 0, f"{boundary} retained a DB connection"
+            with sessions() as independent:
+                assert independent.execute(text("SELECT 1")).scalar_one() == 1
+            if stop == "cancel":
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+            else:
+                if leader is not None:
+                    with sessions() as db:
+                        db.add(Summary(filing_id=filing_id, business_overview="LEADER"))
+                        db.commit()
+                    pipeline._release_inflight(filing_id, leader)
+                if boundary == "semaphore":
+                    semaphore.release()
+                finish.set()
+                await asyncio.wait_for(task, timeout=2)
+                with sessions() as db:
+                    assert db.query(Summary).filter_by(filing_id=filing_id).count() == 1
+            assert engine.pool.checkedout() == 0
+            assert ownership_errors == [], "session cleanup moved outside its owning worker"
+    finally:
+        finish.set()
+        query_finish.set()
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        reset_inflight()
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(old_overrides)
+        engine.dispose()

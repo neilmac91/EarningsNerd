@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
@@ -463,19 +464,19 @@ async def health_check_detailed():
         "timestamp": time.time()
     }
 
-    # Check database connectivity
-    try:
+    # The complete probe owns its session in one worker; a slow pool/driver must not
+    # block the event loop or move a live session between threads.
+    def check_database() -> dict:
         start = time.perf_counter()
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             db.execute(text("SELECT 1"))
-            latency_ms = (time.perf_counter() - start) * 1000
-            health_status["checks"]["database"] = {
+            return {
                 "healthy": True,
-                "latency_ms": round(latency_ms, 2)
+                "latency_ms": round((time.perf_counter() - start) * 1000, 2),
             }
-        finally:
-            db.close()
+
+    try:
+        health_status["checks"]["database"] = await run_in_threadpool(check_database)
     except Exception as e:
         # This endpoint is unauthenticated, so never surface raw exception text (a driver error can
         # embed the connection string / host). Log the detail server-side; report only a coarse flag.
