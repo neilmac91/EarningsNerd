@@ -1,5 +1,15 @@
 ## E14a — grounded waitlist example (2026-09-06)
 
+Preview correction: root measured the published `1d42e71` waitlist at 320×844:
+Apple Inc. had width/clientWidth 0 and scrollWidth 68; the visible issuer disappeared.
+Two fresh independent refutations (implementation agent and sec_refill) failed: existing
+nonwrapping header leaves the truncated name as the shrinkable item beside fixed badges/date.
+
+- [ ] Narrow responsive header: issuer row, wrapping badges and stacked date on mobile;
+  preserve the existing desktop arrangement and all source/CTA/quality behavior.
+- [ ] Full frontend gate on corrected source; no repeat of the four unchanged data proofs.
+- [ ] Root verify actual issuer visibility at 320/390 px in both themes on corrected preview.
+
 Tag: engineering. Base: `53348d6`. Scope: reuse the existing server example fetch and
 HeroExample in a separate Suspense child; preserve signup, referral policy, homepage
 CTA defaults and filing quality. E14b canonical-copy action remains separate.
