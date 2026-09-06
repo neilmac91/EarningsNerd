@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
@@ -28,9 +28,10 @@ vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   createPortalSession: () => mockCreatePortalSession(),
 }))
 
-function renderPanel(identity: { id: number } | null = { id: 1 }, pendingIdentity = false) {
+function renderPanel(identity: { id: number } | null = { id: 1 }, pendingIdentity = false, cachedSubscription?: SubscriptionStatus) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   if (!pendingIdentity) queryClient.setQueryData(queryKeys.currentUser(), identity)
+  if (cachedSubscription) queryClient.setQueryData(queryKeys.subscription.byUser(1), cachedSubscription)
   return render(
     <QueryClientProvider client={queryClient}>
       <BillingPanel />
@@ -115,6 +116,43 @@ describe('BillingPanel', () => {
 
     expect(await screen.findByRole('button', { name: /manage billing/i })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /subscribe|upgrade/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps same-account details visible after a failed refresh, with a retry that clears the notice', async () => {
+    const cached: SubscriptionStatus = {
+      ...baseSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_123',
+      current_period_end: '2027-06-18T00:00:00Z',
+    }
+    mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed'))
+    mockGetSubscriptionStatus.mockResolvedValue({ ...cached, cancel_at_period_end: true })
+
+    renderPanel({ id: 1 }, false, cached)
+
+    expect(await screen.findByText(/couldn't refresh billing details/i)).toBeInTheDocument()
+    expect(screen.getByText('Pro', { exact: true })).toBeInTheDocument()
+    expect(screen.getByText('Renews on')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
+    expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    await waitFor(() => expect(screen.queryByText(/couldn't refresh billing details/i)).not.toBeInTheDocument())
+    expect(await screen.findByText('Access until')).toBeInTheDocument()
+    expect(screen.getByText('Pro', { exact: true })).toBeInTheDocument()
+  })
+
+  it('an initial failure without data stays a blocking error until retry succeeds', async () => {
+    mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('down'))
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+
+    renderPanel()
+
+    expect(await screen.findByText(/failed to load billing information/i)).toBeInTheDocument()
+    expect(screen.queryByText('Plan')).not.toBeInTheDocument()
+    expect(screen.queryByText('Free', { exact: true })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
   })
 })
 

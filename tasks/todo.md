@@ -1,15 +1,85 @@
-## Account-cache integration and handover checkpoint (2026-09-06)
+## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)
 
-Integrated released main `d7b0177908b6d580d8ad4a99387f54fb34d1849f` (#741) after an
-approved read-only origin fetch. The sole merge conflict was this checklist; both complete
-histories remain below. Entire frontend tree matches final tested source `25b360f`; backend
-and workflows match incoming main. No mutation or full gate repetition is needed for this
-documentation-only integration. Final lint, typecheck, Vitest and build all exited 0:
-`101 test files passed; 553 tests passed in 35.20s`; build generated 27/27 pages.
-Evidence remains in `/private/tmp/earningsnerd-account-cache-evidence/full-25b360f-*.log`.
-Root and independent three-lens source review are clear. User requested handover to Claude
-Fable 5.1; no new implementation or publication follows this clean local checkpoint. Root owns
-push, draft PR, remote CI, any actual preview and release. No live account operation occurred.
+Depends on the account-cache release (#742). Prepared on a branch stacked on `82f988b`; rebased
+onto main after that merge. Findings F1/F2 and the state table are in the handover plan
+`billing-state-next-task.md` (Codex, read against `bbcba4c`; re-read here against current source).
+
+F1: `app/pricing/page.tsx` treats `Boolean(currentUser)` as "resolved" — an unresolved identity or
+an undefined subscription still labels Free "Current Plan", keeps the Pro action enabled and lets
+`handleUpgrade` emit `checkoutStarted` and request checkout without resolved, non-Pro data.
+F2: `BillingPanel.tsx` returns its blocking error card on any subscription `isError`, discarding
+retained same-account data (plan, renewal, portal action) after a failed refresh.
+
+- [x] Pricing: distinguish identity pending / identity failed / confirmed guest / known user with
+  subscription pending / failed without data / retained data with failed refresh. No "Current
+  Plan", checkout, checkout event or guest redirect while account data is absent. Identity
+  failure gets a calm account notice with retry (not a guest). Trial/beta CTA copy waits for data.
+- [x] Pricing: guard `handleUpgrade` before loading state, analytics or mutation — unresolved
+  identity returns; confirmed guest keeps registration routing; known user requires present
+  subscription data with `is_pro === false`. Free-card registration action gets the same
+  identity readiness. Rendered button state matches the guard.
+- [x] Billing: blocking error only for identity failure or subscription failure WITHOUT data,
+  with retry through the existing queries. With retained same-account data and a failed
+  refresh: keep plan/renewal/customer action, show a refresh-failure `Notice` with retry.
+  Successful retry replaces data and clears the notice. Usage failure alone blocks nothing.
+- [x] Tests in the existing homes (`PricingPage.spec.tsx`, `BillingPanel.spec.tsx`) with real
+  QueryClient + controlled promises; a test-only Button `onClick` capture exercises the actual
+  handler independently of DOM disabling. Existing trial/expired/paid/portal controls kept.
+- [x] One original mutation per invariant (M1 missing-data presentation, M2 handler guard,
+  M3 Billing unconditional early return), each restored; tails recorded in the PR body.
+- [x] Full frontend gate (lint, tsc, vitest, build) and both-theme controlled preview of
+  loading/error/retained states. No backend, API, price, trial, promo, flag, entitlement or
+  analytics-schema change. No live checkout.
+- [ ] Three review lenses, draft PR, actual CI, release.
+
+### Verification (2026-09-06, head `b4349bd` on main `555c9ba`)
+
+Focused specs: `PricingPage.spec.tsx` + `BillingPanel.spec.tsx` → 2 files, 21 tests passed
+(7 new pricing cases incl. `it.each` retained-Free/Pro, 2 new billing cases). Mutation proofs,
+each restored before the next and the restored run re-passing 21/21:
+
+| Proof | Mutation | Tail |
+|---|---|---|
+| M1 | `accountResolved = true` (missing data presented as Free/guest, controls enabled) | 6 failed, 8 passed |
+| M2 | handler guard removed (`identityResolved`, `!subscription || is_pro` lines), UI intact | 5 failed, 9 passed |
+| M3 | Billing `subscriptionUnavailable = isError` (unconditional early return) | 1 failed, 6 passed |
+
+Full gate on the cherry-picked head (Linux, Node 22.22.2, lockfile `npm ci`): lint clean, tsc
+clean, Vitest `101 files / 562 tests passed`, `next build` compiled and generated 27/27 pages.
+Controlled preview: local `next start` of that build with `WAITLIST_MODE=false`, API responses
+stubbed by Playwright routes on the baked production API origin (no live backend call,
+account, checkout or provider use), light and dark at 1280px: pricing identity pending
+("Checking your plan…", both CTAs disabled), identity failed (account notice + "Retry account
+check", "Plan unavailable"), subscription pending, subscription failed ("Retry subscription",
+checkout unavailable, usage still shown), resolved Free ("Current Plan" / enabled "Upgrade to
+Pro"); Billing initial failure (blocking notice + Retry) and retained Pro after a failed
+reconnect refetch (plan, renewal, "Manage billing" kept under a "Couldn't refresh billing
+details" notice with Retry). Screenshots retained in the session scratchpad.
+
+## Account-cache release checkpoint (2026-09-06, Claude Fable 5.1 session)
+
+Released. [PR #742](https://github.com/neilmac91/EarningsNerd/pull/742) published the handover
+bundle head `82f988b7495a6abf024728aa05d45dcf84588112` unchanged (bundle sha256 `24a007c7…8d0d`,
+prerequisites `d7b0177`/`c4ae631` verified) and squash-merged as
+`555c9ba4e0fb4107b1447c9dfa443f6df4ff81cc`. PR CI
+[34056429179](https://github.com/neilmac91/EarningsNerd/actions/runs/34056429179) passed all
+jobs with deploy-backend skipped and eval-baseline detecting no AI change; `copilot-eval.yml`
+did not run (backend-path filtered), so no paid evaluation occurred. Main CI
+[34057059586](https://github.com/neilmac91/EarningsNerd/actions/runs/34057059586) passed;
+its deploy-backend job detected no backend change and skipped every Cloud Run step.
+Production Vercel served the new code by 20:10:54 UTC: the `/pricing` chunk
+`/_next/static/immutable/chunks/11cqx5v3615x5.js` contains the #742-only session-transition
+literal absent at `d7b0177`. Fresh-environment gate on `82f988b` (Linux, Node 22.22.2) matched
+the original: lint/tsc clean, `101 files / 553 tests`, 27/27 pages. Vercel preview
+`Axe6oLXdZoe53qsu25w61juZDaJL` is behind SSO deployment protection, so both-theme guest
+preview was taken against a local `next start` of the same build (home, login, pricing, filing,
+settings) with no regressions. A further independent correctness lens refuted all seven
+candidates twice; two non-blocking follow-ups are recorded in the PR body (`logoutAllSessions`
+bypasses the generation fence; `AbortSignal.throwIfAborted` browser floor). No live account,
+checkout or provider operation was used.
+
+Handover integration note (historical): main `d7b0177` (#741) was integrated with a
+documentation-only conflict; the frontend tree equalled tested `25b360f`.
 
 ## Account-cache isolation — subscription and usage (engineering, 2026-09-06)
 

@@ -62,11 +62,16 @@ function PricingContent() {
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
-  const { data: currentUser } = useQuery<CurrentUser | null>({
+  const { data: currentUser, isError: identityError, error: identityErrorData, refetch: refetchIdentity, isFetching: identityFetching } = useQuery<CurrentUser | null>({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  // `undefined` is an unresolved identity (pending, or failed without data); only `null` is a
+  // confirmed guest. Conflating the two labelled Free "Current Plan" and armed checkout before
+  // anything was known about the account.
+  const identityResolved = currentUser !== undefined
+  const isGuest = currentUser === null
   const isAuthenticated = Boolean(currentUser)
 
   const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
@@ -82,6 +87,16 @@ function PricingContent() {
     retry: false,
     enabled: !!currentUser,
   })
+
+  // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
+  // user needs a subscription snapshot. Retained same-account data counts: a failed refresh
+  // alone does not un-know the plan (the server re-checks entitlement at checkout). A usage
+  // failure never blocks a plan decision.
+  const subscriptionResolved = subscription !== undefined
+  const accountResolved = isGuest || (isAuthenticated && subscriptionResolved)
+  const accountFailed = !accountResolved && (identityError || (isAuthenticated && subscriptionError))
+  const identityUnavailable = identityError && !identityResolved
+  const subscriptionStale = subscriptionError && subscriptionResolved
 
   useEffect(() => {
     if (!hasTrackedPricingView.current) {
@@ -116,11 +131,16 @@ function PricingContent() {
   })
 
   const handleUpgrade = async (priceId: string) => {
+    // Decide from resolved data only, before any loading state, analytics event or request: an
+    // unresolved identity or a missing subscription snapshot is not a purchase decision.
+    if (!identityResolved) return
     // Guests can't create a checkout session (401) — send them to sign up, then back here.
-    if (!isAuthenticated) {
+    if (isGuest) {
       router.push('/register?redirect=%2Fpricing')
       return
     }
+    if (!subscription || subscription.is_pro) return
+    if (isLoadingCheckout) return
     setIsLoadingCheckout(priceId)
     try {
       const priceValue = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly
@@ -145,7 +165,8 @@ function PricingContent() {
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
   // Reframe the Pro card so they don't bounce off the $390 sticker — they pay $0 with no card.
-  const showBetaOffer = Boolean(currentUser?.is_beta) && !isPaidPro
+  // Waits for the subscription snapshot: "Claim Pro" must not appear before Pro is ruled out.
+  const showBetaOffer = Boolean(currentUser?.is_beta) && subscriptionResolved && !isPaidPro
 
   // Client-side mirror of the checkout's trial rule (create_checkout_session): first-time
   // subscriber (no Subscription row → status null; guests count too) + MONTHLY cycle + not beta.
@@ -161,7 +182,7 @@ function PricingContent() {
     !showBetaOffer &&
     !isPaidPro &&
     !isTrialing &&
-    (!isAuthenticated || Boolean(subscription && !subscription.status))
+    (isGuest || Boolean(subscription && !subscription.status))
 
   // Claude-style pricing: always surface the effective MONTHLY cost, with a "Billed monthly/annually"
   // sub-note. The actual charge (priceConfig.monthly/.yearly + the priceId) is unchanged — this only
@@ -170,6 +191,16 @@ function PricingContent() {
   const proMonthlyEquivalent = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly / 12
   const proPriceDisplay = fmtUsd(proMonthlyEquivalent)
   const billingNote = billingCycle === 'monthly' ? 'Billed monthly' : 'Billed annually'
+
+  // Shared label while account data is absent; neither card may claim a current plan or a
+  // purchase decision until the account resolves (or the visitor is a confirmed guest).
+  const unresolvedCta = accountFailed ? 'Plan unavailable' : 'Checking your plan…'
+
+  const handleGetStartedFree = () => {
+    // Same readiness as the buy action: an unresolved identity is not a guest.
+    if (!identityResolved || isAuthenticated) return
+    router.push('/register')
+  }
 
   const plans = [
     {
@@ -186,8 +217,12 @@ function PricingContent() {
       ],
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
       // otherwise see "Current Plan" on BOTH cards, which reads as a contradiction.
-      cta: isAuthenticated && !subscription?.is_pro ? 'Current Plan' : 'Get Started Free',
-      disabled: isAuthenticated,
+      cta: !accountResolved
+        ? unresolvedCta
+        : isAuthenticated && !subscription?.is_pro
+        ? 'Current Plan'
+        : 'Get Started Free',
+      disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
       billingNote: null,
@@ -209,7 +244,9 @@ function PricingContent() {
         'PDF, CSV & Excel exports',
         'Priority support',
       ],
-      cta: isPaidPro
+      cta: !accountResolved
+        ? unresolvedCta
+        : isPaidPro
         ? 'Current Plan'
         : isTrialing
         ? 'Current Plan (trial)'
@@ -221,7 +258,7 @@ function PricingContent() {
       // Trialing counts as current-plan: their card-required trial IS a live subscription that
       // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
       // above isTrialing). Plan changes go through the billing portal instead.
-      disabled: isPaidPro || isTrialing,
+      disabled: !accountResolved || isPaidPro || isTrialing,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
       trialNote: trialEligible ? 'First 7 days free · cancel anytime, no charge' : null,
@@ -244,13 +281,29 @@ function PricingContent() {
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
 
-          {(subscriptionError || usageError) && (
+          {identityUnavailable ? (
+            // Identity failed with nothing retained: an account error, not a guest view.
             <div className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
-                title="We couldn't load all pricing details"
+                title="We couldn't check your account"
+                description={identityErrorData instanceof Error ? identityErrorData.message : 'Please retry.'}
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => refetchIdentity()} loading={identityFetching} loadingText="Retrying…">
+                    Retry account check
+                  </Button>
+                }
+              />
+            </div>
+          ) : (subscriptionError || usageError) && (
+            <div className="mt-6 mx-auto max-w-2xl text-left">
+              <Notice
+                variant="error"
+                title={subscriptionStale ? "We couldn't refresh your plan details" : "We couldn't load all pricing details"}
                 description={
-                  subscriptionErrorData instanceof Error
+                  subscriptionStale
+                    ? 'Showing your last loaded plan. Retry to refresh it.'
+                    : subscriptionErrorData instanceof Error
                     ? subscriptionErrorData.message
                     : usageErrorData instanceof Error
                     ? usageErrorData.message
@@ -392,7 +445,7 @@ function PricingContent() {
                 variant={plan.popular ? 'primary' : 'secondary'}
                 size="lg"
                 className="w-full"
-                onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : router.push('/register'))}
+                onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : handleGetStartedFree())}
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId)}
                 loading={plan.priceId !== null && isLoadingCheckout === plan.priceId}
                 loadingText="Processing..."
