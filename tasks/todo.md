@@ -2,6 +2,31 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E07a — Atomic completed-use counters (engineering)
+
+Approved implementation scope: preserve all three public monthly increment helpers/call sites,
+existing first-row history selection and billing timing. No reservation, quota-admission change,
+schema/unique constraint, historical repair or locked-test edit.
+
+- [ ] Replace Python read-modify-write with SQL expression increments on the selected bucket;
+  only absent buckets lock the parent User, then re-read before creating the first row.
+- [ ] Set a PostgreSQL transaction-local lock timeout through SQLAlchemy `set_config`, default
+  3000 ms, positive integral milliseconds up to 10000; never mutate global connection settings.
+  Errors retain existing caller policy; no retry after an uncertain commit.
+- [ ] Add one nonlocked usage transaction home with real PostgreSQL concurrency, stale-session,
+  first-use, bounded-lock-wait, rollback and unchanged-history/background-cache behavior.
+- [ ] Add explicit PostgreSQL CI execution and extend the existing structural workflow gate.
+- [ ] Commit source, retain exactly one mutation per new invariant with exact restoration, run
+  Ruff/Bandit/full backend and workflow/Node checks, and record evidence for independent review.
+- [ ] Return a clean committed branch to root; no push, PR, merge or deployment by this agent.
+
+The guarantee covers successfully committed calls after old service/job writers drain. It does
+not reserve admission, fix historical duplicates or promise strict billing accounting. First-row
+creation can contend with the Stripe account lock, bounded by the transaction-local lock timeout;
+existing-bucket increments do not acquire that parent lock. The setting bounds lock acquisition
+waits, not overall transaction duration or network/commit uncertainty.
+
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
