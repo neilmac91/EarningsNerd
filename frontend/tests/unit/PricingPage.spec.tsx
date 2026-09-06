@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PricingPage from '@/app/pricing/page'
+import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
@@ -41,8 +42,9 @@ vi.mock('@/lib/analytics', () => ({
 vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/SecondaryHeader', () => ({ default: () => null }))
 
-function renderPricing() {
+function renderPricing(initialSubscription?: SubscriptionStatus) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  if (initialSubscription) queryClient.setQueryData(queryKeys.subscription(), initialSubscription)
   return render(
     <QueryClientProvider client={queryClient}>
       <PricingPage />
@@ -100,6 +102,24 @@ describe('PricingPage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
     )
+  })
+
+  it('lets a server-resolved Free user with an expired trial row upgrade', async () => {
+    const expiredTrial = { ...baseSub, status: 'trialing', trial_end: '2026-01-01T00:00:00Z' }
+    mockGetSubscriptionStatus.mockResolvedValue(expiredTrial)
+    mockGetUsage.mockResolvedValue({ ...baseUsage, is_pro: false, summaries_limit: 5 })
+
+    // Seed the resolved response so the transient Free loading label cannot hide a regression.
+    renderPricing(expiredTrial)
+    await screen.findByRole('button', { name: /^current plan$/i })
+    const upgrade = screen.getByRole('button', { name: /upgrade to pro/i })
+    expect(upgrade).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /current plan \(trial\)/i })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
+    expect(screen.getByRole('switch', { name: /billing cycle/i })).toBeInTheDocument()
+    fireEvent.click(upgrade)
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
   })
 
   it('treats a paid (active, non-trial) subscriber as Current Plan with no toggle', async () => {
