@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
-| E15 | Partition sitemap and align eligible content | Independent | Queued |
+| E15 | Partition sitemap and align eligible content | Independent | E15a PR #737 integrated `96d7658`; unchanged source and 2576-test full gate. Prior CI timeout failure retained; current-head CI/release pending. E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -140,6 +140,40 @@ without a source change. Provider timeout settings limit connect/read inactivity
 duration. Independent review and release evidence remain pending at this checkpoint.
 
 
+## E15a — Sitemap eligibility parity, local checkpoint
+
+Current integration `0e547de` includes main `96d7658` with original sitemap source/tests/lesson
+unchanged (`b922d32`) and incoming E10b/E09/login/frontend/all three PostgreSQL CI lanes
+identical to main. Four additive task-record conflicts preserve both histories. Full pinned
+Ruff/Bandit/backend gate with all three local PostgreSQL URLs: **2576 passed, 2 deselected,
+23 warnings in 54.79s**, exit 0, no skips; Ruff clean, Bandit zero medium/high. Three-lens
+review and source/locked-byte checks passed; no repeated mutation or frontend gate.
+Exact approval covers normal branch update; current remote acceptance/release remain pending.
+Prior head `f84567f` CI `34043458241` failed with BA/BABA 75-second timeouts, 50/52 scores,
+two execution errors and two missing scores (artifact `9992485051`). That failure and older
+accepted source evidence remain separately retained; no baseline/AI/timeout/flag change was made.
+
+Source `348ef73` reuses the curated unsupported-company predicate and excludes the exact
+case-sensitive legacy `Generating summary` substring before the filing cap. Real partial
+summaries remain eligible. Existing static entries, dates, single-flight and hourly cache
+ownership are preserved; frontend and locked contracts are untouched. Root's independent
+three-lens review is clear. Two single mutation proofs failed at their intended exclusions,
+then exact restoration passed the full backend gate: Ruff clean, Bandit zero medium/high,
+`2482 passed, 8 skipped, 2 deselected, 23 warnings in 49.00s` (exit 0). Skips are existing
+PostgreSQL billing cases outside this slice. Exact local logs are recorded in `tasks/todo.md`.
+Publication, latest-main integration and deployment remain root-owned and pending.
+
+E15b is unresolved: company URLs are unbounded and 45,000 caps only filing rows, so the
+whole document is not bounded by that constant. Partitioning and the actual current production
+URL count need separate work. The 1,884 URLs reported on July 16 are historical evidence,
+not a current count. No SEO console change, pregeneration spend or flag activation is included.
+
+
+E15 public-output observation: root fetched the redirected canonical sitemap at
+`2026-09-06T13:06:14.210278Z`; retained XML contains **567 URLs (6 static, 522 company,
+39 filing)**, independently recounted locally. This is the cached served document, not a fresh
+DB census or E15a deployment verification. The observed document has URL headroom; E15b's
+whole-document cap/partition work and the current eligible DB count remain separate.
 E06 source `a7e2ff4` integrates E05c and records canonical InvoicePayment allocations without
 changing entitlements. Root/independent review found and corrected a report snapshot race;
 window rows and first-payment timestamps now share one statement. Final local backend gate:
@@ -229,6 +263,18 @@ Final CI 34035195505 and Copilot 34035195535 passed; artifacts 9990022068 / 9989
 verified 52 summary and 18 Copilot cases, unchanged harness/goldens/flags and all source hashes.
 This verifies deployment, not Stripe endpoint event selection, API version or complete payment history.
 
+E15a integration `4f65b8d` includes main `cab71f9` with source/test bytes unchanged from
+`b922d32`. Three documentation overlaps retained both histories. Independent integration review
+is clear; Ruff/Bandit passed and PostgreSQL-enabled backend gate reports **2530 passed,
+2 deselected, 23 warnings in 51.22s** (exit 0, no skips). The two original proofs were retained
+without repetition. The cached 567-URL snapshot above remains dated evidence, not release
+verification. Root owns PR and serialized deployment acceptance after branch publication.
+
+E15a latest integration `52c54bd` retains E07a runtime/CI and E08a frontend from main `752f3a2`.
+Sitemap source/tests/lesson remain reviewed `b922d32`; all locked anchors match main. Full combined
+gate with Stripe and usage PostgreSQL: Ruff clean, Bandit 0 medium/high; **2549 passed,
+2 deselected, 23 warnings in 44.99s**, exit 0. Integration review is clear across all three lenses;
+no mutation was repeated. Only existing-branch update is authorized here; root owns PR and release.
 ### E14a local implementation checkpoint
 
 Source `3153078`, main `cb2c1f8` integrated as `43d554c`: waitlist preview now resolves the
@@ -266,6 +312,18 @@ numeric units together. Final full frontend gate passed 98 files / 513 tests in 
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
 
+### E15a approved update checkpoint
+
+The founder's 2026-09-06 “approved” response to all five exact requested actions explicitly
+clears the earlier sitemap branch-update hold and covers approved main integration and hermetic
+local gates. Merge `8f52c8d` includes main `ee3ac988`; source/tests/lesson match reviewed
+`b922d32`, both original proofs remain intact, and integration correctness/rules/tests review is
+clear. Full backend with Stripe and usage PostgreSQL URLs: Ruff clean, Bandit zero medium/high;
+**2562 passed, 2 deselected, 23 warnings in 49.89s**, exit 0, no skips. The old cached 567-URL
+observation remains dated evidence; no new DB census or SEO/deployment claim follows. Root owns
+PR creation, CI/eval acceptance and serialized release after this approved branch update.
+
+
 ### E09a latest-main approval checkpoint
 
 The founder's 2026-09-06 “approved” response to the exact five-action request explicitly clears
@@ -284,6 +342,19 @@ PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 
 in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
+
+### E15a latest released-main integration
+
+Merge `7474eb6` includes exact main `414ea913` with sitemap source/test/lesson identical to
+`b922d32`; locked contracts, incoming login/summary runtime, all three PostgreSQL CI lanes
+and frontend are unchanged from main. The exact five-action approval covers integration,
+full hermetic gates and normal branch update. All three review lenses are clear; original
+two mutation proofs and dated public-output observation are preserved without repetition.
+Ruff clean, Bandit zero medium/high; all-three-PostgreSQL full backend gate **2569 passed,
+2 deselected, 23 warnings in 64.58s**, exit 0, no skips. Prior PR #737 acceptance at head
+`6f5e95e` / base `ee3ac988` remains separately retained (CI `34042764106`, ready Copilot
+`34042776146`, summary 52 and Copilot 18 accepted with zero errors). New-head remote gates
+and serial release remain root-owned and pending; the prior report does not cover this merge.
 
 ### E09a integration after E13 release
 

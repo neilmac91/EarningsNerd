@@ -134,6 +134,46 @@ def test_only_summarized_filings_are_listed(client):
     assert f"/filing/{empty_id}</loc>" not in xml
 
 
+@pytest.mark.parametrize("placeholder", ["Generating summary", "Please wait: Generating summary…"])
+def test_placeholder_is_excluded_before_cap_but_partial_content_remains(client, monkeypatch, placeholder):
+    test_client, TestingSession = client
+    monkeypatch.setattr(sitemap_mod, "MAX_FILING_URLS", 1)
+    with TestingSession() as session:
+        company = _seed_company(session, "ACME", "0000000002")
+        pending = _seed_filing(session, company, "acc-pending", year=2026)
+        _seed_summary(session, pending, business_overview=placeholder)
+        partial = _seed_filing(session, company, "acc-partial", year=2025)
+        summary = _seed_summary(
+            session, partial, business_overview="A real partial overview about generating summary reports."
+        )
+        summary.raw_summary = {"quality": {"tier": "partial"}}
+        session.commit()
+        pending_id, partial_id = pending.id, partial.id
+
+    response = test_client.get("/sitemap.xml")
+    assert response.status_code == 200
+    assert f"/filing/{pending_id}</loc>" not in response.text
+    assert f"/filing/{partial_id}</loc>" in response.text
+    assert "<lastmod>2025-02-19</lastmod>" in response.text
+
+
+@pytest.mark.parametrize("unsupported_ticker", ["TCEHY", " tctzf "])
+def test_unsupported_company_with_stale_filing_is_excluded_but_supported_peer_remains(client, unsupported_ticker):
+    test_client, TestingSession = client
+    with TestingSession() as session:
+        unsupported = _seed_company(session, unsupported_ticker, "0000000001")
+        _seed_filing(session, unsupported, "acc-stale", year=2026)
+        supported = _seed_company(session, "TME", "0000000002")
+        _seed_filing(session, supported, "acc-supported", year=2025)
+
+    response = test_client.get("/sitemap.xml")
+    assert response.status_code == 200
+    assert f"/company/{unsupported_ticker.upper()}</loc>" not in response.text
+    assert "/company/TME</loc>" in response.text
+    assert "<lastmod>2026-02-19</lastmod>" not in response.text
+    assert "<lastmod>2025-02-19</lastmod>" in response.text
+
+
 def test_sitemap_is_served_from_cache_within_ttl(client):
     test_client, TestingSession = client
     first = test_client.get("/sitemap.xml").text
