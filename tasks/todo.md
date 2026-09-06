@@ -4,6 +4,11 @@
 
 ### W3-5 local preparation — agent stack truth
 
+The final table audit corrected app-chrome placement to files directly under `frontend/components/`
+and distinguished seven configured job targets from verified provisioning. Root and two reviewers
+checked the entire stack table against source. Conflicting CLAUDE/deployment prose now preserves
+the required pregenerate update and conditional updates for the other six jobs.
+
 Final prose review qualified existing stateful discovery GETs in the API brief after two
 independent refutation attempts confirmed the contradiction. Runtime and gated source are unchanged.
 The optional `frontend/src` matcher suggestion is outside the specified token set; current engineering

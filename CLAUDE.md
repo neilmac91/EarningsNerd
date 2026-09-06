@@ -134,8 +134,9 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 (`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
 `postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
-(Mondays 06:00 UTC), and updates the image on all 7 Cloud Run jobs (pregenerate, filing-scan,
-filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts, notable-filings).
+(Mondays 06:00 UTC), and updates the required pregenerate job image. Six other configured job
+targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
+notable-filings) are updated only when found; CI skips missing jobs and does not provision them.
 Only a backend-touching push to main deploys; a failed deploy is not retried, so check the job's
 conclusion after every backend merge. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
