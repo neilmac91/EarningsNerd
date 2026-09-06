@@ -37,6 +37,16 @@ concurrent-delivery races and ambiguous replacement checkouts when the current s
 is nonentitled; analytics exactly-once also remains open for E05b/E06. Root owns publication,
 exact-head remote checks and serialized deployment verification.
 
+Root release checkpoint: the founder explicitly approved GitHub publication, merge and normal
+deployments. E03 #723 merged as `4d15b900698bd5e78dd7377c620999e75f1fb163` after actual
+summary/Copilot artifacts and all application checks passed. E05a integrates that main via
+`86c0f1a`; final integrated Ruff/Bandit passed and pytest reported
+`2427 passed, 2 deselected, 23 warnings in 50.40s`, exit 0. The billing source is unchanged
+by integration, locked contracts remain byte-identical, and no mutation experiment was repeated.
+Publish E05a as a draft, inspect required remote CI, and merge only after E03 production is
+verified. Final release evidence belongs in the respective PR bodies; this is a pre-publication
+checkpoint, not a claim that either pending deployment succeeded.
+
 The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
 The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and
 separate founder decisions. Revenue and production readiness remain goals, not achieved results.
