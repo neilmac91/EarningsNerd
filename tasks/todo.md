@@ -1,5 +1,31 @@
 ## E11a — Restrict digest filing materialization to its window (engineering, 2026-09-06)
 
+### Root verification on integrated main
+
+Integrated #739 main `639e48ca233f34b4e998b66158f4ec2e8826d5b7`; final runtime and new
+test remain byte-identical to reviewed `3f89e835`. The only integration conflict was this
+checklist; both sections are retained. An intermediate local merge retained conflict markers
+after a failed resolution-script assertion; immediate documentation correction `23cffea`
+removed them before verification. Final `git diff --check origin/main...HEAD` passes.
+
+Full root Ruff and Bandit passed (zero medium/high severity). The combined backend gate,
+with all three PostgreSQL URLs enabled, exited 0:
+```text
+2579 passed, 2 deselected, 23 warnings in 60.65s
+```
+The unchanged new behavioral test also passed all UTC, +05:30 and naive cases against actual
+local PostgreSQL in UUID-named disposable schemas. The scratch harness imports the hermetic
+conftest and substitutes only the test engine; all email sends remain AsyncMock. Each owned
+schema was removed afterward. This demonstrates boundary/ORM parity, not production volume
+or index-plan efficiency. Evidence: `/private/tmp/earningsnerd-e11a-evidence/` retains
+`full-{ruff,bandit,backend}.log` and `postgres-window.log` plus the original mutation logs.
+
+Root and independent correctness/rules/tests reviews found no actionable issue. All existing
+tests (including locked T7), frontend, workflows, prompts, eval harness/baseline and provider/
+entitlement owners match integrated main. No new mutation run was needed. Normal publication
+will trigger 52 summary attempts and ready-triggered 18 Copilot attempts under existing CI;
+no live provider/email or production job was run for E11a during local preparation.
+
 Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
 
 - [x] Read CLAUDE/AGENTS, wave-3, E11 queue, filing-scan service/models and locked tests;
@@ -11,8 +37,8 @@ Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
   recent/old, watched/unwatched, baseline and preference cases with UTC/offset/naive `now`.
 - [x] Commit source, run one mutation removing only the SQL date predicate, show the materialization
   assertion failing and restore exact committed bytes. Run focused offline gates, Ruff and Bandit.
-- [ ] Three-lens source review and clean local checkpoint; root owns full gate, actual PostgreSQL
-  timestamp parity, publication and serialized release. No full suite or live operations here.
+- [x] Three-lens source review, clean local checkpoint, root full gate and actual PostgreSQL
+  timestamp parity. Publication and serialized release remain separate acceptance steps.
 
 Initial proposed test home was corrected before any edit: `test_filing_scan.py` is locked T7
 (`lessons/test-contract-tests-are-locked.md`; `tasks/architecture-refactor-plan.md:674,775`).
