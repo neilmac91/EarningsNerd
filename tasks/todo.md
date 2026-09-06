@@ -15,17 +15,32 @@ data deletion, configuration/flag change, auth contract change or admission-rese
   outcomes without claiming that credential checks already in progress are reserved.
 - [x] Reuse existing behavioral tests; add only PostgreSQL concurrency invariants in one new
   `backend/tests/integration/test_login_lockout_transactions.py` home and required CI execution.
-- [ ] Commit source, run exactly one mutation per new invariant with exact restoration, then
+- [x] Commit source, run exactly one mutation per new invariant with exact restoration, then
   full backend and workflow/Node gates. Keep every locked auth/stream/billing test byte-identical.
-- [ ] Record independent review/evidence and return clean commits to root; no push/PR/deploy.
+- [x] Record independent review/evidence and return clean commits to root; no push/PR/deploy.
 
 The per-IP limiter, durable-row retention and event-loop/database ownership remain separate.
 Existing revisions can still overwrite counts until old writers drain. No new database timeout
 or retry policy is introduced, and database failures continue to propagate.
 
 
-Focused source checkpoint: 66 PostgreSQL/behavioral/unchanged-auth/workflow checks passed.
-Source commit, bounded mutation proofs, full backend/workflow/Node gates and review are pending.
+Source `24a4d1c`: 66 focused PostgreSQL/behavioral/unchanged-auth/workflow checks passed.
+Full pinned backend gate with login and Stripe PostgreSQL cases enabled: Ruff clean, Bandit
+0 medium/high; `2446 passed, 2 deselected, 23 warnings in 47.75s`, exit 0. Workflow-focused
+gates: 103 passed; Node pin: 3 passed on Node 22.23.2. Every locked test and eval baseline is
+byte-identical to the base.
+
+One original-implementation mutation exercised both new runtime invariants: concurrent failed
+recording and success-clear interleaving. It produced 5 intended failures / 1 pass: missing-row
+count 2 instead of 3, existing count 9 instead of 11, expired/stale resets 1 instead of 3, and
+StaleDataError after committed clear instead of a new count of 1. The rollback-clear case still
+passed. One separate missing PostgreSQL CI URL mutation failed the intended structural assertion.
+Both files were restored to exact committed bytes before the successful full gate. Existing
+behavioral tests were reused; no earlier reset/timestamp/auth proof was repeated.
+
+Root's independent source correctness/rules review found no actionable issue. The final local
+gates and bounded proofs complete the tests/gates evidence. Root owns integration, publication,
+remote CI and serialized release; none is claimed by this source checkpoint.
 
 ### E10a — Filing-first financial-facts index (engineering)
 

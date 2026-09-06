@@ -102,8 +102,13 @@ lifetime/health proofs and one additional exact-site lookup proof are retained. 
 publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
 
 
-E13a source checkpoint: native PostgreSQL/SQLite failed-login upserts preserve reset/threshold
+E13a source `24a4d1c`: native PostgreSQL/SQLite failed-login upserts preserve reset/threshold
 and timestamp semantics, while successful-login clearing remains in the caller transaction.
-Focused real PostgreSQL, behavioral, unchanged auth and workflow checks: 66 passed. No schema,
-configuration, retention deletion, admission reservation or locked-contract change. Source
-mutation/full-gate/review evidence and root-owned publication/release remain pending.
+Focused real PostgreSQL, behavioral, unchanged auth and workflow checks: 66 passed. One original
+implementation mutation proved the concurrent-count and success-clear invariants (5 intended
+failures, 1 pass); one missing-CI-URL mutation failed its structural assertion. Exact source
+restored before the full backend gate: Ruff clean, Bandit 0 medium/high;
+`2446 passed, 2 deselected, 23 warnings in 47.75s`, exit 0 with login and Stripe PostgreSQL
+cases enabled. Workflow checks: 103 passed; Node pin: 3 passed. Root source review found no
+actionable issue. No schema, configuration, retention deletion, admission reservation or locked
+contract change. Root-owned integration/publication/remote CI/release remain pending.
