@@ -10,7 +10,8 @@ CTA defaults and filing quality. E14b canonical-copy action remains separate.
 - [x] Add one integration test home using real fetch boundary/shared rendering, including pending signup.
 - [x] Commit source, run one coordinated mutation per meaningful invariant and restore exact bytes.
 - [x] Full pinned frontend lint/typecheck/Vitest/build; review correctness, rules and gates.
-- [ ] Root independent review and both-theme preview (root owns PR/release; no push here).
+- [x] Root and independent source review clear on `3153078` / integrated `43d554c`.
+- [ ] Both-theme and mobile preview (root owns PR/release; no push here).
 
 Constraints: CLAUDE rules 2, 6, 9, 11, 12; no backend, generation, access, flags, prices,
 locked tests, invite/referral changes or private data forwarding. Existing hourly public fetch
@@ -49,10 +50,21 @@ access for configured fonts; no dependency changes. Initial preparation failures
 working-directory invocation, an incomplete analytics mock, and TypeScript narrowing that
 lost optional payload fields) were corrected before proofs/full gate; none is a pass claim.
 
+Build tail (exit 0):
+```text
+✓ Compiled successfully in 13.9s
+Finished TypeScript in 6.2s ...
+✓ Generating static pages using 7 workers (27/27) in 1060ms
+└ ○ /waitlist
+ƒ Proxy (Middleware)
+○ (Static) prerendered as static content
+● (SSG) prerendered as static HTML (uses generateStaticParams)
+```
+
 Three-lens self-review: correct same-filing data and sparse/unavailable handling; scope and
 CLAUDE/DS boundaries preserved; one test home, four deliberate red proofs, locked contracts
 byte-identical. Independent sec_refill review of `3153078` cleared source correctness. Root
-review/preview remains pending: the shared desktop hero is newly used on mobile, so inspect
+source review also cleared `3153078` / `43d554c`; preview remains pending: the shared desktop hero is newly used on mobile, so inspect
 320/390 px and both themes before release. No speculative layout change or live preview
 claim. E14b copying canonical links remains a separate task. No push/PR/deploy here.
 

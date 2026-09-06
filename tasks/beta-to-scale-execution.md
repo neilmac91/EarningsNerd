@@ -23,8 +23,8 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
-| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a reviewed and integrated with `53348d6`; combined full backend gate passed. Publication/release pending; startup deadlines remain separate |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 merged as `53348d6`; production verification pending. E13a remains on publication hold |
+| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
@@ -208,3 +208,11 @@ Four one-time proofs failed and restored; full frontend lint/typecheck, 98 files
 and production build passed. Exact logs, boundaries and proof tails are in tasks/todo.md.
 Independent source review cleared; root owns mobile/both-theme preview, PR and release.
 E14b canonical-link copying remains separate and unimplemented.
+
+### E12a / E13b root release evidence at E14a checkpoint
+
+E13b #732 production run `34039409016`, deploy `101503717032`, succeeded with
+`applied=0 skipped=36`; revision `00284-n57` serves 100% and independent DB health was
+7.26 ms. E12a #733 merged as `cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`; production
+run `34040098807` was pending at this checkpoint. Root owns the remaining verification.
+E14a root and independent source review are clear; preview acceptance remains pending.
