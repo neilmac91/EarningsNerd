@@ -1,3 +1,33 @@
+## Calendar alert bell — pending identity is not a guest (engineering, 2026-09-06)
+
+Codex P2 on [#742](https://github.com/neilmac91/EarningsNerd/pull/742#discussion_r3945146593),
+verified against `555c9ba`: `useViewer` derived `signedIn = !!user`, so on a cold `/calendar`
+load (or whenever `/api/auth/me` is slower than the public calendar request) the resolving
+state was coerced to logged-out and a bell click entered the sign-in branch for an
+authenticated user. Before #742 the synchronous session marker had no pending state.
+
+- [x] `CalendarViewer.identityPending` (`user === undefined`); `useEarningsAlerts.toggle`
+  ignores clicks while pending (no sign-in prompt); `EarningsAlertsApi.identityPending` lets
+  `AlertBell` disable itself with a "Checking your account…" label until identity resolves.
+- [x] Focused gate `tests/unit/calendarAlertsIdentity.spec.tsx` (real QueryClient, controlled
+  `/me`): pending → disabled/checking, click is a no-op, resolve → enabled and the enable
+  request goes out; confirmed guest still gets the sign-in prompt (control).
+- [x] Mutation (toggle guard + bell disable removed): `1 failed | 1 passed`; restored `2 passed`.
+  ESLint and `tsc -p tsconfig.ci.json` clean on the changed files.
+- [x] Full frontend gate on the cherry-picked head `22c0847` (main tree): lint/tsc clean,
+  Vitest `102 files / 564 tests`, build 27/27. Controlled preview (flag-on local build,
+  stubbed `/me`, `/api/calendar`, alert tickers; no live backend): pending → both bells
+  disabled with "Checking your account…", resolved → real on/off labels, guest → sign-in
+  labels; light and dark. Draft [#744](https://github.com/neilmac91/EarningsNerd/pull/744),
+  CI 34058733161 green.
+- [x] Independent correctness lens: two should-fixes, both fixed — pending now derives from
+  the query's `isPending` so a failed `/me` falls back to the guest path instead of
+  "checking" forever (new test + mutation `1 failed | 2 passed`), and the spec invokes the
+  real `toggle` directly so the guard is proven (mutation `1 failed | 2 passed`). Refuted:
+  viewerRef staleness, consumer behaviour while pending, SSR, mock fidelity.
+- [ ] Ready, Codex, merge, main CI, production verification.
+
+## Account-cache integration and handover checkpoint (2026-09-06)
 ## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)
 
 Depends on the account-cache release (#742). Prepared on a branch stacked on `82f988b`; rebased
@@ -30,7 +60,13 @@ retained same-account data (plan, renewal, portal action) after a failed refresh
 - [x] Full frontend gate (lint, tsc, vitest, build) and both-theme controlled preview of
   loading/error/retained states. No backend, API, price, trial, promo, flag, entitlement or
   analytics-schema change. No live checkout.
-- [ ] Three review lenses, draft PR, actual CI, release.
+- [x] Released as [#743](https://github.com/neilmac91/EarningsNerd/pull/743) → main
+  `3f441520619a90baf9ec034a8dc94f1033175ce5`. Independent correctness lens: one should-fix
+  (label-keyed test capture only reached the Pro handler) fixed in `9ff1e17`, all other
+  candidates refuted twice; rules/brief and tests/gates lenses clean. PR CI 34058220774 and
+  34058400627 green; Codex review on `9ff1e17` completed with no findings; main CI
+  34058656680 green with backend deployment skipped; production Vercel served the new
+  pricing code (`Checking your plan…` present in the served `/pricing` chunk) by 20:40:06 UTC.
 
 ### Verification (2026-09-06, head `b4349bd` on main `555c9ba`)
 

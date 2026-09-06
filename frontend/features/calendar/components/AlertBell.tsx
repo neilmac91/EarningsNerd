@@ -35,7 +35,10 @@ export function AlertBell({
 }) {
   const on = alerts.isOn(ticker)
   const pending = alerts.isPending(ticker)
-  const label = !signedIn
+  const checking = alerts.identityPending
+  const label = checking
+    ? `Checking your account before managing alerts for ${ticker}`
+    : !signedIn
     ? `Sign in to get earnings alerts for ${ticker}`
     : on
       ? `Turn off earnings alerts for ${ticker}`
@@ -46,7 +49,7 @@ export function AlertBell({
       aria-pressed={on}
       aria-label={label}
       title={label}
-      disabled={pending}
+      disabled={pending || checking}
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -59,7 +62,7 @@ export function AlertBell({
         on
           ? 'bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark'
           : 'text-text-tertiary-light hover:bg-brand-weak hover:text-brand-strong dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark',
-        pending ? 'cursor-progress opacity-60' : '',
+        pending || checking ? 'cursor-progress opacity-60' : '',
         className,
       )}
     >
