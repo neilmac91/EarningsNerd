@@ -765,6 +765,103 @@ Exact combined logs: `/private/tmp/earningsnerd-e07-evidence/integrated-full.log
 The parent authorized branch push after this gate; PR creation/merge and production deployment
 remain root-owned. E07b is design-only and is not included.
 
+### E13a integration checkpoint
+
+Publication verification on combined source `4db219071e0179764224b30301f6b512e57ea6f7`
+against main `ee3ac9882b74453bb670c69b5b05142338a53844`: Ruff clean; Bandit 0 medium/high;
+**2565 passed, 2 deselected, 23 warnings in 61.96s (0:01:01)**, exit 0, with Stripe, usage
+and login PostgreSQL URLs configured. All six login concurrency cases ran. Workflow readers
+(including YAML parsing): **104 passed, 16 warnings in 3.12s**; Node 22.23.2 pin: **3 passed**.
+The pre-existing closed logging-stream teardown diagnostic followed the passing backend summary.
+
+Three-lens integration review is clear. Correctness: SQL conflict updates retain the original
+reset comparisons, null handling, threshold and timestamp rules; success clear remains caller-owned.
+Rules/brief: runtime and login concurrency tests match `24a4d1c` exactly; latest main's limiter,
+worker metrics, billing, usage counters, frontend, locked anchors and eval baseline are preserved.
+Tests/gates: all three required PostgreSQL CI steps and structural entries remain; the original
+5-failure/1-pass runtime mutation and 1-failure CI mutation are retained without repetition.
+No actionable finding required refutation or source repair. Frontend equals main, so only the
+required Node/workflow check was repeated. Whitespace checks and post-commit status are clean.
+
+Exact fresh logs: `/private/tmp/earningsnerd-e13-evidence/approved-ruff.log`,
+`approved-bandit.log`, `approved-full.log`, `approved-workflow.log`, `approved-node.log`.
+The founder-approved normal branch publication follows this evidence commit; root owns PR,
+remote CI, merge and deployment verification. No flag, pricing, spending, policy or data repair.
+
+
+Latest-main publication checkpoint: the founder explicitly approved all five exact actions in
+`outputs/remaining-verification-publication-approval.md`, including publication of this branch
+to `neilmac91/EarningsNerd` and conflict resolution with required full gates. Integrate main
+`ee3ac9882b74453bb670c69b5b05142338a53844`, preserve all three PostgreSQL execution paths,
+review correctness/rules/tests and run the full backend plus workflow/Node gates with all three
+PostgreSQL URLs. Existing runtime and CI mutation proofs remain scoped to unchanged source.
+Root owns PR creation, CI follow-through, serialized merge and deployment verification.
+
+
+Main `90fdc6972e1ef03af75e55f62cb204e9664e0ba9` is merged into the existing login-counter
+branch. Resolve overlapping CI additions by retaining Stripe, usage and login PostgreSQL steps
+and all three parameterized structural entries; retain each workstream's documentation. Runtime
+login source and its concurrency tests remain the reviewed `24a4d1c` implementation. Run one
+combined full backend gate with all three PostgreSQL URLs, workflow readers and Node pin before
+an authorized branch push. Root owns PR creation/merge/release; E09 publication remains held.
+
+Combined source `c1ec2bb` against main `90fdc69` passed the pinned full backend gate:
+Ruff clean; Bandit 0 medium/high; **2552 passed, 2 deselected, 23 warnings in 45.98s**, exit 0.
+All three PostgreSQL URLs were configured; Stripe, usage and login cases ran in disposable
+schemas. Workflow readers: **104 passed**; Node 22.23.2 pin: **3 passed**. The pre-existing
+closed logging-stream teardown diagnostic followed pytest's passing summary.
+
+Integration review is clear across correctness, rules/brief and tests/gates. Runtime login code
+and its concurrency home match reviewed `24a4d1c`; reset comparisons, threshold/timestamps and
+caller-owned success clear remain unchanged. CI retains all three PostgreSQL steps and structural
+entries. E06 corrections, E07a runtime and every locked anchor/baseline match main. No schema,
+policy, deletion, config, reservation or E09 change was added. Original runtime and CI mutation
+proofs remain valid; neither was repeated. Diff/whitespace checks are clean.
+
+Combined logs: `/private/tmp/earningsnerd-e13-evidence/integrated-full.log`, `integrated-bandit.log`,
+`integrated-workflow.log` and `integrated-node.log` in that directory. Root authorized normal
+branch push after these gates; PR creation/merge and production verification remain root-owned.
+
+### E13a — Atomic failed-login recording (engineering)
+
+Bounded implementation from `a5ba97e`: replace the race in durable failed-login recording with
+native SQLAlchemy PostgreSQL/SQLite upserts on the existing email-hash primary key. Preserve
+all three public helpers, commit ownership and exact reset/threshold/window behavior. No schema,
+data deletion, configuration/flag change, auth contract change or admission-reservation claim.
+
+- [x] Use one atomic insert/update, retaining server-default first-insert timestamps, explicit
+  failure timestamps on updates and conditional expired-lock/stale-window reset semantics.
+- [x] Keep success clearing in the caller transaction; document/test linearized clear/failure
+  outcomes without claiming that credential checks already in progress are reserved.
+- [x] Reuse existing behavioral tests; add only PostgreSQL concurrency invariants in one new
+  `backend/tests/integration/test_login_lockout_transactions.py` home and required CI execution.
+- [x] Commit source, run exactly one mutation per new invariant with exact restoration, then
+  full backend and workflow/Node gates. Keep every locked auth/stream/billing test byte-identical.
+- [x] Record independent review/evidence and return clean commits to root; no push/PR/deploy.
+
+The per-IP limiter, durable-row retention and event-loop/database ownership remain separate.
+Existing revisions can still overwrite counts until old writers drain. No new database timeout
+or retry policy is introduced, and database failures continue to propagate.
+
+
+Source `24a4d1c`: 66 focused PostgreSQL/behavioral/unchanged-auth/workflow checks passed.
+Full pinned backend gate with login and Stripe PostgreSQL cases enabled: Ruff clean, Bandit
+0 medium/high; `2446 passed, 2 deselected, 23 warnings in 47.75s`, exit 0. Workflow-focused
+gates: 103 passed; Node pin: 3 passed on Node 22.23.2. Every locked test and eval baseline is
+byte-identical to the base.
+
+One original-implementation mutation exercised both new runtime invariants: concurrent failed
+recording and success-clear interleaving. It produced 5 intended failures / 1 pass: missing-row
+count 2 instead of 3, existing count 9 instead of 11, expired/stale resets 1 instead of 3, and
+StaleDataError after committed clear instead of a new count of 1. The rollback-clear case still
+passed. One separate missing PostgreSQL CI URL mutation failed the intended structural assertion.
+Both files were restored to exact committed bytes before the successful full gate. Existing
+behavioral tests were reused; no earlier reset/timestamp/auth proof was repeated.
+
+Root's independent source correctness/rules review found no actionable issue. The final local
+gates and bounded proofs complete the tests/gates evidence. Root owns integration, publication,
+remote CI and serialized release; none is claimed by this source checkpoint.
+
 ### E10a — Filing-first financial-facts index (engineering)
 
 Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
