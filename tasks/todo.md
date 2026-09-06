@@ -9,13 +9,20 @@ Two independent code refutation passes confirmed that the explicit account expor
 new account-linked BillingPayment observations. Preserve the existing export fields and billing
 semantics; no locked contract, schema, payment policy, retention or production changes.
 
-- [ ] Add a `billing_payments` array containing all stored observations owned by the authenticated
+- [x] Add a `billing_payments` array containing all stored observations owned by the authenticated
   account, with explicit fields and UTC timestamps; exclude other accounts and unattributed rows.
-- [ ] Gate the real export route in the existing billing unit home, including retained live/test
+- [x] Gate the real export route in the existing billing unit home, including retained live/test
   evidence, optional nulls, exact timestamps, account isolation and an empty account result.
 - [ ] Commit source, perform one original-export mutation proof and exact restoration, then run
   the full backend gate with the actual PostgreSQL transaction cases enabled.
 - [ ] Return reviewable committed evidence to root; root owns publication and serial deployment.
+
+Source `f5f4c99` passed the existing billing home (28 tests). One original-export mutation
+failed with `KeyError: 'billing_payments'`; exact restoration passed 28 tests. Independent review
+then identified timezone relabeling of aware database values. The correction converts aware
+values to UTC and attaches UTC only to SQLite's naive values. The same route regression now
+also covers a database value represented at UTC+02:00; its represented instant must survive.
+The initial full run is superseded because it began before this correction was requested.
 
 ### E06 — Observed invoice-payment evidence (engineering)
 

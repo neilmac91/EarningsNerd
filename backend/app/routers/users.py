@@ -404,8 +404,10 @@ async def export_user_data(
                 "currency": payment.currency,
                 "payment_type": payment.payment_type,
                 # SQLite drops timezone metadata; both columns store UTC instants.
-                "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc)),
-                "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc)),
+                "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc) if payment.paid_at.tzinfo is None
+                                 else payment.paid_at.astimezone(timezone.utc)),
+                "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc) if payment.observed_at.tzinfo is None
+                                     else payment.observed_at.astimezone(timezone.utc)),
                 "subscription_invoice": payment.subscription_invoice,
                 "user_id": payment.user_id,
                 "attribution": payment.attribution,
@@ -572,3 +574,4 @@ async def delete_user_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete account. Please contact support."
         )
+

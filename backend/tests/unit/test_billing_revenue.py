@@ -1,7 +1,7 @@
 """Observed allocation evidence, conservative attribution and report/deletion semantics."""
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -235,10 +235,12 @@ def test_report_billing_mix_uses_invoice_evidence_and_preserves_unknown(db, monk
 
 
 @pytest.mark.asyncio
-async def test_account_export_contains_only_own_retained_payment_evidence(db, monkeypatch):
+@pytest.mark.parametrize("database_offset", [None, 2])
+async def test_account_export_contains_only_own_retained_payment_evidence(db, monkeypatch, database_offset):
     from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
     from app.routers import users
+    from sqlalchemy.orm.attributes import set_committed_value
 
     monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_MONTHLY_ID", "price_month")
     owner = user(db, is_beta=True)
@@ -261,6 +263,14 @@ async def test_account_export_contains_only_own_retained_payment_evidence(db, mo
             payment.invite_cohort_observed = None
             payment.billing_cycle = None
     db.commit()
+    # PostgreSQL can return aware values in the connection's timezone. Preserve strong
+    # identity-map references and simulate that representation without rewriting stored instants.
+    retained_payments = db.query(BillingPayment).all()
+    if database_offset is not None:
+        zone = timezone(timedelta(hours=database_offset))
+        for payment in retained_payments:
+            set_committed_value(payment, "paid_at", datetime.fromtimestamp(PAID_AT, zone))
+            set_committed_value(payment, "observed_at", SINCE.astimezone(zone))
     selected_user = owner
 
     async def authenticated_user():
