@@ -2,6 +2,26 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
+### W3-3 public-source replacement — 2026-09-06
+
+The founder requested an FMP-independent constituent filter. Live public retrieval returned
+503 S&P 500 rows and 102 Nasdaq-100 rows. The Nasdaq constituents table is on the dedicated
+`List_of_NASDAQ-100_companies` page, not the general article used by the old script.
+This supersedes the FMP-access prerequisite for this replacement; it does not assert that
+FMP entitlement was repaired or change any later founder hold. The existing application
+already filters against the committed union; only its maintenance path needs replacement.
+
+- [ ] Make the automatic refresh use both public constituent lists without any FMP credential;
+  preserve explicit FMP compatibility, normalization, per-index floors, prior-file protection,
+  reviewed-commit delivery, and the unchanged 100-day age limit.
+- [ ] Verify the fetched lists and changes, demonstrate the filter on the supplied 77-row CSV,
+  and update owning workflow/docs plus the lesson about checking public alternatives.
+- [ ] Run meaningful offline regression/mutation checks and the full backend gate; review
+  correctness, rules and tests independently before readiness.
+- [ ] Publish the draft PR, inspect required CI, merge and verify the backend deployment;
+  dispatch the public refresh and retain its actual result. Any Actions-policy prerequisite
+  remains founder-owned; never change settings or introduce a PAT workaround.
+
 ### Current checkpoint — 2026-09-06
 
 W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete with the recorded verification below.
