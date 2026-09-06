@@ -28,6 +28,30 @@ That preview did not alter data or reproduce the sparse fixture. Production veri
 remains pending for Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u`.
 See the [execution ledger](beta-to-scale-execution.md#release-checkpoint--2026-09-06).
 
+### E04 — Bound the summary reader and reject truncated streams (engineering)
+
+- [x] Bound the complete connect/refresh handshake with the existing 120-second timeout.
+- [x] Require one valid complete/partial frame; consume a final frame without a newline.
+- [x] Stop on terminal frames and avoid automatic replay after any visible preview or chunk.
+- [x] Add focused reader regressions in `frontend/tests/unit/summaryStreamResilience.spec.ts`;
+  leave recorded SSE/auth contracts unchanged; retain exactly one mutation proof per new invariant.
+- [ ] Run the full frontend gate, independent review, and publish a draft PR with exact evidence.
+
+The current reader returns success at premature EOF and starts its timeout only after headers.
+E04 keeps the SSE wire format, shared refresh owner, existing one-retry policy and timeout value.
+It changes transport handling only; no summary generation, quota, prompt, theme or flag changes.
+W3-8b and E03 are independent backend work; serialize task-doc integration when merging.
+
+Source `5eb8e03`: full frontend gate passed (lint/typecheck exit 0; 97 files / 501 tests;
+production build exit 0). Initial build rejected the temporary external node_modules symlink;
+copying the same installed dependencies inside the worktree resolved it without code or lock changes.
+One mutation experiment restored the entire original reader: all 11 new cases failed for the
+intended timeout/terminal/replay assertions. Exact restoration: 26 focused tests passed.
+Independent correctness/rules/tests review found no actionable issue; backend persistence before
+terminal emission was checked in two fresh passes. Locked SSE/auth fixtures are unchanged.
+E02 main `5298c77` was merged locally; frontend source/test bytes remain identical to `5eb8e03`.
+Draft publication and exact-head CI remain pending. This is transport handling; no visual change.
+
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
 ### E02 — SEC token refill accounting (2026-09-06)
