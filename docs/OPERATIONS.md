@@ -13,7 +13,7 @@ local-dev issues in docs/TROUBLESHOOTING.md.
 |----------|---------|----------|
 | `GET /health` | Basic health check for load balancers | `{"status": "healthy"}` |
 | `GET /health/detailed` | Detailed check with DB + Redis + circuit breaker | See example below |
-| `GET /metrics` | Application metrics for monitoring dashboards | See metrics response below |
+| `GET /metrics` | Application metrics; authenticated admin required | See metrics response below |
 
 ### Detailed Health Check Response
 
@@ -63,10 +63,26 @@ local-dev issues in docs/TROUBLESHOOTING.md.
       "evictions": 50
     }
   },
-  "thread_pool": {"edgar": {"max_workers": 4, "threads_created": 3}},
+  "thread_pool": {
+    "edgar": {"max_workers": 4, "threads_created": 3},
+    "anyio": {"scope": "event_loop", "total_tokens": 40, "borrowed_tokens": 4, "tasks_waiting": 0}
+  },
   "database": {"pool_size": 10, "checked_in": 8, "checked_out": 2}
 }
 ```
+
+The values above are illustrative, not production measurements. `thread_pool.anyio` snapshots
+the responding event loop's default worker limiter: `total_tokens` is its current capacity,
+`borrowed_tokens` counts occupied tokens, and `tasks_waiting` counts tasks waiting for a token.
+Health probes and summary database units share this limiter. Collection does not borrow a token
+and exposes only aggregates, never borrower objects. Waiting tasks indicate contention at that
+instant; the snapshot provides no duration, historical peak or alert threshold.
+
+`GET /metrics` uses the existing authenticated admin check (normal session/bearer authentication);
+it is not `/api/metrics`. Its database-backed authentication and synchronous dependency can
+themselves wait under saturation, so this is not an outage-independent diagnostic. Counts are
+local to that event loop, not fleet totals, CPU utilization, EDGAR/default-asyncio executor state,
+or provider/generation queues. This addition changes no capacity or startup/probe deadlines.
 
 **Status codes:**
 - `200` with `status: healthy` - All dependencies operational
