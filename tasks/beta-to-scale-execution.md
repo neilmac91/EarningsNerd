@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a eligibility parity in progress; E15b partitioning and current URL count remain unresolved |
+| E15 | Partition sitemap and align eligible content | Independent | E15a implemented locally and reviewed; E15b partitioning and current URL count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -121,3 +121,21 @@ Full backend gate with PostgreSQL enabled: Ruff clean, Bandit 0 medium/high,
 the macOS native-library environment and failed two PDF tests; direct Python invocation passed
 without a source change. Provider timeout settings limit connect/read inactivity, not total
 duration. Independent review and release evidence remain pending at this checkpoint.
+
+
+## E15a — Sitemap eligibility parity, local checkpoint
+
+Source `348ef73` reuses the curated unsupported-company predicate and excludes the exact
+case-sensitive legacy `Generating summary` substring before the filing cap. Real partial
+summaries remain eligible. Existing static entries, dates, single-flight and hourly cache
+ownership are preserved; frontend and locked contracts are untouched. Root's independent
+three-lens review is clear. Two single mutation proofs failed at their intended exclusions,
+then exact restoration passed the full backend gate: Ruff clean, Bandit zero medium/high,
+`2482 passed, 8 skipped, 2 deselected, 23 warnings in 49.00s` (exit 0). Skips are existing
+PostgreSQL billing cases outside this slice. Exact local logs are recorded in `tasks/todo.md`.
+Publication, latest-main integration and deployment remain root-owned and pending.
+
+E15b is unresolved: company URLs are unbounded and 45,000 caps only filing rows, so the
+whole document is not bounded by that constant. Partitioning and the actual current production
+URL count need separate work. The 1,884 URLs reported on July 16 are historical evidence,
+not a current count. No SEO console change, pregeneration spend or flag activation is included.

@@ -8,14 +8,14 @@ Based on `6a648f7`. The filing-page server predicate rejects the exact, case-sen
 `Generating summary` substring; the company route rejects curated unsupported foreign
 issuers before resolving even an existing DB row. The sitemap currently misses both checks.
 
-- [ ] Reuse `unsupported_foreign_name` in the company sitemap loop and match the existing
+- [x] Reuse `unsupported_foreign_name` in the company sitemap loop and match the existing
   server placeholder predicate in the filing SQL before the filing limit. Preserve genuine
   partial summaries, static entries, truthful dates and both existing hourly cache owners.
-- [ ] Extend only `backend/tests/unit/test_sitemap.py` with behavior cases for placeholder
+- [x] Extend only `backend/tests/unit/test_sitemap.py` with behavior cases for placeholder
   exclusion/partial retention and stale unsupported-company rows/supported foreign peers.
-- [ ] Commit source, run exactly one mutation proof per new invariant, restore exact bytes,
+- [x] Commit source, run exactly one mutation proof per new invariant, restore exact bytes,
   then run the full pinned Ruff, Bandit and backend gate.
-- [ ] Record evidence and a clean handoff for independent review; root owns publication,
+- [x] Record evidence and a clean handoff for independent review; root owns publication,
   CI and serialized deployment. This agent does not push or activate SEO surfaces.
 
 Rules 6 and 12, the existing one-test-home and sitemap-cache lessons apply. No migration,
@@ -23,6 +23,30 @@ frontend, prompt, entitlement, flag, quality-policy or locked-contract change. E
 separate: companies are unbounded and the 45,000 cap applies only to filing rows; a sitemap
 index/partition design and actual current production URL count are still unresolved.
 The historical 1,884 count from July 16 is not a current measurement.
+
+
+Source `348ef73` received root's independent correctness/rules/tests review with no actionable
+finding. Runtime changes are confined to `backend/app/routers/sitemap.py`; the existing
+`backend/tests/unit/test_sitemap.py` is the only changed test home. Locked files, frontend,
+migrations, prompts and flags are byte-identical to base `6a648f7`. The initial focused run
+passed 16 cases before reducing redundant curated-ticker parameters to two representative
+cases; the final home has ten cases, including the six unchanged cache/date/static contracts.
+
+Exactly two mutation experiments ran against committed source and were restored byte-for-byte:
+removing the case-sensitive placeholder SQL predicate caused two intended exclusion assertion
+failures (`earningsnerd-e15-mutation-placeholder.log`, 2 failed, 8 deselected, 17 warnings in
+2.34 s); removing the curated company check caused two intended exclusion assertion failures
+(`earningsnerd-e15-mutation-company.log`, 2 failed, 8 deselected, 17 warnings in 1.98 s).
+No mutation was repeated. Logs are local under `/private/tmp/`.
+
+Final source `348ef73` full gate: Ruff clean; Bandit zero medium/high severity; backend pytest
+`2482 passed, 8 skipped, 2 deselected, 23 warnings in 49.00s`, exit 0. All ten sitemap cases
+passed after restoration. The eight skips are unrelated PostgreSQL billing cases without the
+opt-in database URL; sitemap query behavior ran against SQLite. Logs:
+`/private/tmp/earningsnerd-e15-ruff.log`, `/private/tmp/earningsnerd-e15-bandit.log`,
+`/private/tmp/earningsnerd-e15-full.log`. The lesson link and `git diff --check` passed.
+This verifies local behavior, not production URL counts, query timing, SEO indexing or release.
+Root owns latest-main integration, CI and serialized deployment; no publication occurred here.
 
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
