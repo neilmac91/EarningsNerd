@@ -2,6 +2,30 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+
+### E06 — Observed invoice-payment evidence (engineering)
+
+Founder-approved implementation follows the bounded read-only design. Start at `f94501f`;
+merge E05c before publication. Only `invoice_payment.paid` records allocations. This is gross
+observed payment evidence, not MRR/ARR, net revenue or an accounting ledger. No prices, promo,
+trial, production endpoint selection, API-version setting or monetary transaction changes.
+
+- [ ] Add a minimal minor-unit payment model and new guarded idempotent migration; preserve
+  account deletion through ORM/FK cascade and minimize unattributed pseudonymous references.
+- [ ] Validate canonical payment evidence, attribute only unambiguous customer ownership,
+  deduplicate payment IDs across event IDs, and snapshot beta/invite dimensions without inference.
+- [ ] Add a read-only report with separate currencies/modes, supported payment types, zero and
+  unattributed exclusions from paying-user cohorts, and explicit coverage/refund/credit limits.
+- [ ] Integrate E05c's bounded reader and existing transaction worker; record payment/event in
+  one commit and emit best-effort analytics after session closure. No second Stripe client owner.
+- [ ] Add money/evidence/model tests in one new unit home and extend the existing transaction
+  home for actual PostgreSQL duplicate delivery. Keep locked tests byte-identical.
+- [ ] Commit source, retain exactly one mutation proof per new invariant, run full backend and
+  actual PostgreSQL/migration gates, obtain independent review, and record exact evidence.
+- [ ] Root publishes and verifies CI/release serially after E05c; verify production endpoint
+  event selection separately before claiming observation coverage. No historical backfill.
+
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
