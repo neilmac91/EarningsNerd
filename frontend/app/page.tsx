@@ -19,6 +19,7 @@ import {
   fetchNotableFilings,
   fetchReportingThisWeek,
 } from '@/lib/serverApi'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -115,7 +116,7 @@ export default async function Home() {
                   See a live example →
                 </ExampleCtaLink>
                 <span className="text-text-tertiary-light dark:text-text-secondary-dark">
-                  Free account · 5 AI summaries a month · no credit card
+                  Free account · {FREE_SUMMARY_LIMIT} AI summaries a month · no credit card
                 </span>
               </div>
 

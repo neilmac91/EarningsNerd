@@ -18,6 +18,7 @@ import { BellIcon, LockSimpleIcon, WarningCircleIcon } from '@/lib/icons'
 import { Button, buttonVariants } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import type { BlockedState, EarningsAlertsApi } from '../hooks/useCalendar'
+import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 export function AlertBell({
   ticker,
@@ -100,7 +101,7 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
     ? 'Alert not enabled'
     : blocked.kind === 'signin'
       ? 'Sign in to set earnings alerts'
-      : 'Free includes 3 earnings alerts'
+      : `Free includes ${FREE_EARNINGS_ALERT_LIMIT} earnings alerts`
   const body = isError
     ? blocked.message // the API's message, verbatim — never rewritten client-side
     : blocked.kind === 'signin'

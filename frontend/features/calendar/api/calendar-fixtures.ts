@@ -18,6 +18,7 @@ import {
   EARNINGS_ALERT_LIMIT_CODE,
 } from './calendar-api'
 import { addDaysIso, isoDayOfWeek, diffDays, marketHolidayName, todayEasternIso } from '../lib/dates'
+import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 const LATENCY_MS = 450
 
@@ -164,10 +165,10 @@ export async function fixtureAlertTickers(): Promise<string[]> {
 
 export async function fixtureEnableAlert(ticker: string): Promise<void> {
   await wait(280)
-  if (FIXTURE_PLAN === 'free' && enabled.size >= 3 && !enabled.has(ticker)) {
+  if (FIXTURE_PLAN === 'free' && enabled.size >= FREE_EARNINGS_ALERT_LIMIT && !enabled.has(ticker)) {
     throw new EarningsAlertError(
       403,
-      'Free includes earnings alerts for 3 companies. Upgrade to Pro for more.',
+      `Free includes earnings alerts for ${FREE_EARNINGS_ALERT_LIMIT} companies. Upgrade to Pro for more.`,
       EARNINGS_ALERT_LIMIT_CODE,
     )
   }

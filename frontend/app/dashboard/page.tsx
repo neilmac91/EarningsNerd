@@ -23,6 +23,7 @@ import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
 import { Badge, Button, buttonVariants, Card, GuidanceCard } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -330,7 +331,7 @@ export default function DashboardPage() {
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">
-                      {usage?.summaries_used || 0} / {usage?.summaries_limit || 5} summaries
+                      {usage?.summaries_used || 0} / {usage?.summaries_limit ?? FREE_SUMMARY_LIMIT} summaries
                     </span>
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">
                       {usage?.summaries_limit

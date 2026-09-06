@@ -15,6 +15,7 @@ import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 function RegisterContent() {
   const router = useRouter()
@@ -83,7 +84,7 @@ function RegisterContent() {
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {isInvited
           ? 'Finish setting up to get full Pro. No credit card required.'
-          : '5 free AI summaries a month. No credit card required.'}
+          : `${FREE_SUMMARY_LIMIT} free AI summaries a month. No credit card required.`}
       </p>
 
       {isInvited && (

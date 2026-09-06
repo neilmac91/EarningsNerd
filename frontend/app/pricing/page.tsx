@@ -14,6 +14,7 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { PRICE_VARIANTS } from './prices'
 
 interface CurrentUser {
@@ -209,7 +210,7 @@ function PricingContent() {
       period: 'forever',
       description: 'For trying out EarningsNerd',
       features: [
-        '5 summaries per month',
+        `${FREE_SUMMARY_LIMIT} summaries per month`,
         'Access to all filings',
         'Basic AI summaries',
         'Company search',
