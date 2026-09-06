@@ -135,6 +135,14 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"
           bash backend/scripts/apply_migrations.sh | tee pass3.log
           grep -qx "apply_migrations: applied=$N skipped=0" pass3.log
+      - name: Verify Stripe transaction concurrency on PostgreSQL
+        # SQLite cannot prove row locking. Run against this job's disposable PostgreSQL service;
+        # a configured but unavailable/non-PostgreSQL target must fail, not silently skip.
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          STRIPE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_subscription_event_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest

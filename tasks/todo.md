@@ -138,7 +138,7 @@ No prompt, flag, schema, capacity or W3-8b classifier change. Root owns publicat
 - [x] Extend existing lifecycle and health test homes with real pool/ownership evidence.
 - [x] Prove each new invariant with exactly one mutation, restoring committed implementation.
 - [x] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
-- [ ] Independent review, publication, CI/eval inspection and serialized deployment (root).
+- [x] Independent review, publication, CI/eval inspection and serialized deployment (root).
 
 Runtime evidence: installed FastAPI `routing.py::request_response` closes its request dependency
 stack after `await response(...)`; `dependencies/utils.py` defaults yielded dependencies to that
@@ -165,7 +165,15 @@ The original two mutation proofs were not repeated. Root and independent review 
 Final integrated source `43eb5c8` includes main `049cd4f` (E01/E02/E04). Ruff clean, Bandit 0
 medium/high, full pytest `2412 passed, 2 deselected, 23 warnings in 50.01s`, exit 0. The retained
 log also contains the existing post-summary Yahoo-client shutdown logging error. Locked contracts
-and stream frames remain unchanged. E03 publication, CI/eval evidence and deployment remain pending.
+and stream frames remain unchanged. The pending release at that checkpoint is now verified below.
+
+E03 #723 merged as `4d15b90`; production CI `34026399023` passed, with migrations
+`applied=0 skipped=34`, revision `00277-sdn` at 100% traffic and independent healthy DB 9.88 ms.
+E05a #724 subsequently merged as `3ca20c6`; production CI `34027376311` passed, migrations
+`applied=0 skipped=34`, revision `00278-5rd` at 100% traffic and independent healthy DB 5.66 ms.
+Both PR bodies retain full image and health evidence. E05a's first summary evaluation retained
+one BABA timeout (artifact `9987326457`); one unchanged full retry passed 52/52 with zero errors
+(artifact `9987455360`). Its actual Copilot gate passed 18/18. No baseline or threshold changed.
 
 Precedence correction: the touched single-orchestrator lesson still named Multi-Period Analysis
 as the cross-filing insight destination. Its prose now names the labeled Change Report to match

@@ -116,7 +116,8 @@ frontend/
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Usage tracking (re-exports entitlement limits) |
-| `subscription_sync.py` | Idempotent Stripe webhook → `subscriptions` table |
+| `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
+| `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks and post-commit analytics; stale-event chronology remains separate |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
