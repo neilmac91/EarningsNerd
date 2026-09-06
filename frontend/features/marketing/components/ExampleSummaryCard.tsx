@@ -25,10 +25,9 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
   const ticker = example?.ticker ?? FALLBACK.ticker
   const companyName = example?.companyName ?? FALLBACK.companyName
   const filingLabel = example ? example.filingType : FALLBACK.filingLabel
-  const metrics =
-    example && example.metrics.length > 0
-      ? example.metrics.slice(0, 3)
-      : FALLBACK.metrics
+  // A sparse live filing keeps its own identity and empty metrics; Apple figures belong only
+  // to the complete fallback snapshot, never to another issuer's preview.
+  const metrics = example ? example.metrics.slice(0, 3) : FALLBACK.metrics
 
   return (
     <ExampleCtaLink
@@ -47,14 +46,14 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
         <span className="flex-shrink-0 text-xs text-text-tertiary-light dark:text-text-secondary-dark">Example</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      {metrics.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2">
         {metrics.map((metric) => (
           <div key={metric.label}>
             <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
             <div className="text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
         Read the full summary
