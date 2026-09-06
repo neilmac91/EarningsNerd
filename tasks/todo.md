@@ -2,6 +2,29 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E09a — Single replacement leader after failed generation (engineering)
+
+Start at main `6a648f7`. A follower awaits the old leader and a fresh DB read before claiming;
+several failed-leader followers can each overwrite the registry and generate the same filing.
+Recheck ownership after asynchronous work and elect only one replacement per process. This
+is local deduplication, not fleet admission, quota reservation or a durable queue.
+
+- [ ] Loop through registry recheck/claim after joins; atomically claim only an empty slot.
+- [ ] Preserve the active leader when a follower's existing wait budget expires; use the existing
+  timeout error path, keep the overall 120-second timeout and release only owned state.
+- [ ] Extend only nonlocked `test_inflight_dedup.py` with deterministic failed-leader competition
+  and active-leader timeout tests. Preserve force-regenerate, provider, usage and cleanup behavior.
+- [ ] Commit source, retain one mutation proof per new invariant with exact restoration; run
+  focused existing lifecycle/locked anchors and the pinned full backend gate.
+- [ ] Update scoped lesson/ledger/evidence and return clean source for root's independent review;
+  no push, PR, merge or production action by this task.
+
+Read CLAUDE/AGENTS, relevant architecture/operating lessons, wave-3 and eval RUNBOOK. This
+changes no prompt/model/extraction/AI flag or armed guard, so there is no baseline re-pin trigger.
+Existing CI evaluation evidence must be reviewed before release. W3-8b classification remains
+untouched; E07 quota reservation, fleet leases, external queue/spend and capacity remain separate.
+
+
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
 The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:
