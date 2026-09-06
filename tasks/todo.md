@@ -3,6 +3,20 @@
 ## Beta-to-scale implementation — approved 2026-09-06
 
 
+### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
+
+CI run 34034568223 failed the existing nonlocked E03 lifetime case before provider readiness:
+progress SQL raced an excerpt worker against its one-connection/50 ms test pool. Three independent
+code passes support this interleaving; the actual CI connection holder remains inferred. Preserve
+all runtime code, locked anchors, pool limits, readiness checks and cancellation/ownership assertions.
+
+- [ ] Serialize only this fixture's dispatched DB units inside their worker with a threading mutex;
+  retain independent connection probes outside it, including cancellation-before-worker-close checks.
+- [ ] Reproduce controlled preparatory contention once and pass the corrected target under the same
+  delay; prove intentional connection retention still fails the existing lifetime assertion once.
+- [ ] Restore committed source, run the full PostgreSQL backend gate, record evidence and return a
+  clean reviewed head to root for publication. No timeout increase, retries, skip or production edit.
+
 ### E06 review correction — Include attributed payment evidence in account export (engineering)
 
 Two independent code refutation passes confirmed that the explicit account export omits the
