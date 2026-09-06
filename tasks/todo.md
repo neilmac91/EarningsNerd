@@ -6,7 +6,7 @@ separate nonsecret invocation/source/concurrency artifact, existing offline gate
 Root owns publication, normal live CI acceptance and serialized release. No push or live eval here.
 
 - [x] Read AGENTS/CLAUDE, applicable lessons, wave-3 context and full eval RUNBOOK.
-- [ ] Add explicit CI cap and retain execution evidence separately from the unchanged harness.
+- [x] Add explicit CI cap and retain execution evidence separately from the unchanged harness.
 - [ ] Extend the existing parity test; execute one meaningful mutation and restore exact bytes.
 - [ ] Full pinned Ruff/Bandit/backend with all three disposable PostgreSQL lanes; workflow
   readers, YAML parse and Node lockstep gate; three review lenses; commit with clean status.

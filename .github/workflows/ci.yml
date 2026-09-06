@@ -235,20 +235,21 @@ jobs:
   # intentionally NOT in the deploy-backend `needs:` gate — it reports a quality verdict, it never
   # blocks a deploy. The *gate logic* is already unit-tested for free in backend-tests
   # (tests/unit/test_eval_regression_gate.py); THIS job runs the live production pipeline over the
-  # FULL verified golden set (27 filings as of writing — 10-K/10-Q/20-F, up to ~260k chars each) and
+  # FULL verified golden set (26 filings — 10-K/10-Q/20-F, up to ~260k chars each) and
   # diffs the result against the pinned baseline_scores.json.
   #
   # Requires a DEEPSEEK_API_KEY *GitHub Actions* secret (the prod key lives in GCP Secret Manager,
   # which CI can't read); the key-check step self-skips with a notice if it's unset. Once armed,
-  # this is a real per-run DeepSeek spend, not a token-budget rounding error — it makes 27 real
-  # `summarize_filing()` calls (some filings trigger extra section-recovery calls on top). Path-
+  # each PR measurement plans 26 filings × 2 repeats = 52 real summaries, with possible extra
+  # section-recovery calls. These consume provider credit. Path-
   # filtered so it only runs when AI-relevant code changes, and evals.runner parallelizes across
-  # filings (`--concurrency`, default 5) to keep wall-clock to ~5-8 min instead of ~26 min serial.
+  # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
+  # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
-    # Each run is a real, ~5-8 min DeepSeek bake-off (see step below). Without this, every new
+    # Each run is a real DeepSeek measurement (see step below). Without this, every new
     # push to an open PR queues another full run on top of the still-running one from the last
     # push — only the latest push's result matters, so cancel superseded runs to stop paying for
     # (and waiting on) throwaway evals. Grouped per-PR so unrelated PRs don't cancel each other.
@@ -330,6 +331,16 @@ jobs:
           fi
           ARGS=(--candidates baseline --runs "$EVAL_RUNS")
           [ -n "$LIMIT" ] && ARGS+=(--limit "$LIMIT")
+          EVAL_CONCURRENCY=2
+          ARGS+=(--concurrency "$EVAL_CONCURRENCY")
+          # Scheduling evidence stays outside the unchanged report harness/baseline identity.
+          mkdir -p evals/reports
+          {
+            printf 'source_sha=%s\nfiling_concurrency=%s\n' "$GITHUB_SHA" "$EVAL_CONCURRENCY"
+            printf 'invocation=python -m evals.runner'
+            printf ' %q' "${ARGS[@]}"
+            printf '\n'
+          } > evals/reports/ci-execution.txt
           echo "Running: python -m evals.runner ${ARGS[*]}"
           python -m evals.runner "${ARGS[@]}"
       - name: Regression gate vs pinned baseline
@@ -344,6 +355,7 @@ jobs:
           path: |
             backend/evals/reports/eval_*.json
             backend/evals/reports/eval_*.md
+            backend/evals/reports/ci-execution.txt
           retention-days: 14
 
   e2e-tests:
