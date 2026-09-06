@@ -3,11 +3,11 @@
 The founder's exact five-action approval also covers this latest-main integration, required
 hermetic gates and normal branch update. Root owns PR checks, merge and production verification.
 
-- [ ] Merge exact main `414ea91347df5b93a2ad12c1423b807ba35328fe`, preserving sitemap
+- [x] Merge exact main `414ea91347df5b93a2ad12c1423b807ba35328fe`, preserving sitemap
   source and original two proofs, all incoming history and all three PostgreSQL CI lanes.
-- [ ] Verify three review lenses, locked-byte identity and frontend identity to main.
-- [ ] Run full pinned Ruff/Bandit/backend pytest with Stripe, usage and login disposable
-  PostgreSQL test URLs; record exact evidence and push the reviewed branch without force.
+- [x] Verify three review lenses, locked-byte identity and frontend identity to main.
+- [x] Run full pinned Ruff/Bandit/backend pytest with Stripe, usage and login disposable
+  PostgreSQL test URLs and record exact evidence. Normal branch update follows this commit.
 
 Previous-base CI acceptance is retained separately: PR #737 head `6f5e95e` / base `ee3ac988`,
 CI `34042764106` and ready Copilot `34042776146` succeeded. Migration replay was 36/0,
@@ -17,6 +17,31 @@ errors; 24 source hashes and scratch DB hash matched. The report inspector verif
 harness/golden and eval merge `15d33d90` parents exactly matched that old base/head. Artifacts
 `9992274632` and `9992228967`, logs, metadata and verification output are retained in
 `/private/tmp/earningsnerd-e15-evidence/approved-remote`. This is not CI evidence for a new head.
+
+Latest integration `7474eb6b8750a740a409b7357ce5fd814f6d5d48` contains main
+`414ea91347df5b93a2ad12c1423b807ba35328fe` (#736 login and #735 summary handoff).
+The only merge conflict was an appended task-ledger checkpoint; both histories remain.
+Sitemap runtime, regression tests and eligibility lesson are byte-identical to `b922d32`.
+Every other backend file, locked test, all frontend files and the three PostgreSQL CI lanes
+are byte-identical to main. The original two proofs remain unchanged and were not repeated.
+
+Three-lens integration review is clear. Correctness: real query filters still exclude the exact
+placeholder before the filing cap, preserve genuine partial content and reuse the supported-company
+predicate without touching dates/cache ownership. Rules and brief: all 12 rules and E15a scope
+remain intact; no new generation, entitlement, SEC transport, migration, flag or policy change.
+Tests and gates: existing meaningful response tests and their original failures are retained;
+no new tests were added for this integration. Six-file scope, lesson link, conflict-marker and
+`git diff --check` verification passed; frontend is identical to main so no frontend repeat.
+
+Full pinned gate on `7474eb6`, with Stripe, usage and login PostgreSQL URLs enabled:
+Ruff **All checks passed!**, Bandit **0 medium / 0 high**, backend **2569 passed,
+2 deselected, 23 warnings in 64.58s**, exit 0, no skips. Existing async client shutdown
+logging diagnostics followed the successful summary. Logs are retained under
+`/private/tmp/earningsnerd-e15-evidence/login-integrated-{ruff,bandit,full}.log`.
+The founder's exact approval covers the normal branch update after this evidence commit.
+New-head CI/eval and serialized release remain root-owned; no old-base report is being
+represented as the new integration's remote acceptance. E15b partitioning, current eligible
+DB count and search indexing remain unverified; the earlier 567-URL observation is historical.
 
 ## E14a — grounded waitlist example (2026-09-06)
 

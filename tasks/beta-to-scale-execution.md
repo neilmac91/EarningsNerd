@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a integrated with `ee3ac988`; exact update approval and 2562-test full gate recorded. PR/release pending; E15b partitioning and eligible DB count remain unresolved |
+| E15 | Partition sitemap and align eligible content | Independent | E15a PR #737 old-head CI/evals accepted; integrated `414ea913` with unchanged source and 2569-test full gate. Updated-head CI/release pending; E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -304,3 +304,16 @@ PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 
 in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
+
+### E15a latest released-main integration
+
+Merge `7474eb6` includes exact main `414ea913` with sitemap source/test/lesson identical to
+`b922d32`; locked contracts, incoming login/summary runtime, all three PostgreSQL CI lanes
+and frontend are unchanged from main. The exact five-action approval covers integration,
+full hermetic gates and normal branch update. All three review lenses are clear; original
+two mutation proofs and dated public-output observation are preserved without repetition.
+Ruff clean, Bandit zero medium/high; all-three-PostgreSQL full backend gate **2569 passed,
+2 deselected, 23 warnings in 64.58s**, exit 0, no skips. Prior PR #737 acceptance at head
+`6f5e95e` / base `ee3ac988` remains separately retained (CI `34042764106`, ready Copilot
+`34042776146`, summary 52 and Copilot 18 accepted with zero errors). New-head remote gates
+and serial release remain root-owned and pending; the prior report does not cover this merge.
