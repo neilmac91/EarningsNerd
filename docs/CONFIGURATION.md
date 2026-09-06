@@ -141,7 +141,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `DELIVERY_MAX_ATTEMPTS` | `5` | E11b-1: dispatch attempts per batch before it is parked as `ambiguous` (`attempts_exhausted`); 1 through 20. |
 | `DELIVERY_RETRY_BACKOFF_SECONDS` | `300` | E11b-1: delay before the first retry of a `retryable` batch, doubled per attempt; 1 through 86400. |
 | `DELIVERY_REPLAY_WINDOW_SECONDS` | `72000` | E11b-1: how long after a batch's first dispatch a retry may replay the same payload under the same `Idempotency-Key`; must stay inside Resend's documented 24 h retention (at most 86400). Past it the batch is `ambiguous`. |
-| `USAGE_RESERVATION_TTL_SECONDS` | `300` | How long a summary admission reservation (E07b lease in `earningsnerd_usage_reservations`) holds a quota unit if the owning process dies before converting or releasing it; must exceed the 120 s pipeline timeout, at most 3600. Expired rows are ignored by admission and swept on the account's next admission. |
+| `USAGE_RESERVATION_TTL_SECONDS` | `300` | How long a summary admission reservation (E07b lease in `earningsnerd_usage_reservations`) holds a quota unit if the owning process dies before converting or releasing it; 181 through 3600 s, covering the 120 s pipeline timeout plus the bounded conversion lock wait. Expired rows are ignored by admission and swept on the account's next admission. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
 | `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls. |
 | `COPILOT_MONTHLY_QUESTION_CAP` | `1000` | Monthly question fair-use ceiling per Pro account. |

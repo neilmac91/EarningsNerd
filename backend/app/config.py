@@ -438,9 +438,9 @@ class Settings(BaseSettings):
     # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
     USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
     # E07b: how long an admission reservation holds a quota unit if the owning process dies
-    # before converting or releasing it. Must exceed the pipeline's hard timeout (120 s) so a
-    # live generation never loses its lease mid-flight; expired rows are simply ignored.
-    USAGE_RESERVATION_TTL_SECONDS: int = Field(default=300, gt=120, le=3600)
+    # before converting or releasing it. Cover the 120 s pipeline deadline plus conversion's
+    # bounded counter-lock wait; expired rows are ignored by admission.
+    USAGE_RESERVATION_TTL_SECONDS: int = Field(default=300, gt=180, le=3600)
     # E11b-1 durable alert delivery: lease lengths and retry policy. Design parameters with
     # bounded defaults, not measured production settings. The replay window must stay inside
     # Resend's documented 24 h idempotency-key retention.

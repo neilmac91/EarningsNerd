@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -75,6 +76,7 @@ class PreparedSend:
     batch_id: int
     kind: str
     to_email: str
+    from_email: str
     name: Optional[str]
     subject: str
     html: str
@@ -105,8 +107,9 @@ class DrainStats:
         }
 
 
-def payload_digest(subject: str, html: str) -> str:
-    return hashlib.sha256(f"{subject}\n{html}".encode("utf-8")).hexdigest()
+def payload_digest(subject: str, html: str, *, to_email: str, from_email: str) -> str:
+    envelope = {"to": [to_email], "from": from_email, "subject": subject, "html": html}
+    return hashlib.sha256(json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def _aware(value: Optional[datetime]) -> Optional[datetime]:
@@ -141,9 +144,14 @@ def create_batch(
     unique constraint fires inside a SAVEPOINT, so the caller's pending work survives).
     """
     now = now or utcnow()
+    user = db.get(User, user_id)
+    if user is None or not filing_ids:
+        raise ValueError("Delivery selection requires a user and at least one filing")
+    to_email, from_email = user.email, settings.RESEND_FROM_EMAIL
     batch = DeliveryBatch(
+        to_email=to_email, from_email=from_email, expected_item_count=len(filing_ids),
         kind=kind, user_id=user_id, channel=channel, subject=subject, body_html=html,
-        payload_sha256=payload_digest(subject, html), idempotency_key=uuid4().hex,
+        payload_sha256=payload_digest(subject, html, to_email=to_email, from_email=from_email), idempotency_key=uuid4().hex,
         status=STATUS_READY, attempts=0, created_at=now, updated_at=now,
     )
     batch.items = [
@@ -192,12 +200,19 @@ def claim(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
 
 def authorize_send(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
     """claimed → sending. Committed before any network I/O; anchors the replay window once."""
-    return _transition(
-        db, batch_id, owner_token, STATUS_CLAIMED, now,
-        status=STATUS_SENDING, attempts=DeliveryBatch.attempts + 1,
+    stmt = update(DeliveryBatch).where(
+        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED,
+        DeliveryBatch.owner_token == owner_token, DeliveryBatch.lease_expires_at > now,
+        or_(DeliveryBatch.first_dispatch_at.is_(None),
+            DeliveryBatch.first_dispatch_at > now - timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)),
+    ).values(
+        status=STATUS_SENDING, attempts=DeliveryBatch.attempts + 1, updated_at=now,
         first_dispatch_at=func.coalesce(DeliveryBatch.first_dispatch_at, now),
         lease_expires_at=now + timedelta(seconds=settings.DELIVERY_SEND_TTL_SECONDS),
     )
+    changed = db.execute(stmt.execution_options(synchronize_session=False)).rowcount == 1
+    db.commit()
+    return changed
 
 
 def park(db: Session, batch_id: int, owner_token: Optional[str], from_status: str, status: str, reason: str, now: datetime) -> bool:
@@ -245,13 +260,16 @@ def finalize_accepted(db: Session, batch: DeliveryBatch, owner_token: str, provi
     return True
 
 
-def expire_stale(db: Session, now: datetime) -> dict:
+def expire_stale(db: Session, now: datetime, *, kind: Optional[str] = None) -> dict:
     """Reclaim expired preparation claims; park expired sending leases and closed replay windows."""
     counts = {"reclaimed": 0, "lease_expired": 0, "window_expired": 0}
     window = timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)
-    for batch in db.query(DeliveryBatch).filter(
+    query = db.query(DeliveryBatch).filter(
         DeliveryBatch.status.in_([STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE]),
-    ).all():
+    )
+    if kind is not None:
+        query = query.filter(DeliveryBatch.kind == kind)
+    for batch in query.all():
         lease = _aware(batch.lease_expires_at)
         first = _aware(batch.first_dispatch_at)
         if batch.status == STATUS_CLAIMED and lease is not None and lease <= now:
@@ -299,7 +317,8 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
 
 def _still_eligible(db: Session, batch: DeliveryBatch, user: User) -> bool:
     """Current user, watch, preference and entitlement state must still allow every owned item."""
-    if not user.is_active:
+    if (not user.is_active or user.email != batch.to_email
+            or not batch.items or len(batch.items) != batch.expected_item_count):
         return False
     prefs = get_or_create_preferences(db, user.id)
     ent = get_entitlements(user)
@@ -322,18 +341,27 @@ async def send_prepared(prepared: PreparedSend) -> Optional[str]:
     """Default transport: the frozen payload under its persisted idempotency key."""
     result = await resend_service.send_email(
         to=[prepared.to_email], subject=prepared.subject, html=prepared.html,
-        idempotency_key=prepared.idempotency_key,
+        idempotency_key=prepared.idempotency_key, from_email=prepared.from_email,
     )
     return str(result.get("id")) if isinstance(result, dict) and result.get("id") else None
 
 
-async def drain(db: Session, *, kind: str, send: Optional[Send] = None, now: Optional[datetime] = None) -> DrainStats:
+async def drain(
+    db: Session, *, kind: str, send: Optional[Send] = None,
+    now: Optional[datetime] = None, clock: Optional[Callable[[], datetime]] = None,
+) -> DrainStats:
     """Dispatch every due batch of ``kind`` through the fenced state machine."""
-    now = now or utcnow()
+    # Explicit now remains a deterministic test seam; production always reads a live clock.
+    fixed_now = _aware(now)
+    if clock is None:
+        clock = (lambda: fixed_now) if fixed_now is not None else utcnow
     send = send or send_prepared
     stats = DrainStats()
-    expire_stale(db, now)
+    now = clock()
+    expired = expire_stale(db, now, kind=kind)
+    stats.ambiguous += expired["lease_expired"] + expired["window_expired"]
     for batch_id in due_batch_ids(db, kind, now):
+        now = clock()
         token = uuid4().hex
         if not claim(db, batch_id, token, now):
             stats.lost_claims += 1
@@ -349,7 +377,7 @@ async def drain(db: Session, *, kind: str, send: Optional[Send] = None, now: Opt
             park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_WINDOW_EXPIRED, now)
             stats.ambiguous += 1
             continue
-        if payload_digest(batch.subject, batch.body_html) != batch.payload_sha256:
+        if payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email) != batch.payload_sha256:
             park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now)
             stats.ambiguous += 1
             continue
@@ -359,11 +387,12 @@ async def drain(db: Session, *, kind: str, send: Optional[Send] = None, now: Opt
             stats.suppressed += 1
             continue
         prepared = PreparedSend(
-            batch_id=batch.id, kind=batch.kind, to_email=user.email, name=user.full_name,
+            batch_id=batch.id, kind=batch.kind, to_email=batch.to_email, from_email=batch.from_email, name=user.full_name,
             subject=batch.subject, html=batch.body_html, idempotency_key=batch.idempotency_key,
             items=_item_dicts(db, batch),
         )
         item_count = len(batch.items)
+        now = clock()
         if not authorize_send(db, batch_id, token, now):
             stats.lost_claims += 1
             continue
@@ -379,11 +408,12 @@ async def drain(db: Session, *, kind: str, send: Optional[Send] = None, now: Opt
             logger.warning("Delivery %s rejected by provider: %s", batch_id, e.__class__.__name__)
         except asyncio.CancelledError:
             # Cancellation after bytes may have left: park for reconciliation, then propagate.
-            park(db, batch_id, token, STATUS_SENDING, STATUS_AMBIGUOUS, ERROR_PROVIDER_AMBIGUOUS, now)
+            park(db, batch_id, token, STATUS_SENDING, STATUS_AMBIGUOUS, ERROR_PROVIDER_AMBIGUOUS, clock())
             raise
         except Exception as e:  # timeouts, dropped connections, parse failures: acceptance unknown
             outcome, reason = STATUS_AMBIGUOUS, ERROR_PROVIDER_AMBIGUOUS
             logger.warning("Delivery %s outcome unknown: %s", batch_id, e.__class__.__name__)
+        now = clock()
         batch = db.get(DeliveryBatch, batch_id)  # fresh short transaction for finalisation
         if outcome == STATUS_ACCEPTED:
             if finalize_accepted(db, batch, token, provider_id, now):

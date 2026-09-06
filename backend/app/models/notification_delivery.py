@@ -41,6 +41,9 @@ class DeliveryBatch(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     channel = Column(String(20), nullable=False)
     # Frozen at selection: a retry replays these bytes, never a re-query or a re-render.
+    to_email = Column(Text, nullable=False)
+    from_email = Column(Text, nullable=False)
+    expected_item_count = Column(Integer, nullable=False)
     subject = Column(Text, nullable=False)
     body_html = Column(Text, nullable=False)
     payload_sha256 = Column(String(64), nullable=False)

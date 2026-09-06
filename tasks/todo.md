@@ -1,3 +1,34 @@
+## E11b-1 continuation — 2026-09-07
+
+Verified remote main `c09a4d222e2038a07081c389caf384bb84400a49`, draft #747 head
+`91f82d55dd2f2b72e53411db2ece5cf927969c89` (the extra commit over handed-over `49efc638`
+only adds task evidence). Existing approvals for two #746 Copilot runs are consumed.
+The initial handover held new spending; the founder subsequently approved further paid runs
+if needed (recorded below). No email or production job execution as a test is authorized.
+
+- [x] Original full Ruff/Bandit/backend gate including performance and all four real PostgreSQL
+  lanes: 2620 passed, 23 warnings in 86.09 s, exit 0. First sandbox attempt could not access
+  local PostgreSQL sockets and was interrupted (1205 passed / 34 setup errors); retained
+  separately, then run with local socket access. No test/source workaround.
+- [x] Eight original mutations on committed `91f82d5` all failed as intended; exact source
+  restored, focused restoration 10 passed in 0.67 s. Evidence:
+  `/private/tmp/earningsnerd-delivery-evidence/mutation-results.json`.
+- [x] Independent review with two refutations per candidate, confirmed by root: stale delivery
+  clocks; missing provider acceptance validation; mutable recipient/sender envelope; missing
+  membership after filing deletion; expiry-created ambiguity omitted from job outcomes.
+- [ ] Correct these five gaps within the approved state model. Existing delivery test homes
+  cover each new invariant; one original correction proof after the corrected source is committed.
+- [ ] Land #746's promised reservation TTL lower bound `gt=180` with Settings validation gate
+  and documentation; reply/resolve the existing review thread only after merge.
+- [ ] Full corrected four-lane backend/performance gate, workflow readers, migration replay,
+  independent final review and prepared PR body.
+- [x] Founder approved further paid runs if needed (live chat, 2026-09-07), after root disclosed
+  that summary evaluation also runs on draft updates. Necessary summary/Copilot CI is now
+  authorized; finish local verification before triggering it, keep fixes draft-first, preserve
+  failed evidence and do not retry simply to chase a pass. No flags, baseline or model change.
+- [ ] After authorized publication and actual CI/eval/Codex acceptance, fresh-head merge and
+  serial production verification. No release claim from local checks alone.
+
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 
 State model reviewed by the founder (chat, "go with your recommended approach"): batches persist

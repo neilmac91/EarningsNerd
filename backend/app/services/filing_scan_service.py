@@ -232,6 +232,7 @@ async def run_filing_scan(
     Non-real-time-eligible filings (Free users, or Pro with real-time off) are left for
     :func:`run_daily_digest`.
     """
+    delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
     if fetch_filings is None:
         from app.services.edgar.compat import sec_edgar_service
@@ -293,7 +294,7 @@ async def run_filing_scan(
                 )
             db.commit()
 
-    drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_alert_transport(send_alert), now=now)
+    drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_alert_transport(send_alert), now=delivery_now)
     _merge_drain(stats, drained, sent_key="alerts_sent", failed_key="alerts_failed")
     return stats
 
@@ -310,6 +311,7 @@ async def run_daily_digest(
     Historical NotificationLog rows and filings already owned by a delivery batch are excluded;
     the digest's membership and payload are frozen on its batch before dispatch.
     """
+    delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
     window_start = now - timedelta(hours=window_hours)
 
@@ -373,7 +375,7 @@ async def run_daily_digest(
             filing_ids=[filing.id for _watch, filing in to_log], now=now,
         )
 
-    drained = await delivery.drain(db, kind=KIND_FILING_DIGEST, send=_digest_transport(send_digest), now=now)
+    drained = await delivery.drain(db, kind=KIND_FILING_DIGEST, send=_digest_transport(send_digest), now=delivery_now)
     _merge_drain(stats, drained, sent_key="digests_sent", failed_key="digests_failed")
     stats["filings_included"] += drained.accepted_items
     return stats

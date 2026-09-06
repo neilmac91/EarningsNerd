@@ -112,9 +112,33 @@ def test_postgres_deleting_the_users_row_cascades_batches_and_items(postgres_eng
         assert db.query(DeliveryItem).count() == 0
 
 
-def test_postgres_deleting_a_filing_row_cascades_its_items(postgres_engine):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("partial", [False, True])
+async def test_postgres_deleting_a_filing_row_cascades_its_items(postgres_engine, partial):
     _, filing_id, batch_id = _seed_batch(postgres_engine)
     with Session(postgres_engine) as db:
+        if partial:
+            filing = db.get(Filing, filing_id)
+            second = Filing(company_id=filing.company_id, accession_number=uuid.uuid4().hex,
+                            filing_type="10-Q", filing_date=NOW, sec_url="https://sec.example/b/",
+                            document_url="https://sec.example/b/doc.htm")
+            db.add(second)
+            db.flush()
+            batch = db.get(DeliveryBatch, batch_id)
+            batch.expected_item_count = 2
+            db.add(DeliveryItem(batch_id=batch_id, user_id=batch.user_id, filing_id=second.id,
+                                channel="email", position=1))
+            db.commit()
         db.execute(delete(Filing).where(Filing.id == filing_id))
         db.commit()
-        assert db.query(DeliveryItem).count() == 0 and db.get(DeliveryBatch, batch_id) is not None
+        assert db.query(DeliveryItem).count() == int(partial) and db.get(DeliveryBatch, batch_id) is not None
+        calls = []
+
+        async def send(prepared):
+            calls.append(prepared)
+            return "email_1"
+
+        result = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, now=NOW)
+        assert calls == [] and result.suppressed == 1
+        assert db.query(NotificationLog).count() == 0
+        assert db.query(Watchlist).one().last_alerted_at is None

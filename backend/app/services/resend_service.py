@@ -91,11 +91,23 @@ async def send_email(
         if name == _INVALID_IDEMPOTENT:
             # Same key, different payload: the original request stands; never re-key it.
             raise ResendAmbiguousError(message)
+        if response.status_code >= 500:
+            try:
+                body = response.json()
+            except ValueError as e:
+                raise ResendAmbiguousError("Resend server error without a parsed response") from e
+            if not isinstance(body, dict):
+                raise ResendAmbiguousError("Resend server error without an object response")
         if response.status_code == 429 or response.status_code >= 500 or name == _CONCURRENT_IDEMPOTENT:
             raise ResendRetryableError(message)
         raise ResendPermanentError(message)
 
+    if not 200 <= response.status_code < 300:
+        raise ResendAmbiguousError("Resend returned no successful acceptance status")
     try:
-        return response.json()
+        result = response.json()
     except ValueError as e:
         raise ResendAmbiguousError("Resend accepted the request but returned an unparsable response") from e
+    if not isinstance(result, dict) or not isinstance(result.get("id"), str) or not result["id"].strip():
+        raise ResendAmbiguousError("Resend returned no valid acceptance id")
+    return result

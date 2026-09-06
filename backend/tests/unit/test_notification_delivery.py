@@ -126,7 +126,7 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
                             "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None}
         (batch,) = _batches(db)
         assert batch.status == STATUS_ACCEPTED and batch.provider_email_id == "email_1"
-        assert batch.payload_sha256 == delivery.payload_digest(batch.subject, batch.body_html)
+        assert batch.payload_sha256 == delivery.payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email)
         assert [i.filing_id for i in batch.items] == [db.query(Filing).one().id]
         assert stats["alerts_sent"] == 1 and stats["delivery_accepted"] == 1
         assert _log_count(db) == 1 and _watermark(db) == "new-10q"
@@ -240,6 +240,7 @@ async def test_expired_preparation_claim_is_reclaimed_but_expired_sending_lease_
         base = _batches(db)[0]
         for i, (status, lease) in enumerate([(STATUS_CLAIMED, NOW - timedelta(seconds=1)), (STATUS_SENDING, NOW - timedelta(seconds=1))]):
             db.add(DeliveryBatch(kind=KIND_FILING_REALTIME, user_id=1, channel="email", subject=base.subject,
+                                 to_email=base.to_email, from_email=base.from_email, expected_item_count=1,
                                  body_html=base.body_html, payload_sha256=base.payload_sha256,
                                  idempotency_key=f"k{i}", status=status, owner_token="dead-worker",
                                  lease_expires_at=lease, first_dispatch_at=NOW if status == STATUS_SENDING else None,
@@ -403,7 +404,14 @@ async def test_transport_sends_the_idempotency_key_and_classifies_outcomes(monke
 
     cases = [
         (lambda r: httpx.Response(429, json={"name": "rate_limit_exceeded"}), resend_service.ResendRetryableError),
-        (lambda r: httpx.Response(500, text="boom"), resend_service.ResendRetryableError),
+        (lambda r: httpx.Response(500, json={"name": "server_error"}), resend_service.ResendRetryableError),
+        (lambda r: httpx.Response(500, text="boom"), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(500, json=[]), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(200, json={}), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(200, json=[]), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(200, json={"id": 1}), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(200, json={"id": " "}), resend_service.ResendAmbiguousError),
+        (lambda r: httpx.Response(302, json={"id": "email_1"}), resend_service.ResendAmbiguousError),
         (lambda r: httpx.Response(409, json={"name": "concurrent_idempotent_requests"}), resend_service.ResendRetryableError),
         (lambda r: httpx.Response(409, json={"name": "invalid_idempotent_request"}), resend_service.ResendAmbiguousError),
         (lambda r: httpx.Response(422, json={"name": "validation_error"}), resend_service.ResendPermanentError),
@@ -417,3 +425,121 @@ async def test_transport_sends_the_idempotency_key_and_classifies_outcomes(monke
         with pytest.raises(expected):
             await resend_service.send_email(["a@example.com"], "s", "h", idempotency_key="key-1")
         assert issubclass(expected, resend_service.ResendError)  # existing callers keep catching the base class
+
+
+@pytest.mark.asyncio
+async def test_delivery_clock_refreshes_between_attempts_and_after_provider(engine, monkeypatch):
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add_all([Filing(id=i, company_id=1, accession_number=f"clock{i}", filing_type="10-Q",
+                           filing_date=NOW, sec_url=f"https://sec.example/{i}/",
+                           document_url=f"https://sec.example/{i}/doc.htm") for i in (1, 2)])
+        db.commit()
+        for i in (1, 2):
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h",
+                                  filing_ids=[i], now=NOW)
+        current = NOW + timedelta(minutes=5)
+        observed = []
+
+        async def send(prepared):
+            nonlocal current
+            with Session(engine) as other:
+                row = other.get(DeliveryBatch, prepared.batch_id)
+                observed.append(row.first_dispatch_at.replace(tzinfo=timezone.utc))
+                assert row.lease_expires_at.replace(tzinfo=timezone.utc) > current
+            current += timedelta(minutes=3)
+            return "id"
+
+        result = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, clock=lambda: current)
+        assert result.accepted == 2
+        assert observed == [NOW + timedelta(minutes=5), NOW + timedelta(minutes=8)]
+        assert _batches(db)[-1].updated_at.replace(tzinfo=timezone.utc) == current
+
+
+def test_authorization_requires_live_claim_and_replay_window(engine, monkeypatch):
+    monkeypatch.setattr(settings, "DELIVERY_CLAIM_TTL_SECONDS", 60)
+    monkeypatch.setattr(settings, "DELIVERY_REPLAY_WINDOW_SECONDS", 3600)
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add(Filing(id=1, company_id=1, accession_number="clock", filing_type="10-Q", filing_date=NOW,
+                      sec_url="https://sec.example/clock/", document_url="https://sec.example/clock/doc.htm"))
+        db.commit()
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[1], now=NOW)
+        assert delivery.claim(db, batch.id, "owner", NOW)
+        assert not delivery.authorize_send(db, batch.id, "owner", NOW + timedelta(seconds=60))
+        batch = db.get(DeliveryBatch, batch.id)
+        batch.first_dispatch_at = NOW - timedelta(seconds=3599)
+        db.commit()
+        assert not delivery.authorize_send(db, batch.id, "owner", NOW + timedelta(seconds=1))
+        assert delivery.authorize_send(db, batch.id, "owner", NOW)
+
+
+@pytest.mark.asyncio
+async def test_retry_freezes_complete_envelope_and_rejects_changed_recipient(engine, monkeypatch):
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "re_test")
+    monkeypatch.setattr(settings, "RESEND_FROM_EMAIL", "original@example.com")
+    requests = []
+
+    def transport(request):
+        requests.append((request.headers["Idempotency-Key"], request.content))
+        return httpx.Response(429, json={"name": "rate_limit_exceeded"})
+
+    monkeypatch.setattr(resend_service.httpx, "AsyncClient", _client_factory(transport))
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        await run_filing_scan(db, fetch_filings=_fetch, now=NOW, cadence_minutes=0)
+        monkeypatch.setattr(settings, "RESEND_FROM_EMAIL", "changed@example.com")
+        await delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW + timedelta(minutes=5))
+        assert len(requests) == 2 and requests[0] == requests[1]
+        db.get(User, 1).email = "changed-recipient@example.com"
+        db.commit()
+        result = await delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW + timedelta(minutes=20))
+        assert len(requests) == 2 and result.suppressed == 1
+        assert _batches(db)[0].last_error_kind == delivery.ERROR_ELIGIBILITY_CHANGED
+        assert _log_count(db) == 0 and _watermark(db) is None
+
+
+@pytest.mark.asyncio
+async def test_expired_ambiguity_is_reported_once_for_its_own_kind(engine):
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("429")))
+        batch = _batches(db)[0]
+        batch.status = STATUS_SENDING
+        batch.owner_token = "dead"
+        batch.lease_expires_at = NOW
+        db.commit()
+        other = await delivery.drain(db, kind=KIND_FILING_DIGEST, now=NOW + timedelta(seconds=1))
+        assert other.ambiguous == 0 and _batches(db)[0].status == STATUS_SENDING
+        result = await _scan_with_transport(db, _recorder(), now=NOW + timedelta(seconds=1))
+        assert result["delivery_ambiguous"] == 1 and result["alerts_failed"] == 1
+        again = await _scan_with_transport(db, _recorder(), now=NOW + timedelta(seconds=2))
+        assert again["delivery_ambiguous"] == 0 and again["alerts_failed"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", [KIND_FILING_REALTIME, KIND_FILING_DIGEST])
+async def test_production_entrypoints_do_not_use_selection_time_for_delivery(engine, monkeypatch, kind):
+    from app.services import filing_scan_service
+
+    class SelectionDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW
+
+    monkeypatch.setattr(filing_scan_service, "datetime", SelectionDateTime)
+    monkeypatch.setattr(delivery, "utcnow", lambda: NOW + timedelta(minutes=5))
+    monkeypatch.setattr(delivery, "send_prepared", _recorder())
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        if kind == KIND_FILING_REALTIME:
+            await run_filing_scan(db, fetch_filings=_fetch, cadence_minutes=0)
+        else:
+            db.add(Filing(company_id=1, accession_number="digest-clock", filing_type="10-Q",
+                          filing_date=NOW - timedelta(hours=1), sec_url="https://sec.example/d/",
+                          document_url="https://sec.example/d/doc.htm"))
+            db.commit()
+            await run_daily_digest(db)
+        batch = _batches(db)[0]
+        assert batch.created_at.replace(tzinfo=timezone.utc) == NOW
+        assert batch.first_dispatch_at.replace(tzinfo=timezone.utc) == NOW + timedelta(minutes=5)
