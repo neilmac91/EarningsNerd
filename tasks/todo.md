@@ -176,12 +176,9 @@ transient refresh `6 failed | 20 passed`. Logs are `mutation-{identity-keys,tran
 transient-refresh}.log` and `proof-restoration.log` in the evidence directory. They will not be
 repeated for this identified correction; one new guest-overlap proof follows on corrected source.
 
-Root explicitly retained the genuine active-session-loss fence: if a confirmed loss or another
-explicit transition occurs during a credential request, its eventual HTTP success can still
-require the user to retry because that request belongs to an old JS generation. This is a
-residual concurrent credential/refresh limitation, alongside browser Set-Cookie ordering; no
-claim of all password-login interleavings or cancellation of cookie writes is made. Ordinary
-A -> completed logout -> B and guest-login overlaps are the bounded acceptance cases.
+Root briefly proposed retaining active-session expiry as a pending-login limitation. Further
+independent refutation showed that would introduce a false login failure; the final correction
+below supersedes that proposal. Browser Set-Cookie ordering remains outside this task.
 
 ### Final ownership correction supersedes the active-loss residual proposal
 
@@ -205,6 +202,36 @@ Focused final source: `73 passed (73)` in 2.66s, eight homes, in
 `/private/tmp/earningsnerd-account-cache-evidence/focused-final-ownership.log`.
 No cookie serialization or broader account-cache cleanup is added. One combined original
 ownership correction proof follows on committed final source; the earlier three proofs stand.
+
+### Final review: logout UI continuation and fixture classification
+
+Root and independent review found that returning normally after skipping an old logout reset
+still let Header/UserMenu navigate, and Dashboard's mutation onSuccess could clear B's analytics
+identity after unmount. Both refutations failed. The shared helper now invokes an optional
+synchronous onCurrentSettled callback inside the same owned finally turn as reset. Header and
+UserMenu navigate for current success/failure there; Dashboard keeps success-only analytics and
+navigation in that callback. There is no unguarded option-level Dashboard logout onSuccess.
+Actual MutationObserver unsubscribe tests prove stale callbacks cannot navigate/clear analytics,
+and current failure preserves the original error plus Header/UserMenu continuation semantics.
+Focused eight homes: `75 passed (75)` in 2.69s (`focused-logout-ui.log`). One new original proof
+will move the callback outside its ownership condition; earlier four proofs are not repeated.
+
+The first full run at `b051df4` passed lint, typecheck and production build; Vitest reported
+`548 passed | 1 failed` in 33.75s. The only failure was
+`summaryStreamAuthRefresh.spec.ts:84,96`: a purported confirmed rejection supplied only a generic
+Error, now correctly treated as transient. The initial hold on this fixture was our overbroad
+interpretation, not an explicit lock: `tasks/architecture-refactor-plan.md:677,775` names T10 as
+`summaryStream.contract.spec.ts`; `docs/summary-quality-improvement-plan.md:130` names other stream
+anchors but not AuthRefresh. Root and independent inventory review confirmed ordinary engineering
+authority for the correction. Exactly one fixture now adds `{ response: { status: 401 } }` to
+the existing Error; its header says confirmed rejection and EVERY assertion is unchanged. All
+actually named locked anchors remain byte-identical. No founder approval or error-string special
+case was required. The lock lesson records this self-correction.
+
+The combined ownership proof at `b051df4` restored original guest/passive/final-continuation
+behavior: `6 failed | 7 passed` in 1.53s (`mutation-login-ownership.log`); restoration verified
+exact committed bytes and empty status (`ownership-proof-restoration.log`). Full checks run
+again on the final UI/fixture source, with the prior full-run failure retained as history.
 
 ### Constraints and remaining limits
 

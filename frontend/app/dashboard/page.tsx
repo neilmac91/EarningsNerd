@@ -91,12 +91,12 @@ export default function DashboardPage() {
   })
 
   const logoutMutation = useMutation({
-    mutationFn: () => logoutAndResetAccount(queryClient, logout),
-    onSuccess: () => {
+    mutationFn: () => logoutAndResetAccount(queryClient, logout, (succeeded) => {
+      if (!succeeded) return
       analytics.logout()
       router.push('/login')
       router.refresh()
-    },
+    }),
   })
 
   useEffect(() => {

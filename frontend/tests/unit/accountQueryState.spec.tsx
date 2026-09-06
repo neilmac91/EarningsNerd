@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, MutationObserver, useQuery } from '@tanstack/react-query'
 import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
@@ -171,6 +171,44 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
   })
 
+  it.each([true, false])('logout UI callbacks skip stale unmounted mutations and preserve current success=%s', async (succeeded) => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    const logoutDone = deferred<unknown>()
+    const sendLogout = vi.fn(() => logoutDone.promise)
+    const navigate = vi.fn()
+    const clearAnalytics = vi.fn()
+    const continued = vi.fn((success: boolean) => { navigate(); if (success) clearAnalytics() })
+    const observer = new MutationObserver(client, {
+      mutationFn: () => logoutAndResetAccount(client, sendLogout, continued),
+    })
+    const unsubscribe = observer.subscribe(() => {})
+    const oldMutation = observer.mutate().catch((error) => error)
+    await waitFor(() => expect(sendLogout).toHaveBeenCalledTimes(1))
+    unsubscribe() // Real option-level mutation callbacks otherwise still run after unmount.
+    resetAccountQueries(client)
+    client.setQueryData(queryKeys.currentUser(), makeUser(2))
+    logoutDone.resolve({ ok: true })
+    await oldMutation
+    expect(continued).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(clearAnalytics).not.toHaveBeenCalled()
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+
+    const requestError = new Error('current logout failed')
+    const current = new MutationObserver(client, {
+      mutationFn: () => logoutAndResetAccount(client, async () => {
+        if (!succeeded) throw requestError
+      }, continued),
+    })
+    const result = await current.mutate().catch((error) => error)
+    if (!succeeded) expect(result).toBe(requestError)
+    expect(continued).toHaveBeenCalledWith(succeeded)
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(clearAnalytics).toHaveBeenCalledTimes(succeeded ? 1 : 0)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+  })
+
   it.each([true, false])('isolates A Pro=%s from pending/failed B reads and late A responses', async (aPro) => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
@@ -310,7 +348,25 @@ describe('account query ownership structural gate', () => {
   it('ordinary transitions use the shared owner, and completion invalidates both scoped families', () => {
     for (const file of ['components/Header.tsx', 'features/auth/components/UserMenu.tsx', 'app/dashboard/page.tsx']) {
       const source = readFileSync(path.join(frontend, file), 'utf8')
-      expect(source, file).toContain('logoutAndResetAccount(queryClient, logout)')
+      expect(source, file).toContain('logoutAndResetAccount(queryClient, logout,')
+      const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const callbacks: ts.ArrowFunction[] = []
+      const find = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && node.expression.getText(ast) === 'logoutAndResetAccount') {
+          const callback = node.arguments[2]
+          if (callback && ts.isArrowFunction(callback)) callbacks.push(callback)
+        }
+        ts.forEachChild(node, find)
+      }
+      find(ast)
+      expect(callbacks).toHaveLength(1)
+      expect(callbacks[0].modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) ?? false).toBe(false)
+      expect(callbacks[0].body.getText(ast)).toContain('router.push(')
+      expect(callbacks[0].body.getText(ast)).toContain('router.refresh()')
+      if (file === 'app/dashboard/page.tsx') {
+        expect(callbacks[0].body.getText(ast)).toContain('if (!succeeded) return')
+        expect(callbacks[0].body.getText(ast)).toContain('analytics.logout()')
+      }
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')

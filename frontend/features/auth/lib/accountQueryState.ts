@@ -27,13 +27,25 @@ export function subscribeAccountQueryReset(queryClient: QueryClient): () => void
   })
 }
 
-/** A late logout completion must not reset an identity established by a newer transition. */
-export async function logoutAndResetAccount(queryClient: QueryClient, logout: () => Promise<unknown>): Promise<void> {
+/** A late logout completion must not reset or navigate away from a newer accepted login.
+ * The callback is synchronous: ownership check, reset and UI continuation share one turn.
+ * Request errors still propagate; current Header/UserMenu failure navigation runs in finally.
+ */
+export async function logoutAndResetAccount(
+  queryClient: QueryClient,
+  logout: () => Promise<unknown>,
+  onCurrentSettled?: (succeeded: boolean) => void,
+): Promise<void> {
   const generation = getExplicitSessionGeneration()
+  let succeeded = false
   try {
     await logout()
+    succeeded = true
   } finally {
-    if (isExplicitSessionGenerationCurrent(generation)) resetAccountQueries(queryClient)
+    if (isExplicitSessionGenerationCurrent(generation)) {
+      resetAccountQueries(queryClient)
+      onCurrentSettled?.(succeeded)
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 
 // The raw SSE fetch bypasses the shared axios client, so it reuses the client's exact machinery
-// (ensureRefreshed single-flight + hasActiveSession gate + clearSessionActive on failure). These
+// (ensureRefreshed single-flight + hasActiveSession gate + clearSessionActive on confirmed rejection). These
 // pin that: an expired access cookie is recovered transparently (one refresh, one replay) instead
 // of dead-ending a logged-in user on "Could not validate credentials" (review finding, #619/#620).
 // ensureRefreshed() wraps refreshAccessToken, so mocking the latter still controls the outcome.
@@ -80,7 +80,7 @@ describe('generateSummaryStream — expired-session silent refresh', () => {
   it('surfaces the auth error (no retry storm) when the refresh also fails', async () => {
     const fetchMock = vi.fn().mockResolvedValue(unauthorized())
     global.fetch = fetchMock as unknown as typeof fetch
-    vi.mocked(refreshAccessToken).mockRejectedValue(new Error('session gone'))
+    vi.mocked(refreshAccessToken).mockRejectedValue(Object.assign(new Error('session gone'), { response: { status: 401 } }))
 
     const error = vi.fn()
     await expect(

@@ -61,12 +61,13 @@ export default function Header() {
   const handleMobileLogout = async () => {
     setMobileMenuOpen(false)
     try {
-      await logoutAndResetAccount(queryClient, logout)
+      await logoutAndResetAccount(queryClient, logout, () => {
+        router.push('/')
+        router.refresh()
+      })
     } catch {
       // ignore — clear local state regardless
     }
-    router.push('/')
-    router.refresh()
   }
 
   return (
