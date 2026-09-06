@@ -24,9 +24,22 @@ const backendConst = (name: string): number => {
 
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
+  // Copy: the caps written out in prose.
   { label: 'free summary cap spelled out', pattern: /\b\d+ (?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings alerts?\b/i },
+  // Behaviour: a free-tier cap constant assigned a literal, or a count compared against one
+  // (the calendar pre-flight and fixture checks drifted this way before the mirror existed).
+  { label: 'free-tier cap constant assigned a literal', pattern: /\bFREE_[A-Z0-9_]*(?:LIMIT|CAP)\b\s*=\s*\d+/ },
+  { label: 'count compared against a literal cap', pattern: /(?:currentCount\(\)|enabled\.size|alertCount|alertTickers\.size)\s*(?:>=|>|===|==)\s*\d+/ },
+]
+
+/** Files that enforce a cap functionally must take it from the mirror, not a local literal. */
+const FUNCTIONAL_CAP_SITES = [
+  'features/calendar/hooks/useCalendar.ts',
+  'features/calendar/api/calendar-fixtures.ts',
+  'features/calendar/components/AlertBell.tsx',
+  'app/dashboard/page.tsx',
 ]
 
 function walk(dir: string): string[] {
@@ -45,6 +58,13 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
 
   it('mirrors FREE_EARNINGS_ALERT_LIMIT', () => {
     expect(FREE_EARNINGS_ALERT_LIMIT).toBe(backendConst('FREE_EARNINGS_ALERT_LIMIT'))
+  })
+
+  it('functional cap sites import the mirrored constants', () => {
+    for (const rel of FUNCTIONAL_CAP_SITES) {
+      const source = readFileSync(path.join(frontendDir, rel), 'utf8')
+      expect(source, `${rel} must import from '@/lib/planLimits'`).toMatch(/from '@\/lib\/planLimits'/)
+    }
   })
 
   it('no source file spells a free-tier cap out as a bare literal', () => {
