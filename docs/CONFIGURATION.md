@@ -105,7 +105,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `COOKIE_SAMESITE` | `"lax"` | Cookie SameSite policy. |
 | `COOKIE_DOMAIN` | `null` | Null means host-only. CI sets .earningsnerd.io for frontend/API cross-host sessions. |
 | `CORS_ORIGINS_STR` | `"http://localhost:3000,http://127.0.0.1:3000,https://earningsnerd.io,https://www.earningsnerd.io"` | Comma-separated allowed origins; CORS_ORIGINS is a derived property, not another environment field. |
-| `FMP_API_KEY` | `""` | Only the index-membership refresh script uses this key; its scheduled/manual workflow binds the GitHub `Production` environment. Secret-name metadata is verified; successful refresh evidence is still pending. Wikipedia cannot supply the complete current universe. In-app FMP integration is retired. |
+| `FMP_API_KEY` | `""` | Optional for an explicit `refresh_index_membership.py --source fmp` invocation only. Automatic and scheduled refreshes use both public Wikipedia constituent lists without reading this key. In-app FMP integration is retired. |
 | `ALPHA_VANTAGE_API_KEY` | `""` | Licensed calendar bridge credential; leave empty for EDGAR-only operation until licensing is settled. |
 | `ALPHA_VANTAGE_API_BASE` | `"https://www.alphavantage.co/query"` | Alpha Vantage calendar API endpoint. |
 | `ALPHA_VANTAGE_TIMEOUT_SECONDS` | `20.0` | Calendar download timeout, seconds. |
@@ -232,9 +232,9 @@ SENTRY_RELEASE=...                # Release tag for Sentry events (CI sets $GITH
 # External APIs - Financial Modeling Prep (FMP)
 # The in-app FMP/Finnhub/Stocktwits clients and the trending/hot-filings surfaces were torn down
 # (WS-8a, 2026-09). FMP_API_KEY is read ONLY by the operator-run
-# backend/scripts/refresh_index_membership.py (index constituents; `--source wikipedia` is keyless).
-# Actions: Settings → Environments → Production → FMP_API_KEY; refresh binds that environment.
-# Metadata verified 2026-09-06; no key value read or successful refresh claimed.
+# backend/scripts/refresh_index_membership.py when explicitly selecting `--source fmp`.
+# Default/automatic refresh uses public constituents without a key; the workflow does not read it.
+# Existing secrets remain founder-owned and are not changed by the public-source replacement.
 # Removed 2026-09-04 (delete from any local .env — Settings forbids unknown keys and fails at import):
 # FINNHUB_API_KEY, FINNHUB_API_BASE, FINNHUB_TIMEOUT_SECONDS, FINNHUB_MAX_CONCURRENCY,
 # STOCKTWITS_TIMEOUT_SECONDS, FMP_API_BASE, FMP_TIMEOUT_SECONDS, FMP_MAX_CONCURRENCY,

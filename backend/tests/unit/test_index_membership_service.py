@@ -80,8 +80,6 @@ def test_committed_membership_list_is_healthy():
         assert required in tset, f"{required} missing from committed universe"
     # Nasdaq-only names (not in the S&P 500) must be captured by the union.
     assert {"ASML", "MELI", "PDD"} & tset, "expected some Nasdaq-100-only names in the union"
-    # Announced-but-not-trading spin-off artifacts must be pruned.
-    assert "FDXF" not in tset and "HONA" not in tset
 
     # Every entry declares at least one index label.
     assert all(m.get("indices") for m in members)
@@ -91,7 +89,7 @@ def test_committed_membership_list_is_fresh():
     """Fail when the committed universe is stale, relative to the date the test runs.
 
     ``generated_on`` is written by ``scripts/refresh_index_membership.py`` on every regeneration.
-    Two silent monthly failures (Wikipedia dropped its Nasdaq-100 table in 2026) let the list age
+    Two silent monthly failures (the old Nasdaq article lacked the table) let the list age
     unnoticed — this turns that into a red CI, with the fix in the message.
     """
     payload = json.loads(idx._DATA_PATH.read_text(encoding="utf-8"))
@@ -101,7 +99,7 @@ def test_committed_membership_list_is_fresh():
     assert age_days <= MAX_UNIVERSE_AGE_DAYS, (
         f"index_membership.json was generated {age_days} days ago ({generated_on}); the calendar's "
         f"S&P 500 / Nasdaq 100 universe is stale. Run the 'Refresh index membership' GitHub workflow "
-        f"(Actions → Run workflow; needs the FMP_API_KEY repo secret) or "
-        f"`cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py`, then merge the "
+        f"(Actions → Run workflow; public lists need no credentials) or "
+        f"`cd backend && python scripts/refresh_index_membership.py`, then merge the "
         f"resulting PR. If the workflow failed, see the 'Universe refresh failed' issue it opened."
     )

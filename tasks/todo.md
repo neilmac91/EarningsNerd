@@ -2,6 +2,54 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
+### W3-3 public-source replacement — 2026-09-06
+
+The founder requested an FMP-independent constituent filter. Live public retrieval returned
+503 S&P 500 rows and 102 Nasdaq-100 rows. The Nasdaq constituents table is on the dedicated
+`List_of_NASDAQ-100_companies` page, not the general article used by the old script.
+This supersedes the FMP-access prerequisite for this replacement; it does not assert that
+FMP entitlement was repaired or change any later founder hold. The existing application
+already filters against the committed union; only its maintenance path needs replacement.
+
+- [x] Make the automatic refresh use both public constituent lists without any FMP credential;
+  preserve explicit FMP compatibility, normalization, per-index floors, prior-file protection,
+  reviewed-commit delivery, and the unchanged 100-day age limit.
+- [x] Verify the fetched lists and changes, demonstrate the filter on the supplied 77-row CSV,
+  and update owning workflow/docs plus the lesson about checking public alternatives.
+Live explicit-public regeneration: both pages HTTP 200; `sp500=503 nasdaq100=102 union=518`.
+Added FDXF, FERG, HONA, RDDT, SPCX and VMRK; removed AVB, EA and EQR. Existing members'
+index labels are unchanged. Names track the upstream tables (MSCI, ORLY punctuation, and
+ResMed's upstream trailing `|`); the application membership comparison uses tickers only.
+The supplied CSV demonstration retains 52 of 77 records using current membership as of
+2026-09-06, not historical membership on each earnings date. The initial live command was
+rejected by automatic approval review based on old auto/FMP precedence; after inspecting
+changed source, explicit `--source wikipedia` was approved and produced the data above.
+
+- [x] Run meaningful offline regression/mutation checks and the full backend gate; review
+  correctness, rules and tests independently before readiness.
+Local release gate on source/data `16d8c430`: all 102 runtime/dev pins matched; Ruff and Bandit
+exit 0; `2386 passed, 2 deselected, 23 warnings in 48.67s`, exit 0. The first collection attempt
+failed on an unwritable default `~/.edgar`; supported temporary EDGAR cache paths resolved it
+without source changes, and the initial failed log is retained separately. Actual old-Nasdaq-URL
+mutation failed the intended parser assertion (`1 failed in 0.49s`); exact restoration passed
+(`1 passed in 0.55s`). Four locked contracts and baseline are unchanged; 21 local links resolve.
+The subsequent source-identical documentation update clarifies same-day no-change runs.
+
+Automated review of initial PR #718 head `eaad3665` identified a new unconditional FDXF/HONA
+health-test requirement that would block legitimate future removals. Fresh independent source
+and tests reviewers could not refute it; root's separate 516-member fixture also failed only that
+new requirement. Correction `e6291cf2` removes those two lines and retains the parser regression
+that checks preservation when the public source supplies the tickers. Production code and data
+are unchanged. Corrected local gate: Ruff/Bandit exit 0; `2386 passed, 2 deselected, 23 warnings
+in 46.77s`, exit 0. An existing post-summary Yahoo-client shutdown logging error is retained.
+The old-URL mutation proof remains scoped to unchanged parser source/test bytes. Initial CI
+34014268319 (52 complete summary results) and Copilot 34014614488 (18 accepted results) passed;
+the corrected head must pass its own required release gates before merge.
+
+- [ ] Publish the draft PR, inspect required CI, merge and verify the backend deployment;
+  dispatch the public refresh and retain its actual result. Any Actions-policy prerequisite
+  remains founder-owned; never change settings or introduce a PAT workaround.
+
 ### Current checkpoint — 2026-09-06
 
 W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete with the recorded verification below.
@@ -35,13 +83,11 @@ This is not completion of wave 3.
   establish repository-wide audit clearance or change the advisory policy. No dependency
   change for this unrelated finding is included in W3-6.
 
-W3-3 remains held: supplied `Production` credentials reached
-[run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), which
-failed at the first S&P 500 route `/stable/sp500-constituent` with HTTP 402 (exit 2).
-[Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data or
-auto-PR was produced; `/stable/nasdaq-constituent` was not reached. The founder must provide
-account/key entitlement for both documented routes before retry. The response alone does not
-establish a billing cause, and this is not a missing-secret finding. All later founder holds remain.
+W3-3's earlier FMP run 34000192154 failed with HTTP 402 at the S&P 500 route before reaching
+Nasdaq; issue #710 remains open. The founder's public-source replacement request supersedes
+that account prerequisite for this work. Both public tables and their independent holdings
+cross-check are verified; the plan above tracks source/data review and workflow/deploy acceptance.
+This does not repair FMP access or clear any later founder-held operation.
 
 ### W3-6 implementation history — PyJWT migration
 
@@ -262,7 +308,10 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-0 documentation correction: #707 merged `a7ad8f85` after three reviews and link/preservation checks; #706 history, agent count, refresh cause, environment assumptions and dependency evidence corrected.
 - [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
-- [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
+- [ ] W3-3 Public universe refresh: founder-requested FMP-independent replacement in progress;
+  dedicated Wikipedia lists retrieved and corroborated against current SPY/QQQ equity holdings.
+  Source/data PR, actual workflow and deployment verification pending; original HTTP 402 run
+  34000192154 / issue #710 retained. No credential/account change or age-limit increase.
 - [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
 - [x] W3-5 Rewrite the seven engineering agent files to the real stack; gate and #715 deployment verified above
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
