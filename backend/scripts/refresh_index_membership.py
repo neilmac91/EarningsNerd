@@ -199,8 +199,8 @@ def _print_diff(old: List[dict], new: List[dict]) -> None:
 
 
 def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
-    api_key = os.environ.get("FMP_API_KEY", "") or ""
     use_fmp = source == "fmp"
+    api_key = (os.environ.get("FMP_API_KEY", "") or "") if use_fmp else ""
     if use_fmp and not api_key:
         logger.error("source=fmp but FMP_API_KEY is unset")
         return 2
