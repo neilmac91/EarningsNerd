@@ -1,5 +1,26 @@
 ## E11b-0 — Reject unsafe filing-job dry runs (engineering, 2026-09-06)
 
+### CI follow-up: arm the lifecycle deadline after provider entry
+
+PR #741 at `5a176c8` failed backend CI `34052297297`: the existing unlocked provider
+lifecycle timeout case expired its 0.12-second preparation budget before a stream opened,
+then unconditionally required a closed stream. Actual result: 1 failed, 2558 passed,
+24 PostgreSQL-lane skips, 2 deselected. Copilot accepted all 18 attempts; summary generation
+was skipped. No workflow was rerun or release performed.
+
+Root reproduced the same assertion offline with one controlled 150 ms delay before the
+parsing progress DB dispatch (1 failed, 9 warnings in 2.08s). Two independent source
+refutations confirm provider creation occurs after the pipeline deadline starts. The fixture
+must establish ownership before testing ownership cleanup; no production timeout changes.
+
+- [x] Diagnose actual CI failure and reproduce the pre-provider deadline without live I/O.
+- [ ] In existing `test_summary_provider_lifecycle.py`, use a real initially unarmed timeout
+  through a pipeline-local asyncio proxy; arm after provider entry and a summarizing heartbeat.
+- [ ] Preserve all cleanup, one-call, terminal-frame and registry assertions; prove the same
+  delayed preparation now reaches and closes its stream. Run the existing lifecycle home.
+- [ ] Review locked bytes, full Ruff/Bandit/backend gate with all three PostgreSQL lanes;
+  record exact evidence before publication. Keep failed CI evidence, do not chase a pass.
+
 ### Root verification after E11a integration
 
 Integrated main `c4ae63150075590ccbea5992f566d530345dc964` (#740) as `c1315ea`.
