@@ -586,6 +586,7 @@ async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
             options={"require": ["exp", "sub", "type"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(
