@@ -5,12 +5,13 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import iso_z, utcnow
 import logging
 
 from app.config import settings
 from app.database import get_db
 from app.models import (
+    BillingPayment,
     Company,
     Filing,
     NotificationLog,
@@ -67,6 +68,7 @@ class UserDataExport(BaseModel):
     saved_summaries: List[Dict[str, Any]]
     watchlist: List[Dict[str, Any]]
     usage: List[Dict[str, Any]]
+    billing_payments: List[Dict[str, Any]]
     export_timestamp: datetime
 
 
@@ -389,6 +391,33 @@ async def export_user_data(
             for usage_item in usage
         ]
 
+        # Export every retained observation owned by this account, across live/test modes.
+        payments = db.query(BillingPayment).filter(BillingPayment.user_id == current_user.id).all()
+        payments_data = [
+            {
+                "stripe_payment_id": payment.stripe_payment_id,
+                "livemode": payment.livemode,
+                "stripe_invoice_id": payment.stripe_invoice_id,
+                "source_event_id": payment.source_event_id,
+                "source_api_version": payment.source_api_version,
+                "amount_minor": payment.amount_minor,
+                "currency": payment.currency,
+                "payment_type": payment.payment_type,
+                # SQLite drops timezone metadata; both columns store UTC instants.
+                "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc)),
+                "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc)),
+                "subscription_invoice": payment.subscription_invoice,
+                "user_id": payment.user_id,
+                "attribution": payment.attribution,
+                "stripe_customer_id": payment.stripe_customer_id,
+                "stripe_subscription_id": payment.stripe_subscription_id,
+                "is_beta_observed": payment.is_beta_observed,
+                "invite_cohort_observed": payment.invite_cohort_observed,
+                "billing_cycle": payment.billing_cycle,
+            }
+            for payment in payments
+        ]
+
         # Compile export
         export_data = {
             "profile": profile_data,
@@ -396,6 +425,7 @@ async def export_user_data(
             "saved_summaries": saved_summaries_data,
             "watchlist": watchlist_data,
             "usage": usage_data,
+            "billing_payments": payments_data,
             "export_timestamp": utcnow().isoformat(),
         }
 
@@ -542,4 +572,3 @@ async def delete_user_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete account. Please contact support."
         )
-

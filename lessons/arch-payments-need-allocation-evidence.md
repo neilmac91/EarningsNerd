@@ -13,11 +13,12 @@ supported Stripe-collected subscription allocations as observed payers, classify
 price evidence as unknown, and use retained paid time for first-observed cohorts. Read window rows and cohort timestamps
 in one SQL statement so concurrent first payments cannot outgrow a stale lookup. Payment/event
 rows commit together. Follow existing account deletion semantics; do not quietly create a new
-financial-retention policy. Keep coverage/refund/credit limits in the report itself.
+financial-retention policy. Include attributed observations in the authenticated account export;
+exclude other accounts and unattributed rows. Keep coverage/refund/credit limits in the report itself.
 
 **Gate:** `backend/tests/unit/test_billing_revenue.py` checks allocation conflict/dedup,
 attribution, zero/type/mode/currency boundaries, complete invoice identity and price pages,
-cohort arrival ordering, and ORM deletion. `backend/tests/integration/test_subscription_event_transactions.py`
+cohort arrival ordering, ORM deletion and account-scoped export through the real HTTP route. `backend/tests/integration/test_subscription_event_transactions.py`
 checks payment/event rollback, provider-shape retries, concurrent PostgreSQL deliveries and a
 first-payment insert between report reads.
 One bounded mutation of each new invariant produced the intended failure on committed E06 source;

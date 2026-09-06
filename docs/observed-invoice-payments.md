@@ -75,3 +75,8 @@ classification, cohort time and account deletion. The existing
 `backend/tests/integration/test_subscription_event_transactions.py` covers rollback, provider
 shape failures and real PostgreSQL duplicate delivery. The existing migration CI job applies
 all SQL, proves ledger skipping, resets the test ledger and safely replays all files.
+
+Account exports (`GET /api/users/export`) include every retained observation attributed to the
+requesting account in `billing_payments`, including live and test modes and optional unknown
+fields. Other accounts and unattributed allocations are excluded. UTC payment/observation times
+are serialized with `Z`; this export does not change the report's revenue exclusions.

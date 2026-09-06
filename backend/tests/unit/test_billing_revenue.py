@@ -232,3 +232,72 @@ def test_report_billing_mix_uses_invoice_evidence_and_preserves_unknown(db, monk
     record(db, payment_event("inpay_partial", "in_partial"), invoice("in_partial", lines={"has_more": True, "data": [{"price": "price_year"}]}), owner)
     assert revenue.payment_report(db, SINCE, UNTIL)["currencies"][0]["billing_cycle_counts"] == [
         {"billing_cycle": cycle, "payment_count": 1, "invoice_count": 1} for cycle in ("monthly", "unknown", "yearly")]
+
+
+@pytest.mark.asyncio
+async def test_account_export_contains_only_own_retained_payment_evidence(db, monkeypatch):
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+    from app.routers import users
+
+    monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_MONTHLY_ID", "price_month")
+    owner = user(db, is_beta=True)
+    second = user(db, "two")
+    empty = user(db, "empty")
+    db.add(InviteCode(code_hash="b" * 64, cohort="export_wave", user_id=owner.id,
+                      used_at=SINCE, expires_at=UNTIL))
+    db.commit()
+    record(db, payment_event(), invoice(), owner)
+    record(db, payment_event("inpay_test", livemode=False), invoice(livemode=False), owner)
+    record(db, payment_event("inpay_other"), invoice(customer="cus_two"), second)
+    record(db, payment_event("inpay_unattributed"), invoice(customer="cus_unknown"), None)
+    for payment in db.query(BillingPayment).all():
+        payment.observed_at = SINCE
+        if not payment.livemode:
+            payment.source_api_version = None
+            payment.stripe_subscription_id = None
+            payment.subscription_invoice = False
+            payment.is_beta_observed = None
+            payment.invite_cohort_observed = None
+            payment.billing_cycle = None
+    db.commit()
+    selected_user = owner
+
+    async def authenticated_user():
+        return selected_user
+
+    async def export_db():
+        yield db
+
+    app = FastAPI()
+    app.include_router(users.router, prefix="/api/users")
+    app.dependency_overrides[users.get_current_user] = authenticated_user
+    app.dependency_overrides[users.get_db] = export_db
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/users/export")
+        assert response.status_code == 200
+        assert "attachment; filename=" in response.headers["content-disposition"]
+        payload = response.json()
+        assert {"profile", "searches", "saved_summaries", "watchlist", "usage", "export_timestamp"} <= payload.keys()
+        expected = {
+            "stripe_payment_id": "inpay_one", "livemode": True,
+            "stripe_invoice_id": "in_one", "source_event_id": "evt_inpay_one",
+            "source_api_version": "2026-08-26.dahlia", "amount_minor": 3900,
+            "currency": "usd", "payment_type": "payment_intent",
+            "paid_at": "2026-09-07T00:00:00Z", "observed_at": "2026-09-01T00:00:00Z",
+            "subscription_invoice": True, "user_id": owner.id, "attribution": "attributed",
+            "stripe_customer_id": "cus_one", "stripe_subscription_id": "sub_one",
+            "is_beta_observed": True, "invite_cohort_observed": "export_wave", "billing_cycle": "monthly",
+        }
+        assert sorted(payload["billing_payments"], key=lambda row: row["stripe_payment_id"]) == [
+            expected,
+            {**expected, "stripe_payment_id": "inpay_test", "livemode": False,
+             "source_event_id": "evt_inpay_test", "source_api_version": None,
+             "subscription_invoice": False, "stripe_subscription_id": None,
+             "is_beta_observed": None, "invite_cohort_observed": None, "billing_cycle": None},
+        ]
+        assert datetime.fromisoformat(expected["paid_at"]).timestamp() == PAID_AT
+        selected_user = empty
+        empty_response = await client.get("/api/users/export")
+        assert empty_response.status_code == 200
+        assert empty_response.json()["billing_payments"] == []
