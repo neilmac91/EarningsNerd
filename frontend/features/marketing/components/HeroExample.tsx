@@ -117,7 +117,7 @@ function HeroExample({
             <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
               <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
                 <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
-                <span className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{data.companyName}</span>
+                <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:truncate">{data.companyName}</span>
               </div>
               <span className="flex-shrink-0 rounded-full border border-border-light dark:border-white/10 bg-white dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.filingType}
