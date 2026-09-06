@@ -70,6 +70,14 @@ deployment verification; none has happened for this branch. No founder decision 
 review the index change; an actual failed production build would require the recovery decision
 described above.
 
+Final proportionality correction `1d59f17`: only the added 20-line test was removed; the test
+file is now byte-identical to `f94501f`. No model/migration source changed and no mutation or
+PostgreSQL experiment was repeated. Full pinned Ruff/Bandit passed again; pytest reported
+`2433 passed, 6 skipped, 2 deselected, 23 warnings in 51.14s`, exit 0. The six skips remain
+the existing PostgreSQL-only billing cases; the retained log includes the existing asynchronous
+client shutdown logging error after pytest success. Final index review relies on source inspection,
+the existing migration safety suite and actual PostgreSQL verification recorded above.
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
