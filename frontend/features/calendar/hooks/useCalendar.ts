@@ -49,11 +49,11 @@ export interface CalendarViewer {
 }
 
 export function useViewer(): CalendarViewer {
-  const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false })
-  // `undefined` is unresolved (cold load, or /me slower than the public calendar request);
+  const { data: user, isPending: identityPending } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false })
+  // Pending means unresolved (cold load, or /me slower than the public calendar request);
   // only `null` is a guest. Coercing pending to logged-out sent authenticated users to the
-  // sign-in popover (Codex review on #742).
-  const identityPending = user === undefined
+  // sign-in popover (Codex review on #742). A failed /me (network, 5xx) is not pending: it
+  // falls back to the guest path rather than leaving the bells "checking" forever.
   const signedIn = !!user
   const usage = useQuery({ queryKey: queryKeys.usage.byUser(user?.id), queryFn: getUsage, enabled: !!user, staleTime: 60_000 })
   const alerts = useQuery({

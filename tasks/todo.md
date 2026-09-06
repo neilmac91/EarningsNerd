@@ -20,7 +20,12 @@ authenticated user. Before #742 the synchronous session marker had no pending st
   disabled with "Checking your account…", resolved → real on/off labels, guest → sign-in
   labels; light and dark. Draft [#744](https://github.com/neilmac91/EarningsNerd/pull/744),
   CI 34058733161 green.
-- [ ] Review lenses, Ready, Codex, merge, main CI, production verification.
+- [x] Independent correctness lens: two should-fixes, both fixed — pending now derives from
+  the query's `isPending` so a failed `/me` falls back to the guest path instead of
+  "checking" forever (new test + mutation `1 failed | 2 passed`), and the spec invokes the
+  real `toggle` directly so the guard is proven (mutation `1 failed | 2 passed`). Refuted:
+  viewerRef staleness, consumer behaviour while pending, SSR, mock fidelity.
+- [ ] Ready, Codex, merge, main CI, production verification.
 
 ## Account-cache integration and handover checkpoint (2026-09-06)
 ## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)

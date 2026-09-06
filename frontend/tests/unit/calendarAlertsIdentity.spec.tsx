@@ -24,6 +24,8 @@ function Harness() {
   return (
     <>
       <AlertBell ticker="AAPL" alerts={alerts} signedIn={viewer.signedIn} />
+      {/* Calls the real toggle regardless of the bell's disabled state, so the guard is proven. */}
+      <button type="button" onClick={(e) => alerts.toggle('AAPL', e.currentTarget)}>direct toggle</button>
       <output data-testid="blocked">{alerts.blocked?.kind ?? 'none'}</output>
     </>
   )
@@ -53,8 +55,9 @@ describe('calendar alert bell while identity is unresolved', () => {
     const bell = screen.getByRole('button', { name: /checking your account/i })
     expect(bell).toBeDisabled()
     expect(bell).not.toHaveAccessibleName(/sign in/i)
-    fireEvent.click(bell)
+    fireEvent.click(screen.getByRole('button', { name: 'direct toggle' }))
     expect(screen.getByTestId('blocked')).toHaveTextContent('none')
+    expect(mockEnableEarningsAlert).not.toHaveBeenCalled()
 
     resolveIdentity({ id: 1, email: 'u@example.test' })
     const ready = await screen.findByRole('button', { name: /get an email the morning AAPL reports/i })
@@ -62,6 +65,17 @@ describe('calendar alert bell while identity is unresolved', () => {
     fireEvent.click(ready)
     await waitFor(() => expect(mockEnableEarningsAlert).toHaveBeenCalledWith('AAPL'))
     expect(screen.getByTestId('blocked')).toHaveTextContent('none')
+  })
+
+  it('treats a failed identity check as a guest instead of checking forever', async () => {
+    mockGetCurrentUserSafe.mockRejectedValue(new Error('upstream unavailable'))
+    renderHarness()
+
+    const bell = await screen.findByRole('button', { name: /sign in to get earnings alerts/i })
+    expect(bell).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /checking your account/i })).not.toBeInTheDocument()
+    fireEvent.click(bell)
+    expect(screen.getByTestId('blocked')).toHaveTextContent('signin')
   })
 
   it('still routes a confirmed guest to the sign-in prompt', async () => {
