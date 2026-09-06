@@ -16,10 +16,10 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | #721 released; backend deployment and independent health verified |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | #723 released; CI/evals, migration tail, revision/traffic and independent health verified |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
-| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
-| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 merged as `cab71f9`; root production verification pending. Export and CI fixture corrections retained |
-| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a completed-use counter correctness implemented locally; reservations remain separate |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
+| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724, E05b #725 and E05c #727 released and independently verified; helper-only fixture approval preserved. Cross-ID policy remains separate |
+| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
+| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 merged as `90fdc69`; production verification pending. Reservations remain separate |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a implemented and reviewed locally; frontend gates pass, preview/release pending. Pricing and activation decisions remain held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
@@ -139,6 +139,19 @@ replay remains scoped evidence; combined migration CI must include all 36 files 
 Root/independent review is clear, locked files match main, and no mutation was repeated.
 Publication follows verified E05c deployment; event coverage is still unverified.
 
+
+## E08a — Trial presentation follows resolved entitlements
+
+Source `48f51f3`, based on `cab71f9`, requires server-resolved Pro access before showing a current
+trial on pricing and settings. Expired-trial Free responses regain the existing upgrade action;
+customer-ID portal routing and all backend/checkout behavior remain unchanged. Existing test
+homes cover both surfaces. One coordinated original-predicate mutation produced three intended
+failures; exact restoration passed lint, typecheck, 504 tests in 97 files and the production build.
+Root independently cleared correctness, rules/brief and tests/gates. Exact evidence is in todo.
+Both-theme preview, remote CI and release remain root-owned; no live expired-trial fixture was
+used. Price amounts/mapping, trial activation, promo, loading labels and FAQ timing are outside
+this slice.
+
 E07a source `60f28a0`: SQL monthly increments preserve existing helper calls and history; only
 first-bucket creation locks/re-reads the User. Transaction-local lock timeout defaults to 3000 ms,
 validated as whole milliseconds from 1 through 10000. Focused real PostgreSQL + workflow gate:
@@ -154,3 +167,15 @@ Workflow readers: 103 passed; Node pin: 3 passed. Integration correctness/rules/
 clear; locked contracts match `cab71f9`, all E06 corrections are retained and E07a source is
 unchanged. Authorized branch push follows; root owns PR publication and serial release. Prior
 mutation proofs are retained without repetition.
+
+
+### E06 verified release
+
+PR #728 merged `cab71f9`; production run 34035873326 / deploy 101494113117 succeeded with
+`applied=1 skipped=35`. Image `sha256:b6f32b0a0ca5d06b2675a892f4a2a3d8639c9f2723604c6a50a05c413a3ffea1`;
+revision `earningsnerd-backend-00282-6rf` serves 100%. Independent health at
+`1788701639.2790875`: healthy, DB 10.3 ms, Redis disabled, SEC closed. The watch client
+lost its TLS connection; the completed run and actual deploy log were independently retrieved.
+Final CI 34035195505 and Copilot 34035195535 passed; artifacts 9990022068 / 9989975114
+verified 52 summary and 18 Copilot cases, unchanged harness/goldens/flags and all source hashes.
+This verifies deployment, not Stripe endpoint event selection, API version or complete payment history.

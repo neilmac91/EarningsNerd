@@ -139,7 +139,8 @@ function PricingContent() {
   // no-card reverse trial and would now create a SECOND live subscription — double-billing plus
   // a webhook hazard when the orphaned sub later cancels. Staff review, PR #619.)
   // isPaidPro stays distinct so copy can say "Current Plan (trial)" vs "Current Plan".
-  const isTrialing = subscription?.status === 'trialing'
+  // Expired trial rows can retain their Stripe status after the API resolves them to Free.
+  const isTrialing = Boolean(subscription?.is_pro) && subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
