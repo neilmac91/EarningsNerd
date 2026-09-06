@@ -1,5 +1,25 @@
 ## E14b — Copy the canonical filing link (engineering, 2026-09-06)
 
+### Integration checkpoint
+
+Root independently reviewed runtime, tests, Button and analytics across all three lenses;
+source `2ee65a7` is clear. Integrated exact E10b main
+`e2e94956f5410d372324c1cb98bb8352da7b338f` as `9974f4d`. Conflicts were confined to the
+checklist and execution ledger; both E14b and incoming E10b/login histories are retained.
+Four E14b runtime/test files remain byte-identical to `2ee65a7`; backend and CI equal main,
+including the Stripe, usage and login PostgreSQL lanes. E10b's status consumer and tests
+are preserved; no query/API owner or locked contract changed. The original one-time proof
+was retained without repetition. No backend gate was required for this frontend-only diff.
+
+Combined pinned frontend gate on `9974f4d`: lint `--max-warnings 0` and typecheck clean;
+**100 files / 525 tests passed in 56.11s**. Build exit 0: compiled **6.0s**, TypeScript
+**14.8s**, static pages **27/27** in 1758ms. Logs:
+`/private/tmp/earningsnerd-e14b-integrated-{lint,typecheck,vitest,build}.log`.
+Three-lens integration review is clear: copy action/state is unchanged, incoming gates and
+save-status behavior remain intact, and all original test/proof boundaries survive integration.
+This is local source/gate acceptance. Root still owns actual responsive/both-theme and
+clipboard-denial preview plus publication; no push/PR/deployment here.
+
 Base `ee3ac988`. Existing readers can copy only the canonical filing URL from a deliberate
 summary action. No public share endpoint, payload snapshot, access expansion, social posting,
 referral policy or current-location query/token copying. Root holds publication pending E10b.
@@ -12,8 +32,9 @@ referral policy or current-location query/token copying. Root holds publication 
 - [x] One new test home `frontend/tests/unit/filing-link-copy.spec.tsx` exercising real parent,
   action and analytics boundary; one coordinated canonical/acknowledgment mutation, restore.
 - [x] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
-- [ ] Root independent review, released-E10b integration, responsive/both-theme and clipboard
-  denial preview; no push/PR/deployment by this agent until instructed.
+- [x] Root independent source review and exact E10b-main integration; combined frontend gate.
+- [ ] Root responsive/both-theme and clipboard-denial preview; no push/PR/deployment by this
+  agent until instructed.
 
 Plan `4bebdf6`; source `2ee65a7`. The parent passes the actual filing ID and keys the
 action bar by that ID so a pending old write cannot update the next filing's feedback.

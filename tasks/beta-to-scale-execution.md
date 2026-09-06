@@ -24,8 +24,8 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a merged as #734; E14b local implementation/gates complete, integration/preview pending |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a merged as #734; E14b integrated E10b main, combined gates passed; actual preview/publication pending |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
@@ -270,3 +270,11 @@ PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 
 in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
+
+E14b integration `9974f4d` incorporates exact E10b main `e2e94956` and its login/CI history.
+Only task-document conflicts required resolution; E14b source remains byte-identical to
+reviewed `2ee65a7`, backend/CI equal main and E10b's six runtime/test files are preserved.
+Root source review and three-lens integration review are clear. Original mutation retained,
+no repeat. Combined frontend lint/typecheck/build passed; **100 files / 525 tests** passed
+in **56.11s**, build static pages **27/27**. Exact logs in tasks/todo.md. Actual responsive,
+both-theme and clipboard-denial preview plus publication remain root-owned and pending.
