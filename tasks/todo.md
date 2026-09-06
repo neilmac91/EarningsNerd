@@ -116,6 +116,40 @@ claim. E14b copying canonical links remains a separate task. No push/PR/deploy h
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E09a — Explicit publication approval and latest-main integration (engineering)
+
+On 2026-09-06 the founder replied “approved” to the exact five-action request in
+`outputs/remaining-verification-publication-approval.md` in the audit workspace. That approval
+explicitly covers publishing `codex/wave3-summary-leader-handoff` to `neilmac91/EarningsNerd`,
+resolving conflicts with approved main releases, and the repository-required full backend gate
+using mock providers and disposable schemas in the existing local PostgreSQL test database.
+It also authorizes the normal PR/CI/merge/verified-release sequence, which remains root-owned.
+The prior publication rejection was respected; this subsequent exact approval supplies the new
+authority. It does not permit feature expansion, locked-test edits or production policy changes.
+
+Integrated main `ee3ac9882b74453bb670c69b5b05142338a53844` as `58afe24`. The two task-document
+conflicts retain both histories and the latest release rows. Pipeline and existing dedup tests
+are byte-identical to corrected `fe6916c`; the scoped lesson is byte-identical to prior `5ade3df`
+(the lesson was recorded after that runtime correction). Incoming billing, usage, limiter,
+metrics, workflow and frontend changes match main exactly. Locked tests are unchanged.
+
+Three-lens integration review is clear: atomic registry observation/claim has no await, joined
+followers retain replacement ownership across the fresh persisted read, and timeout never grants
+ownership of an active leader. Both delayed-read force modes remain covered; provider cleanup,
+usage semantics and owner-only release are retained. All 12 rules and task boundaries remain
+intact. The original three mutation proofs were preserved without repetition. Entire frontend
+matches main, so no redundant frontend gate was run; remote CI/eval review remains required.
+
+Full pinned backend gate on `58afe24` enabled both Stripe and usage PostgreSQL test URLs:
+Ruff `All checks passed!`; Bandit zero medium/high severity; **2563 passed, 2 deselected,
+23 warnings in 57.69s**, exit 0, with no skips. The existing asynchronous client shutdown
+logging diagnostic followed pytest's passing summary. Logs: `/private/tmp/earningsnerd-e09-approved-ruff.log`,
+`earningsnerd-e09-approved-bandit.log` and `earningsnerd-e09-approved-full.log` in the same
+`/private/tmp/` directory. Source identity and `git diff --check` passed before publication.
+
+No live AI/Stripe/SEC call or production mutation was performed by this task. Root owns PR
+creation, actual CI/eval inspection and serialized deployment after the authorized branch push.
+
 ### E09a — Single replacement leader after failed generation (engineering)
 
 Start at main `6a648f7`. A follower awaits the old leader and a fresh DB read before claiming;

@@ -20,7 +20,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; CI, Vercel production and canonical pricing response verified. Pricing and activation decisions remain held |
-| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a local handoff reviewed; latest-main integration and explicit publication approval recorded. Fleet admission/quotas remain separate |
+| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a reviewed and integrated with `ee3ac988`; explicit publication approval and 2563-test full gate recorded. PR/release pending; fleet admission/quotas remain separate |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
@@ -248,3 +248,15 @@ and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labe
 numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
+
+### E09a latest-main approval checkpoint
+
+The founder's 2026-09-06 “approved” response to the exact five-action request explicitly clears
+the earlier summary-handoff publication hold, including main integration and local disposable
+PostgreSQL gates. Merge `58afe24` includes main `ee3ac988`; runtime and ownership tests remain
+byte-identical to corrected `fe6916c`, with the scoped lesson retained from `5ade3df`. Three-lens
+integration review is clear, both delayed-read force modes and all three original proofs remain
+intact, and locked contracts match main. Full Stripe/usage PostgreSQL-enabled backend gate:
+Ruff clean, Bandit zero medium/high, **2563 passed, 2 deselected, 23 warnings in 57.69s**, exit 0,
+no skips. Branch publication is authorized; root owns PR/CI/eval and serialized release. No
+fleet lease, durable queue, quota reservation, prompt/model/flag or production policy change.
