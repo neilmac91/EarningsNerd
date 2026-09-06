@@ -12,6 +12,17 @@ Image digest `d3c86ac5d708dd272e0a7619d3e3eff2deb83428f16705f2beadd662ef92548b`;
 independent detailed health healthy (DB 15.29 ms, SEC closed). Notable job was not found and
 its update was skipped; its founder provisioning/activation hold remains.
 
+PR #716 remains draft for a further independently confirmed waitlist clock-skew correction.
+The completed Google/probe correction below is retained as superseded release evidence.
+
+- [ ] Add configured leeway at the remaining waitlist decode; audit all five production
+  decodes without changing algorithms, claim requirements, audiences, issuers or token type.
+- [ ] Add one offline test through the actual waitlist token issuer and verification route:
+  +5-second issuer skew persists verification; +11 seconds returns HTTP 400 and leaves a
+  distinct signup unverified in isolated SQLite.
+- [ ] Commit source, remove only waitlist leeway for one intended failure, restore exact bytes,
+  then run the full coherent 102-pin Ruff/Bandit/pytest gate. Preserve lock and existing tests.
+
 PR #716 is draft again for two independently confirmed review corrections; prior source
 and gate evidence below remains historical and is superseded for release by this correction.
 
