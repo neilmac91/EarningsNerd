@@ -1,8 +1,13 @@
 """Actual SDK and vendor metadata remain honest, bounded and isolated per summary."""
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+import asyncio
+import json
+import threading
 
 import pytest
+from anyio.to_thread import current_default_thread_limiter
+from fastapi.concurrency import run_in_threadpool
 from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
 
 from app.services import ai_metrics, metrics_service
@@ -129,3 +134,48 @@ async def test_admin_metrics_exposes_independent_process_snapshot(monkeypatch):
     assert result["ai"]["scope"] == "process" and result["ai"]["calls"][0]["count"] == 1
     result["ai"]["calls"][0]["usage"]["total_tokens"]["known_total"] = 999
     assert ai_metrics.get_ai_metrics()["calls"][0]["usage"]["total_tokens"]["known_total"] == 12
+
+
+@pytest.mark.asyncio
+async def test_admin_metrics_observes_saturated_worker_limiter_without_joining_queue(monkeypatch):
+    from app.services import redis_service
+    monkeypatch.setattr(redis_service, "check_redis_health", AsyncMock(return_value={"healthy": True}))
+    limiter = current_default_thread_limiter()
+    original_capacity = limiter.total_tokens
+    loop = asyncio.get_running_loop()
+    started = asyncio.Event()
+    release = threading.Event()
+    tasks = []
+
+    def blocked_worker():
+        loop.call_soon_threadsafe(started.set)
+        assert release.wait(5), "test worker was not released"
+
+    async def wait_for_queued_worker():
+        while limiter.statistics().tasks_waiting != 1:
+            await asyncio.sleep(0)
+
+    try:
+        limiter.total_tokens = 1
+        tasks.append(asyncio.create_task(run_in_threadpool(blocked_worker)))
+        await asyncio.wait_for(started.wait(), timeout=2)
+        tasks.append(asyncio.create_task(run_in_threadpool(lambda: None)))
+        await asyncio.wait_for(wait_for_queued_worker(), timeout=2)
+        snapshot = await asyncio.wait_for(metrics_service.get_all_metrics(), timeout=2)
+        assert snapshot["thread_pool"]["anyio"] == {
+            "scope": "event_loop", "total_tokens": 1, "borrowed_tokens": 1, "tasks_waiting": 1,
+        }
+        assert "edgar" in snapshot["thread_pool"]
+        json.dumps(snapshot["thread_pool"])  # No task/borrower objects escape into the response.
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=2)
+        drained = await metrics_service.get_all_metrics()
+        assert drained["thread_pool"]["anyio"] == {
+            "scope": "event_loop", "total_tokens": 1, "borrowed_tokens": 0, "tasks_waiting": 0,
+        }
+    finally:
+        release.set()
+        try:
+            await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=2)
+        finally:
+            limiter.total_tokens = original_capacity

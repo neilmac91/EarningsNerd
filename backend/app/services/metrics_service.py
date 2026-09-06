@@ -14,6 +14,7 @@ Usage:
 """
 
 import asyncio
+from anyio.to_thread import current_default_thread_limiter
 from app.utils.datetimes import utcnow, iso_z
 import time
 from typing import Dict, Any
@@ -131,6 +132,16 @@ async def get_all_metrics() -> Dict[str, Any]:
         }
     except ImportError:
         metrics["thread_pool"] = {"error": "Not available"}
+
+    # Snapshot the responding loop's shared worker limiter without borrowing a token.
+    # Its borrowers contain task objects; expose aggregate numbers only.
+    worker_stats = current_default_thread_limiter().statistics()
+    metrics["thread_pool"]["anyio"] = {
+        "scope": "event_loop",
+        "total_tokens": worker_stats.total_tokens,
+        "borrowed_tokens": worker_stats.borrowed_tokens,
+        "tasks_waiting": worker_stats.tasks_waiting,
+    }
 
     return metrics
 

@@ -2,6 +2,88 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E12a — Integrated limiter release checkpoint (engineering)
+
+Merged main `53348d6b41d524b9bb1e9fa41ef1a1b393f2a191` as `ec045eb` without rewriting
+published history. The only conflict was the todo insertion; both E12a and E13b histories remain.
+Metrics runtime, its existing test home and OPERATIONS documentation are byte-identical to
+reviewed `80abcf0`. Incoming limiter implementation, Settings, security tests, frontend and CI
+workflow match main. All locked contracts remain unchanged; the single original proof is retained.
+
+Three-lens integration review found no actionable issue: the shared-worker snapshot does not
+interact with the request rate limiter, all scope/rule boundaries remain intact, and behavioral
+coverage still uses actual worker contention with bounded cleanup. No source correction, extra
+mutation, frontend test run or production/provider call was needed.
+
+Combined pinned backend gate on `ec045eb` enabled both Stripe and usage PostgreSQL test URLs:
+Ruff clean; Bandit zero medium/high severity; **2558 passed, 2 deselected, 23 warnings in
+51.64s**, exit 0, with no skips. The existing async shutdown logging diagnostic followed the
+passing summary. Exact logs: `/private/tmp/earningsnerd-e12-integrated-ruff.log`,
+`earningsnerd-e12-integrated-bandit.log` and `earningsnerd-e12-integrated-full.log` under the same
+`/private/tmp/` directory. Reviewed source bytes and original proof remain unchanged.
+
+Root authorized this branch push only after the combined gate. PR acceptance and serialized
+production verification remain root-owned; no unrelated held action was attempted here.
+
+### E12a — Default AnyIO worker saturation snapshot (engineering)
+
+Base `752f3a2`. The existing admin metrics collector exposes database occupancy and EDGAR
+created-thread counts, but no default AnyIO limiter pressure. Health probes and summary DB
+units use this limiter. Read current CLAUDE/AGENTS, relevant test/operations lessons, handover,
+and the collector/health source. No production setting, capacity, schema or admission change.
+
+- [x] Add only `scope = event_loop`, `total_tokens`, `borrowed_tokens` and `tasks_waiting`
+  under `thread_pool.anyio`, using the current default limiter's public statistics API. Preserve
+  EDGAR keys. Never serialize borrower objects or acquire a worker token to collect the snapshot.
+- [x] Reuse `backend/tests/unit/test_ai_metrics.py`, which already gates the admin collector.
+  Exercise the real default limiter with one event-blocked worker and one waiting task; verify
+  the collector returns before worker release and the counts drain afterward. Restore the exact
+  original limiter capacity and finish all tasks in finally, with bounded waits.
+- [x] Document GET /metrics admin authentication, per-loop aggregate snapshot interpretation,
+  and dependency-access limitations in `docs/OPERATIONS.md` without new alert thresholds.
+- [x] Commit source, run one idle-snapshot mutation against the occupied/queued gate, restore
+  exact source, then run Ruff/Bandit/full backend with Stripe and usage PostgreSQL URLs enabled.
+- [x] Complete correctness/rules/tests review and return exact committed source to root for
+  independent review. No push, PR, deployment or live provider calls by this agent.
+
+Rules 6, 8 and 12 and the existing hermetic/one-home/proof lessons apply. This observes the
+responding loop's default limiter, not CPU utilization, EDGAR/default-asyncio executors, provider
+or generation queues, durations, historical peaks, or fleet totals. The existing admin endpoint
+still uses DB-backed authentication and a synchronous dependency, so saturation can delay the
+request itself. Startup/probe deadlines and E09 counters remain separate work.
+
+
+Source `80abcf0` adds aggregate AnyIO limiter statistics to the existing collector without
+worker acquisition or application capacity changes. EDGAR keys, route authentication and all
+locked tests remain byte-identical to base. Existing `test_ai_metrics.py` is the sole test home;
+its new test uses real worker dispatch and a queued task, verifies serialization and collection
+before release, then verifies drained counts and restores the exact original capacity in finally.
+
+Initial focused invocation omitted the local EDGAR cache override and failed during the existing
+collector's EDGAR import (sandbox denied the default cache directory); it did not reach snapshot
+assertions. Setting `EDGAR_LOCAL_DATA_DIR` to the task's temporary cache resolved it without source
+changes. The focused home passed 14 tests. Exactly one mutation replaced borrowed/waiting counts
+with zero and failed the intended occupied/queued assertion: **1 failed, 13 deselected, 2 warnings
+in 1.71s**. Exact committed bytes were restored; **14 passed, 2 warnings in 1.06s** afterward.
+
+Self-review and root's independent review of `80abcf0` cleared correctness, rules/brief and
+tests/gates. The public statistics API runs on the collector's event loop, scalar projection
+excludes borrower objects, test workers are bounded/cleaned up, and the operating guide preserves
+all snapshot/auth-path limitations. No additional mutation was repeated.
+
+Full pinned backend gate on `80abcf0` with both Stripe and usage PostgreSQL test URLs enabled:
+Ruff clean, Bandit zero medium/high severity; **2546 passed, 2 deselected, 23 warnings in
+54.05s**, exit 0, with no skips. The existing asynchronous client shutdown logging diagnostic
+followed pytest's successful summary. `git diff --check` passed; no runtime source changed
+after review or mutation restoration.
+
+Evidence: `/private/tmp/earningsnerd-e12-mutation-idle.log`,
+`earningsnerd-e12-restored-focused.log`, `earningsnerd-e12-ruff.log`,
+`earningsnerd-e12-bandit.log` and `earningsnerd-e12-full.log` in the same `/private/tmp/` directory.
+No tests outside the backend or product/provider calls were needed. Root owns integration,
+publication and serialized deployment; this branch remains local at this checkpoint.
+
+
 ### E13b — Latest-main release integration (engineering)
 
 Merged main `752f3a2728d99be851a0fd284e746ce338cf0b04` as `ff7403e`, preserving published
