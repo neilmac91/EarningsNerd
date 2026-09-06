@@ -16,7 +16,8 @@ block this independent engineering work. Other founder boundaries remain unchang
 - [x] Three independent lenses cleared the W3-5 source; unchanged source bytes retain that evidence.
 - [x] Prior #711 union gate at `3daf0c4c`: 105 exact runtime/dev pins, Ruff/Bandit exit 0;
   `2383 passed, 2 deselected, 72 warnings in 52.11s`.
-- [ ] Run the combined backend gate on the corrected timeout-safe #711 candidate.
+- [x] Corrected timeout-safe #711 union at `d3986771`: 105 exact runtime/dev pins,
+  Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 48.26s`.
 - [ ] Obtain root release after W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
 
 Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
