@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
-| E15 | Partition sitemap and align eligible content | Independent | Queued |
+| E15 | Partition sitemap and align eligible content | Independent | E15a eligibility parity in progress; E15b partitioning and current URL count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).

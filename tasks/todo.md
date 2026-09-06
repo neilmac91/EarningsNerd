@@ -2,6 +2,28 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E15a — Match sitemap eligibility to existing page content (engineering)
+
+Based on `6a648f7`. The filing-page server predicate rejects the exact, case-sensitive
+`Generating summary` substring; the company route rejects curated unsupported foreign
+issuers before resolving even an existing DB row. The sitemap currently misses both checks.
+
+- [ ] Reuse `unsupported_foreign_name` in the company sitemap loop and match the existing
+  server placeholder predicate in the filing SQL before the filing limit. Preserve genuine
+  partial summaries, static entries, truthful dates and both existing hourly cache owners.
+- [ ] Extend only `backend/tests/unit/test_sitemap.py` with behavior cases for placeholder
+  exclusion/partial retention and stale unsupported-company rows/supported foreign peers.
+- [ ] Commit source, run exactly one mutation proof per new invariant, restore exact bytes,
+  then run the full pinned Ruff, Bandit and backend gate.
+- [ ] Record evidence and a clean handoff for independent review; root owns publication,
+  CI and serialized deployment. This agent does not push or activate SEO surfaces.
+
+Rules 6 and 12, the existing one-test-home and sitemap-cache lessons apply. No migration,
+frontend, prompt, entitlement, flag, quality-policy or locked-contract change. E15b remains
+separate: companies are unbounded and the 45,000 cap applies only to filing rows; a sitemap
+index/partition design and actual current production URL count are still unresolved.
+The historical 1,884 count from July 16 is not a current measurement.
+
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
 The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:
