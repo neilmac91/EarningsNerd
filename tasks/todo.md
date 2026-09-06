@@ -1,3 +1,26 @@
+## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
+
+State model reviewed by the founder (chat, "go with your recommended approach"): batches persist
+the frozen email, a provider idempotency key and the owned filings before any send; fenced
+conditional transitions ready → claimed → sending → accepted | retryable | ambiguous | suppressed;
+the sending authorisation is committed before the provider call; compatibility `NotificationLog`
+rows and watermarks only on acceptance; expired sending leases are parked as ambiguous, never
+reclaimed. Implemented on `49efc638` (models, guarded migration, service, scan/digest wiring,
+Resend outcome classes + `Idempotency-Key`, five bounded `DELIVERY_*` settings, CI PostgreSQL
+lane, 16 unit + 4 PostgreSQL cases; locked `test_filing_scan.py` byte-identical). Focused suites
+`77 passed`. Remaining: full gate, eight mutation proofs, independent lens, the
+`USAGE_RESERVATION_TTL_SECONDS > 180` bound promised on #746's open Codex thread, PR body, one
+founder-approved Copilot run, Codex, merge, deploy verification. Details: handover package
+`gpt-6-astra-handover.md`.
+
+- [x] #746 released: squash `c09a4d2`, main CI 34064160001 success, deploy-backend job
+  101570260527 `apply_migrations: applied=1 skipped=36`, Cloud Run revision
+  `earningsnerd-backend-00293-fqs` at 100 % traffic, `/health/detailed` healthy (CI 22:35:46Z,
+  independent 22:36:52Z). Second paid Copilot run on `f52154e` (34063706652, success) consumed
+  under the founder's "go with your recommended approach". Codex P2 on the TTL lower bound left
+  open with a reply; fix carried to #747.
+- [ ] #747 to release (see remaining list above).
+
 ## E07b — Admission reservations for summaries (engineering, 2026-09-06)
 
 Facts (read against `e873ac8`): summary admission is a plain read of `user_usage.summary_count`
