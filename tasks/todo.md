@@ -2,6 +2,29 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E12a — Integrated limiter release checkpoint (engineering)
+
+Merged main `53348d6b41d524b9bb1e9fa41ef1a1b393f2a191` as `ec045eb` without rewriting
+published history. The only conflict was the todo insertion; both E12a and E13b histories remain.
+Metrics runtime, its existing test home and OPERATIONS documentation are byte-identical to
+reviewed `80abcf0`. Incoming limiter implementation, Settings, security tests, frontend and CI
+workflow match main. All locked contracts remain unchanged; the single original proof is retained.
+
+Three-lens integration review found no actionable issue: the shared-worker snapshot does not
+interact with the request rate limiter, all scope/rule boundaries remain intact, and behavioral
+coverage still uses actual worker contention with bounded cleanup. No source correction, extra
+mutation, frontend test run or production/provider call was needed.
+
+Combined pinned backend gate on `ec045eb` enabled both Stripe and usage PostgreSQL test URLs:
+Ruff clean; Bandit zero medium/high severity; **2558 passed, 2 deselected, 23 warnings in
+51.64s**, exit 0, with no skips. The existing async shutdown logging diagnostic followed the
+passing summary. Exact logs: `/private/tmp/earningsnerd-e12-integrated-ruff.log`,
+`earningsnerd-e12-integrated-bandit.log` and `earningsnerd-e12-integrated-full.log` under the same
+`/private/tmp/` directory. Reviewed source bytes and original proof remain unchanged.
+
+Root authorized this branch push only after the combined gate. PR acceptance and serialized
+production verification remain root-owned; no unrelated held action was attempted here.
+
 ### E12a — Default AnyIO worker saturation snapshot (engineering)
 
 Base `752f3a2`. The existing admin metrics collector exposes database occupancy and EDGAR
