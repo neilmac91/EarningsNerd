@@ -15,13 +15,29 @@ its update was skipped; its founder provisioning/activation hold remains.
 PR #716 remains draft for a further independently confirmed waitlist clock-skew correction.
 The completed Google/probe correction below is retained as superseded release evidence.
 
-- [ ] Add configured leeway at the remaining waitlist decode; audit all five production
+- [x] Add configured leeway at the remaining waitlist decode; audit all five production
   decodes without changing algorithms, claim requirements, audiences, issuers or token type.
-- [ ] Add one offline test through the actual waitlist token issuer and verification route:
+- [x] Add one offline test through the actual waitlist token issuer and verification route:
   +5-second issuer skew persists verification; +11 seconds returns HTTP 400 and leaves a
   distinct signup unverified in isolated SQLite.
-- [ ] Commit source, remove only waitlist leeway for one intended failure, restore exact bytes,
+- [x] Commit source, remove only waitlist leeway for one intended failure, restore exact bytes,
   then run the full coherent 102-pin Ruff/Bandit/pytest gate. Preserve lock and existing tests.
+
+Final waitlist source `0626f0ab`: all five production JWT decodes use configured leeway;
+fixed algorithms and existing audience/issuer/type/subject/required-claim checks are unchanged.
+The real waitlist issuer runs five seconds ahead of a frozen verifier; the actual route persists
+`email_verified=True` in isolated SQLite. An eleven-second token returns HTTP 400 and its
+separate signup remains unverified. Focused: 1 passed, 16 warnings (3.57s). Removing only
+waitlist leeway fails the intended positive route call (1 failed, 16 warnings in 3.47s);
+exact restoration passes (1 passed, 16 warnings in 2.84s), router SHA256
+`e2cbff30387f00e4f17b2c4c0dc3b5eed6b9bce71913477378ebefe170a235da`.
+Full coherent gate: 102 exact pins, Ruff/Bandit exit 0;
+2386 passed, 2 deselected, 23 warnings (51.09s), exit 0.
+Lock, the two approved existing-test edits, Google regression and original AST gate remain
+unchanged; their retained audit/mutation evidence is scoped to those unchanged files.
+Four locked contracts, sole baseline, 59 archives and historical findings remain byte-identical;
+18 local owning-document links resolve. No live OAuth or network operation was performed.
+Root owns final review and release; the earlier correction evidence below is historical.
 
 PR #716 is draft again for two independently confirmed review corrections; prior source
 and gate evidence below remains historical and is superseded for release by this correction.
