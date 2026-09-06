@@ -8,19 +8,43 @@ The filing page currently downloads every saved summary, including summary/compa
 to compute one selected-summary boolean. Preserve the dashboard library and save/update/delete
 contracts; add one authenticated status lookup for the selected summary instead.
 
-- [ ] Add `GET /api/saved-summaries/status/{summary_id}`: authenticate, return 404 for a missing
+- [x] Add `GET /api/saved-summaries/status/{summary_id}`: authenticate, return 404 for a missing
   summary, and return only `is_saved` scoped to the current user using bounded ID projections.
-- [ ] Add the shared API client function and a user/summary-specific registry key under the
+- [x] Add the shared API client function and a user/summary-specific registry key under the
   existing saved-summaries invalidation prefix; migrate only the filing-page consumer.
-- [ ] Verify backend ownership/auth/missing-summary and bounded response behavior in one new
+- [x] Verify backend ownership/auth/missing-summary and bounded response behavior in one new
   nonlocked home; verify the real page consumer uses status, respects auth and refreshes after save.
-- [ ] Commit source, retain one mutation proof per new invariant, run full pinned backend and
+- [x] Commit source, retain one mutation proof per new invariant, run full pinned backend and
   frontend gates, and obtain independent review before returning the clean branch to root.
 
 Rules 4, 6, 9 and 12 apply; frontend query-key/client conventions and the design system remain
 unchanged. No schema, billing, generation, dashboard payload, locked test or visual changes.
 W3-9 facts repair and E05/E06/E07 billing work are independent; root serializes integration and
 backend release. Base `a5ba97e`; no push, PR, merge, production operation or new spend by this agent.
+
+Source `f9106ef`: full pinned backend gate passed (Ruff clean, Bandit 0 medium/high;
+`2435 passed, 6 skipped, 2 deselected, 23 warnings in 59.02s`, exit 0). Six skips are the
+existing optional PostgreSQL billing lane, unrelated to this SQLite/HTTP status change.
+Frontend Node 22.23.2: lint/typecheck exit 0; Vitest 98 files / 506 tests passed in 28.07s;
+production build exit 0. The sandboxed build stalled in compilation and was stopped (130);
+the unchanged build passed with approved network access for existing fonts. Existing middleware
+deprecation and missing Sentry release-token warnings remain. Dependencies and lockfiles unchanged.
+
+One bounded mutation per new invariant: removing user scope exposed another user's save
+(1 backend failure); hydrating a full saved entity tripped the bounded-loading guard (1);
+restoring the original full-library page lost Saved state (1 frontend failure); removing save
+invalidation kept stale Save state (1); omitting the user cache dimension reused another account's
+Saved state (1). Exact committed bytes were restored after each; final focused gates passed
+2 backend tests and 5 frontend tests. The existing dashboard full-library response remains covered
+by the backend control; the real page/query client covers shared API requests and invalidation.
+
+Root independently reviewed correctness, rules/brief and tests/gates at `f9106ef` with no
+actionable finding. No markup, copy, styling or component layout changed, so no visual browser
+verification was required. Locked contracts are byte-identical to `a5ba97e`; no migration,
+entitlement, pricing, generation or production change. This removes full-library payload loading
+from the filing page; it does not paginate the dashboard or establish a constant database-work
+bound for arbitrary library size. Root owns integration, actual CI/evals and serialized release;
+this checkpoint is local verification only.
 
 ### E10a — Filing-first financial-facts index (engineering)
 
