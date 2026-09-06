@@ -61,6 +61,100 @@ No tests outside the backend or product/provider calls were needed. Root owns in
 publication and serialized deployment; this branch remains local at this checkpoint.
 
 
+### E13b — Latest-main release integration (engineering)
+
+Merged main `752f3a2728d99be851a0fd284e746ce338cf0b04` as `ff7403e`, preserving published
+history. The sole todo conflict retained E13b, E07a and E08a sections. Limiter implementation and
+its existing test home remain byte-identical to reviewed `ac4bc76`. Config and configuration
+docs retain both independent limiter and usage-lock settings. E07a's runtime, PostgreSQL tests
+and CI workflow, and E08a's entire frontend, remain byte-identical to latest main.
+
+The three integration lenses are clear: successful-hit ordering still supports expired-prefix
+cleanup without active eviction; all 12 rules and scope boundaries remain satisfied; existing
+behavioral gates and three original mutation proofs are retained, and locked tests match main.
+No runtime correction or mutation repeat was needed. Frontend gates are retained from E08a's
+release because this integration has no frontend delta against main.
+
+Full pinned backend gate on `ff7403e` enabled both `STRIPE_CONCURRENCY_TEST_DATABASE_URL` and
+`USAGE_CONCURRENCY_TEST_DATABASE_URL` against disposable local PostgreSQL schemas. Ruff clean;
+Bandit zero medium/high; **2557 passed, 2 deselected, 23 warnings in 53.64s**, exit 0, with no
+skips. The existing asynchronous shutdown logging diagnostic followed the passing summary.
+Logs: `/private/tmp/earningsnerd-e13b-evidence/latest-main-ruff.log`, `latest-main-bandit.log`
+and `latest-main-full.log` in that same directory. Conflict-marker checks and `git diff --check`
+passed before the authorized branch push.
+
+Root owns PR creation/readiness, remote CI and serialized deployment. The per-process 10000-key
+budget and legitimate-unseen-key rejection tradeoff remain explicit assumptions, not measured
+production capacity or a fleet/byte bound. No production state was changed by this integration.
+
+### E13b — Bounded in-memory limiter keys (engineering)
+
+`RateLimiter._hits` retains every key indefinitely. Bound each limiter independently without
+resetting an active client's history. Base `6a648f7`; no Redis or fleet-wide enforcement claim.
+
+Algorithm/default: store hit deques in an OrderedDict ordered by last accepted hit. Read the
+monotonic clock inside the existing lock, prune only the expired prefix (last hit strictly older
+than the unchanged cutoff), and move a key to the end only when accepting a hit. Peeks and denied
+attempts never extend retention. Each removal is amortized against an earlier insertion; at most
+the configured ceiling can be removed in one call, with no scan of the active suffix or separate
+expiry metadata. `_hits.clear()` therefore still resets all state.
+
+- [x] Add `RATE_LIMITER_MAX_KEYS`, a positive Settings integer defaulting to 10000 (maximum
+  100000), captured per limiter at construction. This is an engineering memory budget, not a
+  measured traffic threshold: it permits 10000 distinct live keys per limiter/window, bounds
+  cardinality even under rotating-key abuse, and avoids assuming real production key counts.
+- [x] Remove expired keys opportunistically; reject unseen keys while full and never evict active
+  buckets. Existing keys retain their remaining allowance. `is_exhausted` remains a read-only
+  peek, including False for absent keys even at capacity; existing Retry-After behavior remains.
+- [x] Extend `test_security_hardening.py` with deterministic expiry/order, capacity/active-history,
+  peek/clear and Settings-boundary behavior; one mutation proof per new invariant.
+- [x] Run the full pinned backend gate and independent review, then return a clean committed
+  branch to root. No locked auth tests, production flags, spend, push or deployment by this agent.
+
+Rules 6, 8 and 12 apply. Limits and windows remain unchanged; storage is per limiter/process,
+not an aggregate byte or fleet limit. At capacity, legitimate unseen keys can receive the same
+429 path until idle keys expire; no active key is displaced to admit an attacker-controlled key.
+Whole idle buckets expire lazily on limiter calls, and their retained key strings are not separately
+byte-capped. No historical database work, auth policy change or new infrastructure is included.
+
+Source `ac4bc76`: full pinned Python 3.11.16 / Ruff 0.16.6 / Bandit 1.9.4 gate passed.
+Ruff clean; Bandit 0 medium/high; backend pytest `2490 passed, 8 skipped, 2 deselected,
+23 warnings in 48.90s`, exit 0. Eight skips are the existing optional PostgreSQL billing lane,
+unrelated to the in-memory limiter change. Initial focused invocation from the repository root
+could not import `app`; rerunning from the required backend directory passed 22 tests.
+
+Exactly one mutation experiment per new invariant: evicting an active bucket at capacity instead
+of rejecting the unseen key caused 1 intended failure; disabling expired-prefix cleanup caused
+5 intended expiry/order failures; removing the Settings range constraints caused 3 intended
+validation failures (nonintegral/nonfinite type checks still passed). Every mutation restored
+exact committed bytes; the final focused home passed `22 passed, 2 warnings in 0.29s`.
+
+Root independently reviewed correctness, rules/brief and tests/gates at `ac4bc76`, with no
+actionable finding. Last-accepted ordering is maintained only by successful calls; clock sampling
+inside the same lock prevents concurrent samples from breaking that order. No second expiry
+structure or background timer exists. Locked auth tests and all public limiter signatures are
+unchanged. `_hits.clear()` compatibility was exercised by the focused and full gates. Root owns
+publication, integration and serialized production verification; none occurred in this worktree.
+The 10000-key default remains a proposed engineering budget, with no measured production-key
+count or memory-bytes/fleet guarantee. Capacity rejection can affect new legitimate clients;
+active buckets retain their limits until their existing windows expire.
+
+
+E13b integration checkpoint: root authorized integration and branch push after gates. Merge
+`9d3531b` incorporates main `cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` without rewriting
+history; the sole task-ledger conflict retains all E13b and incoming E06 sections. The limiter,
+Settings, focused test home and configuration documentation are byte-identical to reviewed
+`ac4bc76`; prior mutation proofs remain valid and were not repeated.
+
+Three-lens integration review found no actionable issue: bounded local state and unchanged auth
+callers remain correct; rules/brief still introduce no billing, schema, fleet, production flag or
+byte-limit claim; the behavioral gates and locked auth/Stripe bytes remain intact relative to main.
+Full pinned backend gate with `STRIPE_CONCURRENCY_TEST_DATABASE_URL` enabled against the existing
+disposable local PostgreSQL cluster passed: Ruff clean, Bandit 0 medium/high, pytest
+`2538 passed, 2 deselected, 23 warnings in 55.95s`, exit 0 with no skips. The retained full log
+includes the existing asynchronous client shutdown logging diagnostic after pytest success.
+No frontend file changed. Branch push is authorized; PR creation/readiness, merge and serialized
+production verification remain root-owned and pending at this checkpoint.
 ### E08a — Render trial state from resolved entitlements (engineering)
 
 Base `cab71f9`. Pricing and settings currently use raw `status = trialing` even when the
