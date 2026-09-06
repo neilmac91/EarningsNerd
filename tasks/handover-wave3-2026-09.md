@@ -7,7 +7,26 @@ and the standalone wave-2 writeup. Companions: [wave-2 handover](handover-wave2-
 
 ## 0. Checkpoint and review verdict
 
-Current entry checkpoint (2026-09-06): [#707](https://github.com/neilmac91/EarningsNerd/pull/707)
+Current backend checkpoint (2026-09-06): [#718](https://github.com/neilmac91/EarningsNerd/pull/718)
+merged `32e10e86893a14a041594eb50a4f18acadd16b85`, delivering 518 reviewed public-source members.
+[Production run 34015542968](https://github.com/neilmac91/EarningsNerd/actions/runs/34015542968),
+deploy job `101438839055`, succeeded with `apply_migrations: applied=0 skipped=34`;
+`earningsnerd-backend-00275-hl7` serves 100% traffic. Image `32e10e8`/latest digest
+`c0261e7f337fdc5bd9bd6a70ea6449847c7ee3edca8b387642e85b30c957b41b` matches;
+independent detailed health is healthy (DB 7.05 ms, SEC closed, Redis disabled/healthy).
+Final CI 34014981345 and Copilot 34015323793 passed; exact tails, artifacts and the corrected
+review finding are in the [active W3-3 checkpoint](todo.md#w3-3-public-source-replacement--2026-09-06).
+Notable remains absent and its skipped update does not clear the founder provisioning hold.
+[Public refresh 34016016776](https://github.com/neilmac91/EarningsNerd/actions/runs/34016016776),
+job `101439794997`, succeeded: `sp500=503 nasdaq100=102 union=518`, validated 518 members
+and retained artifact `9983905252` byte-identical to the deployed JSON. Its actual publication
+outcome was `Membership and metadata are unchanged — nothing to publish.` No PR was needed
+on this same-day run, so automatic publication has not been exercised. Read-only Actions
+metadata remains `can_approve_pull_request_reviews=false`; the founder setting in §2 and a
+subsequent actual draft-PR publication remain required. W3-3 stays unchecked and #710 open
+for that acceptance; public retrieval, data delivery and deployment are complete.
+
+Earlier entry checkpoint (2026-09-06): [#707](https://github.com/neilmac91/EarningsNerd/pull/707)
 merged `a7ad8f85`; [#708](https://github.com/neilmac91/EarningsNerd/pull/708) merged `6414e5bd`.
 W3-0 verification and W3-1 observation are complete.
 [Describe run 33996220468](https://github.com/neilmac91/EarningsNerd/actions/runs/33996220468),
@@ -33,12 +52,14 @@ Independent detailed health is healthy (DB 6.41 ms, SEC closed, Redis disabled/h
 The Notable job remains absent; its image update was skipped, preserving the founder hold.
 #716 also includes the late W3-5 DevOps
 prose qualification about ancillary installers; it adds no new unpinned installation policy.
-W3-3 public-source replacement is in progress following the founder's 2026-09-06 request.
+W3-3 public-source replacement #718 is merged and deployed following the founder's
+2026-09-06 request; automated PR publication remains a separate acceptance requirement.
 The earlier FMP run 34000192154 returned HTTP 402 at `/stable/sp500-constituent` and never
 reached Nasdaq; that failure remains historical evidence, not a prerequisite for public refresh.
 Both dedicated public Wikipedia lists were retrieved without credentials and matched current
-SPY/QQQ equity holdings. The old general Nasdaq article was the wrong source page. Source
-repair, reviewed data and actual workflow/deploy verification are tracked in the active todo.
+SPY/QQQ equity holdings. The old general Nasdaq article was the wrong source page. The
+source/data deployment and public refresh are verified above; automatic publication remains
+founder-held as recorded in the todo.
 Issue #710 remains open until verified closure. Other founder holds remain unchanged.
 The following original review checkpoint remains historical evidence.
 
@@ -104,7 +125,7 @@ do not remove a supplied credential to manufacture a failure. Strong-judge dispa
 | Founder action | Unblocks | Evidence to retain |
 |---|---|---|
 | Add `ANTHROPIC_API_KEY` as an Actions secret, then dispatch `data-quality-weekly.yml` | W3-7 | The `weekly-judged-readout-<run>` artifact with `status != unavailable` and 24/24 scored; the emailed report |
-| FMP access is superseded for W3-3 by the founder-requested public-source replacement | Engineering refresh/verification; no credential required | Public-source PR, workflow outcome and deployment pending; original FMP HTTP 402 remains unrepaired |
+| Enable **Allow GitHub Actions to create and approve pull requests** in repository Settings → Actions → General | W3-3 automatic draft-PR publication; public retrieval and #718 deployment already work | Read-only metadata currently reports `can_approve_pull_request_reviews=false`; retain an actual changed-data/metadata publication outcome after the founder changes policy. No PAT workaround; FMP access is unnecessary and its HTTP 402 remains unrepaired |
 | Create the `earningsnerd-notable-filings` Cloud Run job + Scheduler per `docs/DEPLOYMENT.md` §12; seed `--days 7`; review one full subsequent week; record retain/kill | W3-10 Notable | Execution ids, counts, the week's review notes |
 | Read the effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS`; run the companyfacts warm-up (`scripts/sync_companyfacts.py`) on the seeded cohort | W3-10 Analysis | Deployment id, cohort, success/error counts |
 | Grant the deployer SA access to `INTERNAL_JOB_TOKEN`; run `backfill_filing_history.py --tickers C,MS,WFC,GS` | Weekly-report anomalies | Live report coverage evidence |
@@ -219,13 +240,16 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 - **Source evidence:** public lists returned 503 and 102 securities; independently matched
   SPY September 3 and QQQ September 4 equity holdings. Preserve dual classes and dot-format
   normalization. Remove the stale FDXF/HONA exclusion: both are current trading constituents.
-- **Delivery:** review union additions/removals plus per-index labels, run the gates and three
-  lenses, merge the source/data PR and verify deployment per `AGENTS.md` §6. Dispatch the
-  public refresh and retain its actual counts and publication outcome; no-change is a valid
-  same-day result. Close #710 only with verified outcome evidence.
+- **Delivery verified:** #718 reviewed the union additions/removals and per-index labels;
+  corrected final gates and three lenses passed. Deployment 34015542968 is verified in §0.
+  Public refresh 34016016776 validated and retained the same 518-member artifact, then
+  reported no change. This does not exercise draft-PR creation; keep #710 open until the
+  founder policy prerequisite and actual publication acceptance are verified.
 - **Automation:** retain the validated candidate artifact before draft-PR publication. A
   GitHub publication-policy failure must stay distinct from successful source retrieval;
-  settings and PAT workarounds remain founder-held. This does not change the Calendar UI flag.
+  read-only Actions metadata reports `can_approve_pull_request_reviews=false`, so enabling
+  **Allow GitHub Actions to create and approve pull requests** remains founder-held. Do not
+  change settings or introduce a PAT workaround. This does not change the Calendar UI flag.
 - **Deadline:** before the 2026-10-01 cron and original 2026-10-16 age trip. Never raise
   `MAX_UNIVERSE_AGE_DAYS = 100`; the date may advance only through actual regeneration.
 
@@ -377,7 +401,7 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 | 2 | W3-2 gates + pins + RUNBOOK + docs | yes | first backend deploy; verify fully before 3 |
 | 3 | W3-4 prod-smoke workflow (+ lockstep spec and backend tuple gate) | yes | may open while 2 is deploying |
 | 4 | W3-5 agent files + gate | yes | after 2 verified |
-| 5 | W3-3 auto-PR merge | yes | whenever the key arrives; serialize with 4/6 |
+| 5 | W3-3 public-source/data #718; later refresh PRs | yes | #718 merged after W3-6 verification; public refresh needs no key; serialize every backend deploy |
 | 6 | W3-6 PyJWT | yes | after 4 verified |
 | 7+ | W3-7 → W3-8a → W3-8b → W3-9 → W3-10 | yes | each held on its prerequisite; one re-pin in flight at a time |
 
