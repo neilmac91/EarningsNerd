@@ -12,10 +12,10 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 
 | ID | Objective | Dependency | State |
 | --- | --- | --- | --- |
-| E01 | Keep mobile example identity and figures from one source | None | #720 merged; mobile preview verified; production verification pending |
-| E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | Local gates/reviews and prior CI passed; current-head CI/Copilot pending |
-| E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | Queued |
-| E04 | Bound SSE handshake and reject premature EOF | Independent frontend | Implemented; local gates/review passed; CI pending |
+| E01 | Keep mobile example identity and figures from one source | None | #720 released; both-theme mobile preview and production deployment verified |
+| E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | #721 released; backend deployment and independent health verified |
+| E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | Local full gate and corrected review passed; publication/CI/deployment pending |
+| E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | Queued |
 | E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
@@ -78,3 +78,25 @@ Copilot and root's serialized backend release/deployment verification; no mutati
 After integrating E01 main, local merge `09758a7` passed the full backend gate:
 Ruff/Bandit exit 0; `2390 passed, 2 deselected, 23 warnings in 46.41s`, exit 0.
 No backend source/test bytes changed during integration; the existing mutation proof remains valid.
+
+### Updated release evidence
+
+Root verified E01 production Vercel `G1Rdtbtf64kNcUD3GAqnVH4Usp5u` succeeded and the canonical
+homepage returned HTTP 200. E02 [#721](https://github.com/neilmac91/EarningsNerd/pull/721)
+merged as `5298c77`; [production CI 34024814391](https://github.com/neilmac91/EarningsNerd/actions/runs/34024814391),
+deploy `101464120936`, passed with `applied=0 skipped=34`. Revision `00276-qhd` serves 100%;
+image `9bb76917797ccc8473eb6b0aa8722151056c724024e317084007b466d6bdcec9`. Independent detailed
+health: healthy, DB 7.89 ms, Redis disabled, SEC closed. This supersedes the earlier pending checkpoint.
+
+E04 [#722](https://github.com/neilmac91/EarningsNerd/pull/722) merged as `049cd4f` after
+[CI 34025236804](https://github.com/neilmac91/EarningsNerd/actions/runs/34025236804) passed.
+Root verified production Vercel `BYywW33Tav6FAoyHa4LZ43h2cCSE` succeeded; main CI `34025409826`
+succeeded with backend deployment correctly skipped.
+
+E03 is implemented locally and reviewed after correcting a discovered lazy-subscription lookup
+on the route event loop. Frozen input snapshots now resolve missing subscription fields in an
+owned worker session; the real-user query-thread regression catches the reviewed defect.
+Integrated source `43eb5c8` includes current main `049cd4f`; full backend gate: Ruff clean,
+Bandit 0 medium/high, `2412 passed, 2 deselected, 23 warnings in 50.01s` (exit 0). The initial
+lifetime/health proofs and one additional exact-site lookup proof are retained. E03 still needs
+publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
