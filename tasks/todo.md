@@ -4,12 +4,12 @@ Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
 
 - [x] Read CLAUDE/AGENTS, wave-3, E11 queue, filing-scan service/models and locked tests;
   applicable hermeticity, lock, original-proof and structural-gate lessons.
-- [ ] Add the normalized UTC lower window bound to the existing watched-company filing query.
-- [ ] Preserve baseline, form/entitlement, log, future-date, sender and retry behavior; correct
+- [x] Add the normalized UTC lower window bound to the existing watched-company filing query.
+- [x] Preserve baseline, form/entitlement, log, future-date, sender and retry behavior; correct
   service/model prose claiming a unique log guarantees once-only external sending.
-- [ ] Add one new unlocked test home observing actual ORM-loaded Filing IDs for the boundary,
+- [x] Add one new unlocked test home observing actual ORM-loaded Filing IDs for the boundary,
   recent/old, watched/unwatched, baseline and preference cases with UTC/offset/naive `now`.
-- [ ] Commit source, run one mutation removing only the SQL date predicate, show the materialization
+- [x] Commit source, run one mutation removing only the SQL date predicate, show the materialization
   assertion failing and restore exact committed bytes. Run focused offline gates, Ruff and Bandit.
 - [ ] Three-lens source review and clean local checkpoint; root owns full gate, actual PostgreSQL
   timestamp parity, publication and serialized release. No full suite or live operations here.
@@ -20,6 +20,45 @@ Use new `backend/tests/unit/test_digest_window_query.py`; run the existing ancho
 No upper date bound, LIMIT, schema/index, dependency, flag, entitlement, sender/retry, prompt,
 model, baseline or locked-contract edits. Residual: sends occur before unique logs; concurrent
 sends can duplicate and logged failed attempts suppress retries. E11a changes no delivery policy.
+
+Plan `67b589a`; source `3f89e835792d6ca950c4a0dcac3f88e0f9bed746`.
+The service now applies `Filing.filing_date >= window_start` after the existing `now`
+normalization, alongside the existing watched-company predicate. Downstream UTC date checks,
+baselines, ordering, entitlements/preferences, log handling and external send behavior are
+unchanged. Future-dated filings remain eligible as before; there is no upper bound or truncation.
+
+The new disposable-SQLite gate clears the seeding identity map, records only ORM-loaded Filing
+IDs with a session-local event listener, and removes that listener in `finally`. It covers the
+inclusive boundary, one microsecond before it, recent and future filings, an unwatched company,
+a watched filing exactly at the watch baseline and a disabled form preference. UTC, +05:30
+and naive caller times represent the same normalized instant. The seven original filing-scan
+characterizations ran unchanged. All existing tests, frontend and CI remain byte-identical to base.
+
+One original mutation on committed `3f89e835` removed only the SQL lower bound. Each new case
+then loaded historical filing ID 4 and failed the materialization assertion:
+```text
+3 failed, 2 warnings in 0.63s
+```
+Exact source bytes restored. Restored focused gate:
+```text
+10 passed, 2 warnings in 0.56s
+```
+Full Ruff: `All checks passed!`; Bandit `-r app -ll`: zero medium / zero high (12 low), exit 0.
+Logs: `/private/tmp/earningsnerd-e11a-evidence/{mutation-window-query,focused-restored,ruff,bandit}.log`.
+The first focused source run passed 10 in 0.85s; retained as initial evidence, not a full gate.
+
+Three-lens local source review found no actionable issue: the SQL predicate reduces materialized
+rows while preserving behavior; rules/brief boundaries and locked T7 hold; behavioral event
+observations catch the original defect without asserting SQL text. Root's independent review,
+actual PostgreSQL timestamp parity and full-suite gate remain pending. No live provider/email,
+source retrieval, mutation repeat, dependency change, flag, baseline, push or deployment occurred.
+Root will integrate CI-P1 #739 (`639e48ca`) before its final full gate; this checkpoint is based
+on released `d048e215` and makes no claim about that combined tree.
+
+Residual: the window still has no numeric row/user cap, and the digest still iterates users and
+notification lookups in memory. This slice does not resolve concurrent external duplicate sends,
+failed-attempt retry suppression, delivery observability or alert-to-return measurement. Service
+and model prose now state those existing delivery limits; no sender/retry behavior changed.
 
 ## E14b — Final sitemap-main integration (2026-09-06)
 
