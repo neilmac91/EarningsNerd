@@ -14,16 +14,16 @@ attempts never extend retention. Each removal is amortized against an earlier in
 the configured ceiling can be removed in one call, with no scan of the active suffix or separate
 expiry metadata. `_hits.clear()` therefore still resets all state.
 
-- [ ] Add `RATE_LIMITER_MAX_KEYS`, a positive Settings integer defaulting to 10000 (maximum
+- [x] Add `RATE_LIMITER_MAX_KEYS`, a positive Settings integer defaulting to 10000 (maximum
   100000), captured per limiter at construction. This is an engineering memory budget, not a
   measured traffic threshold: it permits 10000 distinct live keys per limiter/window, bounds
   cardinality even under rotating-key abuse, and avoids assuming real production key counts.
-- [ ] Remove expired keys opportunistically; reject unseen keys while full and never evict active
+- [x] Remove expired keys opportunistically; reject unseen keys while full and never evict active
   buckets. Existing keys retain their remaining allowance. `is_exhausted` remains a read-only
   peek, including False for absent keys even at capacity; existing Retry-After behavior remains.
-- [ ] Extend `test_security_hardening.py` with deterministic expiry/order, capacity/active-history,
+- [x] Extend `test_security_hardening.py` with deterministic expiry/order, capacity/active-history,
   peek/clear and Settings-boundary behavior; one mutation proof per new invariant.
-- [ ] Run the full pinned backend gate and independent review, then return a clean committed
+- [x] Run the full pinned backend gate and independent review, then return a clean committed
   branch to root. No locked auth tests, production flags, spend, push or deployment by this agent.
 
 Rules 6, 8 and 12 apply. Limits and windows remain unchanged; storage is per limiter/process,
@@ -31,6 +31,28 @@ not an aggregate byte or fleet limit. At capacity, legitimate unseen keys can re
 429 path until idle keys expire; no active key is displaced to admit an attacker-controlled key.
 Whole idle buckets expire lazily on limiter calls, and their retained key strings are not separately
 byte-capped. No historical database work, auth policy change or new infrastructure is included.
+
+Source `ac4bc76`: full pinned Python 3.11.16 / Ruff 0.16.6 / Bandit 1.9.4 gate passed.
+Ruff clean; Bandit 0 medium/high; backend pytest `2490 passed, 8 skipped, 2 deselected,
+23 warnings in 48.90s`, exit 0. Eight skips are the existing optional PostgreSQL billing lane,
+unrelated to the in-memory limiter change. Initial focused invocation from the repository root
+could not import `app`; rerunning from the required backend directory passed 22 tests.
+
+Exactly one mutation experiment per new invariant: evicting an active bucket at capacity instead
+of rejecting the unseen key caused 1 intended failure; disabling expired-prefix cleanup caused
+5 intended expiry/order failures; removing the Settings range constraints caused 3 intended
+validation failures (nonintegral/nonfinite type checks still passed). Every mutation restored
+exact committed bytes; the final focused home passed `22 passed, 2 warnings in 0.29s`.
+
+Root independently reviewed correctness, rules/brief and tests/gates at `ac4bc76`, with no
+actionable finding. Last-accepted ordering is maintained only by successful calls; clock sampling
+inside the same lock prevents concurrent samples from breaking that order. No second expiry
+structure or background timer exists. Locked auth tests and all public limiter signatures are
+unchanged. `_hits.clear()` compatibility was exercised by the focused and full gates. Root owns
+publication, integration and serialized production verification; none occurred in this worktree.
+The 10000-key default remains a proposed engineering budget, with no measured production-key
+count or memory-bytes/fleet guarantee. Capacity rejection can affect new legitimate clients;
+active buckets retain their limits until their existing windows expire.
 
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
