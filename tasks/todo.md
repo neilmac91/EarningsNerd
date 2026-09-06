@@ -2,6 +2,29 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E05b prerequisite — Serialized webhook transactions (engineering)
+
+The founder asked to proceed with the next steps after verified E03/E05a releases.
+This prerequisite preserves all locked contracts. General stale-event reconciliation remains
+separate and needs approval for a provider stub in the locked webhook fixture.
+
+- [ ] Move verified Stripe-event database work into one worker-owned session/transaction.
+- [ ] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
+  retry contention without acknowledging or recording an unprocessed event.
+- [ ] Commit subscription state and event ledger together; emit plain best-effort analytics only
+  after successful commit and session cleanup. No ORM value crosses the worker boundary.
+- [ ] Add one nonlocked test home, `backend/tests/integration/test_subscription_event_transactions.py`,
+  for thread/cancellation ownership, rollback/signals and actual PostgreSQL contention/delivery.
+- [ ] Run the PostgreSQL cases explicitly inside the existing migration CI job, with
+  `STRIPE_CONCURRENCY_TEST_DATABASE_URL`; require PostgreSQL when supplied and skip only those
+  fixtures when absent from the ordinary SQLite lane. Gate this CI execution path mechanically.
+- [ ] Retain one mutation proof per new invariant, full local backend/workflow checks, independent
+  review, draft PR, actual CI/eval reports and serialized production verification.
+
+No new Stripe network calls, schema migration, locked-test changes, pricing/trial/promo policy,
+production flag or capacity change. Per-user serialization does not establish Stripe chronology,
+cross-user identity uniqueness or exactly-once analytics. No event timestamp/ID tie-break is added.
+
 ### E05a — Subscription identity and delayed-event guards (engineering)
 
 - [x] Reject checkout bindings that conflict with existing customer/subscription ownership.
