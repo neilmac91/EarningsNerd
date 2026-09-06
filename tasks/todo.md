@@ -12,6 +12,23 @@ review integration and locked bytes, then attempt only the authorized existing-b
 Root owns PR creation and serial release; if automatic approval rejects the update, retain the hold.
 
 
+E15a latest combined source `52c54bd` against main `752f3a2` passed the full pinned backend
+gate: Ruff clean; Bandit 0 medium/high; **2549 passed, 2 deselected, 23 warnings in 44.99s**,
+exit 0. Both Stripe and usage PostgreSQL URLs were configured and their cases ran in disposable
+schemas. The pre-existing closed logging-stream teardown diagnostic followed the passing summary.
+
+Integration review is clear across correctness, rules/brief and tests/gates. The case-sensitive
+placeholder filter still precedes the filing cap, curated company exclusion reuses the existing
+page predicate, partial content/dates/cache behavior remain unchanged, and both original mutation
+proofs remain valid without repetition. Sitemap runtime/test/lesson bytes match `b922d32`; E07a
+runtime/CI, E08a frontend, all locked anchors and baseline files match main. No frontend/workflow
+change, migration, flag, prompt, provider call or new eligibility policy was introduced.
+
+Latest logs: `/private/tmp/earningsnerd-e15-evidence/latest-main-ruff.log`,
+`latest-main-bandit.log` and `latest-main-full.log` in that directory. The parent authorizes only
+updating the existing branch after these gates; root retains PR creation, actual CI/eval review
+and serial release. The older 567-URL cached snapshot is not a current eligible-DB measurement.
+
 ### E08a — Render trial state from resolved entitlements (engineering)
 
 Base `cab71f9`. Pricing and settings currently use raw `status = trialing` even when the

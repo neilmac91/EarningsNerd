@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a integrated with main cab71f9 and full PostgreSQL gate passed; E15b partitioning and eligible DB count remain unresolved |
+| E15 | Partition sitemap and align eligible content | Independent | E15a integrated with main `752f3a2`; combined PostgreSQL backend gate passed. E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -209,3 +209,9 @@ is clear; Ruff/Bandit passed and PostgreSQL-enabled backend gate reports **2530 
 2 deselected, 23 warnings in 51.22s** (exit 0, no skips). The two original proofs were retained
 without repetition. The cached 567-URL snapshot above remains dated evidence, not release
 verification. Root owns PR and serialized deployment acceptance after branch publication.
+
+E15a latest integration `52c54bd` retains E07a runtime/CI and E08a frontend from main `752f3a2`.
+Sitemap source/tests/lesson remain reviewed `b922d32`; all locked anchors match main. Full combined
+gate with Stripe and usage PostgreSQL: Ruff clean, Bandit 0 medium/high; **2549 passed,
+2 deselected, 23 warnings in 44.99s**, exit 0. Integration review is clear across all three lenses;
+no mutation was repeated. Only existing-branch update is authorized here; root owns PR and release.
