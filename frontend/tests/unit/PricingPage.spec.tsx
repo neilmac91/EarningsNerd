@@ -13,9 +13,13 @@ const mockCreateCheckoutSession = vi.fn()
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
 const mockCheckoutStarted = vi.fn()
 const mockPush = vi.fn()
-// Test-only capture of the real onClick each card Button was rendered with, keyed by label, so
-// the actual upgrade handler can be exercised independently of the DOM's disabled state.
+// Test-only capture of the real onClick each card Button was rendered with, keyed by
+// `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
+// account is unresolved), so each card's actual handler can be exercised independently of
+// the DOM's disabled state.
 const capturedOnClick = new Map<string, (() => void) | undefined>()
+const invokeCard = (card: 'free' | 'pro', label: string) =>
+  capturedOnClick.get(`${card === 'pro' ? 'primary' : 'secondary'}:${label}`)?.()
 
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: () => mockGetSubscriptionStatus(),
@@ -35,7 +39,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/ui/Button', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/ui/Button')>()
   const Button = (props: React.ComponentProps<typeof actual.Button>) => {
-    if (props.size === 'lg' && typeof props.children === 'string') capturedOnClick.set(props.children, props.onClick as (() => void) | undefined)
+    if (props.size === 'lg' && typeof props.children === 'string') capturedOnClick.set(`${props.variant ?? 'primary'}:${props.children}`, props.onClick as (() => void) | undefined)
     return <actual.Button {...props} />
   }
   return { ...actual, Button }
@@ -232,8 +236,10 @@ describe('PricingPage', () => {
     expect(screen.queryByRole('button', { name: /upgrade to pro|start 7-day|claim pro/i })).not.toBeInTheDocument()
     expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
 
-    // The real handlers, invoked past the disabled DOM: nothing is recorded, sent or redirected.
-    capturedOnClick.get('Checking your plan…')?.()
+    // The real handlers of BOTH cards, invoked past the disabled DOM: nothing is recorded,
+    // sent or redirected (an unresolved identity is not a guest for the Free card either).
+    invokeCard('free', 'Checking your plan…')
+    invokeCard('pro', 'Checking your plan…')
     await Promise.resolve()
     noCheckoutSideEffects()
   })
@@ -249,7 +255,8 @@ describe('PricingPage', () => {
     expect(unavailable).toHaveLength(2)
     unavailable.forEach((button) => expect(button).toBeDisabled())
     expect(screen.queryByRole('button', { name: /current plan|get started free/i })).not.toBeInTheDocument()
-    capturedOnClick.get('Plan unavailable')?.()
+    invokeCard('free', 'Plan unavailable')
+    invokeCard('pro', 'Plan unavailable')
     await Promise.resolve()
     noCheckoutSideEffects()
 
@@ -268,14 +275,15 @@ describe('PricingPage', () => {
     await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
     expect(screen.getAllByRole('button', { name: /checking your plan/i })).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /current plan/i })).not.toBeInTheDocument()
-    capturedOnClick.get('Checking your plan…')?.()
+    invokeCard('free', 'Checking your plan…')
+    invokeCard('pro', 'Checking your plan…')
     await Promise.resolve()
     noCheckoutSideEffects()
 
     resolveSubscription({ ...baseSub })
     await screen.findByRole('button', { name: /^current plan$/i })
     // Positive control through the same captured handler: resolved Free may check out.
-    capturedOnClick.get('Upgrade to Pro')?.()
+    invokeCard('pro', 'Upgrade to Pro')
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
     expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
   })
@@ -290,7 +298,8 @@ describe('PricingPage', () => {
     const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
     expect(unavailable).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /current plan/i })).not.toBeInTheDocument()
-    capturedOnClick.get('Plan unavailable')?.()
+    invokeCard('free', 'Plan unavailable')
+    invokeCard('pro', 'Plan unavailable')
     await Promise.resolve()
     noCheckoutSideEffects()
 
@@ -316,7 +325,7 @@ describe('PricingPage', () => {
     expect(current).toHaveLength(1)
     if (isPro) {
       expect(screen.queryByRole('button', { name: /upgrade to pro/i })).not.toBeInTheDocument()
-      capturedOnClick.get('Current Plan')?.()
+      invokeCard('pro', 'Current Plan')
       await Promise.resolve()
       noCheckoutSideEffects()
     } else {
