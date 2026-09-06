@@ -1,5 +1,17 @@
 ## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
 
+### Approved full gate
+
+The founder explicitly approved CI-P1's isolated PostgreSQL gate, normal publication,
+live CI and verified release on 2026-09-06. Root ran the unchanged full gate with all
+three PostgreSQL URLs and local socket access: **2576 passed, 2 deselected, 23 warnings
+in 59.23s**, exit 0. Ruff passed; Bandit reports zero medium/high severity findings.
+Logs: `/private/tmp/earningsnerd-ci-pressure-evidence/approved-{ruff,bandit,full}.log`.
+The prior socket-denied run and automatic-review rejection remain historical evidence.
+Implementation is unchanged from `8fb21a5`; original mutation and independent reviews
+remain applicable without repetition. Main is still `d048e215`. Publication and actual
+live CI/release acceptance follow this checkpoint; no baseline or policy change is implied.
+
 Base: released main `d048e215bbcc9d522af03af55fae9f7f449c1904`.
 Approved local scope: CI filing concurrency two as an unmeasured starting assumption,
 separate nonsecret invocation/source/concurrency artifact, existing offline gate and runbook.
