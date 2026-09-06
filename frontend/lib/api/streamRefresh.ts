@@ -26,10 +26,11 @@ import { getErrorStatus } from './types'
  */
 export async function postStreamWithRefresh(doPost: () => Promise<Response>): Promise<Response> {
   const generation = getSessionGeneration()
+  const sessionWasActive = hasActiveSession()
   let response = await doPost()
   if (!isSessionGenerationCurrent(generation)) return response
   let confirmed = response.status === 401
-  if (response.status === 401 && hasActiveSession()) {
+  if (response.status === 401 && sessionWasActive && hasActiveSession()) {
     let refreshed = false
     try {
       await ensureRefreshed()
@@ -42,6 +43,6 @@ export async function postStreamWithRefresh(doPost: () => Promise<Response>): Pr
       confirmed = response.status === 401
     }
   }
-  if (confirmed) notifySessionLost(generation)
+  if (confirmed && sessionWasActive) notifySessionLost(generation)
   return response
 }

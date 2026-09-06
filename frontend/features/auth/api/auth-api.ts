@@ -1,6 +1,6 @@
 import api, { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, isSessionGenerationCurrent, hasActiveSession } from '@/lib/api/session'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -63,6 +63,7 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
 
 export const getCurrentUserSafe = async (options?: { signal?: AbortSignal }): Promise<CurrentUser | null> => {
   const generation = getSessionGeneration()
+  const sessionWasActive = hasActiveSession()
   try {
     return await getCurrentUser(options)
   } catch (error: unknown) {
@@ -70,8 +71,8 @@ export const getCurrentUserSafe = async (options?: { signal?: AbortSignal }): Pr
     options?.signal?.throwIfAborted()
     if (error instanceof ApiError && error.sessionLossConfirmed === false) throw error
     if (isApiError(error) && getErrorStatus(error) === 401) {
-      // Not logged in — clear any stale session marker so we stop attempting refreshes.
-      clearSessionActive()
+      // A guest request must not clear a marker established by a concurrent successful login.
+      if (sessionWasActive) clearSessionActive()
       return null
     }
     throw error

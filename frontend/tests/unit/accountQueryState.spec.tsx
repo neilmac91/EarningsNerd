@@ -7,7 +7,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
-import { getCurrentUser, getCurrentUserSafe, logout, type CurrentUser } from '@/features/auth/api/auth-api'
+import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
@@ -55,6 +55,50 @@ afterEach(() => {
 })
 
 describe('account snapshots follow the resolved identity', () => {
+  it.each(['guest-first', 'login-first'])('guest /me cannot invalidate a successful password login (%s)', async (order) => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    const guest = deferred<unknown>()
+    const credential = deferred<unknown>()
+    let meCalls = 0
+    let loginCalls = 0
+    api.defaults.adapter = async (config) => {
+      if (config.url === '/api/auth/login') {
+        loginCalls += 1
+        return response(config, await credential.promise)
+      }
+      meCalls += 1
+      if (meCalls === 1) {
+        await guest.promise
+        throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
+      }
+      return response(config, makeUser(2))
+    }
+    const priorGeneration = getSessionGeneration()
+    const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+    const signedIn = login('2@example.test', 'test-only-password')
+    await waitFor(() => { expect(meCalls).toBe(1); expect(loginCalls).toBe(1) })
+    if (order === 'guest-first') {
+      guest.resolve(undefined)
+      expect(await oldIdentity).toBeNull()
+      credential.resolve({ ok: true })
+      await expect(signedIn).resolves.toEqual({ ok: true })
+    } else {
+      credential.resolve({ ok: true })
+      await expect(signedIn).resolves.toEqual({ ok: true })
+      // Resolve the old guest before the login caller's reset to expose marker side effects too.
+      guest.resolve(undefined)
+      expect(await oldIdentity).toBeNull()
+    }
+    expect(getSessionGeneration()).toBe(priorGeneration)
+    expect(hasActiveSession()).toBe(true)
+    resetAccountQueries(client)
+    expect(hasActiveSession()).toBe(true)
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(hasActiveSession()).toBe(true)
+  })
+
   it.each([true, false])('isolates A Pro=%s from pending/failed B reads and late A responses', async (aPro) => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))

@@ -159,6 +159,30 @@ Logs: `/private/tmp/earningsnerd-account-cache-evidence/focused-reviewed.log` (f
 paths from the frontend directory and exited before edits; the initial focused command still
 ran on the earlier 55-case source. No test result from that run is claimed for later source.
 
+### Source review correction: guest identity check overlaps password login
+
+Root and independent reviewer refutations confirmed that a guest /me 401 could notify session
+loss, advance the JS generation, and reject a concurrently successful login. A guest has no
+existing session to lose. Capture request-start active state alongside generation, preserve it
+on replay, and require that state before refreshing or notifying loss. getCurrentUserSafe also
+uses its request-start marker before clearing; a guest response must not clear the marker set by
+concurrent login. The new actual adapter + subscribed QueryClient reset cases cover guest-first
+and login-first order and verify accepted B identity and active marker. Focused eight homes:
+`68 passed (68)` in 3.60s (`focused-guest-overlap.log`). No locked fixture changed.
+
+The original three committed-source proofs at `4286cacc` each failed as intended and restored
+exact bytes: identity keys/admission `3 failed | 3 passed`, transition fence `1 failed | 5 passed`,
+transient refresh `6 failed | 20 passed`. Logs are `mutation-{identity-keys,transition-fence,
+transient-refresh}.log` and `proof-restoration.log` in the evidence directory. They will not be
+repeated for this identified correction; one new guest-overlap proof follows on corrected source.
+
+Root explicitly retained the genuine active-session-loss fence: if a confirmed loss or another
+explicit transition occurs during a credential request, its eventual HTTP success can still
+require the user to retry because that request belongs to an old JS generation. This is a
+residual concurrent credential/refresh limitation, alongside browser Set-Cookie ordering; no
+claim of all password-login interleavings or cancellation of cookie writes is made. Ordinary
+A -> completed logout -> B and guest-login overlaps are the bounded acceptance cases.
+
 ### Constraints and remaining limits
 
 CLAUDE rules 4/6/9/11/12 apply; backend plan truth, API payloads, prices, trials, analytics schema,

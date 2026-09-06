@@ -62,11 +62,12 @@ const api = axios.create({
   withCredentials: true,
 })
 
-type SessionRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _sessionGeneration?: number }
+type SessionRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _sessionGeneration?: number; _sessionWasActive?: boolean }
 
 // Set baseURL dynamically on each request (for client-side)
 api.interceptors.request.use((config: SessionRequestConfig) => {
   config._sessionGeneration ??= getSessionGeneration()
+  config._sessionWasActive ??= hasActiveSession()
   // Always set baseURL dynamically to ensure correct URL in client-side
   if (typeof window !== 'undefined') {
     config.baseURL = getApiUrl()
@@ -143,6 +144,7 @@ api.interceptors.response.use(
       original &&
       !original._retry &&
       isRefreshableRequest(original.url) &&
+      original._sessionWasActive &&
       hasActiveSession()
     ) {
       original._retry = true
@@ -164,7 +166,7 @@ api.interceptors.response.use(
 
     if (status === 401 && isRefreshableRequest(original?.url) && currentGeneration()) {
       sessionLossConfirmed ??= true
-      if (sessionLossConfirmed) notifySessionLost(generation)
+      if (sessionLossConfirmed && original?._sessionWasActive) notifySessionLost(generation)
     }
 
     const backendDetail = error.response?.data?.detail
