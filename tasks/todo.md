@@ -46,7 +46,11 @@ authenticated user. Before #742 the synchronous session marker had no pending st
   "checking" forever (new test + mutation `1 failed | 2 passed`), and the spec invokes the
   real `toggle` directly so the guard is proven (mutation `1 failed | 2 passed`). Refuted:
   viewerRef staleness, consumer behaviour while pending, SSR, mock fidelity.
-- [ ] Ready, Codex, merge, main CI, production verification.
+- [x] Released as [#744](https://github.com/neilmac91/EarningsNerd/pull/744) → main
+  `0b4b7f3c82e9fa32a03df89a52ec89f9a4abfd1d`. PR CI 34058733161 / 34058933179 / 34059063132
+  green; Codex review on `5a075b9` completed with no findings; main CI 34059268610 green with
+  backend deployment skipped; production `/calendar` (live in production) served the new bell
+  label in a chunk by 20:52:07 UTC. Both Codex threads on #742 answered and resolved.
 
 ## Account-cache integration and handover checkpoint (2026-09-06)
 ## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)
