@@ -1,3 +1,16 @@
+## Account-cache integration and handover checkpoint (2026-09-06)
+
+Integrated released main `d7b0177908b6d580d8ad4a99387f54fb34d1849f` (#741) after an
+approved read-only origin fetch. The sole merge conflict was this checklist; both complete
+histories remain below. Entire frontend tree matches final tested source `25b360f`; backend
+and workflows match incoming main. No mutation or full gate repetition is needed for this
+documentation-only integration. Final lint, typecheck, Vitest and build all exited 0:
+`101 test files passed; 553 tests passed in 35.20s`; build generated 27/27 pages.
+Evidence remains in `/private/tmp/earningsnerd-account-cache-evidence/full-25b360f-*.log`.
+Root and independent three-lens source review are clear. User requested handover to Claude
+Fable 5.1; no new implementation or publication follows this clean local checkpoint. Root owns
+push, draft PR, remote CI, any actual preview and release. No live account operation occurred.
+
 ## Account-cache isolation — subscription and usage (engineering, 2026-09-06)
 
 Base `c4ae631`; isolated branch `codex/wave3-account-cache-isolation`. Plan-only checkpoint:
@@ -304,6 +317,122 @@ cross-tab cookie changes and server-side ordering of already-in-flight cookie-se
 are separate concerns; no app-wide privacy or authentication isolation claim is made. Backend
 entitlements remain the authorization boundary. No live-account operation or working preview
 has been performed for this task.
+
+## E11b-0 — Reject unsafe filing-job dry runs (engineering, 2026-09-06)
+
+### CI follow-up: arm the lifecycle deadline after provider entry
+
+PR #741 at `5a176c8` failed backend CI `34052297297`: the existing unlocked provider
+lifecycle timeout case expired its 0.12-second preparation budget before a stream opened,
+then unconditionally required a closed stream. Actual result: 1 failed, 2558 passed,
+24 PostgreSQL-lane skips, 2 deselected. Copilot accepted all 18 attempts; summary generation
+was skipped. No workflow was rerun or release performed.
+
+Root reproduced the same assertion offline with one controlled 150 ms delay before the
+parsing progress DB dispatch (1 failed, 9 warnings in 2.08s). Two independent source
+refutations confirm provider creation occurs after the pipeline deadline starts. The fixture
+must establish ownership before testing ownership cleanup; no production timeout changes.
+
+- [x] Diagnose actual CI failure and reproduce the pre-provider deadline without live I/O.
+- [x] In existing `test_summary_provider_lifecycle.py`, use a real initially unarmed timeout
+  through a pipeline-local asyncio proxy; arm after provider entry and a summarizing heartbeat.
+- [x] Preserve all cleanup, one-call, terminal-frame and registry assertions; prove the same
+  delayed preparation now reaches and closes its stream. Run the existing lifecycle home.
+- [x] Review locked bytes, full Ruff/Bandit/backend gate with all three PostgreSQL lanes;
+  record exact evidence before publication. Keep failed CI evidence, do not chase a pass.
+
+Correction source `042bfd5`: same delayed preparation now passes (1 passed, 9 warnings in
+2.31s); complete lifecycle home passes (24 passed, 17 warnings in 3.24s). The pipeline-local
+asyncio proxy preserves real Timeout cancellation and leaves provider deadlines untouched.
+Root and independent three-lens reviews are clear; every existing assertion is retained.
+Full corrected Ruff/Bandit/backend gate, all three PostgreSQL lanes, exited 0:
+`2583 passed, 2 deselected, 23 warnings in 58.40s`. Bandit medium/high severity both zero.
+All app/eval/prompt/workflow and locked-test bytes match main. Original dry-run proof remains
+valid on unchanged source; no mutation repeat. PR returned to draft before publishing this
+correction so it cannot silently trigger another paid Copilot run. Original failed CI and
+accepted Copilot artifacts remain preserved; they do not establish corrected-head acceptance.
+
+### Root verification after E11a integration
+
+Integrated main `c4ae63150075590ccbea5992f566d530345dc964` (#740) as `c1315ea`.
+The sole todo conflict retained both sections; diff checks and clean status passed.
+Script and gate bytes still match source `9918a7a`; all application services, locked tests,
+frontend, workflows and eval files match main. No mutation repeat was needed.
+
+Root full Ruff/Bandit/backend gate, all three PostgreSQL concurrency URLs enabled, exited 0:
+```text
+2583 passed, 2 deselected, 23 warnings in 59.37s
+```
+Ruff clean; Bandit zero medium/high severity. Logs are retained in
+`/private/tmp/earningsnerd-e11b-evidence/full-{ruff,bandit,backend}.log`.
+An earlier lint-only command ended with a placeholder print and did not execute pytest;
+it is not counted as a full gate. The completed combined command above is the test evidence.
+
+Root and independent three-lens reviews are clear, including the dated prior-audit correction
+in `docs/audit-2026-09/03-data-platform.md`. Its three source links resolve. That correction
+preserves the original table as historical and distinguishes log uniqueness from external
+send safety and independent job bookkeeping from business rollback.
+
+The final diff has no `backend/app`, `backend/evals` or `backend/prompts` change; under the
+unchanged workflow the summary measurement should skip. The backend script/test paths still
+trigger 18 ready-for-review Copilot attempts. Normal publication/live acceptance and verified
+release require their distinct spending approval. No email or production job was executed.
+
+Base `639e48ca`; isolated local branch `codex/wave3-filing-dry-run-safety`.
+
+- [x] Read CLAUDE/AGENTS, applicable hermeticity/lock/proof/job-outcome lessons, job script,
+  job-reporting test home and tracker; preserve locked T7 and all live job boundaries.
+- [x] Reject both scan and digest `--dry-run` with readable nonzero SystemExit before app
+  imports, SessionLocal, track_job or business service calls; remove the no-op sender path.
+- [x] Update CLI help/doc and the existing job-outcome lesson: safe preview is unavailable;
+  a dry-run heartbeat alone cannot protect business logs and watchlist watermarks.
+- [x] Extend unlocked `test_job_reporting.py` with actual CLI branches, import/DB/tracker/
+  service spies and normal scan/digest/cadence/reporting controls.
+- [x] Commit source; one original mutation bypassing rejection must fail; restore exact bytes.
+  Focused offline gate, Ruff/Bandit, three-lens review and clean local evidence checkpoint.
+- [x] Root final integration and full suite with all three PostgreSQL lanes.
+- [ ] Publication approval, actual live CI acceptance and verified release.
+
+Current `_noop_send` returns success while the service writes notification logs and advances
+watchlist watermarks. This slice disables that unsafe CLI option; it does not implement a
+working preview or repair historical state. Normal scan/digest and failure reporting remain
+unchanged. No provider/email/job execution, network, flags, baseline, schema, entitlement,
+transport, locked-test edits, push or deployment here. Independent source review follows.
+
+Plan `63ed647`; source `9918a7a28c02ecde8988d76618327fdef4833a63`.
+The first operation in `_main` rejects dry runs with a readable SystemExit message before
+all `app` imports. Both CLI modes retain the option only to reject it explicitly; the old
+fake-success sender is removed. The normal service arguments, cadence, tracker counters,
+exception reporting and session cleanup remain unchanged. Help/module docs and the existing
+job-outcome lesson state safe preview is unavailable; no working preview is claimed.
+
+The existing unlocked `test_job_reporting.py` now exercises the real `__main__` CLI via
+runpy for scan/digest × dry/normal. Import observations and DB/tracker/service spies prove
+rejection happens before application initialization. Normal controls prove the selected service,
+explicit no-override sender, configured cadence, record(stats) and session close remain intact.
+Existing failure-counter and job-lifecycle tests ran unchanged. All backend app code, locked
+filing-scan tests, frontend and CI are byte-identical to base `639e48ca`.
+
+Exactly one mutation on committed `9918a7a` bypassed only `if dry_run`. Both dry-run cases
+failed the application-import boundary assertion and both normal controls passed:
+```text
+2 failed, 2 passed, 34 deselected, 2 warnings in 0.35s
+```
+Exact script bytes restored. Restored complete job-reporting home:
+```text
+38 passed, 2 warnings in 2.59s
+```
+Ruff: `All checks passed!`; Bandit `-r app -ll`: zero medium / zero high (12 low), exit 0.
+Evidence: `/private/tmp/earningsnerd-e11b-evidence/{mutation-dry-run,focused-restored,ruff,bandit}.log`.
+The initial command ran from the repository root and failed collection with `No module named
+'app'`; this is retained in `focused-initial.log`. Running from the prescribed backend working
+directory passed 38 tests in 2.64s (`focused.log`), before source commit and the original proof.
+
+Three-lens local review is clear: fail-closed rejection precedes all application boundaries,
+normal work remains unchanged, no scope/locked-rule violations, and the behavioral test catches
+the original unsafe entry path. Independent review, integration with released E11a, full-suite/
+PostgreSQL gates and publication remain root-owned and pending. No full suite, live job/email,
+provider request, network, historical repair, mutation repeat, push or deployment here.
 
 ## E11a — Restrict digest filing materialization to its window (engineering, 2026-09-06)
 

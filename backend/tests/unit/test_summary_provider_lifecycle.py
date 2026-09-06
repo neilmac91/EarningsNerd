@@ -69,7 +69,13 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
                     pipeline, "generate_xbrl_summary", lambda **kwargs: {**CANONICAL_PAYLOAD, "status": "partial"}
                 )
             if stop == "timeout":
-                patch.setattr(pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.12)
+                # Test cleanup of an owned provider, independently of DB/thread startup speed.
+                # Keep real timeout cancellation, but arm it only after the stream is open.
+                # A local proxy leaves the provider's own asyncio deadlines untouched.
+                deadline = asyncio.timeout(None)
+                patch.setattr(pipeline, "asyncio", SimpleNamespace(
+                    **{**vars(asyncio), "timeout": lambda _seconds: deadline}
+                ))
             gen = pipeline.stream_filing_summary(
                 filing_id=filing_id,
                 current_user=None,
@@ -84,6 +90,8 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
                     frame = await anext(gen)
                     if entered.is_set() and frame.get("stage") == "summarizing":
                         break
+                if stop == "timeout":
+                    deadline.reschedule(asyncio.get_running_loop().time())
                 if stop == "close":
                     await gen.aclose()
                 elif stop == "cancel":

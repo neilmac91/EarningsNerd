@@ -1,9 +1,12 @@
 """WS-7 durable attempts, job adapters, and honest universe/report denominators."""
 import asyncio
+import builtins
+import runpy
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy import Column, Integer, MetaData, Table, create_engine, inspect
@@ -134,6 +137,68 @@ def test_every_scheduled_entrypoint_records_swallowed_failures(sessions, monkeyp
     with sessions() as db:
         row = db.query(JobRun).one()
         assert row.job_name == expected and row.status == "failed"
+
+
+
+@pytest.mark.parametrize("digest", [False, True], ids=["scan", "digest"])
+@pytest.mark.parametrize("dry_run", [True, False], ids=["dry-run", "normal"])
+def test_filing_cli_rejects_dry_run_before_application_work(monkeypatch, digest, dry_run):
+    from app.services import filing_scan_service
+
+    db = MagicMock()
+    factory = MagicMock(return_value=db)
+    tracker = MagicMock()
+    attempt = tracker.return_value.__enter__.return_value
+    stats = {"digests_sent": 1} if digest else {"companies_scanned": 1}
+    scan = AsyncMock(return_value=stats)
+    daily_digest = AsyncMock(return_value=stats)
+    monkeypatch.setattr(database, "SessionLocal", factory)
+    monkeypatch.setattr(jobs, "track_job", tracker)
+    monkeypatch.setattr(filing_scan_service, "run_filing_scan", scan)
+    monkeypatch.setattr(filing_scan_service, "run_daily_digest", daily_digest)
+    argv = ["filing_scan.py", "--cadence-minutes", "17"]
+    if digest:
+        argv.append("--digest")
+    if dry_run:
+        argv.append("--dry-run")
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    app_imports = []
+    original_import = builtins.__import__
+
+    def observe_import(name, *args, **kwargs):
+        if name == "app" or name.startswith("app."):
+            app_imports.append(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", observe_import)
+    exit_code = None
+    try:
+        runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts/filing_scan.py"),
+                       run_name="__main__")
+    except SystemExit as exc:
+        exit_code = exc.code
+
+    if dry_run:
+        assert app_imports == [], "Dry-run must reject before importing the application"
+        factory.assert_not_called()
+        tracker.assert_not_called()
+        scan.assert_not_called()
+        daily_digest.assert_not_called()
+        assert isinstance(exit_code, str) and "Safe preview is unavailable" in exit_code
+    else:
+        assert exit_code is None
+        assert app_imports  # The control actually reached normal application initialization.
+        factory.assert_called_once_with()
+        tracker.assert_called_once_with("filing-digest" if digest else "filing-scan", dry_run=False)
+        if digest:
+            daily_digest.assert_awaited_once_with(db, send_digest=None)
+            scan.assert_not_called()
+        else:
+            scan.assert_awaited_once_with(db, send_alert=None, cadence_minutes=17)
+            daily_digest.assert_not_called()
+        attempt.record.assert_called_once_with(stats)
+        db.close.assert_called_once_with()
 
 
 def test_provider_exceptions_are_counted_by_services(sessions, monkeypatch):
