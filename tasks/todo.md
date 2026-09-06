@@ -9,14 +9,14 @@ several failed-leader followers can each overwrite the registry and generate the
 Recheck ownership after asynchronous work and elect only one replacement per process. This
 is local deduplication, not fleet admission, quota reservation or a durable queue.
 
-- [ ] Loop through registry recheck/claim after joins; atomically claim only an empty slot.
-- [ ] Preserve the active leader when a follower's existing wait budget expires; use the existing
+- [x] Loop through registry recheck/claim after joins; atomically claim only an empty slot.
+- [x] Preserve the active leader when a follower's existing wait budget expires; use the existing
   timeout error path, keep the overall 120-second timeout and release only owned state.
-- [ ] Extend only nonlocked `test_inflight_dedup.py` with deterministic failed-leader competition
+- [x] Extend only nonlocked `test_inflight_dedup.py` with deterministic failed-leader competition
   and active-leader timeout tests. Preserve force-regenerate, provider, usage and cleanup behavior.
-- [ ] Commit source, retain one mutation proof per new invariant with exact restoration; run
+- [x] Commit source, retain one mutation proof per new invariant with exact restoration; run
   focused existing lifecycle/locked anchors and the pinned full backend gate.
-- [ ] Update scoped lesson/ledger/evidence and return clean source for root's independent review;
+- [x] Update scoped lesson/ledger/evidence and return clean source for root's independent review;
   no push, PR, merge or production action by this task.
 
 Read CLAUDE/AGENTS, relevant architecture/operating lessons, wave-3 and eval RUNBOOK. This
@@ -24,6 +24,38 @@ changes no prompt/model/extraction/AI flag or armed guard, so there is no baseli
 Existing CI evaluation evidence must be reviewed before release. W3-8b classification remains
 untouched; E07 quota reservation, fleet leases, external queue/spend and capacity remain separate.
 
+
+E09a initial source `f5ce693` passed 47 focused dedup/lifecycle/unchanged locked-anchor checks.
+Its full gate was Ruff clean, Bandit 0 medium/high severity, 2481 passed / 8 PostgreSQL-only
+skips / 2 deselected in 48.99s. Two initial mutations were restored: bypassing handoff recheck
+failed the duplicate-provider assertion (the forced parameter also timed out during that mutated
+run; that timeout is not separate invariant evidence), and expired-follower takeover failed the
+existing timeout-output assertion. No earlier mutation was repeated.
+
+Root and independent review found the delayed-empty-snapshot hole: a worker result can arrive
+after a successful replacement has committed/released. Corrected source `fe6916c` holds the new
+claim while a previously joined follower rereads persisted state. Both normal and forced
+requests now serve the existing shared result. Focused gate: 49 passed in 4.23s. Exactly one
+restoration of `f5ce693` made both delayed-return parameters fail with a second provider call;
+corrected committed bytes were restored. The prior two proofs remain scoped evidence.
+
+Initial standalone pytest invocation ran from the repository root and failed collection (`app`
+not importable); rerunning from the documented backend directory resolved the harness setup.
+The test's nested patch context was also corrected before broader gates to avoid restoring a
+harness mock after its context exited. No locked fixture/test, prompt/model/flag, quota, provider
+transport, baseline or golden file changed. No live provider/SEC calls or deployment by this task.
+
+Final source `fe6916c`: Ruff clean, Bandit 0 medium/high severity, **2483 passed, 8 skipped,
+2 deselected, 23 warnings in 45.82s**, exit 0. The eight skips require a PostgreSQL URL in
+unrelated existing billing cases; E09a changes no database schema or billing path. Root's fresh
+corrected-source review is clear: claimed fresh read, identity-safe finally release and preserved
+force follower semantics. Root owns independent acceptance, latest-main integration, publication,
+actual CI/eval evidence and serialized deployment. Local tests do not establish live AI quality.
+Logs: `/private/tmp/earningsnerd-e09-delayed-fixed.log`,
+`/private/tmp/earningsnerd-e09-mutation-failed_leader.log`,
+`/private/tmp/earningsnerd-e09-mutation-timeout.log`,
+`/private/tmp/earningsnerd-e09-mutation-delayed-read.log`,
+`/private/tmp/earningsnerd-e09-bandit-final.log`, `/private/tmp/earningsnerd-e09-full-final.log`.
 
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
