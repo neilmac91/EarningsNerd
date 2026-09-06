@@ -1,3 +1,24 @@
+## E10b — Explicitly approved verification/publication resumed (2026-09-06)
+
+The user explicitly approved all five actions in the prepared
+`outputs/remaining-verification-publication-approval.md` packet, including the full local
+backend gate and existing PR #730 branch update. Root relayed that direct approval after
+merging #734 as `ee3ac9882b74453bb670c69b5b05142338a53844`. The earlier rejected/aborted
+gate records below remain historical and supply no passing evidence.
+
+- [x] Read current rules and applicable lessons; integrate main `ee3ac98` as `49f05c6`.
+  The only conflict was todo insertion; E10b and incoming E12a/E13b/E14 histories all remain.
+- [x] Verify E10b's six runtime/test files equal prior published `5fb6ed1`; incoming CI,
+  pricing/trial, waitlist/mobile example corrections match main. No mutation repeat needed.
+- [ ] Full pinned Ruff/Bandit/backend pytest with both Stripe and usage PostgreSQL URLs;
+  hermetic provider mocks and UUID-isolated disposable schemas only.
+- [ ] Full pinned frontend lint/typecheck/Vitest/build on combined source.
+- [ ] Three-lens integration review, locked-byte identity, evidence commit and clean status.
+- [ ] Push only the existing `codex/wave3-saved-summary-status` branch for PR #730.
+
+Root owns PR metadata, merge and serialized deployment. The explicit approval permits this
+verification/publication, not flags, spending, pricing, data repair or further locked edits.
+
 ## E14a — grounded waitlist example (2026-09-06)
 
 Second preview finding: corrected `83dd208` shows the issuer at 320 px, but root's
