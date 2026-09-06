@@ -16,12 +16,12 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | #721 released; backend deployment and independent health verified |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | #723 released; CI/evals, migration tail, revision/traffic and independent health verified |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
-| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 released; E05b transaction/concurrency prerequisite in progress. Authoritative ordering remains held on locked-fixture approval |
-| E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
+| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
+| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, review clear; combined full gate passed, publication/release pending |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
-| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Queued |
+| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
@@ -100,3 +100,41 @@ Integrated source `43eb5c8` includes current main `049cd4f`; full backend gate: 
 Bandit 0 medium/high, `2412 passed, 2 deselected, 23 warnings in 50.01s` (exit 0). The initial
 lifetime/health proofs and one additional exact-site lookup proof are retained. E03 still needs
 publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
+
+
+E05b [#725](https://github.com/neilmac91/EarningsNerd/pull/725) merged as
+`f94501fd01d2c330688b7f031616626549793d83`. Root verified production
+[CI 34029873954](https://github.com/neilmac91/EarningsNerd/actions/runs/34029873954),
+deploy `101477674329`, succeeded with `applied=0 skipped=34`. Image digest
+`sha256:627ea716c48753c306437ca72f8a34911370f5a321caac058287fbbba95dcc04`; revision
+`earningsnerd-backend-00279-s9z` serves 100%. Independent health timestamp
+`1788693905.0609558`: healthy, DB 8.24 ms, Redis disabled, SEC closed.
+
+E05c reconciles only currently bound created/updated events after the existing account lock and
+dedup. Initial/different-ID, checkout and exact-ID deletion behavior stay unchanged. The founder
+approved only the locked `_post_event` provider stub; every contract assertion remains intact.
+Source `aa36c95`: 93 focused billing checks and 13 real PostgreSQL transaction checks passed.
+Seven distinct new-invariant mutations produced intended failures and restored exact committed
+bytes; the final scope-admission proof restored `aa36c95` and all 45 focused tests passed.
+Full backend gate with PostgreSQL enabled: Ruff clean, Bandit 0 medium/high,
+`2486 passed, 2 deselected, 23 warnings in 55.96s`, exit 0. The initial `/bin/sh` invocation lost
+the macOS native-library environment and failed two PDF tests; direct Python invocation passed
+without a source change. Provider timeout settings limit connect/read inactivity, not total
+duration. Independent review and release evidence remain pending at this checkpoint.
+
+
+E06 source `a7e2ff4` integrates E05c and records canonical InvoicePayment allocations without
+changing entitlements. Root/independent review found and corrected a report snapshot race;
+window rows and first-payment timestamps now share one statement. Final local backend gate:
+Ruff clean, Bandit 0 medium/high severity, 2524 passed / 2 deselected in 51.90s with PostgreSQL
+cases enabled. Eight initial invariant mutation failures and one exact race proof were restored.
+The migration ledger passed 35 apply / 35 skip / 35 replay in a dedicated local database.
+Locked Stripe files remain byte-identical to E05c `aa36c95`. Root and independent review are clear; integrated main `6a648f7` in `bef2dc8` without E06
+runtime/test changes. Publication and production event-selection verification remain separate; no present
+revenue or full-history claim follows from [the report](../docs/observed-invoice-payments.md).
+
+E06 combined source `bef2dc8` (main `6a648f7`) passed Ruff/Bandit and all 2524 backend tests
+with PostgreSQL enabled (2 deselected, 23 warnings, 56.08s; exit 0). Earlier 35-file migration
+replay remains scoped evidence; combined migration CI must include all 36 files after E10.
+Root/independent review is clear, locked files match main, and no mutation was repeated.
+Publication follows verified E05c deployment; event coverage is still unverified.
