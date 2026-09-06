@@ -204,6 +204,215 @@ claim. E14b copying canonical links remains a separate task. No push/PR/deploy h
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E09a — Explicit publication approval and latest-main integration (engineering)
+
+#### PR #735 retained failure and E13 integration checkpoint
+
+Integrated source `c3b2db2d37224b539dfe7f6611c550512e7476b8` includes exact released main
+`414ea91347df5b93a2ad12c1423b807ba35328fe`. Only a task-document conflict needed resolution;
+both histories remain. Full pinned local gate with Stripe, usage and login PostgreSQL URLs:
+Ruff `All checks passed!`; Bandit zero medium/high; **2570 passed, 2 deselected, 23 warnings
+in 72.09s (0:01:12)**, exit 0, with no skips. Login six, Stripe 24 and usage 18 concurrency
+cases executed in disposable schemas. The known closed logging-stream teardown diagnostic
+followed the passing pytest summary. Exact logs: `/private/tmp/earningsnerd-e09-evidence/after-e13/`
+`ruff.log`, `bandit.log`, `full.log`. This local gate does not establish live AI acceptance.
+
+Three-lens integration review is clear. Correctness: an empty registry is observed/claimed
+without yielding; a joined follower retains ownership through the final fresh persisted read;
+active leaders cannot be replaced on follower timeout; provider cleanup precedes owner-only
+release. Rules/brief: pipeline and dedup tests remain byte-identical to corrected `fe6916c`;
+login runtime/concurrency tests, all three PostgreSQL CI steps, frontend, locked contracts, AI
+provider/config/prompts/evals and baseline match main. Tests/gates: deterministic force and
+non-force handoff cases remain; original three mutation proofs are retained without repetition.
+No actionable finding or source repair arose. Workflow and frontend files equal main, so their
+separate extra gates were not rerun. Diff/whitespace and clean-commit checks passed.
+
+Normal branch publication is authorized; the changed merge source requires fresh normal CI
+and actual summary/Copilot acceptance. Root owns the existing PR, CI review and serial release
+after verifying PR #736 in production. The failed prior summary run below is retained unchanged.
+
+
+Read-only acceptance of prior head `0a66e1acc0981ff95c5997def131b7bef04cdd82` against
+`ee3ac9882b74453bb670c69b5b05142338a53844` evaluated merge `024f058049a7dc42233aad4fbcb8221bfcfbfed8`.
+CI `34042620267` reported workflow success, but actual eval job `101511991041` and its
+regression step failed: report `eval_20260906T153940Z.json`, artifact `9992244620`, has
+52 attempts, 50 scored and 2 execution errors. BA 10-K run 0 and BABA 20-F run 0 each
+returned `TimeoutError` at 75.001 seconds. Exact gate tail: `execution_errors = 2`,
+`missing_scores = 2`, `FAIL — 2 hard regression(s).`, exit 1. This is failed historical
+acceptance; the green workflow and scored-only quality means do not override it.
+
+Prior actual Copilot run `34042670065`, job `101512118025`, artifact `9992190128`, accepted
+18/18 with no execution errors. All 24 preparation artifact hashes and scratch database hash
+verified; evaluated merge parents matched the then-live base/head. This evidence is historical
+for the newly integrated source. Figure coverage remained advisory (10 uncited of 32 figures
+across 6 answers); summary mean untraceable dollar figures was 2.1 across 50 measured results.
+Summary cost 0.0 is an unmeasured runner placeholder, not proof of zero inference spend.
+Exact failed reports, job logs, source metadata and `artifact-verification.json` (`ready=false`)
+remain in `/private/tmp/earningsnerd-e09-evidence/approved-remote/{summary,copilot}` and their parent.
+
+The founder's existing exact approval covers integrating released main
+`414ea91347df5b93a2ad12c1423b807ba35328fe` (E13, PR #736), resolving only task-document
+conflicts and rerunning the required full local gates before normal branch publication.
+Preserve reviewed `fe6916c` pipeline/dedup tests and all original mutations without repetition;
+retain E13 login source and all three required PostgreSQL CI steps. No AI source, model, flags,
+baseline or timeout adjustment to hide the prior failures. New normal CI on integrated source
+is required; root owns its acceptance and release after E13 production verification.
+
+
+On 2026-09-06 the founder replied “approved” to the exact five-action request in
+`outputs/remaining-verification-publication-approval.md` in the audit workspace. That approval
+explicitly covers publishing `codex/wave3-summary-leader-handoff` to `neilmac91/EarningsNerd`,
+resolving conflicts with approved main releases, and the repository-required full backend gate
+using mock providers and disposable schemas in the existing local PostgreSQL test database.
+It also authorizes the normal PR/CI/merge/verified-release sequence, which remains root-owned.
+The prior publication rejection was respected; this subsequent exact approval supplies the new
+authority. It does not permit feature expansion, locked-test edits or production policy changes.
+
+Integrated main `ee3ac9882b74453bb670c69b5b05142338a53844` as `58afe24`. The two task-document
+conflicts retain both histories and the latest release rows. Pipeline and existing dedup tests
+are byte-identical to corrected `fe6916c`; the scoped lesson is byte-identical to prior `5ade3df`
+(the lesson was recorded after that runtime correction). Incoming billing, usage, limiter,
+metrics, workflow and frontend changes match main exactly. Locked tests are unchanged.
+
+Three-lens integration review is clear: atomic registry observation/claim has no await, joined
+followers retain replacement ownership across the fresh persisted read, and timeout never grants
+ownership of an active leader. Both delayed-read force modes remain covered; provider cleanup,
+usage semantics and owner-only release are retained. All 12 rules and task boundaries remain
+intact. The original three mutation proofs were preserved without repetition. Entire frontend
+matches main, so no redundant frontend gate was run; remote CI/eval review remains required.
+
+Full pinned backend gate on `58afe24` enabled both Stripe and usage PostgreSQL test URLs:
+Ruff `All checks passed!`; Bandit zero medium/high severity; **2563 passed, 2 deselected,
+23 warnings in 57.69s**, exit 0, with no skips. The existing asynchronous client shutdown
+logging diagnostic followed pytest's passing summary. Logs: `/private/tmp/earningsnerd-e09-approved-ruff.log`,
+`earningsnerd-e09-approved-bandit.log` and `earningsnerd-e09-approved-full.log` in the same
+`/private/tmp/` directory. Source identity and `git diff --check` passed before publication.
+
+No live AI/Stripe/SEC call or production mutation was performed by this task. Root owns PR
+creation, actual CI/eval inspection and serialized deployment after the authorized branch push.
+
+#### Accepted E13 source and E10b integration
+
+Acceptance of head `0047a2515803de3d8dd0acc86457d766ff41fbd4` against base `414ea913`
+verified evaluated merge `504bfeef2e369451bbec3d7744f8320f124d4104` and both exact parents.
+Normal CI `34043482862`, actual summary job `101514297727`, artifact `9992484598`, report
+`eval_20260906T155601Z.json`: 52 attempted/scored, zero errors; actual regression step
+`PASS — no hard regressions (1 warning(s)).` Normal Copilot `34043482880`, job
+`101514297732`, artifact `9992424424`: 18/18 accepted, zero errors, all 24 source hashes
+and scratch database verified; harness/golden unchanged. Summary untraceable dollar mean
+2.2308 and Copilot 11 uncited of 36 figures across 7 answers remain advisory. Cost 0.0
+remains unmeasured. Exact reports/logs and `final-acceptance.json` are retained under
+`/private/tmp/earningsnerd-e09-evidence/after-e13/remote/`. The prior 75-second BA/BABA
+failed run remains separately retained and is not overwritten by this successful measurement.
+
+Current main advanced independently through approved PR #730 to
+`e2e94956f5410d372324c1cb98bb8352da7b338f`; that E10b change was not included in the
+accepted evaluated merge above. GitHub reported a task-document merge conflict. Integrate
+that exact main, preserve both complete histories, retain `fe6916c` pipeline/dedup bytes and
+main's saved-status routes/UI/tests, login changes and all three PostgreSQL CI lanes. Run
+required full Ruff/Bandit/backend gates with all three local PostgreSQL URLs before the
+normal explicitly approved branch update. No prompt/model/flag/baseline or timeout change,
+no original mutation repetition, and no redundant frontend gate when frontend equals main.
+Root owns incoming E10b deployment `34043830826` and the next actual CI/serial release.
+
+E10b integration source `9f449e9bd8a29e69b1c4b4e9835249ffc2f4d77b` passed the required
+pinned local gate: Ruff `All checks passed!`; Bandit zero medium/high; **2572 passed,
+2 deselected, 23 warnings in 59.26s**, exit 0, no skips. All three PostgreSQL URLs were
+configured; Stripe 24, usage 18 and login 6 concurrency cases executed in disposable schemas.
+The known asynchronous logging-stream teardown diagnostic followed the passing pytest summary.
+Logs: `/private/tmp/earningsnerd-e09-evidence/after-e10b/ruff.log`, `bandit.log`, `full.log`.
+
+Three-lens integration review is clear. Correctness: unchanged atomic registry claim, claimed
+fresh reread, active-leader timeout protection and owner-only provider cleanup preserve the
+reviewed handoff. Rules/brief: pipeline/dedup tests are byte-identical to `fe6916c`; E10b
+routes/UI/tests, E13 login, all three PG lanes and locked/eval/provider/config files match main.
+Tests/gates: the original deterministic force/non-force cases and three mutation proofs remain
+valid without repetition; the all-three-PG full gate includes both incoming saved-status cases.
+Only the original five E09 files differ from main. No actionable finding or source repair.
+Frontend/workflows match main, so their extra gates were not repeated. Whitespace and clean-commit
+checks passed. Normal branch publication is approved; actual subsequent CI/eval inspection and
+release remain root-owned. Earlier accepted/failed live measurements retain their source scopes.
+
+### E09a — Single replacement leader after failed generation (engineering)
+
+Start at main `6a648f7`. A follower awaits the old leader and a fresh DB read before claiming;
+several failed-leader followers can each overwrite the registry and generate the same filing.
+Recheck ownership after asynchronous work and elect only one replacement per process. This
+is local deduplication, not fleet admission, quota reservation or a durable queue.
+
+- [x] Loop through registry recheck/claim after joins; atomically claim only an empty slot.
+- [x] Preserve the active leader when a follower's existing wait budget expires; use the existing
+  timeout error path, keep the overall 120-second timeout and release only owned state.
+- [x] Extend only nonlocked `test_inflight_dedup.py` with deterministic failed-leader competition
+  and active-leader timeout tests. Preserve force-regenerate, provider, usage and cleanup behavior.
+- [x] Commit source, retain one mutation proof per new invariant with exact restoration; run
+  focused existing lifecycle/locked anchors and the pinned full backend gate.
+- [x] Update scoped lesson/ledger/evidence and return clean source for root's independent review;
+  no push, PR, merge or production action by this task.
+
+Read CLAUDE/AGENTS, relevant architecture/operating lessons, wave-3 and eval RUNBOOK. This
+changes no prompt/model/extraction/AI flag or armed guard, so there is no baseline re-pin trigger.
+Existing CI evaluation evidence must be reviewed before release. W3-8b classification remains
+untouched; E07 quota reservation, fleet leases, external queue/spend and capacity remain separate.
+
+
+E09a initial source `f5ce693` passed 47 focused dedup/lifecycle/unchanged locked-anchor checks.
+Its full gate was Ruff clean, Bandit 0 medium/high severity, 2481 passed / 8 PostgreSQL-only
+skips / 2 deselected in 48.99s. Two initial mutations were restored: bypassing handoff recheck
+failed the duplicate-provider assertion (the forced parameter also timed out during that mutated
+run; that timeout is not separate invariant evidence), and expired-follower takeover failed the
+existing timeout-output assertion. No earlier mutation was repeated.
+
+Root and independent review found the delayed-empty-snapshot hole: a worker result can arrive
+after a successful replacement has committed/released. Corrected source `fe6916c` holds the new
+claim while a previously joined follower rereads persisted state. Both normal and forced
+requests now serve the existing shared result. Focused gate: 49 passed in 4.23s. Exactly one
+restoration of `f5ce693` made both delayed-return parameters fail with a second provider call;
+corrected committed bytes were restored. The prior two proofs remain scoped evidence.
+
+Initial standalone pytest invocation ran from the repository root and failed collection (`app`
+not importable); rerunning from the documented backend directory resolved the harness setup.
+The test's nested patch context was also corrected before broader gates to avoid restoring a
+harness mock after its context exited. No locked fixture/test, prompt/model/flag, quota, provider
+transport, baseline or golden file changed. No live provider/SEC calls or deployment by this task.
+
+Final source `fe6916c`: Ruff clean, Bandit 0 medium/high severity, **2483 passed, 8 skipped,
+2 deselected, 23 warnings in 45.82s**, exit 0. The eight skips require a PostgreSQL URL in
+unrelated existing billing cases; E09a changes no database schema or billing path. Root's fresh
+corrected-source review is clear: claimed fresh read, identity-safe finally release and preserved
+force follower semantics. Root owns independent acceptance, latest-main integration, publication,
+actual CI/eval evidence and serialized deployment. Local tests do not establish live AI quality.
+Logs: `/private/tmp/earningsnerd-e09-delayed-fixed.log`,
+`/private/tmp/earningsnerd-e09-mutation-failed_leader.log`,
+`/private/tmp/earningsnerd-e09-mutation-timeout.log`,
+`/private/tmp/earningsnerd-e09-mutation-delayed-read.log`,
+`/private/tmp/earningsnerd-e09-bandit-final.log`, `/private/tmp/earningsnerd-e09-full-final.log`.
+
+
+E09a integration checkpoint: main `cab71f9` includes released billing observations, account
+export/timezone corrections and the worker-serialized lifecycle fixture. Only task-document
+conflicts required manual resolution; both workstreams are retained. E09a source `fe6916c` and
+all three proof histories remain unchanged. Run one combined full backend gate with the actual
+Stripe PostgreSQL cases, review integration/locked bytes, then push the authorized branch.
+Root owns PR creation and serial release; E07b remains design-only.
+
+Combined source `6136389` against released main
+`cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` passed the final gate: Ruff clean, Bandit 0
+medium/high severity, **2531 passed, 2 deselected, 23 warnings in 50.70s**, exit 0. Actual Stripe
+PostgreSQL cases ran against disposable schemas. The pre-existing closed logging-stream teardown
+diagnostic followed the passing summary. No workflow or Node-related files changed, so their
+additional workflow-only checks do not apply. No new failure or mutation repeat occurred.
+
+Integration review is clear across correctness, rules/brief and tests/gates: the registry claim has
+no intervening await, previously joined followers retain their claim through the fresh persisted
+read, the original overall timeout and owner-only cleanup remain intact, and no second generation
+path, quota policy, prompt/model/flag, schema or baseline change is introduced. Pipeline, dedup
+tests and scoped lesson match reviewed `fe6916c`; all locked anchors and E06 export/timezone/
+lifecycle-fixture corrections match `cab71f9`. Existing three mutation proofs remain valid.
+
+Combined logs: `/private/tmp/earningsnerd-e09-integrated-full.log` and
+`/private/tmp/earningsnerd-e09-integrated-bandit.log`. The branch push is authorized after this
+gate; root owns PR creation, actual CI/eval inspection and serial release. E07b is not implemented.
 ### E10b — Bounded saved-summary status (engineering)
 
 The filing page currently downloads every saved summary, including summary/company content,

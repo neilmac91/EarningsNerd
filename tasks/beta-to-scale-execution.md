@@ -20,7 +20,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; CI, Vercel production and canonical pricing response verified. Pricing and activation decisions remain held |
-| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
+| E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a reviewed and integrated with `ee3ac988`; explicit publication approval and 2563-test full gate recorded. PR/release pending; fleet admission/quotas remain separate |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
@@ -156,6 +156,21 @@ replay remains scoped evidence; combined migration CI must include all 36 files 
 Root/independent review is clear, locked files match main, and no mutation was repeated.
 Publication follows verified E05c deployment; event coverage is still unverified.
 
+E09a local source `fe6916c` corrects competing failed-leader followers, expired-follower takeover
+and delayed empty DB snapshots. A joined follower holds its replacement claim during a fresh
+persisted read before admitting provider work. The sole generator, force-regenerate follower
+behavior, 120-second backstop, six-slot default and quotas remain unchanged. This does not
+establish fleet-safe admission. Three scoped invariant mutation proofs were restored; existing
+locked contracts, model/prompt/flags and eval baseline remain unchanged. Final full gate on `fe6916c`: Ruff clean, Bandit 0 medium/high severity; 2483 passed,
+8 PostgreSQL-only skips, 2 deselected in 45.82s (exit 0). Root corrected-source review is clear.
+Independent acceptance, latest-main integration, actual CI/eval and production release remain separate.
+
+E09a integration `6136389` preserves reviewed `fe6916c` source and all E06 corrections from
+released main `cab71f9`. Full combined gate with actual Stripe PostgreSQL cases: Ruff clean,
+Bandit 0 medium/high, **2531 passed, 2 deselected, 23 warnings in 50.70s**, exit 0. Integration
+review across correctness/rules/tests is clear; locked anchors match main. All three original
+mutation proofs are retained without repetition. Authorized branch push follows; root owns
+PR creation, actual CI/evals and serial release. No fleet admission or reservation implementation.
 
 ## E08a — Trial presentation follows resolved entitlements
 
@@ -251,6 +266,17 @@ numeric units together. Final full frontend gate passed 98 files / 513 tests in 
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
 
+### E09a latest-main approval checkpoint
+
+The founder's 2026-09-06 “approved” response to the exact five-action request explicitly clears
+the earlier summary-handoff publication hold, including main integration and local disposable
+PostgreSQL gates. Merge `58afe24` includes main `ee3ac988`; runtime and ownership tests remain
+byte-identical to corrected `fe6916c`, with the scoped lesson retained from `5ade3df`. Three-lens
+integration review is clear, both delayed-read force modes and all three original proofs remain
+intact, and locked contracts match main. Full Stripe/usage PostgreSQL-enabled backend gate:
+Ruff clean, Bandit zero medium/high, **2563 passed, 2 deselected, 23 warnings in 57.69s**, exit 0,
+no skips. Branch publication is authorized; root owns PR/CI/eval and serialized release. No
+fleet lease, durable queue, quota reservation, prompt/model/flag or production policy change.
 E13a explicitly approved publication checkpoint: main `ee3ac988` is integrated as `4db2190`.
 Reviewed login runtime/tests remain byte-identical to `24a4d1c`; all main limiter, metrics,
 billing, usage and frontend changes are preserved. The full pinned gate passed with all three
@@ -258,3 +284,18 @@ PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 
 in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
+
+### E09a integration after E13 release
+
+Prior PR #735 CI `34042620267` is failed AI acceptance: actual regression job failed despite
+workflow success, with BA 10-K and BABA 20-F run-0 timeouts at 75.001 seconds (52 attempted,
+50 scored, 2 errors; retained artifact `9992244620`). Prior Copilot run `34042670065` accepted
+18/18 with 24 source hashes and scratch DB verified; it is historical for the new source.
+No old run was retriggered and no timeout, provider, model, flags or baseline were changed.
+
+Main `414ea913` is integrated as `c3b2db2`. Reviewed pipeline/tests still match `fe6916c`;
+E13 login source and all three PostgreSQL CI steps are retained. Full pinned local gate:
+Ruff clean; Bandit zero medium/high; 2570 passed / 2 deselected / 23 warnings in 72.09s, exit 0,
+all three PostgreSQL URLs enabled, no skips. Three-lens integration review is clear; original
+mutations retained and locked contracts/frontend match main. Authorized normal branch update
+follows the evidence commit. Root owns fresh actual CI/eval acceptance and serial release.
