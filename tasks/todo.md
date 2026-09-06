@@ -1,5 +1,31 @@
 ## E11b-0 — Reject unsafe filing-job dry runs (engineering, 2026-09-06)
 
+### Root verification after E11a integration
+
+Integrated main `c4ae63150075590ccbea5992f566d530345dc964` (#740) as `c1315ea`.
+The sole todo conflict retained both sections; diff checks and clean status passed.
+Script and gate bytes still match source `9918a7a`; all application services, locked tests,
+frontend, workflows and eval files match main. No mutation repeat was needed.
+
+Root full Ruff/Bandit/backend gate, all three PostgreSQL concurrency URLs enabled, exited 0:
+```text
+2583 passed, 2 deselected, 23 warnings in 59.37s
+```
+Ruff clean; Bandit zero medium/high severity. Logs are retained in
+`/private/tmp/earningsnerd-e11b-evidence/full-{ruff,bandit,backend}.log`.
+An earlier lint-only command ended with a placeholder print and did not execute pytest;
+it is not counted as a full gate. The completed combined command above is the test evidence.
+
+Root and independent three-lens reviews are clear, including the dated prior-audit correction
+in `docs/audit-2026-09/03-data-platform.md`. Its three source links resolve. That correction
+preserves the original table as historical and distinguishes log uniqueness from external
+send safety and independent job bookkeeping from business rollback.
+
+The final diff has no `backend/app`, `backend/evals` or `backend/prompts` change; under the
+unchanged workflow the summary measurement should skip. The backend script/test paths still
+trigger 18 ready-for-review Copilot attempts. Normal publication/live acceptance and verified
+release require their distinct spending approval. No email or production job was executed.
+
 Base `639e48ca`; isolated local branch `codex/wave3-filing-dry-run-safety`.
 
 - [x] Read CLAUDE/AGENTS, applicable hermeticity/lock/proof/job-outcome lessons, job script,
@@ -12,7 +38,8 @@ Base `639e48ca`; isolated local branch `codex/wave3-filing-dry-run-safety`.
   service spies and normal scan/digest/cadence/reporting controls.
 - [x] Commit source; one original mutation bypassing rejection must fail; restore exact bytes.
   Focused offline gate, Ruff/Bandit, three-lens review and clean local evidence checkpoint.
-- [ ] Root final integration, full suite/PostgreSQL lanes, publication approval and release.
+- [x] Root final integration and full suite with all three PostgreSQL lanes.
+- [ ] Publication approval, actual live CI acceptance and verified release.
 
 Current `_noop_send` returns success while the service writes notification logs and advances
 watchlist watermarks. This slice disables that unsafe CLI option; it does not implement a
