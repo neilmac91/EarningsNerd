@@ -167,6 +167,8 @@ class Settings(BaseSettings):
     # get_client_ip) — it NEVER trusts the spoofable left-most, client-supplied entry, so a forged
     # header can't reset a per-IP rate limit or poison an IP hash. Set this to your real hop count.
     TRUSTED_PROXY_HOPS: int = 1
+    # Per limiter/process cardinality; unseen keys fail closed while every retained bucket is active.
+    RATE_LIMITER_MAX_KEYS: int = Field(default=10_000, gt=0, le=100_000)
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod

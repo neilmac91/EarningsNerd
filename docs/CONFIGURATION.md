@@ -101,6 +101,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `APPLE_REDIRECT_URI` | `"https://api.earningsnerd.io/api/auth/apple/callback"` | Apple OAuth callback URL; match provider registration. |
 | `TURNSTILE_SECRET_KEY` | `""` | Cloudflare bot verification; empty is a no-op. Pair with frontend site key. |
 | `TRUSTED_PROXY_HOPS` | `1` | Trusted proxies counted from the right of X-Forwarded-For; 0 ignores the header. CI sets 1 for direct Cloud Run ingress. |
+| `RATE_LIMITER_MAX_KEYS` | `10000` | Per-process, per-limiter retained-key ceiling (1–100000); reject unseen keys at capacity instead of evicting active windows. Expired keys are removed lazily; peeks do not extend retention. Not a fleet or byte limit. |
 | `ENVIRONMENT` | `"development"` | Environment label; production enables SQLite refusal and secure-cookie derivation. |
 | `COOKIE_NAME` | `"earningsnerd_access_token"` | Access-token cookie name. |
 | `COOKIE_SECURE` | `false` | Declared default false; constructor derives true in production unless COOKIE_SECURE exists in the process environment. See precedence note below. |
