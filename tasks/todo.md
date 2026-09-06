@@ -90,6 +90,10 @@ leave a phantom unit against a 5/month free cap until month end):
   `ForeignKeyViolation`, 1 failed; relationship cascade dropped → 1 failed; conversion back
   to `get_current_month()` → 1 failed. Migration triple-applied on local PostgreSQL with
   `confdeltype = c` and a users delete leaving 0 leases.
+  Independent lens on the fix (two refutations per candidate): no surviving bug; one nit
+  fixed — `release_reservation` lost its unused `commit=` kwarg and the two PostgreSQL
+  conversion cases now go through `convert_reservation`, so the real completion path is what
+  the PostgreSQL gate exercises. Full suite after the round: `2600 passed`.
 - [ ] Re-mark ready (fires one more paid `copilot-eval.yml` run on the fix head: the
   `synchronize` trigger is why the PR went back to draft before the push) → merge → main CI →
   release with one unverified backend rollout at a time: migration `applied=1`, revision,

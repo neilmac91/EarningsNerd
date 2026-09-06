@@ -175,14 +175,13 @@ def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
     return month
 
 
-def release_reservation(token: Optional[str], db: Session, *, commit: bool = True) -> None:
-    """Drop a reservation (idempotent). ``commit=False`` lets a completion delete it in the same
-    transaction as the counter increment, so a unit is never both reserved and counted."""
+def release_reservation(token: Optional[str], db: Session) -> None:
+    """Give an admitted unit back without counting it (idempotent, commits). A completed use
+    goes through ``convert_reservation`` instead, so a unit is never both reserved and counted."""
     if not token:
         return
     db.query(UsageReservation).filter(UsageReservation.token == token).delete(synchronize_session=False)
-    if commit:
-        db.commit()
+    db.commit()
 
 
 def get_user_qa_count(user_id: int, month: str, db: Session) -> int:

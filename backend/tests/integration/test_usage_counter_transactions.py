@@ -295,8 +295,8 @@ def test_postgres_converted_reservation_blocks_and_released_reservation_readmits
         assert (admitted, completed, limit) == (True, 0, 1) and token
         # The reservation is held, so a second request is blocked before anything completes.
         assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is False
-        # Completion converts: delete rides in the increment's commit.
-        usage.release_reservation(token, db, commit=False)
+        # Completion converts: the delete rides in the increment's commit, into the lease's month.
+        assert usage.convert_reservation(token, db) == MONTH
         usage.increment_user_usage(uid, MONTH, db)
     assert _reservations(postgres_engine, uid) == []
     assert _rows(postgres_engine, uid)[0][1] == 1
@@ -358,8 +358,7 @@ def test_postgres_conversion_between_admission_reads_blocks_instead_of_over_admi
     def convert_then_count(user_id, month, db):
         # The in-flight generation completes in another session while admission is mid-decision.
         with Session(postgres_engine) as other:
-            usage.release_reservation(token, other, commit=False)
-            usage.increment_user_usage(uid, MONTH, other)
+            usage.increment_user_usage(uid, usage.convert_reservation(token, other), other)
         return real_count(user_id, month, db)
 
     monkeypatch.setattr(usage, "get_user_usage_count", convert_then_count)
