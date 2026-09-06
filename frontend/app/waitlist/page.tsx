@@ -5,6 +5,7 @@ import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
+import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/components/WaitlistExample'
 
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
@@ -21,7 +22,7 @@ export default function WaitlistPage() {
   return (
     <main className="space-y-20 py-12 md:py-20 lg:py-24">
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
             <h1 className="text-4xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
               Read a 10-K in{' '}
@@ -65,52 +66,9 @@ export default function WaitlistPage() {
             </p>
           </div>
 
-          <div>
-            <div className="rounded-3xl border border-border-light bg-panel-light p-6 shadow-e4 dark:shadow-none backdrop-blur-sm dark:border-border-dark dark:bg-panel-dark">
-              <div className="flex items-center justify-between text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-                <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
-                  Product preview
-                </span>
-                <span>Q3 2025 10-Q Summary</span>
-              </div>
-              <div className="mt-4 space-y-4">
-                <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                  <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-                    Executive summary
-                  </div>
-                  <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Revenue grew 11% year-over-year, driven by cloud subscriptions and enterprise expansion.
-                    Margins improved as operating expenses scaled slower than sales.
-                  </p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-                      Key drivers
-                    </div>
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      <li>Subscription retention 94%</li>
-                      <li>International growth +18%</li>
-                      <li>R&amp;D spend up 6%</li>
-                    </ul>
-                  </div>
-                  <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-                      Risk flags
-                    </div>
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      <li>Customer concentration</li>
-                      <li>FX headwinds</li>
-                      <li>Regulatory scrutiny</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-brand-border bg-brand-weak px-4 py-3 text-sm text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
-                  See key metrics, risks, and highlights in one concise report.
-                </div>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={<WaitlistExamplePending />}>
+            <WaitlistExample />
+          </Suspense>
         </div>
       </section>
 

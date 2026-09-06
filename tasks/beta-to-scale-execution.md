@@ -23,9 +23,9 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
-| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a reviewed and integrated with `53348d6`; combined full backend gate passed. Publication/release pending; startup deadlines remain separate |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 merged as `53348d6`; production verification pending. E13a remains on publication hold |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
+| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
@@ -196,3 +196,40 @@ lost its TLS connection; the completed run and actual deploy log were independen
 Final CI 34035195505 and Copilot 34035195535 passed; artifacts 9990022068 / 9989975114
 verified 52 summary and 18 Copilot cases, unchanged harness/goldens/flags and all source hashes.
 This verifies deployment, not Stripe endpoint event selection, API version or complete payment history.
+
+### E14a local implementation checkpoint
+
+Source `3153078`, main `cb2c1f8` integrated as `43d554c`: waitlist preview now resolves the
+existing public cached example in its own Suspense child. No static fallback for unavailable
+or placeholder data; same filing identity/source/quality and a direct canonical preview CTA.
+Sparse examples retain a SEC filing link. Existing top CTA, signup/referral behavior and
+homepage CTA defaults remain unchanged; no flags, access, generation or backend changes.
+Four one-time proofs failed and restored; full frontend lint/typecheck, 98 files / 513 tests
+and production build passed. Exact logs, boundaries and proof tails are in tasks/todo.md.
+Independent source review cleared; root owns mobile/both-theme preview, PR and release.
+E14b canonical-link copying remains separate and unimplemented.
+
+### E12a / E13b root release evidence at E14a checkpoint
+
+E13b #732 production run `34039409016`, deploy `101503717032`, succeeded with
+`applied=0 skipped=36`; revision `00284-n57` serves 100% and independent DB health was
+7.26 ms. E12a #733 merged as `cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`; production
+run `34040098807` was pending at this checkpoint. Root owns the remaining verification.
+E14a root and independent source review are clear; preview acceptance remains pending.
+
+### E14a measured mobile correction
+
+PR #734 preview at original head `1d42e71` hid the company name at 320 px (width/clientWidth
+0, scrollWidth 68). Two independent refutations upheld it. Correction `dd877c0` gives the
+issuer a wrapping full-width mobile row with badges/date separate, retaining the desktop
+arrangement. Full corrected frontend gate passed: 98 files / 513 tests, lint/typecheck and
+build (27/27 pages). Existing four data-invariant proofs remain valid; no repeat or CSS test.
+Root must verify the corrected 320/390 px and both-theme preview before release.
+
+E14a second preview correction: the issuer became visible, but root's actual 320 px
+screenshot still clipped the right edge/metrics/source/CTA. DOM reads timed out; no numeric
+width is recorded. Two fresh refutations upheld it. Source `de432af` constrains mobile grid
+and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labels and keeps
+numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
+lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
+preview before release; the original four data proofs are unchanged and were not repeated.

@@ -1,3 +1,117 @@
+## E14a — grounded waitlist example (2026-09-06)
+
+Second preview finding: corrected `83dd208` shows the issuer at 320 px, but root's
+actual screenshot clips the card's right edge, third metric, source and CTA. DOM reads
+were timing out, so no numeric width is claimed. Two fresh independent refutations failed:
+implicit auto grid track/intrinsic child sizing and three padded metric columns remain.
+
+- [x] Constrain the mobile grid track/card/titlebar and use two metric columns below sm;
+  retain desktop columns, source/CTA content and prior responsive header correction.
+- [x] Full frontend gate after this sizing correction; no repeated data proofs or CSS tests.
+- [ ] Root verify no actual 320/390 px clipping in both themes and desktop before merge.
+
+Sizing source `de432af`: explicit one-column mobile waitlist grid, Hero root
+`min-w-0 max-w-full`, titlebar `min-w-0`, two metric columns below `sm`/three above;
+metric labels can wrap and numeric values/units remain together (`whitespace-nowrap`).
+No data, quality, source, CTA or test changes. Initial sizing `9dfd188` passed its gate;
+final gate was rerun after the explicit numeric-nowrap follow-up and is the final evidence:
+**98 files / 513 tests passed in 31.41s**, lint/typecheck clean, build exit 0, compiled
+**2.7s**, TypeScript 3.0s, static pages **27/27** in 1137ms. Exact final logs:
+`/private/tmp/earningsnerd-e14-width-final-lint.log`,
+`earningsnerd-e14-width-final-typecheck.log`, `earningsnerd-e14-width-final-vitest.log`,
+`earningsnerd-e14-width-build.log` under the same directory. Original data proofs remain
+unchanged. Actual 320/390 px plus desktop/both-theme preview remains root-owned and pending;
+no numeric width or successful visual outcome is inferred from the passing build/tests.
+
+Preview correction: root measured the published `1d42e71` waitlist at 320×844:
+Apple Inc. had width/clientWidth 0 and scrollWidth 68; the visible issuer disappeared.
+Two fresh independent refutations (implementation agent and sec_refill) failed: existing
+nonwrapping header leaves the truncated name as the shrinkable item beside fixed badges/date.
+
+- [x] Narrow responsive header: issuer row, wrapping badges and stacked date on mobile;
+  preserve the existing desktop arrangement and all source/CTA/quality behavior.
+- [x] Full frontend gate on corrected source; no repeat of the four unchanged data proofs.
+- [ ] Root verify actual issuer visibility at 320/390 px in both themes on corrected preview.
+
+Correction source `dd877c0` adds only responsive header grouping and text wrapping;
+`sm` retains the horizontal layout. Existing data/quality/CTA/source logic and nine regression
+cases are unchanged. Full corrected-source gate: lint/typecheck clean; **98 files, 513 tests
+passed in 38.29s**; build exit 0, compiled in **5.3s**, TypeScript 7.1s, static pages **27/27**.
+Exact logs: `/private/tmp/earningsnerd-e14-mobile-lint.log`,
+`earningsnerd-e14-mobile-typecheck.log`, `earningsnerd-e14-mobile-full-vitest.log`,
+`earningsnerd-e14-mobile-build.log` under the same directory. Original four proofs were not
+repeated. No CSS-string test was added for this low-impact visual correction; actual mobile
+and both-theme preview remains the acceptance gate. Lesson evidence records the measured
+failure. Root owns updating PR #734 and verifying corrected preview; no push here.
+
+Tag: engineering. Base: `53348d6`. Scope: reuse the existing server example fetch and
+HeroExample in a separate Suspense child; preserve signup, referral policy, homepage
+CTA defaults and filing quality. E14b canonical-copy action remains separate.
+
+- [x] Read AGENTS/CLAUDE, wave-3, design system and applicable testing/frontend lessons.
+- [x] Replace anonymous preview; unavailable/placeholder data stays neutral, never Apple fallback.
+- [x] Preserve same-filing source/metrics/quality and direct canonical preview CTA; sparse source visible.
+- [x] Add one integration test home using real fetch boundary/shared rendering, including pending signup.
+- [x] Commit source, run one coordinated mutation per meaningful invariant and restore exact bytes.
+- [x] Full pinned frontend lint/typecheck/Vitest/build; review correctness, rules and gates.
+- [x] Root and independent source review clear on `3153078` / integrated `43d554c`.
+- [ ] Both-theme and mobile preview (root owns PR/release; no push here).
+
+Constraints: CLAUDE rules 2, 6, 9, 11, 12; no backend, generation, access, flags, prices,
+locked tests, invite/referral changes or private data forwarding. Existing hourly public fetch
+is the sole data source. Source receipts describe a filing link, not excerpt-level verification.
+
+Evidence: plan `e485b33`; implementation `13a785f`; type-only predicate correction
+`3153078` preserves the caller's payload through a generic type guard. Main `cb2c1f8`
+merged cleanly as `43d554c`; frontend equals `3153078`, backend equals main. Existing
+predicate text is unchanged; only the example boundary now reuses it. Top waitlist CTA,
+headlines, referral form and homepage CTA defaults remain unchanged. New preview CTA has
+no demo/query parameters; this preserves normal destination behavior but does not enable
+the independently controlled quality-badge flag.
+
+New single test home `frontend/tests/unit/waitlist-example.spec.tsx`: nine cases resolve the
+real async child/fetch and render real HeroExample/ExampleCtaLink. A documented React 18
+Suspense resource adapts the server child for DOM tests; form/counter and analytics are
+stubbed. This proves signup placement while fetch is pending, not server streaming timing
+or live-account behavior. Source links identify the filing; excerpts do not gain a fabricated
+per-sentence citation claim. No new fetching, generation, access endpoint or credentials.
+
+One-time proofs on committed `3153078`, each restored byte-for-byte:
+
+| Invariant / mutation | Exact red tail | Log under `/private/tmp/` |
+| --- | --- | --- |
+| Live identity/quality/destination + unchanged homepage default, coordinated wrong issuer/link/default | `4 failed, 5 skipped`, exit 1 | `earningsnerd-e14-mutation-identity.log` |
+| Sparse source receipt, put source back under metrics condition | `1 failed, 8 skipped`, exit 1 | `earningsnerd-e14-mutation-sparse.log` |
+| Neutral absent/placeholder content, restore old predicate and Apple fallback | `3 failed, 6 skipped`, exit 1 | `earningsnerd-e14-mutation-unavailable.log` |
+| Signup independent of pending example, remove only child Suspense | `1 failed, 8 skipped`, exit 1; missing Join waitlist form | `earningsnerd-e14-mutation-pending.log` |
+
+Restored combined-source gate on `43d554c`, pinned Node v22.23.2: eslint `--max-warnings 0`
+clean, TypeScript clean; `98 passed` files, `513 passed` tests in `33.87s`; production build
+exit 0, compiled in `13.9s`. Logs: `/private/tmp/earningsnerd-e14-lint.log`,
+`earningsnerd-e14-typecheck.log`, `earningsnerd-e14-full-vitest.log`,
+`earningsnerd-e14-build.log` under the same directory. Build used narrowly approved network
+access for configured fonts; no dependency changes. Initial preparation failures (incorrect
+working-directory invocation, an incomplete analytics mock, and TypeScript narrowing that
+lost optional payload fields) were corrected before proofs/full gate; none is a pass claim.
+
+Build tail (exit 0):
+```text
+✓ Compiled successfully in 13.9s
+Finished TypeScript in 6.2s ...
+✓ Generating static pages using 7 workers (27/27) in 1060ms
+└ ○ /waitlist
+ƒ Proxy (Middleware)
+○ (Static) prerendered as static content
+● (SSG) prerendered as static HTML (uses generateStaticParams)
+```
+
+Three-lens self-review: correct same-filing data and sparse/unavailable handling; scope and
+CLAUDE/DS boundaries preserved; one test home, four deliberate red proofs, locked contracts
+byte-identical. Independent sec_refill review of `3153078` cleared source correctness. Root
+source review also cleared `3153078` / `43d554c`; preview remains pending: the shared desktop hero is newly used on mobile, so inspect
+320/390 px and both themes before release. No speculative layout change or live preview
+claim. E14b copying canonical links remains a separate task. No push/PR/deploy here.
+
 # Remediation plan — from the September 2026 engineering audit
 
 ## Beta-to-scale implementation — approved 2026-09-06
