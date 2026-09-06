@@ -61,8 +61,8 @@ logger = logging.getLogger(__name__)
 # A3: process-local registry of in-flight summary generations, keyed by filing_id. When a request
 # would generate a filing another request is already generating, it waits for that one and serves the
 # persisted result — collapsing a concurrent "thundering herd" on a newly-filed popular report into a
-# single generation. Process-local is the right scope: prod is a single Cloud Run instance with Redis
-# off, and even when scaled it bounds redundant work per instance.
+# single generation within this process. API instances and jobs each have their own registry;
+# this does not prevent duplicate provider work across processes while Redis stays off.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
 
@@ -319,14 +319,17 @@ async def stream_filing_summary(
                 }
                 return
 
-            # A3: in-flight dedup. If another request is already generating this filing, wait for it
-            # (emitting heartbeats) and serve the persisted result instead of running a second full
-            # generation; otherwise claim leadership (released in `finally`).
-            existing_generation = _inflight_generations.get(filing_id)
-            if existing_generation is not None:
+            # A3: a follower must recheck ownership after every join/read. Failed leaders
+            # can wake several followers; only one may atomically claim the empty slot.
+            waited = 0.0
+            while True:
+                existing_generation = _inflight_generations.get(filing_id)
+                if existing_generation is None:
+                    # No await between this read and claim; another coroutine cannot interleave.
+                    inflight_event = _claim_inflight(filing_id)
+                    break
                 logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
                 yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
-                waited = 0.0
                 while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
                     try:
                         await asyncio.wait_for(existing_generation.wait(), timeout=settings.STREAM_HEARTBEAT_INTERVAL)
@@ -345,11 +348,13 @@ async def stream_filing_summary(
                     logger.info(f"[stream:{filing_id}] Served result from in-flight leader (dedup hit).")
                     yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
                     return
-                # Leader finished without a persisted summary (error/timeout) — generate directly.
-                logger.info(f"[stream:{filing_id}] In-flight leader produced no summary; generating directly.")
-
-            # Claim leadership for this filing_id (atomic: no await between the get above and this set).
-            inflight_event = _claim_inflight(filing_id)
+                if waited >= INFLIGHT_WAIT_CAP_SECONDS:
+                    # A follower's deadline grants no ownership of a still-running leader.
+                    # Use the existing timeout handling; finally releases only our own claim.
+                    raise TimeoutError("In-flight summary wait budget exhausted")
+                # The old leader failed, or a replacement claimed during the DB read. Loop
+                # through the atomic registry check instead of overwriting that replacement.
+                logger.info(f"[stream:{filing_id}] No shared result yet; rechecking generation ownership.")
 
             # Cache company data and filing attributes from the fetched filing
             company_name = filing_fields["company_name"]
@@ -430,10 +435,8 @@ async def stream_filing_summary(
             # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
             # on the leader path (dedup waiters returned above) so it can't deadlock a leader against
             # its waiters. Released in the `finally`. A long queue wait counts against the pipeline
-            # timeout, which is the intended back-pressure. (A waiter that times out at
-            # INFLIGHT_WAIT_CAP_SECONDS may fall through and become a fresh leader for the same
-            # filing; that only softens the same-filing dedup under extreme saturation — it never
-            # exceeds MAX_CONCURRENT_GENERATIONS total, and no waiter holds a slot while waiting.)
+            # timeout, which is the intended back-pressure. A follower that exhausts its wait
+            # budget exits without stealing ownership; no follower holds a generation slot.
             generation_semaphore = _get_generation_semaphore()
             await generation_semaphore.acquire()
             generation_slot_held = True
