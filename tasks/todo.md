@@ -48,6 +48,17 @@ opt-in database URL; sitemap query behavior ran against SQLite. Logs:
 This verifies local behavior, not production URL counts, query timing, SEO indexing or release.
 Root owns latest-main integration, CI and serialized deployment; no publication occurred here.
 
+Root's read-only public snapshot at `2026-09-06T13:06:14.210278Z` used
+`curl -fsSL --compressed --max-time 30 https://earningsnerd.io/sitemap.xml` and parsed
+**567 served URLs: 6 static + 522 company + 39 filing**. The initial request without redirect
+following returned the redirect body; the successful command above followed it. Independent
+local XML parsing of `/private/tmp/earningsnerd-live-sitemap-20260906.xml` confirmed those counts.
+This is cached public output, not a fresh database census, a count of every eligible URL, a
+user count or an E15a production acceptance check. It supersedes the unknown-public-count
+checkpoint above; the current eligible database count remains unmeasured. E15b's whole-document
+bound/partition work remains planned, but this observed document is below the protocol URL cap.
+No repeated tests followed this evidence-only update.
+
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
 The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:

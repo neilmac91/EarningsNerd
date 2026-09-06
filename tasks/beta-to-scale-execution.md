@@ -139,3 +139,10 @@ E15b is unresolved: company URLs are unbounded and 45,000 caps only filing rows,
 whole document is not bounded by that constant. Partitioning and the actual current production
 URL count need separate work. The 1,884 URLs reported on July 16 are historical evidence,
 not a current count. No SEO console change, pregeneration spend or flag activation is included.
+
+
+E15 public-output observation: root fetched the redirected canonical sitemap at
+`2026-09-06T13:06:14.210278Z`; retained XML contains **567 URLs (6 static, 522 company,
+39 filing)**, independently recounted locally. This is the cached served document, not a fresh
+DB census or E15a deployment verification. The observed document has URL headroom; E15b's
+whole-document cap/partition work and the current eligible DB count remain separate.
