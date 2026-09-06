@@ -9,13 +9,15 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset } from '@/features/auth/lib/accountQueryState'
-import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
+import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
+import { refreshAccessToken } from '@/lib/api/refresh'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ analytics: { identify } }))
+vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 vi.mock('@/components/CookieConsent', () => ({ getCookiePreferences: () => ({ analytics: true }) }))
 
 const makeUser = (id: number): CurrentUser => ({
@@ -46,7 +48,7 @@ function Viewer() {
 }
 const rendered = () => JSON.parse(screen.getByRole('status').textContent!)
 
-beforeEach(() => { advanceSessionGeneration(); clearSessionActive(); identify.mockReset() })
+beforeEach(() => { advanceSessionGeneration(); clearSessionActive(); identify.mockReset(); vi.mocked(refreshAccessToken).mockReset() })
 afterEach(() => {
   cleanup()
   disposers.splice(0).forEach((dispose) => dispose())
@@ -75,6 +77,7 @@ describe('account snapshots follow the resolved identity', () => {
       return response(config, makeUser(2))
     }
     const priorGeneration = getSessionGeneration()
+    const explicitGeneration = getExplicitSessionGeneration()
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
     const signedIn = login('2@example.test', 'test-only-password')
     await waitFor(() => { expect(meCalls).toBe(1); expect(loginCalls).toBe(1) })
@@ -92,11 +95,80 @@ describe('account snapshots follow the resolved identity', () => {
     }
     expect(getSessionGeneration()).toBe(priorGeneration)
     expect(hasActiveSession()).toBe(true)
-    resetAccountQueries(client)
+    acceptLoginAndResetAccount(client, explicitGeneration)
     expect(hasActiveSession()).toBe(true)
     await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
     expect(hasActiveSession()).toBe(true)
+  })
+
+  it.each(['passive-loss', 'passive-loss-then-logout'])('pending login handles %s without losing explicit ownership', async (order) => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    markSessionActive()
+    const credential = deferred<unknown>()
+    const logoutDone = deferred<unknown>()
+    vi.mocked(refreshAccessToken).mockRejectedValue({ response: { status: 401 } })
+    api.defaults.adapter = async (config) => {
+      if (config.url === '/api/auth/login') return response(config, await credential.promise)
+      if (config.url === '/api/auth/logout') return response(config, await logoutDone.promise)
+      throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
+    }
+    const explicitGeneration = getExplicitSessionGeneration()
+    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
+    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
+    await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    await oldIdentity
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(getExplicitSessionGeneration()).toBe(explicitGeneration)
+    if (pendingLogout) {
+      logoutDone.resolve({ ok: true })
+      await pendingLogout
+      expect(getExplicitSessionGeneration()).not.toBe(explicitGeneration)
+    }
+    credential.resolve({ ok: true })
+    if (pendingLogout) {
+      expect(await signedIn).toMatchObject({ name: 'AbortError' })
+      expect(hasActiveSession()).toBe(false)
+      expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    } else {
+      expect(await signedIn).toEqual({ ok: true })
+      acceptLoginAndResetAccount(client, explicitGeneration)
+      api.defaults.adapter = async (config) => response(config, makeUser(2))
+      await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+      expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+      expect(hasActiveSession()).toBe(true)
+    }
+  })
+
+  it('rejects credential publication if explicit logout completes in the API-to-page continuation gap', async () => {
+    const client = newClient()
+    const explicitGeneration = getExplicitSessionGeneration()
+    api.defaults.adapter = async (config) => response(config, { ok: true })
+    await login('2@example.test', 'test-only-password')
+    await logoutAndResetAccount(client, logout)
+    expect(() => acceptLoginAndResetAccount(client, explicitGeneration)).toThrow(/transition/)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(hasActiveSession()).toBe(false)
+  })
+
+  it.each(['pending', 'resolved'])('rejects stale login continuation after %s identity and later logout', async (state) => {
+    const client = newClient()
+    const accepted = acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    const identity = deferred<unknown>()
+    api.defaults.adapter = async (config) => response(config, await identity.promise)
+    const pending = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe }).catch((error) => error)
+    if (state === 'resolved') {
+      identity.resolve(makeUser(2))
+      await pending
+    }
+    resetAccountQueries(client) // A later completed logout/explicit transition wins.
+    identity.resolve(makeUser(2))
+    await pending
+    expect(() => assertExplicitSessionGeneration(accepted)).toThrow(/transition/)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
   })
 
   it.each([true, false])('isolates A Pro=%s from pending/failed B reads and late A responses', async (aPro) => {
@@ -242,8 +314,13 @@ describe('account query ownership structural gate', () => {
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')
-    expect(login).toContain('resetAccountQueries(queryClient)')
+    expect(login).toContain('acceptLoginAndResetAccount(queryClient, explicitGeneration)')
+    expect(login).toContain('const explicitGeneration = getExplicitSessionGeneration()')
     expect(login).toContain('queryClient.fetchQuery(')
+    const afterIdentity = login.indexOf('assertExplicitSessionGeneration(acceptedGeneration)')
+    expect(afterIdentity).toBeGreaterThan(login.indexOf('await queryClient.fetchQuery('))
+    expect(afterIdentity).toBeLessThan(login.indexOf('analytics.loginCompleted('))
+    expect(afterIdentity).toBeLessThan(login.indexOf('router.push(safe)'))
     expect(login).not.toMatch(/await getCurrentUser\(/)
     expect(login).toContain('queryKeys.subscription.all()')
     expect(login).toContain('queryKeys.usage.all()')

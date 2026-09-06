@@ -51,13 +51,25 @@ export function hasActiveSession(): boolean {
 // JS request ownership only; cookies and /me remain the authentication source. This fences
 // late in-tab responses, not concurrent Set-Cookie responses or changes in another tab.
 let sessionGeneration = 0
+let lastExplicitTransitionGeneration = 0
 const lossListeners = new Set<(generation: number) => void>()
 
 export const getSessionGeneration = (): number => sessionGeneration
 export const isSessionGenerationCurrent = (generation: number): boolean => generation === sessionGeneration
 
-export function advanceSessionGeneration(): void {
+export const getExplicitSessionGeneration = (): number => lastExplicitTransitionGeneration
+export const isExplicitSessionGenerationCurrent = (generation: number): boolean => generation === lastExplicitTransitionGeneration
+
+export function advanceSessionGeneration(reason: 'explicit' | 'session-loss' = 'explicit'): void {
   sessionGeneration += 1
+  if (reason === 'explicit') lastExplicitTransitionGeneration = sessionGeneration
+}
+
+/** Passive expiry can cancel old reads without vetoing an authoritative new login. */
+export function assertExplicitSessionGeneration(generation: number): void {
+  if (!isExplicitSessionGenerationCurrent(generation)) {
+    throw new DOMException('Another account transition completed while login was pending', 'AbortError')
+  }
 }
 
 export function assertSessionGeneration(generation: number): void {

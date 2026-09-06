@@ -3,9 +3,10 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { getCurrentUserSafe, login } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, login, type CurrentUser } from '@/features/auth/api/auth-api'
 import { queryKeys } from '@/lib/queryKeys'
-import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
+import { acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { getExplicitSessionGeneration, assertExplicitSessionGeneration } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
@@ -51,22 +52,28 @@ function LoginContent() {
     setError('')
     setLoading(true)
 
+    const explicitGeneration = getExplicitSessionGeneration()
     try {
       await login(email, password, turnstileToken)
       // Cancel the old identity and remove both account snapshots before resolving this login.
       // Reset leaves the active marker set by successful login intact.
-      resetAccountQueries(queryClient)
+      const acceptedGeneration = acceptLoginAndResetAccount(queryClient, explicitGeneration)
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.all() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
+      let user: CurrentUser | null | undefined
       try {
-        const user = await queryClient.fetchQuery({
+        user = await queryClient.fetchQuery({
           queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0,
         })
-        if (user?.id) {
-          analytics.loginCompleted(String(user.id))
-        }
       } catch {
-        // Ignore analytics errors to avoid blocking login
+        // A temporary identity error does not block login; ownership is checked below even
+        // when cancellation/errors were caught, so a later logout cannot be overwritten.
+      }
+      assertExplicitSessionGeneration(acceptedGeneration)
+      try {
+        if (user?.id) analytics.loginCompleted(String(user.id))
+      } catch {
+        // Analytics must not block an otherwise current login.
       }
       // Return the user to where they were headed before the auth gate. Only honour internal,
       // single-slash-rooted paths: reject protocol-relative ("//evil") and backslash-prefixed

@@ -1,6 +1,6 @@
 import api, { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, isSessionGenerationCurrent, hasActiveSession } from '@/lib/api/session'
+import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent } from '@/lib/api/session'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -27,13 +27,13 @@ export const register = async (
 }
 
 export const login = async (email: string, password: string, turnstileToken?: string) => {
-  const generation = getSessionGeneration()
+  const generation = getExplicitSessionGeneration()
   const response = await api.post(
     '/api/auth/login',
     { email, password },
     turnstileConfig(turnstileToken),
   )
-  assertSessionGeneration(generation)
+  assertExplicitSessionGeneration(generation)
   markSessionActive()
   return response.data
 }
@@ -101,24 +101,23 @@ export const unlinkProvider = async (provider: string) => {
 }
 
 export const logoutAllSessions = async () => {
-  const generation = getSessionGeneration()
   try {
     const response = await api.post('/api/auth/logout-all')
     return response.data
   } finally {
-    if (isSessionGenerationCurrent(generation)) clearSessionActive()
+    clearSessionActive()
   }
 }
 
 export const logout = async () => {
-  const generation = getSessionGeneration()
+  const generation = getExplicitSessionGeneration()
   try {
     const response = await api.post('/api/auth/logout')
     return response.data
   } finally {
     // Always drop the session flag, even if the server call fails, so a logged-out client
     // stops attempting silent refreshes.
-    if (isSessionGenerationCurrent(generation)) clearSessionActive()
+    if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
   }
 }
 

@@ -183,6 +183,29 @@ residual concurrent credential/refresh limitation, alongside browser Set-Cookie 
 claim of all password-login interleavings or cancellation of cookie writes is made. Ordinary
 A -> completed logout -> B and guest-login overlaps are the bounded acceptance cases.
 
+### Final ownership correction supersedes the active-loss residual proposal
+
+Root reconsidered the active-loss case after a second independent refutation: a stale active
+marker plus a real refresh rejection must not veto an authoritative new credential response.
+The prior paragraph retaining that false login failure is historical and superseded here.
+Keep one strict request generation and an explicit-transition reason watermark (no identity,
+token or extra uncertainty state). Passive session loss advances only the request generation;
+completed explicit login/logout also advance the watermark. Identity/data/refresh guards stay
+strict. Login checks the watermark before marking its successful session and atomically again
+before the page's cache reset. The reset helper returns the accepted watermark; the page checks
+it after awaited canonical identity resolution, outside error swallowing and immediately before
+analytics/navigation. A later completed logout wins even when identity resolved just before it.
+
+Logout's finally uses the explicit watermark too: passive loss while it awaited does not suppress
+the explicit logout fence; a newer accepted login protects B from an older logout completion.
+The actual adapter/subscribed QueryClient cases cover passive refresh401 then successful login,
+passive loss then completed logout rejecting pending login, the API-to-page continuation gap,
+and both pending/resolved identity before later logout. Guest-first and login-first cases remain.
+Focused final source: `73 passed (73)` in 2.66s, eight homes, in
+`/private/tmp/earningsnerd-account-cache-evidence/focused-final-ownership.log`.
+No cookie serialization or broader account-cache cleanup is added. One combined original
+ownership correction proof follows on committed final source; the earlier three proofs stand.
+
 ### Constraints and remaining limits
 
 CLAUDE rules 4/6/9/11/12 apply; backend plan truth, API payloads, prices, trials, analytics schema,
