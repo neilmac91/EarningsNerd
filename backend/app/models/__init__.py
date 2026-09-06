@@ -79,6 +79,10 @@ class User(Base):
     notification_logs = relationship(
         "NotificationLog", back_populates="user", cascade="all, delete-orphan"
     )
+    # Admission leases (E07b). Cascade so account deletion never trips the reservations FK.
+    usage_reservations = relationship(
+        "UsageReservation", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class OAuthAccount(Base):

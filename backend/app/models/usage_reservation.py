@@ -8,6 +8,7 @@ process dies, ignored once ``expires_at`` passes. Project-specific name: never a
 conventional table by accident (see lessons/ops-deploy-owned-state-needs-a-distinctive-name.md).
 """
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -19,9 +20,13 @@ class UsageReservation(Base):
     )
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Cascade on both layers: the ORM path (DELETE /api/users/me) and any Core/SQL delete of a
+    # users row must take live and expired leases with it, never fail an account deletion.
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     month = Column(String(7), nullable=False)  # "YYYY-MM", same bucket key as user_usage
     kind = Column(String(20), nullable=False)  # "summary" (Copilot/Analysis reserved for slice 2)
     token = Column(String(36), nullable=False, unique=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
+
+    user = relationship("User", back_populates="usage_reservations")

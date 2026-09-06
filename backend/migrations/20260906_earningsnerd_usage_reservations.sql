@@ -3,7 +3,7 @@
 -- model/create_all; this file exists so production (no startup DDL) gets it through the ledger.
 CREATE TABLE IF NOT EXISTS earningsnerd_usage_reservations (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     month VARCHAR(7) NOT NULL,
     kind VARCHAR(20) NOT NULL,
     token VARCHAR(36) NOT NULL UNIQUE,

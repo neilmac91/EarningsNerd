@@ -9,12 +9,14 @@ read-side block never reserves, and the serialized decision can still block a re
 admitted. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
 """
 import uuid
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.database import SessionLocal
 from app.models import UsageReservation, User, UserUsage
+from app.services import subscription_service as usage
 from app.services import summary_pipeline
 from app.services.subscription_service import get_current_month
 from app.services.summary_pipeline import GenerationUserSnapshot, stream_filing_summary
@@ -103,6 +105,42 @@ async def test_failed_generation_releases_the_reservation():
         events = await _run(filing_id, user_id)
     assert events[-1]["type"] == "error"
     assert _state(user_id) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_completion_after_a_month_rollover_counts_in_the_admitted_month():
+    """A lease admitted in one UTC month and converted in the next charges the month whose quota
+    admitted it. The new month's admissions never saw that lease, so counting it there could let
+    the new month exceed its cap by the number of straddling generations."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    admitted_month = "2000-01"
+    # Admission (the service's own clock) happens in the old month; conversion runs after the
+    # rollover on the pipeline's clock, which stays real.
+    with stream_boundaries(), patch.object(usage, "get_current_month", lambda: admitted_month):
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "complete"
+    with SessionLocal() as db:
+        buckets = {b.month: b.summary_count for b in db.query(UserUsage).filter_by(user_id=user_id)}
+        assert db.query(UsageReservation).filter_by(user_id=user_id).count() == 0
+    assert buckets == {admitted_month: 1}
+
+
+def test_account_deletion_takes_live_and_expired_reservations_with_it():
+    """Same ORM deletion as DELETE /api/users/me on the full schema: leases go with the account
+    instead of orphaning (SQLite has no FK enforcement here) or rejecting the delete (the
+    PostgreSQL FK cascade is proved in tests/integration/test_usage_counter_transactions.py)."""
+    user_id = _seed_user()
+    now = usage.utcnow()
+    with SessionLocal() as db:
+        for token, expires_at in (("live-lease", now + timedelta(seconds=300)), ("stale-lease", now - timedelta(seconds=1))):
+            db.add(UsageReservation(user_id=user_id, month=get_current_month(), kind=usage.SUMMARY_RESERVATION_KIND,
+                                    token=token, expires_at=expires_at, created_at=now))
+        db.commit()
+        db.delete(db.query(User).filter(User.id == user_id).one())
+        db.commit()
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.id == user_id).first() is None
+        assert db.query(UsageReservation).filter_by(user_id=user_id).count() == 0
 
 
 def test_read_side_block_never_reserves_and_serialized_block_is_honoured():

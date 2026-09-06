@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import create_engine, event, func, select
+from sqlalchemy import create_engine, delete, event, func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
@@ -368,3 +368,45 @@ def test_postgres_conversion_between_admission_reads_blocks_instead_of_over_admi
     assert _rows(postgres_engine, uid)[0][1] == 1
     assert _reservations(postgres_engine, uid) == []
 
+
+def test_postgres_deleting_the_users_row_cascades_live_and_expired_reservations(postgres_engine, monkeypatch):
+    """DELETE /api/users/me deletes the users row after Stripe cancellation; a live lease, or one
+    a crashed worker left behind (swept only on a later admission), must go with it instead of
+    failing the deletion on the FK. Core delete bypasses ORM cascades: this proves the database
+    constraint (the ORM path is pinned in tests/unit/test_usage_reservation_wiring.py)."""
+    _free_limit(monkeypatch, 5)
+    uid = _seed(postgres_engine)
+    with Session(postgres_engine) as db:
+        assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is True
+        db.add(UsageReservation(
+            user_id=uid, month=MONTH, kind=usage.SUMMARY_RESERVATION_KIND, token="abandoned-lease",
+            expires_at=usage.utcnow() - timedelta(seconds=1), created_at=usage.utcnow() - timedelta(seconds=400),
+        ))
+        db.commit()
+    assert len(_reservations(postgres_engine, uid)) == 2
+    with Session(postgres_engine) as db:
+        db.execute(delete(User).where(User.id == uid))
+        db.commit()
+    assert _reservations(postgres_engine, uid) == []
+
+
+def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqlite_engine):
+    """Conversion charges the month whose quota admitted the generation, so a lease that straddles
+    a UTC month rollover never lands in the new month (whose admissions did not see it)."""
+    uid = _seed(sqlite_engine)
+    admitted_month = "2026-08"
+    with Session(sqlite_engine) as db:
+        db.add(UsageReservation(
+            user_id=uid, month=admitted_month, kind=usage.SUMMARY_RESERVATION_KIND, token="rollover-lease",
+            expires_at=usage.utcnow() + timedelta(seconds=300), created_at=usage.utcnow(),
+        ))
+        db.commit()
+        assert usage.convert_reservation(None, db) is None
+        assert usage.convert_reservation("unknown-token", db) is None
+        assert _reservations(sqlite_engine, uid) == [("rollover-lease", "summary")]  # nothing dropped yet
+        assert usage.convert_reservation("rollover-lease", db) == admitted_month
+        usage.increment_user_usage(uid, admitted_month, db)  # commits the delete with the increment
+    assert _reservations(sqlite_engine, uid) == []
+    with Session(sqlite_engine) as db:
+        buckets = {r.month: r.summary_count for r in db.query(UserUsage).filter_by(user_id=uid)}
+    assert buckets == {admitted_month: 1}

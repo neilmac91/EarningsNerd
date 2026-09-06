@@ -45,6 +45,7 @@ from app.services.posthog_client import (
 from app.services.subscription_service import (
     check_usage_limit,
     increment_user_usage,
+    convert_reservation,
     get_current_month,
     release_reservation,
     reserve_summary_use,
@@ -1056,10 +1057,10 @@ async def stream_filing_summary(
                     with database.SessionLocal() as session:
                         user = session.query(User).filter(User.id == user_id).first()
                         if user:
-                            month = get_current_month()
                             # Convert the reservation: its delete rides in the increment's commit,
-                            # so the unit is counted exactly once and never both held and counted.
-                            release_reservation(usage_reservation_token, session, commit=False)
+                            # so the unit is counted exactly once and never both held and counted,
+                            # in the month whose quota admitted it (a lease can straddle a rollover).
+                            month = convert_reservation(usage_reservation_token, session) or get_current_month()
                             increment_user_usage(user.id, month, session)
 
                 await run_sync_db(track_usage_sync)

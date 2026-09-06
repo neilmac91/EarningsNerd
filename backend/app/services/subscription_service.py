@@ -158,6 +158,23 @@ def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[in
     return True, completed, (None if unlimited else limit), token
 
 
+def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
+    """Drop a reservation for a completed use and return the month it was admitted under.
+
+    Not committed: the caller increments that month's counter in the same transaction, so a
+    generation admitted just before a UTC month rollover is charged to the month whose quota
+    admitted it, never to the new month (whose admissions do not see the old lease). ``None``
+    when nothing was reserved (unlimited Pro) or the lease already expired and was swept.
+    """
+    if not token:
+        return None
+    month = db.query(UsageReservation.month).filter(UsageReservation.token == token).scalar()
+    if month is None:
+        return None
+    db.query(UsageReservation).filter(UsageReservation.token == token).delete(synchronize_session=False)
+    return month
+
+
 def release_reservation(token: Optional[str], db: Session, *, commit: bool = True) -> None:
     """Drop a reservation (idempotent). ``commit=False`` lets a completion delete it in the same
     transaction as the counter increment, so a unit is never both reserved and counted."""

@@ -71,7 +71,27 @@ leave a phantom unit against a 5/month free cap until month end):
   in mock-session stream tests (integration and performance suites) that now stub the
   `reserve_summary_use` seam; `migrations-postgres` (triple pass with the new file, three
   concurrency proofs) green on `d2ce9c9`.
-- [ ] Full backend gate (ruff, bandit, pytest with the three PostgreSQL URLs), draft PR, CI,
+- [x] Founder approved one paid Copilot run for #746 (chat, 2026-09-06); marked ready at
+  21:41 UTC. `copilot-eval.yml` on `8f2d7a8`: run 34061837988 success, job 101563621793,
+  `accepted: true`, 18 expected / 18 completed / 18 scored, 0 errors, pass rate 1.0,
+  artifact `copilot-fidelity-34061837988` (id 9997754279, sha256 `522b0aad…3190189e`), model
+  `deepseek-v4-pro`. That approval is consumed.
+- [x] Codex review on `8f2d7a8`: two P2 findings, both confirmed against the code and fixed:
+  (1) `usage_reservations.user_id` FK had no cascade and `User` no relationship, so
+  `DELETE /api/users/me` would fail on the FK whenever a live or crash-abandoned lease exists
+  → `ondelete="CASCADE"` in the model and the still-unapplied migration (never in any ledger)
+  plus `User.usage_reservations` (`cascade="all, delete-orphan"`); (2) conversion charged
+  `get_current_month()`, so a lease straddling a UTC month rollover landed in the new month,
+  whose admissions never saw it → `convert_reservation(token, db)` returns the lease's own
+  month and the pipeline increments that bucket (fallback to the current month only when
+  nothing was reserved). Gates: PostgreSQL Core-delete cascade case (proves the FK), ORM
+  deletion case on the full schema (proves the relationship), `convert_reservation` unit
+  case, and a real-pipeline rollover case. Mutations, each restored: `ondelete` dropped →
+  `ForeignKeyViolation`, 1 failed; relationship cascade dropped → 1 failed; conversion back
+  to `get_current_month()` → 1 failed. Migration triple-applied on local PostgreSQL with
+  `confdeltype = c` and a users delete leaving 0 leases.
+- [ ] Re-mark ready (fires one more paid `copilot-eval.yml` run on the fix head: the
+  `synchronize` trigger is why the PR went back to draft before the push) → merge → main CI →
   release with one unverified backend rollout at a time: migration `applied=1`, revision,
   traffic, independent `/health/detailed`. No price, entitlement, analytics, locked-test or
   historical duplicate-repair change (repair stays founder-held).
