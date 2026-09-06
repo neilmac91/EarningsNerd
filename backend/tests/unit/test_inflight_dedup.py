@@ -202,3 +202,66 @@ async def test_expired_follower_budget_does_not_replace_active_leader(monkeypatc
             assert not leader.is_set()
         finally:
             summary_pipeline._release_inflight(fid, leader)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("force_regenerate", [False, True])
+async def test_delayed_empty_snapshot_after_replacement_completes_is_reread(monkeypatch, force_regenerate):
+    from tests.support.summary_stream_harness import seed_company_filing, stream_boundaries
+
+    fid = seed_company_filing()
+    leader = summary_pipeline._claim_inflight(fid)
+    joined, delayed_read, return_delayed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    joins, held = 0, False
+    original_run = summary_pipeline.run_in_threadpool
+
+    async def delay_empty_read(func, *args, **kwargs):
+        nonlocal held
+        result = await original_run(func, *args, **kwargs)
+        if (func.__name__ == "get_persisted_summary_fields" and result is None
+                and asyncio.current_task().get_name() == "delayed-follower" and not held):
+            held = True
+            delayed_read.set()
+            await return_delayed.wait()
+        elif func.__name__ == "get_persisted_summary_fields" and result is None:
+            # The replacement cannot persist before the delayed follower has its empty snapshot.
+            await delayed_read.wait()
+        return result
+
+    async def consume():
+        nonlocal joins
+        frames = []
+        async for frame in summary_pipeline.stream_filing_summary(
+            filing_id=fid, current_user=None, user_id=None, telemetry_distinct_id="offline",
+            telemetry_entry_point=None, telemetry_ctx={}, force_regenerate=force_regenerate,
+        ):
+            frames.append(frame)
+            if frame.get("stage") == "queued":
+                joins += 1
+                if joins == 2:
+                    joined.set()
+        return frames
+
+    with stream_boundaries() as generate, monkeypatch.context() as patch:
+        patch.setattr(summary_pipeline, "run_in_threadpool", delay_empty_read)
+        delayed = asyncio.create_task(consume(), name="delayed-follower")
+        replacement = asyncio.create_task(consume(), name="replacement-follower")
+        try:
+            await asyncio.wait_for(joined.wait(), 2)
+            summary_pipeline._release_inflight(fid, leader)
+            await asyncio.wait_for(delayed_read.wait(), 2)
+            completed = await asyncio.wait_for(replacement, 2)
+            assert fid not in summary_pipeline._inflight_generations
+            generate.assert_awaited_once()
+            return_delayed.set()  # now return the obsolete empty snapshot
+            resumed = await asyncio.wait_for(delayed, 2)
+            generate.assert_awaited_once()
+            assert next(f["summary_id"] for f in completed if f["type"] == "complete") == next(
+                f["summary_id"] for f in resumed if f["type"] == "complete")
+            assert fid not in summary_pipeline._inflight_generations
+        finally:
+            return_delayed.set()
+            for task in (delayed, replacement):
+                task.cancel()
+            await asyncio.gather(delayed, replacement, return_exceptions=True)
+            summary_pipeline._inflight_generations.pop(fid, None)

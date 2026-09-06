@@ -321,13 +321,28 @@ async def stream_filing_summary(
 
             # A3: a follower must recheck ownership after every join/read. Failed leaders
             # can wake several followers; only one may atomically claim the empty slot.
+            def get_persisted_summary_fields():
+                with database.SessionLocal() as s:
+                    summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
+
             waited = 0.0
+            joined_generation = False
             while True:
                 existing_generation = _inflight_generations.get(filing_id)
                 if existing_generation is None:
                     # No await between this read and claim; another coroutine cannot interleave.
                     inflight_event = _claim_inflight(filing_id)
+                    if joined_generation:
+                        # A previous empty snapshot may return after a replacement committed
+                        # and released. Hold this new claim during a fresh read so another
+                        # replacement cannot finish between our absence check and admission.
+                        summary_fields = await run_sync_db(get_persisted_summary_fields)
+                        if summary_fields:
+                            yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
+                            return
                     break
+                joined_generation = True
                 logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
                 yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
                 while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
@@ -338,11 +353,6 @@ async def stream_filing_summary(
                         yield {'type': 'progress', 'stage': 'summarizing', 'message': 'Finishing the shared analysis...', 'percent': min(50 + int(waited), 90), 'elapsed_seconds': int(time.time() - pipeline_started_at)}
 
                 # Re-read on a fresh session (the leader committed on its own) and serve it.
-                def get_persisted_summary_fields():
-                    with database.SessionLocal() as s:
-                        summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
-                        return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
-
                 summary_fields = await run_sync_db(get_persisted_summary_fields)
                 if summary_fields:
                     logger.info(f"[stream:{filing_id}] Served result from in-flight leader (dedup hit).")
