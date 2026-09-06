@@ -13,6 +13,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 ## Architecture
 
 - [`arch-sitemap-page-eligibility.md`](./arch-sitemap-page-eligibility.md) — Match sitemap eligibility to the existing page predicates
+- [`arch-payments-need-allocation-evidence.md`](./arch-payments-need-allocation-evidence.md) — Measure canonical allocations with explicit attribution, coverage and deletion limits
 
 - [`arch-reconciliation-follows-values-and-growth.md`](./arch-reconciliation-follows-values-and-growth.md) — Carry reconciliation quality through values, growth, citations and exports
 

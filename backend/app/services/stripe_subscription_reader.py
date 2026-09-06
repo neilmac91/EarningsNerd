@@ -7,6 +7,8 @@ its account lock/session until the read finishes; never abandon that worker on a
 from __future__ import annotations
 
 import stripe
+from contextlib import contextmanager
+from collections.abc import Iterator
 
 from app.config import settings
 
@@ -55,20 +57,38 @@ def _validate_snapshot(snapshot: dict, subscription_id: str, customer_id: str | 
     return snapshot
 
 
+@contextmanager
+def _bounded_client() -> Iterator[stripe.StripeClient]:
+    """Shared transport ownership for exact-ID billing reads; no global client mutation."""
+    transport = stripe.RequestsClient(timeout=(
+        settings.STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS,
+        settings.STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS,
+    ))
+    try:
+        yield stripe.StripeClient(settings.STRIPE_SECRET_KEY, http_client=transport, max_network_retries=0)
+    finally:
+        transport.close()
+
+
 def retrieve_subscription_snapshot(subscription_id: str, customer_id: str | None) -> dict:
     """Read/validate one exact subscription; close the dedicated transport on every outcome."""
     try:
-        transport = stripe.RequestsClient(timeout=(
-            settings.STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS,
-            settings.STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS,
-        ))
-        try:
-            client = stripe.StripeClient(settings.STRIPE_SECRET_KEY, http_client=transport, max_network_retries=0)
+        with _bounded_client() as client:
             snapshot = client.v1.subscriptions.retrieve(subscription_id).to_dict()
             return _validate_snapshot(snapshot, subscription_id, customer_id)
-        finally:
-            transport.close()
     except Exception as exc:
         # Provider/transport/response failures share one retryable boundary. Never return the stale
         # webhook object or expose provider error text/credentials in the HTTP response.
         raise SubscriptionReconciliationUnavailable("Current Stripe subscription state is unavailable") from exc
+
+
+def retrieve_invoice_snapshot(invoice_id: str) -> dict:
+    """Read one invoice for payment attribution; payment evidence validates the returned fields."""
+    try:
+        with _bounded_client() as client:
+            snapshot = client.v1.invoices.retrieve(invoice_id).to_dict()
+            if not isinstance(snapshot, dict) or snapshot.get("id") != invoice_id:
+                raise ValueError("Invoice identity does not match requested ID")
+            return snapshot
+    except Exception as exc:
+        raise SubscriptionReconciliationUnavailable("Current Stripe invoice state is unavailable") from exc
