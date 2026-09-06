@@ -5,7 +5,7 @@
 ### W3-5 local preparation — agent stack truth
 
 W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
-[#711](https://github.com/neilmac91/EarningsNerd/pull/711) candidate `210c2883`; its deployment and
+[#711](https://github.com/neilmac91/EarningsNerd/pull/711) candidate `481dc168` (including the timeout-safe failure report); its deployment and
 live smoke acceptance remain pending. Root controls publication and serialized deployment.
 W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
 block this independent engineering work. Other founder boundaries remain unchanged.
@@ -14,8 +14,9 @@ block this independent engineering work. Other founder boundaries remain unchang
 - [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
 - [x] Prove the gate with one intended Firebase assertion failure and exact restoration.
 - [x] Three independent lenses cleared the W3-5 source; unchanged source bytes retain that evidence.
-- [x] Complete the combined backend gate on the #711 candidate: tested `3daf0c4c`, 105 exact
-  runtime/dev pins, Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 52.11s`.
+- [x] Prior #711 union gate at `3daf0c4c`: 105 exact runtime/dev pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 72 warnings in 52.11s`.
+- [ ] Run the combined backend gate on the corrected timeout-safe #711 candidate.
 - [ ] Obtain root release after W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
 
 Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
