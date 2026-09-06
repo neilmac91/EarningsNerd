@@ -15,14 +15,29 @@ its update was skipped; its founder provisioning/activation hold remains.
 PR #716 is draft again for two independently confirmed review corrections; prior source
 and gate evidence below remains historical and is superseded for release by this correction.
 
-- [ ] Replace the stale dynamic dependency probe tuple with `PyJWT` / `jwt`; verify only
+- [x] Replace the stale dynamic dependency probe tuple with `PyJWT` / `jwt`; verify only
   the extracted `check_dependencies` function offline, never the full deployment diagnostic.
-- [ ] Give Google token validation the configured clock-skew leeway. The current 10-second
+- [x] Give Google token validation the configured clock-skew leeway. The current 10-second
   setting also applies to its `exp`/`nbf` checks; document that expanded tolerance explicitly.
-- [ ] Add one deterministic offline Google RSA/JWK test: near-future `iat` within leeway
+- [x] Add one deterministic offline Google RSA/JWK test: near-future `iat` within leeway
   succeeds and beyond leeway fails. Keep the two prior approved existing-test edits unchanged.
-- [ ] Commit source; remove only Google's leeway to prove the intended regression assertion,
+- [x] Commit source; remove only Google's leeway to prove the intended regression assertion,
   restore exactly and run one full coherent 102-pin backend gate. Lock/audit evidence is unchanged.
+
+Corrected source `c5d1f3d3`: the offline AST-extracted dependency probe passes with PyJWT;
+no full diagnostic or live OAuth was run. Real local RSA/JWK with frozen validation time
+passes the +5-second `iat` and rejects +11 seconds at configured leeway 10 seconds.
+Focused test: 1 passed, 1 warning (0.45s). Removing only Google's configured leeway fails
+that intended near-future acceptance call (1 failed, 1 warning in 0.21s); exact restoration
+passes (1 passed, 1 warning in 0.16s), source SHA256
+`a5a5feaa374305fa37b4cd3b57e2aa6ce0851617f207c43357d77bd8623d45e8`.
+The corrected full coherent gate verifies 102 exact pins; Ruff/Bandit exit 0;
+2385 passed, 2 deselected, 23 warnings (56.16s), exit 0. Existing post-summary shutdown
+logging error remains recorded. Lock, the two approved existing-test edits and original AST
+gate are byte-identical to the previous candidate, so unchanged audit and earlier AST proof
+remain scoped evidence. All locked contracts, baseline, 59 current archives and historical
+review finding bodies remain exact; 18 local owning-document links resolve.
+Root owns final review, CI and publication; previous release evidence below is historical.
 
 - [x] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
   issuers, nonce binding, string subjects and configured clock-skew leeway. Disclose that
