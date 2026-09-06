@@ -1,5 +1,24 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## E03 — Short database ownership during generation (2026-09-06)
+
+Approved engineering scope from the beta-to-scale plan. Start: `7d06edc`.
+Keep the sole summary orchestrator, filing grounding, quota semantics and locked contracts.
+No prompt, flag, schema, capacity or W3-8b classifier change. Root owns publication/deployment.
+
+- [ ] Return plain filing/cache snapshots from worker-owned sessions; close progress/save/usage
+  sessions in their worker before network, admission or stream waits.
+- [ ] Close background preflight before draining the same orchestrator; preserve all early returns.
+- [ ] Release the request session before SSE, preserving current-user entitlement inputs and
+  the locked stand-in identity; offload the complete detailed-health DB probe.
+- [ ] Extend existing lifecycle and health test homes with real pool/ownership evidence.
+- [ ] Prove each new invariant with exactly one mutation, restoring committed implementation.
+- [ ] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
+
+Runtime evidence: installed FastAPI `routing.py::request_response` closes its request dependency
+stack after `await response(...)`; `dependencies/utils.py` defaults yielded dependencies to that
+stack. The route's earlier "session is gone" comment is false for streaming on the pinned runtime.
+
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
 ### W3-3 public-source replacement — 2026-09-06
