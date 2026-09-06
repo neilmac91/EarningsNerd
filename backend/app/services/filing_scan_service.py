@@ -8,9 +8,11 @@ Pro with real-time off) into one email per user.
 Eligibility and delivery limits:
 - **No historical spam:** a watcher is only alerted about filings dated after they started watching
   (``Watchlist.created_at``) or after the last alert (``last_alerted_at``) — the baseline.
-- **Unique log rows, not once-only sending:** the pre-check skips existing logs, but sends occur
-  before the unique ``(user_id, filing_id, channel)`` insert. Concurrent runs can send twice.
-  Failed attempts are also logged and currently suppress retries.
+- **Durable delivery (E11b-1):** selection persists a delivery batch (frozen email, provider
+  idempotency key, owned filings) before any send; ``notification_delivery_service.drain`` then
+  dispatches through fenced claims, so concurrent runs cannot both send one batch and a failed
+  attempt is retried from the durable record. ``NotificationLog`` rows (historical rows still
+  suppress re-selection) and watchlist watermarks are written only on provider acceptance.
 
 EDGAR fetch and email send are injectable so the whole engine is unit-testable on SQLite with no
 live SEC/Resend calls.
@@ -25,8 +27,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Company, Filing, NotificationLog, User, Watchlist
+from app.models.notification_delivery import KIND_FILING_DIGEST, KIND_FILING_REALTIME
 from app.models.notifications import CHANNEL_EMAIL
 from app.services import email_service
+from app.services import notification_delivery_service as delivery
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
 
@@ -56,6 +60,37 @@ def _scan_form_types() -> list[str]:
 FetchFilings = Callable[..., Awaitable[list[dict]]]
 SendAlert = Callable[..., Awaitable[None]]
 SendDigest = Callable[..., Awaitable[None]]
+
+
+def _alert_transport(send_alert: Optional[SendAlert]) -> Optional[delivery.Send]:
+    """An injected legacy alert sender keeps its keyword shape; None means the frozen payload
+    goes to Resend under the batch's idempotency key."""
+    if send_alert is None:
+        return None
+
+    async def send(prepared: delivery.PreparedSend) -> Optional[str]:
+        item = prepared.items[0]
+        await send_alert(to_email=prepared.to_email, name=prepared.name, **item)
+        return None
+
+    return send
+
+
+def _digest_transport(send_digest: Optional[SendDigest]) -> Optional[delivery.Send]:
+    if send_digest is None:
+        return None
+
+    async def send(prepared: delivery.PreparedSend) -> Optional[str]:
+        await send_digest(to_email=prepared.to_email, name=prepared.name, items=prepared.items)
+        return None
+
+    return send
+
+
+def _merge_drain(stats: dict, drained: delivery.DrainStats, *, sent_key: str, failed_key: str) -> None:
+    stats[sent_key] += drained.accepted
+    stats[failed_key] += drained.retryable + drained.ambiguous + drained.rejected
+    stats.update(drained.as_dict())
 
 
 def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
@@ -197,8 +232,8 @@ async def run_filing_scan(
     Non-real-time-eligible filings (Free users, or Pro with real-time off) are left for
     :func:`run_daily_digest`.
     """
+    delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
-    send_alert = send_alert or email_service.send_new_filing_alert
     if fetch_filings is None:
         from app.services.edgar.compat import sec_edgar_service
         fetch_filings = sec_edgar_service.get_filings
@@ -241,28 +276,26 @@ async def run_filing_scan(
                 if not eligible or not realtime:
                     continue  # ineligible, or queued for the digest
                 if _already_logged(db, user.id, filing.id, CHANNEL_EMAIL):
-                    continue
-                status = "sent"
-                try:
-                    await send_alert(
-                        to_email=user.email,
-                        name=user.full_name,
-                        company_name=company.name,
-                        ticker=company.ticker,
-                        filing_type=filing.filing_type,
-                        filing_date=_filing_date_str(filing.filing_date),
-                        filing_id=filing.id,
-                        filing_url=filing.sec_url,
-                    )
-                    stats["alerts_sent"] += 1
-                except Exception as e:
-                    status = "failed"
-                    stats["alerts_failed"] += 1
-                    logger.warning("Alert send failed (user %s, filing %s): %s", user.id, filing.id, e)
-                _write_log(db, user.id, filing.id, CHANNEL_EMAIL, status)
-                _advance_watermark(watch, filing)
+                    continue  # historical rows are never replayed
+                if delivery.already_owned(db, user.id, filing.id, CHANNEL_EMAIL):
+                    continue  # owned by a durable batch (any state)
+                subject, html = email_service.build_new_filing_alert(
+                    name=user.full_name,
+                    company_name=company.name,
+                    ticker=company.ticker,
+                    filing_type=filing.filing_type,
+                    filing_date=_filing_date_str(filing.filing_date),
+                    filing_id=filing.id,
+                    filing_url=filing.sec_url,
+                )
+                delivery.create_batch(
+                    db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html,
+                    filing_ids=[filing.id], now=now,
+                )
             db.commit()
 
+    drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_alert_transport(send_alert), now=delivery_now)
+    _merge_drain(stats, drained, sent_key="alerts_sent", failed_key="alerts_failed")
     return stats
 
 
@@ -275,11 +308,11 @@ async def run_daily_digest(
 ) -> dict:
     """Send one batched email per user for eligible, not-yet-alerted filings in the window.
 
-    Existing NotificationLog rows exclude a filing, including logged failed attempts. This
-    suppresses retries but does not prevent concurrent sends before either run writes its log.
+    Historical NotificationLog rows and filings already owned by a delivery batch are excluded;
+    the digest's membership and payload are frozen on its batch before dispatch.
     """
+    delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
-    send_digest = send_digest or email_service.send_daily_digest
     window_start = now - timedelta(hours=window_hours)
 
     stats = {"digests_sent": 0, "digests_failed": 0, "filings_included": 0}
@@ -320,7 +353,9 @@ async def run_daily_digest(
                 if not eligible:
                     continue
                 if _already_logged(db, uid, filing.id, CHANNEL_EMAIL):
-                    continue  # already logged, including failed delivery attempts
+                    continue  # historical rows are never replayed
+                if delivery.already_owned(db, uid, filing.id, CHANNEL_EMAIL):
+                    continue  # owned by a durable batch (any state)
                 items.append({
                     "company_name": company.name,
                     "ticker": company.ticker,
@@ -334,19 +369,13 @@ async def run_daily_digest(
         if not items:
             continue
 
-        status = "sent"
-        try:
-            await send_digest(to_email=user.email, name=user.full_name, items=items)
-            stats["digests_sent"] += 1
-        except Exception as e:
-            status = "failed"
-            stats["digests_failed"] += 1
-            logger.warning("Digest send failed (user %s): %s", uid, e)
+        subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
+        delivery.create_batch(
+            db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+            filing_ids=[filing.id for _watch, filing in to_log], now=now,
+        )
 
-        for watch, filing in to_log:
-            if _write_log(db, uid, filing.id, CHANNEL_EMAIL, status):
-                stats["filings_included"] += 1
-                _advance_watermark(watch, filing)
-        db.commit()
-
+    drained = await delivery.drain(db, kind=KIND_FILING_DIGEST, send=_digest_transport(send_digest), now=delivery_now)
+    _merge_drain(stats, drained, sent_key="digests_sent", failed_key="digests_failed")
+    stats["filings_included"] += drained.accepted_items
     return stats

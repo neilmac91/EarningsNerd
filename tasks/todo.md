@@ -1,3 +1,65 @@
+## E11b-1 continuation — 2026-09-07
+
+Verified remote main `c09a4d222e2038a07081c389caf384bb84400a49`, draft #747 head
+`91f82d55dd2f2b72e53411db2ece5cf927969c89` (the extra commit over handed-over `49efc638`
+only adds task evidence). Existing approvals for two #746 Copilot runs are consumed.
+The initial handover held new spending; the founder subsequently approved further paid runs
+if needed (recorded below). No email or production job execution as a test is authorized.
+
+- [x] Original full Ruff/Bandit/backend gate including performance and all four real PostgreSQL
+  lanes: 2620 passed, 23 warnings in 86.09 s, exit 0. First sandbox attempt could not access
+  local PostgreSQL sockets and was interrupted (1205 passed / 34 setup errors); retained
+  separately, then run with local socket access. No test/source workaround.
+- [x] Eight original mutations on committed `91f82d5` all failed as intended; exact source
+  restored, focused restoration 10 passed in 0.67 s. Evidence:
+  `/private/tmp/earningsnerd-delivery-evidence/mutation-results.json`.
+- [x] Independent review with two refutations per candidate, confirmed by root: stale delivery
+  clocks; missing provider acceptance validation; mutable recipient/sender envelope; missing
+  membership after filing deletion; expiry-created ambiguity omitted from job outcomes.
+- [x] Corrected five gaps on `ea21e7f`; seven new original mutation proofs each failed as
+  intended and restored source bytes. Restored delivery homes: 27 passed, 2 warnings in 1.43 s.
+  Independent final review of committed source found no surviving actionable issue after two
+  refutations per candidate. Existing delivery test homes own these gates.
+- [x] Prepared #746's promised reservation TTL lower bound `gt=180`, Settings validation and
+  documentation. Original mutation back to `gt=120`: 2 failed, 5 passed; exact source restored.
+- [ ] Reply/resolve #746's TTL review thread only after #747 merges.
+- [x] Full corrected four-lane backend/performance gate: 2633 passed, 23 warnings in 88.61 s;
+  Ruff/Bandit clean. Workflow readers included; Node lockstep 3 passed. PostgreSQL 15.15
+  migration replay 38/0 → 0/38 → 38/0 and SQL/model parity passed. Six locked tests are
+  byte-identical to main. PR body includes exact mutation and restoration tails.
+  A preceding run exposed stale same-second Python mutation bytecode (2 failed / 2631 passed);
+  disassembly proved TTL120 while source declared180. Fresh PYTHONPYCACHEPREFIX corrected
+  the test environment without source/test changes; both logs retained.
+- [x] Founder approved further paid runs if needed (live chat, 2026-09-07), after root disclosed
+  that summary evaluation also runs on draft updates. Necessary summary/Copilot CI is now
+  authorized; finish local verification before triggering it, keep fixes draft-first, preserve
+  failed evidence and do not retry simply to chase a pass. No flags, baseline or model change.
+- [ ] After authorized publication and actual CI/eval/Codex acceptance, fresh-head merge and
+  serial production verification. No release claim from local checks alone.
+
+## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
+
+State model reviewed by the founder (chat, "go with your recommended approach"): batches persist
+the frozen email, a provider idempotency key and the owned filings before any send; fenced
+conditional transitions ready → claimed → sending → accepted | retryable | ambiguous | suppressed;
+the sending authorisation is committed before the provider call; compatibility `NotificationLog`
+rows and watermarks only on acceptance; expired sending leases are parked as ambiguous, never
+reclaimed. Implemented on `49efc638` (models, guarded migration, service, scan/digest wiring,
+Resend outcome classes + `Idempotency-Key`, five bounded `DELIVERY_*` settings, CI PostgreSQL
+lane, 16 unit + 4 PostgreSQL cases; locked `test_filing_scan.py` byte-identical). Focused suites
+`77 passed`. Remaining: full gate, eight mutation proofs, independent lens, the
+`USAGE_RESERVATION_TTL_SECONDS > 180` bound promised on #746's open Codex thread, PR body, one
+founder-approved Copilot run, Codex, merge, deploy verification. Details: handover package
+`gpt-6-astra-handover.md`.
+
+- [x] #746 released: squash `c09a4d2`, main CI 34064160001 success, deploy-backend job
+  101570260527 `apply_migrations: applied=1 skipped=36`, Cloud Run revision
+  `earningsnerd-backend-00293-fqs` at 100 % traffic, `/health/detailed` healthy (CI 22:35:46Z,
+  independent 22:36:52Z). Second paid Copilot run on `f52154e` (34063706652, success) consumed
+  under the founder's "go with your recommended approach". Codex P2 on the TTL lower bound left
+  open with a reply; fix carried to #747.
+- [ ] #747 to release (see remaining list above).
+
 ## E07b — Admission reservations for summaries (engineering, 2026-09-06)
 
 Facts (read against `e873ac8`): summary admission is a plain read of `user_usage.summary_count`
@@ -94,11 +156,10 @@ leave a phantom unit against a 5/month free cap until month end):
   fixed — `release_reservation` lost its unused `commit=` kwarg and the two PostgreSQL
   conversion cases now go through `convert_reservation`, so the real completion path is what
   the PostgreSQL gate exercises. Full suite after the round: `2600 passed`.
-- [ ] Re-mark ready (fires one more paid `copilot-eval.yml` run on the fix head: the
-  `synchronize` trigger is why the PR went back to draft before the push) → merge → main CI →
-  release with one unverified backend rollout at a time: migration `applied=1`, revision,
-  traffic, independent `/health/detailed`. No price, entitlement, analytics, locked-test or
-  historical duplicate-repair change (repair stays founder-held).
+- [x] Released #746 as `c09a4d2`; CI 34064160001, migration `applied=1 skipped=36`,
+  revision `earningsnerd-backend-00293-fqs` at 100% and independent detailed health verified
+  in the handover. Second Copilot run 34063706652 consumed its approval. TTL correction is
+  carried in #747; historical duplicate repair remains founder-held.
 
 ## E08b — Free-tier caps mirrored once, gated against the backend (engineering, 2026-09-06)
 

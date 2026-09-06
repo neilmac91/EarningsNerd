@@ -20,6 +20,7 @@ from app.models.feedback import Feedback
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
 from app.models.usage_reservation import UsageReservation
+from app.models.notification_delivery import DeliveryBatch, DeliveryItem
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,10 @@ class User(Base):
     # Admission leases (E07b). Cascade so account deletion never trips the reservations FK.
     usage_reservations = relationship(
         "UsageReservation", back_populates="user", cascade="all, delete-orphan"
+    )
+    # Durable alert delivery (E11b-1); items cascade from their batch.
+    delivery_batches = relationship(
+        "DeliveryBatch", back_populates="user", cascade="all, delete-orphan"
     )
 
 

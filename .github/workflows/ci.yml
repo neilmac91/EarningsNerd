@@ -155,6 +155,12 @@ jobs:
         env:
           LOGIN_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_login_lockout_transactions.py
+      - name: Verify alert delivery claim concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          DELIVERY_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_notification_delivery_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
