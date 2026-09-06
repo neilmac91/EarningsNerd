@@ -65,6 +65,49 @@ The existing post-summary asynchronous
 client shutdown logging diagnostic remains unrelated to the passing result. Push is authorized;
 PR creation/readiness, merge and serialized release remain root-owned and pending.
 
+### E10b latest integration — Backend gate and publication held
+
+Local merge `5232388` incorporated E07a main `90fdc69`; merge `89cedfb` then incorporated
+E08a main `752f3a2728d99be851a0fd284e746ce338cf0b04`. Both merges conflicted only in this
+checklist; all E10b/E07/E08/E06 sections were retained. E10b's six runtime/test files are
+byte-identical to prior head `5fb6ed1`. The incoming E07 service/usage tests/CI workflow gate
+and E08 predicates/component tests exactly match main. Both Stripe and usage PostgreSQL CI
+steps and their required URLs are retained. No mutation proof was repeated.
+
+Integration review is clear across correctness, rules/brief and tests: selected-summary ownership
+and shared cache invalidation remain intact, current-trial labels still follow server plan truth,
+and each workstream retains its behavioral tests. This is source acceptance, not a combined
+backend test pass or release. Root owns all further publication.
+
+Combined frontend gate on `89cedfb`, Node 22.23.2: lint (zero warnings), typecheck, Vitest
+**98 files / 509 tests passed** in 26.41 s, and production build all exited 0. The build used
+approved font-download network access; existing Sentry-token warnings mean no local release or
+source-map upload. Existing jsdom navigation diagnostics followed passing component tests.
+Ruff and Bandit also passed, with zero medium/high severity. Logs:
+`/private/tmp/earningsnerd-e10b-e08-lint.log`, `-typecheck.log`, `-vitest.log`, `-build.log`,
+`-ruff.log` and `-bandit.log` under the same `earningsnerd-e10b-e08` prefix.
+
+**Combined backend pytest has not been verified.** Automatic approval review rejected the
+exact full-suite command twice, stating that the trusted original audit prohibited the full
+backend suite. The later implementation authorization and current required gate were supplied
+for review. A final identical-command review with the parent's latest user continuation quote
+was interrupted: tool result `aborted by user after 5.1s`, with no execution session ID or approval
+verdict. `/private/tmp/earningsnerd-e10b-e07-full.log` does not exist; no test-start/output evidence
+was observed. A read-only process listing was sandbox-denied, so process absence was not proved.
+No retry, workaround, targeted substitute or implicit pass followed the interruption.
+
+The held command, from `backend/`, is:
+```sh
+DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib EDGAR_LOCAL_DATA_DIR=/private/tmp/earningsnerd-e10b-edgar STRIPE_CONCURRENCY_TEST_DATABASE_URL='postgresql://earningsnerd@/earningsnerd_e05b?host=/private/tmp/earningsnerd-e05b-pg&port=55435' USAGE_CONCURRENCY_TEST_DATABASE_URL='postgresql://earningsnerd@/earningsnerd_e05b?host=/private/tmp/earningsnerd-e05b-pg&port=55435' /private/tmp/wave3-pyjwt-backend-venv/bin/python -m pytest > /private/tmp/earningsnerd-e10b-e07-full.log 2>&1
+```
+
+Root has asked the user for explicit authorization covering the held full gate/publication;
+no answer was available at this checkpoint. No push occurred after `5fb6ed1`; PR #730's remote
+source remains that prior head. The older passing backend checkpoint above does not cover E07a.
+Resume the required combined PostgreSQL gate only after root resolves the authorization hold,
+then let root own publication/readiness/merge and serialized deployment. No account operation
+or production mutation occurred in this integration work.
+
 ### E08a — Render trial state from resolved entitlements (engineering)
 
 Base `cab71f9`. Pricing and settings currently use raw `status = trialing` even when the
