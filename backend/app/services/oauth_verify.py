@@ -126,6 +126,7 @@ async def _verify_google_id_token(id_token: str) -> dict:
             algorithms=["RS256"],
             audience=settings.GOOGLE_CLIENT_ID,
             options={"require": ["exp", "aud", "sub", "iss"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError as exc:
         raise ValueError(f"Google id_token invalid: {exc}")

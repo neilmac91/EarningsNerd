@@ -209,7 +209,7 @@ def check_dependencies():
         ("beautifulsoup4", "bs4"),
         ("pydantic", "pydantic"),
         ("pydantic_settings", "pydantic_settings"),
-        ("python-jose", "jose"),
+        ("PyJWT", "jwt"),
         ("passlib", "passlib"),
         ("stripe", "stripe")
     ]

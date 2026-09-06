@@ -259,7 +259,12 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   lists and rejects future `iat` outside the configured leeway; python-jose did not enforce
   the current `options.require` list or future `iat`. This is deliberate validation tightening,
   not byte-for-byte token or acceptance equivalence. Native auth tests and the approved mocked
-  Apple checks are local evidence, not live identity-provider verification.
+  Apple checks are local evidence, not live identity-provider verification. Google now receives
+  `JWT_LEEWAY_SECONDS` too: this preserves near-future issued-at tolerance under PyJWT and
+  also adds that bounded tolerance to Google expiry/not-before checks (previously zero).
+  Offline signed-token coverage checks acceptance within, and rejection beyond, that allowance.
+  The pre-deploy dependency probe must use the new PyJWT/jwt distribution/module pair; its
+  dynamic import tuple is outside the literal-import AST scan.
 - **Locked tests (rule 6):** `test_auth_flow.py`, Stripe webhook, SSE contract and background
   characterization must be byte-identical — prove with `git diff --stat main -- <those files>`
   empty. **Pre-approved non-locked edits (founder, 2026-09-05):** `test_security_hardening_week7.py`

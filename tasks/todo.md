@@ -12,6 +12,18 @@ Image digest `d3c86ac5d708dd272e0a7619d3e3eff2deb83428f16705f2beadd662ef92548b`;
 independent detailed health healthy (DB 15.29 ms, SEC closed). Notable job was not found and
 its update was skipped; its founder provisioning/activation hold remains.
 
+PR #716 is draft again for two independently confirmed review corrections; prior source
+and gate evidence below remains historical and is superseded for release by this correction.
+
+- [ ] Replace the stale dynamic dependency probe tuple with `PyJWT` / `jwt`; verify only
+  the extracted `check_dependencies` function offline, never the full deployment diagnostic.
+- [ ] Give Google token validation the configured clock-skew leeway. The current 10-second
+  setting also applies to its `exp`/`nbf` checks; document that expanded tolerance explicitly.
+- [ ] Add one deterministic offline Google RSA/JWK test: near-future `iat` within leeway
+  succeeds and beyond leeway fails. Keep the two prior approved existing-test edits unchanged.
+- [ ] Commit source; remove only Google's leeway to prove the intended regression assertion,
+  restore exactly and run one full coherent 102-pin backend gate. Lock/audit evidence is unchanged.
+
 - [x] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
   issuers, nonce binding, string subjects and configured clock-skew leeway. Disclose that
   PyJWT enforces the existing required-claim lists and future `iat` validation.
