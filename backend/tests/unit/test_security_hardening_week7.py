@@ -10,8 +10,7 @@ Covers two fixes from the pre-beta security sweep:
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from jose import jwt
-from jose.exceptions import JWTError
+import jwt
 from pydantic import ValidationError
 
 from app.config import Settings, settings
@@ -63,7 +62,7 @@ def test_jwt_decode_honors_configured_leeway():
     require = ["exp", "sub", "iat", "iss", "aud"]
 
     # Without leeway, a token whose nbf/iat is in the (near) future is rejected.
-    with pytest.raises(JWTError):
+    with pytest.raises(jwt.PyJWTError):
         jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
@@ -74,6 +73,7 @@ def test_jwt_decode_honors_configured_leeway():
     decoded = jwt.decode(
         token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
         audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
-        options={"require": require, "leeway": settings.JWT_LEEWAY_SECONDS},
+        options={"require": require},
+        leeway=settings.JWT_LEEWAY_SECONDS,
     )
     assert decoded["sub"] == "skew@example.com"

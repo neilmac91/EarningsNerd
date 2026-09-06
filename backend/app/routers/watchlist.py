@@ -5,7 +5,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, EmailStr, field_validator
-from jose import JWTError, jwt
+import jwt
 from app.database import get_db
 from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
 from app.routers.auth import get_current_user
@@ -586,8 +586,9 @@ async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
             options={"require": ["exp", "sub", "type"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired token.",

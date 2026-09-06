@@ -2,7 +2,121 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
-### W3-5 local preparation — agent stack truth
+### W3-6 implementation — PyJWT migration (active)
+
+Owner: plan_correctness. Root owns publication, independent reviews, CI, merge and deployment.
+Entry satisfied: #715 merged `56d33f0435723030b072017ba47e2d3e32697132`; production
+[34006685337](https://github.com/neilmac91/EarningsNerd/actions/runs/34006685337), deploy job
+101415369329, succeeded with `applied=0 skipped=34`, revision `00273-r65` at 100%.
+Image digest `d3c86ac5d708dd272e0a7619d3e3eff2deb83428f16705f2beadd662ef92548b`;
+independent detailed health healthy (DB 15.29 ms, SEC closed). Notable job was not found and
+its update was skipped; its founder provisioning/activation hold remains.
+
+PR #716 remains draft for a further independently confirmed waitlist clock-skew correction.
+The completed Google/probe correction below is retained as superseded release evidence.
+
+- [x] Add configured leeway at the remaining waitlist decode; audit all five production
+  decodes without changing algorithms, claim requirements, audiences, issuers or token type.
+- [x] Add one offline test through the actual waitlist token issuer and verification route:
+  +5-second issuer skew persists verification; +11 seconds returns HTTP 400 and leaves a
+  distinct signup unverified in isolated SQLite.
+- [x] Commit source, remove only waitlist leeway for one intended failure, restore exact bytes,
+  then run the full coherent 102-pin Ruff/Bandit/pytest gate. Preserve lock and existing tests.
+
+Final waitlist source `0626f0ab`: all five production JWT decodes use configured leeway;
+fixed algorithms and existing audience/issuer/type/subject/required-claim checks are unchanged.
+The real waitlist issuer runs five seconds ahead of a frozen verifier; the actual route persists
+`email_verified=True` in isolated SQLite. An eleven-second token returns HTTP 400 and its
+separate signup remains unverified. Focused: 1 passed, 16 warnings (3.57s). Removing only
+waitlist leeway fails the intended positive route call (1 failed, 16 warnings in 3.47s);
+exact restoration passes (1 passed, 16 warnings in 2.84s), router SHA256
+`e2cbff30387f00e4f17b2c4c0dc3b5eed6b9bce71913477378ebefe170a235da`.
+Full coherent gate: 102 exact pins, Ruff/Bandit exit 0;
+2386 passed, 2 deselected, 23 warnings (51.09s), exit 0.
+Lock, the two approved existing-test edits, Google regression and original AST gate remain
+unchanged; their retained audit/mutation evidence is scoped to those unchanged files.
+Four locked contracts, sole baseline, 59 archives and historical findings remain byte-identical;
+18 local owning-document links resolve. No live OAuth or network operation was performed.
+Root owns final review and release; the earlier correction evidence below is historical.
+
+PR #716 is draft again for two independently confirmed review corrections; prior source
+and gate evidence below remains historical and is superseded for release by this correction.
+
+- [x] Replace the stale dynamic dependency probe tuple with `PyJWT` / `jwt`; verify only
+  the extracted `check_dependencies` function offline, never the full deployment diagnostic.
+- [x] Give Google token validation the configured clock-skew leeway. The current 10-second
+  setting also applies to its `exp`/`nbf` checks; document that expanded tolerance explicitly.
+- [x] Add one deterministic offline Google RSA/JWK test: near-future `iat` within leeway
+  succeeds and beyond leeway fails. Keep the two prior approved existing-test edits unchanged.
+- [x] Commit source; remove only Google's leeway to prove the intended regression assertion,
+  restore exactly and run one full coherent 102-pin backend gate. Lock/audit evidence is unchanged.
+
+Corrected source `c5d1f3d3`: the offline AST-extracted dependency probe passes with PyJWT;
+no full diagnostic or live OAuth was run. Real local RSA/JWK with frozen validation time
+passes the +5-second `iat` and rejects +11 seconds at configured leeway 10 seconds.
+Focused test: 1 passed, 1 warning (0.45s). Removing only Google's configured leeway fails
+that intended near-future acceptance call (1 failed, 1 warning in 0.21s); exact restoration
+passes (1 passed, 1 warning in 0.16s), source SHA256
+`a5a5feaa374305fa37b4cd3b57e2aa6ce0851617f207c43357d77bd8623d45e8`.
+The corrected full coherent gate verifies 102 exact pins; Ruff/Bandit exit 0;
+2385 passed, 2 deselected, 23 warnings (56.16s), exit 0. Existing post-summary shutdown
+logging error remains recorded. Lock, the two approved existing-test edits and original AST
+gate are byte-identical to the previous candidate, so unchanged audit and earlier AST proof
+remain scoped evidence. All locked contracts, baseline, 59 current archives and historical
+review finding bodies remain exact; 18 local owning-document links resolve.
+Root owns final review, CI and publication; previous release evidence below is historical.
+
+- [x] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
+  issuers, nonce binding, string subjects and configured clock-skew leeway. Disclose that
+  PyJWT enforces the existing required-claim lists and future `iat` validation.
+- [x] Apply the two founder-preapproved non-locked test edits: library/leeway in
+  `test_security_hardening_week7.py`, selected-JWK conversion in `test_apple_signin.py`.
+  Keep all assertions and the four locked contracts unchanged; no live OAuth.
+- [x] Resolve the observed compiler platform delta before accepting the lock: macOS ARM
+  SQLAlchemy metadata omits greenlet, although existing Linux/CI lock includes 3.5.1. Preserve
+  that existing runtime pin through an explicit input, without enabling async database behavior.
+  Retain the first compiler output and re-check that only the four retired packages disappear.
+- [x] Replace the dependency input with `PyJWT[crypto]>=2.10,<3`; compile using documented
+  Python 3.11 command and pip-tools 7.6.1, preserving unrelated pins. Install a fresh coherent
+  runtime outside Documents; prove retired jose/ecdsa/rsa/pyasn1 distributions absent.
+- [x] Add the one planned AST/dependency gate; inject one actual jose import, demonstrate its
+  intended assertion failure, restore exact committed bytes and retain both tails.
+- [x] Run full Ruff/Bandit/pytest and actual pip-audit; preserve advisory posture and report
+  remaining findings. Prove locked contracts, sole baseline and historical archives unchanged.
+- [x] Include the separately confirmed late W3-5 prose correction: qualify the DevOps brief
+  dependency-pinning claim; preserve its no-new-unpinned-installs directive and change no tools/workflows.
+- [x] Synchronize active handover/todo checkpoints with observed evidence; retain dated
+  historical findings and original definition of done. Commit final results, stop before push.
+
+Local source `25548116`: Python 3.11.16 / PyJWT 2.13.0, 102 exact runtime/dev pins,
+retired jose/ecdsa/rsa/pyasn1 distributions and modules absent. Documented pip-compile command
+retained every unrelated version; explicit greenlet 3.5.1 input preserves the prior Linux pin.
+The first platform-dropping output is retained and excluded. The supported compiler header
+override records actual arguments after a Click default-rendering artifact; no resolver flag
+or compiled version was hand-edited.
+
+Focused existing auth/refresh/Apple/leeway and the new gate: 44 passed, 17 warnings (28.74s).
+The sole new actual-jose-import mutant failed its intended AST assertion (1 failed in 0.58s),
+then exact restoration passed (1 passed in 0.51s). Full Ruff/Bandit exit 0;
+2384 passed, 2 deselected, 23 warnings (67.59s), exit 0. The existing post-summary shutdown
+logging error is retained. Actual runtime-lock pip-audit reports 99 dependencies, no known
+vulnerabilities, exit 0; audit policy stays advisory and other ecosystems are not covered.
+All 59 current archives (including the original 52), original handover/ledger, dated review
+finding text, four locked contracts and sole baseline are byte-identical; 18 local owning-doc
+links resolve. The private initial archive-count assumption (52 total versus actual 59) was
+corrected to compare complete inventories and retained as excluded checker evidence.
+
+- [ ] Root: final independent review, draft publication, actual required CI, merge and verified
+  deployment. Local source/evidence completion does not claim a shipped W3-6 change.
+
+### W3-5 preparation history — verified #715
+
+W3-5 is complete with the deployment evidence above. Final CI 34006454576 passed backend
+2383 tests, performance 2, frontend 487 and browser 21 (3 existing skips), plus PostgreSQL
+triple application. Copilot run 34006471949 artifact 9981128325 contains 18 passing results,
+zero errors/vetoes and verified six-source/database hashes. The checkboxes and draft-status
+statements below preserve their pre-merge source checkpoints; they are not current holds.
+
 
 Latest review confirmed two bounded gaps after independent refutation: companyfacts transport
 made the EFTS-only exception wording incomplete, and case-insensitive Render phrases matched
@@ -105,7 +219,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
 - [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
-- [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
+- [x] W3-5 Rewrite the seven engineering agent files to the real stack; gate and #715 deployment verified above
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
@@ -320,7 +434,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] #684 OpenAI 3.7 integrated and closed through #701 resilience/native SDK/full actual eval gates. #685/#683 merged; #686 superseded by #694/#695.
 - [x] Split #672: non-edgartools bumps (pandas 3.0.5, fastapi, stripe, posthog, …) — *PR #679 merged 2026-09-05 (`fbbccc5`)*; edgartools 5.40.1→5.55.0 alone through the eval gate — *PR #680 merged (`083247d`, regression gate PASS, 0 warnings)*; #672 closed
 - [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
-- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory; unresolved audit-chain/ecdsa findings require separate review before any blocking transition.
+- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory. W3-6 local runtime-lock `pip-audit` reports no known vulnerabilities after removing the jose/ecdsa chain; this does not claim every dev-tool, image or frontend dependency is clean or authorize a blocking-policy transition.
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
 - [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production`; W3-2 binding/deployment verified. W3-3 run 34000192154 reached FMP but returned HTTP 402; issue #710 remains open for the founder entitlement/key prerequisite. Successful refresh and reviewed PR remain pending
 - [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*

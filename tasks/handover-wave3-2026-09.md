@@ -15,8 +15,14 @@ job 101387131600, read serving revision `00270-4k6` at 100% and the separate pre
 both images matched #704 source/defaults. The service calendar filter is true; pregenerate is
 unset with verified default false. All other proposed guard pins match that observation.
 The founder approved preserving service=true / pregenerate=false on 2026-09-06, with the
-Settings default unchanged. W3-2 implementation is active; merge, deployment and effective-pin
-verification are pending. The following original review checkpoint remains historical evidence.
+Settings default unchanged. W3-2 #709 is merged and verified: production run 33999866705
+and effective-pin observation 34000144716 retained that approved split and empty fallback.
+W3-4 smoke acceptance is verified after #713 (green 34002892976, deliberate red 34003003306).
+W3-5 #715 merged `56d33f04`; production run 34006685337/deploy job 101415369329 succeeded
+with `applied=0 skipped=34`, revision `00273-r65` at 100%, and independent healthy DB 15.29 ms,
+SEC closed. Notable provisioning/activation remains held; its absent job update was skipped.
+W3-6 is active. W3-3 remains held after actual FMP HTTP 402 / issue #710; other founder holds
+remain unchanged. The following original review checkpoint remains historical evidence.
 
 | Item | Observed 2026-09-05 |
 |---|---|
@@ -32,9 +38,9 @@ disposition:
 
 | # | Finding (verified at `eddcfbb7`) | Disposition |
 |---|---|---|
-| D1 | The service `ci.yml` line 510 `--update-env-vars` omits `NOTABLE_FILINGS_ENABLED`, `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED` and `USE_STATEMENT_FINANCIALS`. `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` are already explicit in the eval job, not the service deploy line. Settings defaults apply only when no environment override exists; effective production values require W3-1 observation. C6 deploy-pin visibility was unmet at that checkpoint. | W3-1 observed; W3-2 source pins prepared, deployment pending |
-| D2 | `backend/evals/RUNBOOK.md` (mandatory before AI changes) never mentions `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` (#701). A configured fallback silently changes which model produced an eval result. `docs/CONFIGURATION.md` does document them. | W3-2 adds exports, measured metadata and pin refusal; verification pending |
-| D3 | All seven `.claude/agents/engineering/*.md` contain obsolete stack guidance: Render/Firebase/Alembic/GPT-4, frontend Vite/React Router (`frontend-developer.md:14`), or async SQLAlchemy (`api-architect.md:181`). README "Stack truth" provides precedence but does not repair or machine-gate those files. | `AGENTS.md` §2 now; W3-5 |
+| D1 | The service `ci.yml` line 510 `--update-env-vars` omits `NOTABLE_FILINGS_ENABLED`, `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED` and `USE_STATEMENT_FINANCIALS`. `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` are already explicit in the eval job, not the service deploy line. Settings defaults apply only when no environment override exists; effective production values require W3-1 observation. C6 deploy-pin visibility was unmet at that checkpoint. | W3-1 observed; W3-2 #709 deployed and effective pins verified |
+| D2 | `backend/evals/RUNBOOK.md` (mandatory before AI changes) never mentions `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` (#701). A configured fallback silently changes which model produced an eval result. `docs/CONFIGURATION.md` does document them. | W3-2 #709 exports, measured metadata and pin refusal verified |
+| D3 | All seven `.claude/agents/engineering/*.md` contain obsolete stack guidance: Render/Firebase/Alembic/GPT-4, frontend Vite/React Router (`frontend-developer.md:14`), or async SQLAlchemy (`api-architect.md:181`). README "Stack truth" provides precedence but does not repair or machine-gate those files. | W3-5 #715 briefs/gate and deployment verified |
 | D4 | Both refresh runs in the complete available history (2026-08-01 and 2026-09-01) failed on old source `e8ea339f`, which explicitly selected Wikipedia and supplied no FMP input; the Nasdaq-100 parser found no usable constituents table. Both revisions lacked an issue step, so no failure issue is expected from them. The current FMP auto-selection/issue path has not yet run; `FMP_API_KEY` was absent from repository secret names at review, which does not establish historical secret state. The founder has since supplied it in GitHub `Production`; metadata is verified, environment binding/refresh evidence remain pending. Next cron 2026-10-01; age gate trips 2026-10-16. | W3-3 |
 | D5 | No scheduled production smoke; `frontend/tests/e2e/prod-smoke.spec.ts` is opt-in via `SMOKE_BASE_URL`. This gap hid a seven-week frontend/backend skew earlier. | W3-4 |
 | D6 | Stale docs: `CONTRIBUTING.md` Node 20.x; briefs pointer to old DEPLOYMENT.md lines; briefs "#687 this PR"; dashboard plan config line numbers. | Fixed in the PR that added this file |
@@ -186,7 +192,7 @@ correct FMP instructions; secret metadata availability is not successful refresh
 tail); the four named gates individually; after merge: `deploy-backend` green, `applied=0
 skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin.
 **Entry satisfied:** W3-1 output reviewed and the calendar split explicitly approved.
-**Remaining:** source gates, three independent reviews, required CI, merge and verified deployment.
+**Completed:** W3-2 #709 source gates, independent reviews, CI, merge, deployment and effective-pin observation are verified in §0 and the active todo.
 
 ### W3-3 — Universe refresh (founder key, then engineering verification; auto-PR deploys)
 - **Credential prerequisite supplied:** `FMP_API_KEY` exists in GitHub `Production` (metadata
@@ -249,6 +255,18 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   `jwt.PyJWTError`; `leeway` becomes a keyword argument; JWKS via `jwt.PyJWK(key).key` (PyJWT does
   not accept a JWK dict); keep explicit `kid` selection; confirm `sub` is always a string (PyJWT
   ≥ 2.10 rejects non-string `sub`) and that tokens carrying `aud` request it.
+- **Validation semantics:** retain the existing required-claim lists. PyJWT enforces those
+  lists and rejects future `iat` outside the configured leeway; python-jose did not enforce
+  the current `options.require` list or future `iat`. This is deliberate validation tightening,
+  not byte-for-byte token or acceptance equivalence. Native auth tests and the approved mocked
+  Apple checks are local evidence, not live identity-provider verification. Google and waitlist
+  decoding now receive `JWT_LEEWAY_SECONDS` too: this preserves near-future issued-at tolerance
+  under PyJWT and also adds bounded tolerance to their expiry/not-before checks (previously zero).
+  All five production JWT decoders use the configured allowance. Offline signed-token tests
+  check acceptance within, and rejection beyond, that allowance; waitlist coverage also checks
+  persisted verification state through the actual route.
+  The pre-deploy dependency probe must use the new PyJWT/jwt distribution/module pair; its
+  dynamic import tuple is outside the literal-import AST scan.
 - **Locked tests (rule 6):** `test_auth_flow.py`, Stripe webhook, SSE contract and background
   characterization must be byte-identical — prove with `git diff --stat main -- <those files>`
   empty. **Pre-approved non-locked edits (founder, 2026-09-05):** `test_security_hardening_week7.py`

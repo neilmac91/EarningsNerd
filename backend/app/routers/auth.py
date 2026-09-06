@@ -16,7 +16,7 @@ import secrets
 import logging
 
 import httpx
-from jose import JWTError, jwt
+import jwt
 
 from app.database import get_db
 from app.models import User, OAuthAccount, OAuthState
@@ -364,12 +364,13 @@ async def get_current_user(
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
-            options={"require": ["exp", "sub", "iat", "iss", "aud"], "leeway": settings.JWT_LEEWAY_SECONDS},
+            options={"require": ["exp", "sub", "iat", "iss", "aud"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.PyJWTError:
         raise credentials_exception
 
     user = db.query(User).filter(User.email == email).first()
@@ -413,12 +414,13 @@ async def get_current_user_optional(
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
-            options={"require": ["exp", "sub", "iat", "iss", "aud"], "leeway": settings.JWT_LEEWAY_SECONDS},
+            options={"require": ["exp", "sub", "iat", "iss", "aud"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
         email: str = payload.get("sub")
         if email is None:
             return None
-    except (JWTError, HTTPException, Exception) as e:
+    except (jwt.PyJWTError, HTTPException, Exception) as e:
         logger.warning(f"Optional auth failed: {e.__class__.__name__} - {e}")
         return None
 
