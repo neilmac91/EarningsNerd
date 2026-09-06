@@ -127,6 +127,8 @@ export function SummaryDisplay({
     <div className="space-y-6">
       {/* Action Buttons */}
       <SummaryActionsBar
+        key={filing.id}
+        filingId={filing.id}
         summaryId={summary && summary.id ? summary.id : null}
         isAuthenticated={isAuthenticated}
         isSaved={isSaved}

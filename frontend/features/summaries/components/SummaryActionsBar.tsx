@@ -1,7 +1,9 @@
 'use client'
 
+import { useRef, useState } from 'react'
+import analytics from '@/lib/analytics'
 import { Button } from '@/components/ui/Button'
-import { BookmarkSimpleIcon, CheckCircleIcon, DownloadSimpleIcon, FileArrowDownIcon } from '@/lib/icons'
+import { BookmarkSimpleIcon, CheckCircleIcon, CopyIcon, DownloadSimpleIcon, FileArrowDownIcon } from '@/lib/icons'
 
 export interface SaveMutation {
   mutate: (summaryId: number) => void
@@ -9,6 +11,7 @@ export interface SaveMutation {
 }
 
 export interface SummaryActionsBarProps {
+  filingId: number
   summaryId: number | null
   isAuthenticated: boolean
   isSaved: boolean
@@ -19,10 +22,11 @@ export interface SummaryActionsBarProps {
 }
 
 /**
- * Save + export action row above the summary. Presentational: the export handlers
+ * Filing actions above the summary. Clipboard feedback is local; the export handlers
  * come from useSummaryExports; the save mutation is owned by the filing view.
  */
 export function SummaryActionsBar({
+  filingId,
   summaryId,
   isAuthenticated,
   isSaved,
@@ -31,6 +35,26 @@ export function SummaryActionsBar({
   onExportPdf,
   onExportCsv,
 }: SummaryActionsBarProps) {
+  // Match the existing filing metadata canonical; never copy private URL/query state.
+  const filingUrl = `https://www.earningsnerd.io/filing/${filingId}`
+  const copying = useRef(false)
+  const [copyState, setCopyState] = useState<'idle' | 'pending' | 'copied' | 'failed'>('idle')
+
+  const copyFilingLink = async () => {
+    if (copying.current) return
+    copying.current = true
+    setCopyState('pending')
+    try {
+      await navigator.clipboard.writeText(filingUrl)
+      setCopyState('copied')
+      analytics.filingLinkCopied(filingId)
+    } catch {
+      setCopyState('failed')
+    } finally {
+      copying.current = false
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
       {isAuthenticated && (
@@ -59,6 +83,23 @@ export function SummaryActionsBar({
           )}
         </div>
       )}
+      <div className="min-w-0 space-y-2">
+        <Button type="button" variant="secondary" loading={copyState === 'pending'} onClick={copyFilingLink}>
+          <CopyIcon className="h-4 w-4" aria-hidden="true" />
+          Copy filing link
+        </Button>
+        <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          {copyState === 'copied' ? 'Filing link copied.' : ''}
+        </p>
+        {copyState === 'failed' && (
+          <p role="alert" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Could not copy the link. Try again, or copy this link manually:{' '}
+            <a href={filingUrl} className="break-all text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark">
+              {filingUrl}
+            </a>
+          </p>
+        )}
+      </div>
       {/* Export buttons - only show for Pro users */}
       {isPro && (
         <div className="flex flex-wrap items-center gap-3">

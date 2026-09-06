@@ -304,6 +304,15 @@ export const analytics = {
     })
   },
 
+  // Successful clipboard writes only; this is not a share, recipient or referral count.
+  filingLinkCopied: (filingId: number) => {
+    try {
+      safeCapture('filing_link_copied', { filing_id: filingId })
+    } catch {
+      // Telemetry must not turn a completed clipboard write into a failure message.
+    }
+  },
+
   summarySaved: (filingId: number, ticker: string | null) => {
     safeCapture('summary_saved', {
       filing_id: filingId,
