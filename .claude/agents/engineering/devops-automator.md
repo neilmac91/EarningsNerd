@@ -19,7 +19,9 @@ proportional mutation-proof requirements; locked contracts remain protected by C
 
 Cloud Run backend and jobs use project `earnings-nerd`, region `us-west1`; frontend deploys on Vercel.
 GitHub Actions uses keyless Workload Identity Federation. Production cache is process-local L1;
-Redis is development-only. Runtime and dev-tool versions come from committed pins.
+Redis is development-only. Backend application and lint/test dependencies use the committed requirements pins.
+Ancillary refresh-workflow installs and Docker bootstrap tools are not uniformly pinned;
+inspect their actual installation steps.
 
 - `.github/workflows/ci.yml`: tests, migration replay and backend deploy filter.
 - `.github/workflows/ops.yml`: enum-selected operational interfaces and secret-safe inspection.

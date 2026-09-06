@@ -18,6 +18,10 @@ its update was skipped; its founder provisioning/activation hold remains.
 - [ ] Apply the two founder-preapproved non-locked test edits: library/leeway in
   `test_security_hardening_week7.py`, selected-JWK conversion in `test_apple_signin.py`.
   Keep all assertions and the four locked contracts unchanged; no live OAuth.
+- [x] Resolve the observed compiler platform delta before accepting the lock: macOS ARM
+  SQLAlchemy metadata omits greenlet, although existing Linux/CI lock includes 3.5.1. Preserve
+  that existing runtime pin through an explicit input, without enabling async database behavior.
+  Retain the first compiler output and re-check that only the four retired packages disappear.
 - [ ] Replace the dependency input with `PyJWT[crypto]>=2.10,<3`; compile using documented
   Python 3.11 command and pip-tools 7.6.1, preserving unrelated pins. Install a fresh coherent
   runtime outside Documents; prove retired jose/ecdsa/rsa/pyasn1 distributions absent.
@@ -25,6 +29,8 @@ its update was skipped; its founder provisioning/activation hold remains.
   intended assertion failure, restore exact committed bytes and retain both tails.
 - [ ] Run full Ruff/Bandit/pytest and actual pip-audit; preserve advisory posture and report
   remaining findings. Prove locked contracts, sole baseline and historical archives unchanged.
+- [x] Include the separately confirmed late W3-5 prose correction: qualify the DevOps brief
+  dependency-pinning claim; preserve its no-new-unpinned-installs directive and change no tools/workflows.
 - [ ] Synchronize active handover/todo checkpoints with observed evidence; retain dated
   historical findings and original definition of done. Commit final results, stop before push.
 
@@ -353,7 +359,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] #684 OpenAI 3.7 integrated and closed through #701 resilience/native SDK/full actual eval gates. #685/#683 merged; #686 superseded by #694/#695.
 - [x] Split #672: non-edgartools bumps (pandas 3.0.5, fastapi, stripe, posthog, …) — *PR #679 merged 2026-09-05 (`fbbccc5`)*; edgartools 5.40.1→5.55.0 alone through the eval gate — *PR #680 merged (`083247d`, regression gate PASS, 0 warnings)*; #672 closed
 - [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
-- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory; unresolved audit-chain/ecdsa findings require separate review before any blocking transition.
+- [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory. W3-6 local runtime-lock `pip-audit` reports no known vulnerabilities after removing the jose/ecdsa chain; this does not claim every dev-tool, image or frontend dependency is clean or authorize a blocking-policy transition.
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
 - [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production`; W3-2 binding/deployment verified. W3-3 run 34000192154 reached FMP but returned HTTP 402; issue #710 remains open for the founder entitlement/key prerequisite. Successful refresh and reviewed PR remain pending
 - [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*

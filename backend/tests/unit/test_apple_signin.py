@@ -8,7 +8,7 @@ Covers the security-critical pieces of the form_post flow:
     redirect with apple_account_conflict instead of a duplicate INSERT)
 
 The crypto is mocked — we don't mint real Apple-signed tokens — so these assert
-our verification *logic*, not python-jose's signature math. They run against the
+our verification *logic*, not PyJWT's signature math. They run against the
 app's default SQLite database (created by the TestClient lifespan), like the
 rest of the auth suite.
 """
@@ -16,11 +16,11 @@ rest of the auth suite.
 import hashlib
 import uuid
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, sentinel
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import JWTError
+import jwt
 
 from main import app
 from app.database import SessionLocal
@@ -63,11 +63,14 @@ async def test_verify_returns_claims_on_valid_token_and_nonce():
     claims = {"sub": "001", "email": "a@b.com", "nonce": HASHED_NONCE}
     with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
          patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "PyJWK") as jwk, \
          patch.object(oauth_verify.jwt, "decode", return_value=claims) as decode:
+        jwk.return_value.key = sentinel.selected_public_key
         out = await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
     assert out["sub"] == "001"
-    # The matching JWK (not the whole JWKS dict) is handed to jwt.decode.
-    assert decode.call_args.args[1] == FAKE_JWKS["keys"][0]
+    # Convert exactly the kid-matched JWK and pass its public key to the decoder.
+    jwk.assert_called_once_with(FAKE_JWKS["keys"][0])
+    assert decode.call_args.args[1] is sentinel.selected_public_key
 
 
 @pytest.mark.asyncio
@@ -75,6 +78,7 @@ async def test_verify_rejects_nonce_mismatch():
     claims = {"sub": "001", "nonce": "a-different-nonce"}
     with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
          patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "PyJWK"), \
          patch.object(oauth_verify.jwt, "decode", return_value=claims):
         with pytest.raises(ValueError, match="nonce"):
             await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
@@ -86,6 +90,7 @@ async def test_verify_rejects_missing_nonce():
     claims = {"sub": "001"}  # no nonce echoed back
     with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
          patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "PyJWK"), \
          patch.object(oauth_verify.jwt, "decode", return_value=claims):
         with pytest.raises(ValueError, match="nonce"):
             await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
@@ -103,7 +108,8 @@ async def test_verify_rejects_when_kid_not_in_jwks():
 async def test_verify_wraps_jwt_error():
     with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
          patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
-         patch.object(oauth_verify.jwt, "decode", side_effect=JWTError("bad signature")):
+         patch.object(oauth_verify.jwt, "PyJWK"), \
+         patch.object(oauth_verify.jwt, "decode", side_effect=jwt.PyJWTError("bad signature")):
         with pytest.raises(ValueError, match="invalid"):
             await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
 

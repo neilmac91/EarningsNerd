@@ -15,7 +15,7 @@ import secrets
 import time
 
 import httpx
-from jose import JWTError, jwt
+import jwt
 
 from app.config import settings
 
@@ -52,9 +52,8 @@ async def _get_apple_jwks() -> dict:
 async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
     """Verify Apple id_token against Apple's JWKS; check nonce.
 
-    python-jose does not reliably auto-select a key from a JWKS dict, so we
-    extract the kid from the unverified header and select the matching key
-    explicitly before calling jwt.decode.
+    Select the matching kid explicitly, convert that JWK to its public key,
+    and verify with the fixed RS256 algorithm and expected claims.
     """
     jwks = await _get_apple_jwks()
     try:
@@ -66,16 +65,17 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
             raise ValueError("Matching key not found in Apple JWKS")
         claims = jwt.decode(
             id_token,
-            public_key,
+            jwt.PyJWK(public_key).key,
             algorithms=["RS256"],
             audience=settings.APPLE_CLIENT_ID,
             issuer="https://appleid.apple.com",
             # Require the claims we rely on to be present (defense-in-depth; the RS256 signature
             # against Apple's JWKS is the real gate). nonce is additionally checked below. Leeway
             # absorbs clock skew between Apple's servers and ours, same as our own token decode.
-            options={"require": ["exp", "aud", "iss", "sub", "nonce"], "leeway": settings.JWT_LEEWAY_SECONDS},
+            options={"require": ["exp", "aud", "iss", "sub", "nonce"]},
+            leeway=settings.JWT_LEEWAY_SECONDS,
         )
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         raise ValueError(f"Apple id_token invalid: {exc}")
 
     # Nonce binding is mandatory: we always send sha256(raw_nonce), so a
@@ -119,15 +119,15 @@ async def _verify_google_id_token(id_token: str) -> dict:
         if not public_key:
             raise ValueError("Matching key not found in Google JWKS")
         # Google issues id_tokens with iss "https://accounts.google.com" or "accounts.google.com";
-        # validate the issuer manually against both rather than via jose's single-string check.
+        # Preserve the explicit allowlist for both accepted issuer forms below.
         claims = jwt.decode(
             id_token,
-            public_key,
+            jwt.PyJWK(public_key).key,
             algorithms=["RS256"],
             audience=settings.GOOGLE_CLIENT_ID,
             options={"require": ["exp", "aud", "sub", "iss"]},
         )
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         raise ValueError(f"Google id_token invalid: {exc}")
 
     if claims.get("iss") not in _GOOGLE_ISSUERS:

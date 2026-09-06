@@ -4,7 +4,7 @@ import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+import jwt
 from sqlalchemy.orm import Session
 
 from app.config import settings
