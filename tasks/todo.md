@@ -4,13 +4,13 @@ Base `639e48ca`; isolated local branch `codex/wave3-filing-dry-run-safety`.
 
 - [x] Read CLAUDE/AGENTS, applicable hermeticity/lock/proof/job-outcome lessons, job script,
   job-reporting test home and tracker; preserve locked T7 and all live job boundaries.
-- [ ] Reject both scan and digest `--dry-run` with readable nonzero SystemExit before app
+- [x] Reject both scan and digest `--dry-run` with readable nonzero SystemExit before app
   imports, SessionLocal, track_job or business service calls; remove the no-op sender path.
-- [ ] Update CLI help/doc and the existing job-outcome lesson: safe preview is unavailable;
+- [x] Update CLI help/doc and the existing job-outcome lesson: safe preview is unavailable;
   a dry-run heartbeat alone cannot protect business logs and watchlist watermarks.
-- [ ] Extend unlocked `test_job_reporting.py` with actual CLI branches, import/DB/tracker/
+- [x] Extend unlocked `test_job_reporting.py` with actual CLI branches, import/DB/tracker/
   service spies and normal scan/digest/cadence/reporting controls.
-- [ ] Commit source; one original mutation bypassing rejection must fail; restore exact bytes.
+- [x] Commit source; one original mutation bypassing rejection must fail; restore exact bytes.
   Focused offline gate, Ruff/Bandit, three-lens review and clean local evidence checkpoint.
 - [ ] Root final integration, full suite/PostgreSQL lanes, publication approval and release.
 
@@ -19,6 +19,41 @@ watchlist watermarks. This slice disables that unsafe CLI option; it does not im
 working preview or repair historical state. Normal scan/digest and failure reporting remain
 unchanged. No provider/email/job execution, network, flags, baseline, schema, entitlement,
 transport, locked-test edits, push or deployment here. Independent source review follows.
+
+Plan `63ed647`; source `9918a7a28c02ecde8988d76618327fdef4833a63`.
+The first operation in `_main` rejects dry runs with a readable SystemExit message before
+all `app` imports. Both CLI modes retain the option only to reject it explicitly; the old
+fake-success sender is removed. The normal service arguments, cadence, tracker counters,
+exception reporting and session cleanup remain unchanged. Help/module docs and the existing
+job-outcome lesson state safe preview is unavailable; no working preview is claimed.
+
+The existing unlocked `test_job_reporting.py` now exercises the real `__main__` CLI via
+runpy for scan/digest × dry/normal. Import observations and DB/tracker/service spies prove
+rejection happens before application initialization. Normal controls prove the selected service,
+explicit no-override sender, configured cadence, record(stats) and session close remain intact.
+Existing failure-counter and job-lifecycle tests ran unchanged. All backend app code, locked
+filing-scan tests, frontend and CI are byte-identical to base `639e48ca`.
+
+Exactly one mutation on committed `9918a7a` bypassed only `if dry_run`. Both dry-run cases
+failed the application-import boundary assertion and both normal controls passed:
+```text
+2 failed, 2 passed, 34 deselected, 2 warnings in 0.35s
+```
+Exact script bytes restored. Restored complete job-reporting home:
+```text
+38 passed, 2 warnings in 2.59s
+```
+Ruff: `All checks passed!`; Bandit `-r app -ll`: zero medium / zero high (12 low), exit 0.
+Evidence: `/private/tmp/earningsnerd-e11b-evidence/{mutation-dry-run,focused-restored,ruff,bandit}.log`.
+The initial command ran from the repository root and failed collection with `No module named
+'app'`; this is retained in `focused-initial.log`. Running from the prescribed backend working
+directory passed 38 tests in 2.64s (`focused.log`), before source commit and the original proof.
+
+Three-lens local review is clear: fail-closed rejection precedes all application boundaries,
+normal work remains unchanged, no scope/locked-rule violations, and the behavioral test catches
+the original unsafe entry path. Independent review, integration with released E11a, full-suite/
+PostgreSQL gates and publication remain root-owned and pending. No full suite, live job/email,
+provider request, network, historical repair, mutation repeat, push or deployment here.
 
 ## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
 
