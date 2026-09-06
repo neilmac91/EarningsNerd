@@ -5,7 +5,7 @@
 ### W3-5 local preparation — agent stack truth
 
 W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
-[#711](https://github.com/neilmac91/EarningsNerd/pull/711) candidate `481dc168` (including the timeout-safe failure report); its deployment and
+[#711](https://github.com/neilmac91/EarningsNerd/pull/711) candidate `1cf4d6b1` (source `481dc168`, followed only by the verification record); its deployment and
 live smoke acceptance remain pending. Root controls publication and serialized deployment.
 W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
 block this independent engineering work. Other founder boundaries remain unchanged.
