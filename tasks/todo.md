@@ -25,10 +25,10 @@ production exposure or a backend entitlement bypass. The workspace brief
   login and generation-tagged confirmed session loss; fence late identity results/side effects.
 - [x] Add actual QueryClient transition coverage and structural consumer enforcement; update
   existing unlocked fixture keys/identity setup only where the ownership change requires it.
-- [ ] Commit source, run one original mutation per independent invariant, restore committed bytes;
+- [x] Commit source, run one original mutation per independent invariant, restore committed bytes;
   run full pinned frontend lint/typecheck/Vitest/build. No backend delta or backend gate.
-- [ ] Three-lens review, independent refutations for actionable findings, exact locked-byte check,
-  clean evidence commit. Root owns later actual CI, preview, publication and release.
+- [x] Three-lens review, independent refutations for actionable findings and exact locked-byte
+  check. Root owns later integration, actual CI, preview, publication and release.
 
 ### Proposed API and transition ordering (pending root review)
 
@@ -247,6 +247,52 @@ setQueryData/setQueriesData calls and currentUser query options: five direct cac
 identity publisher outside the canonical fetcher. Focused account home: `17 passed (17)` in
 2.79s (`focused-profile-owner.log`). One original reinstatement proof follows on committed source.
 The prior `551 passed` full gate remains evidence for `72c7c3c`, not this changed source.
+
+### Final local verification — source `25b360ff`
+
+All four pinned frontend gates exit 0 on the final source:
+
+```text
+npm run lint                         exit 0; no warnings
+npx tsc -p tsconfig.ci.json            exit 0; no diagnostics
+npm run test -- --run                 101 files passed; 553 tests passed in 35.20s
+npm run build                        Compiled successfully in 3.8s
+                                     Finished TypeScript in 2.7s
+                                     Generated 27/27 static pages in 1498ms; exit 0
+```
+
+Exact logs: `/private/tmp/earningsnerd-account-cache-evidence/full-25b360f-{lint,typecheck,
+vitest,build}.log`. Local builds warn about the existing middleware convention and missing
+Sentry upload credentials; no local Sentry release/source-map upload or deployment occurred.
+The full Vitest log retains expected handled boundary errors/jsdom navigation diagnostics.
+`source-scope-25b360f.json` verifies unchanged backend, workflows, dependency manifests,
+analytics schema, and named frontend `summaryStream.spec.ts` / `summaryStream.contract.spec.ts`
+against base `c4ae631`. No backend suite was needed or run for this frontend-only change.
+
+Six original proofs each ran once on their recorded committed source and restored exact bytes:
+
+| Invariant | Source | Failure tail | Log |
+|---|---|---|---|
+| Identity keys and admission | `4286cacc` | 3 failed, 3 passed | `mutation-identity-keys.log` |
+| Late identity/request fence | `4286cacc` | 1 failed, 5 passed | `mutation-transition-fence.log` |
+| Transient refresh classification | `4286cacc` | 6 failed, 20 passed | `mutation-transient-refresh.log` |
+| Guest/passive/explicit login ownership | `b051df4` | 6 failed, 7 passed | `mutation-login-ownership.log` |
+| Stale logout UI callback | `72c7c3c` | 2 failed, 13 skipped | `mutation-logout-ui.log` |
+| Profile identity publication | `25b360ff` | 2 failed, 15 passed | `mutation-profile-writer.log` |
+
+The last proof took 3.87s and showed both visible A-for-B contamination and the writer gate
+failing after restoring the original ProfileForm cache assignment. Proof scripts and restoration
+logs remain in the same evidence directory. Earlier passing source runs and the one resolved
+fixture failure are retained separately; none are substituted for this final full run.
+
+Source/rules/tests review covers every changed runtime file, all twelve account-resource read
+sites, explicit invalidations, active observers/PostHog, direct identity publishers, and locked
+byte identity. Root and independent reviewers cleared the final source including the profile writer. The
+independent profile pass verified unchanged API behavior, actual unmount/held-refetch coverage
+and the complete direct-writer inventory; same-account Saved confirmation now waits for the
+canonical refresh. No remaining actionable source-review finding was reported.
+No repository fetch, push, PR, ready/merge, live account, checkout, browser or provider generation
+was performed during local preparation. Build-only access to public font assets was approved. Root owns main integration, publication, actual CI and preview acceptance.
 
 ### Constraints and remaining limits
 

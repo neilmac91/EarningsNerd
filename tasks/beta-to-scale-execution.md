@@ -19,7 +19,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724, E05b #725 and E05c #727 released and independently verified; helper-only fixture approval preserved. Cross-ID policy remains separate |
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; CI, Vercel production and canonical pricing response verified. Pricing and activation decisions remain held |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; account-cache isolation prepared locally at `25b360ff` with 553 frontend tests/full gate. Integration, publication and preview pending; pricing/activation decisions held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a #735 released as `96d7658`; CI/evals, production migration/revision and independent health verified. Fleet admission/quotas remain separate |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 and saved-status lookup #730 (`e2e94956`) released; production verification recorded by root. Other hot reads remain separate |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | E11a integrated main639e48c: root full gate 2,579 passed, PostgreSQL boundary parity and independent review clear; publication/release pending. Delivery retry/ownership and return measurement remain separate |
@@ -414,3 +414,22 @@ Current release rows supersede historical pending checkpoints: root reports #730
 #735 and #736 released; #737 merged as `93e30b0`, production verification pending. #735
 production run `34044729118` / deploy `101518082921` succeeded, `applied=0 skipped=36`,
 revision `earningsnerd-backend-00288-kgv` at 100% traffic; independent DB health 7.31 ms.
+
+
+## E08 prerequisite — Subscription and usage account-cache isolation
+
+Local source `25b360ff` scopes all seven subscription and five usage consumers by resolved
+identity. Synchronous transition cleanup cancels identity first; late data/refresh/identity
+responses and login/logout UI continuations obey request ownership. A reason watermark lets
+passive expiry cancel old reads without vetoing valid new credentials, while a newer explicit
+transition wins. Profile mutation completion uses canonical identity invalidation instead of
+publishing its prior account's returned user. Backend entitlements/API, price/trial policy and
+analytics schema remain unchanged.
+
+Full pinned frontend lint/typecheck/Vitest/build passed; 101 files, 553 tests, 35.20s. Six original
+invariant proofs failed and restored exactly; details, source lineage, corrected review findings
+and the resolved ordinary AuthRefresh fixture classification are in the top account-cache
+section of `tasks/todo.md`. Named locked anchors remain unchanged. This is a local checkpoint,
+with root-owned integration/publication/CI/preview still pending. Browser Set-Cookie ordering,
+cross-tab transitions and other account caches are outside this bounded claim. Pricing's unknown
+subscription state and same-account cached Billing retention remain the next separate slice.
