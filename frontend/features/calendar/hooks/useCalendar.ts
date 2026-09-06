@@ -40,6 +40,8 @@ export function useCalendarRange(from: string, to: string) {
 }
 
 export interface CalendarViewer {
+  /** The canonical identity query has not resolved yet: neither signed in nor a guest. */
+  identityPending: boolean
   signedIn: boolean
   isPro: boolean
   alertTickers: Set<string>
@@ -48,6 +50,10 @@ export interface CalendarViewer {
 
 export function useViewer(): CalendarViewer {
   const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false })
+  // `undefined` is unresolved (cold load, or /me slower than the public calendar request);
+  // only `null` is a guest. Coercing pending to logged-out sent authenticated users to the
+  // sign-in popover (Codex review on #742).
+  const identityPending = user === undefined
   const signedIn = !!user
   const usage = useQuery({ queryKey: queryKeys.usage.byUser(user?.id), queryFn: getUsage, enabled: !!user, staleTime: 60_000 })
   const alerts = useQuery({
@@ -58,6 +64,7 @@ export function useViewer(): CalendarViewer {
   })
   const alertTickers = useMemo(() => new Set(alerts.data ?? []), [alerts.data])
   return {
+    identityPending,
     signedIn,
     isPro: usage.data?.is_pro ?? false,
     alertTickers,
@@ -79,6 +86,8 @@ export interface BlockedState {
 }
 
 export interface EarningsAlertsApi {
+  /** Mirrors the viewer: bells wait (disabled, "checking") until identity resolves. */
+  identityPending: boolean
   isOn: (ticker: string) => boolean
   isPending: (ticker: string) => boolean
   toggle: (ticker: string, el: HTMLElement) => void
@@ -145,6 +154,8 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
     (ticker: string, el: HTMLElement) => {
       const v = viewerRef.current
       const rect = el.getBoundingClientRect()
+      // Unresolved identity is not a guest: ignore the click rather than prompt sign-in.
+      if (v.identityPending) return
       if (!v.signedIn) {
         setBlocked({ kind: 'signin', ticker, message: '', anchor: rect, trigger: el })
         return
@@ -171,6 +182,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   )
 
   return {
+    identityPending: viewer.identityPending,
     isOn,
     isPending: (t) => !!pending[t],
     toggle,

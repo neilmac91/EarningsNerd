@@ -1,3 +1,22 @@
+## Calendar alert bell — pending identity is not a guest (engineering, 2026-09-06)
+
+Codex P2 on [#742](https://github.com/neilmac91/EarningsNerd/pull/742#discussion_r3945146593),
+verified against `555c9ba`: `useViewer` derived `signedIn = !!user`, so on a cold `/calendar`
+load (or whenever `/api/auth/me` is slower than the public calendar request) the resolving
+state was coerced to logged-out and a bell click entered the sign-in branch for an
+authenticated user. Before #742 the synchronous session marker had no pending state.
+
+- [x] `CalendarViewer.identityPending` (`user === undefined`); `useEarningsAlerts.toggle`
+  ignores clicks while pending (no sign-in prompt); `EarningsAlertsApi.identityPending` lets
+  `AlertBell` disable itself with a "Checking your account…" label until identity resolves.
+- [x] Focused gate `tests/unit/calendarAlertsIdentity.spec.tsx` (real QueryClient, controlled
+  `/me`): pending → disabled/checking, click is a no-op, resolve → enabled and the enable
+  request goes out; confirmed guest still gets the sign-in prompt (control).
+- [x] Mutation (toggle guard + bell disable removed): `1 failed | 1 passed`; restored `2 passed`.
+  ESLint and `tsc -p tsconfig.ci.json` clean on the changed files.
+- [ ] Full frontend gate, draft PR after #743, CI, release. No backend, API or policy change.
+
+## Account-cache integration and handover checkpoint (2026-09-06)
 ## Billing-state honesty — pricing and Billing panel (engineering, 2026-09-06)
 
 Depends on the account-cache release (#742). Prepared on a branch stacked on `82f988b`; rebased
