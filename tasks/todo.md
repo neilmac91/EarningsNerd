@@ -5,13 +5,18 @@
 ### W3-5 local preparation — agent stack truth
 
 A further review confirmed lowercase obsolete recipes bypassed the case-sensitive pattern.
-Root and an independent reviewer refuted the finding before correction; the full
+Two independent attempts to disprove the finding confirmed the gap. The full
 case-insensitive scan requires no frozen-allowlist expansion. PR #715 remains draft.
 
 - [x] Add `re.IGNORECASE` to the existing obsolete-stack pattern only.
-- [ ] Prove one actual lowercase Alembic recipe fails, restore exactly and run the full
-  coherent backend gate; retain prior proofs and CI as scoped historical evidence.
-- [ ] Independent case-delta review and corrected actual CI before root merge/deploy.
+- [x] Actual lowercase `alembic upgrade head` insertion failed the intended engineering
+  assertion (`1 failed in 0.06s`); exact restoration passed (`1 passed in 0.04s`).
+- [x] Source `98d0fb4d`: coherent Python 3.11.16, 105 exact pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 23 warnings in 54.83s`, exit 0. Prior proofs and CI remain
+  scoped historical evidence. All 148 local links resolve; original archives/§7/ledger,
+  locked contracts and sole baseline are preserved.
+- [ ] Complete independent case-delta evidence review.
+- [ ] Root: inspect corrected actual CI before merge and deployment verification.
 
 PR #715 is draft during a bounded review correction. Two independent refutations confirmed
 that the original obsolete-stack gate did not require the seven named engineering files,
