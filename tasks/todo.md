@@ -39,7 +39,86 @@ existing bucket → 1; connection-global timeout → 1; unbounded/fractional tim
 updates across duplicate history → 1; uncertain-commit retry → 2; skipped legacy signed-in
 background-cache charge → 1; missing required PostgreSQL CI URL → 1. All ten proofs restored
 exact committed bytes before the successful full gate. No earlier workstream proof was repeated.
-Independent review and root-owned integration/publication/release remain pending.
+Independent correctness/rules/tests review of `60f28a0` found no actionable issue. Main `a5ba97e`
+is integrated without changing E07a source; the combined full gate is deliberately deferred until
+E06 joins main. Prior mutation proofs remain valid and will not be repeated. Root owns publication
+and release.
+
+### E10a — Filing-first financial-facts index (engineering)
+
+Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
+`fiscal_period = FY`, then orders by `concept, period_end`. Existing model/migration indexes
+lead with company, concept, accession or period; none leads with filing. Preserve the query,
+including restated rows (`is_latest = false`) and single-filing provenance.
+
+- [x] Add `ix_financial_fact_filing_period_concept_end` to the model with columns
+  `(filing_id, fiscal_period, concept, period_end)` and no partial predicate.
+- [x] Add only `backend/migrations/20260906_financial_fact_filing_index.sql`, using
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS` outside any transaction/DO block; apply solely
+  through the existing ledger script, whose INVALID-index check fails a cancelled build.
+- [x] Verify index identity/order with disposable PostgreSQL and retain existing migration safety
+  gates. Review removed the new implementation-mirroring test under proportionality guidance.
+- [x] Verify the new index actually builds on disposable PostgreSQL (remove only its fresh-schema
+  copy before applying), then run the ledger apply/skip/reset-and-reapply triple pass and inspect
+  validity/column order. Run the full pinned Ruff, Bandit and backend pytest gate.
+- [x] Record independent review and hand the clean commit to the root agent for serial release.
+
+Rules 3, 6 and 12, ADR-0007, and the migration/lock-timeout lessons apply. No applied migration,
+locked test, query, facts ingestion, flag, capacity or production data changes. E03 is released;
+W3-9 flag repair remains independent because this slice changes no service or flag behavior.
+Pagination and other E10 hot reads remain queued.
+
+First-build risk: production fact volume and build time are unmeasured. Concurrent creation
+avoids the normal SHARE write-blocking build, but consumes database CPU/I/O, waits for old
+transactions and is bounded by the existing 10 s lock / 120 s statement budgets. If cancelled,
+the existing script fails on an INVALID index even if a retry recorded the migration; it prints
+operator recovery (`DROP INDEX CONCURRENTLY`, delete that ledger row, rerun the deploy).
+Do not silently skip, auto-delete an index or increase production timeouts. A failed production
+build needs founder-authorized recovery or a separately reviewed operational plan; no such
+failure is assumed here and no production inspection/application is part of this task.
+
+Verification checkpoint: source `36f5dbe`, pinned Python 3.11.16 / Ruff 0.16.6 / Bandit 1.9.4.
+Focused facts + migration gate: `71 passed, 2 warnings in 1.71s`. Full Ruff/Bandit exit 0;
+backend pytest: `2434 passed, 6 skipped, 2 deselected, 23 warnings in 46.70s`, exit 0.
+The six skips are the existing PostgreSQL-only Stripe concurrency cases in the ordinary SQLite
+lane; E10 does not change billing. Locked contracts are byte-identical to `f94501f`.
+
+Historical source-checkpoint experiment (the added test was removed in review): exactly one
+mutation swapped the model's first two index columns, and the then-present gate
+failed at `fiscal_period != filing_id` (1 failed), then exact source restoration passed
+(1 passed). The first invocation used the repository root and could not import `app`; it did
+not reach the invariant. A same-second Python bytecode cache retained the swapped order after
+restoration; refreshing only the file mtime cleared it, with committed bytes unchanged.
+
+Actual PostgreSQL 15 verification used only the new disposable local database
+`earningsnerd_e10_index`, separate from the Stripe test schemas. Fresh schema was built with
+only the new index omitted, proving the migration creates it rather than merely skips it.
+The shared ledger script reported `applied=35 skipped=0`, `applied=0 skipped=35`, then
+`applied=35 skipped=0` after a disposable ledger reset. Each catalog read showed
+`indisvalid=true`, `indisready=true`, and the expected four-column btree definition.
+The new migration's recorded SHA-256 is
+`1e23e9cc5f8096a86d547f13dd46d53f978e2442dbad9cf569eecaa3aa23e89a`.
+No live database measurement or migration execution occurred. This checks schema behavior,
+not a populated-table performance claim or a production first-build duration estimate.
+
+Initial root review at `36f5dbe` found no actionable issue. PR review subsequently identified
+the added test as an implementation mirror for a reversible performance index; two fresh
+refutation attempts confirmed the finding. The final change removes that test, retaining the
+actual PostgreSQL catalog/triple-pass evidence and existing generic migration gates. No new
+correctness invariant is claimed and the historical mutation is not a required final gate.
+Existing timeout and INVALID-index gates remain unchanged; no new recovery
+mechanism or timeout guarantee is claimed. Root owns publication, remote CI/evals and serialized
+deployment verification; none has happened for this branch. No founder decision is needed to
+review the index change; an actual failed production build would require the recovery decision
+described above.
+
+Final proportionality correction `1d59f17`: only the added 20-line test was removed; the test
+file is now byte-identical to `f94501f`. No model/migration source changed and no mutation or
+PostgreSQL experiment was repeated. Full pinned Ruff/Bandit passed again; pytest reported
+`2433 passed, 6 skipped, 2 deselected, 23 warnings in 51.14s`, exit 0. The six skips remain
+the existing PostgreSQL-only billing cases; the retained log includes the existing asynchronous
+client shutdown logging error after pytest success. Final index review relies on source inspection,
+the existing migration safety suite and actual PostgreSQL verification recorded above.
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
