@@ -216,3 +216,12 @@ E13b #732 production run `34039409016`, deploy `101503717032`, succeeded with
 7.26 ms. E12a #733 merged as `cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`; production
 run `34040098807` was pending at this checkpoint. Root owns the remaining verification.
 E14a root and independent source review are clear; preview acceptance remains pending.
+
+### E14a measured mobile correction
+
+PR #734 preview at original head `1d42e71` hid the company name at 320 px (width/clientWidth
+0, scrollWidth 68). Two independent refutations upheld it. Correction `dd877c0` gives the
+issuer a wrapping full-width mobile row with badges/date separate, retaining the desktop
+arrangement. Full corrected frontend gate passed: 98 files / 513 tests, lint/typecheck and
+build (27/27 pages). Existing four data-invariant proofs remain valid; no repeat or CSS test.
+Root must verify the corrected 320/390 px and both-theme preview before release.

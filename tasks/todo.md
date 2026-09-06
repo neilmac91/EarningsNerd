@@ -5,10 +5,21 @@ Apple Inc. had width/clientWidth 0 and scrollWidth 68; the visible issuer disapp
 Two fresh independent refutations (implementation agent and sec_refill) failed: existing
 nonwrapping header leaves the truncated name as the shrinkable item beside fixed badges/date.
 
-- [ ] Narrow responsive header: issuer row, wrapping badges and stacked date on mobile;
+- [x] Narrow responsive header: issuer row, wrapping badges and stacked date on mobile;
   preserve the existing desktop arrangement and all source/CTA/quality behavior.
-- [ ] Full frontend gate on corrected source; no repeat of the four unchanged data proofs.
+- [x] Full frontend gate on corrected source; no repeat of the four unchanged data proofs.
 - [ ] Root verify actual issuer visibility at 320/390 px in both themes on corrected preview.
+
+Correction source `dd877c0` adds only responsive header grouping and text wrapping;
+`sm` retains the horizontal layout. Existing data/quality/CTA/source logic and nine regression
+cases are unchanged. Full corrected-source gate: lint/typecheck clean; **98 files, 513 tests
+passed in 38.29s**; build exit 0, compiled in **5.3s**, TypeScript 7.1s, static pages **27/27**.
+Exact logs: `/private/tmp/earningsnerd-e14-mobile-lint.log`,
+`earningsnerd-e14-mobile-typecheck.log`, `earningsnerd-e14-mobile-full-vitest.log`,
+`earningsnerd-e14-mobile-build.log` under the same directory. Original four proofs were not
+repeated. No CSS-string test was added for this low-impact visual correction; actual mobile
+and both-theme preview remains the acceptance gate. Lesson evidence records the measured
+failure. Root owns updating PR #734 and verifying corrected preview; no push here.
 
 Tag: engineering. Base: `53348d6`. Scope: reuse the existing server example fetch and
 HeroExample in a separate Suspense child; preserve signup, referral policy, homepage
