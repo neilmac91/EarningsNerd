@@ -12,7 +12,10 @@ Requirements (runs in prod / CI, NOT the offline sandbox):
 Usage:
   python scripts/filing_scan.py              # real-time scan pass
   python scripts/filing_scan.py --digest     # daily digest pass
-  python scripts/filing_scan.py --dry-run    # scan + log, no emails sent
+  python scripts/filing_scan.py --dry-run    # rejected: safe preview is unavailable
+
+--dry-run is disabled for both modes before application initialization. The former no-email
+path still changed notification logs and watchlist watermarks; no safe preview is implemented.
 """
 import argparse
 import asyncio
@@ -27,11 +30,14 @@ logger = logging.getLogger(__name__)
 
 
 async def _main(*, digest: bool, dry_run: bool, cadence_minutes: int) -> None:
+    if dry_run:
+        raise SystemExit(
+            "Safe preview is unavailable: --dry-run is disabled to avoid changing "
+            "notification logs and watchlist watermarks."
+        )
+
     from app.database import SessionLocal
     from app.services import filing_scan_service
-
-    async def _noop_send(**_kwargs):  # used in --dry-run
-        return None
 
     from app.services.job_run_service import track_job
 
@@ -40,14 +46,14 @@ async def _main(*, digest: bool, dry_run: bool, cadence_minutes: int) -> None:
         try:
             if digest:
                 stats = await filing_scan_service.run_daily_digest(
-                    db, send_digest=_noop_send if dry_run else None
+                    db, send_digest=None
                 )
                 attempt.record(stats)
                 logger.info("Daily digest complete: %s", stats)
             else:
                 stats = await filing_scan_service.run_filing_scan(
                     db,
-                    send_alert=_noop_send if dry_run else None,
+                    send_alert=None,
                     cadence_minutes=cadence_minutes,
                 )
                 attempt.record(stats)
@@ -62,7 +68,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Scan watched companies for new SEC filings.")
     parser.add_argument("--digest", action="store_true", help="Run the daily digest pass instead of the real-time scan.")
-    parser.add_argument("--dry-run", action="store_true", help="Detect + log but do not send emails.")
+    parser.add_argument("--dry-run", action="store_true", help="Unavailable: rejects without starting work; safe preview is not implemented.")
     parser.add_argument("--cadence-minutes", type=int, default=60, help="Skip companies checked within this window.")
     args = parser.parse_args()
 

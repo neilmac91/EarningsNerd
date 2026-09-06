@@ -18,3 +18,10 @@ best-effort callers while offering explicit error propagation to the monitored i
 scheduled modes, later-page failure, provider error payloads and a business rollback; mutation
 proofs remove each signal and confirm the tests fail. Report tests pin the last successful
 completion separately from the latest attempt and from dry runs.
+
+**Filing-job dry-run correction (2026-09-06):** A no-op email sender still lets the filing
+engine write notification logs and advance watermarks. Marking only its heartbeat dry_run does
+not make business work read-only. Until a safe preview exists, `scripts/filing_scan.py --dry-run`
+(scan and digest) must reject before application imports or any DB, tracker or service call.
+The existing `test_job_reporting.py` gate runs both actual CLI modes with import and boundary
+spies, plus normal-mode controls. Rejection is not a working preview or historical repair.
