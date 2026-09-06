@@ -40,7 +40,7 @@ PostgreSQL interleaving regression and revenue unit home passed 28 tests. Exactl
 prior-query mutation reproduced the KeyError (1 failed); it was restored. Earlier eight proofs
 were not repeated. Coverage metadata remains a later read, not an atomic full-report snapshot.
 
-Final gate on `a7e2ff4`: Ruff clean; Bandit 0 medium/high severity; **2524 passed, 2 deselected,
+Prior source gate on `a7e2ff4`: Ruff clean; Bandit 0 medium/high severity; **2524 passed, 2 deselected,
 23 warnings in 51.90s**, including all actual PostgreSQL cases. The interpreter emitted a closed
 logging-stream teardown diagnostic after pytest's passing summary; no test failed. Prior source's
 2514-passed/9-skipped result is superseded. No eval runner, live Stripe call, endpoint change,
@@ -58,6 +58,21 @@ Evidence files retained locally: `/private/tmp/earningsnerd-e06-focused.log`,
 `earningsnerd-e06-bandit-final.log` and `earningsnerd-e06-full-final.log` (same `/private/tmp/`
 prefix). [Operating guide](../docs/observed-invoice-payments.md) defines report limits and the
 production endpoint/event-selection verification still required before coverage is claimed.
+
+E06 integration checkpoint: root and independent correctness/rules/tests reviews cleared the
+report correction. Integrated E10 main `a5ba97e` as `fb0e846`, then E05c main `6a648f7` as
+`bef2dc8`. E05c source equals inherited `aa36c95`; expected squash conflicts retained E06's
+reader factoring, payment worker path and PostgreSQL regression. Mechanical diff against
+`fb0e846` found no E06 runtime/test changes. Locked contracts are byte-identical to current main.
+No mutation proof was repeated. The prior 35-file migration replay excludes the separately
+verified E10 migration now integrated; remote combined migration CI must cover all 36 files.
+
+Combined full gate on `bef2dc8`: Ruff clean, Bandit 0 medium/high severity,
+**2524 passed, 2 deselected, 23 warnings in 56.08s**, exit 0. Direct pinned Python invocation
+preserved `DYLD_FALLBACK_LIBRARY_PATH`; PostgreSQL cases used disposable schemas. Exact logs:
+`/private/tmp/earningsnerd-e06-integrated-full.log` and
+`/private/tmp/earningsnerd-e06-integrated-bandit.log`. This supersedes the prior local full gate.
+Root owns publication after E05c production verification; this task did not push or deploy.
 
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 

@@ -16,8 +16,8 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | #721 released; backend deployment and independent health verified |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | #723 released; CI/evals, migration tail, revision/traffic and independent health verified |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
-| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c current-ID reconciliation implemented locally under helper-only fixture approval. Cross-ID policy remains separate |
-| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, review clear; combined integration gate and release pending |
+| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
+| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, review clear; combined full gate passed, publication/release pending |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
@@ -129,6 +129,12 @@ window rows and first-payment timestamps now share one statement. Final local ba
 Ruff clean, Bandit 0 medium/high severity, 2524 passed / 2 deselected in 51.90s with PostgreSQL
 cases enabled. Eight initial invariant mutation failures and one exact race proof were restored.
 The migration ledger passed 35 apply / 35 skip / 35 replay in a dedicated local database.
-Locked Stripe files remain byte-identical to E05c `aa36c95`. Final review/publication/integration
-with eventual E05c main and production event-selection verification remain separate; no present
+Locked Stripe files remain byte-identical to E05c `aa36c95`. Root and independent review are clear; integrated main `6a648f7` in `bef2dc8` without E06
+runtime/test changes. Publication and production event-selection verification remain separate; no present
 revenue or full-history claim follows from [the report](../docs/observed-invoice-payments.md).
+
+E06 combined source `bef2dc8` (main `6a648f7`) passed Ruff/Bandit and all 2524 backend tests
+with PostgreSQL enabled (2 deselected, 23 warnings, 56.08s; exit 0). Earlier 35-file migration
+replay remains scoped evidence; combined migration CI must include all 36 files after E10.
+Root/independent review is clear, locked files match main, and no mutation was repeated.
+Publication follows verified E05c deployment; event coverage is still unverified.
