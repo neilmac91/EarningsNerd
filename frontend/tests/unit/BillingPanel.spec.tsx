@@ -72,6 +72,28 @@ describe('BillingPanel', () => {
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
   })
 
+  it.each([null, 'cus_expired'])('labels an expired trial Free and preserves portal routing (%s)', async (customerId) => {
+    mockGetSubscriptionStatus.mockResolvedValue({
+      ...baseSub,
+      status: 'trialing',
+      trial_end: '2026-01-01T00:00:00Z',
+      stripe_customer_id: customerId,
+    })
+    mockGetUsage.mockResolvedValue({ ...baseUsage, is_pro: false, summaries_limit: 5 })
+
+    renderPanel()
+    expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByText('Pro (trial)', { exact: true })).not.toBeInTheDocument()
+    expect(screen.queryByText(/in your Pro trial/)).not.toBeInTheDocument()
+    if (customerId) {
+      expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /upgrade to pro/i })).not.toBeInTheDocument()
+    } else {
+      expect(screen.getByRole('link', { name: /upgrade to pro/i })).toHaveAttribute('href', '/pricing')
+      expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
+    }
+  })
+
   it('shows Manage billing only when the user has a real Stripe customer', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,

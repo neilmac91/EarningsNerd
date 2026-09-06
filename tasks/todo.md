@@ -70,6 +70,110 @@ disposable local PostgreSQL cluster passed: Ruff clean, Bandit 0 medium/high, py
 includes the existing asynchronous client shutdown logging diagnostic after pytest success.
 No frontend file changed. Branch push is authorized; PR creation/readiness, merge and serialized
 production verification remain root-owned and pending at this checkpoint.
+### E08a — Render trial state from resolved entitlements (engineering)
+
+Base `cab71f9`. Pricing and settings currently use raw `status = trialing` even when the
+subscription API resolves an expired trial to `is_pro = false`. Pricing then disables an upgrade
+that the existing backend permits, and settings labels a Free account Pro. Independent root
+refutation confirmed the mismatch; backend billing behavior remains authoritative and unchanged.
+
+- [x] Require the API's `is_pro` plus raw trial status for the trial presentation in
+  `frontend/app/pricing/page.tsx` and `frontend/features/settings/components/BillingPanel.tsx`.
+- [x] Extend only their existing `PricingPage.spec.tsx` and `BillingPanel.spec.tsx` homes:
+  expired-trial Free response enables the existing upgrade, suppresses trial labels/countdown,
+  and retains customer-ID portal routing. Existing entitled-trial behavior stays unchanged.
+- [x] Commit source; run one coordinated original-predicate mutation across both surfaces,
+  restore exact bytes, and run full frontend lint/typecheck/Vitest/build gates.
+- [x] Record three-lens and independent root review, evidence and clean head. Push only after
+  gates pass; root owns PR creation/readiness/merge and both-theme preview verification.
+
+Read `frontend/DESIGN_SYSTEM.md` and relevant lessons. Rules 4, 6, 11 and 12 apply; use server
+plan truth without new browser expiry arithmetic. No backend/API/schema/locked-test, pricing,
+trial activation, promo, analytics, token or styling change. E08-3 loading/error labels, E08-4
+FAQ timing, annual totals and price experiments remain separate. No live expired-trial account
+or preview acceptance is claimed from mocked tests.
+
+
+
+Source `48f51f3` changes only the two trial predicates/comments in runtime code. A resolved
+Free subscription with raw `trialing` status now gets the existing upgrade action and Free label;
+customer-ID portal routing is unchanged. Existing entitled-trial cases still pass. The pricing
+regression seeds the resolved subscription cache before rendering to avoid a false pass through
+the pre-existing transient Free loading label. The settings regression covers with/without a
+Stripe customer. All backend/locked tests, dependency pins, price variants and flags are unchanged.
+
+Verification used Node 22.23.2 and an APFS clone of the existing matching dependency tree;
+package-lock identity was checked, with no install or pin change. Initial setup invocations ran
+before copying finished and then from the wrong working directory; neither reached test assertions.
+The first actual focused run exposed one mistaken new expectation: a Free user without a customer
+already uses the label “Upgrade to Pro”, not “Subscribe to Pro”. The test was corrected to the
+existing branch, with no additional runtime change. The focused homes then passed all 11 tests.
+
+Exactly one coordinated mutation restored the original raw-status predicate in both components:
+pricing failed to find the permitted upgrade button, and both settings cases failed to find Free.
+Result: `2 failed` files, `3 failed | 8 skipped` tests, 4.36 s. Both files were restored byte-for-byte
+to committed `48f51f3`; no mutation was repeated. Final full frontend gate passed: lint with zero
+warnings, `tsc -p tsconfig.ci.json`, Vitest **97 files / 504 tests passed** in 31.44 s, and
+`next build` (compiled 17.2 s, 27/27 static pages, `/pricing` prerendered). All commands exited 0.
+The build used narrowly approved network access for existing font downloads. Its no-Sentry-token
+warnings mean no local release/source-map upload; existing jsdom navigation diagnostics appeared
+in the successful Vitest run. Logs live at `/private/tmp/earningsnerd-e08-{lint,typecheck,full-vitest,build}.log`,
+`/private/tmp/earningsnerd-e08-focused-corrected.log` and
+`/private/tmp/earningsnerd-e08-mutation-trial-predicates.log`.
+
+Self-review and root's independent three-lens review of `48f51f3` are clear: the backend remains
+the only plan resolver, the historical raw row cannot override its result, and the gate proves
+both affected surfaces without editing locked anchors. Lesson link and `git diff --check` passed.
+Source and evidence are ready for the authorized branch push. Root owns PR creation/readiness,
+remote CI, both-theme preview and release; no live expired-trial account behavior is claimed.
+
+### E07a — Atomic completed-use counters (engineering)
+
+Approved implementation scope: preserve all three public monthly increment helpers/call sites,
+existing first-row history selection and billing timing. No reservation, quota-admission change,
+schema/unique constraint, historical repair or locked-test edit.
+
+- [x] Replace Python read-modify-write with SQL expression increments on the selected bucket;
+  only absent buckets lock the parent User, then re-read before creating the first row.
+- [x] Set a PostgreSQL transaction-local lock timeout through SQLAlchemy `set_config`, default
+  3000 ms, positive integral milliseconds up to 10000; never mutate global connection settings.
+  Errors retain existing caller policy; no retry after an uncertain commit.
+- [x] Add one nonlocked usage transaction home with real PostgreSQL concurrency, stale-session,
+  first-use, bounded-lock-wait, rollback and unchanged-history/background-cache behavior.
+- [x] Add explicit PostgreSQL CI execution and extend the existing structural workflow gate.
+- [x] Commit source, retain exactly one mutation per new invariant with exact restoration, run
+  Ruff/Bandit/full backend and workflow/Node checks, and record evidence for independent review.
+- [x] Return a clean committed branch to root; no push, PR, merge or deployment by this agent.
+
+The guarantee covers successfully committed calls after old service/job writers drain. It does
+not reserve admission, fix historical duplicates or promise strict billing accounting. First-row
+creation can contend with the Stripe account lock, bounded by the transaction-local lock timeout;
+existing-bucket increments do not acquire that parent lock. The setting bounds lock acquisition
+waits, not overall transaction duration or network/commit uncertainty.
+
+
+Source `60f28a0`: the usage transaction home plus migration workflow gate passed 37 checks on
+actual PostgreSQL with disposable schemas. Full backend gate with both Stripe and usage
+PostgreSQL cases enabled: Ruff clean; Bandit 0 medium/high;
+`2458 passed, 2 deselected, 23 warnings in 50.55s`, exit 0. Workflow-focused gates: 103 passed;
+Node-version gate: 3 passed on Node 22.23.2. No locked contracts or eval baseline changed.
+
+Exactly one mutation per new invariant: stale Python increment → 3 intended failures; removed
+first-use lock/re-read → 1 (three duplicate rows); missing lock timeout → 2; parent lock on an
+existing bucket → 1; connection-global timeout → 1; unbounded/fractional timeout setting → 6;
+updates across duplicate history → 1; uncertain-commit retry → 2; skipped legacy signed-in
+background-cache charge → 1; missing required PostgreSQL CI URL → 1. All ten proofs restored
+exact committed bytes before the successful full gate. No earlier workstream proof was repeated.
+Independent correctness/rules/tests review of `60f28a0` found no actionable issue. Main `a5ba97e`
+is integrated without changing E07a source; the combined full gate is deliberately deferred until
+E06 joins main. Prior mutation proofs remain valid and will not be repeated.
+
+Integration checkpoint: released E06 main `cab71f9` is now merged, including account export,
+timezone normalization and the worker-serialized lifetime fixture. Only checklist/ledger conflicts
+needed manual resolution; both workstreams were retained. Run one final combined backend gate
+with Stripe and usage PostgreSQL cases, workflow readers and Node pin before the authorized branch
+push. Root owns PR creation and serial deployment; E07b reservations remain unimplemented.
+
 
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
@@ -262,6 +366,26 @@ provider-wait cases extend their contention/cancellation coverage. The approved 
 patch context mechanically reduces to the exact base file; all other locked files are untouched.
 Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
 found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
+
+E07a combined integration `5c5f8b3` includes released E06 main
+`cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c`. Final pinned gate: Ruff clean; Bandit 0 medium/high;
+**2545 passed, 2 deselected, 23 warnings in 57.06s**, exit 0, with both Stripe and usage
+PostgreSQL URLs configured against disposable schemas. Workflow readers: **103 passed**; Node
+22.23.2 pin gate: **3 passed**. The existing closed logging-stream teardown diagnostic followed
+the passing pytest summary. No mutation was repeated; E07a source/tests/CI remain byte-identical
+to `714b686`, and E06 export/timezone/lifetime corrections match `cab71f9` exactly.
+
+Integration review is clear across all three lenses: correctness preserves public counter helpers,
+completion timing, selected history and bounded lock waits; rules/brief introduce no reservations,
+schema change, founder policy, new orchestrator or entitlement path; tests/gates retain the ten
+prior mutation proofs and execute real PostgreSQL cases in required CI. The only test differences
+against main are the new usage transaction home and the nonlocked parameterized CI structural
+check. All locked contracts and eval baselines are byte-identical to `cab71f9`.
+
+Exact combined logs: `/private/tmp/earningsnerd-e07-evidence/integrated-full.log`,
+`integrated-bandit.log`, `integrated-workflow.log` and `integrated-node.log` in that directory.
+The parent authorized branch push after this gate; PR creation/merge and production deployment
+remain root-owned. E07b is design-only and is not included.
 
 ### E10a — Filing-first financial-facts index (engineering)
 
