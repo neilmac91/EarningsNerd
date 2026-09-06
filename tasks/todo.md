@@ -9,17 +9,17 @@ Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing
 lead with company, concept, accession or period; none leads with filing. Preserve the query,
 including restated rows (`is_latest = false`) and single-filing provenance.
 
-- [ ] Add `ix_financial_fact_filing_period_concept_end` to the model with columns
+- [x] Add `ix_financial_fact_filing_period_concept_end` to the model with columns
   `(filing_id, fiscal_period, concept, period_end)` and no partial predicate.
-- [ ] Add only `backend/migrations/20260906_financial_fact_filing_index.sql`, using
+- [x] Add only `backend/migrations/20260906_financial_fact_filing_index.sql`, using
   `CREATE INDEX CONCURRENTLY IF NOT EXISTS` outside any transaction/DO block; apply solely
   through the existing ledger script, whose INVALID-index check fails a cancelled build.
-- [ ] Extend the existing migration safety test home with one model/migration identity-and-order
+- [x] Extend the existing migration safety test home with one model/migration identity-and-order
   gate; retain exactly one mutation experiment and restore exact source bytes.
-- [ ] Verify the new index actually builds on disposable PostgreSQL (remove only its fresh-schema
+- [x] Verify the new index actually builds on disposable PostgreSQL (remove only its fresh-schema
   copy before applying), then run the ledger apply/skip/reset-and-reapply triple pass and inspect
   validity/column order. Run the full pinned Ruff, Bandit and backend pytest gate.
-- [ ] Record independent review and hand the clean commit to the root agent for serial release.
+- [x] Record independent review and hand the clean commit to the root agent for serial release.
 
 Rules 3, 6 and 12, ADR-0007, and the migration/lock-timeout lessons apply. No applied migration,
 locked test, query, facts ingestion, flag, capacity or production data changes. E03 is released;
@@ -34,6 +34,36 @@ operator recovery (`DROP INDEX CONCURRENTLY`, delete that ledger row, rerun the 
 Do not silently skip, auto-delete an index or increase production timeouts. A failed production
 build needs founder-authorized recovery or a separately reviewed operational plan; no such
 failure is assumed here and no production inspection/application is part of this task.
+
+Verification checkpoint: source `36f5dbe`, pinned Python 3.11.16 / Ruff 0.16.6 / Bandit 1.9.4.
+Focused facts + migration gate: `71 passed, 2 warnings in 1.71s`. Full Ruff/Bandit exit 0;
+backend pytest: `2434 passed, 6 skipped, 2 deselected, 23 warnings in 46.70s`, exit 0.
+The six skips are the existing PostgreSQL-only Stripe concurrency cases in the ordinary SQLite
+lane; E10 does not change billing. Locked contracts are byte-identical to `f94501f`.
+
+Exactly one mutation experiment swapped the model's first two index columns: the new gate
+failed at `fiscal_period != filing_id` (1 failed), then exact source restoration passed
+(1 passed). The first invocation used the repository root and could not import `app`; it did
+not reach the invariant. A same-second Python bytecode cache retained the swapped order after
+restoration; refreshing only the file mtime cleared it, with committed bytes unchanged.
+
+Actual PostgreSQL 15 verification used only the new disposable local database
+`earningsnerd_e10_index`, separate from the Stripe test schemas. Fresh schema was built with
+only the new index omitted, proving the migration creates it rather than merely skips it.
+The shared ledger script reported `applied=35 skipped=0`, `applied=0 skipped=35`, then
+`applied=35 skipped=0` after a disposable ledger reset. Each catalog read showed
+`indisvalid=true`, `indisready=true`, and the expected four-column btree definition.
+The new migration's recorded SHA-256 is
+`1e23e9cc5f8096a86d547f13dd46d53f978e2442dbad9cf569eecaa3aa23e89a`.
+No live database measurement or migration execution occurred. This checks schema behavior,
+not a populated-table performance claim or a production first-build duration estimate.
+
+Root independently reviewed correctness, rules/brief and tests/gates at `36f5dbe` with no
+actionable finding. Existing timeout and INVALID-index gates remain unchanged; no new recovery
+mechanism or timeout guarantee is claimed. Root owns publication, remote CI/evals and serialized
+deployment verification; none has happened for this branch. No founder decision is needed to
+review the index change; an actual failed production build would require the recovery decision
+described above.
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
