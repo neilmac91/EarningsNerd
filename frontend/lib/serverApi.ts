@@ -250,5 +250,7 @@ export const fetchFilingSummaryServer = async (
  * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
  * noindex decision on filing pages, so index/noindex must match what visitors actually see.
  */
-export const summaryHasDisplayableContent = (summary: { business_overview?: string | null } | null | undefined): summary is { business_overview: string } =>
+export const summaryHasDisplayableContent = <T extends { business_overview?: string | null }>(
+  summary: T | null | undefined,
+): summary is T & { business_overview: string } =>
   !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
