@@ -55,7 +55,22 @@ leave a phantom unit against a 5/month free cap until month end):
   Pro reserves nothing.
 - [x] Mutations, each restored: reservation insert removed → `3 failed, 1 passed`; expiry
   filter and sweep dropped → `1 failed, 3 passed`; `finally` release dropped → `2 failed,
-  4 passed`; completion conversion dropped → `2 failed, 4 passed`; restored `28 passed`.
+  4 passed`; completion conversion dropped → `2 failed, 4 passed`; admission reads swapped
+  back to counter-first → `1 failed`; restored `29 passed`.
+- [x] Independent correctness lens: one should-fix, fixed — under READ COMMITTED a conversion
+  committing between admission's two reads under-counted by one (a completion does not take
+  the `users` lock once the bucket exists); leases are now read before the counter so the
+  only bad interleaving double-counts (conservative block). New PostgreSQL case pins the
+  interleaving via a hooked counter read. Refuted: admission↔conversion deadlock (needs a
+  lease expiring mid-generation; TTL > pipeline timeout), lock scope/release, duplicate-bucket
+  `.first()` (pre-existing), aware/naive `expires_at`, token scoping through the generator's
+  `finally`, Pro semantics, migration/model parity, test fidelity, rules 6/7/8.
+- [x] Full backend gate in this environment (venv with pinned Ruff 0.16.6 / Bandit 1.9.4, the
+  three PostgreSQL URLs on a local 16.13 cluster): ruff clean, bandit clean, `2593 passed`.
+  Draft [#746](https://github.com/neilmac91/EarningsNerd/pull/746): first CI heads failed only
+  in mock-session stream tests (integration and performance suites) that now stub the
+  `reserve_summary_use` seam; `migrations-postgres` (triple pass with the new file, three
+  concurrency proofs) green on `d2ce9c9`.
 - [ ] Full backend gate (ruff, bandit, pytest with the three PostgreSQL URLs), draft PR, CI,
   release with one unverified backend rollout at a time: migration `applied=1`, revision,
   traffic, independent `/health/detailed`. No price, entitlement, analytics, locked-test or
