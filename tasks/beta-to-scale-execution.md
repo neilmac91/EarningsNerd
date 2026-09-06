@@ -25,7 +25,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a merged as #734; E14b local implementation/gates complete, integration/preview pending |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
@@ -233,3 +233,16 @@ and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labe
 numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
+
+### E14b local canonical-link action
+
+Source `2ee65a7` from `ee3ac988` adds a Copy filing link action using actual filing.id and
+the existing canonical origin. Awaited clipboard completion, pending activation ownership,
+inline status/failure/manual link and success-only `filing_link_copied` with filing_id preserve
+existing save/export/access/quality behavior. One new real-parent regression home: seven
+cases; one coordinated original mutation failed six with one control passing, then restored.
+Full pinned frontend gate passed lint/typecheck, 99 files / 520 tests and build 27/27 pages.
+No backend, dependencies, locked tests, account URL/query copying, share endpoint or referral
+policy changed. Existing SDK enrichment/pageviews are outside this slice; no global telemetry
+redaction or actual sharing metric is claimed. Root owns review, released-E10b integration,
+responsive/both-theme/denial preview and publication. Exact local logs/proof are in tasks/todo.md.

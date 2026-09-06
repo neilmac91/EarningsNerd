@@ -5,15 +5,58 @@ summary action. No public share endpoint, payload snapshot, access expansion, so
 referral policy or current-location query/token copying. Root holds publication pending E10b.
 
 - [x] Read AGENTS/CLAUDE, design system, wave-3 and relevant frontend/test lessons.
-- [ ] Pass actual filing.id to the existing action bar; add a secondary copy action for all
+- [x] Pass actual filing.id to the existing action bar; add a secondary copy action for all
   readers while retaining save/export gates and normal destination quality behavior.
-- [ ] Await clipboard success, prevent concurrent activation, show accessible failure/retry
+- [x] Await clipboard success, prevent concurrent activation, show accessible failure/retry
   and manual canonical link; emit only filing_link_copied with filing_id after success.
-- [ ] One new test home `frontend/tests/unit/filing-link-copy.spec.tsx` exercising real parent,
+- [x] One new test home `frontend/tests/unit/filing-link-copy.spec.tsx` exercising real parent,
   action and analytics boundary; one coordinated canonical/acknowledgment mutation, restore.
-- [ ] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
+- [x] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
 - [ ] Root independent review, released-E10b integration, responsive/both-theme and clipboard
   denial preview; no push/PR/deployment by this agent until instructed.
+
+Plan `4bebdf6`; source `2ee65a7`. The parent passes the actual filing ID and keys the
+action bar by that ID so a pending old write cannot update the next filing's feedback.
+The button uses existing DS styling; status/alert feedback and the manual canonical link
+stay inline beside it. Ref-backed pending ownership also protects two synchronous activations.
+The only new analytics event is `filing_link_copied` with explicit `{ filing_id }`, emitted
+following successful Clipboard API completion; telemetry exceptions cannot change success.
+Manual copying cannot be measured by this event. No share/recipient/conversion count is claimed.
+
+One new regression home renders the real SummaryDisplay, SummaryActionsBar and analytics
+helper, mocking provider/browser boundaries and export handlers. Seven cases cover polluted
+current URL versus actual filing ID, guest/Free/Pro controls and full/partial/unknown quality,
+pending/duplicate activation, denial/manual link/retry, missing Clipboard API, telemetry error,
+and switching filings before a write settles. Initial unknown-quality fixture accidentally
+used its default full value; fixed before source commit/proof. No locked fixture was changed.
+
+The one planned coordinated mutation on committed `2ee65a7` replaced the canonical URL with
+`window.location.href` and acknowledged without awaiting the clipboard promise (absorbing its
+rejection to keep the proof controlled). Tail from
+`/private/tmp/earningsnerd-e14b-mutation-canonical-ack.log`:
+```text
+Test Files  1 failed (1)
+Tests       6 failed | 1 passed (7)
+```
+Exit 1; exact original bytes restored. The telemetry-error control remained passing.
+Restored full pinned Node 22.23.2 gate: lint `--max-warnings 0` and typecheck clean;
+**99 files / 520 tests passed in 40.88s**. Build exit 0, compiled in **18.7s**, TypeScript
+6.5s, static pages **27/27** in 1584ms. Logs under `/private/tmp/`:
+`earningsnerd-e14b-{lint,typecheck,full-vitest,build}.log`; focused seven-case log
+`earningsnerd-e14b-focused.log`. Build used narrowly approved configured-font network access;
+no dependencies changed, no local Sentry release/source-map upload token was present.
+
+Three-lens self-review found no actionable source issue: actual filing identity, successful
+write timing and pending ownership are preserved; scope/entitlements/quality/access remain
+unchanged; one meaningful test home, original proof restored, locked bytes match `ee3ac988`.
+Custom analytics fields contain only filing_id. Existing consent-aware PostHog initialization,
+SDK enrichment and pageviews are unchanged; posthog-provider.tsx:14–23 still constructs its
+existing pageview URL with search parameters. This is a clean copied/manual URL and explicit
+event-field guarantee, not a new app-wide telemetry-redaction guarantee.
+
+Root independent review, released-E10b integration and actual responsive/both-theme plus
+clipboard-denial preview remain pending. No E10b files or query owners were changed, and no
+push, PR or deployment was performed here.
 
 Targets: existing SummaryDisplay.tsx, SummaryActionsBar.tsx, lib/analytics.ts; the new test
 home above. No backend, dependencies, locked tests, query keys or E10b consumer edits.
