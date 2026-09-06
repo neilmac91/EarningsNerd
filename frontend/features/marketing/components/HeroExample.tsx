@@ -68,7 +68,19 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   )
 }
 
-function HeroExample({ example }: { example: ExampleData | null }) {
+interface HeroExampleProps {
+  example: ExampleData | null
+  ctaHref?: string
+  ctaPlacement?: string
+  ctaLabel?: string
+}
+
+function HeroExample({
+  example,
+  ctaHref = exampleFilingHref('hero_visual_example'),
+  ctaPlacement = 'hero_visual',
+  ctaLabel = 'Read the full example summary',
+}: HeroExampleProps) {
   const data = example ?? FALLBACK
   const isFallback = example === null
   // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
@@ -145,25 +157,27 @@ function HeroExample({ example }: { example: ExampleData | null }) {
                   <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
                 ))}
               </div>
-              <a
-                href={data.secUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-text-tertiary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark hover:underline"
-              >
-                Figures from the company&apos;s XBRL filing · verify on SEC EDGAR ↗
-              </a>
             </div>
           )}
+          <a
+            href={data.secUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-text-tertiary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark hover:underline"
+          >
+            {data.metrics.length > 0
+              ? "Figures from the company's XBRL filing · verify on SEC EDGAR ↗"
+              : 'Source filing · read on SEC EDGAR ↗'}
+          </a>
 
           {/* Footer CTA into the real example */}
           <ExampleCtaLink
-            href={exampleFilingHref('hero_visual_example')}
-            placement="hero_visual"
+            href={ctaHref}
+            placement={ctaPlacement}
             className="group flex items-center justify-between rounded-xl border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 transition-colors hover:border-brand-strong/40 dark:hover:border-brand-dark/40 hover:bg-brand-strong/15 dark:hover:bg-brand-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <span className="text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-              Read the full example summary
+              {ctaLabel}
             </span>
             <span
               className="text-xs text-brand-strong dark:text-brand-strong-dark transition-transform group-hover:translate-x-0.5"
