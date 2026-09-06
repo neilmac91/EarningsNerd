@@ -37,9 +37,11 @@ pagination protocol. Filing IDs are existing API resources, not a reason to inve
 
 Own JWT/cookie and Bearer authentication follows the actual auth implementation. Plan limits come
 only from entitlements; do not insert sample premium/basic/unlimited tiers or API-credit accounting.
-Validate external data at entry, constrain allowed algorithms/inputs where relevant, and retain
-side-effect-free GET behavior. Internal job tokens and founder-only execution remain separate from
-ordinary authenticated routes.
+Validate external data at entry and constrain allowed algorithms/inputs where relevant. Preserve
+existing GET discovery and refresh behavior: company search persists Company rows, and filing-history
+reads may discover companies and persist or queue filing refreshes. Inspect each handler before changing
+its side effects. Internal job tokens and founder-only execution remain separate from ordinary
+authenticated routes.
 
 Generation uses the existing SSE terminal/progress contract and the one summary pipeline. Preserve
 locked auth, webhook, stream and background tests; current routes and schemas govern examples.

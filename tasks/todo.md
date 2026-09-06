@@ -4,6 +4,11 @@
 
 ### W3-5 local preparation — agent stack truth
 
+Final prose review qualified existing stateful discovery GETs in the API brief after two
+independent refutation attempts confirmed the contradiction. Runtime and gated source are unchanged.
+The optional `frontend/src` matcher suggestion is outside the specified token set; current engineering
+briefs contain no such path, and the frozen legacy set is preserved.
+
 A further review confirmed lowercase obsolete recipes bypassed the case-sensitive pattern.
 Two independent attempts to disprove the finding confirmed the gap. The full
 case-insensitive scan requires no frozen-allowlist expansion. PR #715 remains draft.
