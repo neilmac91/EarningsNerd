@@ -1,4 +1,7 @@
-"""Unit tests for the SEC rate limiter's Retry-After handling."""
+"""Unit tests for SEC token accounting and Retry-After handling."""
+
+import asyncio
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -97,3 +100,63 @@ class TestRetryAfterHonored:
         with pytest.raises(SECRateLimitError):
             await limiter.execute_with_backoff(_request)
         assert waits and max(waits) <= MAX_RETRY_AFTER_SECONDS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ["sequential", "concurrent", "delayed_wakeup", "cancelled_wait"])
+async def test_elapsed_refill_is_spent_once(monkeypatch, scenario):
+    """A burst is allowed, but every later admission needs fresh elapsed time."""
+    clock = SimpleNamespace(now=100.0)
+    real_sleep = asyncio.sleep
+    cancel_next_wait = scenario == "cancelled_wait"
+    waits: list[float] = []
+    admitted: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        nonlocal cancel_next_wait
+        waits.append(seconds)
+        if cancel_next_wait:
+            cancel_next_wait = False
+            clock.now += seconds / 2
+            raise asyncio.CancelledError
+        clock.now += seconds + (0.25 if scenario == "delayed_wakeup" else 0)
+        # Yield so concurrent callers contend on the real asyncio lock.
+        await real_sleep(0)
+
+    monkeypatch.setattr(
+        "app.services.sec_rate_limiter.time",
+        SimpleNamespace(monotonic=lambda: clock.now),
+    )
+    monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", fake_sleep)
+    limiter = SECRateLimiter(requests_per_second=4)
+
+    async def request() -> None:
+        admitted.append(clock.now)
+
+    for _ in range(4):
+        await limiter.execute(request)
+    assert admitted == [100.0] * 4
+    assert waits == []
+
+    if scenario == "cancelled_wait":
+        with pytest.raises(asyncio.CancelledError):
+            await limiter.execute(request)
+        assert admitted == [100.0] * 4
+
+    if scenario == "concurrent":
+        await asyncio.gather(*(limiter.execute(request) for _ in range(4)))
+    else:
+        for _ in range(4):
+            await limiter.execute(request)
+
+    interval = 0.5 if scenario == "delayed_wakeup" else 0.25
+    assert admitted[4:] == pytest.approx([100.0 + interval * i for i in range(1, 5)])
+    assert limiter.get_stats()["total_requests"] == 8
+
+    # Idle time restores the declared burst without accumulating beyond its cap.
+    clock.now += 10
+    idle_end = clock.now
+    for _ in range(5):
+        await limiter.execute(request)
+    assert admitted[-5:-1] == [idle_end] * 4
+    assert admitted[-1] == pytest.approx(idle_end + interval)

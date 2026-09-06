@@ -12,8 +12,8 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 
 | ID | Objective | Dependency | State |
 | --- | --- | --- | --- |
-| E01 | Keep mobile example identity and figures from one source | None | In progress |
-| E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | Delegated |
+| E01 | Keep mobile example identity and figures from one source | None | #720 merged; mobile preview verified; production verification pending |
+| E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | Local gates/reviews and prior CI passed; current-head CI/Copilot pending |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | Queued |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | Queued |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | Queued |
@@ -51,3 +51,30 @@ Measure actual first payments, renewals, cohort conversion and next-filing retur
 Free/pregeneration/provider/infrastructure costs before claiming gross margin. Beta $0
 activations do not count as paid conversion. No current user, conversion, churn or ARR figure
 has been established by this implementation session.
+
+
+## Release checkpoint — 2026-09-06
+
+E01 [#720](https://github.com/neilmac91/EarningsNerd/pull/720) merged as
+`7403076f55880e6de0f24d5e310b491e87fef35e` after exact-head
+[CI 34019162195](https://github.com/neilmac91/EarningsNerd/actions/runs/34019162195)
+and independent correctness/rules/tests review. The frontend-only eval skip was expected.
+The branch preview at 390 × 844 showed the live Apple 10-K example with $416.2B revenue,
+$112.0B net income and $7.46 EPS, readable in both themes without card clipping. No preview
+data was modified; the non-AAPL sparse-data condition is proved by the unit regression,
+not by that live preview. Production Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u`
+was pending at this checkpoint; merging does not claim production verification.
+
+E02's source and tests are unchanged by the merge of E01 main. Local backend gates,
+the single mutation proof and independent three-lens review passed. Prior
+[CI 34019200809](https://github.com/neilmac91/EarningsNerd/actions/runs/34019200809)
+retained artifact `9984995450`: 52 results, zero errors/vetoes and
+`PASS — no hard regressions (1 warning(s)).`; mean untraceable figures 2.2692 is advisory.
+Its tested merge source was `7160405614ea6217349aa69b06fa01a569bcf705`, with parents
+`7d06edc` and `ec5419fb`; the golden hash was verified. Those are prior-candidate results.
+Draft-only Copilot execution was skipped. The new merged head still requires actual CI,
+Copilot and root's serialized backend release/deployment verification; no mutation is repeated.
+
+After integrating E01 main, local merge `09758a7` passed the full backend gate:
+Ruff/Bandit exit 0; `2390 passed, 2 deselected, 23 warnings in 46.41s`, exit 0.
+No backend source/test bytes changed during integration; the existing mutation proof remains valid.

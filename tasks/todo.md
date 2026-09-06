@@ -11,15 +11,22 @@ separate founder decisions. Revenue and production readiness remain goals, not a
 - [x] Re-check current main and confirm live identity can inherit Apple fallback metrics.
 - [x] Keep live metrics, including an empty set, with live identity; reserve the full fallback for null examples.
 - [x] Add the non-AAPL empty-metrics regression plus live and null controls in one test home.
-- [ ] Retain one mutation proof, full frontend gates and both-theme preview evidence.
-- [ ] Complete the three review lenses and publish a draft PR before readiness.
+- [x] Retain one mutation proof, full frontend gates and both-theme preview evidence.
+- [x] Complete the three review lenses, publish draft #720, inspect exact-head CI and merge.
+- [ ] Verify the production Vercel deployment; merge and preview evidence are not that result.
 
 Source `0c92a25`: Node 22.23.2; lint/typecheck/build exit 0; Vitest 96 files / 490 tests passed
 in 39.66s. The single mutation restored the mixed-source branch: the ASML fixture rendered
 `$394.3B`, causing the intended assertion to fail (1 failed, 2 passed); exact restoration:
 3 passed. Root and independent correctness/rules/tests reviews found no actionable issue.
 The build used an unavailable local API and retained existing middleware/Sentry-token warnings.
-Remote CI and both-theme preview verification remain pending; this is not production completion.
+[#720](https://github.com/neilmac91/EarningsNerd/pull/720) merged as `7403076f` after
+[CI 34019162195](https://github.com/neilmac91/EarningsNerd/actions/runs/34019162195)
+passed; its frontend-only eval skip was expected. The branch preview was inspected at
+390 × 844 in both themes: live Apple 10-K, $416.2B / $112.0B / $7.46, no card clipping.
+That preview did not alter data or reproduce the sparse fixture. Production verification
+remains pending for Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u`.
+See the [execution ledger](beta-to-scale-execution.md#release-checkpoint--2026-09-06).
 
 ### E04 — Bound the summary reader and reject truncated streams (engineering)
 
@@ -36,6 +43,42 @@ It changes transport handling only; no summary generation, quota, prompt, theme 
 W3-8b and E03 are independent backend work; serialize task-doc integration when merging.
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
+
+### E02 — SEC token refill accounting (2026-09-06)
+
+Owner: SEC limiter implementation agent; root owns review and any publication/deployment.
+The founder approved commencement of the beta-to-scale plan. This bounded task preserves
+existing SEC transport ownership, Retry-After handling and per-process configuration.
+
+- [x] Advance the refill accounting boundary after a completed token wait so the next caller
+  cannot reuse elapsed time that already paid for the admitted request.
+- [x] Extend the existing SEC limiter test home with one deterministic behavioural gate for
+  sustained calls, concurrent callers, delayed wakeup and cancellation; no SEC/network calls.
+- [x] Commit the implementation, remove the correction for exactly one mutation proof, restore
+  exact bytes, and run the pinned Ruff/Bandit/full pytest gate. Locked contracts stay unchanged.
+- [x] Root and an independent reviewer completed correctness, rules and tests lenses;
+  prior CI 34019200809 passed with the retained 52-result eval artifact.
+- [x] Merge E01's current main without rewriting E02 history; preserve both task sections.
+- [ ] Root publishes the updated branch, verifies current-head CI and Copilot, then serializes
+  backend merge/deployment verification. The implementation agent does not push or deploy.
+
+
+Source `4a196b7`: 102 exact runtime/dev pins matched (Python 3.11.16). Focused SEC
+checks: `14 passed, 1 warning in 0.10s`. Exactly one mutation removed the post-wakeup
+timestamp assignment; the sequential gate failed at the intended admission-time assertion
+(`1 failed, 1 warning in 0.16s`), and exact restoration passed. Full Ruff and Bandit
+exit 0; `2390 passed, 2 deselected, 23 warnings in 64.40s (0:01:04)`, exit 0.
+The first full run had two WeasyPrint native-library lookup failures; the installed Homebrew
+libraries were exposed via `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`, with no dependency
+or source change. EDGAR's test data directory was isolated under `/private/tmp`.
+The existing post-summary Yahoo-client shutdown logging error remains in the retained log.
+Locked SSE/background/auth/Stripe contracts and the eval baseline have empty main-to-HEAD
+diffs. Runtime correction is per-process only; aggregate API/job SEC pacing remains E09.
+After merging E01 main at local merge `09758a7`, the full backend gate passed again:
+Ruff/Bandit exit 0; `2390 passed, 2 deselected, 23 warnings in 46.41s`, exit 0.
+Backend source/test bytes remain identical to `ec5419f`; only E01 frontend/docs and this
+status update entered the branch. The original mutation proof therefore remains scoped
+to the unchanged guarded source. Current-head remote gates and production verification remain pending.
 
 ### W3-3 public-source replacement — 2026-09-06
 
