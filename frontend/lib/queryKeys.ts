@@ -8,10 +8,10 @@
  *  - Reconciled entities (F1) each collapse a former split into ONE key + ONE fetcher:
  *      • currentUser  — was ['user'] AND ['current-user'] with two different fetchers (a split-brain
  *        cache). Canonical key ['current-user']; canonical fetcher getCurrentUserSafe (null on 401).
- *      • subscription — was ['subscription'] and ['subscription', user?.id]; the id was never used to
- *        fetch. Canonical key ['subscription'].
+ *      • subscription — identity scopes the cache even though the HTTP request uses cookies.
+ *        Read byUser(id); invalidate/cancel/remove through the all() family prefix.
  *      • usage        — was ['usage'] AND ['copilot-usage'] hitting the SAME /usage endpoint, so a
- *        copilot answer left the dashboard's usage view stale. Canonical key ['usage'].
+ *        copilot answer left the dashboard's usage view stale. One identity-scoped usage family, including Copilot counters.
  *
  * Grep-gate (F1 done-criterion): no string-literal query keys for the reconciled entities
  * (user / current-user / subscription / usage / copilot-usage) anywhere outside this file.
@@ -19,8 +19,14 @@
 export const queryKeys = {
   // ── Reconciled (F1) ──────────────────────────────────────────────────────────
   currentUser: () => ['current-user'] as const,
-  subscription: () => ['subscription'] as const,
-  usage: () => ['usage'] as const,
+  subscription: {
+    all: () => ['subscription'] as const,
+    byUser: (userId: number | undefined) => ['subscription', userId] as const,
+  },
+  usage: {
+    all: () => ['usage'] as const,
+    byUser: (userId: number | undefined) => ['usage', userId] as const,
+  },
 
   // ── No-arg entities ──────────────────────────────────────────────────────────
   savedSummaries: () => ['saved-summaries'] as const,

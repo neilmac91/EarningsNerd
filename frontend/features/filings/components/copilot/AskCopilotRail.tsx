@@ -1,5 +1,7 @@
 'use client'
 
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { SparkleIcon, XIcon } from '@/lib/icons'
@@ -117,11 +119,12 @@ export default function AskCopilotRail({
   // PRO shows the monthly fair-use count; a FREE user shows their lifetime "free taste" balance.
   // Refreshed after each answer (the counter advances server-side on completion).
   const queryClient = useQueryClient()
+  const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false })
   const { data: usage } = useQuery({
-    queryKey: queryKeys.usage(),
+    queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
     // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
-    enabled: isAuthenticated && open,
+    enabled: !!user && isAuthenticated && open,
     staleTime: 60_000,
   })
   const freeTasteTotal = usage?.copilot_free_taste_total ?? 0
@@ -296,7 +299,7 @@ export default function AskCopilotRail({
           setIsStreaming(false)
           abortRef.current = null
           // A question was metered server-side on completion — refresh the "N of M left" pill.
-          queryClient.invalidateQueries({ queryKey: queryKeys.usage() })
+          queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
         onError: (msg) => {
           updateAssistant(assistantId, { status: 'error', error: msg })

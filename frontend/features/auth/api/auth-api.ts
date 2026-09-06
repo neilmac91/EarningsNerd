@@ -1,6 +1,6 @@
-import api from '@/lib/api/client'
+import api, { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import { markSessionActive, clearSessionActive } from '@/lib/api/session'
+import { markSessionActive, clearSessionActive, getSessionGeneration, assertSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -27,11 +27,13 @@ export const register = async (
 }
 
 export const login = async (email: string, password: string, turnstileToken?: string) => {
+  const generation = getSessionGeneration()
   const response = await api.post(
     '/api/auth/login',
     { email, password },
     turnstileConfig(turnstileToken),
   )
+  assertSessionGeneration(generation)
   markSessionActive()
   return response.data
 }
@@ -47,8 +49,11 @@ export interface CurrentUser {
   email_verified: boolean
 }
 
-export const getCurrentUser = async (): Promise<CurrentUser> => {
-  const response = await api.get('/api/auth/me')
+export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promise<CurrentUser> => {
+  const generation = getSessionGeneration()
+  const response = await api.get('/api/auth/me', { signal: options?.signal })
+  assertSessionGeneration(generation)
+  options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
   // refresh an expired access token. This also covers OAuth redirect logins, where the
   // JS login()/register() path (which normally sets the marker) never runs.
@@ -56,10 +61,14 @@ export const getCurrentUser = async (): Promise<CurrentUser> => {
   return response.data
 }
 
-export const getCurrentUserSafe = async (): Promise<CurrentUser | null> => {
+export const getCurrentUserSafe = async (options?: { signal?: AbortSignal }): Promise<CurrentUser | null> => {
+  const generation = getSessionGeneration()
   try {
-    return await getCurrentUser()
+    return await getCurrentUser(options)
   } catch (error: unknown) {
+    assertSessionGeneration(generation)
+    options?.signal?.throwIfAborted()
+    if (error instanceof ApiError && error.sessionLossConfirmed === false) throw error
     if (isApiError(error) && getErrorStatus(error) === 401) {
       // Not logged in — clear any stale session marker so we stop attempting refreshes.
       clearSessionActive()
@@ -91,22 +100,24 @@ export const unlinkProvider = async (provider: string) => {
 }
 
 export const logoutAllSessions = async () => {
+  const generation = getSessionGeneration()
   try {
     const response = await api.post('/api/auth/logout-all')
     return response.data
   } finally {
-    clearSessionActive()
+    if (isSessionGenerationCurrent(generation)) clearSessionActive()
   }
 }
 
 export const logout = async () => {
+  const generation = getSessionGeneration()
   try {
     const response = await api.post('/api/auth/logout')
     return response.data
   } finally {
     // Always drop the session flag, even if the server call fails, so a logged-out client
     // stops attempting silent refreshes.
-    clearSessionActive()
+    if (isSessionGenerationCurrent(generation)) clearSessionActive()
   }
 }
 

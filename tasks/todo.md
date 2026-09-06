@@ -17,11 +17,13 @@ production exposure or a backend entitlement bypass. The workspace brief
 - [x] Read current CLAUDE/AGENTS, design system, wave-3 context and relevant query-registry,
   structural-gate, locked-contract, one-test-home and committed-proof lessons; inspect actual
   auth, Axios/stream refresh and React Query transition owners.
-- [ ] Root reviews this API/ordering; revise this plan if review identifies an unsafe edge.
-- [ ] Implement the two scoped families and migrate every consumer/invalidation below.
-- [ ] Wire one synchronous reset/cancellation owner into ordinary logout, successful password
+- [x] Root reviewed API/ordering and approved implementation; the classification correction below
+  supersedes the initial marker-clearing preservation proposal.
+- [x] Implement the two scoped families and migrate all seven subscription / five usage consumers
+  and explicit invalidations below.
+- [x] Wire one synchronous reset/cancellation owner into ordinary logout, successful password
   login and generation-tagged confirmed session loss; fence late identity results/side effects.
-- [ ] Add actual QueryClient transition coverage and structural consumer enforcement; update
+- [x] Add actual QueryClient transition coverage and structural consumer enforcement; update
   existing unlocked fixture keys/identity setup only where the ownership change requires it.
 - [ ] Commit source, run one original mutation per independent invariant, restore committed bytes;
   run full pinned frontend lint/typecheck/Vitest/build. No backend delta or backend gate.
@@ -77,6 +79,16 @@ only generation-tagged loss notification is added where needed. Old-generation e
 clear B's marker or notify a B reset. This classification will be proved through the actual
 Axios adapter boundary, not inferred only from a fabricated ApiError.
 
+### Root-approved classification correction before implementation
+
+Root approved the plan, then narrowed transient handling: keep the active marker on refresh
+network/429/5xx failures, and clear it only on confirmed rejection. This fixes recovery on the
+next request and removes the need for persistent uncertainty state. ApiError retains its HTTP
+status/detail and carries only per-error internal classification so /me cannot interpret the
+original access 401 as definitive after a transient refresh failure. Existing unlocked refresh
+fixtures that intended rejection now supply its actual 401 shape; locked anchors stay unchanged.
+No second uncertainty bit, new refresh provider or cookie-handling layer is introduced.
+
 ### Target inventory
 
 Shared owners: `frontend/lib/queryKeys.ts`, `frontend/lib/api/session.ts`,
@@ -129,6 +141,23 @@ old-transition mutation (late A identity/data gate fails); restore the old trans
 classification (actual /me refresh-network-failure gate fails). Adjust only if review establishes
 an additional independent invariant; record exact failure and restoration tails, no repeated
 proofs for source-identical integration.
+
+### Local source checkpoint (before mutation/full gate)
+
+Focused eight existing/new homes passed: `66 passed (66)` in 3.74s, with actual QueryClient
+observers and the real PostHog identification hook mounted during both account directions.
+The Axios adapter and shared SSE helper cases cover network/429/503 refresh failures, a next
+identity retry, stale refresh success/rejection, and generation handoff on the shared promise.
+The structural gate requires the same identity in the key and enabled expression; its first
+strict pass identified two equivalent alias expressions, normalized to direct identity checks.
+Billing's existing skeleton/null behavior now accounts for identity resolution and has one
+case in its existing home. Backend and locked frontend parser test have no diff against base.
+Logs: `/private/tmp/earningsnerd-account-cache-evidence/focused-reviewed.log` (final focused),
+`focused-initial.log` (55 prior tests), `focused-expanded.log` (strict gate found two aliases),
+`lint-initial.log`, `typecheck-initial.log` (two original variable-name fixes), and
+`typecheck-expanded.log` (clean). An initial test-augmentation script used frontend-relative
+paths from the frontend directory and exited before edits; the initial focused command still
+ran on the earlier 55-case source. No test result from that run is claimed for later source.
 
 ### Constraints and remaining limits
 

@@ -3,8 +3,9 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, login } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, login } from '@/features/auth/api/auth-api'
 import { queryKeys } from '@/lib/queryKeys'
+import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
@@ -52,15 +53,15 @@ function LoginContent() {
 
     try {
       await login(email, password, turnstileToken)
-      // Drop the pre-login auth-derived cache NOW, before navigating. Logout does the mirror
-      // invalidation (Header/UserMenu); login previously did neither, so within the 60s global
-      // staleTime the destination page's mount served the cached logged-out `null` — a guest who
-      // logged in via the filing signup gate's own CTA landed back on the gate, and auto-generate
-      // never fired (review finding on #619/#620).
-      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.subscription() })
+      // Cancel the old identity and remove both account snapshots before resolving this login.
+      // Reset leaves the active marker set by successful login intact.
+      resetAccountQueries(queryClient)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.all() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
       try {
-        const user = await getCurrentUser()
+        const user = await queryClient.fetchQuery({
+          queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0,
+        })
         if (user?.id) {
           analytics.loginCompleted(String(user.id))
         }

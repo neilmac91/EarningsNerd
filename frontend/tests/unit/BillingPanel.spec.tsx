@@ -2,8 +2,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { queryKeys } from '@/lib/queryKeys'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
+
+const mockGetCurrentUserSafe = vi.fn()
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => mockGetCurrentUserSafe() }))
 
 // next/link → plain anchor so we can assert href.
 vi.mock('next/link', () => ({
@@ -24,8 +28,9 @@ vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   createPortalSession: () => mockCreatePortalSession(),
 }))
 
-function renderPanel() {
+function renderPanel(identity: { id: number } | null = { id: 1 }, pendingIdentity = false) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  if (!pendingIdentity) queryClient.setQueryData(queryKeys.currentUser(), identity)
   return render(
     <QueryClientProvider client={queryClient}>
       <BillingPanel />
@@ -49,6 +54,8 @@ const baseUsage: Usage = { summaries_used: 0, summaries_limit: null, is_pro: tru
 
 describe('BillingPanel', () => {
   beforeEach(() => {
+    mockGetCurrentUserSafe.mockReset()
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1 })
     mockGetSubscriptionStatus.mockReset()
     mockGetUsage.mockReset()
     mockCreatePortalSession.mockReset()
@@ -109,4 +116,22 @@ describe('BillingPanel', () => {
     expect(await screen.findByRole('button', { name: /manage billing/i })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /subscribe|upgrade/i })).not.toBeInTheDocument()
   })
+})
+
+
+it('keeps account details absent while identity is unresolved or logged out', async () => {
+  mockGetCurrentUserSafe.mockReturnValue(new Promise(() => {}))
+  mockGetSubscriptionStatus.mockReset()
+  mockGetUsage.mockReset()
+  const pending = renderPanel({ id: 1 }, true)
+  expect(screen.queryByText('Free')).not.toBeInTheDocument()
+  expect(screen.queryByText('Plan')).not.toBeInTheDocument()
+  expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
+  expect(mockGetUsage).not.toHaveBeenCalled()
+  pending.unmount()
+  mockGetCurrentUserSafe.mockResolvedValue(null)
+  renderPanel(null)
+  expect(screen.queryByText('Plan')).not.toBeInTheDocument()
+  expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
+  expect(mockGetUsage).not.toHaveBeenCalled()
 })

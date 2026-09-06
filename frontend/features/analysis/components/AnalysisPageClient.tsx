@@ -61,7 +61,7 @@ export default function AnalysisPageClient() {
   // never drift into a split-brain key.
   const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 60_000 })
   const { data: subscription } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     enabled: !!user,
     staleTime: 60_000,
@@ -126,7 +126,7 @@ export default function AnalysisPageClient() {
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
             // A fresh generation consumed quota — keep the settings usage meter honest.
-            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage() })
+            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
           },
           onError: (message) => {
             setNarrative({ status: 'error', text: '', error: message })

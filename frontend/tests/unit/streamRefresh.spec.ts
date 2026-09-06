@@ -8,7 +8,7 @@ vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import { refreshAccessToken } from '@/lib/api/refresh'
-import { hasActiveSession } from '@/lib/api/session'
+import { hasActiveSession, advanceSessionGeneration, markSessionActive, subscribeSessionLoss } from '@/lib/api/session'
 
 const res = (status: number) =>
   ({ status, ok: status >= 200 && status < 300 }) as unknown as Response
@@ -54,7 +54,7 @@ describe('postStreamWithRefresh', () => {
   })
 
   it('clears the session marker and returns the 401 (no replay) when refresh fails', async () => {
-    vi.mocked(refreshAccessToken).mockRejectedValue(new Error('session gone'))
+    vi.mocked(refreshAccessToken).mockRejectedValue(Object.assign(new Error('refresh rejected'), { response: { status: 401 } }))
     const doPost = vi.fn().mockResolvedValue(res(401))
     const out = await postStreamWithRefresh(doPost)
     expect(out.status).toBe(401)
@@ -96,5 +96,44 @@ describe('postStreamWithRefresh', () => {
     expect(a.status).toBe(200)
     expect(b.status).toBe(200)
     expect(refreshAccessToken).toHaveBeenCalledTimes(1) // ONE /refresh for both, not two
+  })
+})
+
+
+describe('stream refresh session ownership', () => {
+  it.each([undefined, 429, 503])('preserves response and active marker on transient refresh status %s', async (status) => {
+    markSessionActive()
+    const lost = vi.fn()
+    const unsubscribe = subscribeSessionLoss(lost)
+    vi.mocked(refreshAccessToken).mockRejectedValue(Object.assign(new Error('temporary refresh failure'), {
+      response: status === undefined ? undefined : { status },
+    }))
+    const denied = res(401)
+    const doPost = vi.fn().mockResolvedValue(denied)
+    try {
+      expect(await postStreamWithRefresh(doPost)).toBe(denied)
+      expect(doPost).toHaveBeenCalledTimes(1)
+      expect(hasActiveSession()).toBe(true)
+      expect(lost).not.toHaveBeenCalled()
+    } finally { unsubscribe() }
+  })
+
+  it('does not replay or notify loss when the original response belongs to A', async () => {
+    markSessionActive()
+    let resolve!: (response: Response) => void
+    const doPost = vi.fn(() => new Promise<Response>((yes) => { resolve = yes }))
+    const lost = vi.fn()
+    const unsubscribe = subscribeSessionLoss(lost)
+    const pending = postStreamWithRefresh(doPost)
+    advanceSessionGeneration()
+    markSessionActive()
+    try {
+      const denied = res(401)
+      resolve(denied)
+      expect(await pending).toBe(denied)
+      expect(doPost).toHaveBeenCalledTimes(1)
+      expect(hasActiveSession()).toBe(true)
+      expect(lost).not.toHaveBeenCalled()
+    } finally { unsubscribe() }
   })
 })

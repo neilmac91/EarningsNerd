@@ -6,7 +6,8 @@ vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 
 import api, { ApiError, isRefreshableRequest } from '@/lib/api/client'
 import { refreshAccessToken } from '@/lib/api/refresh'
-import { markSessionActive, clearSessionActive, hasActiveSession } from '@/lib/api/session'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { markSessionActive, clearSessionActive, hasActiveSession, advanceSessionGeneration, subscribeSessionLoss } from '@/lib/api/session'
 
 const refreshMock = refreshAccessToken as unknown as Mock
 
@@ -112,7 +113,7 @@ describe('silent refresh interceptor', () => {
 
   it('clears the session and surfaces the 401 when refresh fails', async () => {
     markSessionActive()
-    refreshMock.mockRejectedValue(new Error('refresh rejected'))
+    refreshMock.mockRejectedValue(Object.assign(new Error('refresh rejected'), { response: { status: 401 } }))
 
     await expect(api.get('/api/filings/123')).rejects.toBeInstanceOf(ApiError)
     expect(refreshMock).toHaveBeenCalledTimes(1)
@@ -173,5 +174,64 @@ describe('silent refresh interceptor', () => {
       getItem.mockRestore()
       setItem.mockRestore()
     }
+  })
+})
+
+
+describe('refresh result belongs to the requesting JS session', () => {
+  it.each([undefined, 429, 503])('keeps /me and its next retry unconfirmed after refresh status %s', async (status) => {
+    markSessionActive()
+    const lost = vi.fn()
+    const unsubscribe = subscribeSessionLoss(lost)
+    refreshMock.mockRejectedValue(Object.assign(new Error('temporary refresh failure'), {
+      response: status === undefined ? undefined : { status },
+    }))
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await expect(getCurrentUserSafe()).rejects.toMatchObject({ status: 401, sessionLossConfirmed: false })
+        expect(hasActiveSession()).toBe(true)
+      }
+      expect(refreshMock).toHaveBeenCalledTimes(2)
+      expect(lost).not.toHaveBeenCalled()
+    } finally { unsubscribe() }
+  })
+
+  it.each(['resolve', 'reject'])('does not replay or clear B after A refresh %s returns late', async (outcome) => {
+    markSessionActive()
+    let resolve!: () => void
+    let reject!: (reason: unknown) => void
+    refreshMock.mockImplementation(() => new Promise<void>((yes, no) => { resolve = yes; reject = no }))
+    const lost = vi.fn()
+    const unsubscribe = subscribeSessionLoss(lost)
+    const oldRequest = api.get('/api/filings/1').catch((error) => error)
+    try {
+      await vi.waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1))
+      advanceSessionGeneration()
+      markSessionActive()
+      if (outcome === 'resolve') resolve()
+      else reject({ response: { status: 401 } })
+      expect(await oldRequest).toMatchObject({ status: 401 })
+      expect(adapter).toHaveBeenCalledTimes(1)
+      expect(hasActiveSession()).toBe(true)
+      expect(lost).not.toHaveBeenCalled()
+    } finally { unsubscribe() }
+  })
+
+  it('a new account waits out an old refresh without accepting its rejection', async () => {
+    markSessionActive()
+    let rejectOld!: (reason: unknown) => void
+    refreshMock.mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectOld = reject }))
+    const oldRequest = api.get('/api/filings/1').catch((error) => error)
+    await vi.waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1))
+    advanceSessionGeneration()
+    markSessionActive()
+    const newRequest = api.get('/api/filings/2')
+    await vi.waitFor(() => expect(adapter).toHaveBeenCalledTimes(2))
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+    rejectOld({ response: { status: 401 } })
+    expect(await oldRequest).toMatchObject({ status: 401 })
+    expect((await newRequest).status).toBe(200)
+    expect(refreshMock).toHaveBeenCalledTimes(2)
+    expect(hasActiveSession()).toBe(true)
   })
 })

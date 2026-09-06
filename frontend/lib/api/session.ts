@@ -47,3 +47,32 @@ export function hasActiveSession(): boolean {
   }
   return inMemorySessionActive
 }
+
+// JS request ownership only; cookies and /me remain the authentication source. This fences
+// late in-tab responses, not concurrent Set-Cookie responses or changes in another tab.
+let sessionGeneration = 0
+const lossListeners = new Set<(generation: number) => void>()
+
+export const getSessionGeneration = (): number => sessionGeneration
+export const isSessionGenerationCurrent = (generation: number): boolean => generation === sessionGeneration
+
+export function advanceSessionGeneration(): void {
+  sessionGeneration += 1
+}
+
+export function assertSessionGeneration(generation: number): void {
+  if (!isSessionGenerationCurrent(generation)) {
+    throw new DOMException('Account changed while the request was pending', 'AbortError')
+  }
+}
+
+export function notifySessionLost(generation: number): void {
+  if (!isSessionGenerationCurrent(generation)) return
+  clearSessionActive()
+  for (const listener of lossListeners) listener(generation)
+}
+
+export function subscribeSessionLoss(listener: (generation: number) => void): () => void {
+  lossListeners.add(listener)
+  return () => { lossListeners.delete(listener) }
+}

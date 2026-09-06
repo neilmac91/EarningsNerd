@@ -156,10 +156,10 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   }
 
   const { data: subscription } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(currentUser?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
-    enabled: !!isAuthenticated,
+    enabled: !!currentUser,
   })
 
   // Mirror of the checkout's trial rule for the paywall card: first-time subscriber (RESOLVED

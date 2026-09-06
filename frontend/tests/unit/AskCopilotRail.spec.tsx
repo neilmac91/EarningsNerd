@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => ({ id: 1 }) }))
+
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
     <a href={href} {...props}>
@@ -55,6 +57,7 @@ const PRO_USAGE = {
   copilot_free_taste_total: 0,
 }
 
+import { queryKeys } from '@/lib/queryKeys'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
 import { analytics } from '@/lib/analytics'
@@ -73,6 +76,7 @@ const baseProps = {
 function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRail>> = {}) {
   const onOpenChange = vi.fn()
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(queryKeys.currentUser(), overrides.isAuthenticated === false ? null : { id: 1 })
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <AskCopilotRail {...baseProps} open={false} onOpenChange={onOpenChange} {...overrides} />

@@ -17,7 +17,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * Previously only the dashboard set a plan trait and `loginCompleted()` identified with no traits,
  * so a user landing anywhere else carried no `is_pro`. This runs once, app-wide.
  *
- * Reuses the existing `queryKeys.currentUser()` / `queryKeys.subscription()` React Query caches (no extra requests)
+ * Reuses the existing `queryKeys.currentUser()` / `queryKeys.subscription.byUser(user?.id)` React Query caches (no extra requests)
  * and `analytics.identify` (which also mirrors the id into Sentry). Idempotent: a ref guards against
  * re-identifying on every render — it only fires when the user id or pro status changes.
  */
@@ -28,7 +28,7 @@ export function usePostHogUserIdentification(): void {
     retry: false,
   })
   const { data: subscription } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user, // subscription is account-scoped; don't fire a guaranteed-401 for guests

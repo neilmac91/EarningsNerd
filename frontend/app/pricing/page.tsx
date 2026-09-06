@@ -70,17 +70,17 @@ function PricingContent() {
   const isAuthenticated = Boolean(currentUser)
 
   const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(currentUser?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
-    enabled: isAuthenticated,
+    enabled: !!currentUser,
   })
 
   const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
-    queryKey: queryKeys.usage(),
+    queryKey: queryKeys.usage.byUser(currentUser?.id),
     queryFn: getUsage,
     retry: false,
-    enabled: isAuthenticated,
+    enabled: !!currentUser,
   })
 
   useEffect(() => {
