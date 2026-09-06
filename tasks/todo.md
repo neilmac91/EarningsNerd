@@ -10,12 +10,35 @@ progress SQL raced an excerpt worker against its one-connection/50 ms test pool.
 code passes support this interleaving; the actual CI connection holder remains inferred. Preserve
 all runtime code, locked anchors, pool limits, readiness checks and cancellation/ownership assertions.
 
-- [ ] Serialize only this fixture's dispatched DB units inside their worker with a threading mutex;
+- [x] Serialize only this fixture's dispatched DB units inside their worker with a threading mutex;
   retain independent connection probes outside it, including cancellation-before-worker-close checks.
-- [ ] Reproduce controlled preparatory contention once and pass the corrected target under the same
+- [x] Reproduce controlled preparatory contention once and pass the corrected target under the same
   delay; prove intentional connection retention still fails the existing lifetime assertion once.
-- [ ] Restore committed source, run the full PostgreSQL backend gate, record evidence and return a
+- [x] Restore committed source, run the full PostgreSQL backend gate, record evidence and return a
   clean reviewed head to root for publication. No timeout increase, retries, skip or production edit.
+
+Source `7b6d8c3` changes only 14 lines in the nonlocked lifecycle gate. The mutex lives inside
+actual dispatched workers and spans each complete DB unit, so cancelling its await cannot release
+serialization before session cleanup. Runtime code and locked anchors are unchanged.
+
+A controlled diagnostic held the excerpt's connection for 150 ms and waited for its ownership
+before dispatching analyzing progress. The original fixture failed with the same 50 ms QueuePool
+error (1 failed); the corrected fixture passed under identical conditions (1 passed). This proves
+the competing-worker interleaving, not the identity of the connection holder in the CI failure.
+Exactly one harness-integrity mutation retained a Session during provider wait and failed the
+existing `provider retained a DB connection` assertion. All temporary diagnostics/mutations were
+restored byte-for-byte; the unchanged full lifecycle home then passed 24 tests.
+
+Final full gate on `7b6d8c3`: Ruff clean; Bandit 0 medium/high; **2526 passed, 2 deselected,
+23 warnings in 56.65s**, exit 0, including actual PostgreSQL transaction cases. The existing closed
+logging-stream teardown diagnostic followed the passing summary. Prior payment/export proofs
+were not repeated. Root owns independent final review, publication and serial deployment.
+Evidence: `/private/tmp/earningsnerd-e06-contention-repro.log`,
+`/private/tmp/earningsnerd-e06-contention-corrected.log`,
+`/private/tmp/earningsnerd-e06-lifetime-retention-mutation.log`,
+`/private/tmp/earningsnerd-e06-lifetime-final-focused.log`,
+`/private/tmp/earningsnerd-e06-ci-fixture-final-bandit.log` and
+`/private/tmp/earningsnerd-e06-ci-fixture-final-full.log`.
 
 ### E06 review correction — Include attributed payment evidence in account export (engineering)
 
