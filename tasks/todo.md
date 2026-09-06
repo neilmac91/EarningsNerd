@@ -52,7 +52,8 @@ retained evidence, with failure status preserved; rules-and-brief confirms uncha
 identity, required cohorts and founder holds; tests-and-gates confirms the original proof,
 restored passing gate and locked-byte identity. No actionable source finding remained after
 the two precommit fixture corrections. The environment gate remains an explicit blocker.
-Root independently reviewed the committed diff; publication, normal live CI and release stay
+Root and the independent sec_refill reviewer cleared the committed source diff; publication,
+normal live CI and release stay
 root-owned. The RUNBOOK diff triggers ordinary summary CI when published; no live result is
 claimed by these offline checks.
 
@@ -62,6 +63,14 @@ Evidence: `/private/tmp/earningsnerd-ci-pressure-evidence/` contains `mutation-c
 the failed run until a separately permitted full gate can replace it.
 
 ## E14b — Final sitemap-main integration (2026-09-06)
+
+**Current release checkpoint (root verified):** #738 merged as
+`d048e215bbcc9d522af03af55fae9f7f449c1904` after the founder's exact approval.
+Production Vercel `6295470419` succeeded at 2026-09-06T16:47:32Z; main CI `34046538868`
+passed with backend operations correctly skipped. Canonical filing page returned HTTP 200;
+root verified the live copy action wrote `https://www.earningsnerd.io/filing/3` and showed
+success, then restored clipboard and closed the tab. Browser-denial evidence remains automated.
+The integration checklist and pending statements below are historical checkpoints.
 
 - [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
   `523e15e232a98fd35954adc8bdc2fabd5c9e7678`, retaining both task-document histories.
@@ -200,6 +209,13 @@ Targets: existing SummaryDisplay.tsx, SummaryActionsBar.tsx, lib/analytics.ts; t
 home above. No backend, dependencies, locked tests, query keys or E10b consumer edits.
 CLAUDE rules 2/4/6/9/11/12 apply. Existing root-owned release histories remain intact.
 ## E15a — Integrate released login and summary handoff (2026-09-06)
+
+**Current release checkpoint (root verified):** #737 merged as
+`93e30b0bd1f6e36228bdea6583daa914acdc29e8`. Final CI `34044987076` accepted all 52 summary
+results; Copilot `34044987099` accepted all 18 attempts with provenance verified. Production
+run `34045534643`, deploy `101520200494`, succeeded with `applied=0 skipped=36`;
+`earningsnerd-backend-00289-jnn` serves 100%, independent health healthy / DB 9.16 ms.
+Historical timeout reports and the earlier integration checkpoints below remain intact.
 
 The founder's exact five-action approval also covers this latest-main integration, required
 hermetic gates and normal branch update. Root owns PR checks, merge and production verification.
@@ -826,6 +842,12 @@ then let root own publication/readiness/merge and serialized deployment. No acco
 or production mutation occurred in this integration work.
 
 ### E12a — Integrated limiter release checkpoint (engineering)
+
+**Current release checkpoint (root verified):** #733 merged as
+`cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`, with 52 summary / 18 Copilot attempts verified.
+Production run `34040098807`, deploy `101505573952`, succeeded with `applied=0 skipped=36`;
+`earningsnerd-backend-00285-clp` served 100%, independent health DB 9.3 ms.
+The earlier combined gate and root-owned release-pending checkpoint below are retained history.
 
 Merged main `53348d6b41d524b9bb1e9fa41ef1a1b393f2a191` as `ec045eb` without rewriting
 published history. The only conflict was the todo insertion; both E12a and E13b histories remain.
