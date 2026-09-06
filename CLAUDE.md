@@ -64,12 +64,18 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
-5. **SEC calls:** all sec.gov traffic goes through the edgar service layer
-   (`app/services/edgar/` — rate limiter + circuit breaker). Never raw httpx to sec.gov outside
-   it. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
-   the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket). Gate:
-   `tests/unit/test_sec_gov_importers_allowlist.py` (sec.gov literals only in the edgar layer,
-   `integrations/sec_api.py`, `utils/sec_urls.py`, `config.py`).
+5. **SEC calls:** use the existing SEC service/transport paths and shared rate limiter.
+   `app/services/edgar/` provides breaker-wrapped fetches and deliberately breaker-exempt local
+   parsing. Existing raw-HTTP paths outside it — `SECFullTextSearchClient` in
+   `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+   use the shared limiter/backoff without the breaker. The in-layer XBRL companyfacts fallback
+   also uses the limiter without the breaker, with a single token wait. Preserve these existing
+   transport owners: do not add raw-HTTP SEC bypasses outside them, even if paced. Do not assume
+   every existing call uses the breaker. SEC's cap is 10 req/s per IP;
+   limiter state is per-process (API service + Cloud Run jobs each carry their own bucket).
+   `tests/unit/test_sec_gov_importers_allowlist.py` bounds `sec.gov` URL literals and keeps the
+   URL-builder/Settings exemptions free of HTTP imports; it does not prove dynamic call routing.
+   See `lessons/sec-edgar-resilience-layer.md` for existing-path and diagnostic limitations.
 6. **Contract tests are locked.** The SSE stream contract, background-generation
    characterization, auth flow, and Stripe webhook tests may be edited ONLY to delete references
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
@@ -99,7 +105,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
-  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns all SEC traffic.
+  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns the SEC service
+  layer; existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
+  raw-HTTP fetches share the limiter/backoff without the breaker.
   `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
   `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys
@@ -131,8 +139,9 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 (`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
 `postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
-(Mondays 06:00 UTC), and updates the image on all 7 Cloud Run jobs (pregenerate, filing-scan,
-filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts, notable-filings).
+(Mondays 06:00 UTC), and updates the required pregenerate job image. Six other configured job
+targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
+notable-filings) are updated only when found; CI skips missing jobs and does not provision them.
 Only a backend-touching push to main deploys; a failed deploy is not retried, so check the job's
 conclusion after every backend merge. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.

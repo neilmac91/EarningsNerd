@@ -2,6 +2,98 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
+### W3-5 local preparation — agent stack truth
+
+Latest review confirmed two bounded gaps after independent refutation: companyfacts transport
+made the EFTS-only exception wording incomplete, and case-insensitive Render phrases matched
+benign rendering text. Earlier CI and mutation evidence remains scoped history.
+
+- [x] Correct active SEC guidance and literal-gate descriptions without changing runtime or
+  executable SEC checks; distinguish limiter-only paths, local parsing and the manual diagnostic.
+- [x] Bound the three Render platform phrases and assert benign rendering text in the same gate.
+- [x] Removed-boundary mutant failed the intended `section rendering` assertion: `1 failed
+  in 0.03s`; exact restoration passed (`1 passed in 0.04s`).
+- [x] Source `37b3e04e`: coherent Python 3.11.16, 105 exact pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 23 warnings in 54.17s`, exit 0. SEC-gate executable AST is
+  unchanged after excluding its description/error messages; application runtime is unchanged.
+  Final prose preserves existing transport ownership even for paced requests.
+  All 80 brief source paths and 152 local links resolve (31 brief links); original archives,
+  §7/ledger, locked contracts and sole baseline remain exact.
+- [x] Independent correctness and tests/rules reviews cleared the final delta and actual
+  proof/full-gate evidence; root verified the documentation-only result checkpoint.
+- [ ] Root: inspect corrected actual CI, merge and verify deployment.
+
+The final table audit corrected app-chrome placement to files directly under `frontend/components/`
+and distinguished seven configured job targets from verified provisioning. Root and two reviewers
+checked the entire stack table against source. Conflicting CLAUDE/deployment prose now preserves
+the required pregenerate update and conditional updates for the other six jobs.
+
+Final prose review qualified existing stateful discovery GETs in the API brief after two
+independent refutation attempts confirmed the contradiction. Runtime and gated source are unchanged.
+The optional `frontend/src` matcher suggestion is outside the specified token set; current engineering
+briefs contain no such path, and the frozen legacy set is preserved.
+
+A further review confirmed lowercase obsolete recipes bypassed the case-sensitive pattern.
+Two independent attempts to disprove the finding confirmed the gap. The full
+case-insensitive scan requires no frozen-allowlist expansion. PR #715 remains draft.
+
+- [x] Add `re.IGNORECASE` to the existing obsolete-stack pattern only.
+- [x] Actual lowercase `alembic upgrade head` insertion failed the intended engineering
+  assertion (`1 failed in 0.06s`); exact restoration passed (`1 passed in 0.04s`).
+- [x] Source `98d0fb4d`: coherent Python 3.11.16, 105 exact pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 23 warnings in 54.83s`, exit 0. Prior proofs and CI remain
+  scoped historical evidence. All 148 local links resolve; original archives/§7/ledger,
+  locked contracts and sole baseline are preserved.
+- [x] Independent correctness and tests/rules reviews cleared the case delta and actual
+  mutation/full-gate evidence; root verified the final documentation-only result update.
+- [ ] Root: inspect corrected actual CI before merge and deployment verification.
+
+PR #715 is draft during a bounded review correction. Two independent refutations confirmed
+that the original obsolete-stack gate did not require the seven named engineering files,
+and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence is retained.
+
+- [x] Add explicit required-file presence to the existing gate (a review-added invariant),
+  keeping its obsolete-stack and frozen legacy checks unchanged.
+- [x] Correct the backend brief and conflicting active CLAUDE/architecture prose: existing
+  EFTS uses the shared limiter/backoff without the breaker; new bypasses remain prohibited.
+- [x] Actual backend-brief deletion failed the intended required-file assertion: `1 failed in
+  0.03s`; exact restoration passed (`1 passed in 0.03s`). The initial old-runtime attempt
+  timed out before pytest output, restored in `finally`, and is excluded from mutation credit.
+- [x] Corrected source `609c84f9`: isolated Python 3.11.16, 105 exact runtime/dev pins;
+  Ruff/Bandit exit 0; `2383 passed, 2 deselected, 23 warnings in 55.03s`, exit 0.
+  Documentation checks: 79 brief source paths, 31 brief links, 148 expanded local links
+  with none broken. Locked contracts, sole baseline, original §7/ledger and 52 archives preserved.
+  Original obsolete-stack mutation evidence still applies to its unchanged assertion branch.
+- [x] Independent correctness and tests/rules reviews cleared the corrected source and actual
+  mutation/full-gate evidence; root verified the final documentation-only result update.
+
+W3-2 (#709) is deployed and its effective pins are verified. This branch is based on
+[#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
+corrected green/red acceptance are verified below. Root controls publication and serialized deployment.
+W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
+block this independent engineering work. Other founder boundaries remain unchanged.
+
+- [x] Refresh all seven engineering briefs and README status using actual source pointers.
+- [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
+- [x] Prove the gate with one intended Firebase assertion failure and exact restoration.
+- [x] Three independent lenses cleared the W3-5 source; unchanged source bytes retain that evidence.
+- [x] Prior #711 union gate at `3daf0c4c`: 105 exact runtime/dev pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 72 warnings in 52.11s`.
+- [x] Corrected timeout-safe #711 union at `d3986771`: 105 exact runtime/dev pins,
+  Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 48.26s`.
+- [x] W3-4 verification is complete; root authorized W3-5 publication.
+- [x] Root published draft #715; its prior CI evidence is retained.
+- [ ] Root: inspect corrected actual CI, merge and verify W3-5 backend deployment.
+  No corrected CI, merge or deployment is claimed at this source checkpoint.
+
+Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
+intended assertion and restored with `1 passed in 0.03s`. Previous W3-2 union at `29f1dc61`:
+105 exact pins, Ruff/Bandit clean; `2382 passed, 2 deselected, 72 warnings in 53.66s`.
+These earlier gates are historical evidence. The review correction above adds required-file
+presence and qualifies SEC prose; the original obsolete-stack assertion branch, all four locked
+contracts and the sole baseline remain unchanged. Source checks resolve
+79 paths and 31 Markdown links/anchors after the SEC source-pointer correction. The new base adds W3-4's scheduled workflow gate case.
+
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
 discrepancies (none invalidating the handover). The ordered plan, founder prerequisites and the
 per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md); non-Claude
@@ -12,7 +104,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
-- [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
+- [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
 - [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
@@ -52,7 +144,7 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
   calendar service=true/job=false, both fallback fields absent with verified empty defaults,
   and matching pregenerate image `ff8fe0f`. Refresh execution belongs to W3-3; judged readout remains held.
 
-## W3-4 implementation — production smoke (live acceptance correction)
+## W3-4 implementation — production smoke (verified #711 / #713)
 
 Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
 W3-2 merged `ff8fe0f5` and its deployment/effective settings are verified above; the publication
@@ -71,7 +163,8 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   Frontend lint/TypeScript exit 0, 95 files/487 tests passed (49.74s), production build passed.
   The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
 - [x] Three independent reviews cleared the pre-timeout-correction source; its ancestry/docs
-  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta reviews are pending.
+  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta correctness,
+  rules and tests/gates reviews also cleared the corrected source.
 - [x] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
   dependent job with `always()` and a non-success worker result; extend the existing parametrized
   gate, prove the condition with one intended mutation, restore and run the full backend gate.
@@ -81,15 +174,25 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   3 passed (830ms). Exactly one result-condition mutant failed the intended assertion
   (1 failed, 1 passed in 0.06s); exact restoration passed both parametrized cases (0.04s).
   Existing shutdown logging warning is retained. Frontend source/full-gate proof unchanged.
-- [x] #711 merged `9ab159b7`; production run 34001741244 succeeded, migrations
-  `applied=0 skipped=34`, revision `00272-klf` at 100%, independent detailed health healthy.
-- [ ] Correct the existing smoke locator after [run 34002187563](https://github.com/neilmac91/EarningsNerd/actions/runs/34002187563)
-  passed the summary check but matched both the callout CTA and dialog launcher. Target the
-  exact accessible name plus dialog semantics; retain both visibility assertions and timeouts.
-  [Issue #712](https://github.com/neilmac91/EarningsNerd/issues/712) records this genuine test failure.
-- [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
-  bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
-  deliberately induced failure issue. Live acceptance is pending; no live outcome is claimed.
+- [x] #711 merged `9ab159b7`; [production run 34001741244](https://github.com/neilmac91/EarningsNerd/actions/runs/34001741244)
+  succeeded, migrations `applied=0 skipped=34`, revision `00272-klf` serving 100%.
+  Independent detailed health was healthy (DB 6.87 ms, SEC circuit closed).
+- [x] Corrected the existing smoke locator in [#713](https://github.com/neilmac91/EarningsNerd/pull/713),
+  merged `99b506d7`, after [initial run 34002187563](https://github.com/neilmac91/EarningsNerd/actions/runs/34002187563)
+  passed the summary check but matched both the callout CTA and dialog launcher. The correction
+  targets the exact accessible name plus dialog semantics and preserves both visibility assertions
+  and timeouts. [Issue #712](https://github.com/neilmac91/EarningsNerd/issues/712) records the genuine
+  failure and was resolved with the correction and passing evidence. This semantic smoke does not
+  establish deployed commit identity.
+  [#713 main CI 34002890791](https://github.com/neilmac91/EarningsNerd/actions/runs/34002890791)
+  passed; actual backend scope reported `No backend changes - skipping deploy.`
+- [x] Corrected default [green run 34002892976](https://github.com/neilmac91/EarningsNerd/actions/runs/34002892976)
+  on `/filing/3`: `1 passed (5.1s)`, artifact `9980026833`, API healthy (DB 6.18 ms).
+- [x] Deliberate [red run 34003003306](https://github.com/neilmac91/EarningsNerd/actions/runs/34003003306)
+  on `/filing/does-not-exist` failed summary visibility; artifact `9980065113` was retained.
+  Separate reporter job `101405277325` created [issue #714](https://github.com/neilmac91/EarningsNerd/issues/714),
+  which root closed after inspecting the actual issue and artifacts. Both acceptance outcomes and
+  failure reporting are verified; the genuine initial failure remains part of the evidence.
 
 ## WS-10 verified engineering handover — final synchronization
 
@@ -210,7 +313,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) — *PR #656 merged 2026-09-05 (`f340bb0`), deploy green*
 - [x] Ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` — *ledger live since #678; the file ran once at seed and is now skipped*
 - [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
-- [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
+- [x] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily — #711 plus #713 locator correction; green 34002892976 and deliberate red 34003003306 accepted, failure reporting and issue closure verified (W3-4 evidence above).
 - [x] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 merged 2026-09-05 (`ffb0b61`)*; Sentry source-map env in Vercel **(founder)**
 - [x] Dependabot triage: merge #635 #636 #639 #640 #641 #642 — *all merged 2026-09-04, deploys green*
 - [x] Dependabot closes: #629 and #570 closed 2026-09-04; `typescript` major-ignore landed in #674; #662–#670 closed as superseded by #674 and #672 closed as superseded by #679 + #680; #659 closed so Dependabot re-creates the remaining 15 minors against Next 16.3.4 / Node 22 — *2026-09-05*; the fresh #686 group appeared and was resolved by #694/#695

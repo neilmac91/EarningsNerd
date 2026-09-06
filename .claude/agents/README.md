@@ -176,19 +176,19 @@ All agents are calibrated for EarningsNerd's domain:
 
 ### Stack truth (2026-09) — overrides anything below or in an agent file
 
-The per-agent files were written for an earlier stack and still mention Render, Firebase, Vite,
-Alembic, Celery, async SQLAlchemy, GPT-4 and `/api/v1`. **None of that exists.** When an agent
-file and this block disagree, this block and `CLAUDE.md` win; a brief that cites an agent file
-must also cite this section. Until the agent files are refreshed, treat their "Key Files",
-code samples and platform names as illustrative only.
+The seven engineering agent files are refreshed against the current source and guarded by
+`backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files still contain historical
+stack examples; their explicit frozen allowlist tracks that remaining debt and only shrinks.
+When a file and this table disagree, actual source and `CLAUDE.md` govern. A brief that cites an
+agent file must also cite this section; non-engineering legacy examples remain illustrative.
 
 | Layer | Truth |
 |---|---|
-| Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); 7 Cloud Run jobs |
+| Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); seven configured job targets (pregenerate is required; the other six are updated only when found) |
 | Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` applied once per filename/checksum through `migration_ledger` and skipped afterwards (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
 | Auth | Own JWT (HS256, `Authorization: Bearer`), rotated refresh tokens, OAuth (Google/Apple) — **no Firebase** |
 | AI | OpenAI-compatible client → DeepSeek (`deepseek-v4-pro` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |
-| Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/{ui,chrome}` — there is no `frontend/src`, no Vite, no React Router |
+| Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/` (shared chrome files) and `frontend/components/ui/` — there is no `frontend/src`, no Vite, no React Router |
 | Cache | Redis dev-only; prod is L1 in-memory (ADR-0004); all rate limiters are per-process |
 | Routes | `/api/...`, admin `/api/admin/...`, cron `/internal/...` — no `/api/v1` |
 | CI/CD | `.github/workflows/ci.yml`: ruff + bandit + pytest, eslint + tsc + vitest, Playwright (no backend), eval-baseline; `deploy-backend` on push to `main` touching `backend/` (WIF, keyless). Frontend deploys via Vercel Git integration |

@@ -35,9 +35,10 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
-traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
-filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
-notable-filings), and health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
+traffic to the new revision, updates the required pregenerate job image, and updates six other
+configured job targets only when found (filing-scan, filing-digest, backfill-facts,
+earnings-calendar-refresh, earnings-day-alerts, notable-filings). Missing jobs are skipped,
+not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
 30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
 `GCP_DEPLOYER_SA`).
