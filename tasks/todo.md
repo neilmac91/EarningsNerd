@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ## E11a — Restrict digest filing materialization to its window (engineering, 2026-09-06)
 
 Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
@@ -60,7 +59,7 @@ Residual: the window still has no numeric row/user cap, and the digest still ite
 notification lookups in memory. This slice does not resolve concurrent external duplicate sends,
 failed-attempt retry suppression, delivery observability or alert-to-return measurement. Service
 and model prose now state those existing delivery limits; no sender/retry behavior changed.
-=======
+
 ## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
 
 ### Approved full gate
@@ -136,7 +135,6 @@ Evidence: `/private/tmp/earningsnerd-ci-pressure-evidence/` contains `mutation-c
 `workflow-gates.log`, `node-gate.log`, `ruff.log`, `bandit.log`, `scope-proof.json`,
 `full-sandbox-denied.log` and `full-gate-review-rejection.txt`. The old `full.log` also retains
 the failed run until a separately permitted full gate can replace it.
->>>>>>> origin/main
 
 ## E14b — Final sitemap-main integration (2026-09-06)
 
