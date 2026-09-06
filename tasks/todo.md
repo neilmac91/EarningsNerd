@@ -5,8 +5,8 @@
 ### W3-5 local preparation — agent stack truth
 
 W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
-[#711](https://github.com/neilmac91/EarningsNerd/pull/711) merge `9ab159b7`. Its deployment is
-verified below; live smoke acceptance remains pending. Root controls publication and serialized deployment.
+[#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
+corrected green/red acceptance are verified below. Root controls publication and serialized deployment.
 W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
 block this independent engineering work. Other founder boundaries remain unchanged.
 
@@ -18,7 +18,9 @@ block this independent engineering work. Other founder boundaries remain unchang
   `2383 passed, 2 deselected, 72 warnings in 52.11s`.
 - [x] Corrected timeout-safe #711 union at `d3986771`: 105 exact runtime/dev pins,
   Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 48.26s`.
-- [ ] Obtain root release after W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
+- [x] W3-4 verification is complete; root authorized W3-5 publication.
+- [ ] Root: publish W3-5 as a draft, inspect actual CI, merge and verify its backend deployment.
+  No W3-5 publication, CI or deployment is claimed at this source checkpoint.
 
 Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
 intended assertion and restored with `1 passed in 0.03s`. Previous W3-2 union at `29f1dc61`:
@@ -37,7 +39,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
-- [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
+- [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
 - [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
@@ -77,7 +79,7 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
   calendar service=true/job=false, both fallback fields absent with verified empty defaults,
   and matching pregenerate image `ff8fe0f`. Refresh execution belongs to W3-3; judged readout remains held.
 
-## W3-4 implementation — production smoke (live acceptance correction)
+## W3-4 implementation — production smoke (verified #711 / #713)
 
 Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
 W3-2 merged `ff8fe0f5` and its deployment/effective settings are verified above; the publication
@@ -96,7 +98,8 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   Frontend lint/TypeScript exit 0, 95 files/487 tests passed (49.74s), production build passed.
   The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
 - [x] Three independent reviews cleared the pre-timeout-correction source; its ancestry/docs
-  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta reviews are pending.
+  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta correctness,
+  rules and tests/gates reviews also cleared the corrected source.
 - [x] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
   dependent job with `always()` and a non-success worker result; extend the existing parametrized
   gate, prove the condition with one intended mutation, restore and run the full backend gate.
@@ -106,15 +109,25 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   3 passed (830ms). Exactly one result-condition mutant failed the intended assertion
   (1 failed, 1 passed in 0.06s); exact restoration passed both parametrized cases (0.04s).
   Existing shutdown logging warning is retained. Frontend source/full-gate proof unchanged.
-- [x] #711 merged `9ab159b7`; production run 34001741244 succeeded, migrations
-  `applied=0 skipped=34`, revision `00272-klf` at 100%, independent detailed health healthy.
-- [ ] Correct the existing smoke locator after [run 34002187563](https://github.com/neilmac91/EarningsNerd/actions/runs/34002187563)
-  passed the summary check but matched both the callout CTA and dialog launcher. Target the
-  exact accessible name plus dialog semantics; retain both visibility assertions and timeouts.
-  [Issue #712](https://github.com/neilmac91/EarningsNerd/issues/712) records this genuine test failure.
-- [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
-  bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
-  deliberately induced failure issue. Live acceptance is pending; no live outcome is claimed.
+- [x] #711 merged `9ab159b7`; [production run 34001741244](https://github.com/neilmac91/EarningsNerd/actions/runs/34001741244)
+  succeeded, migrations `applied=0 skipped=34`, revision `00272-klf` serving 100%.
+  Independent detailed health was healthy (DB 6.87 ms, SEC circuit closed).
+- [x] Corrected the existing smoke locator in [#713](https://github.com/neilmac91/EarningsNerd/pull/713),
+  merged `99b506d7`, after [initial run 34002187563](https://github.com/neilmac91/EarningsNerd/actions/runs/34002187563)
+  passed the summary check but matched both the callout CTA and dialog launcher. The correction
+  targets the exact accessible name plus dialog semantics and preserves both visibility assertions
+  and timeouts. [Issue #712](https://github.com/neilmac91/EarningsNerd/issues/712) records the genuine
+  failure and was resolved with the correction and passing evidence. This semantic smoke does not
+  establish deployed commit identity.
+  [#713 main CI 34002890791](https://github.com/neilmac91/EarningsNerd/actions/runs/34002890791)
+  passed; actual backend scope reported `No backend changes - skipping deploy.`
+- [x] Corrected default [green run 34002892976](https://github.com/neilmac91/EarningsNerd/actions/runs/34002892976)
+  on `/filing/3`: `1 passed (5.1s)`, artifact `9980026833`, API healthy (DB 6.18 ms).
+- [x] Deliberate [red run 34003003306](https://github.com/neilmac91/EarningsNerd/actions/runs/34003003306)
+  on `/filing/does-not-exist` failed summary visibility; artifact `9980065113` was retained.
+  Separate reporter job `101405277325` created [issue #714](https://github.com/neilmac91/EarningsNerd/issues/714),
+  which root closed after inspecting the actual issue and artifacts. Both acceptance outcomes and
+  failure reporting are verified; the genuine initial failure remains part of the evidence.
 
 ## WS-10 verified engineering handover — final synchronization
 
@@ -235,7 +248,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) — *PR #656 merged 2026-09-05 (`f340bb0`), deploy green*
 - [x] Ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` — *ledger live since #678; the file ran once at seed and is now skipped*
 - [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
-- [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
+- [x] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily — #711 plus #713 locator correction; green 34002892976 and deliberate red 34003003306 accepted, failure reporting and issue closure verified (W3-4 evidence above).
 - [x] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; delete the dead frontend `signup_completed` helper; pre-consent PostHog proposal — *PR #660 merged 2026-09-05 (`ffb0b61`)*; Sentry source-map env in Vercel **(founder)**
 - [x] Dependabot triage: merge #635 #636 #639 #640 #641 #642 — *all merged 2026-09-04, deploys green*
 - [x] Dependabot closes: #629 and #570 closed 2026-09-04; `typescript` major-ignore landed in #674; #662–#670 closed as superseded by #674 and #672 closed as superseded by #679 + #680; #659 closed so Dependabot re-creates the remaining 15 minors against Next 16.3.4 / Node 22 — *2026-09-05*; the fresh #686 group appeared and was resolved by #694/#695
