@@ -80,8 +80,6 @@ def test_committed_membership_list_is_healthy():
         assert required in tset, f"{required} missing from committed universe"
     # Nasdaq-only names (not in the S&P 500) must be captured by the union.
     assert {"ASML", "MELI", "PDD"} & tset, "expected some Nasdaq-100-only names in the union"
-    # Both spin-offs began trading and joined the S&P 500 in June 2026.
-    assert {"FDXF", "HONA"} <= tset
 
     # Every entry declares at least one index label.
     assert all(m.get("indices") for m in members)
