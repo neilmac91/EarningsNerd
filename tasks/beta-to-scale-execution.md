@@ -18,7 +18,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 released; E05b transaction/concurrency prerequisite in progress. Authoritative ordering remains held on locked-fixture approval |
 | E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
-| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
+| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a completed-use counter correctness implemented locally; reservations remain separate |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Queued |
@@ -100,3 +100,11 @@ Integrated source `43eb5c8` includes current main `049cd4f`; full backend gate: 
 Bandit 0 medium/high, `2412 passed, 2 deselected, 23 warnings in 50.01s` (exit 0). The initial
 lifetime/health proofs and one additional exact-site lookup proof are retained. E03 still needs
 publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
+
+
+E07a source checkpoint: SQL monthly increments preserve existing helper calls and history; only
+first-bucket creation locks/re-reads the User. Transaction-local lock timeout defaults to 3000 ms,
+validated as whole milliseconds from 1 through 10000. Focused real PostgreSQL + workflow gate:
+37 passed. Old service/job writers must drain before the first-use protocol holds; this stage
+does not reserve admission, repair old duplicates or change existing best-effort meter policy.
+Mutation, full gate, independent review and root-owned release remain pending.

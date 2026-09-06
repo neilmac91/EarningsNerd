@@ -430,6 +430,8 @@ class Settings(BaseSettings):
     # message, never an upsell), mirroring COPILOT_MONTHLY_QUESTION_CAP / ANALYSIS_MONTHLY_CAP.
     # Set generously above any real human's monthly usage; 0 disables the ceiling entirely.
     PRO_SUMMARY_MONTHLY_CAP: int = 300
+    # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
+    USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
 
     # Max concurrent full summary generations per process. Generation is LLM-I/O-bound but
     # CPU-bound during filing/section/XBRL parsing; on a single-vCPU Cloud Run instance a burst of

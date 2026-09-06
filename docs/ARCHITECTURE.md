@@ -115,7 +115,7 @@ frontend/
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
-| `subscription_service.py` | Usage tracking (re-exports entitlement limits) |
+| `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks and post-commit analytics; stale-event chronology remains separate |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
@@ -308,3 +308,10 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 [`docs/adr/`](./adr/): the hosting move to Cloud Run, the AI-provider migrations
 (Gemini, then DeepSeek — ADR-0002/0006), `edgartools` for SEC data, Redis-off-in-prod,
 and staying on React 18 under Next 16.
+
+Monthly usage counter writes preserve existing first-row history and completion billing rules.
+Existing buckets skip the parent User lock; first-month creation can contend with Stripe account
+work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent stale-session lost
+updates for successfully committed calls. All old service and job writers must drain before the
+first-use protocol holds fleet-wide. This does not reserve admission, repair historical duplicate
+buckets or make best-effort completion metering strict billing accounting.
