@@ -31,7 +31,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## SEC / EDGAR data
 
-- [`sec-edgar-resilience-layer.md`](./sec-edgar-resilience-layer.md) — All SEC/EDGAR access goes through the edgar layer: limiter + circuit breaker + timeout — and keep local-parse timeouts out of the breaker
+- [`sec-edgar-resilience-layer.md`](./sec-edgar-resilience-layer.md) — Use the SEC resilience layer and preserve the existing EFTS limiter-only exception
 - [`sec-enforce-gates-server-side.md`](./sec-enforce-gates-server-side.md) — Enforce every access gate server-side at the mutation endpoint
 - [`sec-filing-url-format.md`](./sec-filing-url-format.md) — SEC archive URLs: strip CIK leading zeros, strip accession dashes — and sec_url is NOT NULL
 - [`sec-listing-fetch-recent-window-and-cheap-fields.md`](./sec-listing-fetch-recent-window-and-cheap-fields.md) — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network

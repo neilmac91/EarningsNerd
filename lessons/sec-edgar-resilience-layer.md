@@ -1,4 +1,4 @@
-# All SEC/EDGAR access goes through the edgar layer: limiter + circuit breaker + timeout — and keep local-parse timeouts out of the breaker
+# Use the SEC resilience layer and preserve the existing EFTS limiter-only exception
 
 Date: 2026-07-06   Area: sec
 
@@ -18,6 +18,11 @@ fallback.
 steps stay on plain `run_in_executor_with_timeout` with a comment saying why they are
 breaker-exempt. Choose `execute()` (single token wait) on user-facing paths and
 `execute_with_backoff` only where minutes of latency is acceptable.
+
+**Existing exception**: `SECFullTextSearchClient` in `backend/app/integrations/sec_api.py`
+uses direct httpx through the shared limiter/backoff, without the circuit breaker. This
+sanctioned EFTS path does not authorize new bypasses; `test_sec_gov_importers_allowlist.py`
+continues to bound the permitted importers. Local parsing remains breaker-exempt as above.
 
 **Evidence**: PR #551 (S4) + its review; `backend/app/services/edgar/async_executor.py`,
 `circuit_breaker.py` (trip_exceptions), `compat.py` (bounded user-facing fetch).
