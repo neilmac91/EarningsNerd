@@ -38,3 +38,17 @@ uses a real one-connection pool across leader, follower, queue, drain and SSE wa
 including cancellation while a DB worker owns its transaction. Real User/Subscription cases
 record SQL thread identity; standalone fixtures alone cannot prove lazy-load safety. The health-probe
 worker ownership gate lives in `backend/tests/smoke/test_critical_paths.py`.
+
+
+**Local leader handoff (2026-09-06)**: Joining another generation includes awaits, including
+its persisted-result read. Recheck the registry and claim an empty slot without yielding;
+never overwrite an active leader after a follower timeout. A joined follower's empty DB
+snapshot may return after a replacement has already committed and released. Hold any new
+claim while reading persisted state again before admitting provider work. This is process-local
+deduplication; API instances and jobs still have independent registries. Preserve the existing
+force-regenerate follower behavior, overall timeout, quota rules and owner-only cleanup.
+
+Gate: `backend/tests/unit/test_inflight_dedup.py` drives competing followers after failed
+leadership, exhausted follower budgets, and delayed empty reads after replacement completion.
+The tests retain one replacement provider call and the same persisted result, including forced
+requests. Existing provider lifecycle gates continue to prove cleanup before ownership release.
