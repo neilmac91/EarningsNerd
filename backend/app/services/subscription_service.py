@@ -1,9 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from typing import Optional
-from app.models import User, UserUsage
+from app.models import User, UserUsage, UsageReservation
+from app.utils.datetimes import utcnow
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
 # (redundant alias = intentional re-export) so existing
 # `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
@@ -94,6 +96,92 @@ def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]
         return False, current_count, limit
 
     return True, current_count, limit
+
+
+SUMMARY_RESERVATION_KIND = "summary"
+
+
+def _set_transaction_lock_timeout(db: Session) -> None:
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(select(func.set_config(
+            "lock_timeout", f"{settings.USAGE_COUNTER_LOCK_TIMEOUT_MS}ms", True,
+        )))
+
+
+def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
+    """Admit one summary generation and hold its quota unit under a short lease (E07b).
+
+    ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
+    each complete. This is the serialized decision: one transaction takes the account's
+    ``users`` row lock (bounded by ``USAGE_COUNTER_LOCK_TIMEOUT_MS``), counts completed uses
+    plus unexpired reservations, and only then inserts a reservation. Returns
+    ``(admitted, completed_count, limit, token)`` with the same limit semantics as
+    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
+    unlimited Pro returns no token). The caller converts or releases the token; a process
+    death leaves a row that admission ignores once ``expires_at`` passes and sweeps on the
+    account's next admission. No historical duplicate repair; Redis is not involved.
+    """
+    limit = get_entitlements(user).monthly_summary_limit
+    unlimited = limit is None
+    if unlimited:
+        cap = settings.PRO_SUMMARY_MONTHLY_CAP
+        if not cap:
+            return True, 0, None, None
+        limit = cap
+    month = get_current_month()
+    now = utcnow()
+    _set_transaction_lock_timeout(db)
+    db.query(User.id).filter(User.id == user.id).with_for_update().first()
+    db.query(UsageReservation).filter(
+        UsageReservation.user_id == user.id, UsageReservation.expires_at <= now,
+    ).delete(synchronize_session=False)
+    # READ COMMITTED gives each statement its own snapshot and a completion (delete lease +
+    # increment) does not take the users lock once the bucket exists, so read the leases FIRST:
+    # a conversion landing between the two reads then counts once as a lease and once as a
+    # completed use (a conservative block), never zero times (an over-admission).
+    active = db.query(func.count(UsageReservation.id)).filter(
+        UsageReservation.user_id == user.id,
+        UsageReservation.month == month,
+        UsageReservation.kind == SUMMARY_RESERVATION_KIND,
+        UsageReservation.expires_at > now,
+    ).scalar() or 0
+    completed = get_user_usage_count(user.id, month, db)
+    if completed + active >= limit:
+        db.rollback()
+        return False, completed, limit, None
+    token = uuid4().hex
+    db.add(UsageReservation(
+        user_id=user.id, month=month, kind=SUMMARY_RESERVATION_KIND, token=token,
+        expires_at=now + timedelta(seconds=settings.USAGE_RESERVATION_TTL_SECONDS), created_at=now,
+    ))
+    db.commit()
+    return True, completed, (None if unlimited else limit), token
+
+
+def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
+    """Drop a reservation for a completed use and return the month it was admitted under.
+
+    Not committed: the caller increments that month's counter in the same transaction, so a
+    generation admitted just before a UTC month rollover is charged to the month whose quota
+    admitted it, never to the new month (whose admissions do not see the old lease). ``None``
+    when nothing was reserved (unlimited Pro) or the lease already expired and was swept.
+    """
+    if not token:
+        return None
+    month = db.query(UsageReservation.month).filter(UsageReservation.token == token).scalar()
+    if month is None:
+        return None
+    db.query(UsageReservation).filter(UsageReservation.token == token).delete(synchronize_session=False)
+    return month
+
+
+def release_reservation(token: Optional[str], db: Session) -> None:
+    """Give an admitted unit back without counting it (idempotent, commits). A completed use
+    goes through ``convert_reservation`` instead, so a unit is never both reserved and counted."""
+    if not token:
+        return
+    db.query(UsageReservation).filter(UsageReservation.token == token).delete(synchronize_session=False)
+    db.commit()
 
 
 def get_user_qa_count(user_id: int, month: str, db: Session) -> int:

@@ -78,6 +78,7 @@ async def test_heartbeat_events_emitted_at_interval():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=slow_summarize), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 2), \
@@ -159,6 +160,7 @@ async def test_concurrent_stream_connections():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=medium_summarize), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.database.SessionLocal", mock_session_cls), \

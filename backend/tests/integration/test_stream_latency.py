@@ -60,6 +60,7 @@ async def test_stream_handles_high_latency_fetch():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", side_effect=slow_fetch), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", return_value={"status": "complete", "business_overview": "Summary"}), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 0.3), \

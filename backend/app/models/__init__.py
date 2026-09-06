@@ -19,6 +19,7 @@ from app.models.invite import InviteCode
 from app.models.feedback import Feedback
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
+from app.models.usage_reservation import UsageReservation
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,10 @@ class User(Base):
     )
     notification_logs = relationship(
         "NotificationLog", back_populates="user", cascade="all, delete-orphan"
+    )
+    # Admission leases (E07b). Cascade so account deletion never trips the reservations FK.
+    usage_reservations = relationship(
+        "UsageReservation", back_populates="user", cascade="all, delete-orphan"
     )
 
 

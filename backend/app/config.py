@@ -437,6 +437,10 @@ class Settings(BaseSettings):
     PRO_SUMMARY_MONTHLY_CAP: int = 300
     # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
     USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
+    # E07b: how long an admission reservation holds a quota unit if the owning process dies
+    # before converting or releasing it. Must exceed the pipeline's hard timeout (120 s) so a
+    # live generation never loses its lease mid-flight; expired rows are simply ignored.
+    USAGE_RESERVATION_TTL_SECONDS: int = Field(default=300, gt=120, le=3600)
 
     # Max concurrent full summary generations per process. Generation is LLM-I/O-bound but
     # CPU-bound during filing/section/XBRL parsing; on a single-vCPU Cloud Run instance a burst of
