@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { ENABLE_PRO_TRIAL, exampleFilingHref } from '@/lib/featureFlags'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 function CtaBanner() {
   return (
@@ -28,7 +29,7 @@ function CtaBanner() {
               href="/register"
               className="inline-flex items-center gap-1 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark underline underline-offset-4 decoration-border-light dark:decoration-white/10 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:decoration-text-primary-light dark:hover:decoration-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              or create a free account · 5 summaries a month{ENABLE_PRO_TRIAL && <> · 7-day Pro trial</>}
+              or create a free account · {FREE_SUMMARY_LIMIT} summaries a month{ENABLE_PRO_TRIAL && <> · 7-day Pro trial</>}
             </Link>
           </div>
         </div>

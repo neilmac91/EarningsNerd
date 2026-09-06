@@ -27,8 +27,9 @@ import {
   EARNINGS_ALERT_LIMIT_CODE,
   type CalendarRangeResult,
 } from '../api/calendar-api'
+import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
-export const FREE_ALERT_LIMIT = 3
+export const FREE_ALERT_LIMIT = FREE_EARNINGS_ALERT_LIMIT
 
 export function useCalendarRange(from: string, to: string) {
   return useQuery<CalendarRangeResult>({

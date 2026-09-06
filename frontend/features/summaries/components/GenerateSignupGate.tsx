@@ -12,6 +12,7 @@ import {
   stashPostAuthRedirect,
 } from '@/lib/postAuthRedirect'
 import type { Filing } from '@/features/filings/api/filings-api'
+import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 /**
  * Shown in place of auto-generation when a signed-out visitor lands on a filing with NO cached
@@ -44,7 +45,7 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
       title="Create a free account to analyze this filing"
       description={
         <>
-          Free accounts get 5 AI summaries a month, no credit card required.
+          Free accounts get {FREE_SUMMARY_LIMIT} AI summaries a month, no credit card required.
           {ENABLE_PRO_TRIAL && (
             <> Want unlimited? First-time Pro monthly subscribers get 7 days free, cancel anytime.</>
           )}
