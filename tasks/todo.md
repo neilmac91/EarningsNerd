@@ -14,12 +14,23 @@ refutations confirm provider creation occurs after the pipeline deadline starts.
 must establish ownership before testing ownership cleanup; no production timeout changes.
 
 - [x] Diagnose actual CI failure and reproduce the pre-provider deadline without live I/O.
-- [ ] In existing `test_summary_provider_lifecycle.py`, use a real initially unarmed timeout
+- [x] In existing `test_summary_provider_lifecycle.py`, use a real initially unarmed timeout
   through a pipeline-local asyncio proxy; arm after provider entry and a summarizing heartbeat.
-- [ ] Preserve all cleanup, one-call, terminal-frame and registry assertions; prove the same
+- [x] Preserve all cleanup, one-call, terminal-frame and registry assertions; prove the same
   delayed preparation now reaches and closes its stream. Run the existing lifecycle home.
-- [ ] Review locked bytes, full Ruff/Bandit/backend gate with all three PostgreSQL lanes;
+- [x] Review locked bytes, full Ruff/Bandit/backend gate with all three PostgreSQL lanes;
   record exact evidence before publication. Keep failed CI evidence, do not chase a pass.
+
+Correction source `042bfd5`: same delayed preparation now passes (1 passed, 9 warnings in
+2.31s); complete lifecycle home passes (24 passed, 17 warnings in 3.24s). The pipeline-local
+asyncio proxy preserves real Timeout cancellation and leaves provider deadlines untouched.
+Root and independent three-lens reviews are clear; every existing assertion is retained.
+Full corrected Ruff/Bandit/backend gate, all three PostgreSQL lanes, exited 0:
+`2583 passed, 2 deselected, 23 warnings in 58.40s`. Bandit medium/high severity both zero.
+All app/eval/prompt/workflow and locked-test bytes match main. Original dry-run proof remains
+valid on unchanged source; no mutation repeat. PR returned to draft before publishing this
+correction so it cannot silently trigger another paid Copilot run. Original failed CI and
+accepted Copilot artifacts remain preserved; they do not establish corrected-head acceptance.
 
 ### Root verification after E11a integration
 
