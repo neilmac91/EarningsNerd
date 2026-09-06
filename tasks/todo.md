@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## E11a — Restrict digest filing materialization to its window (engineering, 2026-09-06)
 
 Base `d048e215`; isolated branch `codex/wave3-digest-window-query`.
@@ -59,8 +60,93 @@ Residual: the window still has no numeric row/user cap, and the digest still ite
 notification lookups in memory. This slice does not resolve concurrent external duplicate sends,
 failed-attempt retry suppression, delivery observability or alert-to-return measurement. Service
 and model prose now state those existing delivery limits; no sender/retry behavior changed.
+=======
+## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
+
+### Approved full gate
+
+The founder explicitly approved CI-P1's isolated PostgreSQL gate, normal publication,
+live CI and verified release on 2026-09-06. Root ran the unchanged full gate with all
+three PostgreSQL URLs and local socket access: **2576 passed, 2 deselected, 23 warnings
+in 59.23s**, exit 0. Ruff passed; Bandit reports zero medium/high severity findings.
+Logs: `/private/tmp/earningsnerd-ci-pressure-evidence/approved-{ruff,bandit,full}.log`.
+The prior socket-denied run and automatic-review rejection remain historical evidence.
+Implementation is unchanged from `8fb21a5`; original mutation and independent reviews
+remain applicable without repetition. Main is still `d048e215`. Publication and actual
+live CI/release acceptance follow this checkpoint; no baseline or policy change is implied.
+
+Base: released main `d048e215bbcc9d522af03af55fae9f7f449c1904`.
+Approved local scope: CI filing concurrency two as an unmeasured starting assumption,
+separate nonsecret invocation/source/concurrency artifact, existing offline gate and runbook.
+Root owns publication, normal live CI acceptance and serialized release. No push or live eval here.
+
+- [x] Read AGENTS/CLAUDE, applicable lessons, wave-3 context and full eval RUNBOOK.
+- [x] Add explicit CI cap and retain execution evidence separately from the unchanged harness.
+- [x] Extend the existing parity test; execute one meaningful mutation and restore exact bytes.
+- [ ] Full pinned Ruff/Bandit/backend with all three disposable PostgreSQL lanes; workflow
+  readers, YAML parse and Node lockstep gate; three review lenses; commit with clean status.
+
+Preserve runner default, baseline/harness/goldens, model/flags/deadlines, complete cohorts,
+repeat/dispatch semantics and per-PR groups. Recovery fan-out means two filings is not a
+provider-request cap. Overlap occurred in both failed and accepted E09 runs; no causality,
+production failure-rate or measured timeout improvement is claimed. The RUNBOOK edit is under
+`backend/evals`, so normal PR summary CI will trigger; it must retain actual results and
+unchanged hard acceptance criteria. Existing baseline authority is unaffected; no re-pin.
+
+### Local verification checkpoint
+
+Plan `e2c94d6`; source `8fb21a5e2004841f5b4ed9d5b88de7927a538981`.
+The workflow passes a cap of two and writes `ci-execution.txt` before generation using only
+source SHA, filing concurrency and shell-escaped argv. The existing parity test executes the
+actual shell with a harmless stub: PR ignores a supplied limit, dispatch preserves repeats/limit,
+and a failed invocation still retains evidence and its nonzero exit. Initial precommit fixture
+quoting/group-prefix typos were corrected before source commit and the meaningful proof.
+
+Exactly one original mutation changed `EVAL_CONCURRENCY=2` to `5` on committed source:
+`test_ci_parity_and_bounded_repeat_measurement` failed at captured argv index 7 (`5 != 2`),
+**1 failed, 1 warning in 1.82s**, exit 1. Exact workflow bytes were restored from committed
+source. Restored workflow readers: **104 passed, 16 warnings in 5.01s**. Node 22.23.2
+lockstep gate: **3 passed**, duration 1.24s. Ruff: `All checks passed!`; Bandit: zero
+medium/high issues. All workflow YAML parses; committed scope proof verifies every other CI
+job, trigger and eval environment/group is unchanged. Runtime, runner/harness, baseline,
+goldens, pin validator, locked anchors and frontend are byte-identical to released main.
+
+The first full gate supplied all three PostgreSQL URLs but sandbox socket access failed:
+**2552 passed, 2 deselected, 23 warnings, 24 errors in 59.01s**, exit 1. All 24 errors are
+PostgreSQL fixture setup failures (`Operation not permitted`), not passing/skipped lanes.
+A read-only socket `SELECT 1` outside sandbox succeeds. The subsequent full-gate request was
+rejected by automatic approval review before execution: it cited the existing local database
+and said CI-P1 was not specifically authorized by the approval it recognized for PR #738.
+No rejection bypass, repeated submission, test weakening or live provider call occurred.
+The three fixtures create UUID-named schemas, set their connection search_path and drop only
+those disposable schemas afterward; their source is unchanged. Full combined acceptance
+remains incomplete pending resolution of this execution permission boundary.
+
+Three review lenses: correctness confirms one argv array supplies actual invocation and
+retained evidence, with failure status preserved; rules-and-brief confirms unchanged baseline
+identity, required cohorts and founder holds; tests-and-gates confirms the original proof,
+restored passing gate and locked-byte identity. No actionable source finding remained after
+the two precommit fixture corrections. The environment gate remains an explicit blocker.
+Root and the independent sec_refill reviewer cleared the committed source diff; publication,
+normal live CI and release stay
+root-owned. The RUNBOOK diff triggers ordinary summary CI when published; no live result is
+claimed by these offline checks.
+
+Evidence: `/private/tmp/earningsnerd-ci-pressure-evidence/` contains `mutation-cap.log`,
+`workflow-gates.log`, `node-gate.log`, `ruff.log`, `bandit.log`, `scope-proof.json`,
+`full-sandbox-denied.log` and `full-gate-review-rejection.txt`. The old `full.log` also retains
+the failed run until a separately permitted full gate can replace it.
+>>>>>>> origin/main
 
 ## E14b — Final sitemap-main integration (2026-09-06)
+
+**Current release checkpoint (root verified):** #738 merged as
+`d048e215bbcc9d522af03af55fae9f7f449c1904` after the founder's exact approval.
+Production Vercel `6295470419` succeeded at 2026-09-06T16:47:32Z; main CI `34046538868`
+passed with backend operations correctly skipped. Canonical filing page returned HTTP 200;
+root verified the live copy action wrote `https://www.earningsnerd.io/filing/3` and showed
+success, then restored clipboard and closed the tab. Browser-denial evidence remains automated.
+The integration checklist and pending statements below are historical checkpoints.
 
 - [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
   `523e15e232a98fd35954adc8bdc2fabd5c9e7678`, retaining both task-document histories.
@@ -199,6 +285,13 @@ Targets: existing SummaryDisplay.tsx, SummaryActionsBar.tsx, lib/analytics.ts; t
 home above. No backend, dependencies, locked tests, query keys or E10b consumer edits.
 CLAUDE rules 2/4/6/9/11/12 apply. Existing root-owned release histories remain intact.
 ## E15a — Integrate released login and summary handoff (2026-09-06)
+
+**Current release checkpoint (root verified):** #737 merged as
+`93e30b0bd1f6e36228bdea6583daa914acdc29e8`. Final CI `34044987076` accepted all 52 summary
+results; Copilot `34044987099` accepted all 18 attempts with provenance verified. Production
+run `34045534643`, deploy `101520200494`, succeeded with `applied=0 skipped=36`;
+`earningsnerd-backend-00289-jnn` serves 100%, independent health healthy / DB 9.16 ms.
+Historical timeout reports and the earlier integration checkpoints below remain intact.
 
 The founder's exact five-action approval also covers this latest-main integration, required
 hermetic gates and normal branch update. Root owns PR checks, merge and production verification.
@@ -825,6 +918,12 @@ then let root own publication/readiness/merge and serialized deployment. No acco
 or production mutation occurred in this integration work.
 
 ### E12a — Integrated limiter release checkpoint (engineering)
+
+**Current release checkpoint (root verified):** #733 merged as
+`cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`, with 52 summary / 18 Copilot attempts verified.
+Production run `34040098807`, deploy `101505573952`, succeeded with `applied=0 skipped=36`;
+`earningsnerd-backend-00285-clp` served 100%, independent health DB 9.3 ms.
+The earlier combined gate and root-owned release-pending checkpoint below are retained history.
 
 Merged main `53348d6b41d524b9bb1e9fa41ef1a1b393f2a191` as `ec045eb` without rewriting
 published history. The only conflict was the todo insertion; both E12a and E13b histories remain.
