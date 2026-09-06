@@ -46,6 +46,8 @@ from app.services.subscription_service import (
     check_usage_limit,
     increment_user_usage,
     get_current_month,
+    release_reservation,
+    reserve_summary_use,
 )
 from app.services.entitlements import get_entitlements
 from app.services.summary_generation_service import (
@@ -141,18 +143,23 @@ def _release_inflight(filing_id: int, event: asyncio.Event) -> None:
     event.set()
 
 
-def _check_usage_and_plan(user, db) -> tuple[bool, int, Optional[int], bool]:
+def _check_usage_and_plan(user, db) -> tuple[bool, int, Optional[int], bool, Optional[str]]:
     """One threadpool round-trip for the usage gate + the Pro/Free discriminator.
 
     Runs synchronously (call via ``run_sync_db``): ``check_usage_limit`` and the entitlements
     resolution may both lazy-load ``user.subscription`` — sync DB I/O that must stay off the event
     loop. Resolving both here avoids a second thread hop on the block path and keeps a single
     source for "is this user billing-unlimited". Looks up ``check_usage_limit`` at call time so
-    test patches of the module global still apply.
+    test patches of the module global still apply; a request the read admits is then reserved
+    under the serialized ``reserve_summary_use`` decision (E07b), which may still block it.
+    The fifth element is the reservation token (None when nothing was reserved).
     """
     can_generate, current_count, limit = check_usage_limit(user, db)
     is_unlimited = get_entitlements(user).has_unlimited_summaries
-    return can_generate, current_count, limit, is_unlimited
+    if not can_generate:
+        return can_generate, current_count, limit, is_unlimited, None
+    can_generate, current_count, limit, token = reserve_summary_use(user, db)
+    return can_generate, current_count, limit, is_unlimited, token
 
 
 # Bounds concurrent full generations per process to protect the single vCPU (see
@@ -259,6 +266,7 @@ async def stream_filing_summary(
     inflight_event: Optional[asyncio.Event] = None
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held = False
+    usage_reservation_token: Optional[str] = None
     summary_task: Optional[asyncio.Task] = None
 
     async def run_sync_db(func, *args, **kwargs):
@@ -399,11 +407,11 @@ async def stream_filing_summary(
 
             # Check usage limits for authenticated user
             if current_user:
-                def check_usage_sync() -> tuple[bool, int, Optional[int], bool]:
+                def check_usage_sync() -> tuple[bool, int, Optional[int], bool, Optional[str]]:
                     with database.SessionLocal() as usage_session:
                         return _check_usage_and_plan(current_user, usage_session)
 
-                can_generate, current_count, limit, user_is_unlimited = await run_sync_db(check_usage_sync)
+                can_generate, current_count, limit, user_is_unlimited, usage_reservation_token = await run_sync_db(check_usage_sync)
                 if not can_generate:
                     # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
                     # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
@@ -1049,9 +1057,13 @@ async def stream_filing_summary(
                         user = session.query(User).filter(User.id == user_id).first()
                         if user:
                             month = get_current_month()
+                            # Convert the reservation: its delete rides in the increment's commit,
+                            # so the unit is counted exactly once and never both held and counted.
+                            release_reservation(usage_reservation_token, session, commit=False)
                             increment_user_usage(user.id, month, session)
 
                 await run_sync_db(track_usage_sync)
+                usage_reservation_token = None
 
             mark_stage("usage_tracking")
 
@@ -1137,6 +1149,20 @@ async def stream_filing_summary(
             if not summary_task.done():
                 summary_task.cancel()
             await asyncio.gather(summary_task, return_exceptions=True)
+        # A reservation still held here was neither converted nor released (error, timeout,
+        # disconnect, or an uncounted partial result): give the quota unit back now.
+        if usage_reservation_token is not None:
+            token_to_release = usage_reservation_token
+            usage_reservation_token = None
+
+            def release_reservation_sync() -> None:
+                with database.SessionLocal() as session:
+                    release_reservation(token_to_release, session)
+
+            try:
+                await run_sync_db(release_reservation_sync)
+            except Exception as release_error:  # the lease expires on its own; never mask the outcome
+                logger.warning(f"[stream:{filing_id}] Could not release usage reservation: {release_error}")
         # Release the generation slot first (only if actually acquired), then in-flight leadership,
         # so a queued generation can start as soon as this one is done.
         if generation_slot_held and generation_semaphore is not None:

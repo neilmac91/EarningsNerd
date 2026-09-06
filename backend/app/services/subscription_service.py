@@ -1,9 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from typing import Optional
-from app.models import User, UserUsage
+from app.models import User, UserUsage, UsageReservation
+from app.utils.datetimes import utcnow
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
 # (redundant alias = intentional re-export) so existing
 # `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
@@ -94,6 +96,72 @@ def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]
         return False, current_count, limit
 
     return True, current_count, limit
+
+
+SUMMARY_RESERVATION_KIND = "summary"
+
+
+def _set_transaction_lock_timeout(db: Session) -> None:
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(select(func.set_config(
+            "lock_timeout", f"{settings.USAGE_COUNTER_LOCK_TIMEOUT_MS}ms", True,
+        )))
+
+
+def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
+    """Admit one summary generation and hold its quota unit under a short lease (E07b).
+
+    ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
+    each complete. This is the serialized decision: one transaction takes the account's
+    ``users`` row lock (bounded by ``USAGE_COUNTER_LOCK_TIMEOUT_MS``), counts completed uses
+    plus unexpired reservations, and only then inserts a reservation. Returns
+    ``(admitted, completed_count, limit, token)`` with the same limit semantics as
+    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
+    unlimited Pro returns no token). The caller converts or releases the token; a process
+    death leaves a row that admission ignores once ``expires_at`` passes and sweeps on the
+    account's next admission. No historical duplicate repair; Redis is not involved.
+    """
+    limit = get_entitlements(user).monthly_summary_limit
+    unlimited = limit is None
+    if unlimited:
+        cap = settings.PRO_SUMMARY_MONTHLY_CAP
+        if not cap:
+            return True, 0, None, None
+        limit = cap
+    month = get_current_month()
+    now = utcnow()
+    _set_transaction_lock_timeout(db)
+    db.query(User.id).filter(User.id == user.id).with_for_update().first()
+    db.query(UsageReservation).filter(
+        UsageReservation.user_id == user.id, UsageReservation.expires_at <= now,
+    ).delete(synchronize_session=False)
+    completed = get_user_usage_count(user.id, month, db)
+    active = db.query(func.count(UsageReservation.id)).filter(
+        UsageReservation.user_id == user.id,
+        UsageReservation.month == month,
+        UsageReservation.kind == SUMMARY_RESERVATION_KIND,
+        UsageReservation.expires_at > now,
+    ).scalar() or 0
+    if completed + active >= limit:
+        db.rollback()
+        return False, completed, limit, None
+    token = uuid4().hex
+    db.add(UsageReservation(
+        user_id=user.id, month=month, kind=SUMMARY_RESERVATION_KIND, token=token,
+        expires_at=now + timedelta(seconds=settings.USAGE_RESERVATION_TTL_SECONDS), created_at=now,
+    ))
+    db.commit()
+    return True, completed, (None if unlimited else limit), token
+
+
+def release_reservation(token: Optional[str], db: Session, *, commit: bool = True) -> None:
+    """Drop a reservation (idempotent). ``commit=False`` lets a completion delete it in the same
+    transaction as the counter increment, so a unit is never both reserved and counted."""
+    if not token:
+        return
+    db.query(UsageReservation).filter(UsageReservation.token == token).delete(synchronize_session=False)
+    if commit:
+        db.commit()
 
 
 def get_user_qa_count(user_id: int, month: str, db: Session) -> int:

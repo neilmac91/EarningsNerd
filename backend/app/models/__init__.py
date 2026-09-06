@@ -19,6 +19,7 @@ from app.models.invite import InviteCode
 from app.models.feedback import Feedback
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
+from app.models.usage_reservation import UsageReservation
 
 logger = logging.getLogger(__name__)
 

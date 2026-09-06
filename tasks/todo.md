@@ -36,14 +36,26 @@ leave a phantom unit against a 5/month free cap until month end):
 - Copilot/Analysis: slice 2 with `kind='qa'`/`'analysis'`; lifetime Copilot taste lives on
   `users` and needs its own treatment.
 
-- [ ] Model, migration file, Settings TTL, `reserve/convert/release` in `subscription_service`.
-- [ ] Pipeline wiring: reserve → convert/release → finally release.
-- [ ] PostgreSQL gate in the existing usage-concurrency home: 3 parallel reservations against
-  limit 1 admit exactly one; convert then reserve → blocked; release then reserve → admitted;
-  expired lease ignored; bounded lock wait (55P03) admits nothing. SQLite-safe unit coverage
-  for the pipeline's convert/release/finally paths; migration triple pass and lock-safety gate.
-- [ ] One mutation per invariant: reservation insert removed → over-admission test fails;
-  `expires_at` filter dropped → expired-lease test fails; `finally` release dropped → unit fails.
+- [x] Model `UsageReservation` (`earningsnerd_usage_reservations`), guarded migration
+  `20260906_earningsnerd_usage_reservations.sql`, `USAGE_RESERVATION_TTL_SECONDS` (300 s, must
+  exceed the 120 s pipeline timeout), `reserve_summary_use` / `release_reservation` (conversion =
+  delete without commit, then the existing increment commits both).
+- [x] Pipeline wiring: the patchable `check_usage_limit` read still decides first (test seams
+  and the locked `increment_user_usage` spy contract unchanged), then `reserve_summary_use`
+  makes the serialized decision and may still block; convert at the completion site when
+  `count_usage`; `finally` releases whatever is still held. The headless drain passes
+  `current_user=None` and never reaches admission, so nothing changes for cron/precompute.
+- [x] PostgreSQL gate (`test_usage_counter_transactions.py`, 4 new cases): 3 parallel
+  reservations against limit 2 admit exactly two; converted unit blocks, released unit
+  re-admits, `release_reservation(None)` is a no-op; expired lease ignored and swept; bounded
+  lock wait (`55P03`, < 1.5 s) admits nothing. Unit home `test_usage_reservation_wiring.py`
+  (6 cases, real pipeline with a `GenerationUserSnapshot`): full result converts to exactly one
+  counted unit, the reservation is visible while the provider runs, partial and failed
+  generations release, read-side block never reserves, serialized block honoured, unlimited
+  Pro reserves nothing.
+- [x] Mutations, each restored: reservation insert removed → `3 failed, 1 passed`; expiry
+  filter and sweep dropped → `1 failed, 3 passed`; `finally` release dropped → `2 failed,
+  4 passed`; completion conversion dropped → `2 failed, 4 passed`; restored `28 passed`.
 - [ ] Full backend gate (ruff, bandit, pytest with the three PostgreSQL URLs), draft PR, CI,
   release with one unverified backend rollout at a time: migration `applied=1`, revision,
   traffic, independent `/health/detailed`. No price, entitlement, analytics, locked-test or
@@ -68,7 +80,12 @@ founder-held (pricing/trial decisions), not changed here.
 - [x] Mutations: mirror set to 6 → `1 failed | 2 passed`; literal reintroduced in CtaBanner →
   `1 failed | 2 passed` naming the site; restored `3 passed`. Worktree lint/tsc clean,
   Vitest `102 files / 565 tests`.
-- [ ] Full gate on the cherry-picked head, draft PR, CI, release. No backend or policy change.
+- [x] Released as [#745](https://github.com/neilmac91/EarningsNerd/pull/745) → main
+  `e873ac8d95231fc090062d0dd37521bbbe35cc32`. Full gate on `6c829c4`: `103 files / 568 tests`,
+  build 27/27. Independent lens: fixture cap literal fixed (`7b1db38`); Codex P2 (gate missed
+  functional literals) fixed in `eb35e69` with two functional mutations. PR CI 34059487450,
+  34059520597, 34059582254, 34059812814 green; main CI 34060013570 green, backend deploy
+  skipped; Vercel production deployment 6297983771 succeeded.
 
 ## Calendar alert bell — pending identity is not a guest (engineering, 2026-09-06)
 

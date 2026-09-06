@@ -8,6 +8,8 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,14 +22,14 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
 from app.database import Base
-from app.models import Summary, User, UserUsage
+from app.models import Summary, UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 
 
 MONTH = "2026-09"
 WRITERS = [(usage.increment_user_usage, "summary_count"),
            (usage.increment_user_qa, "qa_count"), (usage.increment_user_analysis, "analysis_count")]
-TABLES = [User.__table__, UserUsage.__table__]
+TABLES = [User.__table__, UserUsage.__table__, UsageReservation.__table__]
 
 
 @pytest.fixture
@@ -242,3 +244,103 @@ async def test_signed_in_background_cached_summary_keeps_legacy_increment(sqlite
     with Session(sqlite_engine) as db:
         assert usage.get_user_usage_count(uid, usage.get_current_month(), db) == 1
         assert db.query(Summary).filter_by(filing_id=fid).count() == 1
+
+
+# --- E07b admission reservations (serialized decision + lease) --------------------------------
+# reserve_summary_use is the only serialized admission decision; these pin that N parallel
+# requests admit exactly the remaining units, that a converted unit blocks and a released one
+# re-admits, that an expired lease is ignored and swept, and that a bounded lock wait admits
+# nothing. The entitlement is stubbed to a small limit so the cases stay cheap.
+
+def _free_limit(monkeypatch, limit):
+    monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=limit))
+
+
+def _reservations(engine, user_id):
+    with Session(engine) as db:
+        return [(r.token, r.kind) for r in db.query(UsageReservation).filter_by(user_id=user_id).order_by(UsageReservation.id)]
+
+
+def _load_user(db, user_id):
+    return db.query(User).filter(User.id == user_id).one()
+
+
+def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgres_engine, monkeypatch):
+    _free_limit(monkeypatch, 2)
+    uid = _seed(postgres_engine, (0, 0, 0))
+    ready = threading.Barrier(3, timeout=5)
+
+    def reserve():
+        with Session(postgres_engine) as db:
+            user = _load_user(db, uid)
+            ready.wait()
+            return usage.reserve_summary_use(user, db)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        outcomes = [f.result(timeout=8) for f in [pool.submit(reserve) for _ in range(3)]]
+    admitted = [o for o in outcomes if o[0]]
+    blocked = [o for o in outcomes if not o[0]]
+    assert len(admitted) == 2 and len(blocked) == 1
+    assert all(o[3] for o in admitted) and blocked[0][3] is None
+    assert blocked[0][2] == 2  # the visible Free cap, as check_usage_limit reports it
+    assert len(_reservations(postgres_engine, uid)) == 2
+    assert _rows(postgres_engine, uid)[0][1] == 0  # nothing counted until completion
+
+
+def test_postgres_converted_reservation_blocks_and_released_reservation_readmits(postgres_engine, monkeypatch):
+    _free_limit(monkeypatch, 1)
+    uid = _seed(postgres_engine, (0, 0, 0))
+    with Session(postgres_engine) as db:
+        admitted, completed, limit, token = usage.reserve_summary_use(_load_user(db, uid), db)
+        assert (admitted, completed, limit) == (True, 0, 1) and token
+        # The reservation is held, so a second request is blocked before anything completes.
+        assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is False
+        # Completion converts: delete rides in the increment's commit.
+        usage.release_reservation(token, db, commit=False)
+        usage.increment_user_usage(uid, MONTH, db)
+    assert _reservations(postgres_engine, uid) == []
+    assert _rows(postgres_engine, uid)[0][1] == 1
+    with Session(postgres_engine) as db:
+        assert usage.reserve_summary_use(_load_user(db, uid), db) == (False, 1, 1, None)
+
+    other = _seed(postgres_engine, (0, 0, 0))
+    with Session(postgres_engine) as db:
+        _, _, _, token = usage.reserve_summary_use(_load_user(db, other), db)
+        assert usage.reserve_summary_use(_load_user(db, other), db)[0] is False
+        usage.release_reservation(token, db)  # abandoned generation: give the unit back
+        assert usage.reserve_summary_use(_load_user(db, other), db)[0] is True
+        usage.release_reservation(None, db)  # idempotent no-op
+    assert _rows(postgres_engine, other)[0][1] == 0
+
+
+def test_postgres_expired_reservation_is_ignored_and_swept(postgres_engine, monkeypatch):
+    _free_limit(monkeypatch, 1)
+    uid = _seed(postgres_engine, (0, 0, 0))
+    with Session(postgres_engine) as db:
+        db.add(UsageReservation(
+            user_id=uid, month=MONTH, kind=usage.SUMMARY_RESERVATION_KIND, token="stale-lease",
+            expires_at=usage.utcnow() - timedelta(seconds=1), created_at=usage.utcnow() - timedelta(seconds=400),
+        ))
+        db.commit()
+        admitted, _, _, token = usage.reserve_summary_use(_load_user(db, uid), db)
+    assert admitted and token
+    assert [t for t, _ in _reservations(postgres_engine, uid)] == [token]  # stale row swept
+
+
+def test_postgres_reservation_lock_wait_is_bounded_and_admits_nothing(postgres_engine, monkeypatch):
+    _free_limit(monkeypatch, 5)
+    uid = _seed(postgres_engine, (0, 0, 0))
+    monkeypatch.setattr(settings, "USAGE_COUNTER_LOCK_TIMEOUT_MS", 80)
+    holder = Session(postgres_engine)
+    holder.execute(select(User.id).where(User.id == uid).with_for_update())
+    try:
+        started = time.monotonic()
+        with Session(postgres_engine) as db, pytest.raises(DBAPIError) as excinfo:
+            usage.reserve_summary_use(_load_user(db, uid), db)
+        assert getattr(excinfo.value.orig, "pgcode", None) == "55P03"
+        assert time.monotonic() - started < 1.5
+    finally:
+        holder.rollback()
+        holder.close()
+    assert _reservations(postgres_engine, uid) == []
+
