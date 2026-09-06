@@ -9,13 +9,13 @@ The founder explicitly approved the fixture-only `_post_event` change on 2026-09
 `backend/tests/unit/test_subscription_webhook_sync.py`; every payload/request/assertion and
 all other locked tests remain unchanged. This does not approve a replacement-transition policy.
 
-- [ ] Add a dedicated exact-ID Stripe read with explicit connect/read inactivity settings,
+- [x] Add a dedicated exact-ID Stripe read with explicit connect/read inactivity settings,
   zero SDK retries, recursive conversion, identity/status/optional-field validation and transport cleanup.
-- [ ] Reconcile created/updated events only for the current bound ID, after account lock/recheck
+- [x] Reconcile created/updated events only for the current bound ID, after account lock/recheck
   and dedup; preserve checkout, deletion, unknown-owner, initial and different-ID behavior.
-- [ ] Fail provider/invalid-state reads with retryable 503 and atomic rollback; never use a stale
+- [x] Fail provider/invalid-state reads with retryable 503 and atomic rollback; never use a stale
   payload as a success fallback. Retain the existing entitlement writer and original event identity.
-- [ ] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
+- [x] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
   PostgreSQL transaction home for provider contention, cancellation and successful retry.
 - [ ] Commit source, run one bounded mutation per new invariant with exact restore, and run
   Ruff/Bandit/full backend plus real PostgreSQL gates. Record evidence and scope limits.
@@ -27,11 +27,15 @@ five-second deadline. DNS/progressing responses may exceed their sum. The accoun
 connection remain owned by the worker during this read. Cross-ID replacement chronology,
 cross-user identity races and analytics exactly-once remain separate work.
 
+Focused source checkpoint: 93 billing tests passed, including all unchanged assertions in the
+approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. Source
+commit, invariant mutations, full backend gate and independent review remain pending.
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
 This prerequisite preserves all locked contracts. General stale-event reconciliation remains
-separate and needs approval for a provider stub in the locked webhook fixture.
+separate at this source checkpoint; the founder subsequently approved the E05c helper-only stub.
 
 - [x] Move verified Stripe-event database work into one worker-owned session/transaction.
 - [x] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
@@ -44,7 +48,7 @@ separate and needs approval for a provider stub in the locked webhook fixture.
   `STRIPE_CONCURRENCY_TEST_DATABASE_URL`; require PostgreSQL when supplied and skip only those
   fixtures when absent from the ordinary SQLite lane. Gate this CI execution path mechanically.
 - [x] Retain one mutation proof per new invariant, full local backend/workflow checks and independent review.
-- [ ] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
+- [x] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
 
 No new Stripe network calls, schema migration, locked-test changes, pricing/trial/promo policy,
 production flag or capacity change. Per-user serialization does not establish Stripe chronology,
@@ -61,7 +65,11 @@ bypassed account lock/recheck → 2; premature state commit → 1 (subscription 
 analytics before commit/close → 1; missing PostgreSQL CI URL → 1. Every source mutation restored
 exact committed bytes; restored runtime gate 11 passed and restored CI gate 1 passed. Independent
 correctness/rules/tests review found no actionable issue. Locked contracts and baseline remain
-byte-identical. CI/eval and production outcomes are pending this source checkpoint.
+byte-identical. CI/eval and production outcomes were pending at that source checkpoint.
+
+Root subsequently verified #725 merged as `f94501f`; production run `34029873954`, deploy
+`101477674329`, succeeded with `applied=0 skipped=34`. Revision `00279-s9z` serves 100%;
+independent health timestamp `1788693905.0609558`: healthy, DB 8.24 ms, Redis disabled, SEC closed.
 
 ### E05a — Subscription identity and delayed-event guards (engineering)
 

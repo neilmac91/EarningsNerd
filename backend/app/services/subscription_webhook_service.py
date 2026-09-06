@@ -1,8 +1,8 @@
 """Worker-owned Stripe transactions, serialized on each existing account's User row.
 
-This prevents overlapping deliveries from racing the per-user subscription row. It does not
-order stale Stripe events or serialize conflicting bindings across different users. No ORM
-objects escape the worker, and best-effort analytics run after commit and session closure.
+This prevents overlapping deliveries from racing the per-user subscription row. Current-ID
+created/updated events read current Stripe state; cross-ID ordering and cross-user bindings remain
+separate. No ORM objects escape the worker, and best-effort analytics run after commit and session closure.
 """
 from __future__ import annotations
 
@@ -12,9 +12,10 @@ from typing import Optional
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.models import User
+from app.models import Subscription, User
 from app.services import subscription_sync
 from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
+from app.services.stripe_subscription_reader import retrieve_subscription_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,18 @@ def _lock_event_owner(db: Session, event_type: str, obj: dict) -> Optional[User]
     if _event_owner_id(db, event_type, obj) != owner_id:
         raise SubscriptionEventBusy("Stripe ownership changed while acquiring the account lock")
     return user
+
+
+def _reconcile_current_subscription(db: Session, event_type: str, obj: dict, user: Optional[User]) -> dict:
+    """Refresh only an already-bound ID; initial/replacement and signed deletion paths stay intact."""
+    if user is None or event_type not in ("customer.subscription.created", "customer.subscription.updated"):
+        return obj
+    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+    current_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
+    if not current_id or obj.get("id") != current_id:
+        return obj
+    customer_id = (sub.stripe_customer_id if sub else None) or user.stripe_customer_id
+    return retrieve_subscription_snapshot(current_id, customer_id)
 
 
 def _apply_event(db: Session, event_type: str, obj: dict, user: Optional[User]) -> list[tuple]:
@@ -89,6 +102,7 @@ def process_stripe_event(event: dict) -> dict:
         user = _lock_event_owner(db, event_type, obj)
         if subscription_sync.is_event_processed(db, event_id):
             return {"status": "success", "idempotent": True}
+        obj = _reconcile_current_subscription(db, event_type, obj, user)
         analytics = _apply_event(db, event_type, obj, user)
         subscription_sync.mark_event_processed(db, event_id, event_type)
         db.commit()
