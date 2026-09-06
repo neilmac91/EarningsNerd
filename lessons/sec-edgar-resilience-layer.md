@@ -25,7 +25,8 @@ sync bridge) use direct httpx through shared limiter/backoff without the breaker
 `edgar/xbrl_service.py` companyfacts fallback uses `execute()` without the breaker. Ticker and
 filing-document fetches in `edgar/compat.py` carry both limiter and breaker. Primary XBRL/local
 parsing retains plain timeouts so CPU cost does not become a false SEC-health failure.
-These existing paths do not authorize new unpaced SEC requests.
+Preserve these existing transport owners. They do not authorize raw-HTTP SEC bypasses
+outside them, even if paced.
 
 **Gate scope**: `test_sec_gov_importers_allowlist.py` bounds `sec.gov` literal locations and
 keeps pure URL-builder/Settings exemptions free of HTTP imports. It does not trace dynamic URL

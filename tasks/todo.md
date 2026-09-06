@@ -11,9 +11,16 @@ benign rendering text. Earlier CI and mutation evidence remains scoped history.
 - [x] Correct active SEC guidance and literal-gate descriptions without changing runtime or
   executable SEC checks; distinguish limiter-only paths, local parsing and the manual diagnostic.
 - [x] Bound the three Render platform phrases and assert benign rendering text in the same gate.
-- [ ] Prove one removed-boundary mutant fails the benign-phrase assertion, restore exactly,
-  run the coherent backend gate and documentation/preservation checks.
-- [ ] Independent delta review and root's corrected actual CI/merge/deployment verification.
+- [x] Removed-boundary mutant failed the intended `section rendering` assertion: `1 failed
+  in 0.03s`; exact restoration passed (`1 passed in 0.04s`).
+- [x] Source `37b3e04e`: coherent Python 3.11.16, 105 exact pins, Ruff/Bandit exit 0;
+  `2383 passed, 2 deselected, 23 warnings in 54.17s`, exit 0. SEC-gate executable AST is
+  unchanged after excluding its description/error messages; application runtime is unchanged.
+  Final prose preserves existing transport ownership even for paced requests.
+  All 80 brief source paths and 152 local links resolve (31 brief links); original archives,
+  §7/ledger, locked contracts and sole baseline remain exact.
+- [ ] Complete independent final delta/evidence review.
+- [ ] Root: inspect corrected actual CI, merge and verify deployment.
 
 The final table audit corrected app-chrome placement to files directly under `frontend/components/`
 and distinguished seven configured job targets from verified provisioning. Root and two reviewers

@@ -69,8 +69,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    parsing. Existing raw-HTTP paths outside it — `SECFullTextSearchClient` in
    `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
    use the shared limiter/backoff without the breaker. The in-layer XBRL companyfacts fallback
-   also uses the limiter without the breaker, with a single token wait. Do not add new unpaced
-   SEC paths or assume every existing call uses the breaker. SEC's cap is 10 req/s per IP;
+   also uses the limiter without the breaker, with a single token wait. Preserve these existing
+   transport owners: do not add raw-HTTP SEC bypasses outside them, even if paced. Do not assume
+   every existing call uses the breaker. SEC's cap is 10 req/s per IP;
    limiter state is per-process (API service + Cloud Run jobs each carry their own bucket).
    `tests/unit/test_sec_gov_importers_allowlist.py` bounds `sec.gov` URL literals and keeps the
    URL-builder/Settings exemptions free of HTTP imports; it does not prove dynamic call routing.

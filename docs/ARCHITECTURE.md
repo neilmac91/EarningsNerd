@@ -154,7 +154,8 @@ period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, pl
 uses plain timeouts for local parsing, and its raw companyfacts fallback uses a single limiter
 wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
 in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
-use shared limiter/backoff without the breaker. Do not add new unpaced SEC paths.
+use shared limiter/backoff without the breaker. Preserve the existing transport owners;
+do not add raw-HTTP SEC bypasses outside them, even if paced.
 `test_sec_gov_importers_allowlist.py` checks URL-literal homes and pure-builder/Settings HTTP
 import exclusions; dynamic URLs and the full request graph are outside that gate's proof.
 
