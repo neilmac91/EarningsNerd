@@ -1,9 +1,9 @@
 """New-filing alert models: per-user notification preferences + a send/dedup log.
 
 `NotificationPreferences` is one row per user (form-type opt-ins, channel, digest cadence, and a
-Pro-gated realtime flag). `NotificationLog` is the dedup + audit ledger — a unique
-``(user_id, filing_id, channel)`` makes a double-send impossible even under concurrent/retried
-scans (the same role `stripe_events` plays for the Stripe webhook).
+Pro-gated realtime flag). `NotificationLog` has unique ``(user_id, filing_id, channel)``
+rows. The engine sends before inserting the log, so the constraint cannot prevent concurrent
+external sends. Existing logs, including failed attempts, currently suppress delivery retries.
 
 Kept portable like the rest of the schema: plain ``String`` not PG enums, ``DateTime(timezone=True)``
 so the same tables work on Postgres (prod) and SQLite (tests).
