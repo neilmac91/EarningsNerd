@@ -19,7 +19,7 @@ harness/golden and eval merge `15d33d90` parents exactly matched that old base/h
 `/private/tmp/earningsnerd-e15-evidence/approved-remote`. This is not CI evidence for a new head.
 
 Latest integration `7474eb6b8750a740a409b7357ce5fd814f6d5d48` contains main
-`414ea91347df5b93a2ad12c1423b807ba35328fe` (#736 login and #735 summary handoff).
+`414ea91347df5b93a2ad12c1423b807ba35328fe` (#736 login; #735 had not yet merged).
 The only merge conflict was an appended task-ledger checkpoint; both histories remain.
 Sitemap runtime, regression tests and eligibility lesson are byte-identical to `b922d32`.
 Every other backend file, locked test, all frontend files and the three PostgreSQL CI lanes
@@ -522,6 +522,27 @@ coverage or E15a deployment verification. Branch publication is authorized after
 root retains PR creation, CI acceptance and serialized deployment. E15b remains separate.
 
 ### E15a — Match sitemap eligibility to existing page content (engineering)
+
+Latest integration plan (2026-09-06; exact five-action approval):
+
+- [ ] Integrate released main `96d7658c3a2d89c0c4b7688f1e9a2aee1025bc79`, preserving
+  E10b saved-status and E09 handoff code/tests, login and all three PostgreSQL CI lanes.
+- [ ] Retain sitemap runtime/tests/lesson identical to `b922d32` and both original proofs;
+  resolve task-document conflicts preserving every checkpoint, review all three lenses.
+- [ ] Run full Ruff/Bandit/backend with all three local PostgreSQL URLs; retain frontend
+  verification by identity to main; record results here and normally push the clean branch.
+
+Prior remote evidence remains distinct. Head `f84567f` / evaluated base `414ea913` failed CI
+`34043458241`: artifact `9992485051` had 52 attempts, 50 scores and two 75-second timeouts
+(BA 10-K run 1, 75.001s, eight previews; BABA 20-F run 1, 75.002s, nine previews).
+Regression rejected two execution errors and two missing scores. Copilot `34043458245`
+accepted 18/18; its 24 source hashes/scratch DB and unchanged harness/golden were verified.
+Evidence is retained in `/private/tmp/earningsnerd-e15-evidence/login-integrated-remote`.
+The earlier accepted source `6f5e95e` / base `ee3ac988` remains under `approved-remote`;
+it does not erase the later failure. No AI, timeout, baseline, flag or model change or retry
+is part of this integration. Correction to the earlier checkpoint: `414ea913` included #736
+login; #735 summary handoff lands only now at `96d7658`. Root owns new remote acceptance
+and serialized release; no prior evaluated source is claimed to include the new releases.
 
 Based on `6a648f7`. The filing-page server predicate rejects the exact, case-sensitive
 `Generating summary` substring; the company route rejects curated unsupported foreign
