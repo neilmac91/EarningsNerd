@@ -223,12 +223,17 @@ def payment_report(db: Session, since: datetime, until: datetime, *, livemode: b
         BillingPayment.livemode == livemode, BillingPayment.amount_minor > 0,
         BillingPayment.payment_type.in_(COLLECTED_PAYMENT_TYPES), BillingPayment.subscription_invoice.is_(True),
     )
-    first = dict(db.query(BillingPayment.user_id, func.min(BillingPayment.paid_at)).filter(
-        *qualifying, BillingPayment.user_id.isnot(None)).group_by(BillingPayment.user_id))
+    # One statement snapshot: a new user's payment can commit while a report is running.
+    # A separate first-timestamp query would miss that user before the window query sees them.
+    first = db.query(
+        BillingPayment.user_id.label("owner_id"), func.min(BillingPayment.paid_at).label("first_paid_at"),
+    ).filter(*qualifying, BillingPayment.user_id.isnot(None)).group_by(BillingPayment.user_id).subquery()
     currencies, excluded, cohorts = {}, defaultdict(int), defaultdict(set)
     first_labels = defaultdict(set)
     observations = 0
-    for row in db.query(BillingPayment).filter(
+    for row, first_paid_at in db.query(BillingPayment, first.c.first_paid_at).outerjoin(
+        first, BillingPayment.user_id == first.c.owner_id,
+    ).filter(
         BillingPayment.livemode == livemode, BillingPayment.paid_at >= since, BillingPayment.paid_at < until,
     ).yield_per(500):
         observations += 1
@@ -254,7 +259,7 @@ def payment_report(db: Session, since: datetime, until: datetime, *, livemode: b
             group["unattributed_payment_count"] += 1
         else:
             group["users"].add(row.user_id)
-            if _utc(row.paid_at) == _utc(first[row.user_id]):
+            if _utc(row.paid_at) == _utc(first_paid_at):
                 first_labels[(row.user_id, _utc(row.paid_at).strftime("%Y-%m"))].add(
                     (row.is_beta_observed, row.invite_cohort_observed))
     for (user_id, month), labels in first_labels.items():
@@ -270,6 +275,7 @@ def payment_report(db: Session, since: datetime, until: datetime, *, livemode: b
                                        "invoice_count": len(values["invoices"])}
                                       for name, values in sorted(cycles.items())],
                                   "nonzero_invoice_count": len(invoices), "observed_paying_users": len(users)})
+    # Coverage metadata is a later statement; it is not an atomic snapshot of the whole report.
     observed_from = db.query(func.min(BillingPayment.observed_at)).filter(BillingPayment.livemode == livemode).scalar()
     return {
         "since_inclusive": iso_z(since), "until_exclusive": iso_z(until), "livemode": livemode,

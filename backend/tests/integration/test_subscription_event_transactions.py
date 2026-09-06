@@ -480,3 +480,44 @@ async def test_postgres_duplicate_payment_distinct_events_count_once(postgres_en
         assert await first == {"status": "success"}
     assert await _deliver(_payment_event("evt_another_payment_delivery")) == {"status": "success"}
     assert _payments(postgres_engine) == (1, 2, 3900)
+
+
+def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(postgres_engine):
+    """A concurrent first payment must not outgrow a separate user-to-first-time dictionary."""
+    from datetime import datetime, timezone
+    from app.services.billing_revenue_service import payment_report
+
+    user_id = _seed(postgres_engine)
+    since = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    until = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    inserted = False
+
+    def insert_after_snapshot(conn, cursor, statement, parameters, context, executemany):
+        nonlocal inserted
+        if inserted or "min(" not in statement.lower() or "earningsnerd_billing_payments" not in statement:
+            return
+        inserted = True
+        with Session(postgres_engine) as writer:
+            writer.add(BillingPayment(
+                stripe_payment_id="inpay_concurrent_report", livemode=True,
+                stripe_invoice_id="in_concurrent_report", source_event_id="evt_concurrent_report",
+                amount_minor=3900, currency="usd", payment_type="payment_intent", paid_at=since,
+                subscription_invoice=True, user_id=user_id, attribution="attributed",
+            ))
+            writer.commit()
+
+    sqlalchemy_event.listen(postgres_engine, "after_cursor_execute", insert_after_snapshot)
+    try:
+        with Session(postgres_engine) as reader:
+            report = payment_report(reader, since, until)
+    finally:
+        sqlalchemy_event.remove(postgres_engine, "after_cursor_execute", insert_after_snapshot)
+    assert inserted
+    assert report["currencies"] == []
+    assert report["first_observed_payment_cohorts"] == []
+    # This separate coverage-metadata statement can see a newer committed observation.
+    assert report["earliest_retained_observation"] is not None
+    with Session(postgres_engine) as reader:
+        next_report = payment_report(reader, since, until)
+    assert next_report["currencies"][0]["observed_paying_users"] == 1
+    assert next_report["first_observed_payment_cohorts"][0]["users"] == 1
