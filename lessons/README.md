@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-payments-need-allocation-evidence.md`](./arch-payments-need-allocation-evidence.md) — Measure canonical allocations with explicit attribution, coverage and deletion limits
+
 - [`arch-reconciliation-follows-values-and-growth.md`](./arch-reconciliation-follows-values-and-growth.md) — Carry reconciliation quality through values, growth, citations and exports
 
 - [`arch-committed-universe-fail-open.md`](./arch-committed-universe-fail-open.md) — Bound discovery surfaces to a committed universe with a fail-open filter
