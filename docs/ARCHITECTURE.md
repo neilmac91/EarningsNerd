@@ -116,6 +116,7 @@ frontend/
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Usage tracking (re-exports entitlement limits) |
+| `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks and post-commit analytics; stale-event chronology remains separate |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
@@ -308,3 +309,12 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 [`docs/adr/`](./adr/): the hosting move to Cloud Run, the AI-provider migrations
 (Gemini, then DeepSeek — ADR-0002/0006), `edgartools` for SEC data, Redis-off-in-prod,
 and staying on React 18 under Next 16.
+
+Failed-login recording uses the existing `login_attempts.email_hash` primary key for concurrent
+insert/update and successful-clear ordering on PostgreSQL and SQLite. A failure waiting behind
+a committed success clear creates a new history; after a rolled-back clear it increments the
+retained history. Initial timestamps retain their database default, while updates stamp the
+existing failure clock explicitly. The change counts completed failures; credential checks
+already admitted before a lock are not reserved. Old revision writers must drain before their
+read-modify-write path can no longer overwrite counts. Per-IP memory bounds, row retention and
+new timeout/retry policy remain separate.

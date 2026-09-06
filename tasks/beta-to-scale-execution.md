@@ -24,7 +24,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13a atomic recording implemented locally; local limiter bounds remain separate |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
@@ -100,3 +100,10 @@ Integrated source `43eb5c8` includes current main `049cd4f`; full backend gate: 
 Bandit 0 medium/high, `2412 passed, 2 deselected, 23 warnings in 50.01s` (exit 0). The initial
 lifetime/health proofs and one additional exact-site lookup proof are retained. E03 still needs
 publication, actual CI/eval inspection and serialized deployment; local evidence is not release evidence.
+
+
+E13a source checkpoint: native PostgreSQL/SQLite failed-login upserts preserve reset/threshold
+and timestamp semantics, while successful-login clearing remains in the caller transaction.
+Focused real PostgreSQL, behavioral, unchanged auth and workflow checks: 66 passed. No schema,
+configuration, retention deletion, admission reservation or locked-contract change. Source
+mutation/full-gate/review evidence and root-owned publication/release remain pending.

@@ -9,11 +9,11 @@ native SQLAlchemy PostgreSQL/SQLite upserts on the existing email-hash primary k
 all three public helpers, commit ownership and exact reset/threshold/window behavior. No schema,
 data deletion, configuration/flag change, auth contract change or admission-reservation claim.
 
-- [ ] Use one atomic insert/update, retaining server-default first-insert timestamps, explicit
+- [x] Use one atomic insert/update, retaining server-default first-insert timestamps, explicit
   failure timestamps on updates and conditional expired-lock/stale-window reset semantics.
-- [ ] Keep success clearing in the caller transaction; document/test linearized clear/failure
+- [x] Keep success clearing in the caller transaction; document/test linearized clear/failure
   outcomes without claiming that credential checks already in progress are reserved.
-- [ ] Reuse existing behavioral tests; add only PostgreSQL concurrency invariants in one new
+- [x] Reuse existing behavioral tests; add only PostgreSQL concurrency invariants in one new
   `backend/tests/integration/test_login_lockout_transactions.py` home and required CI execution.
 - [ ] Commit source, run exactly one mutation per new invariant with exact restoration, then
   full backend and workflow/Node gates. Keep every locked auth/stream/billing test byte-identical.
@@ -23,6 +23,9 @@ The per-IP limiter, durable-row retention and event-loop/database ownership rema
 Existing revisions can still overwrite counts until old writers drain. No new database timeout
 or retry policy is introduced, and database failures continue to propagate.
 
+
+Focused source checkpoint: 66 PostgreSQL/behavioral/unchanged-auth/workflow checks passed.
+Source commit, bounded mutation proofs, full backend/workflow/Node gates and review are pending.
 
 ### E10a — Filing-first financial-facts index (engineering)
 

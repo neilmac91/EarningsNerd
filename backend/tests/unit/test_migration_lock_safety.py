@@ -64,6 +64,7 @@ import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
 import yaml
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -474,19 +475,23 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
-def test_stripe_concurrency_has_a_required_postgres_ci_execution_path():
+@pytest.mark.parametrize("label,test_home,url_name", [
+    ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+])
+def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
     """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
-    step = _step(job, "Verify Stripe transaction concurrency on PostgreSQL")
+    step = _step(job, f"Verify {label} concurrency on PostgreSQL")
     assert step.get("working-directory") == "backend"
-    assert step.get("run") == "python -m pytest tests/integration/test_subscription_event_transactions.py"
-    assert step.get("env", {}).get("STRIPE_CONCURRENCY_TEST_DATABASE_URL") == (
+    assert step.get("run") == f"python -m pytest tests/integration/{test_home}"
+    assert step.get("env", {}).get(url_name) == (
         "postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd"
-    ), "PostgreSQL Stripe cases must receive the disposable service URL, or they silently skip"
+    ), "PostgreSQL concurrency cases must receive the disposable service URL, or they silently skip"
     assert step.get("continue-on-error", False) is False
     assert job.get("continue-on-error", False) is False
-    assert "if" not in step, "Stripe concurrency checks must run on every successful migration gate"
+    assert "if" not in step, "Concurrency checks must run on every successful migration gate"
     assert 0 < step.get("timeout-minutes", 0) <= 5
     assert MIGRATIONS_JOB in _deploy_job(ci)["needs"]
 
