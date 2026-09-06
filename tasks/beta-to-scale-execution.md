@@ -16,12 +16,12 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | #721 released; backend deployment and independent health verified |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | #723 released; CI/evals, migration tail, revision/traffic and independent health verified |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
-| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c current-ID reconciliation implemented locally under helper-only fixture approval. Cross-ID policy remains separate |
-| E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
+| E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
+| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 merged as `cab71f9`; root verified deployment. Account export and lifecycle fixture corrections retained |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | E09a local failed-leader handoff implemented; fleet admission and quotas remain separate |
-| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 merged; production verification pending. Other hot reads queued |
+| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
@@ -122,6 +122,22 @@ the macOS native-library environment and failed two PDF tests; direct Python inv
 without a source change. Provider timeout settings limit connect/read inactivity, not total
 duration. Independent review and release evidence remain pending at this checkpoint.
 
+
+E06 source `a7e2ff4` integrates E05c and records canonical InvoicePayment allocations without
+changing entitlements. Root/independent review found and corrected a report snapshot race;
+window rows and first-payment timestamps now share one statement. Final local backend gate:
+Ruff clean, Bandit 0 medium/high severity, 2524 passed / 2 deselected in 51.90s with PostgreSQL
+cases enabled. Eight initial invariant mutation failures and one exact race proof were restored.
+The migration ledger passed 35 apply / 35 skip / 35 replay in a dedicated local database.
+Locked Stripe files remain byte-identical to E05c `aa36c95`. Root and independent review are clear; integrated main `6a648f7` in `bef2dc8` without E06
+runtime/test changes. Publication and production event-selection verification remain separate; no present
+revenue or full-history claim follows from [the report](../docs/observed-invoice-payments.md).
+
+E06 combined source `bef2dc8` (main `6a648f7`) passed Ruff/Bandit and all 2524 backend tests
+with PostgreSQL enabled (2 deselected, 23 warnings, 56.08s; exit 0). Earlier 35-file migration
+replay remains scoped evidence; combined migration CI must include all 36 files after E10.
+Root/independent review is clear, locked files match main, and no mutation was repeated.
+Publication follows verified E05c deployment; event coverage is still unverified.
 
 E09a local source `fe6916c` corrects competing failed-leader followers, expired-follower takeover
 and delayed empty DB snapshots. A joined follower holds its replacement claim during a fresh
