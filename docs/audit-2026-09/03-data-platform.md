@@ -80,6 +80,19 @@ calendar sweep, notable scan, history backfill; `alpha_vantage` — live (prod c
 
 ### Jobs
 
+**Correction, 2026-09-06:** The paragraphs and table below preserve the original audit
+snapshot. Current filing scan/digest entrypoints use `job_run_service.track_job`, which records
+attempts and returned failure counters in independent transactions. This replaces their original
+"None" failure-visibility description; it does not undo the business transaction. The table's
+"unique key blocks dupes" refers only to log rows: `filing_scan_service` sends before inserting
+the unique `NotificationLog`, so concurrent external sends can duplicate, and logged failures
+currently suppress retries. The former CLI dry-run used a successful no-op sender through that
+same mutating service. The dry-run safety change rejects both modes before application work;
+it creates no preview and repairs no historical logs. See
+[`scripts/filing_scan.py`](../../backend/scripts/filing_scan.py),
+[`job_run_service.py`](../../backend/app/services/job_run_service.py), and
+[`filing_scan_service.py`](../../backend/app/services/filing_scan_service.py).
+
 Schedules are created out-of-band (Cloud Scheduler) per `docs/DEPLOYMENT.md` §9–§12; CI only bumps images (`ci.yml:392-415`).
 No job has a heartbeat, dead-man switch or Sentry (`sentry_sdk.init` exists only in `backend/main.py:24`; scripts never initialise
 it). Failure visibility = Cloud Run job execution history + Cloud Logging. Scheduler retry policy is out-of-band and

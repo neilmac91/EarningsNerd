@@ -52,3 +52,12 @@ Gate: `backend/tests/unit/test_inflight_dedup.py` drives competing followers aft
 leadership, exhausted follower budgets, and delayed empty reads after replacement completion.
 The tests retain one replacement provider call and the same persisted result, including forced
 requests. Existing provider lifecycle gates continue to prove cleanup before ownership release.
+
+**Lifecycle fixture timing (2026-09-06)**: The provider cleanup timeout case uses a real
+initially unarmed Timeout and reschedules it only after provider entry and a summarizing
+heartbeat. A 120 ms deadline starting before DB/thread preparation could expire before a
+provider existed, making its unconditional close assertion fail for the wrong reason. The
+pipeline-local asyncio proxy preserves provider deadlines and all cleanup assertions. Gate:
+`test_summary_provider_lifecycle.py::test_pipeline_stops_owned_sdk_task_before_releasing_slot`.
+PR #741's original CI failure and a controlled 150 ms preparation-delay reproduction establish
+the fixture defect; the same delay passes after correction. Production timeouts are unchanged.
