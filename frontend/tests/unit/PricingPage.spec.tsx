@@ -12,6 +12,10 @@ const mockCreateCheckoutSession = vi.fn()
 // Controls the pricing A/B arm per test (roadmap 2.3). Default (undefined) = the $39 control.
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
 const mockCheckoutStarted = vi.fn()
+const mockPush = vi.fn()
+// Test-only capture of the real onClick each card Button was rendered with, keyed by label, so
+// the actual upgrade handler can be exercised independently of the DOM's disabled state.
+const capturedOnClick = new Map<string, (() => void) | undefined>()
 
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: () => mockGetSubscriptionStatus(),
@@ -24,9 +28,18 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
   useSearchParams: () => ({ get: () => null }),
 }))
+
+vi.mock('@/components/ui/Button', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/Button')>()
+  const Button = (props: React.ComponentProps<typeof actual.Button>) => {
+    if (props.size === 'lg' && typeof props.children === 'string') capturedOnClick.set(props.children, props.onClick as (() => void) | undefined)
+    return <actual.Button {...props} />
+  }
+  return { ...actual, Button }
+})
 
 vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockUseFeatureFlagVariantKey() }))
 vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }))
@@ -74,6 +87,8 @@ describe('PricingPage', () => {
     mockCreateCheckoutSession.mockReset()
     mockUseFeatureFlagVariantKey.mockReset()
     mockCheckoutStarted.mockReset()
+    mockPush.mockReset()
+    capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
     mockGetUsage.mockResolvedValue(baseUsage)
     mockCreateCheckoutSession.mockResolvedValue({ url: '' }) // falsy url → no navigation in onSuccess
@@ -196,5 +211,136 @@ describe('PricingPage', () => {
       expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 290, 'yearly', 'price_29'),
     )
     expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly')
+  })
+
+  // --- Honest account states (billing-state-honesty): absent account data is not a decision ---
+
+  const noCheckoutSideEffects = () => {
+    expect(mockCheckoutStarted).not.toHaveBeenCalled()
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  }
+
+  it('unresolved identity claims no plan, arms no checkout and is not routed as a guest', async () => {
+    mockGetCurrentUserSafe.mockReturnValue(new Promise(() => {}))
+    renderPricing()
+
+    const checking = await screen.findAllByRole('button', { name: /checking your plan/i })
+    expect(checking).toHaveLength(2)
+    checking.forEach((button) => expect(button).toBeDisabled())
+    expect(screen.queryByRole('button', { name: /current plan/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /upgrade to pro|start 7-day|claim pro/i })).not.toBeInTheDocument()
+    expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
+
+    // The real handlers, invoked past the disabled DOM: nothing is recorded, sent or redirected.
+    capturedOnClick.get('Checking your plan…')?.()
+    await Promise.resolve()
+    noCheckoutSideEffects()
+  })
+
+  it('a failed identity check shows an account error with retry, never a guest or Free view', async () => {
+    mockGetCurrentUserSafe.mockRejectedValueOnce(new Error('network down'))
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    expect(await screen.findByText(/couldn't check your account/i)).toBeInTheDocument()
+    expect(screen.getByText('network down')).toBeInTheDocument()
+    const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
+    expect(unavailable).toHaveLength(2)
+    unavailable.forEach((button) => expect(button).toBeDisabled())
+    expect(screen.queryByRole('button', { name: /current plan|get started free/i })).not.toBeInTheDocument()
+    capturedOnClick.get('Plan unavailable')?.()
+    await Promise.resolve()
+    noCheckoutSideEffects()
+
+    // Retry resolves the identity and the ordinary Free view follows.
+    fireEvent.click(screen.getByRole('button', { name: /retry account check/i }))
+    await screen.findByRole('button', { name: /^current plan$/i })
+    expect(screen.queryByText(/couldn't check your account/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /upgrade to pro/i })).toBeEnabled()
+  })
+
+  it('a known user with no subscription snapshot gets no current plan or checkout until it resolves', async () => {
+    let resolveSubscription!: (value: SubscriptionStatus) => void
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { resolveSubscription = resolve }))
+    renderPricing()
+
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByRole('button', { name: /checking your plan/i })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /current plan/i })).not.toBeInTheDocument()
+    capturedOnClick.get('Checking your plan…')?.()
+    await Promise.resolve()
+    noCheckoutSideEffects()
+
+    resolveSubscription({ ...baseSub })
+    await screen.findByRole('button', { name: /^current plan$/i })
+    // Positive control through the same captured handler: resolved Free may check out.
+    capturedOnClick.get('Upgrade to Pro')?.()
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+  })
+
+  it('a failed initial subscription read offers retry and keeps checkout unavailable; usage failure alone blocks nothing', async () => {
+    mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('subscription unavailable'))
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    mockGetUsage.mockRejectedValue(new Error('usage unavailable'))
+    renderPricing()
+
+    expect(await screen.findByText(/couldn't load all pricing details/i)).toBeInTheDocument()
+    const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
+    expect(unavailable).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /current plan/i })).not.toBeInTheDocument()
+    capturedOnClick.get('Plan unavailable')?.()
+    await Promise.resolve()
+    noCheckoutSideEffects()
+
+    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    await screen.findByRole('button', { name: /^current plan$/i })
+    // Usage is still failing; the plan decision does not depend on it.
+    expect(screen.getByText(/couldn't load all pricing details/i)).toBeInTheDocument()
+    const upgrade = screen.getByRole('button', { name: /upgrade to pro/i })
+    expect(upgrade).toBeEnabled()
+    fireEvent.click(upgrade)
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
+  })
+
+  it.each([false, true])('retains same-account subscription data (is_pro=%s) across a failed refresh with a refresh notice', async (isPro) => {
+    const cached = { ...baseSub, is_pro: isPro, status: isPro ? 'active' : null, plan: isPro ? 'pro' : 'free', stripe_customer_id: isPro ? 'cus_1' : null }
+    mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed'))
+    mockGetSubscriptionStatus.mockResolvedValue({ ...cached })
+    renderPricing(cached)
+
+    expect(await screen.findByText(/couldn't refresh your plan details/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing your last loaded plan/i)).toBeInTheDocument()
+    const current = screen.getAllByRole('button', { name: /current plan/i })
+    expect(current).toHaveLength(1)
+    if (isPro) {
+      expect(screen.queryByRole('button', { name: /upgrade to pro/i })).not.toBeInTheDocument()
+      capturedOnClick.get('Current Plan')?.()
+      await Promise.resolve()
+      noCheckoutSideEffects()
+    } else {
+      // Cached Free keeps its existing checkout action; the server re-checks entitlement.
+      fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
+      await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    await waitFor(() => expect(screen.queryByText(/couldn't refresh your plan details/i)).not.toBeInTheDocument())
+    expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
+  })
+
+  it('a confirmed guest keeps registration routing on both cards', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    renderPricing()
+
+    const free = await screen.findByRole('button', { name: /get started free/i })
+    expect(free).toBeEnabled()
+    fireEvent.click(free)
+    expect(mockPush).toHaveBeenCalledWith('/register')
+    fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
+    expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing')
+    expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
+    expect(mockCheckoutStarted).not.toHaveBeenCalled()
   })
 })

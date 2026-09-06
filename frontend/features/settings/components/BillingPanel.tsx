@@ -13,6 +13,7 @@ import { formatLocalDate } from '@/lib/format'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { Notice } from '@/components/ui/Notice'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -24,10 +25,10 @@ function daysUntil(value: string | null): number | null {
 }
 
 export default function BillingPanel() {
-  const { data: user, isPending: identityPending, isError: identityError } = useQuery({
+  const { data: user, isPending: identityPending, isError: identityError, refetch: refetchIdentity, isFetching: identityFetching } = useQuery({
     queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false,
   })
-  const { data: sub, isLoading, isError } = useQuery({
+  const { data: sub, isError, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     enabled: !!user,
@@ -42,23 +43,41 @@ export default function BillingPanel() {
     },
   })
 
-  // Surface the failure rather than silently falling back to "Free" — that would mislead a Pro
-  // subscriber on a transient network error.
-  if (isError || identityError) {
+  // Surface a failure with nothing to show rather than silently falling back to "Free" — that
+  // would mislead a Pro subscriber on a transient network error. A failed REFRESH of retained
+  // same-account data is different: the last resolved plan stays visible with a notice below.
+  const identityUnavailable = identityError && user === undefined
+  const subscriptionUnavailable = isError && sub === undefined
+  if (identityUnavailable || subscriptionUnavailable) {
     return (
       <Card className="p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
         </div>
-        <p className="text-sm text-error-light dark:text-error-dark">
-          Failed to load billing information. Please refresh the page or try again later.
-        </p>
+        <Notice
+          variant="error"
+          title="Failed to load billing information"
+          description="Please try again."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void (identityUnavailable ? refetchIdentity() : refetchSubscription())}
+              loading={identityUnavailable ? identityFetching : subscriptionFetching}
+              loadingText="Retrying…"
+            >
+              Retry
+            </Button>
+          }
+        />
       </Card>
     )
   }
 
   if (user === null) return null
+
+  const subscriptionStale = isError && sub !== undefined
 
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
@@ -73,10 +92,22 @@ export default function BillingPanel() {
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
       </div>
 
-      {identityPending || isLoading ? (
+      {identityPending || sub === undefined ? (
         <SkeletonText lines={3} />
       ) : (
         <div className="space-y-3">
+          {subscriptionStale && (
+            <Notice
+              variant="error"
+              title="Couldn't refresh billing details"
+              description="Showing your last loaded details."
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
+              }
+            />
+          )}
           {/* Plan, usage & renewal — divided rows keep each label tied to its value */}
           <div className="divide-y divide-border-light dark:divide-border-dark">
             {/* Plan + status */}
