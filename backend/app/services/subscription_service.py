@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 from typing import Optional
 from app.models import User, UserUsage
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
@@ -22,25 +24,49 @@ def get_user_usage_count(user_id: int, month: str, db: Session) -> int:
     
     return usage.summary_count if usage else 0
 
-def increment_user_usage(user_id: int, month: str, db: Session):
-    """Increment user's summary count for the current month"""
-    usage = db.query(UserUsage).filter(
-        UserUsage.user_id == user_id,
-        UserUsage.month == month
-    ).first()
-    
-    if usage:
-        usage.summary_count += 1
-        usage.updated_at = datetime.now(timezone.utc)
+def _increment_monthly_counter(user_id: int, month: str, db: Session, column: InstrumentedAttribute) -> None:
+    """Increment one selected historical bucket; serialize only first-row creation.
+
+    All current writers use this protocol. It neither repairs old duplicates nor protects
+    concurrent admission, and old revisions must drain before first-use serialization holds.
+    Lock waits are transaction-local and bounded; failures propagate without ambiguous retries.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(select(func.set_config(
+            "lock_timeout", f"{settings.USAGE_COUNTER_LOCK_TIMEOUT_MS}ms", True,
+        )))
+
+    def selected_bucket():
+        return db.query(UserUsage.id).filter(UserUsage.user_id == user_id, UserUsage.month == month).first()
+
+    selected = selected_bucket()
+    if selected is None:
+        # A usage row cannot lock its own absence. Serialize first use on its existing parent;
+        # existing buckets skip this lock so Stripe provider reads do not block ordinary meters.
+        db.query(User.id).filter(User.id == user_id).with_for_update().first()
+        selected = selected_bucket()
+        if selected is None:
+            usage = UserUsage(user_id=user_id, month=month, summary_count=0, qa_count=0, analysis_count=0)
+            db.add(usage)
+            db.flush()
+            selected_id = usage.id
+        else:
+            selected_id = selected.id
     else:
-        usage = UserUsage(
-            user_id=user_id,
-            month=month,
-            summary_count=1
-        )
-        db.add(usage)
-    
+        selected_id = selected.id
+
+    # Preserve .first() history semantics; only the selected bucket and requested counter change.
+    # SQL arithmetic does not reuse a stale SQLAlchemy identity-map value.
+    db.query(UserUsage).filter(UserUsage.id == selected_id).update(
+        {column: func.coalesce(column, 0) + 1, UserUsage.updated_at: datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
     db.commit()
+
+
+def increment_user_usage(user_id: int, month: str, db: Session):
+    """Increment the monthly summary counter at the existing completion call sites."""
+    _increment_monthly_counter(user_id, month, db, UserUsage.summary_count)
 
 def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]]:
     """Check if user can generate more summaries. Returns (can_generate, current_count, limit).
@@ -81,25 +107,8 @@ def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
 
 
 def increment_user_qa(user_id: int, month: str, db: Session) -> None:
-    """Increment user's Copilot Q&A question count for the given month."""
-    usage = db.query(UserUsage).filter(
-        UserUsage.user_id == user_id,
-        UserUsage.month == month
-    ).first()
-
-    if usage:
-        usage.qa_count = (usage.qa_count or 0) + 1
-        usage.updated_at = datetime.now(timezone.utc)
-    else:
-        usage = UserUsage(
-            user_id=user_id,
-            month=month,
-            summary_count=0,
-            qa_count=1,
-        )
-        db.add(usage)
-
-    db.commit()
+    """Increment the monthly Copilot counter at the existing completion call site."""
+    _increment_monthly_counter(user_id, month, db, UserUsage.qa_count)
 
 
 def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
@@ -109,7 +118,8 @@ def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
     ``user_usage``. Metered after a successful answer; Pro users never reach this path.
 
     Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
-    parallel requests — can't lose an update and let a Free user slip past the 3-question cap.
+    parallel requests — cannot lose a completed-answer increment. Admission remains a separate
+    check, so this alone does not prevent concurrent requests exceeding the taste allowance.
     """
     db.query(User).filter(User.id == user_id).update(
         {User.copilot_free_taste_used: User.copilot_free_taste_used + 1},
@@ -142,25 +152,8 @@ def get_user_analysis_count(user_id: int, month: str, db: Session) -> int:
 
 
 def increment_user_analysis(user_id: int, month: str, db: Session) -> None:
-    """Increment user's Multi-Period Analysis generation count for the given month."""
-    usage = db.query(UserUsage).filter(
-        UserUsage.user_id == user_id,
-        UserUsage.month == month
-    ).first()
-
-    if usage:
-        usage.analysis_count = (usage.analysis_count or 0) + 1
-        usage.updated_at = datetime.now(timezone.utc)
-    else:
-        usage = UserUsage(
-            user_id=user_id,
-            month=month,
-            summary_count=0,
-            analysis_count=1,
-        )
-        db.add(usage)
-
-    db.commit()
+    """Increment the monthly analysis counter at the existing completion call site."""
+    _increment_monthly_counter(user_id, month, db, UserUsage.analysis_count)
 
 
 def check_analysis_limit(user: User, db: Session) -> tuple[bool, int, int]:
