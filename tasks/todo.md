@@ -55,6 +55,22 @@ count or memory-bytes/fleet guarantee. Capacity rejection can affect new legitim
 active buckets retain their limits until their existing windows expire.
 
 
+E13b integration checkpoint: root authorized integration and branch push after gates. Merge
+`9d3531b` incorporates main `cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` without rewriting
+history; the sole task-ledger conflict retains all E13b and incoming E06 sections. The limiter,
+Settings, focused test home and configuration documentation are byte-identical to reviewed
+`ac4bc76`; prior mutation proofs remain valid and were not repeated.
+
+Three-lens integration review found no actionable issue: bounded local state and unchanged auth
+callers remain correct; rules/brief still introduce no billing, schema, fleet, production flag or
+byte-limit claim; the behavioral gates and locked auth/Stripe bytes remain intact relative to main.
+Full pinned backend gate with `STRIPE_CONCURRENCY_TEST_DATABASE_URL` enabled against the existing
+disposable local PostgreSQL cluster passed: Ruff clean, Bandit 0 medium/high, pytest
+`2538 passed, 2 deselected, 23 warnings in 55.95s`, exit 0 with no skips. The retained full log
+includes the existing asynchronous client shutdown logging diagnostic after pytest success.
+No frontend file changed. Branch push is authorized; PR creation/readiness, merge and serialized
+production verification remain root-owned and pending at this checkpoint.
+
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
 CI run 34034568223 failed the existing nonlocked E03 lifetime case before provider readiness:
