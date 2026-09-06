@@ -120,6 +120,30 @@ claim. E14b copying canonical links remains a separate task. No push/PR/deploy h
 
 #### PR #735 retained failure and E13 integration checkpoint
 
+Integrated source `c3b2db2d37224b539dfe7f6611c550512e7476b8` includes exact released main
+`414ea91347df5b93a2ad12c1423b807ba35328fe`. Only a task-document conflict needed resolution;
+both histories remain. Full pinned local gate with Stripe, usage and login PostgreSQL URLs:
+Ruff `All checks passed!`; Bandit zero medium/high; **2570 passed, 2 deselected, 23 warnings
+in 72.09s (0:01:12)**, exit 0, with no skips. Login six, Stripe 24 and usage 18 concurrency
+cases executed in disposable schemas. The known closed logging-stream teardown diagnostic
+followed the passing pytest summary. Exact logs: `/private/tmp/earningsnerd-e09-evidence/after-e13/`
+`ruff.log`, `bandit.log`, `full.log`. This local gate does not establish live AI acceptance.
+
+Three-lens integration review is clear. Correctness: an empty registry is observed/claimed
+without yielding; a joined follower retains ownership through the final fresh persisted read;
+active leaders cannot be replaced on follower timeout; provider cleanup precedes owner-only
+release. Rules/brief: pipeline and dedup tests remain byte-identical to corrected `fe6916c`;
+login runtime/concurrency tests, all three PostgreSQL CI steps, frontend, locked contracts, AI
+provider/config/prompts/evals and baseline match main. Tests/gates: deterministic force and
+non-force handoff cases remain; original three mutation proofs are retained without repetition.
+No actionable finding or source repair arose. Workflow and frontend files equal main, so their
+separate extra gates were not rerun. Diff/whitespace and clean-commit checks passed.
+
+Normal branch publication is authorized; the changed merge source requires fresh normal CI
+and actual summary/Copilot acceptance. Root owns the existing PR, CI review and serial release
+after verifying PR #736 in production. The failed prior summary run below is retained unchanged.
+
+
 Read-only acceptance of prior head `0a66e1acc0981ff95c5997def131b7bef04cdd82` against
 `ee3ac9882b74453bb670c69b5b05142338a53844` evaluated merge `024f058049a7dc42233aad4fbcb8221bfcfbfed8`.
 CI `34042620267` reported workflow success, but actual eval job `101511991041` and its

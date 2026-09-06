@@ -284,3 +284,18 @@ PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 
 in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
 locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
 root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.
+
+### E09a integration after E13 release
+
+Prior PR #735 CI `34042620267` is failed AI acceptance: actual regression job failed despite
+workflow success, with BA 10-K and BABA 20-F run-0 timeouts at 75.001 seconds (52 attempted,
+50 scored, 2 errors; retained artifact `9992244620`). Prior Copilot run `34042670065` accepted
+18/18 with 24 source hashes and scratch DB verified; it is historical for the new source.
+No old run was retriggered and no timeout, provider, model, flags or baseline were changed.
+
+Main `414ea913` is integrated as `c3b2db2`. Reviewed pipeline/tests still match `fe6916c`;
+E13 login source and all three PostgreSQL CI steps are retained. Full pinned local gate:
+Ruff clean; Bandit zero medium/high; 2570 passed / 2 deselected / 23 warnings in 72.09s, exit 0,
+all three PostgreSQL URLs enabled, no skips. Three-lens integration review is clear; original
+mutations retained and locked contracts/frontend match main. Authorized normal branch update
+follows the evidence commit. Root owns fresh actual CI/eval acceptance and serial release.
