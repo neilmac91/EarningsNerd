@@ -2,6 +2,31 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E05c — Reconcile the currently bound Stripe subscription (engineering)
+
+The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:
+“Approve the fixture-only change.” Only that helper's provider stub may change in
+`backend/tests/unit/test_subscription_webhook_sync.py`; every payload/request/assertion and
+all other locked tests remain unchanged. This does not approve a replacement-transition policy.
+
+- [ ] Add a dedicated exact-ID Stripe read with explicit connect/read inactivity settings,
+  zero SDK retries, recursive conversion, identity/status/optional-field validation and transport cleanup.
+- [ ] Reconcile created/updated events only for the current bound ID, after account lock/recheck
+  and dedup; preserve checkout, deletion, unknown-owner, initial and different-ID behavior.
+- [ ] Fail provider/invalid-state reads with retryable 503 and atomic rollback; never use a stale
+  payload as a success fallback. Retain the existing entitlement writer and original event identity.
+- [ ] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
+  PostgreSQL transaction home for provider contention, cancellation and successful retry.
+- [ ] Commit source, run one bounded mutation per new invariant with exact restore, and run
+  Ruff/Bandit/full backend plus real PostgreSQL gates. Record evidence and scope limits.
+- [ ] Update configuration/architecture and execution-ledger evidence; return a clean committed
+  branch to root for independent review/publication. No push, PR, merge or deployment by this agent.
+
+The proposed 2-second connect / 3-second read values are phase/inactivity limits, not a total
+five-second deadline. DNS/progressing responses may exceed their sum. The account lock and DB
+connection remain owned by the worker during this read. Cross-ID replacement chronology,
+cross-user identity races and analytics exactly-once remain separate work.
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
