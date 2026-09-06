@@ -74,9 +74,9 @@ all other locked tests remain unchanged. This does not approve a replacement-tra
   payload as a success fallback. Retain the existing entitlement writer and original event identity.
 - [x] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
   PostgreSQL transaction home for provider contention, cancellation and successful retry.
-- [ ] Commit source, run one bounded mutation per new invariant with exact restore, and run
+- [x] Commit source, run one bounded mutation per new invariant with exact restore, and run
   Ruff/Bandit/full backend plus real PostgreSQL gates. Record evidence and scope limits.
-- [ ] Update configuration/architecture and execution-ledger evidence; return a clean committed
+- [x] Update configuration/architecture and execution-ledger evidence; return a clean committed
   branch to root for independent review/publication. No push, PR, merge or deployment by this agent.
 
 The proposed 2-second connect / 3-second read values are phase/inactivity limits, not a total
@@ -84,9 +84,24 @@ five-second deadline. DNS/progressing responses may exceed their sum. The accoun
 connection remain owned by the worker during this read. Cross-ID replacement chronology,
 cross-user identity races and analytics exactly-once remain separate work.
 
-Focused source checkpoint: 93 billing tests passed, including all unchanged assertions in the
-approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. Source
-commit, invariant mutations, full backend gate and independent review remain pending.
+Source `aa36c95`: 93 focused billing tests passed, including all unchanged assertions in the
+approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. The full
+local backend gate with real PostgreSQL enabled passed: Ruff clean, Bandit 0 medium/high,
+`2486 passed, 2 deselected, 23 warnings in 55.96s`, exit 0. The first invocation wrapped Python
+in `/bin/sh`, which stripped macOS `DYLD_FALLBACK_LIBRARY_PATH`: 2 PDF native-library failures,
+2484 passed. A direct Python invocation restored the intended environment; no source changed.
+
+Exactly one mutation per new invariant, each with intended assertion failures: stale event in
+place of current snapshot → 4; stale payload fallback after provider failure → 5; skipped provider
+validation → 16; omitted explicit timeout/retry configuration → 3; skipped transport close → 3;
+unbounded/nonfinite settings → 10; disabled reconciliation scope admission → 4 (unknown-owner
+case still passed). The first six proofs preceded the full gate; the final scope proof restored
+exact `aa36c95` source and its focused reconciliation gate passed all 45 tests. Existing worker/lock
+mutations were not repeated; the PostgreSQL
+provider-wait cases extend their contention/cancellation coverage. The approved locked helper
+patch context mechanically reduces to the exact base file; all other locked files are untouched.
+Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
+found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
 
 ### E10a — Filing-first financial-facts index (engineering)
 
@@ -163,6 +178,15 @@ PostgreSQL experiment was repeated. Full pinned Ruff/Bandit passed again; pytest
 the existing PostgreSQL-only billing cases; the retained log includes the existing asynchronous
 client shutdown logging error after pytest success. Final index review relies on source inspection,
 the existing migration safety suite and actual PostgreSQL verification recorded above.
+
+Root release checkpoint: PR #726 merged as `a5ba97e692246f08e35e05a92128443853ad5121`
+after final-head CI `34032131137`, summary artifact `9989052658` (52/52, no errors/hard
+regressions) and Copilot `34032131118` artifact `9989000339` (18/18 accepted) passed.
+Source/fixture hashes and migration triple-pass were verified. Production run `34032605285`
+succeeded: deploy job `101485181717` reported `applied=1 skipped=34`, image
+`46d56ced269fdd32bb4232c0b1f40ac5ec56b54b2f92f1ea2c86ae95cf1c919b`,
+revision `earningsnerd-backend-00280-xcp` serving 100%. Independent health timestamp
+`1788697428.587389` was healthy (database 6.42 ms, Redis disabled, SEC circuit closed).
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
