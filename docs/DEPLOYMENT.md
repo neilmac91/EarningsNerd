@@ -390,8 +390,8 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 **Quarterly: refresh the membership list** (the indexes rebalance ~quarterly). Regenerate, review the
 diff in a PR, merge — the served universe only ever changes via a reviewed commit, never a live fetch.
 The `Refresh index membership` workflow (`.github/workflows/refresh-index-membership.yml`, 1st of each
-month + `workflow_dispatch`) does this automatically and opens (or updates) a PR on **every successful
-run**: the file's `generated_on` date is re-stamped each time, so the monthly PR is the heartbeat that
+month + `workflow_dispatch`) does this automatically and opens (or updates) a PR when successful
+regeneration changes membership or metadata: the file's `generated_on` date is re-stamped each time, so the monthly PR is the heartbeat that
 proves the refresh still works, and its diff shows any constituent changes alongside the date bump.
 Merge it even when only the date moved — that is what keeps the 100-day age gate in
 `tests/unit/test_index_membership_service.py` green. The workflow opens its auto-PR as a draft;

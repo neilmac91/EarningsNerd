@@ -25,8 +25,16 @@ The supplied CSV demonstration retains 52 of 77 records using current membership
 rejected by automatic approval review based on old auto/FMP precedence; after inspecting
 changed source, explicit `--source wikipedia` was approved and produced the data above.
 
-- [ ] Run meaningful offline regression/mutation checks and the full backend gate; review
+- [x] Run meaningful offline regression/mutation checks and the full backend gate; review
   correctness, rules and tests independently before readiness.
+Local release gate on source/data `16d8c430`: all 102 runtime/dev pins matched; Ruff and Bandit
+exit 0; `2386 passed, 2 deselected, 23 warnings in 48.67s`, exit 0. The first collection attempt
+failed on an unwritable default `~/.edgar`; supported temporary EDGAR cache paths resolved it
+without source changes, and the initial failed log is retained separately. Actual old-Nasdaq-URL
+mutation failed the intended parser assertion (`1 failed in 0.49s`); exact restoration passed
+(`1 passed in 0.55s`). Four locked contracts and baseline are unchanged; 21 local links resolve.
+The subsequent source-identical documentation update clarifies same-day no-change runs.
+
 - [ ] Publish the draft PR, inspect required CI, merge and verify the backend deployment;
   dispatch the public refresh and retain its actual result. Any Actions-policy prerequisite
   remains founder-owned; never change settings or introduce a PAT workaround.
