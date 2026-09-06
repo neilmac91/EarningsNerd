@@ -2,6 +2,36 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E13b — Bounded in-memory limiter keys (engineering)
+
+`RateLimiter._hits` retains every key indefinitely. Bound each limiter independently without
+resetting an active client's history. Base `6a648f7`; no Redis or fleet-wide enforcement claim.
+
+Algorithm/default: store hit deques in an OrderedDict ordered by last accepted hit. Read the
+monotonic clock inside the existing lock, prune only the expired prefix (last hit strictly older
+than the unchanged cutoff), and move a key to the end only when accepting a hit. Peeks and denied
+attempts never extend retention. Each removal is amortized against an earlier insertion; at most
+the configured ceiling can be removed in one call, with no scan of the active suffix or separate
+expiry metadata. `_hits.clear()` therefore still resets all state.
+
+- [ ] Add `RATE_LIMITER_MAX_KEYS`, a positive Settings integer defaulting to 10000 (maximum
+  100000), captured per limiter at construction. This is an engineering memory budget, not a
+  measured traffic threshold: it permits 10000 distinct live keys per limiter/window, bounds
+  cardinality even under rotating-key abuse, and avoids assuming real production key counts.
+- [ ] Remove expired keys opportunistically; reject unseen keys while full and never evict active
+  buckets. Existing keys retain their remaining allowance. `is_exhausted` remains a read-only
+  peek, including False for absent keys even at capacity; existing Retry-After behavior remains.
+- [ ] Extend `test_security_hardening.py` with deterministic expiry/order, capacity/active-history,
+  peek/clear and Settings-boundary behavior; one mutation proof per new invariant.
+- [ ] Run the full pinned backend gate and independent review, then return a clean committed
+  branch to root. No locked auth tests, production flags, spend, push or deployment by this agent.
+
+Rules 6, 8 and 12 apply. Limits and windows remain unchanged; storage is per limiter/process,
+not an aggregate byte or fleet limit. At capacity, legitimate unseen keys can receive the same
+429 path until idle keys expire; no active key is displaced to admit an attacker-controlled key.
+Whole idle buckets expire lazily on limiter calls, and their retained key strings are not separately
+byte-capped. No historical database work, auth policy change or new infrastructure is included.
+
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
 The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:
