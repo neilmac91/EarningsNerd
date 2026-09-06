@@ -135,13 +135,17 @@ def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[in
     db.query(UsageReservation).filter(
         UsageReservation.user_id == user.id, UsageReservation.expires_at <= now,
     ).delete(synchronize_session=False)
-    completed = get_user_usage_count(user.id, month, db)
+    # READ COMMITTED gives each statement its own snapshot and a completion (delete lease +
+    # increment) does not take the users lock once the bucket exists, so read the leases FIRST:
+    # a conversion landing between the two reads then counts once as a lease and once as a
+    # completed use (a conservative block), never zero times (an over-admission).
     active = db.query(func.count(UsageReservation.id)).filter(
         UsageReservation.user_id == user.id,
         UsageReservation.month == month,
         UsageReservation.kind == SUMMARY_RESERVATION_KIND,
         UsageReservation.expires_at > now,
     ).scalar() or 0
+    completed = get_user_usage_count(user.id, month, db)
     if completed + active >= limit:
         db.rollback()
         return False, completed, limit, None
