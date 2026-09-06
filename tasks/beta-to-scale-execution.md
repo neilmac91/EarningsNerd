@@ -17,7 +17,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | #723 released; CI/evals, migration tail, revision/traffic and independent health verified |
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c current-ID reconciliation implemented locally under helper-only fixture approval. Cross-ID policy remains separate |
-| E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
+| E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, final review and release pending |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
@@ -116,3 +116,14 @@ approved only the locked `_post_event` provider stub; every contract assertion r
 Local source checkpoint: 93 focused billing checks and 13 real PostgreSQL transaction checks
 passed. Provider timeout settings limit connect/read inactivity, not total duration. Mutation,
 full gate, independent review and release evidence remain pending at this checkpoint.
+
+
+E06 source `a7e2ff4` integrates E05c and records canonical InvoicePayment allocations without
+changing entitlements. Root/independent review found and corrected a report snapshot race;
+window rows and first-payment timestamps now share one statement. Final local backend gate:
+Ruff clean, Bandit 0 medium/high severity, 2524 passed / 2 deselected in 51.90s with PostgreSQL
+cases enabled. Eight initial invariant mutation failures and one exact race proof were restored.
+The migration ledger passed 35 apply / 35 skip / 35 replay in a dedicated local database.
+Locked Stripe files remain byte-identical to E05c `aa36c95`. Final review/publication/integration
+with eventual E05c main and production event-selection verification remain separate; no present
+revenue or full-history claim follows from [the report](../docs/observed-invoice-payments.md).

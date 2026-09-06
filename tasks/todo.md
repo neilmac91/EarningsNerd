@@ -10,20 +10,54 @@ merge E05c before publication. Only `invoice_payment.paid` records allocations. 
 observed payment evidence, not MRR/ARR, net revenue or an accounting ledger. No prices, promo,
 trial, production endpoint selection, API-version setting or monetary transaction changes.
 
-- [ ] Add a minimal minor-unit payment model and new guarded idempotent migration; preserve
+- [x] Add a minimal minor-unit payment model and new guarded idempotent migration; preserve
   account deletion through ORM/FK cascade and minimize unattributed pseudonymous references.
-- [ ] Validate canonical payment evidence, attribute only unambiguous customer ownership,
+- [x] Validate canonical payment evidence, attribute only unambiguous customer ownership,
   deduplicate payment IDs across event IDs, and snapshot beta/invite dimensions without inference.
-- [ ] Add a read-only report with separate currencies/modes, supported payment types, zero and
+- [x] Add a read-only report with separate currencies/modes, supported payment types, zero and
   unattributed exclusions from paying-user cohorts, and explicit coverage/refund/credit limits.
-- [ ] Integrate E05c's bounded reader and existing transaction worker; record payment/event in
+- [x] Integrate E05c's bounded reader and existing transaction worker; record payment/event in
   one commit and emit best-effort analytics after session closure. No second Stripe client owner.
-- [ ] Add money/evidence/model tests in one new unit home and extend the existing transaction
+- [x] Add money/evidence/model tests in one new unit home and extend the existing transaction
   home for actual PostgreSQL duplicate delivery. Keep locked tests byte-identical.
-- [ ] Commit source, retain exactly one mutation proof per new invariant, run full backend and
-  actual PostgreSQL/migration gates, obtain independent review, and record exact evidence.
+- [x] Commit source, retain exactly one mutation proof per new invariant, and run full backend
+  and actual PostgreSQL/migration gates with exact evidence.
+- [ ] Complete independent review of the corrected final source before publication.
 - [ ] Root publishes and verifies CI/release serially after E05c; verify production endpoint
   event selection separately before claiming observation coverage. No historical backfill.
+
+
+E06 source `26f66a2` integrated E05c `aa36c95` without further locked-test edits. Initial focused
+billing gate: 99 passed, 9 PostgreSQL-only skips; actual PostgreSQL transaction home: 23 passed.
+Eight bounded mutations each produced one intended failure: allocation conflict, ambiguous
+attribution, zero exclusion, truncated price page, cohort paid-time ordering, account erasure,
+payment/event atomicity, and provider invoice identity. Every mutation restored committed bytes.
+
+Independent review found a READ COMMITTED report race that the initial gate missed: a first
+payment inserted between separate first-timestamp/window reads could raise KeyError. Corrected
+source `a7e2ff4` uses a grouped first-payment subquery in the same window-row statement. The new
+PostgreSQL interleaving regression and revenue unit home passed 28 tests. Exactly one additional
+prior-query mutation reproduced the KeyError (1 failed); it was restored. Earlier eight proofs
+were not repeated. Coverage metadata remains a later read, not an atomic full-report snapshot.
+
+Final gate on `a7e2ff4`: Ruff clean; Bandit 0 medium/high severity; **2524 passed, 2 deselected,
+23 warnings in 51.90s**, including all actual PostgreSQL cases. The interpreter emitted a closed
+logging-stream teardown diagnostic after pytest's passing summary; no test failed. Prior source's
+2514-passed/9-skipped result is superseded. No eval runner, live Stripe call, endpoint change,
+price/promo change, push or deployment was performed by this task.
+
+The dedicated local PostgreSQL 15 database `earningsnerd_e06_migrations` passed the repository
+migration script with the legacy-name decoy: **applied=35 skipped=0 → applied=0 skipped=35 →
+applied=35 skipped=0** after test-ledger reset; the new User FK reports cascade. Initial harness
+setup stopped before applying SQL because the standalone Settings required a test SECRET_KEY;
+setting that test-only value resolved it. Existing applied migrations remain untouched.
+
+Evidence files retained locally: `/private/tmp/earningsnerd-e06-focused.log`,
+`earningsnerd-e06-postgres.log`, `earningsnerd-e06-mutation-*.log`,
+`earningsnerd-e06-report-race-fixed.log`, `earningsnerd-e06-migrations.log`,
+`earningsnerd-e06-bandit-final.log` and `earningsnerd-e06-full-final.log` (same `/private/tmp/`
+prefix). [Operating guide](../docs/observed-invoice-payments.md) defines report limits and the
+production endpoint/event-selection verification still required before coverage is claimed.
 
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
