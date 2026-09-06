@@ -247,6 +247,8 @@ async def test_postgres_account_contention_is_retryable_without_mutation(postgre
         await _deliver(_event(user_id))
     before = _billing(postgres_engine, user_id)
     payload = _event(user_id, kind)
+    if kind == "customer.subscription.updated":
+        monkeypatch.setattr(service, "retrieve_subscription_snapshot", lambda *_: payload["data"]["object"])
     with Session(postgres_engine) as holder:
         holder.query(User).filter_by(id=user_id).with_for_update().one()
         with pytest.raises(HTTPException) as error:
@@ -322,3 +324,53 @@ async def test_postgres_owner_is_rechecked_after_account_lock(postgres_engine, m
     assert error.value.status_code == 503
     assert _billing(postgres_engine, user_id) == (False, None, 0, 0)
     assert _billing(postgres_engine, other_id) == (False, None, 0, 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_request", [False, True])
+async def test_postgres_provider_read_holds_lock_through_completion_and_retry(postgres_engine, monkeypatch, cancel_request):
+    user_id = _seed(postgres_engine)
+    _install_factory(monkeypatch, postgres_engine)
+    await _deliver(_event(user_id))
+    payload = _event(user_id, "customer.subscription.updated")
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    reads = []
+
+    def read_current(subscription_id, customer_id):
+        reads.append((subscription_id, customer_id))
+        entered.set()
+        assert release.wait(5), "test did not release provider read"
+        return {"id": subscription_id, "customer": customer_id, "status": "past_due"}
+
+    def finish_worker(event):
+        first_request = not entered.is_set()
+        try:
+            return service.process_stripe_event(event)
+        finally:
+            if first_request:
+                finished.set()
+
+    monkeypatch.setattr(service, "retrieve_subscription_snapshot", read_current)
+    monkeypatch.setattr(subscriptions, "process_stripe_event", finish_worker)
+    first = asyncio.create_task(_deliver(payload))
+    try:
+        assert await asyncio.to_thread(entered.wait, 5)
+        with pytest.raises(HTTPException) as error:
+            await _deliver(payload)
+        assert error.value.status_code == 503
+        assert _billing(postgres_engine, user_id) == (True, "active", 1, 1)
+        if cancel_request:
+            first.cancel()
+            await asyncio.sleep(0)
+            assert not finished.is_set(), "cancellation abandoned the running provider transaction"
+    finally:
+        release.set()
+        if cancel_request:
+            with pytest.raises(asyncio.CancelledError):
+                await first
+        else:
+            assert await first == {"status": "success"}
+        assert await asyncio.to_thread(finished.wait, 5)
+    assert _billing(postgres_engine, user_id) == (False, "past_due", 1, 2)
+    assert await _deliver(payload) == {"status": "success", "idempotent": True}
+    assert reads == [("sub_test", "cus_test")]

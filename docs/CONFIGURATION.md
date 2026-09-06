@@ -62,6 +62,8 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STRIPE_SECRET_KEY` | `""` | Stripe server credential; match test/live mode to environment. |
 | `STRIPE_PUBLISHABLE_KEY` | `""` | Backend validation of Stripe publishable/secret mode consistency; frontend has its own public variable. |
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature secret. |
+| `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated current-subscription read connect limit; finite, > 0 and ≤ 10 seconds. |
+| `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated current-subscription read inactivity limit; finite, > 0 and ≤ 10 seconds. |
 | `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. |
 | `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. |
 | `STRIPE_BETA_PROMO_CODE_ID` | `""` | Stripe Promotion Code ID for eligible beta invites; unset disables the discount. |
@@ -150,6 +152,13 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
+
+Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
+retries and a dedicated transport closed after every outcome. These connect/read inactivity limits
+are not a total five-second deadline: DNS or a progressing response can exceed their sum. The
+worker retains its account lock and database connection during the read. Failure returns 503 with
+state/event rollback; it never falls back to the stale event. Checkout, initial/different-ID events
+and signed deletion keep their existing behavior and do not use these settings.
 
 ### Backend configuration examples (.env)
 ```
