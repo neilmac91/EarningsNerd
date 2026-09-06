@@ -27,3 +27,8 @@ account; identity in the key separates cached responses. The shared account rese
 identity first and removes both families synchronously before replacement identity is accepted.
 `frontend/tests/unit/accountQueryState.spec.tsx` gates active-observer transitions, late responses,
 all read/transition consumers and family invalidation; no cross-tab or other-cache guarantee.
+
+The canonical `getCurrentUserSafe` query publishes positive identity. Profile mutation completion
+only invalidates it: publishing the mutation's returned user can restore a previous account after
+unmount/logout. The same accountQueryState home mounts the real ProfileForm against a delayed
+adapter and inventories all direct query-cache writers; only the reset owner publishes null.

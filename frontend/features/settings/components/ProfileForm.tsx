@@ -23,8 +23,9 @@ export default function ProfileForm() {
 
   const mutation = useMutation({
     mutationFn: () => updateProfile(name.trim() || null),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.currentUser(), updated)
+    onSuccess: () => {
+      // A profile mutation may finish after logout/login. Let the fenced /me query resolve
+      // the current identity instead of publishing the mutation's earlier account response.
       queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     },
   })

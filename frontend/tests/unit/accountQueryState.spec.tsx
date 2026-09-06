@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, MutationObserver, useQuery } from '@tanstack/react-query'
 import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
@@ -13,6 +13,7 @@ import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset,
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
+import ProfileForm from '@/features/settings/components/ProfileForm'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
@@ -209,6 +210,51 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
   })
 
+  it('a late unmounted profile mutation cannot publish A while the canonical B refetch waits', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.subscription.byUser(1), { is_pro: true })
+    client.setQueryData(queryKeys.usage.byUser(1), { summaries_used: 91 })
+    const patch = deferred<unknown>()
+    const me = deferred<unknown>()
+    let patchStarted = false
+    let meReads = 0
+    api.defaults.adapter = async (config) => {
+      if (config.method === 'patch') {
+        patchStarted = true
+        return response(config, await patch.promise)
+      }
+      if (config.url === '/api/auth/me') {
+        meReads += 1
+        return response(config, await me.promise)
+      }
+      return response(config, config.url?.endsWith('/usage') ? { summaries_used: 2 } : { is_pro: false })
+    }
+    const tree = (showProfile: boolean) => <QueryClientProvider client={client}>
+      {showProfile ? <ProfileForm /> : null}<Viewer />
+    </QueryClientProvider>
+    const view = render(tree(true))
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Edited A' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(patchStarted).toBe(true))
+    act(() => {
+      view.rerender(tree(false))
+      resetAccountQueries(client)
+      client.setQueryData(queryKeys.currentUser(), makeUser(2))
+      client.setQueryData(queryKeys.subscription.byUser(2), { is_pro: false })
+      client.setQueryData(queryKeys.usage.byUser(2), { summaries_used: 2 })
+    })
+    await waitFor(() => expect(rendered()).toEqual({ id: 2, pro: false, used: 2 }))
+    await act(async () => {
+      patch.resolve({ ...makeUser(1), full_name: 'Edited A' })
+      await waitFor(() => expect(meReads).toBe(1))
+    })
+    expect(rendered()).toEqual({ id: 2, pro: false, used: 2 })
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    await act(async () => { me.resolve(makeUser(2)) })
+    expect(rendered()).toEqual({ id: 2, pro: false, used: 2 })
+  })
+
   it.each([true, false])('isolates A Pro=%s from pending/failed B reads and late A responses', async (aPro) => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
@@ -317,6 +363,48 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  it('the canonical fetcher is the only positive current-user publisher', () => {
+    const errors: string[] = []
+    const identityWrites: string[] = []
+    const allWrites: string[] = []
+    for (const file of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((dir) => sourceFiles(path.join(frontend, dir)))) {
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const relative = path.relative(frontend, file)
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+          && ['setQueryData', 'setQueriesData'].includes(node.expression.name.text)) {
+          const key = node.arguments[0]?.getText(source) ?? ''
+          allWrites.push(`${relative}:${key}`)
+          // Existing direct writers all name their registry key. A new indirect writer needs
+          // an explicit ownership review rather than silently escaping this identity inventory.
+          if (!key.startsWith('queryKeys.')) errors.push(`${relative}: indirect cache writer ${key}`)
+          if (key.includes('currentUser')) {
+            identityWrites.push(relative)
+            if (relative !== 'features/auth/lib/accountQueryState.ts' || node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword) {
+              errors.push(`${relative}: only the reset owner may directly publish null identity`)
+            }
+          }
+        }
+        if (ts.isObjectLiteralExpression(node)) {
+          const fields = node.properties.filter(ts.isPropertyAssignment)
+          const key = fields.find((field) => field.name.getText(source) === 'queryKey')?.initializer.getText(source)
+          const fetcher = fields.find((field) => field.name.getText(source) === 'queryFn')?.initializer.getText(source)
+          if (key === 'queryKeys.currentUser()' && fetcher && fetcher !== 'getCurrentUserSafe') {
+            errors.push(`${relative}: identity query bypasses getCurrentUserSafe`)
+          }
+          if (key === 'queryKeys.currentUser()' && fields.some((field) => field.name.getText(source) === 'initialData')) {
+            errors.push(`${relative}: initial identity bypasses the canonical fetcher`)
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(errors).toEqual([])
+    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
+    expect(allWrites).toHaveLength(5) // current user null, watchlist x2, notification x2.
+  })
+
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
     const errors: string[] = []
     const owners = new Set<string>()

@@ -233,6 +233,21 @@ behavior: `6 failed | 7 passed` in 1.53s (`mutation-login-ownership.log`); resto
 exact committed bytes and empty status (`ownership-proof-restoration.log`). Full checks run
 again on the final UI/fixture source, with the prior full-run failure retained as history.
 
+### Final identity-writer inventory: profile mutation completion
+
+After the full 551-case pass, a direct-writer inventory found ProfileForm's existing onSuccess
+publishing its returned user into the global identity key. Query cancellation does not cancel
+mutations, and the write bypassed the fenced /me query; root and source refutations confirmed
+it can restore A after B login. Root approved removing only that direct setQueryData, preserving
+the existing invalidation and all profile API/wire behavior. A new case in the same account
+home mounts the real ProfileForm, holds PATCH, unmounts it, accepts B, then releases A while the
+canonical /me refetch is held. B stays visible throughout. The AST inventory covers all existing
+setQueryData/setQueriesData calls and currentUser query options: five direct cache writes remain
+(watchlist twice, notifications, preferences, and the reset owner's null), with no positive
+identity publisher outside the canonical fetcher. Focused account home: `17 passed (17)` in
+2.79s (`focused-profile-owner.log`). One original reinstatement proof follows on committed source.
+The prior `551 passed` full gate remains evidence for `72c7c3c`, not this changed source.
+
 ### Constraints and remaining limits
 
 CLAUDE rules 4/6/9/11/12 apply; backend plan truth, API payloads, prices, trials, analytics schema,
