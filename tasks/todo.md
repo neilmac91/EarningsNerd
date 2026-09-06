@@ -20,7 +20,8 @@ and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence 
   Documentation checks: 79 brief source paths, 31 brief links, 148 expanded local links
   with none broken. Locked contracts, sole baseline, original §7/ledger and 52 archives preserved.
   Original obsolete-stack mutation evidence still applies to its unchanged assertion branch.
-- [ ] Obtain independent delta reviews before root pushes the corrected draft.
+- [x] Independent correctness and tests/rules reviews cleared the corrected source and actual
+  mutation/full-gate evidence; root verified the final documentation-only result update.
 
 W3-2 (#709) is deployed and its effective pins are verified. This branch is based on
 [#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
