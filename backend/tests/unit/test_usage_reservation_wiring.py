@@ -132,9 +132,9 @@ def test_account_deletion_takes_live_and_expired_reservations_with_it():
     user_id = _seed_user()
     now = usage.utcnow()
     with SessionLocal() as db:
-        for token, expires_at in (("live-lease", now + timedelta(seconds=300)), ("stale-lease", now - timedelta(seconds=1))):
+        for expires_at in (now + timedelta(seconds=300), now - timedelta(seconds=1)):  # live, then stale
             db.add(UsageReservation(user_id=user_id, month=get_current_month(), kind=usage.SUMMARY_RESERVATION_KIND,
-                                    token=token, expires_at=expires_at, created_at=now))
+                                    token=uuid.uuid4().hex, expires_at=expires_at, created_at=now))
         db.commit()
         db.delete(db.query(User).filter(User.id == user_id).one())
         db.commit()
