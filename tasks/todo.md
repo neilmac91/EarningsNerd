@@ -2,6 +2,21 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
+### E02 — SEC token refill accounting (2026-09-06)
+
+Owner: SEC limiter implementation agent; root owns review and any publication/deployment.
+The founder approved commencement of the beta-to-scale plan. This bounded task preserves
+existing SEC transport ownership, Retry-After handling and per-process configuration.
+
+- [ ] Advance the refill accounting boundary after a completed token wait so the next caller
+  cannot reuse elapsed time that already paid for the admitted request.
+- [ ] Extend the existing SEC limiter test home with one deterministic behavioural gate for
+  sustained calls, concurrent callers, delayed wakeup and cancellation; no SEC/network calls.
+- [ ] Commit the implementation, remove the correction for exactly one mutation proof, restore
+  exact bytes, and run the pinned Ruff/Bandit/full pytest gate. Locked contracts stay unchanged.
+- [ ] Root reviews the prepared commits; no push, merge, flag or production change in this task.
+
+
 ### W3-3 public-source replacement — 2026-09-06
 
 [#718](https://github.com/neilmac91/EarningsNerd/pull/718) merged
