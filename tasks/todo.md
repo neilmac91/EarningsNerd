@@ -14,8 +14,9 @@ block this independent engineering work. Other founder boundaries remain unchang
 - [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
 - [x] Prove the gate with one intended Firebase assertion failure and exact restoration.
 - [x] Three independent lenses cleared the W3-5 source; unchanged source bytes retain that evidence.
-- [ ] Complete the combined backend gate on the #711 candidate, then obtain root release after
-  W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
+- [x] Complete the combined backend gate on the #711 candidate: tested `3daf0c4c`, 105 exact
+  runtime/dev pins, Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 52.11s`.
+- [ ] Obtain root release after W3-4 verification. No W3-5 publication, CI or deployment is claimed yet.
 
 Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
 intended assertion and restored with `1 passed in 0.03s`. Previous W3-2 union at `29f1dc61`:
