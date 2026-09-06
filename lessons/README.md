@@ -62,6 +62,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action
+
 - [`frontend-citation-offset-boundaries.md`](./frontend-citation-offset-boundaries.md) — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - [`frontend-sitemap-cache-ownership.md`](./frontend-sitemap-cache-ownership.md) — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
 - [`frontend-jsdom-sdk-browser-entry.md`](./frontend-jsdom-sdk-browser-entry.md) — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
