@@ -25,7 +25,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a merged as #734; E14b integrated E10b main, combined gates passed; actual preview/publication pending |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a merged as #734; E14b integrated E10b main; local browser success/both-theme acceptance recorded, denial test-only; publication pending |
 | E15 | Partition sitemap and align eligible content | Independent | Queued |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
@@ -278,3 +278,13 @@ Root source review and three-lens integration review are clear. Original mutatio
 no repeat. Combined frontend lint/typecheck/build passed; **100 files / 525 tests** passed
 in **56.11s**, build static pages **27/27**. Exact logs in tasks/todo.md. Actual responsive,
 both-theme and clipboard-denial preview plus publication remain root-owned and pending.
+
+E14b root local-browser acceptance: existing Next build on 4197, guest cached Apple filing 3,
+copy wrote exactly `https://www.earningsnerd.io/filing/3`. Action/success verified at 320×844,
+390×844 and 1280×900 in both themes; measured DOM width equaled scrollWidth at 390/1280.
+Transient incomplete post-resize paint resolved in stable captures without source changes.
+Loopback proxy 4198 sent `Permissions-Policy: clipboard-write=()` but copying still succeeded;
+actual browser denial is unverified, with automated tests the denial evidence. Theme, empty
+clipboard and viewport restored; temporary tab closed and both servers stopped. No live
+authenticated/Pro fixture, signup, generation or policy operation. Source unchanged; no gate
+repeat. Root retains publication until E09/E15 release sequencing permits it.

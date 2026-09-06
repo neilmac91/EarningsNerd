@@ -1,5 +1,27 @@
 ## E14b — Copy the canonical filing link (engineering, 2026-09-06)
 
+### Root local-browser checkpoint (documentation only)
+
+Root used the existing local Next production build on port 4197 and the guest-readable cached
+Apple filing 3. Activating Copy filing link wrote exactly
+`https://www.earningsnerd.io/filing/3`. Root visually verified the action and success feedback
+at **320×844**, **390×844** and **1280×900** in both themes. At widths 390 and 1280, measured
+DOM width matched scrollWidth. Initial immediate post-resize captures had incomplete paint;
+stable screenshots resolved those captures without any source correction. No numeric width
+claim is made for 320 beyond the actual visual acceptance.
+
+The controlled loopback GET proxy on port 4198 sent
+`Permissions-Policy: clipboard-write=()`, but the browser still copied successfully. This
+attempt did **not** verify real browser denial; automated rejection/missing-API tests remain
+the denial evidence. Root restored the original light theme, originally empty browser
+clipboard and viewport, closed the temporary tab, and stopped both local servers.
+
+This covers a guest cached summary only. No live authenticated/Pro fixture, signup,
+generation or policy change was exercised. Root source and three-lens review remain clear.
+Source/tests are unchanged from `9974f4d`; full-gate and original proof evidence below remain
+valid, with no repeats for this docs-only checkpoint. Keep the branch local pending root's
+E09/E15 release sequencing and publication instruction.
+
 ### Integration checkpoint
 
 Root independently reviewed runtime, tests, Button and analytics across all three lenses;
@@ -33,8 +55,10 @@ referral policy or current-location query/token copying. Root holds publication 
   action and analytics boundary; one coordinated canonical/acknowledgment mutation, restore.
 - [x] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
 - [x] Root independent source review and exact E10b-main integration; combined frontend gate.
-- [ ] Root responsive/both-theme and clipboard-denial preview; no push/PR/deployment by this
-  agent until instructed.
+- [x] Root local responsive/both-theme copy-success preview at 320/390/1280 px.
+- [x] Record non-operative browser-denial attempt; actual denial remains unverified and is
+  supported only by the existing automated tests.
+- [ ] Root release sequencing/publication; no push/PR/deployment by this agent until instructed.
 
 Plan `4bebdf6`; source `2ee65a7`. The parent passes the actual filing ID and keys the
 action bar by that ID so a pending old write cannot update the next filing's feedback.
