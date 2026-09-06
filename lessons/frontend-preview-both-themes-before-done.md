@@ -13,3 +13,8 @@ passed semantic integration tests, but the 320 px preview collapsed the company-
 to width 0 (scrollWidth 68) beside fixed badges/date. Two independent source refutations
 upheld the measured issue. Responsive header grouping was corrected; the acceptance remains
 actual mobile/both-theme preview, not a CSS-string assertion.
+
+The first E14a header correction restored the issuer, but root's next 320 px screenshot
+revealed card-edge clipping from the remaining layout constraints. The numeric DOM read
+timed out, so this is screenshot evidence only. Mobile grid/card sizing and metric columns
+were corrected separately; both mobile widths and desktop remain visual acceptance.

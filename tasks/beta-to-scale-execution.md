@@ -225,3 +225,11 @@ issuer a wrapping full-width mobile row with badges/date separate, retaining the
 arrangement. Full corrected frontend gate passed: 98 files / 513 tests, lint/typecheck and
 build (27/27 pages). Existing four data-invariant proofs remain valid; no repeat or CSS test.
 Root must verify the corrected 320/390 px and both-theme preview before release.
+
+E14a second preview correction: the issuer became visible, but root's actual 320 px
+screenshot still clipped the right edge/metrics/source/CTA. DOM reads timed out; no numeric
+width is recorded. Two fresh refutations upheld it. Source `de432af` constrains mobile grid
+and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labels and keeps
+numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
+lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
+preview before release; the original four data proofs are unchanged and were not repeated.

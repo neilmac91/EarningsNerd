@@ -5,10 +5,23 @@ actual screenshot clips the card's right edge, third metric, source and CTA. DOM
 were timing out, so no numeric width is claimed. Two fresh independent refutations failed:
 implicit auto grid track/intrinsic child sizing and three padded metric columns remain.
 
-- [ ] Constrain the mobile grid track/card/titlebar and use two metric columns below sm;
+- [x] Constrain the mobile grid track/card/titlebar and use two metric columns below sm;
   retain desktop columns, source/CTA content and prior responsive header correction.
-- [ ] Full frontend gate after this sizing correction; no repeated data proofs or CSS tests.
+- [x] Full frontend gate after this sizing correction; no repeated data proofs or CSS tests.
 - [ ] Root verify no actual 320/390 px clipping in both themes and desktop before merge.
+
+Sizing source `de432af`: explicit one-column mobile waitlist grid, Hero root
+`min-w-0 max-w-full`, titlebar `min-w-0`, two metric columns below `sm`/three above;
+metric labels can wrap and numeric values/units remain together (`whitespace-nowrap`).
+No data, quality, source, CTA or test changes. Initial sizing `9dfd188` passed its gate;
+final gate was rerun after the explicit numeric-nowrap follow-up and is the final evidence:
+**98 files / 513 tests passed in 31.41s**, lint/typecheck clean, build exit 0, compiled
+**2.7s**, TypeScript 3.0s, static pages **27/27** in 1137ms. Exact final logs:
+`/private/tmp/earningsnerd-e14-width-final-lint.log`,
+`earningsnerd-e14-width-final-typecheck.log`, `earningsnerd-e14-width-final-vitest.log`,
+`earningsnerd-e14-width-build.log` under the same directory. Original data proofs remain
+unchanged. Actual 320/390 px plus desktop/both-theme preview remains root-owned and pending;
+no numeric width or successful visual outcome is inferred from the passing build/tests.
 
 Preview correction: root measured the published `1d42e71` waitlist at 320×844:
 Apple Inc. had width/clientWidth 0 and scrollWidth 68; the visible issuer disappeared.
