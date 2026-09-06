@@ -59,6 +59,7 @@ async def test_stream_with_newly_cached_content():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", new_callable=AsyncMock) as mock_ai, \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.database.SessionLocal", mock_session_cls):
             

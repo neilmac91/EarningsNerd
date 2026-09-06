@@ -80,6 +80,7 @@ async def test_stream_heartbeat_during_long_ai_operation():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text content"), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=slow_summarize_filing), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 0.1), \
@@ -178,6 +179,7 @@ async def test_stream_handles_ai_error_gracefully():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=failing_summarize_filing), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress"), \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.database.SessionLocal", mock_session_cls):
@@ -242,6 +244,7 @@ async def test_ai_error_status_records_error_progress():
         with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
              patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=error_status_summarize), \
              patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.reserve_summary_use", return_value=(True, 0, 10, None)), \
              patch("app.services.summary_pipeline.record_progress") as mock_record, \
              patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.database.SessionLocal", mock_session_cls):
