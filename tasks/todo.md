@@ -1,3 +1,54 @@
+## E07b — Admission reservations for summaries (engineering, 2026-09-06)
+
+Facts (read against `e873ac8`): summary admission is a plain read of `user_usage.summary_count`
+against the limit in its own short session (`summary_pipeline.py:400-438` →
+`subscription_service.check_usage_limit`); N concurrent requests by one free user all read the
+same count and all pass, and the atomic completion increment (#729) lands after generation.
+Copilot (`summaries.py:374-385`, meter `:274-292`) and Analysis (`analysis.py:291-341`) share
+the admit-then-count shape. In-flight ownership is per filing and per process, carries no user
+identity, and Redis is off in production (ADR-0004), so a reservation must live in PostgreSQL.
+`user_usage` has no unique `(user_id, month)`; first-row creation is serialized on the `users`
+row (`_increment_monthly_counter`).
+
+Design (option B, chosen over reserve-by-increment because a process death would otherwise
+leave a phantom unit against a 5/month free cap until month end):
+
+- New table `earningsnerd_usage_reservations(id, user_id, month, kind, token, expires_at,
+  created_at)` with an index on `(user_id, month, kind, expires_at)`; model + guarded idempotent
+  migration (`CREATE TABLE IF NOT EXISTS`, distinctive prefix per
+  `lessons/ops-deploy-owned-state-needs-a-distinctive-name.md`, lock_timeout per
+  `lessons/ops-migrations-need-lock-timeout.md`).
+- `subscription_service.reserve_summary_use(user, db)`: one transaction — `users` row
+  `FOR UPDATE` → used = selected bucket count → active = count of unexpired reservations for
+  `(user, month, 'summary')` → admit iff `used + active < limit` → insert reservation → commit.
+  Pro with no cap: no reservation; Pro fair-use cap: same path with the cap as the limit.
+  Returns the same `(can_generate, current_count, limit)` shape plus a token, so the block
+  messages, paywall funnel event and Pro fair-use message are unchanged.
+- `convert_reservation(token, db)`: delete the reservation and increment the counter in the
+  same transaction (the existing increment protocol). `release_reservation(token, db)`: delete.
+  Both idempotent. Expired rows are ignored by admission and deleted opportunistically by the
+  next admission for that user; no sweeper job. TTL `USAGE_RESERVATION_TTL_SECONDS` defaults to
+  the pipeline timeout plus a margin (Settings-owned, rule 8).
+- `summary_pipeline.stream_filing_summary` (the only orchestrator, rule 1): reserve where it
+  reads today; convert at the existing completion site when `count_usage`, release otherwise;
+  release in `finally` if still held. Internal callers (no user) unchanged; legacy background
+  charge on an existing summary unchanged. No SSE contract change (locked anchors untouched).
+- Copilot/Analysis: slice 2 with `kind='qa'`/`'analysis'`; lifetime Copilot taste lives on
+  `users` and needs its own treatment.
+
+- [ ] Model, migration file, Settings TTL, `reserve/convert/release` in `subscription_service`.
+- [ ] Pipeline wiring: reserve → convert/release → finally release.
+- [ ] PostgreSQL gate in the existing usage-concurrency home: 3 parallel reservations against
+  limit 1 admit exactly one; convert then reserve → blocked; release then reserve → admitted;
+  expired lease ignored; bounded lock wait (55P03) admits nothing. SQLite-safe unit coverage
+  for the pipeline's convert/release/finally paths; migration triple pass and lock-safety gate.
+- [ ] One mutation per invariant: reservation insert removed → over-admission test fails;
+  `expires_at` filter dropped → expired-lease test fails; `finally` release dropped → unit fails.
+- [ ] Full backend gate (ruff, bandit, pytest with the three PostgreSQL URLs), draft PR, CI,
+  release with one unverified backend rollout at a time: migration `applied=1`, revision,
+  traffic, independent `/health/detailed`. No price, entitlement, analytics, locked-test or
+  historical duplicate-repair change (repair stays founder-held).
+
 ## E08b — Free-tier caps mirrored once, gated against the backend (engineering, 2026-09-06)
 
 Inventory (read-only, against `3f44152`): the free summary cap (5) and earnings-alert cap (3)
