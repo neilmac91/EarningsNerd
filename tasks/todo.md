@@ -1,5 +1,19 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## Beta-to-scale implementation — approved 2026-09-06
+
+The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
+The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and
+separate founder decisions. Revenue and production readiness remain goals, not achieved results.
+
+### E01 — Coherent mobile example (engineering)
+
+- [x] Re-check current main and confirm live identity can inherit Apple fallback metrics.
+- [ ] Keep live metrics, including an empty set, with live identity; reserve the full fallback for null examples.
+- [ ] Add the non-AAPL empty-metrics regression plus live and null controls in one test home.
+- [ ] Retain one mutation proof, full frontend gates and both-theme preview evidence.
+- [ ] Complete the three review lenses and publish a draft PR before readiness.
+
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
 ### W3-3 public-source replacement — 2026-09-06
