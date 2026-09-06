@@ -52,7 +52,7 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
   calendar service=true/job=false, both fallback fields absent with verified empty defaults,
   and matching pregenerate image `ff8fe0f`. Refresh execution belongs to W3-3; judged readout remains held.
 
-## W3-4 implementation — production smoke (active)
+## W3-4 implementation — production smoke (live acceptance correction)
 
 Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
 W3-2 merged `ff8fe0f5` and its deployment/effective settings are verified above; the publication
@@ -81,8 +81,12 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   3 passed (830ms). Exactly one result-condition mutant failed the intended assertion
   (1 failed, 1 passed in 0.06s); exact restoration passed both parametrized cases (0.04s).
   Existing shutdown logging warning is retained. Frontend source/full-gate proof unchanged.
-- [ ] Root: #711 publication and actual CI, including the timeout correction. Adding the backend tuple causes an accepted
-  deployment with no migration change; verify it before subsequent backend merges.
+- [x] #711 merged `9ab159b7`; production run 34001741244 succeeded, migrations
+  `applied=0 skipped=34`, revision `00272-klf` at 100%, independent detailed health healthy.
+- [ ] Correct the existing smoke locator after [run 34002187563](https://github.com/neilmac91/EarningsNerd/actions/runs/34002187563)
+  passed the summary check but matched both the callout CTA and dialog launcher. Target the
+  exact accessible name plus dialog semantics; retain both visibility assertions and timeouts.
+  [Issue #712](https://github.com/neilmac91/EarningsNerd/issues/712) records this genuine test failure.
 - [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
   bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
   deliberately induced failure issue. Live acceptance is pending; no live outcome is claimed.
