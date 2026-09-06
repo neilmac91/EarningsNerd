@@ -1,3 +1,24 @@
+## E14b — Copy the canonical filing link (engineering, 2026-09-06)
+
+Base `ee3ac988`. Existing readers can copy only the canonical filing URL from a deliberate
+summary action. No public share endpoint, payload snapshot, access expansion, social posting,
+referral policy or current-location query/token copying. Root holds publication pending E10b.
+
+- [x] Read AGENTS/CLAUDE, design system, wave-3 and relevant frontend/test lessons.
+- [ ] Pass actual filing.id to the existing action bar; add a secondary copy action for all
+  readers while retaining save/export gates and normal destination quality behavior.
+- [ ] Await clipboard success, prevent concurrent activation, show accessible failure/retry
+  and manual canonical link; emit only filing_link_copied with filing_id after success.
+- [ ] One new test home `frontend/tests/unit/filing-link-copy.spec.tsx` exercising real parent,
+  action and analytics boundary; one coordinated canonical/acknowledgment mutation, restore.
+- [ ] Commit source, full pinned frontend lint/typecheck/Vitest/build, three-lens review.
+- [ ] Root independent review, released-E10b integration, responsive/both-theme and clipboard
+  denial preview; no push/PR/deployment by this agent until instructed.
+
+Targets: existing SummaryDisplay.tsx, SummaryActionsBar.tsx, lib/analytics.ts; the new test
+home above. No backend, dependencies, locked tests, query keys or E10b consumer edits.
+CLAUDE rules 2/4/6/9/11/12 apply. Existing root-owned release histories remain intact.
+
 ## E14a — grounded waitlist example (2026-09-06)
 
 Second preview finding: corrected `83dd208` shows the issuer at 320 px, but root's
