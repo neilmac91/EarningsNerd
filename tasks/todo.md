@@ -44,7 +44,7 @@ mutations were not repeated; the PostgreSQL
 provider-wait cases extend their contention/cancellation coverage. The approved locked helper
 patch context mechanically reduces to the exact base file; all other locked files are untouched.
 Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
-found no actionable issue. Publication and production verification remain pending.
+found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
 
 ### E10a — Filing-first financial-facts index (engineering)
 
@@ -126,7 +126,10 @@ Root release checkpoint: PR #726 merged as `a5ba97e692246f08e35e05a92128443853ad
 after final-head CI `34032131137`, summary artifact `9989052658` (52/52, no errors/hard
 regressions) and Copilot `34032131118` artifact `9989000339` (18/18 accepted) passed.
 Source/fixture hashes and migration triple-pass were verified. Production run `34032605285`
-is in progress; no production migration or health success is claimed yet.
+succeeded: deploy job `101485181717` reported `applied=1 skipped=34`, image
+`46d56ced269fdd32bb4232c0b1f40ac5ec56b54b2f92f1ea2c86ae95cf1c919b`,
+revision `earningsnerd-backend-00280-xcp` serving 100%. Independent health timestamp
+`1788697428.587389` was healthy (database 6.42 ms, Redis disabled, SEC circuit closed).
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
