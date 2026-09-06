@@ -308,6 +308,24 @@ A malformed/empty object still fails.
   `limit`. The sole authoritative #698 pin used three repeats with no limit; retain that pin
   and the documented replacement conditions below. The runner records its requested cohort
   and repeat count before execution, so missing attempts cannot shrink the measured population.
+- **CI scheduling evidence.** Summary CI explicitly passes `--concurrency 2`; the runner's
+  default remains five. Two is an unmeasured starting assumption to reduce simultaneous filing
+  work, with a possible increase in CI duration. Recovery still fans out and other PRs/Copilot
+  can overlap, so this is not a provider-request cap or a demonstrated timeout fix. E09's failed
+  summary run `34042620267` overlapped Copilot from 15:34:29–15:36:00 UTC within its
+  15:32:53–15:39:42 generation interval; accepted summary run `34044216078` also overlapped
+  Copilot from 16:04:41–16:06:28 within 16:03:51–16:09:37 (2026-09-06). Both outcomes retain
+  separate evidence; these intervals establish neither timeout causality nor a production
+  failure rate. The 75-second runtime deadline and existing per-PR cancellation groups stay
+  unchanged. The artifact retains `ci-execution.txt` with source SHA, filing concurrency and
+  the exact shell-escaped invocation, written before generation so failure still leaves evidence.
+  Concurrency is absent from the report's `harness`: keep this execution record separate,
+  disclose scheduling differences when reviewing reports, and preserve all baseline/harness
+  identities and historical artifacts. This scheduling change does not authorize a re-pin.
+  The existing `test_ci_parity_and_bounded_repeat_measurement` gate executes the workflow shell
+  against a harmless stub, including dispatch arguments and failure-exit/evidence retention.
+  Changes to this RUNBOOK match the `backend/evals/` PR filter and therefore trigger the normal
+  summary measurement; offline tests and skipped runs cannot establish live acceptance.
 - **Unchanged hard tolerances.** A `gate_fail_rate` increase greater than **0.005** fails;
   precision/coverage drops greater than **0.05** and recall drops greater than **0.10** fail.
   Two repeats improve measurement granularity, but one hard veto in 52 outputs still exceeds

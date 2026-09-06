@@ -1,6 +1,9 @@
 """Production/eval parity and honest-pin invariants; no SEC or model network calls."""
 import hashlib
 import json
+import os
+import shlex
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -175,7 +178,7 @@ def test_committed_jpm_components_rearm_g5():
     assert score == 0.0 and len(failures) == 2
 
 
-def test_ci_parity_and_bounded_repeat_measurement():
+def test_ci_parity_and_bounded_repeat_measurement(tmp_path):
     # BaseLoader preserves the YAML key "on" instead of interpreting it as boolean.
     workflow = yaml.load((ROOT/'.github/workflows/ci.yml').read_text(), Loader=yaml.BaseLoader)
     assert workflow['on']['workflow_dispatch']['inputs']['eval_runs']['options'] == ['2', '3']
@@ -197,6 +200,46 @@ def test_ci_parity_and_bounded_repeat_measurement():
     assert 'case "$EVAL_RUNS" in 2|3)' in run['run']
     assert 'ARGS=(--candidates baseline --runs "$EVAL_RUNS")' in run['run']
     assert 'python -m evals.runner "${ARGS[@]}"' in run['run']
+    upload = next(s for s in steps if s.get('name') == 'Upload eval report')
+    assert upload['if'] == "always() && steps.key.outputs.have == 'true'"
+    assert 'backend/evals/reports/ci-execution.txt' in upload['with']['path'].splitlines()
+    assert workflow['jobs']['eval-baseline']['concurrency'] == {
+        'group': 'eval-baseline-${{ github.event.pull_request.number || github.ref }}', 'cancel-in-progress': 'true'}
+    assert copilot['concurrency'] == {
+        'group': 'copilot-fidelity-${{ github.event.pull_request.number }}', 'cancel-in-progress': 'true'}
+
+    # Run the real shell boundary with a harmless executable: no eval imports or network.
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    stub = bin_dir / 'python'
+    stub.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\nexit \"$STUB_EXIT\"\n")
+    stub.chmod(0o755)
+    for index, (event, repeats, limit, exit_code) in enumerate([
+        ('pull_request', '2', '999', 0),
+        ('workflow_dispatch', '3', '2', 0),
+        ('workflow_dispatch', '2', '', 7),
+    ]):
+        work = tmp_path / str(index)
+        work.mkdir()
+        capture = work / 'invoked-args.txt'
+        source = 'a' * 40
+        result = subprocess.run(
+            ['bash', '-e', '-o', 'pipefail', '-c', run['run'].replace('${{ github.event_name }}', event)],
+            cwd=work, env={'PATH': f'{bin_dir}{os.pathsep}{os.defpath}', 'GITHUB_SHA': source,
+                          'EVAL_RUNS': repeats, 'EVAL_LIMIT': limit, 'STUB_EXIT': str(exit_code),
+                          'CAPTURE_ARGS': str(capture), 'OPENAI_API_KEY': 'must-not-be-retained'},
+            capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == exit_code, result.stderr
+        expected = ['-m', 'evals.runner', '--candidates', 'baseline', '--runs', repeats]
+        if event == 'workflow_dispatch' and limit:
+            expected += ['--limit', limit]
+        expected += ['--concurrency', '2']
+        assert capture.read_text().splitlines() == expected
+        evidence = dict(line.split('=', 1) for line in (work / 'evals/reports/ci-execution.txt').read_text().splitlines())
+        assert set(evidence) == {'source_sha', 'filing_concurrency', 'invocation'}
+        assert evidence['source_sha'] == source and evidence['filing_concurrency'] == '2'
+        assert shlex.split(evidence['invocation']) == ['python', *expected]
 
 
 @pytest.mark.parametrize('defect', ['failed-gate', 'missing-gate', 'veto-list', 'missing-veto-list', 'veto-rate', 'missing-rate', 'pass-rate',
