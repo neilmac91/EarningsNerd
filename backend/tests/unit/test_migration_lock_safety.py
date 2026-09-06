@@ -661,26 +661,6 @@ def test_new_migrations_guard_alter_table_with_a_do_block():
     )
 
 
-def test_filing_facts_index_matches_filter_order_in_model_and_migration():
-    """Fresh and migrated schemas must support the filing-only FY reader, including restatements."""
-    from app.models.financial_fact import FinancialFact
-
-    name = "ix_financial_fact_filing_period_concept_end"
-    columns = ["filing_id", "fiscal_period", "concept", "period_end"]
-    index = next((index for index in FinancialFact.__table__.indexes if index.name == name), None)
-    assert index is not None, "Filing facts need the same filing-leading index on fresh databases"
-    assert [column.name for column in index.columns] == columns
-    assert index.dialect_options["postgresql"].get("where") is None, (
-        "The filing reader includes non-latest facts from the selected filing"
-    )
-    migration = MIGRATIONS_DIR / "20260906_financial_fact_filing_index.sql"
-    sql = " ".join(_strip_comments(migration.read_text(encoding="utf-8")).split())
-    assert sql == (
-        f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} "
-        f"ON financial_fact ({', '.join(columns)});"
-    ), "Migration must create the same complete filing-leading index safely on existing databases"
-
-
 def test_new_migrations_guard_create_index_with_a_do_block():
     _assert_frozen_allowlist(
         _scan_migrations(_unguarded_index_targets),

@@ -14,8 +14,8 @@ including restated rows (`is_latest = false`) and single-filing provenance.
 - [x] Add only `backend/migrations/20260906_financial_fact_filing_index.sql`, using
   `CREATE INDEX CONCURRENTLY IF NOT EXISTS` outside any transaction/DO block; apply solely
   through the existing ledger script, whose INVALID-index check fails a cancelled build.
-- [x] Extend the existing migration safety test home with one model/migration identity-and-order
-  gate; retain exactly one mutation experiment and restore exact source bytes.
+- [x] Verify index identity/order with disposable PostgreSQL and retain existing migration safety
+  gates. Review removed the new implementation-mirroring test under proportionality guidance.
 - [x] Verify the new index actually builds on disposable PostgreSQL (remove only its fresh-schema
   copy before applying), then run the ledger apply/skip/reset-and-reapply triple pass and inspect
   validity/column order. Run the full pinned Ruff, Bandit and backend pytest gate.
@@ -41,7 +41,8 @@ backend pytest: `2434 passed, 6 skipped, 2 deselected, 23 warnings in 46.70s`, e
 The six skips are the existing PostgreSQL-only Stripe concurrency cases in the ordinary SQLite
 lane; E10 does not change billing. Locked contracts are byte-identical to `f94501f`.
 
-Exactly one mutation experiment swapped the model's first two index columns: the new gate
+Historical source-checkpoint experiment (the added test was removed in review): exactly one
+mutation swapped the model's first two index columns, and the then-present gate
 failed at `fiscal_period != filing_id` (1 failed), then exact source restoration passed
 (1 passed). The first invocation used the repository root and could not import `app`; it did
 not reach the invariant. A same-second Python bytecode cache retained the swapped order after
@@ -58,8 +59,12 @@ The new migration's recorded SHA-256 is
 No live database measurement or migration execution occurred. This checks schema behavior,
 not a populated-table performance claim or a production first-build duration estimate.
 
-Root independently reviewed correctness, rules/brief and tests/gates at `36f5dbe` with no
-actionable finding. Existing timeout and INVALID-index gates remain unchanged; no new recovery
+Initial root review at `36f5dbe` found no actionable issue. PR review subsequently identified
+the added test as an implementation mirror for a reversible performance index; two fresh
+refutation attempts confirmed the finding. The final change removes that test, retaining the
+actual PostgreSQL catalog/triple-pass evidence and existing generic migration gates. No new
+correctness invariant is claimed and the historical mutation is not a required final gate.
+Existing timeout and INVALID-index gates remain unchanged; no new recovery
 mechanism or timeout guarantee is claimed. Root owns publication, remote CI/evals and serialized
 deployment verification; none has happened for this branch. No founder decision is needed to
 review the index change; an actual failed production build would require the recovery decision
