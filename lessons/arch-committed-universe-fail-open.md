@@ -15,3 +15,7 @@ retrieved without a key and independently matched current ETF equity holdings. T
 regression exercises the actual HTML parser and automatic selection with a credential present
 and absent, and preserves source-provided current spin-offs. Public-source retrieval success is
 separate from GitHub publication success and does not prove historical index membership.
+
+The regression belongs at the parser boundary: supplied constituent tickers must survive.
+Do not replace a stale exclusion with an unconditional live-data inclusion requirement; an
+index can later remove the company legitimately. Review caught and removed that inverse pin.

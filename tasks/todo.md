@@ -35,6 +35,17 @@ mutation failed the intended parser assertion (`1 failed in 0.49s`); exact resto
 (`1 passed in 0.55s`). Four locked contracts and baseline are unchanged; 21 local links resolve.
 The subsequent source-identical documentation update clarifies same-day no-change runs.
 
+Automated review of initial PR #718 head `eaad3665` identified a new unconditional FDXF/HONA
+health-test requirement that would block legitimate future removals. Fresh independent source
+and tests reviewers could not refute it; root's separate 516-member fixture also failed only that
+new requirement. Correction `e6291cf2` removes those two lines and retains the parser regression
+that checks preservation when the public source supplies the tickers. Production code and data
+are unchanged. Corrected local gate: Ruff/Bandit exit 0; `2386 passed, 2 deselected, 23 warnings
+in 46.77s`, exit 0. An existing post-summary Yahoo-client shutdown logging error is retained.
+The old-URL mutation proof remains scoped to unchanged parser source/test bytes. Initial CI
+34014268319 (52 complete summary results) and Copilot 34014614488 (18 accepted results) passed;
+the corrected head must pass its own required release gates before merge.
+
 - [ ] Publish the draft PR, inspect required CI, merge and verify the backend deployment;
   dispatch the public refresh and retain its actual result. Any Actions-policy prerequisite
   remains founder-owned; never change settings or introduce a PAT workaround.
