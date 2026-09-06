@@ -1,3 +1,323 @@
+## Account-cache integration and handover checkpoint (2026-09-06)
+
+Integrated released main `d7b0177908b6d580d8ad4a99387f54fb34d1849f` (#741) after an
+approved read-only origin fetch. The sole merge conflict was this checklist; both complete
+histories remain below. Entire frontend tree matches final tested source `25b360f`; backend
+and workflows match incoming main. No mutation or full gate repetition is needed for this
+documentation-only integration. Final lint, typecheck, Vitest and build all exited 0:
+`101 test files passed; 553 tests passed in 35.20s`; build generated 27/27 pages.
+Evidence remains in `/private/tmp/earningsnerd-account-cache-evidence/full-25b360f-*.log`.
+Root and independent three-lens source review are clear. User requested handover to Claude
+Fable 5.1; no new implementation or publication follows this clean local checkpoint. Root owns
+push, draft PR, remote CI, any actual preview and release. No live account operation occurred.
+
+## Account-cache isolation — subscription and usage (engineering, 2026-09-06)
+
+Base `c4ae631`; isolated branch `codex/wave3-account-cache-isolation`. Plan-only checkpoint:
+root must review the sequence and key API below before source edits or gates. No network,
+publication, live account/auth/checkout/browser/provider operation is authorized in this local slice.
+
+### Finding and bounded scope
+
+The root QueryClient survives client navigation, while the two cookie-authenticated resources use
+unscoped keys (`frontend/app/providers.tsx:27`, `frontend/lib/queryKeys.ts:21–23`). Ordinary logout
+and password login invalidate incompletely; invalidation retains snapshots. A late global identity
+request also calls `markSessionActive` before React Query can discard its canceled result
+(`frontend/features/auth/api/auth-api.ts:50–68`). Source-supported account mixing is not measured
+production exposure or a backend entitlement bypass. The workspace brief
+`outputs/account-cache-next-task.md` records the two failed refutations and complete inventory.
+
+- [x] Read current CLAUDE/AGENTS, design system, wave-3 context and relevant query-registry,
+  structural-gate, locked-contract, one-test-home and committed-proof lessons; inspect actual
+  auth, Axios/stream refresh and React Query transition owners.
+- [x] Root reviewed API/ordering and approved implementation; the classification correction below
+  supersedes the initial marker-clearing preservation proposal.
+- [x] Implement the two scoped families and migrate all seven subscription / five usage consumers
+  and explicit invalidations below.
+- [x] Wire one synchronous reset/cancellation owner into ordinary logout, successful password
+  login and generation-tagged confirmed session loss; fence late identity results/side effects.
+- [x] Add actual QueryClient transition coverage and structural consumer enforcement; update
+  existing unlocked fixture keys/identity setup only where the ownership change requires it.
+- [x] Commit source, run one original mutation per independent invariant, restore committed bytes;
+  run full pinned frontend lint/typecheck/Vitest/build. No backend delta or backend gate.
+- [x] Three-lens review, independent refutations for actionable findings and exact locked-byte
+  check. Root owns later integration, actual CI, preview, publication and release.
+
+### Proposed API and transition ordering (pending root review)
+
+`frontend/lib/queryKeys.ts` keeps ONE factory per resource:
+`subscription.all()` / `subscription.byUser(userId: number | undefined)` and matching `usage`.
+The prefix is for cancel/remove/invalidate only; every query uses a resolved numeric identity.
+Undefined is a disabled empty identity, never a request or a fallback to the old global key.
+The HTTP API remains cookie-authenticated with no user-ID query parameter. Correct the registry
+comment that identity is unnecessary just because it is not sent in the request.
+
+New `frontend/features/auth/lib/accountQueryState.ts` owns `resetAccountQueries(queryClient)`.
+Its state changes occur in ONE synchronous turn: advance the local session generation; invoke
+cancellation of currentUser FIRST, then both family prefixes; set currentUser to null; remove
+both families' snapshots. Cancellation starts synchronously in TanStack; do not put a delayed
+post-await remove/set operation after cancellation that could erase an already accepted B.
+Do not use resetQueries, whose active refetch would race the identity reset. Do not invalidate
+currentUser immediately after a failed logout and recover the still-valid server cookie as A.
+
+All three ordinary logout handlers call the helper in finally (including Dashboard's error
+path). Password login invokes it immediately after credential success, before initiating or
+publishing replacement identity. Replace the direct analytics-only getCurrentUser request with
+the canonical shared currentUser query; preserve successful-login analytics payload and safe
+redirect behavior. A failed login is not an authoritative account replacement. Existing
+sign-out-all/account-deletion full-cache clearing remains intact.
+
+The existing `frontend/lib/api/session.ts` may carry an in-tab monotonically increasing generation
+and a confirmed-loss subscription; it carries no identity, entitlement or token. Each identity
+fetch captures its generation and checks it before returning, marking a session or interpreting
+an error. A superseded result rejects as canceled rather than returning null or marking the
+new account. Optional AbortSignal plumbing remains within the existing Axios API owners.
+Apply the same generation guard to subscription/usage reads so a late request cannot revive
+an old account snapshot even when a transport stub does not honor abort.
+
+The provider subscribes once per QueryClient to confirmed-loss notifications tagged with the
+request generation, ignores old-generation events, and calls the same reset helper. Axios must
+not import QueryClient or a component. The listener does not emit another loss event; no
+identity-change effect, polling, or invalidation loop is introduced.
+
+`clearSessionActive` remains marker-only: both Axios and raw SSE currently call it for ALL refresh
+failures, including network/5xx. The shared refresh owner has the actual raw Axios refresh error
+shape. Notify loss only for an actual refresh 401 or a definitive protected-request 401 after
+refresh/without a viable session; credential-endpoint 401s do not notify. Preserve one shared
+refresh promise and replay/error behavior. Attach an internal, non-wire classification to the
+original ApiError when refresh failed transiently so getCurrentUserSafe does not mistake its
+original access-token 401 for confirmed session loss. It must rethrow that transient failure,
+while ordinary definitive /me 401 still resolves null. Preserve raw SSE response/frame semantics;
+only generation-tagged loss notification is added where needed. Old-generation errors must not
+clear B's marker or notify a B reset. This classification will be proved through the actual
+Axios adapter boundary, not inferred only from a fabricated ApiError.
+
+### Root-approved classification correction before implementation
+
+Root approved the plan, then narrowed transient handling: keep the active marker on refresh
+network/429/5xx failures, and clear it only on confirmed rejection. This fixes recovery on the
+next request and removes the need for persistent uncertainty state. ApiError retains its HTTP
+status/detail and carries only per-error internal classification so /me cannot interpret the
+original access 401 as definitive after a transient refresh failure. Existing unlocked refresh
+fixtures that intended rejection now supply its actual 401 shape; locked anchors stay unchanged.
+No second uncertainty bit, new refresh provider or cookie-handling layer is introduced.
+
+### Target inventory
+
+Shared owners: `frontend/lib/queryKeys.ts`, `frontend/lib/api/session.ts`,
+`frontend/lib/api/client.ts`, `frontend/lib/api/streamRefresh.ts`,
+`frontend/features/auth/api/auth-api.ts`, `frontend/app/providers.tsx`,
+`frontend/features/subscriptions/api/subscriptions-api.ts`, and new
+`frontend/features/auth/lib/accountQueryState.ts`.
+
+Subscription consumers (all seven): `frontend/app/pricing/page.tsx`,
+`frontend/app/dashboard/page.tsx`, `frontend/app/filing/[id]/page-client.tsx`,
+`frontend/features/settings/components/BillingPanel.tsx`,
+`frontend/features/subscriptions/components/SubscriptionGate.tsx`,
+`frontend/features/analysis/components/AnalysisPageClient.tsx`,
+`frontend/hooks/usePostHogUserIdentification.ts`.
+Usage consumers (all five): Pricing, Dashboard, BillingPanel,
+`frontend/features/calendar/hooks/useCalendar.ts`,
+`frontend/features/filings/components/copilot/AskCopilotRail.tsx`.
+Calendar/Billing/Copilot obtain identity through the existing currentUser key/fetcher where
+currently only a marker/boolean exists. Preserve existing open/stale/retry conditions. Billing
+must keep its skeleton while identity is pending and show no account details for null identity;
+a disabled query's isLoading=false must not newly render Free. No cached-error retention or
+pricing-copy redesign is part of this correction.
+
+Transition entrypoints: `frontend/components/Header.tsx`,
+`frontend/features/auth/components/UserMenu.tsx`, Dashboard, `frontend/app/login/page.tsx`.
+Preserve explicit family-prefix invalidations after login and analysis/Copilot completion and
+existing refetch callbacks. Correct the query-registry lesson with its machine gate in this PR.
+
+### Behavioral and structural gates
+
+New home `frontend/tests/unit/accountQueryState.spec.tsx`: actual QueryClient/observers and
+controlled pending requests demonstrate A Pro -> B Free, A Free -> B Pro, guest reset, no A
+subscription/usage during B pending or failure, delayed A identity/data/error returns after B,
+and no stale session-marker or analytics identity side effect. Exercise successive resets so
+an older completion cannot erase newer B state. Cover all three ordinary logout integrations
+and login wiring proportionately via structural enforcement or existing component homes.
+Prove family invalidation reaches the identity-scoped subscription/usage readers.
+
+The same home includes structural enforcement of scoped family reads, explicit prefix writes,
+canonical identity access and the listed transition entrypoints, following existing registry
+ESLint restrictions. Existing `apiClientRefresh.spec.ts`, `streamRefresh.spec.ts` and
+`authErrorStatus.spec.ts` are the homes for refresh classification/marker cases when needed;
+T8 is backend test_refresh_replay, and T10 summaryStream.contract remains byte-identical.
+Existing Billing/Pricing/PostHog/Calendar/Copilot fixture setup may need numeric current-user keys;
+keep each behavior in its existing home rather than a duplicate component suite.
+
+Planned proofs, each once on committed source: remove account identity from a family key
+(transition/structural gate fails); bypass reset/identity-generation fence as one coordinated
+old-transition mutation (late A identity/data gate fails); restore the old transient-refresh
+classification (actual /me refresh-network-failure gate fails). Adjust only if review establishes
+an additional independent invariant; record exact failure and restoration tails, no repeated
+proofs for source-identical integration.
+
+### Local source checkpoint (before mutation/full gate)
+
+Focused eight existing/new homes passed: `66 passed (66)` in 3.74s, with actual QueryClient
+observers and the real PostHog identification hook mounted during both account directions.
+The Axios adapter and shared SSE helper cases cover network/429/503 refresh failures, a next
+identity retry, stale refresh success/rejection, and generation handoff on the shared promise.
+The structural gate requires the same identity in the key and enabled expression; its first
+strict pass identified two equivalent alias expressions, normalized to direct identity checks.
+Billing's existing skeleton/null behavior now accounts for identity resolution and has one
+case in its existing home. Backend and locked frontend parser test have no diff against base.
+Logs: `/private/tmp/earningsnerd-account-cache-evidence/focused-reviewed.log` (final focused),
+`focused-initial.log` (55 prior tests), `focused-expanded.log` (strict gate found two aliases),
+`lint-initial.log`, `typecheck-initial.log` (two original variable-name fixes), and
+`typecheck-expanded.log` (clean). An initial test-augmentation script used frontend-relative
+paths from the frontend directory and exited before edits; the initial focused command still
+ran on the earlier 55-case source. No test result from that run is claimed for later source.
+
+### Source review correction: guest identity check overlaps password login
+
+Root and independent reviewer refutations confirmed that a guest /me 401 could notify session
+loss, advance the JS generation, and reject a concurrently successful login. A guest has no
+existing session to lose. Capture request-start active state alongside generation, preserve it
+on replay, and require that state before refreshing or notifying loss. getCurrentUserSafe also
+uses its request-start marker before clearing; a guest response must not clear the marker set by
+concurrent login. The new actual adapter + subscribed QueryClient reset cases cover guest-first
+and login-first order and verify accepted B identity and active marker. Focused eight homes:
+`68 passed (68)` in 3.60s (`focused-guest-overlap.log`). No locked fixture changed.
+
+The original three committed-source proofs at `4286cacc` each failed as intended and restored
+exact bytes: identity keys/admission `3 failed | 3 passed`, transition fence `1 failed | 5 passed`,
+transient refresh `6 failed | 20 passed`. Logs are `mutation-{identity-keys,transition-fence,
+transient-refresh}.log` and `proof-restoration.log` in the evidence directory. They will not be
+repeated for this identified correction; one new guest-overlap proof follows on corrected source.
+
+Root briefly proposed retaining active-session expiry as a pending-login limitation. Further
+independent refutation showed that would introduce a false login failure; the final correction
+below supersedes that proposal. Browser Set-Cookie ordering remains outside this task.
+
+### Final ownership correction supersedes the active-loss residual proposal
+
+Root reconsidered the active-loss case after a second independent refutation: a stale active
+marker plus a real refresh rejection must not veto an authoritative new credential response.
+The prior paragraph retaining that false login failure is historical and superseded here.
+Keep one strict request generation and an explicit-transition reason watermark (no identity,
+token or extra uncertainty state). Passive session loss advances only the request generation;
+completed explicit login/logout also advance the watermark. Identity/data/refresh guards stay
+strict. Login checks the watermark before marking its successful session and atomically again
+before the page's cache reset. The reset helper returns the accepted watermark; the page checks
+it after awaited canonical identity resolution, outside error swallowing and immediately before
+analytics/navigation. A later completed logout wins even when identity resolved just before it.
+
+Logout's finally uses the explicit watermark too: passive loss while it awaited does not suppress
+the explicit logout fence; a newer accepted login protects B from an older logout completion.
+The actual adapter/subscribed QueryClient cases cover passive refresh401 then successful login,
+passive loss then completed logout rejecting pending login, the API-to-page continuation gap,
+and both pending/resolved identity before later logout. Guest-first and login-first cases remain.
+Focused final source: `73 passed (73)` in 2.66s, eight homes, in
+`/private/tmp/earningsnerd-account-cache-evidence/focused-final-ownership.log`.
+No cookie serialization or broader account-cache cleanup is added. One combined original
+ownership correction proof follows on committed final source; the earlier three proofs stand.
+
+### Final review: logout UI continuation and fixture classification
+
+Root and independent review found that returning normally after skipping an old logout reset
+still let Header/UserMenu navigate, and Dashboard's mutation onSuccess could clear B's analytics
+identity after unmount. Both refutations failed. The shared helper now invokes an optional
+synchronous onCurrentSettled callback inside the same owned finally turn as reset. Header and
+UserMenu navigate for current success/failure there; Dashboard keeps success-only analytics and
+navigation in that callback. There is no unguarded option-level Dashboard logout onSuccess.
+Actual MutationObserver unsubscribe tests prove stale callbacks cannot navigate/clear analytics,
+and current failure preserves the original error plus Header/UserMenu continuation semantics.
+Focused eight homes: `75 passed (75)` in 2.69s (`focused-logout-ui.log`). One new original proof
+will move the callback outside its ownership condition; earlier four proofs are not repeated.
+
+The first full run at `b051df4` passed lint, typecheck and production build; Vitest reported
+`548 passed | 1 failed` in 33.75s. The only failure was
+`summaryStreamAuthRefresh.spec.ts:84,96`: a purported confirmed rejection supplied only a generic
+Error, now correctly treated as transient. The initial hold on this fixture was our overbroad
+interpretation, not an explicit lock: `tasks/architecture-refactor-plan.md:677,775` names T10 as
+`summaryStream.contract.spec.ts`; `docs/summary-quality-improvement-plan.md:130` names other stream
+anchors but not AuthRefresh. Root and independent inventory review confirmed ordinary engineering
+authority for the correction. Exactly one fixture now adds `{ response: { status: 401 } }` to
+the existing Error; its header says confirmed rejection and EVERY assertion is unchanged. All
+actually named locked anchors remain byte-identical. No founder approval or error-string special
+case was required. The lock lesson records this self-correction.
+
+The combined ownership proof at `b051df4` restored original guest/passive/final-continuation
+behavior: `6 failed | 7 passed` in 1.53s (`mutation-login-ownership.log`); restoration verified
+exact committed bytes and empty status (`ownership-proof-restoration.log`). Full checks run
+again on the final UI/fixture source, with the prior full-run failure retained as history.
+
+### Final identity-writer inventory: profile mutation completion
+
+After the full 551-case pass, a direct-writer inventory found ProfileForm's existing onSuccess
+publishing its returned user into the global identity key. Query cancellation does not cancel
+mutations, and the write bypassed the fenced /me query; root and source refutations confirmed
+it can restore A after B login. Root approved removing only that direct setQueryData, preserving
+the existing invalidation and all profile API/wire behavior. A new case in the same account
+home mounts the real ProfileForm, holds PATCH, unmounts it, accepts B, then releases A while the
+canonical /me refetch is held. B stays visible throughout. The AST inventory covers all existing
+setQueryData/setQueriesData calls and currentUser query options: five direct cache writes remain
+(watchlist twice, notifications, preferences, and the reset owner's null), with no positive
+identity publisher outside the canonical fetcher. Focused account home: `17 passed (17)` in
+2.79s (`focused-profile-owner.log`). One original reinstatement proof follows on committed source.
+The prior `551 passed` full gate remains evidence for `72c7c3c`, not this changed source.
+
+### Final local verification — source `25b360ff`
+
+All four pinned frontend gates exit 0 on the final source:
+
+```text
+npm run lint                         exit 0; no warnings
+npx tsc -p tsconfig.ci.json            exit 0; no diagnostics
+npm run test -- --run                 101 files passed; 553 tests passed in 35.20s
+npm run build                        Compiled successfully in 3.8s
+                                     Finished TypeScript in 2.7s
+                                     Generated 27/27 static pages in 1498ms; exit 0
+```
+
+Exact logs: `/private/tmp/earningsnerd-account-cache-evidence/full-25b360f-{lint,typecheck,
+vitest,build}.log`. Local builds warn about the existing middleware convention and missing
+Sentry upload credentials; no local Sentry release/source-map upload or deployment occurred.
+The full Vitest log retains expected handled boundary errors/jsdom navigation diagnostics.
+`source-scope-25b360f.json` verifies unchanged backend, workflows, dependency manifests,
+analytics schema, and named frontend `summaryStream.spec.ts` / `summaryStream.contract.spec.ts`
+against base `c4ae631`. No backend suite was needed or run for this frontend-only change.
+
+Six original proofs each ran once on their recorded committed source and restored exact bytes:
+
+| Invariant | Source | Failure tail | Log |
+|---|---|---|---|
+| Identity keys and admission | `4286cacc` | 3 failed, 3 passed | `mutation-identity-keys.log` |
+| Late identity/request fence | `4286cacc` | 1 failed, 5 passed | `mutation-transition-fence.log` |
+| Transient refresh classification | `4286cacc` | 6 failed, 20 passed | `mutation-transient-refresh.log` |
+| Guest/passive/explicit login ownership | `b051df4` | 6 failed, 7 passed | `mutation-login-ownership.log` |
+| Stale logout UI callback | `72c7c3c` | 2 failed, 13 skipped | `mutation-logout-ui.log` |
+| Profile identity publication | `25b360ff` | 2 failed, 15 passed | `mutation-profile-writer.log` |
+
+The last proof took 3.87s and showed both visible A-for-B contamination and the writer gate
+failing after restoring the original ProfileForm cache assignment. Proof scripts and restoration
+logs remain in the same evidence directory. Earlier passing source runs and the one resolved
+fixture failure are retained separately; none are substituted for this final full run.
+
+Source/rules/tests review covers every changed runtime file, all twelve account-resource read
+sites, explicit invalidations, active observers/PostHog, direct identity publishers, and locked
+byte identity. Root and independent reviewers cleared the final source including the profile writer. The
+independent profile pass verified unchanged API behavior, actual unmount/held-refetch coverage
+and the complete direct-writer inventory; same-account Saved confirmation now waits for the
+canonical refresh. No remaining actionable source-review finding was reported.
+No repository fetch, push, PR, ready/merge, live account, checkout, browser or provider generation
+was performed during local preparation. Build-only access to public font assets was approved. Root owns main integration, publication, actual CI and preview acceptance.
+
+### Constraints and remaining limits
+
+CLAUDE rules 4/6/9/11/12 apply; backend plan truth, API payloads, prices, trials, analytics schema,
+registration, refresh cookie behavior, prompts/models/flags and locked tests remain unchanged.
+This establishes ownership of subscription/usage for the identified in-tab transitions only.
+Other account caches (saved library, calendar alerts/optimistic state, notifications), unobserved
+cross-tab cookie changes and server-side ordering of already-in-flight cookie-setting responses
+are separate concerns; no app-wide privacy or authentication isolation claim is made. Backend
+entitlements remain the authorization boundary. No live-account operation or working preview
+has been performed for this task.
+
 ## E11b-0 — Reject unsafe filing-job dry runs (engineering, 2026-09-06)
 
 ### CI follow-up: arm the lifecycle deadline after provider entry

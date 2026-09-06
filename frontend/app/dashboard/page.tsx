@@ -3,6 +3,7 @@
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
+import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
@@ -33,14 +34,14 @@ export default function DashboardPage() {
   })
 
   const { data: usage, isLoading: usageLoading, isError: usageError, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
-    queryKey: queryKeys.usage(),
+    queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
     retry: false,
     enabled: !!user,
   })
 
   const { data: subscription, isLoading: subscriptionLoading, isError: subscriptionError, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user,
@@ -90,12 +91,12 @@ export default function DashboardPage() {
   })
 
   const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
+    mutationFn: () => logoutAndResetAccount(queryClient, logout, (succeeded) => {
+      if (!succeeded) return
       analytics.logout()
       router.push('/login')
       router.refresh()
-    },
+    }),
   })
 
   useEffect(() => {

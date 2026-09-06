@@ -1,5 +1,6 @@
 'use client'
 
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { CircleNotchIcon, CreditCardIcon, SparkleIcon } from '@/lib/icons'
@@ -23,12 +24,16 @@ function daysUntil(value: string | null): number | null {
 }
 
 export default function BillingPanel() {
+  const { data: user, isPending: identityPending, isError: identityError } = useQuery({
+    queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false,
+  })
   const { data: sub, isLoading, isError } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
+    enabled: !!user,
     retry: false,
   })
-  const { data: usage } = useQuery({ queryKey: queryKeys.usage(), queryFn: getUsage, retry: false })
+  const { data: usage } = useQuery({ queryKey: queryKeys.usage.byUser(user?.id), queryFn: getUsage, enabled: !!user, retry: false })
 
   const portal = useMutation({
     mutationFn: createPortalSession,
@@ -39,7 +44,7 @@ export default function BillingPanel() {
 
   // Surface the failure rather than silently falling back to "Free" — that would mislead a Pro
   // subscriber on a transient network error.
-  if (isError) {
+  if (isError || identityError) {
     return (
       <Card className="p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
@@ -52,6 +57,8 @@ export default function BillingPanel() {
       </Card>
     )
   }
+
+  if (user === null) return null
 
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
@@ -66,7 +73,7 @@ export default function BillingPanel() {
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
       </div>
 
-      {isLoading ? (
+      {identityPending || isLoading ? (
         <SkeletonText lines={3} />
       ) : (
         <div className="space-y-3">

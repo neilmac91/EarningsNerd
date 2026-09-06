@@ -1,4 +1,5 @@
 import api from '@/lib/api/client'
+import { getSessionGeneration, assertSessionGeneration } from '@/lib/api/session'
 
 export interface Usage {
   summaries_used: number
@@ -32,13 +33,19 @@ export interface SubscriptionStatus {
 }
 
 // Subscription APIs
-export const getUsage = async (): Promise<Usage> => {
-  const response = await api.get('/api/subscriptions/usage')
+export const getUsage = async (options?: { signal?: AbortSignal }): Promise<Usage> => {
+  const generation = getSessionGeneration()
+  const response = await api.get('/api/subscriptions/usage', { signal: options?.signal })
+  assertSessionGeneration(generation)
+  options?.signal?.throwIfAborted()
   return response.data
 }
 
-export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
-  const response = await api.get('/api/subscriptions/subscription')
+export const getSubscriptionStatus = async (options?: { signal?: AbortSignal }): Promise<SubscriptionStatus> => {
+  const generation = getSessionGeneration()
+  const response = await api.get('/api/subscriptions/subscription', { signal: options?.signal })
+  assertSessionGeneration(generation)
+  options?.signal?.throwIfAborted()
   return response.data
 }
 

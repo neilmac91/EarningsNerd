@@ -44,7 +44,7 @@ vi.mock('@/components/SecondaryHeader', () => ({ default: () => null }))
 
 function renderPricing(initialSubscription?: SubscriptionStatus) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  if (initialSubscription) queryClient.setQueryData(queryKeys.subscription(), initialSubscription)
+  if (initialSubscription) queryClient.setQueryData(queryKeys.subscription.byUser(1), initialSubscription)
   return render(
     <QueryClientProvider client={queryClient}>
       <PricingPage />

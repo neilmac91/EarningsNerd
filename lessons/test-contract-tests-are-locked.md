@@ -21,3 +21,12 @@ private internals that behavior-preserving refactors are free to rename.
 
 **Evidence**: `tasks/architecture-refactor-plan.md` verification rules; PR #547 (anchor
 quality review — lock-friction findings); PR #565 (the sanctioned pin-retirement pattern).
+
+
+**Inventory clarification (2026-09-06):** frontend T10 is explicitly
+`frontend/tests/unit/summaryStream.contract.spec.ts` (`tasks/architecture-refactor-plan.md:677,775`).
+The separate `summaryStreamAuthRefresh.spec.ts` is not a named anchor; its descriptive filename
+alone does not extend the lock. During account-cache work an agent initially over-applied the
+lock to that ordinary test. Root and independent inventory review corrected the classification
+before changing only its rejected-refresh fixture to carry HTTP 401, preserving every assertion.
+Actual named anchors remained byte-identical. Use the cited inventory when resolving scope.

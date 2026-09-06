@@ -10,9 +10,11 @@ vi.mock('@/lib/api/client', async () => {
 })
 
 // Session helpers touch localStorage — stub them so we can assert calls without a DOM store.
-vi.mock('@/lib/api/session', () => ({
+vi.mock('@/lib/api/session', async () => ({
+  ...await vi.importActual<typeof import('@/lib/api/session')>('@/lib/api/session'),
   markSessionActive: vi.fn(),
   clearSessionActive: vi.fn(),
+  hasActiveSession: () => true, // these 401 fixtures model a stale existing session
 }))
 
 import { ApiError } from '@/lib/api/client'

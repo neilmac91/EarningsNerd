@@ -26,10 +26,10 @@ export default function SubscriptionGate({
   })
 
   const { data: subscription, isLoading } = useQuery({
-    queryKey: queryKeys.subscription(),
+    queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
-    enabled: Boolean(user),
+    enabled: !!user,
   })
 
   if (user && (isLoading || userLoading)) {

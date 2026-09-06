@@ -1,13 +1,14 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { IconContext, type IconProps } from '@phosphor-icons/react'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
+import { subscribeAccountQueryReset } from '@/features/auth/lib/accountQueryState'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
 
 // Sets `is_pro`/`plan` PostHog person properties app-wide once the user + subscription resolve
@@ -32,6 +33,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       },
     },
   }))
+
+  useEffect(() => subscribeAccountQueryReset(queryClient), [queryClient])
 
   return (
     <IconContext.Provider value={ICON_DEFAULTS}>

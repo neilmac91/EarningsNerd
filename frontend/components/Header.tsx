@@ -13,6 +13,7 @@ import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/featureFlags'
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
+import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
 
 const NAV_LINKS = [
   // Flag-gated: /search, /analysis and /calendar all 404 while their flags are off, so the nav
@@ -60,14 +61,13 @@ export default function Header() {
   const handleMobileLogout = async () => {
     setMobileMenuOpen(false)
     try {
-      await logout()
+      await logoutAndResetAccount(queryClient, logout, () => {
+        router.push('/')
+        router.refresh()
+      })
     } catch {
       // ignore — clear local state regardless
     }
-    queryClient.setQueryData(queryKeys.currentUser(), null)
-    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-    router.push('/')
-    router.refresh()
   }
 
   return (

@@ -1,5 +1,6 @@
 import { ensureRefreshed } from './client'
-import { hasActiveSession, clearSessionActive } from './session'
+import { hasActiveSession, getSessionGeneration, isSessionGenerationCurrent, notifySessionLost } from './session'
+import { getErrorStatus } from './types'
 
 /**
  * Run a raw SSE POST (one that bypasses the shared axios client) with the SAME silent
@@ -13,7 +14,7 @@ import { hasActiveSession, clearSessionActive } from './session'
  * - Share `ensureRefreshed()`'s single in-flight promise: a concurrent 401 here + in axios must
  *   fire exactly ONE `/refresh`, because two calls on the single-use ROTATING refresh token would
  *   invalidate each other and log the user out.
- * - `clearSessionActive()` when refresh fails, so a gone session stops being treated as live.
+ * - Only a confirmed 401 clears the session; transient refresh failures can recover later.
  * - The replay runs OUTSIDE the refresh `try` (like the client) so a replayed-request error is a
  *   normal request error, not mistaken for a refresh failure.
  *
@@ -24,18 +25,24 @@ import { hasActiveSession, clearSessionActive } from './session'
  *   request); must reuse the caller's AbortController signal.
  */
 export async function postStreamWithRefresh(doPost: () => Promise<Response>): Promise<Response> {
+  const generation = getSessionGeneration()
+  const sessionWasActive = hasActiveSession()
   let response = await doPost()
-  if (response.status === 401 && hasActiveSession()) {
+  if (!isSessionGenerationCurrent(generation)) return response
+  let confirmed = response.status === 401
+  if (response.status === 401 && sessionWasActive && hasActiveSession()) {
     let refreshed = false
     try {
       await ensureRefreshed()
       refreshed = true
-    } catch {
-      clearSessionActive() // session genuinely gone — stop treating it as live
+    } catch (error) {
+      confirmed = getErrorStatus(error) === 401
     }
-    if (refreshed) {
+    if (refreshed && isSessionGenerationCurrent(generation)) {
       response = await doPost()
+      confirmed = response.status === 401
     }
   }
+  if (confirmed && sessionWasActive) notifySessionLost(generation)
   return response
 }

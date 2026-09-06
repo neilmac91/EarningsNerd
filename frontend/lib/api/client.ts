@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { hasActiveSession, clearSessionActive } from './session'
+import { hasActiveSession, getSessionGeneration, isSessionGenerationCurrent, assertSessionGeneration, notifySessionLost } from './session'
+import { getErrorStatus } from './types'
 import { refreshAccessToken } from './refresh'
 
 // Custom error class that preserves backend error details
@@ -7,6 +8,9 @@ export class ApiError extends Error {
   status: number
   detail: string
   isRetryable: boolean
+  // Internal classification only: an original access 401 after transient refresh failure
+  // is not evidence that the refresh session is gone. HTTP status/detail stay unchanged.
+  sessionLossConfirmed?: boolean
 
   constructor(status: number, detail: string) {
     super(detail)
@@ -58,8 +62,12 @@ const api = axios.create({
   withCredentials: true,
 })
 
+type SessionRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _sessionGeneration?: number; _sessionWasActive?: boolean }
+
 // Set baseURL dynamically on each request (for client-side)
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: SessionRequestConfig) => {
+  config._sessionGeneration ??= getSessionGeneration()
+  config._sessionWasActive ??= hasActiveSession()
   // Always set baseURL dynamically to ensure correct URL in client-side
   if (typeof window !== 'undefined') {
     config.baseURL = getApiUrl()
@@ -94,11 +102,23 @@ export function isRefreshableRequest(url?: string): boolean {
 // concurrent 401 there + here would fire two /refresh calls on the same single-use rotating
 // refresh token, and the loser would 401 and log the user out.
 let refreshPromise: Promise<void> | null = null
+let refreshGeneration: number | null = null
 
 export function ensureRefreshed(): Promise<void> {
+  const generation = getSessionGeneration()
+  // Wait out an earlier account's refresh, without interpreting its result as this account's
+  // result or starting concurrent rotating-cookie refreshes. This does not control Set-Cookie.
+  if (refreshPromise && refreshGeneration !== generation) {
+    return refreshPromise.catch(() => undefined).then(() => {
+      assertSessionGeneration(generation)
+      return ensureRefreshed()
+    })
+  }
   if (!refreshPromise) {
+    refreshGeneration = generation
     refreshPromise = refreshAccessToken(getApiUrl()).finally(() => {
       refreshPromise = null
+      refreshGeneration = null
     })
   }
   return refreshPromise
@@ -110,16 +130,21 @@ api.interceptors.response.use(
   async (error: AxiosError<{ detail?: string }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
-    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
+    const original = error.config as SessionRequestConfig | undefined
+    const generation = original?._sessionGeneration ?? getSessionGeneration()
+    let sessionLossConfirmed: boolean | undefined
+    const currentGeneration = () => isSessionGenerationCurrent(generation)
 
     // Expired access token on a logged-in session: refresh once and replay the request.
     // Gated on hasActiveSession() so guests never attempt a (pointless) refresh, and on
     // _retry so a request is only ever retried a single time.
     if (
       status === 401 &&
+      currentGeneration() &&
       original &&
       !original._retry &&
       isRefreshableRequest(original.url) &&
+      original._sessionWasActive &&
       hasActiveSession()
     ) {
       original._retry = true
@@ -127,16 +152,21 @@ api.interceptors.response.use(
       try {
         await ensureRefreshed()
         refreshed = true
-      } catch {
-        // Refresh failed — the session is genuinely gone. Clear the flag so we stop trying,
-        // then fall through to surface the original 401 to the caller.
-        clearSessionActive()
+      } catch (refreshError) {
+        // Network/429/5xx failures do not prove the refresh session is gone. Keep the marker
+        // so a later request can recover, and classify BEFORE /me interprets this access 401.
+        sessionLossConfirmed = getErrorStatus(refreshError) === 401
       }
       // Replay outside the try: an error from the *retried* request (e.g. 500/429, or a
       // persistent 401) must propagate as-is, not be mistaken for a refresh failure.
-      if (refreshed) {
+      if (refreshed && currentGeneration()) {
         return await api(original)
       }
+    }
+
+    if (status === 401 && isRefreshableRequest(original?.url) && currentGeneration()) {
+      sessionLossConfirmed ??= true
+      if (sessionLossConfirmed && original?._sessionWasActive) notifySessionLost(generation)
     }
 
     const backendDetail = error.response?.data?.detail
@@ -174,7 +204,9 @@ api.interceptors.response.use(
     }
 
     // Throw our custom ApiError with the extracted details
-    throw new ApiError(status, errorMessage)
+    const apiError = new ApiError(status, errorMessage)
+    apiError.sessionLossConfirmed = sessionLossConfirmed
+    throw apiError
   }
 )
 
