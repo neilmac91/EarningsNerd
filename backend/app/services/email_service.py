@@ -572,6 +572,29 @@ async def send_new_filing_alert(
     filing_id: int | None = None,
     filing_url: str | None = None,
 ) -> None:
+    subject, html = build_new_filing_alert(
+        name=name,
+        company_name=company_name,
+        ticker=ticker,
+        filing_type=filing_type,
+        filing_date=filing_date,
+        filing_id=filing_id,
+        filing_url=filing_url,
+    )
+    await send_email(to=[to_email], subject=subject, html=html)
+
+
+def build_new_filing_alert(
+    *,
+    name: str | None,
+    company_name: str,
+    ticker: str,
+    filing_type: str,
+    filing_date: str,
+    filing_id: int | None = None,
+    filing_url: str | None = None,
+) -> tuple[str, str]:
+    """The exact ``(subject, html)`` a new-filing alert sends; frozen on a delivery batch (E11b-1)."""
     html, text = render_new_filing_alert(
         name=name,
         company_name=company_name,
@@ -581,11 +604,7 @@ async def send_new_filing_alert(
         filing_id=filing_id,
         filing_url=filing_url,
     )
-    await send_email(
-        to=[to_email],
-        subject=f"{ticker} filed a {filing_type}",
-        html=f"{html}<pre style=\"display:none\">{text}</pre>",
-    )
+    return f"{ticker} filed a {filing_type}", f"{html}<pre style=\"display:none\">{text}</pre>"
 
 
 async def send_daily_digest(
@@ -594,11 +613,13 @@ async def send_daily_digest(
     name: str | None,
     items: list[dict],
 ) -> None:
+    subject, html = build_daily_digest(name=name, items=items)
+    await send_email(to=[to_email], subject=subject, html=html)
+
+
+def build_daily_digest(*, name: str | None, items: list[dict]) -> tuple[str, str]:
+    """The exact ``(subject, html)`` a digest sends; frozen on a delivery batch (E11b-1)."""
     html, text = render_daily_digest(name=name, items=items)
     count = len(items)
     subject = f"{count} new filing{'s' if count != 1 else ''} from your watchlist"
-    await send_email(
-        to=[to_email],
-        subject=subject,
-        html=f"{html}<pre style=\"display:none\">{text}</pre>",
-    )
+    return subject, f"{html}<pre style=\"display:none\">{text}</pre>"

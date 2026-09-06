@@ -441,6 +441,14 @@ class Settings(BaseSettings):
     # before converting or releasing it. Must exceed the pipeline's hard timeout (120 s) so a
     # live generation never loses its lease mid-flight; expired rows are simply ignored.
     USAGE_RESERVATION_TTL_SECONDS: int = Field(default=300, gt=120, le=3600)
+    # E11b-1 durable alert delivery: lease lengths and retry policy. Design parameters with
+    # bounded defaults, not measured production settings. The replay window must stay inside
+    # Resend's documented 24 h idempotency-key retention.
+    DELIVERY_CLAIM_TTL_SECONDS: int = Field(default=60, gt=0, le=600)
+    DELIVERY_SEND_TTL_SECONDS: int = Field(default=120, gt=10, le=900)
+    DELIVERY_MAX_ATTEMPTS: int = Field(default=5, gt=0, le=20)
+    DELIVERY_RETRY_BACKOFF_SECONDS: int = Field(default=300, gt=0, le=86_400)
+    DELIVERY_REPLAY_WINDOW_SECONDS: int = Field(default=72_000, gt=0, le=86_400)
 
     # Max concurrent full summary generations per process. Generation is LLM-I/O-bound but
     # CPU-bound during filing/section/XBRL parsing; on a single-vCPU Cloud Run instance a burst of
