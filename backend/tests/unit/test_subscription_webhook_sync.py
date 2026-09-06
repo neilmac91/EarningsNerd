@@ -74,6 +74,9 @@ def _post_event(client, event):
     with patch(
         "app.routers.subscriptions.stripe.Webhook.construct_event",
         return_value=StripeObject.construct_from(event, "sk_test"),
+    ), patch(
+        "app.services.subscription_webhook_service.retrieve_subscription_snapshot",
+        return_value=event["data"]["object"],
     ):
         return client.post(
             "/api/subscriptions/webhook",

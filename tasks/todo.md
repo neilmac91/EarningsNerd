@@ -2,6 +2,50 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E05c — Reconcile the currently bound Stripe subscription (engineering)
+
+The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:
+“Approve the fixture-only change.” Only that helper's provider stub may change in
+`backend/tests/unit/test_subscription_webhook_sync.py`; every payload/request/assertion and
+all other locked tests remain unchanged. This does not approve a replacement-transition policy.
+
+- [x] Add a dedicated exact-ID Stripe read with explicit connect/read inactivity settings,
+  zero SDK retries, recursive conversion, identity/status/optional-field validation and transport cleanup.
+- [x] Reconcile created/updated events only for the current bound ID, after account lock/recheck
+  and dedup; preserve checkout, deletion, unknown-owner, initial and different-ID behavior.
+- [x] Fail provider/invalid-state reads with retryable 503 and atomic rollback; never use a stale
+  payload as a success fallback. Retain the existing entitlement writer and original event identity.
+- [x] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
+  PostgreSQL transaction home for provider contention, cancellation and successful retry.
+- [x] Commit source, run one bounded mutation per new invariant with exact restore, and run
+  Ruff/Bandit/full backend plus real PostgreSQL gates. Record evidence and scope limits.
+- [x] Update configuration/architecture and execution-ledger evidence; return a clean committed
+  branch to root for independent review/publication. No push, PR, merge or deployment by this agent.
+
+The proposed 2-second connect / 3-second read values are phase/inactivity limits, not a total
+five-second deadline. DNS/progressing responses may exceed their sum. The account lock and DB
+connection remain owned by the worker during this read. Cross-ID replacement chronology,
+cross-user identity races and analytics exactly-once remain separate work.
+
+Source `aa36c95`: 93 focused billing tests passed, including all unchanged assertions in the
+approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. The full
+local backend gate with real PostgreSQL enabled passed: Ruff clean, Bandit 0 medium/high,
+`2486 passed, 2 deselected, 23 warnings in 55.96s`, exit 0. The first invocation wrapped Python
+in `/bin/sh`, which stripped macOS `DYLD_FALLBACK_LIBRARY_PATH`: 2 PDF native-library failures,
+2484 passed. A direct Python invocation restored the intended environment; no source changed.
+
+Exactly one mutation per new invariant, each with intended assertion failures: stale event in
+place of current snapshot → 4; stale payload fallback after provider failure → 5; skipped provider
+validation → 16; omitted explicit timeout/retry configuration → 3; skipped transport close → 3;
+unbounded/nonfinite settings → 10; disabled reconciliation scope admission → 4 (unknown-owner
+case still passed). The first six proofs preceded the full gate; the final scope proof restored
+exact `aa36c95` source and its focused reconciliation gate passed all 45 tests. Existing worker/lock
+mutations were not repeated; the PostgreSQL
+provider-wait cases extend their contention/cancellation coverage. The approved locked helper
+patch context mechanically reduces to the exact base file; all other locked files are untouched.
+Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
+found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
+
 ### E10a — Filing-first financial-facts index (engineering)
 
 Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
@@ -78,11 +122,20 @@ the existing PostgreSQL-only billing cases; the retained log includes the existi
 client shutdown logging error after pytest success. Final index review relies on source inspection,
 the existing migration safety suite and actual PostgreSQL verification recorded above.
 
+Root release checkpoint: PR #726 merged as `a5ba97e692246f08e35e05a92128443853ad5121`
+after final-head CI `34032131137`, summary artifact `9989052658` (52/52, no errors/hard
+regressions) and Copilot `34032131118` artifact `9989000339` (18/18 accepted) passed.
+Source/fixture hashes and migration triple-pass were verified. Production run `34032605285`
+succeeded: deploy job `101485181717` reported `applied=1 skipped=34`, image
+`46d56ced269fdd32bb4232c0b1f40ac5ec56b54b2f92f1ea2c86ae95cf1c919b`,
+revision `earningsnerd-backend-00280-xcp` serving 100%. Independent health timestamp
+`1788697428.587389` was healthy (database 6.42 ms, Redis disabled, SEC circuit closed).
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
 This prerequisite preserves all locked contracts. General stale-event reconciliation remains
-separate and needs approval for a provider stub in the locked webhook fixture.
+separate at this source checkpoint; the founder subsequently approved the E05c helper-only stub.
 
 - [x] Move verified Stripe-event database work into one worker-owned session/transaction.
 - [x] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
@@ -95,7 +148,7 @@ separate and needs approval for a provider stub in the locked webhook fixture.
   `STRIPE_CONCURRENCY_TEST_DATABASE_URL`; require PostgreSQL when supplied and skip only those
   fixtures when absent from the ordinary SQLite lane. Gate this CI execution path mechanically.
 - [x] Retain one mutation proof per new invariant, full local backend/workflow checks and independent review.
-- [ ] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
+- [x] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
 
 No new Stripe network calls, schema migration, locked-test changes, pricing/trial/promo policy,
 production flag or capacity change. Per-user serialization does not establish Stripe chronology,
@@ -112,7 +165,11 @@ bypassed account lock/recheck → 2; premature state commit → 1 (subscription 
 analytics before commit/close → 1; missing PostgreSQL CI URL → 1. Every source mutation restored
 exact committed bytes; restored runtime gate 11 passed and restored CI gate 1 passed. Independent
 correctness/rules/tests review found no actionable issue. Locked contracts and baseline remain
-byte-identical. CI/eval and production outcomes are pending this source checkpoint.
+byte-identical. CI/eval and production outcomes were pending at that source checkpoint.
+
+Root subsequently verified #725 merged as `f94501f`; production run `34029873954`, deploy
+`101477674329`, succeeded with `applied=0 skipped=34`. Revision `00279-s9z` serves 100%;
+independent health timestamp `1788693905.0609558`: healthy, DB 8.24 ms, Redis disabled, SEC closed.
 
 ### E05a — Subscription identity and delayed-event guards (engineering)
 
