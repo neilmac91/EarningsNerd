@@ -4,6 +4,31 @@
 
 ### W3-3 public-source replacement — 2026-09-06
 
+[#718](https://github.com/neilmac91/EarningsNerd/pull/718) merged
+`32e10e86893a14a041594eb50a4f18acadd16b85` with 518 reviewed members. The automatic refresh
+uses public sources without an FMP key. [Production run 34015542968](https://github.com/neilmac91/EarningsNerd/actions/runs/34015542968),
+deploy job `101438839055`, succeeded: `apply_migrations: applied=0 skipped=34`; revision
+`earningsnerd-backend-00275-hl7` serves 100% of traffic. Source/image `32e10e8` resolves to
+`c0261e7f337fdc5bd9bd6a70ea6449847c7ee3edca8b387642e85b30c957b41b`, matching the latest tag.
+Independent detailed health is healthy (DB 7.05 ms, SEC closed, Redis disabled/healthy).
+Notable remains absent and its image update was skipped.
+
+[Public refresh 34016016776](https://github.com/neilmac91/EarningsNerd/actions/runs/34016016776),
+job `101439794997`, succeeded: `fetched via wikipedia: sp500=503 nasdaq100=102 union=518`;
+`validated 518 members generated 2026-09-06 via wikipedia`;
+`Membership and metadata are unchanged — nothing to publish.` Artifact `9983905252` is
+byte-identical to the deployed JSON (SHA256
+`e90cbea47ac11f93599bd0f9248731f7c21ad7a0d5891c6995331f5408accd94`). This proves public
+retrieval, validation and artifact retention; the same-day no-change path did not create a PR.
+
+W3-3 automatic publication remains held. Read-only repository metadata reconfirms
+`can_approve_pull_request_reviews=false` (default token permission read). The founder must
+enable **Allow GitHub Actions to create and approve pull requests** under Settings → Actions →
+General before the workflow can create a draft PR when membership or metadata changes.
+The workflow already requests contents/pull-requests write; no broader default permission,
+PAT, secret or account change is proposed. Keep issue #710 open until actual publication
+acceptance is verified. All later founder holds remain; wave 3 is not complete.
+
 The founder requested an FMP-independent constituent filter. Live public retrieval returned
 503 S&P 500 rows and 102 Nasdaq-100 rows. The Nasdaq constituents table is on the dedicated
 `List_of_NASDAQ-100_companies` page, not the general article used by the old script.
@@ -44,13 +69,29 @@ are unchanged. Corrected local gate: Ruff/Bandit exit 0; `2386 passed, 2 deselec
 in 46.77s`, exit 0. An existing post-summary Yahoo-client shutdown logging error is retained.
 The old-URL mutation proof remains scoped to unchanged parser source/test bytes. Initial CI
 34014268319 (52 complete summary results) and Copilot 34014614488 (18 accepted results) passed;
-the corrected head must pass its own required release gates before merge.
+these remain historical candidate results. Final head `493d4978` passed
+[CI 34014981345](https://github.com/neilmac91/EarningsNerd/actions/runs/34014981345):
+`2386 passed, 2 deselected, 23 warnings in 75.41s (0:01:15)`; performance
+`2 passed, 18 warnings in 15.20s`; frontend 487 passed; browser 21 passed (19.1s),
+3 existing skips; PostgreSQL applied/skipped `34/0`, `0/34`, `34/0`.
+Summary artifact `9983680685` has all 52 results, zero errors/vetoes, matching source/golden
+hashes and typed guards; regression `PASS — no hard regressions (1 warning(s)).`, advisory mean
+untraceable figures 2.0192. Final [Copilot 34015323793](https://github.com/neilmac91/EarningsNerd/actions/runs/34015323793),
+artifact `9983740345`, has 18 passing results, zero errors/vetoes; six source bundles and
+scratch-database hashes verified. Neither gate is the held strong-judge readout.
+Three manual lenses cleared the correction; the final bot review found no additional issues.
 
-- [ ] Publish the draft PR, inspect required CI, merge and verify the backend deployment;
-  dispatch the public refresh and retain its actual result. Any Actions-policy prerequisite
-  remains founder-owned; never change settings or introduce a PAT workaround.
+- [x] Publish the draft PR, inspect final required CI/reviews, merge #718 and verify its backend
+  deployment, migration tail, image, revision, traffic and independent health as recorded above.
+- [x] Dispatch public refresh 34016016776; verify counts, same-day no-change outcome and the
+  retained artifact against the deployed file.
+- [ ] Founder enables the named Actions setting; engineering verifies a later changed-data or
+  metadata draft-PR publication before closing #710. Never manufacture a diff or use a PAT.
 
 ### Current checkpoint — 2026-09-06
+
+The current backend is #718, verified above. The following #716 checkpoint and gate evidence
+remain the accepted W3-6 history; they are not the latest serving revision.
 
 W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete with the recorded verification below.
 W3-6 [#716](https://github.com/neilmac91/EarningsNerd/pull/716) merged
@@ -85,9 +126,9 @@ This is not completion of wave 3.
 
 W3-3's earlier FMP run 34000192154 failed with HTTP 402 at the S&P 500 route before reaching
 Nasdaq; issue #710 remains open. The founder's public-source replacement request supersedes
-that account prerequisite for this work. Both public tables and their independent holdings
-cross-check are verified; the plan above tracks source/data review and workflow/deploy acceptance.
-This does not repair FMP access or clear any later founder-held operation.
+that account prerequisite for this work. #718's public sources, reviewed data and deployment
+are verified above; automated PR publication is tracked separately. This does not repair FMP
+access or clear any later founder-held operation.
 
 ### W3-6 implementation history — PyJWT migration
 
@@ -275,8 +316,9 @@ and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence 
 W3-2 (#709) is deployed and its effective pins are verified. This branch is based on
 [#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
 corrected green/red acceptance are verified below. Root controls publication and serialized deployment.
-W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
-block this independent engineering work. Other founder boundaries remain unchanged.
+At this W3-5 checkpoint, FMP HTTP 402 / issue #710 was treated as a founder entitlement
+prerequisite and did not block the independent work. The later public-source replacement
+supersedes that FMP prerequisite; other founder boundaries remain unchanged.
 
 - [x] Refresh all seven engineering briefs and README status using actual source pointers.
 - [x] Add one recursive obsolete-stack gate with a frozen, shrinking non-engineering allowlist.
@@ -308,10 +350,10 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-0 documentation correction: #707 merged `a7ad8f85` after three reviews and link/preservation checks; #706 history, agent count, refresh cause, environment assumptions and dependency evidence corrected.
 - [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
-- [ ] W3-3 Public universe refresh: founder-requested FMP-independent replacement in progress;
-  dedicated Wikipedia lists retrieved and corroborated against current SPY/QQQ equity holdings.
-  Source/data PR, actual workflow and deployment verification pending; original HTTP 402 run
-  34000192154 / issue #710 retained. No credential/account change or age-limit increase.
+- [ ] W3-3 Public universe refresh: #718 source/data and deployment are verified; the public
+  lists match current SPY/QQQ equity subsets. Automatic draft-PR publication remains held on
+  founder-owned Actions policy and actual publication evidence; see the top checkpoint.
+  Original FMP HTTP 402 run 34000192154 / issue #710 retained; no credential or age-limit change.
 - [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
 - [x] W3-5 Rewrite the seven engineering agent files to the real stack; gate and #715 deployment verified above
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
@@ -530,7 +572,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
 - [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory. W3-6 local runtime-lock `pip-audit` reports no known vulnerabilities after removing the jose/ecdsa chain; this does not claim every dev-tool, image or frontend dependency is clean or authorize a blocking-policy transition.
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
-- [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production`; W3-2 binding/deployment verified. W3-3 run 34000192154 reached FMP but returned HTTP 402; issue #710 remains open for the founder entitlement/key prerequisite. Successful refresh and reviewed PR remain pending
+- [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production`; W3-2 binding/deployment verified. W3-3 run 34000192154 reached FMP but returned HTTP 402. The subsequent founder-requested public-source replacement #718 supersedes that prerequisite; its release and remaining publication acceptance are recorded above
 - [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*
 - [x] Node 20 → 22.23.2 (`.nvmrc`, `engines`, CI ×3, lockstep gate `nodeVersionLockstep.spec.ts`) — *PR #674*; **(founder)** set the Vercel project Node.js Version to 22 so the dashboard matches the `engines.node` override that already governs the build
 - [x] Quick wins: `ops.yml` push trigger removed + `cloud-sql-proxy` sha256 pinned (*#656*); `hot_filings.py` and the trending refresh route deleted outright (*#657*, so the admin-token compare and rate limit are moot)
