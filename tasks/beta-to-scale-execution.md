@@ -26,7 +26,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a publication explicitly approved; latest-main integration and gates in progress |
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a PR #737 old-head CI/evals accepted; integrated `414ea913` with unchanged source and 2569-test full gate. Updated-head CI/release pending; E15b partitioning and eligible DB count remain unresolved |
+| E15 | Partition sitemap and align eligible content | Independent | E15a PR #737 integrated `96d7658`; unchanged source and 2576-test full gate. Prior CI timeout failure retained; current-head CI/release pending. E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
@@ -141,6 +141,17 @@ duration. Independent review and release evidence remain pending at this checkpo
 
 
 ## E15a — Sitemap eligibility parity, local checkpoint
+
+Current integration `0e547de` includes main `96d7658` with original sitemap source/tests/lesson
+unchanged (`b922d32`) and incoming E10b/E09/login/frontend/all three PostgreSQL CI lanes
+identical to main. Four additive task-record conflicts preserve both histories. Full pinned
+Ruff/Bandit/backend gate with all three local PostgreSQL URLs: **2576 passed, 2 deselected,
+23 warnings in 54.79s**, exit 0, no skips; Ruff clean, Bandit zero medium/high. Three-lens
+review and source/locked-byte checks passed; no repeated mutation or frontend gate.
+Exact approval covers normal branch update; current remote acceptance/release remain pending.
+Prior head `f84567f` CI `34043458241` failed with BA/BABA 75-second timeouts, 50/52 scores,
+two execution errors and two missing scores (artifact `9992485051`). That failure and older
+accepted source evidence remain separately retained; no baseline/AI/timeout/flag change was made.
 
 Source `348ef73` reuses the curated unsupported-company predicate and excludes the exact
 case-sensitive legacy `Generating summary` substring before the filing cap. Real partial

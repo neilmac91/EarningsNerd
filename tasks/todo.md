@@ -928,12 +928,12 @@ root retains PR creation, CI acceptance and serialized deployment. E15b remains 
 
 Latest integration plan (2026-09-06; exact five-action approval):
 
-- [ ] Integrate released main `96d7658c3a2d89c0c4b7688f1e9a2aee1025bc79`, preserving
+- [x] Integrate released main `96d7658c3a2d89c0c4b7688f1e9a2aee1025bc79`, preserving
   E10b saved-status and E09 handoff code/tests, login and all three PostgreSQL CI lanes.
-- [ ] Retain sitemap runtime/tests/lesson identical to `b922d32` and both original proofs;
+- [x] Retain sitemap runtime/tests/lesson identical to `b922d32` and both original proofs;
   resolve task-document conflicts preserving every checkpoint, review all three lenses.
-- [ ] Run full Ruff/Bandit/backend with all three local PostgreSQL URLs; retain frontend
-  verification by identity to main; record results here and normally push the clean branch.
+- [x] Run full Ruff/Bandit/backend with all three local PostgreSQL URLs; retain frontend
+  verification by identity to main and record results here. Normal approved push follows.
 
 Prior remote evidence remains distinct. Head `f84567f` / evaluated base `414ea913` failed CI
 `34043458241`: artifact `9992485051` had 52 attempts, 50 scores and two 75-second timeouts
@@ -946,6 +946,27 @@ it does not erase the later failure. No AI, timeout, baseline, flag or model cha
 is part of this integration. Correction to the earlier checkpoint: `414ea913` included #736
 login; #735 summary handoff lands only now at `96d7658`. Root owns new remote acceptance
 and serialized release; no prior evaluated source is claimed to include the new releases.
+
+Integrated source `0e547defce9068c9a8118d9d85bb4e2e2dedbbe5` includes exact main
+`96d7658c3a2d89c0c4b7688f1e9a2aee1025bc79`. Four conflicts were additive task-record
+insertions, resolved by retaining both histories. The diff from main remains the original six
+E15 files. Sitemap runtime/tests/lesson equal `b922d32`; E10b routes/UI/tests, E09 pipeline/tests,
+login, all three PostgreSQL CI lanes, locked contracts, config and eval baselines equal main.
+No frontend gate or original mutation was repeated because those source bytes are unchanged.
+
+Full pinned local gate on `0e547de`, with all three PostgreSQL URLs enabled: Ruff **All checks
+passed!**, Bandit **0 medium / 0 high**, backend **2576 passed, 2 deselected, 23 warnings
+in 54.79s**, exit 0, no skips. Logs: `/private/tmp/earningsnerd-e15-evidence/after-e09-ruff.log`,
+`after-e09-bandit.log`, `after-e09-full.log`. Existing asynchronous-client logging teardown
+noise followed the successful pytest summary. A scratch conflict-marker check initially matched
+a retained pytest `===============` result line; exact marker matching confirmed no conflict.
+
+Three-lens integration review is clear: correct eligibility precedes the filing cap and preserves
+partial content/dates/cache; the six-file scope obeys all 12 rules and introduces no AI, entitlement,
+transport or policy change; behavioral tests and both original proofs remain intact, and every
+other incoming test matches main. Source identity, lesson link, exact conflict markers and
+`git diff --check` pass. This full local gate does not replace current-head remote CI/eval
+acceptance. The failed BA/BABA run above remains retained; root owns PR and serialized release.
 
 Based on `6a648f7`. The filing-page server predicate rejects the exact, case-sensitive
 `Generating summary` substring; the company route rejects curated unsupported foreign
