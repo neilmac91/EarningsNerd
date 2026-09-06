@@ -1,5 +1,15 @@
 ## E14a — grounded waitlist example (2026-09-06)
 
+Second preview finding: corrected `83dd208` shows the issuer at 320 px, but root's
+actual screenshot clips the card's right edge, third metric, source and CTA. DOM reads
+were timing out, so no numeric width is claimed. Two fresh independent refutations failed:
+implicit auto grid track/intrinsic child sizing and three padded metric columns remain.
+
+- [ ] Constrain the mobile grid track/card/titlebar and use two metric columns below sm;
+  retain desktop columns, source/CTA content and prior responsive header correction.
+- [ ] Full frontend gate after this sizing correction; no repeated data proofs or CSS tests.
+- [ ] Root verify no actual 320/390 px clipping in both themes and desktop before merge.
+
 Preview correction: root measured the published `1d42e71` waitlist at 320×844:
 Apple Inc. had width/clientWidth 0 and scrollWidth 68; the visible issuer disappeared.
 Two fresh independent refutations (implementation agent and sec_refill) failed: existing
