@@ -315,6 +315,24 @@ normal explicitly approved branch update. No prompt/model/flag/baseline or timeo
 no original mutation repetition, and no redundant frontend gate when frontend equals main.
 Root owns incoming E10b deployment `34043830826` and the next actual CI/serial release.
 
+E10b integration source `9f449e9bd8a29e69b1c4b4e9835249ffc2f4d77b` passed the required
+pinned local gate: Ruff `All checks passed!`; Bandit zero medium/high; **2572 passed,
+2 deselected, 23 warnings in 59.26s**, exit 0, no skips. All three PostgreSQL URLs were
+configured; Stripe 24, usage 18 and login 6 concurrency cases executed in disposable schemas.
+The known asynchronous logging-stream teardown diagnostic followed the passing pytest summary.
+Logs: `/private/tmp/earningsnerd-e09-evidence/after-e10b/ruff.log`, `bandit.log`, `full.log`.
+
+Three-lens integration review is clear. Correctness: unchanged atomic registry claim, claimed
+fresh reread, active-leader timeout protection and owner-only provider cleanup preserve the
+reviewed handoff. Rules/brief: pipeline/dedup tests are byte-identical to `fe6916c`; E10b
+routes/UI/tests, E13 login, all three PG lanes and locked/eval/provider/config files match main.
+Tests/gates: the original deterministic force/non-force cases and three mutation proofs remain
+valid without repetition; the all-three-PG full gate includes both incoming saved-status cases.
+Only the original five E09 files differ from main. No actionable finding or source repair.
+Frontend/workflows match main, so their extra gates were not repeated. Whitespace and clean-commit
+checks passed. Normal branch publication is approved; actual subsequent CI/eval inspection and
+release remain root-owned. Earlier accepted/failed live measurements retain their source scopes.
+
 ### E09a — Single replacement leader after failed generation (engineering)
 
 Start at main `6a648f7`. A follower awaits the old leader and a fresh DB read before claiming;
