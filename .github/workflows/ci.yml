@@ -143,6 +143,12 @@ jobs:
         env:
           STRIPE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_subscription_event_transactions.py
+      - name: Verify usage counter concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          USAGE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_usage_counter_transactions.py
       - name: Verify login failure concurrency on PostgreSQL
         working-directory: backend
         timeout-minutes: 3

@@ -12,6 +12,7 @@ from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
+from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
 from app.services.entitlements import get_entitlements, get_plan, is_pro_user
 from app.services.subscription_service import (
     get_current_month,
@@ -308,6 +309,8 @@ async def stripe_webhook(
         return await run_in_threadpool(process_stripe_event, event)
     except HTTPException:
         raise
+    except SubscriptionReconciliationUnavailable:
+        raise HTTPException(status_code=503, detail="Current subscription state is unavailable; retry delivery")
     except SubscriptionEventBusy:
         raise HTTPException(status_code=503, detail="Subscription event is busy; retry delivery")
     except (KeyError, ValueError, TypeError) as exc:
