@@ -5,11 +5,12 @@ existing EDGAR client (SEC rate limiter + circuit breaker), upserts `Filing` row
 **real-time** alerts to eligible Pro watchers. `run_daily_digest` batches everything else (Free, or
 Pro with real-time off) into one email per user.
 
-Correctness guarantees:
+Eligibility and delivery limits:
 - **No historical spam:** a watcher is only alerted about filings dated after they started watching
   (``Watchlist.created_at``) or after the last alert (``last_alerted_at``) — the baseline.
-- **Never sent twice:** the ``NotificationLog`` unique ``(user_id, filing_id, channel)`` is the hard
-  dedup; a pre-check short-circuits the common case and the constraint backstops concurrent runs.
+- **Unique log rows, not once-only sending:** the pre-check skips existing logs, but sends occur
+  before the unique ``(user_id, filing_id, channel)`` insert. Concurrent runs can send twice.
+  Failed attempts are also logged and currently suppress retries.
 
 EDGAR fetch and email send are injectable so the whole engine is unit-testable on SQLite with no
 live SEC/Resend calls.
@@ -274,8 +275,8 @@ async def run_daily_digest(
 ) -> dict:
     """Send one batched email per user for eligible, not-yet-alerted filings in the window.
 
-    Real-time alerts already sent by :func:`run_filing_scan` carry a NotificationLog row and are
-    therefore excluded here — so Free users get the digest and Pro/real-time users don't get dupes.
+    Existing NotificationLog rows exclude a filing, including logged failed attempts. This
+    suppresses retries but does not prevent concurrent sends before either run writes its log.
     """
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
     send_digest = send_digest or email_service.send_daily_digest
@@ -284,12 +285,15 @@ async def run_daily_digest(
     stats = {"digests_sent": 0, "digests_failed": 0, "filings_included": 0}
 
     # Pre-fetch filings for all watched companies in ONE query and group in memory, so the
-    # per-user/per-watch loop below issues no further filing queries (avoids the N+1). We filter to
-    # the window in Python (via _as_utc) rather than in SQL, to stay tz-safe across Postgres + SQLite.
+    # per-user/per-watch loop below issues no further filing queries (avoids the N+1). Apply the
+    # UTC-normalized lower bound in SQL so historical rows are not materialized.
     watched_company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
     filings_by_company: dict[int, list[Filing]] = {}
     if watched_company_ids:
-        for f in db.query(Filing).filter(Filing.company_id.in_(watched_company_ids)).all():
+        for f in db.query(Filing).filter(
+            Filing.company_id.in_(watched_company_ids),
+            Filing.filing_date >= window_start,
+        ).all():
             filings_by_company.setdefault(f.company_id, []).append(f)
 
     user_ids = [row[0] for row in db.query(Watchlist.user_id).distinct().all()]
@@ -316,7 +320,7 @@ async def run_daily_digest(
                 if not eligible:
                     continue
                 if _already_logged(db, uid, filing.id, CHANNEL_EMAIL):
-                    continue  # already sent (real-time) or already digested
+                    continue  # already logged, including failed delivery attempts
                 items.append({
                     "company_name": company.name,
                     "ticker": company.ticker,
