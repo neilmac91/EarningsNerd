@@ -34,6 +34,10 @@ export const queryKeys = {
   notificationPreferences: () => ['notification-preferences'] as const,
   authConnections: () => ['auth-connections'] as const,
 
+  // Same prefix as the library: save/delete invalidation refreshes every saved-state consumer.
+  savedSummaryStatus: (summaryId: number | undefined, userId: number | undefined) =>
+    ['saved-summaries', 'status', userId, summaryId] as const,
+
   // ── Parametrized factories ───────────────────────────────────────────────────
   insiders: (ticker: string, windowDays: number) => ['insiders', ticker, windowDays] as const,
   peers: (ticker: string, metric: string) => ['peers', ticker, metric] as const,

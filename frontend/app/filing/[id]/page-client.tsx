@@ -4,7 +4,7 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
-import { saveSummary, getSavedSummaries, SavedSummary, type Summary } from '@/features/summaries/api/summaries-api'
+import { saveSummary, getSavedSummaryStatus, type Summary } from '@/features/summaries/api/summaries-api'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
@@ -171,11 +171,11 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     ENABLE_PRO_TRIAL && subscription && !subscription.status && !currentUser?.is_beta
   )
 
-  const { data: savedSummaries } = useQuery<SavedSummary[]>({
-    queryKey: queryKeys.savedSummaries(),
-    queryFn: getSavedSummaries,
+  const { data: savedStatus } = useQuery({
+    queryKey: queryKeys.savedSummaryStatus(summary?.id, currentUser?.id),
+    queryFn: () => getSavedSummaryStatus(summary!.id),
     retry: false,
-    enabled: !!isAuthenticated,
+    enabled: isAuthenticated && !!summary?.id,
   })
 
   const queryClient = useQueryClient()
@@ -183,6 +183,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   const saveMutation = useMutation({
     mutationFn: (summaryId: number) => saveSummary(summaryId),
     onSuccess: () => {
+      // The shared prefix refreshes this summary's status and the dashboard library.
       queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
       if (summary?.filing_id) {
         analytics.summarySaved(summary.filing_id, filing?.company?.ticker ?? null)
@@ -190,7 +191,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     },
   })
 
-  const isSaved = summary && savedSummaries?.some((s: SavedSummary) => s.summary_id === summary.id)
+  const isSaved = savedStatus?.is_saved ?? false
   const debugSummary = urlFlags.debug
   // Demo mode (curated first impression): the example/onboarding deep-links carry `?demo=1`.
   // It suppresses the quality badge + Regenerate button and silences the copilot attention nudge,
