@@ -2,6 +2,39 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E10a — Filing-first financial-facts index (engineering)
+
+Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
+`fiscal_period = FY`, then orders by `concept, period_end`. Existing model/migration indexes
+lead with company, concept, accession or period; none leads with filing. Preserve the query,
+including restated rows (`is_latest = false`) and single-filing provenance.
+
+- [ ] Add `ix_financial_fact_filing_period_concept_end` to the model with columns
+  `(filing_id, fiscal_period, concept, period_end)` and no partial predicate.
+- [ ] Add only `backend/migrations/20260906_financial_fact_filing_index.sql`, using
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS` outside any transaction/DO block; apply solely
+  through the existing ledger script, whose INVALID-index check fails a cancelled build.
+- [ ] Extend the existing migration safety test home with one model/migration identity-and-order
+  gate; retain exactly one mutation experiment and restore exact source bytes.
+- [ ] Verify the new index actually builds on disposable PostgreSQL (remove only its fresh-schema
+  copy before applying), then run the ledger apply/skip/reset-and-reapply triple pass and inspect
+  validity/column order. Run the full pinned Ruff, Bandit and backend pytest gate.
+- [ ] Record independent review and hand the clean commit to the root agent for serial release.
+
+Rules 3, 6 and 12, ADR-0007, and the migration/lock-timeout lessons apply. No applied migration,
+locked test, query, facts ingestion, flag, capacity or production data changes. E03 is released;
+W3-9 flag repair remains independent because this slice changes no service or flag behavior.
+Pagination and other E10 hot reads remain queued.
+
+First-build risk: production fact volume and build time are unmeasured. Concurrent creation
+avoids the normal SHARE write-blocking build, but consumes database CPU/I/O, waits for old
+transactions and is bounded by the existing 10 s lock / 120 s statement budgets. If cancelled,
+the existing script fails on an INVALID index even if a retry recorded the migration; it prints
+operator recovery (`DROP INDEX CONCURRENTLY`, delete that ledger row, rerun the deploy).
+Do not silently skip, auto-delete an index or increase production timeouts. A failed production
+build needs founder-authorized recovery or a separately reviewed operational plan; no such
+failure is assumed here and no production inspection/application is part of this task.
+
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 
 The founder asked to proceed with the next steps after verified E03/E05a releases.
