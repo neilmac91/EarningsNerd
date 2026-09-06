@@ -10,8 +10,8 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-0 Additional #705 tail verification: 13 task docs, 43 links valid, 52 earlier archives and original §7/ledger preserved. Final manual-reviewed `34350292` tree equals `eddcfbb7`; only the GitHub bot stopped at `c660e9a1`.
 - [x] W3-0 documentation correction: #707 merged `a7ad8f85` after three reviews and link/preservation checks; #706 history, agent count, refresh cause, environment assumptions and dependency evidence corrected.
 - [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
-- [ ] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
-- [ ] W3-3 Universe refresh: founder supplied `FMP_API_KEY` in GitHub `Production` (metadata verified); after W3-2 binding/deployment, engineering dispatches, reviews the draft auto-PR, merges and closes any failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
+- [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
+- [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
 - [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
 - [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
@@ -21,7 +21,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 
-## W3-2 implementation — production parity (active)
+## W3-2 implementation — production parity (verified #709)
 
 Owner: AI engineer (plan_gates). Root owns GitHub publication, actual CI, merge and deployment.
 Entry evidence: W3-1 run 33996220468/job 101387131600; source image #704/123f99e.
@@ -37,14 +37,55 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
   ops renderer tests; extend existing eval tests without adding duplicate rules.
 - [x] Wire refresh to `Production`; correct owning RUNBOOK/config/deployment/dark-surface/handover
   docs, including the founder-approved calendar exception and current entry evidence.
-  Documentation source and local verification are complete; deployment remains pending.
+  Documentation source, local verification and production deployment are complete.
 - [x] Commit source; run one intended mutation proof per rule, restore exactly, run focused
   workflow gates and exact-runtime full backend gate. Locked tests and sole baseline stay unchanged.
   Local gate at `6a0e7174`: 105 exact pins, Ruff/Bandit clean, 2381 passed, 2 deselected,
   72 warnings (52.19s); 11 intended mutation proofs restored. Initial cache-path collection
   failures are retained and excluded; their four corrected reruns fail the intended assertions.
-- [ ] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
-  verify deployment and effective pins. No refresh or judged-readout dispatch in this PR.
+- [x] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
+  verify deployment and effective pins. #709 merged `ff8fe0f5`; [production run 33999866705](https://github.com/neilmac91/EarningsNerd/actions/runs/33999866705),
+  deploy job 101396935030, succeeded with `applied=0 skipped=34`, revision `00271-8nk` at 100%.
+  Image digest `c1d3789aa8fd0186c31d56971510037ccc71b1863946bffdfba679989402a4d2`;
+  public detailed health healthy (DB 6.09 ms, SEC circuit closed).
+  [Ops run 34000144716](https://github.com/neilmac91/EarningsNerd/actions/runs/34000144716) verified all seven service/job pins,
+  calendar service=true/job=false, both fallback fields absent with verified empty defaults,
+  and matching pregenerate image `ff8fe0f`. Refresh execution belongs to W3-3; judged readout remains held.
+
+## W3-4 implementation — production smoke (active)
+
+Owner: plan_correctness; root owns publication, merge, deployment and live dispatch coordination.
+W3-2 merged `ff8fe0f5` and its deployment/effective settings are verified above; the publication
+prerequisite is satisfied. The scheduled
+workflow reads a cached public filing as an unauthenticated visitor and never clicks generation
+or Copilot. The existing health policy accepts degraded serving status and rejects unhealthy.
+
+- [x] Add the daily/manual smoke workflow with safely bound filing input, bounded browser install,
+  retained API/browser artifacts and final create-or-comment failure issue.
+- [x] Extend the existing Node lockstep gate across all workflows while preserving its original
+  nonempty `ci.yml` assertion; add prod-smoke to the existing scheduled-failure tuple.
+  Review found the first extension lost CI-specific presence: both independent refuters confirmed;
+  correction and one missing-CI-pins proof supplement the retained wrong-new-workflow-pin proof.
+- [x] Restore exact mutation bytes; run full backend and frontend gates on combined `b636780a`:
+  105 exact runtime/dev pins; Ruff/Bandit exit 0; 2382 passed, 2 deselected, 72 warnings (80.15s).
+  Frontend lint/TypeScript exit 0, 95 files/487 tests passed (49.74s), production build passed.
+  The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
+- [x] Three independent reviews cleared the pre-timeout-correction source; its ancestry/docs
+  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta reviews are pending.
+- [x] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
+  dependent job with `always()` and a non-success worker result; extend the existing parametrized
+  gate, prove the condition with one intended mutation, restore and run the full backend gate.
+  Artifact upload in the 15-minute worker remains best effort after timeout.
+  Source `481dc168`: 105 exact pins; Ruff/Bandit exit 0; full backend 2382 passed,
+  2 deselected, 72 warnings (52.01s), exit 0. Focused checks 52 passed (3.74s); Node gate
+  3 passed (830ms). Exactly one result-condition mutant failed the intended assertion
+  (1 failed, 1 passed in 0.06s); exact restoration passed both parametrized cases (0.04s).
+  Existing shutdown logging warning is retained. Frontend source/full-gate proof unchanged.
+- [ ] Root: #711 publication and actual CI, including the timeout correction. Adding the backend tuple causes an accepted
+  deployment with no migration change; verify it before subsequent backend merges.
+- [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
+  bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
+  deliberately induced failure issue. Live acceptance is pending; no live outcome is claimed.
 
 ## WS-10 verified engineering handover — final synchronization
 
@@ -174,7 +215,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] Next.js 16.3.4 (+ transitive security patches, `npm audit --omit=dev` 10 → 0) — *PR #674 merged 2026-09-05 (`2f2e48d`); Vercel production deployment completed; `::highlight` lives in a constructed stylesheet; `next build` typechecks `tsconfig.ci.json`*
 - [x] Dependency-audit gates in CI (advisory): `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` — *PR #674*; cryptography 50 shipped #685. Audit posture remains advisory; unresolved audit-chain/ecdsa findings require separate review before any blocking transition.
 - [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
-- [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production` (secret-name metadata verified 2026-09-06); W3-2 environment binding and verified deployment, then W3-3 successful refresh and reviewed PR, remain pending
+- [x] Universe refresh: FMP stable API first, loud partial-list abort, 100-day age gate — *PR #655 merged 2026-09-05 (`49dd399`), deploy green*; founder supplied `FMP_API_KEY` in GitHub `Production`; W3-2 binding/deployment verified. W3-3 run 34000192154 reached FMP but returned HTTP 402; issue #710 remains open for the founder entitlement/key prerequisite. Successful refresh and reviewed PR remain pending
 - [x] Pricing page SSR (`useSearchParams` → Suspense-scoped child) + Product/Offer JSON-LD; contact meta-description entity; noindex auth pages — *PR #660 merged 2026-09-05*
 - [x] Node 20 → 22.23.2 (`.nvmrc`, `engines`, CI ×3, lockstep gate `nodeVersionLockstep.spec.ts`) — *PR #674*; **(founder)** set the Vercel project Node.js Version to 22 so the dashboard matches the `engines.node` override that already governs the build
 - [x] Quick wins: `ops.yml` push trigger removed + `cloud-sql-proxy` sha256 pinned (*#656*); `hot_filings.py` and the trending refresh route deleted outright (*#657*, so the admin-token compare and rate limit are moot)

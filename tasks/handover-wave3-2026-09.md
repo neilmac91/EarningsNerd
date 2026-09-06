@@ -168,10 +168,14 @@ the refusal. Mutation proof: set `AI_FALLBACK_MODEL: 'x'` in the weekly workflow
 
 **(c) Fail-loud structure for scheduled workflows.** Gate
 `backend/tests/unit/test_scheduled_workflows_fail_loud.py`: for `refresh-index-membership.yml`
-(and, once W3-4 lands, `prod-smoke.yml`) assert a `schedule` cron exists, `permissions.issues ==
-"write"`, the last step has `if: failure()`, its env has `GH_TOKEN`, and its executable text
-contains `gh issue create` and `gh issue comment`. Parametrize over a `SCHEDULED_FAIL_LOUD`
-tuple so W3-4 adds one entry, not one test. Mutation proof: remove `if: failure()` → fail.
+and `prod-smoke.yml` assert a schedule cron and `permissions.issues == "write"`.
+The issue step has `GH_TOKEN` and executable `gh issue create` / `gh issue comment`.
+Refresh retains its single-job final `if: failure()` step. Smoke uses a separate bounded
+reporter with `needs: smoke` and `if: always() && needs.smoke.result != 'success'`; its final
+issue step runs unconditionally within that job, with explicit `GH_REPO` and worker result
+environment values. Keep the `SCHEDULED_FAIL_LOUD` parametrization. The refresh failure-step
+mutation remains; replace smoke's result-aware job condition with `failure()` to prove the
+new dependent-reporter requirement.
 
 **Docs in the same PR:** `docs/CONFIGURATION.md` (guard-flag rows: "pinned explicitly in the
 `ci.yml` deploy env"), `docs/DEPLOYMENT.md` §12 flag paragraph, `tasks/dark-surfaces-rollout-2026-09.md`
@@ -196,7 +200,7 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   100` in `backend/tests/unit/test_index_membership_service.py`, `generated_on` 2026-07-07).
 - **Never** raise `MAX_UNIVERSE_AGE_DAYS`; CI going red on 10-16 is the designed escalation.
 
-### W3-4 — Daily production smoke (workflow-only, no deploy)
+### W3-4 — Daily production smoke (workflow plus backend gate: deploys)
 - **File:** `.github/workflows/prod-smoke.yml`: `schedule: '23 6 * * *'` (clear of the 06:00
   Monday pregenerate, 08:00 monthly refresh and 13:00 Monday weekly crons) plus `workflow_dispatch`
   with input `filing_path`; `permissions: contents: read, issues: write`; `concurrency: prod-smoke`;
@@ -205,13 +209,16 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   from the deploy job's health step (~line 551: `curl -fsS https://api.earningsnerd.io/health/detailed`,
   fail on `"unhealthy"`); **frontend probe** `SMOKE_BASE_URL=https://earningsnerd.io
   SMOKE_FILING_PATH=${{ inputs.filing_path || vars.SMOKE_FILING_PATH || '/filing/3' }} npx playwright
-  test prod-smoke`; upload `playwright-report` on failure; failure-issue step cloned from
-  `refresh-index-membership.yml` (title `Production smoke failed <date>`, `startswith` search,
-  comment on the existing issue).
+  test prod-smoke`; attempt artifact upload with `always()` in the worker (best effort after
+  timeout). A separate five-minute reporter job depends on `smoke` and runs with
+  `always() && needs.smoke.result != 'success'`, including worker cancellation/timeout outcomes.
+  Its final create-or-comment step uses explicit `GH_REPO`, records the worker result and run
+  link, and explains artifacts may be unavailable after timeout. Retain the existing title
+  `Production smoke failed <date>` and `startswith` issue search; no checkout is needed there.
 - **Gate:** add `prod-smoke.yml` to `SCHEDULED_FAIL_LOUD` in `test_scheduled_workflows_fail_loud.py`
   (that edit is a `backend/tests/` change: land it with W3-2 if W3-4 is ready in time, otherwise
   accept one no-op deploy). Extend `frontend/tests/unit/nodeVersionLockstep.spec.ts` to read
-  every `.github/workflows/*.yml`, not only `ci.yml`, so the new `node-version` pin is gated.
+  every `.github/workflows/*.yml` and `*.yaml`, so the new `node-version` pin is gated.
 - **Done:** one dispatched green run; one deliberate red dispatch (`filing_path=/filing/does-not-exist`)
   opens the issue; close it. Tick the prod-smoke line in `tasks/todo.md` Phase 1.
 - **Founder row:** set repo variable `SMOKE_FILING_PATH` when the live example filing id is known.
@@ -327,7 +334,7 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 |---|---|---|---|
 | 1 | W3-1 ops.yml | no | dispatch and paste output |
 | 2 | W3-2 gates + pins + RUNBOOK + docs | yes | first backend deploy; verify fully before 3 |
-| 3 | W3-4 prod-smoke workflow (+ lockstep spec) | no | may open while 2 is deploying |
+| 3 | W3-4 prod-smoke workflow (+ lockstep spec and backend tuple gate) | yes | may open while 2 is deploying |
 | 4 | W3-5 agent files + gate | yes | after 2 verified |
 | 5 | W3-3 auto-PR merge | yes | whenever the key arrives; serialize with 4/6 |
 | 6 | W3-6 PyJWT | yes | after 4 verified |
