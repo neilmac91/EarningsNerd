@@ -474,6 +474,23 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
+def test_stripe_concurrency_has_a_required_postgres_ci_execution_path():
+    """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
+    ci = _load_ci()
+    job = ci["jobs"][MIGRATIONS_JOB]
+    step = _step(job, "Verify Stripe transaction concurrency on PostgreSQL")
+    assert step.get("working-directory") == "backend"
+    assert step.get("run") == "python -m pytest tests/integration/test_subscription_event_transactions.py"
+    assert step.get("env", {}).get("STRIPE_CONCURRENCY_TEST_DATABASE_URL") == (
+        "postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd"
+    ), "PostgreSQL Stripe cases must receive the disposable service URL, or they silently skip"
+    assert step.get("continue-on-error", False) is False
+    assert job.get("continue-on-error", False) is False
+    assert "if" not in step, "Stripe concurrency checks must run on every successful migration gate"
+    assert 0 < step.get("timeout-minutes", 0) <= 5
+    assert MIGRATIONS_JOB in _deploy_job(ci)["needs"]
+
+
 def test_migration_retry_is_limited_to_lock_contention_sqlstates():
     # These lines moved from the ci.yml step into backend/scripts/apply_migrations.sh (ADR-0007);
     # the pins are unchanged and read the script's executable lines.

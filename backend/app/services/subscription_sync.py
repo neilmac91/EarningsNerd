@@ -111,7 +111,9 @@ def _checkout_identity_conflict(
 
 # --------------------------------------------------------------------------- event handlers
 
-def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
+def apply_checkout_completed(
+    db: Session, session_obj: dict, *, user: Optional[User] = None,
+) -> Optional[User]:
     """Handle ``checkout.session.completed``: link Stripe ids and grant Pro.
 
     Bootstrap a previously unlinked subscription. If subscription events arrived first, retain
@@ -119,7 +121,7 @@ def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
     """
     metadata = session_obj.get("metadata") or {}
     user_id = int(metadata["user_id"])  # KeyError/ValueError → caller maps to 400
-    user = db.query(User).filter(User.id == user_id).first()
+    user = user or db.query(User).filter(User.id == user_id).first()
     if not user:
         return None
 
@@ -160,13 +162,15 @@ def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
     return user
 
 
-def apply_subscription_upsert(db: Session, sub_obj: dict) -> Optional[User]:
+def apply_subscription_upsert(
+    db: Session, sub_obj: dict, *, user: Optional[User] = None,
+) -> Optional[User]:
     """Handle ``customer.subscription.created`` / ``.updated``: full state from the Stripe object."""
     stripe_sub_id = sub_obj.get("id")
     stripe_customer_id = sub_obj.get("customer")
     status = (sub_obj.get("status") or "incomplete").lower()
 
-    user = _find_user(db, stripe_sub_id, stripe_customer_id)
+    user = user or _find_user(db, stripe_sub_id, stripe_customer_id)
     if not user:
         return None
 
@@ -188,9 +192,11 @@ def apply_subscription_upsert(db: Session, sub_obj: dict) -> Optional[User]:
     return user
 
 
-def apply_subscription_deleted(db: Session, sub_obj: dict) -> Optional[User]:
+def apply_subscription_deleted(
+    db: Session, sub_obj: dict, *, user: Optional[User] = None,
+) -> Optional[User]:
     """Handle ``customer.subscription.deleted``: downgrade to free."""
-    user = _find_user(db, sub_obj.get("id"), sub_obj.get("customer"))
+    user = user or _find_user(db, sub_obj.get("id"), sub_obj.get("customer"))
     if not user:
         return None
 

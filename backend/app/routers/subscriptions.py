@@ -10,8 +10,8 @@ from app.database import get_db
 from app.models import User, Subscription
 from app.routers.auth import get_current_user
 from app.config import settings
-from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
-from app.services import subscription_sync
+from starlette.concurrency import run_in_threadpool
+from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.entitlements import get_entitlements, get_plan, is_pro_user
 from app.services.subscription_service import (
     get_current_month,
@@ -275,123 +275,42 @@ async def stripe_webhook(
     request: Request,
     stripe_signature: str = Header(None, alias="stripe-signature")
 ):
-    """Handle Stripe webhooks for subscription events"""
-    from app.database import SessionLocal
-    db = SessionLocal()
-    
+    """Verify Stripe's raw event, then await a worker-owned billing transaction."""
     try:
         payload = await request.body()
-        
         if not settings.STRIPE_SECRET_KEY:
             raise HTTPException(status_code=500, detail="Stripe not configured")
-
         webhook_secret = settings.STRIPE_WEBHOOK_SECRET
         if not webhook_secret:
-            raise HTTPException(
-                status_code=500,
-                detail="Stripe webhook secret not configured",
-            )
-        
+            raise HTTPException(status_code=500, detail="Stripe webhook secret not configured")
         if not stripe_signature:
             raise HTTPException(status_code=400, detail="Missing stripe-signature header")
-        
         try:
-            event = stripe.Webhook.construct_event(
-                payload, stripe_signature, webhook_secret
-            )
+            stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
 
-        # stripe-python v15's StripeObject is NOT dict-like — `.get()` raises AttributeError, which
-        # broke every webhook (HTTP 500). construct_event has already verified the signature above;
-        # process the verified raw payload as plain dicts so `.get()` works throughout.
+        # stripe-python v15's StripeObject is not dict-like. Verification above authenticates
+        # these exact bytes; validate/consume their plain JSON representation instead.
         event = json.loads(payload)
+        if not isinstance(event, dict):
+            raise ValueError("event must be an object")
+        if not isinstance(event["type"], str) or not isinstance(event["data"]["object"], dict):
+            raise ValueError("event type/object has the wrong shape")
+        if event["type"] == "checkout.session.completed":
+            metadata = event["data"]["object"].get("metadata") or {}
+            int(metadata["user_id"])
 
-        # Idempotency: Stripe delivers at-least-once and retries. If we've already processed this
-        # event id, acknowledge without re-applying (prevents double-charge / wrong-entitlement).
-        event_id = event.get("id")
-        if subscription_sync.is_event_processed(db, event_id):
-            return {"status": "success", "idempotent": True}
-
-        event_type = event["type"]
-        obj = event["data"]["object"]
-
-        # The webhook is the SOLE source of entitlement truth — never the checkout success redirect.
-        if event_type == "checkout.session.completed":
-            user = subscription_sync.apply_checkout_completed(db, obj)
-            if user:
-                try:
-                    metadata = obj.get("metadata", {}) or {}
-                    # distinct_id is the user id; do NOT send email (PII) as an event property.
-                    capture_event(
-                        str(user.id),
-                        "subscription_activated",
-                        {
-                            "plan": metadata.get("plan", "pro"),
-                            "price_id": metadata.get("price_id"),
-                            "billing_cycle": metadata.get("billing_cycle"),
-                            "stripe_subscription_id": obj.get("subscription"),
-                        },
-                    )
-                except Exception:
-                    pass
-
-        elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
-            subscription_sync.apply_subscription_upsert(db, obj)
-            # Stripe-native trial start (the reverse-trial path emits this from /register instead).
-            # Only on `created` + `trialing` so an `updated` event never re-fires the funnel step.
-            if event_type == "customer.subscription.created" and obj.get("status") == "trialing":
-                try:
-                    user = subscription_sync._find_user(db, obj.get("id"), obj.get("customer"))
-                    if user:
-                        capture_event(
-                            str(user.id),
-                            EVENT_TRIAL_STARTED,
-                            {"source": "stripe", "trial_end": obj.get("trial_end")},
-                        )
-                except Exception:
-                    pass
-
-        elif event_type == "customer.subscription.deleted":
-            subscription_sync.apply_subscription_deleted(db, obj)
-
-        elif event_type == "invoice.payment_failed":
-            # Dunning signal. We do NOT revoke entitlement here — the authoritative status
-            # transition (active → past_due / canceled) arrives via customer.subscription.updated/
-            # deleted, which we handle above. Recording the event id (below) is enough for now.
-            logger.info("Stripe invoice.payment_failed for customer %s", obj.get("customer"))
-
-        elif event_type == "customer.subscription.trial_will_end":
-            # T-3 trial-ending notice. Email wiring lands with the Phase 2 notification system;
-            # for now we record it (idempotently) and emit an analytics signal.
-            try:
-                user = subscription_sync._find_user(db, obj.get("id"), obj.get("customer"))
-                if user:
-                    capture_event(str(user.id), "trial_will_end", {"trial_end": obj.get("trial_end")})
-            except Exception:
-                pass
-
-        # Record the event id (same transaction as the state change) so retries are no-ops.
-        subscription_sync.mark_event_processed(db, event_id, event_type)
-        db.commit()
-
+        # The worker owns construction, every ORM access and cleanup. Request cancellation must
+        # never close a Session while its database operation is still running in another thread.
+        return await run_in_threadpool(process_stripe_event, event)
     except HTTPException:
-        # Preserve intended status codes (e.g. 400 for signature/payload errors).
-        # Without this, the broad handler below would mask them as 500s, which
-        # also makes Stripe retry on what are really client errors.
-        db.rollback()
         raise
-    except (KeyError, ValueError, TypeError) as e:
-        # Malformed event payload (e.g. missing metadata.user_id, non-int id).
-        # Return 400 so Stripe does not keep retrying an unprocessable event.
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Malformed webhook payload: {str(e)}")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
-    finally:
-        db.close()
-
-    return {"status": "success"}
+    except SubscriptionEventBusy:
+        raise HTTPException(status_code=503, detail="Subscription event is busy; retry delivery")
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=f"Malformed webhook payload: {str(exc)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(exc)}")

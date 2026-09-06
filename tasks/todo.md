@@ -2,6 +2,42 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E05b prerequisite — Serialized webhook transactions (engineering)
+
+The founder asked to proceed with the next steps after verified E03/E05a releases.
+This prerequisite preserves all locked contracts. General stale-event reconciliation remains
+separate and needs approval for a provider stub in the locked webhook fixture.
+
+- [x] Move verified Stripe-event database work into one worker-owned session/transaction.
+- [x] Lock the existing User row with PostgreSQL NOWAIT before rereading identity and deduplication;
+  retry contention without acknowledging or recording an unprocessed event.
+- [x] Commit subscription state and event ledger together; emit plain best-effort analytics only
+  after successful commit and session cleanup. No ORM value crosses the worker boundary.
+- [x] Add one nonlocked test home, `backend/tests/integration/test_subscription_event_transactions.py`,
+  for thread/cancellation ownership, rollback/signals and actual PostgreSQL contention/delivery.
+- [x] Run the PostgreSQL cases explicitly inside the existing migration CI job, with
+  `STRIPE_CONCURRENCY_TEST_DATABASE_URL`; require PostgreSQL when supplied and skip only those
+  fixtures when absent from the ordinary SQLite lane. Gate this CI execution path mechanically.
+- [x] Retain one mutation proof per new invariant, full local backend/workflow checks and independent review.
+- [ ] Publish draft PR, inspect actual CI/eval reports and verify the serialized production release.
+
+No new Stripe network calls, schema migration, locked-test changes, pricing/trial/promo policy,
+production flag or capacity change. Per-user serialization does not establish Stripe chronology,
+cross-user identity uniqueness or exactly-once analytics. No event timestamp/ID tie-break is added.
+
+Source `19e0584`: full pinned local backend gate passed with PostgreSQL cases enabled:
+`2439 passed, 2 deselected, 23 warnings in 52.84s`, exit 0; Ruff clean; Bandit 0 medium/high.
+Focused PostgreSQL + unchanged locked billing gates: 59 passed. Local cluster PostgreSQL 15.15
+uses only a temporary Unix socket and disposable schemas; no production database was accessed.
+Workflow-related backend gates: 102 passed; Node-version gate: 3 passed. Documentation links checked.
+
+Exactly one mutation per new invariant: direct event-loop execution → 2 intended failures;
+bypassed account lock/recheck → 2; premature state commit → 1 (subscription without event receipt);
+analytics before commit/close → 1; missing PostgreSQL CI URL → 1. Every source mutation restored
+exact committed bytes; restored runtime gate 11 passed and restored CI gate 1 passed. Independent
+correctness/rules/tests review found no actionable issue. Locked contracts and baseline remain
+byte-identical. CI/eval and production outcomes are pending this source checkpoint.
+
 ### E05a — Subscription identity and delayed-event guards (engineering)
 
 - [x] Reject checkout bindings that conflict with existing customer/subscription ownership.
@@ -115,7 +151,7 @@ No prompt, flag, schema, capacity or W3-8b classifier change. Root owns publicat
 - [x] Extend existing lifecycle and health test homes with real pool/ownership evidence.
 - [x] Prove each new invariant with exactly one mutation, restoring committed implementation.
 - [x] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
-- [ ] Independent review, publication, CI/eval inspection and serialized deployment (root).
+- [x] Independent review, publication, CI/eval inspection and serialized deployment (root).
 
 Runtime evidence: installed FastAPI `routing.py::request_response` closes its request dependency
 stack after `await response(...)`; `dependencies/utils.py` defaults yielded dependencies to that
@@ -142,7 +178,15 @@ The original two mutation proofs were not repeated. Root and independent review 
 Final integrated source `43eb5c8` includes main `049cd4f` (E01/E02/E04). Ruff clean, Bandit 0
 medium/high, full pytest `2412 passed, 2 deselected, 23 warnings in 50.01s`, exit 0. The retained
 log also contains the existing post-summary Yahoo-client shutdown logging error. Locked contracts
-and stream frames remain unchanged. E03 publication, CI/eval evidence and deployment remain pending.
+and stream frames remain unchanged. The pending release at that checkpoint is now verified below.
+
+E03 #723 merged as `4d15b90`; production CI `34026399023` passed, with migrations
+`applied=0 skipped=34`, revision `00277-sdn` at 100% traffic and independent healthy DB 9.88 ms.
+E05a #724 subsequently merged as `3ca20c6`; production CI `34027376311` passed, migrations
+`applied=0 skipped=34`, revision `00278-5rd` at 100% traffic and independent healthy DB 5.66 ms.
+Both PR bodies retain full image and health evidence. E05a's first summary evaluation retained
+one BABA timeout (artifact `9987326457`); one unchanged full retry passed 52/52 with zero errors
+(artifact `9987455360`). Its actual Copilot gate passed 18/18. No baseline or threshold changed.
 
 Precedence correction: the touched single-orchestrator lesson still named Multi-Period Analysis
 as the cross-filing insight destination. Its prose now names the labeled Change Report to match
