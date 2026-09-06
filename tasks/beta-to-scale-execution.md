@@ -250,3 +250,11 @@ and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labe
 numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
 lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
 preview before release; the original four data proofs are unchanged and were not repeated.
+
+E13a explicitly approved publication checkpoint: main `ee3ac988` is integrated as `4db2190`.
+Reviewed login runtime/tests remain byte-identical to `24a4d1c`; all main limiter, metrics,
+billing, usage and frontend changes are preserved. The full pinned gate passed with all three
+PostgreSQL URLs: Ruff clean, Bandit 0 medium/high, 2565 passed / 2 deselected / 23 warnings
+in 61.96s, exit 0. Workflow readers: 104 passed; Node pin: 3 passed. Three-lens review is clear;
+locked anchors unchanged; original mutations retained. Normal branch push is explicitly approved;
+root owns PR, remote CI and serial release. Exact evidence is recorded in `tasks/todo.md`.

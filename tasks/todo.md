@@ -611,6 +611,28 @@ remain root-owned. E07b is design-only and is not included.
 
 ### E13a integration checkpoint
 
+Publication verification on combined source `4db219071e0179764224b30301f6b512e57ea6f7`
+against main `ee3ac9882b74453bb670c69b5b05142338a53844`: Ruff clean; Bandit 0 medium/high;
+**2565 passed, 2 deselected, 23 warnings in 61.96s (0:01:01)**, exit 0, with Stripe, usage
+and login PostgreSQL URLs configured. All six login concurrency cases ran. Workflow readers
+(including YAML parsing): **104 passed, 16 warnings in 3.12s**; Node 22.23.2 pin: **3 passed**.
+The pre-existing closed logging-stream teardown diagnostic followed the passing backend summary.
+
+Three-lens integration review is clear. Correctness: SQL conflict updates retain the original
+reset comparisons, null handling, threshold and timestamp rules; success clear remains caller-owned.
+Rules/brief: runtime and login concurrency tests match `24a4d1c` exactly; latest main's limiter,
+worker metrics, billing, usage counters, frontend, locked anchors and eval baseline are preserved.
+Tests/gates: all three required PostgreSQL CI steps and structural entries remain; the original
+5-failure/1-pass runtime mutation and 1-failure CI mutation are retained without repetition.
+No actionable finding required refutation or source repair. Frontend equals main, so only the
+required Node/workflow check was repeated. Whitespace checks and post-commit status are clean.
+
+Exact fresh logs: `/private/tmp/earningsnerd-e13-evidence/approved-ruff.log`,
+`approved-bandit.log`, `approved-full.log`, `approved-workflow.log`, `approved-node.log`.
+The founder-approved normal branch publication follows this evidence commit; root owns PR,
+remote CI, merge and deployment verification. No flag, pricing, spending, policy or data repair.
+
+
 Latest-main publication checkpoint: the founder explicitly approved all five exact actions in
 `outputs/remaining-verification-publication-approval.md`, including publication of this branch
 to `neilmac91/EarningsNerd` and conflict resolution with required full gates. Integrate main
