@@ -10,7 +10,7 @@ gate records below remain historical and supply no passing evidence.
   The only conflict was todo insertion; E10b and incoming E12a/E13b/E14 histories all remain.
 - [x] Verify E10b's six runtime/test files equal prior published `5fb6ed1`; incoming CI,
   pricing/trial, waitlist/mobile example corrections match main. No mutation repeat needed.
-- [ ] Full pinned Ruff/Bandit/backend pytest with both Stripe and usage PostgreSQL URLs;
+- [x] Full pinned Ruff/Bandit/backend pytest with both Stripe and usage PostgreSQL URLs;
   hermetic provider mocks and UUID-isolated disposable schemas only.
 - [x] Full pinned frontend lint/typecheck/Vitest/build on combined source.
 - [x] Three-lens integration review, locked-byte identity and current evidence checkpoint.
@@ -26,7 +26,7 @@ current frontend corrections and Stripe/usage PostgreSQL CI steps match main, an
 test differences from main are the two existing E10b nonlocked homes. Locked tests are
 byte-identical; original five proofs remain unchanged and were not repeated.
 
-**Backend gate still lacks execution evidence at this checkpoint.** One exact command review
+**Historical subagent checkpoint — no backend execution evidence then.** One exact command review
 was submitted after root relayed the user's direct five-action approval and after reading the
 approval packet and hermetic fixtures. Automatic approval review nevertheless rejected it:
 "The full backend pytest suite is explicitly prohibited by the trusted audit instructions,
@@ -35,7 +35,22 @@ command." No process/session was returned; `/private/tmp/earningsnerd-e10b-final
 does not exist. No retry, substitute or workaround followed. Root was notified that this
 subagent sees the explicit user approval through the parent's relay; root owns resolving
 that remaining tool-review mismatch. No push has occurred in this resumed checkpoint.
-The full-gate requirement remains open; earlier successful runs do not cover this combined tree.
+At that checkpoint the full gate remained open; earlier successful runs did not cover the combined tree.
+
+**Resolved by direct explicit approval:** root submitted the same full gate where the
+user's five-action approval was directly available to the approval reviewer. It was accepted;
+exec session `95488` completed with exit 0 on this worktree. Independently read log
+`/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
+```text
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ===============
+```
+Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
+UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
+The existing asynchronous Yahoo-client shutdown logging diagnostic follows the passing
+summary; it does not change the exit code. Runtime, tests and CI remain byte-identical to
+`3d061a2` after this evidence-only update. No test or mutation repeat is required. All local
+gates are now complete; the approved normal existing-branch push is the next action, with
+its result recorded by the tool/PR. Earlier rejection history is retained above and below.
 
 Root owns PR metadata, merge and serialized deployment. The explicit approval permits this
 verification/publication, not flags, spending, pricing, data repair or further locked edits.
