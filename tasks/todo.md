@@ -1,5 +1,57 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## Beta-to-scale implementation — approved 2026-09-06
+
+The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
+The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and
+separate founder decisions. Revenue and production readiness remain goals, not achieved results.
+
+### E01 — Coherent mobile example (engineering)
+
+- [x] Re-check current main and confirm live identity can inherit Apple fallback metrics.
+- [x] Keep live metrics, including an empty set, with live identity; reserve the full fallback for null examples.
+- [x] Add the non-AAPL empty-metrics regression plus live and null controls in one test home.
+- [x] Retain one mutation proof, full frontend gates and both-theme preview evidence.
+- [x] Complete the three review lenses, publish draft #720, inspect exact-head CI and merge.
+- [ ] Verify the production Vercel deployment; merge and preview evidence are not that result.
+
+Source `0c92a25`: Node 22.23.2; lint/typecheck/build exit 0; Vitest 96 files / 490 tests passed
+in 39.66s. The single mutation restored the mixed-source branch: the ASML fixture rendered
+`$394.3B`, causing the intended assertion to fail (1 failed, 2 passed); exact restoration:
+3 passed. Root and independent correctness/rules/tests reviews found no actionable issue.
+The build used an unavailable local API and retained existing middleware/Sentry-token warnings.
+[#720](https://github.com/neilmac91/EarningsNerd/pull/720) merged as `7403076f` after
+[CI 34019162195](https://github.com/neilmac91/EarningsNerd/actions/runs/34019162195)
+passed; its frontend-only eval skip was expected. The branch preview was inspected at
+390 × 844 in both themes: live Apple 10-K, $416.2B / $112.0B / $7.46, no card clipping.
+That preview did not alter data or reproduce the sparse fixture. Production verification
+remains pending for Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u`.
+See the [execution ledger](beta-to-scale-execution.md#release-checkpoint--2026-09-06).
+
+### E04 — Bound the summary reader and reject truncated streams (engineering)
+
+- [x] Bound the complete connect/refresh handshake with the existing 120-second timeout.
+- [x] Require one valid complete/partial frame; consume a final frame without a newline.
+- [x] Stop on terminal frames and avoid automatic replay after any visible preview or chunk.
+- [x] Add focused reader regressions in `frontend/tests/unit/summaryStreamResilience.spec.ts`;
+  leave recorded SSE/auth contracts unchanged; retain exactly one mutation proof per new invariant.
+- [ ] Run the full frontend gate, independent review, and publish a draft PR with exact evidence.
+
+The current reader returns success at premature EOF and starts its timeout only after headers.
+E04 keeps the SSE wire format, shared refresh owner, existing one-retry policy and timeout value.
+It changes transport handling only; no summary generation, quota, prompt, theme or flag changes.
+W3-8b and E03 are independent backend work; serialize task-doc integration when merging.
+
+Source `5eb8e03`: full frontend gate passed (lint/typecheck exit 0; 97 files / 501 tests;
+production build exit 0). Initial build rejected the temporary external node_modules symlink;
+copying the same installed dependencies inside the worktree resolved it without code or lock changes.
+One mutation experiment restored the entire original reader: all 11 new cases failed for the
+intended timeout/terminal/replay assertions. Exact restoration: 26 focused tests passed.
+Independent correctness/rules/tests review found no actionable issue; backend persistence before
+terminal emission was checked in two fresh passes. Locked SSE/auth fixtures are unchanged.
+E02 main `5298c77` was merged locally; frontend source/test bytes remain identical to `5eb8e03`.
+Draft publication and exact-head CI remain pending. This is transport handling; no visual change.
+
 ## E03 — Short database ownership during generation (2026-09-06)
 
 Approved engineering scope from the beta-to-scale plan. Start: `7d06edc`.
@@ -38,6 +90,42 @@ This change releases the summary route's transaction before streaming; it does n
 synchronous route queries to async I/O, alter fleet capacity or change generation admission.
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
+
+### E02 — SEC token refill accounting (2026-09-06)
+
+Owner: SEC limiter implementation agent; root owns review and any publication/deployment.
+The founder approved commencement of the beta-to-scale plan. This bounded task preserves
+existing SEC transport ownership, Retry-After handling and per-process configuration.
+
+- [x] Advance the refill accounting boundary after a completed token wait so the next caller
+  cannot reuse elapsed time that already paid for the admitted request.
+- [x] Extend the existing SEC limiter test home with one deterministic behavioural gate for
+  sustained calls, concurrent callers, delayed wakeup and cancellation; no SEC/network calls.
+- [x] Commit the implementation, remove the correction for exactly one mutation proof, restore
+  exact bytes, and run the pinned Ruff/Bandit/full pytest gate. Locked contracts stay unchanged.
+- [x] Root and an independent reviewer completed correctness, rules and tests lenses;
+  prior CI 34019200809 passed with the retained 52-result eval artifact.
+- [x] Merge E01's current main without rewriting E02 history; preserve both task sections.
+- [ ] Root publishes the updated branch, verifies current-head CI and Copilot, then serializes
+  backend merge/deployment verification. The implementation agent does not push or deploy.
+
+
+Source `4a196b7`: 102 exact runtime/dev pins matched (Python 3.11.16). Focused SEC
+checks: `14 passed, 1 warning in 0.10s`. Exactly one mutation removed the post-wakeup
+timestamp assignment; the sequential gate failed at the intended admission-time assertion
+(`1 failed, 1 warning in 0.16s`), and exact restoration passed. Full Ruff and Bandit
+exit 0; `2390 passed, 2 deselected, 23 warnings in 64.40s (0:01:04)`, exit 0.
+The first full run had two WeasyPrint native-library lookup failures; the installed Homebrew
+libraries were exposed via `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`, with no dependency
+or source change. EDGAR's test data directory was isolated under `/private/tmp`.
+The existing post-summary Yahoo-client shutdown logging error remains in the retained log.
+Locked SSE/background/auth/Stripe contracts and the eval baseline have empty main-to-HEAD
+diffs. Runtime correction is per-process only; aggregate API/job SEC pacing remains E09.
+After merging E01 main at local merge `09758a7`, the full backend gate passed again:
+Ruff/Bandit exit 0; `2390 passed, 2 deselected, 23 warnings in 46.41s`, exit 0.
+Backend source/test bytes remain identical to `ec5419f`; only E01 frontend/docs and this
+status update entered the branch. The original mutation proof therefore remains scoped
+to the unchanged guarded source. Current-head remote gates and production verification remain pending.
 
 ### W3-3 public-source replacement — 2026-09-06
 
