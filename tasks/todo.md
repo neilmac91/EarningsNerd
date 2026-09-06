@@ -2,6 +2,21 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E05a — Subscription identity and delayed-event guards (engineering)
+
+- [ ] Reject checkout bindings that conflict with existing customer/subscription ownership.
+- [ ] Preserve synchronized state when a matching checkout arrives after subscription events.
+- [ ] Ignore a deletion for an old subscription after its customer has a replacement.
+- [ ] Add adversarial sequences in `backend/tests/unit/test_subscription_identity.py`; keep
+  every locked checkout/webhook contract byte-identical and retain metadata-only bootstrap.
+- [ ] Commit source, restore original behavior for exactly one mutation experiment, restore
+  exact source bytes, and run Ruff, Bandit and the full backend pytest gate.
+- [ ] Record review/evidence and return the commit to the root agent without pushing or deploying.
+
+Scope: existing identity/state guards only. No price, promo, trial, schema or entitlement-policy
+change. E05b retains general same-subscription event ordering and concurrent-delivery handling;
+these checks do not introduce an event watermark or serialize webhook transactions.
+
 The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
 The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and
 separate founder decisions. Revenue and production readiness remain goals, not achieved results.
