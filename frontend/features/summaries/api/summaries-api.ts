@@ -70,8 +70,8 @@ const getPosthogDistinctId = (): string | null => {
   }
 }
 
-// Reduced to 120 seconds (2 minutes) to match backend pipeline timeout guarantee
-// The heartbeat mechanism keeps the connection alive, but we now have a hard limit
+// Bound the connect/refresh handshake and each period without stream activity.
+// Heartbeats reset the read deadline; this is not a total generation deadline.
 const STREAM_TIMEOUT_MS = 120000
 
 export interface Summary {
@@ -266,155 +266,152 @@ const runStreamAttempt = async (
       signal: controller.signal,
     })
 
-  // Expired access cookie: this sanctioned raw SSE fetch bypasses the axios client's silent
-  // 401 → /refresh → replay, so postStreamWithRefresh replicates it (shared with the Copilot and
-  // Analysis readers). The connect handshake is wrapped so a network-level throw becomes a
-  // RETRYABLE result the outer attempt loop can re-try, rather than propagating past it — the
-  // streaming-read phase below is already guarded the same way.
-  let response: Response
-  try {
-    response = await postStreamWithRefresh(postStream)
-  } catch (error: unknown) {
-    clearTimeoutSafely()
-    const message = error instanceof Error ? error.message : 'Failed to connect to the summary stream.'
-    return { ok: false, retryable: true, error: message }
-  }
+  // A refresh is shared with other requests and cannot be cancelled by this reader. Race the
+  // whole handshake against our signal so a stalled refresh cannot strand this attempt; any
+  // eventual replay still carries the aborted signal and cannot start another generation.
+  const untilAborted = <T,>(operation: Promise<T>): Promise<T> =>
+    new Promise((resolve, reject) => {
+      const onAbort = () => reject(new DOMException('Summary stream timed out', 'AbortError'))
+      controller.signal.addEventListener('abort', onAbort, { once: true })
+      operation.then(
+        (value) => {
+          controller.signal.removeEventListener('abort', onAbort)
+          resolve(value)
+        },
+        (error) => {
+          controller.signal.removeEventListener('abort', onAbort)
+          reject(error)
+        },
+      )
+      if (controller.signal.aborted) onAbort()
+    })
 
-  if (!response.ok) {
-    clearTimeoutSafely()
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+  let completed = false
+  let streamErrorMessage: string | null = null
 
-    // Handle authentication errors
-    if (response.status === 401) {
-      let errorMessage = 'Authentication error occurred.'
-      try {
-        const errorData = await response.json()
-        if (errorData.detail) {
-          errorMessage = errorData.detail
-        } else if (errorData.message) {
-          errorMessage = errorData.message
-        }
-      } catch {
-        // If response is not JSON, use default message
-      }
-      return { ok: false, retryable: false, error: errorMessage }
-    }
-
-    // Handle other HTTP errors
-    let errorMessage = `Request failed with status ${response.status}`
+  const consumeLine = (line: string) => {
+    if (!line.startsWith('data: ')) return
+    let data
     try {
-      const errorData = await response.json()
-      if (errorData.detail) {
-        errorMessage = errorData.detail
-      } else if (errorData.message) {
-        errorMessage = errorData.message
-      }
-    } catch {
-      // If response is not JSON, use status-based message
-      if (response.status === 403) {
-        errorMessage = 'You do not have permission to perform this action.'
-      } else if (response.status === 429) {
-        errorMessage = 'Rate limit exceeded. Please try again later.'
-      } else if (response.status >= 500) {
-        errorMessage = 'Server error. Please try again later.'
-      }
+      data = JSON.parse(line.slice(6))
+    } catch (error) {
+      console.error('Error parsing SSE data:', error)
+      return
     }
-    // 5xx is transient (worth one retry); 403/429 and other 4xx are not.
-    const retryable = response.status >= 500
-    return { ok: false, retryable, error: errorMessage }
-  }
+    if (!data || typeof data !== 'object') return
 
-  console.info(
-    `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
-  )
-
-  const reader = response.body?.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  if (!reader) {
-    clearTimeoutSafely()
-    return { ok: false, retryable: true, error: 'No reader available' }
+    if (data.type === 'chunk' && typeof data.content === 'string') {
+      console.info(`[summary] ${filingId} chunk received (${data.content.length} chars)`)
+      if (data.content) markContentDelivered()
+      onChunk(data.content)
+    } else if (data.type === 'preview') {
+      // Previews are visible output too: retrying after one would silently replay generation.
+      if (typeof data.markdown === 'string' && data.markdown) {
+        markContentDelivered()
+        onChunk(data.markdown)
+      }
+    } else if (data.type === 'progress') {
+      const stageName = typeof data.stage === 'string' ? data.stage : 'unknown'
+      const message = typeof data.message === 'string' ? data.message : ''
+      const progressData: ProgressData = {
+        elapsed_seconds: typeof data.elapsed_seconds === 'number' ? data.elapsed_seconds : undefined,
+        heartbeat_count: typeof data.heartbeat_count === 'number' ? data.heartbeat_count : undefined,
+        percent: typeof data.percent === 'number' ? data.percent : undefined,
+      }
+      recordStageTiming(stageName, message)
+      onProgress(stageName, message, progressData)
+    } else if (data.type === 'complete' || data.type === 'partial') {
+      if (!Number.isSafeInteger(data.summary_id) || data.summary_id <= 0) {
+        streamErrorMessage = 'The summary stream returned an invalid completion. Please try again.'
+        return
+      }
+      completed = true
+      recordStageTiming(data.type, data.message || 'summary ready')
+      markContentDelivered()
+      onComplete(data.summary_id)
+    } else if (data.type === 'error') {
+      console.warn(`[summary] ${filingId} stream error: ${data.message}`)
+      streamErrorMessage = typeof data.message === 'string' ? data.message : 'Error generating summary'
+    } else if (data.type === 'start') {
+      const message = typeof data.message === 'string' ? data.message : ''
+      recordStageTiming('start', message)
+      onProgress('summarizing', message)
+    }
   }
 
   resetTimeout()
-
-  // An SSE 'error' event from the backend is captured here (not surfaced immediately) so the
-  // caller can decide whether to retry before showing it to the user.
-  let streamErrorMessage: string | null = null
-
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      resetTimeout()
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6))
-            if (data.type === 'chunk') {
-              const chunkSize =
-                typeof data.content === 'string' ? data.content.length : 0
-              console.info(`[summary] ${filingId} chunk received (${chunkSize} chars)`)
-              markContentDelivered()
-              onChunk(data.content)
-            } else if (data.type === 'preview') {
-              // A5: progressive section reveal — a growing full-markdown render emitted while the
-              // model streams. Routed through onChunk, which REPLACES the displayed text; the
-              // authoritative final 'chunk' supersedes the last preview. No-op when the backend
-              // feature flag is off (no preview events are emitted).
-              if (typeof data.markdown === 'string' && data.markdown) {
-                onChunk(data.markdown)
-              }
-            } else if (data.type === 'progress') {
-              const stageName = typeof data.stage === 'string' ? data.stage : 'unknown'
-              const message = typeof data.message === 'string' ? data.message : ''
-              const progressData: ProgressData = {
-                elapsed_seconds: typeof data.elapsed_seconds === 'number' ? data.elapsed_seconds : undefined,
-                heartbeat_count: typeof data.heartbeat_count === 'number' ? data.heartbeat_count : undefined,
-                percent: typeof data.percent === 'number' ? data.percent : undefined,
-              }
-              recordStageTiming(stageName, message)
-              onProgress(stageName, message, progressData)
-            } else if (data.type === 'complete' || data.type === 'partial') {
-              recordStageTiming(data.type, data.message || 'summary ready')
-              markContentDelivered()
-              onComplete(data.summary_id)
-            } else if (data.type === 'error') {
-              console.warn(`[summary] ${filingId} stream error: ${data.message}`)
-              streamErrorMessage = typeof data.message === 'string' ? data.message : 'Error generating summary'
-            } else if (data.type === 'start') {
-              const message = typeof data.message === 'string' ? data.message : ''
-              recordStageTiming('start', message)
-              onProgress('summarizing', message)
-            }
-          } catch (e) {
-            console.error('Error parsing SSE data:', e)
-          }
-        }
+    // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
+    const response = await untilAborted(postStreamWithRefresh(postStream))
+    if (!response.ok) {
+      let errorMessage = response.status === 401
+        ? 'Authentication error occurred.'
+        : `Request failed with status ${response.status}`
+      try {
+        const errorData = await untilAborted(response.json())
+        if (typeof errorData?.detail === 'string') errorMessage = errorData.detail
+        else if (typeof errorData?.message === 'string') errorMessage = errorData.message
+      } catch (error) {
+        if (controller.signal.aborted) throw error
+        if (response.status === 403) errorMessage = 'You do not have permission to perform this action.'
+        else if (response.status === 429) errorMessage = 'Rate limit exceeded. Please try again later.'
+        else if (response.status >= 500) errorMessage = 'Server error. Please try again later.'
       }
+      return { ok: false, retryable: response.status >= 500, error: errorMessage }
     }
 
-    if (streamErrorMessage) {
-      // Backend-emitted error mid-stream — transient by default; retry decision is the caller's.
+    console.info(
+      `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
+    )
+    reader = response.body?.getReader()
+    if (!reader) return { ok: false, retryable: true, error: 'No reader available' }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+    resetTimeout()
+    while (!completed && streamErrorMessage === null) {
+      const { done, value } = await untilAborted(reader.read())
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      // A complete JSON frame at EOF is still usable even without its final newline.
+      if (done && buffer) lines.push(buffer)
+      for (const line of lines) {
+        consumeLine(line)
+        if (completed || streamErrorMessage !== null) break
+      }
+      if (done) break
+      resetTimeout()
+    }
+
+    if (streamErrorMessage !== null) {
       return { ok: false, retryable: true, error: streamErrorMessage }
+    }
+    if (!completed) {
+      return {
+        ok: false,
+        retryable: true,
+        error: 'The connection closed before the summary finished. Please try again.',
+      }
     }
     return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
-      const timeoutMessage = `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`
-      return { ok: false, retryable: true, error: timeoutMessage }
+      return {
+        ok: false,
+        retryable: true,
+        error: `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`,
+      }
     }
     return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
   } finally {
     clearTimeoutSafely()
     controller.abort()
+    // Cancel without waiting for transport cleanup; the request deadline must stay bounded.
+    void reader?.cancel?.().catch(() => undefined)
+    reader?.releaseLock?.()
     const totalElapsed = performance.now() - streamStart
     const breakdown = stageTimeline
       .map(({ stage, at, delta }) => `${stage}:${Math.round(at)}ms (Δ${Math.round(delta)}ms)`)
