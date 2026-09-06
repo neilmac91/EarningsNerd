@@ -1,5 +1,26 @@
 # Remediation plan — from the September 2026 engineering audit
 
+## Beta-to-scale implementation — approved 2026-09-06
+
+The founder approved commencement of the beta-to-scale and $1M ARR plan in the live session.
+The [execution ledger](beta-to-scale-execution.md) preserves the engineering sequence and
+separate founder decisions. Revenue and production readiness remain goals, not achieved results.
+
+### E01 — Coherent mobile example (engineering)
+
+- [x] Re-check current main and confirm live identity can inherit Apple fallback metrics.
+- [x] Keep live metrics, including an empty set, with live identity; reserve the full fallback for null examples.
+- [x] Add the non-AAPL empty-metrics regression plus live and null controls in one test home.
+- [ ] Retain one mutation proof, full frontend gates and both-theme preview evidence.
+- [ ] Complete the three review lenses and publish a draft PR before readiness.
+
+Source `0c92a25`: Node 22.23.2; lint/typecheck/build exit 0; Vitest 96 files / 490 tests passed
+in 39.66s. The single mutation restored the mixed-source branch: the ASML fixture rendered
+`$394.3B`, causing the intended assertion to fail (1 failed, 2 passed); exact restoration:
+3 passed. Root and independent correctness/rules/tests reviews found no actionable issue.
+The build used an unavailable local API and retained existing middleware/Sentry-token warnings.
+Remote CI and both-theme preview verification remain pending; this is not production completion.
+
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
 ### E02 — SEC token refill accounting (2026-09-06)
