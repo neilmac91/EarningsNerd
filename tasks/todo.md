@@ -4,6 +4,15 @@
 
 ### W3-5 local preparation — agent stack truth
 
+A further review confirmed lowercase obsolete recipes bypassed the case-sensitive pattern.
+Root and an independent reviewer refuted the finding before correction; the full
+case-insensitive scan requires no frozen-allowlist expansion. PR #715 remains draft.
+
+- [x] Add `re.IGNORECASE` to the existing obsolete-stack pattern only.
+- [ ] Prove one actual lowercase Alembic recipe fails, restore exactly and run the full
+  coherent backend gate; retain prior proofs and CI as scoped historical evidence.
+- [ ] Independent case-delta review and corrected actual CI before root merge/deploy.
+
 PR #715 is draft during a bounded review correction. Two independent refutations confirmed
 that the original obsolete-stack gate did not require the seven named engineering files,
 and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence is retained.

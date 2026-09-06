@@ -15,7 +15,8 @@ REQUIRED_ENGINEERING_FILES = {
 OBSOLETE_STACK = re.compile(
     r"Firebase|Firestore|Alembic|Celery|\bVite\b|React Router|GPT-4|GPT-3\.5|"
     r"AsyncSession|create_async_engine|/api/v1|render\.yaml|on Render|"
-    r"Render dashboard|Deploy to Render"
+    r"Render dashboard|Deploy to Render",
+    re.IGNORECASE,
 )
 # Existing non-engineering debt; remove entries when corrected, never add engineering files.
 LEGACY_FILES = {
