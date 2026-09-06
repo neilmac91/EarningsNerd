@@ -18,19 +18,36 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E04 | Bound SSE handshake and reject premature EOF | Independent frontend | #722 released; exact-head CI and production Vercel verified |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724, E05b #725 and E05c #727 released and independently verified; helper-only fixture approval preserved. Cross-ID policy remains separate |
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source | #728 released as `cab71f9`; production migration, revision and independent health verified. Event-selection coverage remains unverified |
-| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 merged as `90fdc69`; production verification pending. Reservations remain separate |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a implemented and reviewed locally; frontend gates pass, preview/release pending. Pricing and activation decisions remain held |
+| E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | E07a #729 released as `90fdc69`; production migration/revision and independent health verified. Reservations remain separate |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a #731 released as `752f3a2`; CI, Vercel production and canonical pricing response verified. Pricing and activation decisions remain held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
-| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
-| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
-| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | Queued |
-| E15 | Partition sitemap and align eligible content | Independent | E15a integrated with main `752f3a2`; combined PostgreSQL backend gate passed. E15b partitioning and eligible DB count remain unresolved |
+| E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | E12a #733 merged as `cb2c1f8`; production run 34040098807 pending. Startup deadlines remain separate |
+| E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | E13b #732 released as `53348d6`; production migration/revision/health verified. E13a remains on publication hold |
+| E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a local gate passed; preview/release pending. E14b queued |
+| E15 | Partition sitemap and align eligible content | Independent | E15a reviewed; current main integration and explicit update approval recorded. E15b partitioning and eligible DB count remain unresolved |
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
 and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
+
+## Release checkpoint — 2026-09-06
+
+Root recorded E07a #729 production verification: run `34036955028`, deploy job
+`101497074770`, `apply_migrations: applied=0 skipped=36`, revision
+`earningsnerd-backend-00283-6ck` at 100% traffic, and independent DB health 9.7 ms.
+E08a #731 released as `752f3a2`: CI `34037077654` passed, Vercel production deployment
+`6293801657` succeeded, and canonical pricing returned 200. Main CI `34037770022` correctly
+skipped backend deployment for that frontend change.
+
+E13b #732 is merged as `53348d6`; root is verifying production run `34039409016`, still
+active at this checkpoint. This does not clear E13a's independent publication hold.
+E12a is prepared on integrated source `ec045eb` with unchanged reviewed source `80abcf0`:
+Ruff/Bandit passed; **2558 passed, 2 deselected, 23 warnings in 51.64s** with both PostgreSQL
+lanes enabled. One original mutation proof is retained. The authorized branch push follows this
+evidence commit; PR acceptance and serialized deployment remain root-owned. Earlier checkpoint
+prose below retains its historical meaning.
 
 ## Founder track
 
@@ -215,3 +232,39 @@ Sitemap source/tests/lesson remain reviewed `b922d32`; all locked anchors match 
 gate with Stripe and usage PostgreSQL: Ruff clean, Bandit 0 medium/high; **2549 passed,
 2 deselected, 23 warnings in 44.99s**, exit 0. Integration review is clear across all three lenses;
 no mutation was repeated. Only existing-branch update is authorized here; root owns PR and release.
+### E14a local implementation checkpoint
+
+Source `3153078`, main `cb2c1f8` integrated as `43d554c`: waitlist preview now resolves the
+existing public cached example in its own Suspense child. No static fallback for unavailable
+or placeholder data; same filing identity/source/quality and a direct canonical preview CTA.
+Sparse examples retain a SEC filing link. Existing top CTA, signup/referral behavior and
+homepage CTA defaults remain unchanged; no flags, access, generation or backend changes.
+Four one-time proofs failed and restored; full frontend lint/typecheck, 98 files / 513 tests
+and production build passed. Exact logs, boundaries and proof tails are in tasks/todo.md.
+Independent source review cleared; root owns mobile/both-theme preview, PR and release.
+E14b canonical-link copying remains separate and unimplemented.
+
+### E12a / E13b root release evidence at E14a checkpoint
+
+E13b #732 production run `34039409016`, deploy `101503717032`, succeeded with
+`applied=0 skipped=36`; revision `00284-n57` serves 100% and independent DB health was
+7.26 ms. E12a #733 merged as `cb2c1f8d8e5b5ad9c066110c363a7759907ef0e0`; production
+run `34040098807` was pending at this checkpoint. Root owns the remaining verification.
+E14a root and independent source review are clear; preview acceptance remains pending.
+
+### E14a measured mobile correction
+
+PR #734 preview at original head `1d42e71` hid the company name at 320 px (width/clientWidth
+0, scrollWidth 68). Two independent refutations upheld it. Correction `dd877c0` gives the
+issuer a wrapping full-width mobile row with badges/date separate, retaining the desktop
+arrangement. Full corrected frontend gate passed: 98 files / 513 tests, lint/typecheck and
+build (27/27 pages). Existing four data-invariant proofs remain valid; no repeat or CSS test.
+Root must verify the corrected 320/390 px and both-theme preview before release.
+
+E14a second preview correction: the issuer became visible, but root's actual 320 px
+screenshot still clipped the right edge/metrics/source/CTA. DOM reads timed out; no numeric
+width is recorded. Two fresh refutations upheld it. Source `de432af` constrains mobile grid
+and intrinsic card/titlebar sizing, uses two metric columns below sm, wraps labels and keeps
+numeric units together. Final full frontend gate passed 98 files / 513 tests in 31.41s,
+lint/typecheck and build 27/27. Root must verify corrected 320/390 px and desktop/both-theme
+preview before release; the original four data proofs are unchanged and were not repeated.

@@ -124,7 +124,7 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
     fetchJson<FilingPayload>(`/api/filings/${id}`, 3600),
     fetchJson<SummaryPayload>(`/api/summaries/filing/${id}`, 3600),
   ])
-  if (!filing?.company?.ticker || !summary?.business_overview) return null
+  if (!filing?.company?.ticker || !summaryHasDisplayableContent(summary)) return null
 
   const excerpt = toExcerpt(summary.business_overview)
   if (!excerpt) return null
@@ -250,5 +250,7 @@ export const fetchFilingSummaryServer = async (
  * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
  * noindex decision on filing pages, so index/noindex must match what visitors actually see.
  */
-export const summaryHasDisplayableContent = (summary: Summary | null | undefined): boolean =>
+export const summaryHasDisplayableContent = <T extends { business_overview?: string | null }>(
+  summary: T | null | undefined,
+): summary is T & { business_overview: string } =>
   !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))

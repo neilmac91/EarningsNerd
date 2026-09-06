@@ -50,11 +50,11 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   const delta = formatDelta(metric.deltaPercent)
   return (
     <div
-      className="rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
+      className="min-w-0 rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
-      <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
-      <div className="mt-1 text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
+      <div className="break-words text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
+      <div className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
       {delta && (
         <div
           className={`mt-0.5 text-xs font-medium tabular-nums ${
@@ -68,7 +68,19 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   )
 }
 
-function HeroExample({ example }: { example: ExampleData | null }) {
+interface HeroExampleProps {
+  example: ExampleData | null
+  ctaHref?: string
+  ctaPlacement?: string
+  ctaLabel?: string
+}
+
+function HeroExample({
+  example,
+  ctaHref = exampleFilingHref('hero_visual_example'),
+  ctaPlacement = 'hero_visual',
+  ctaLabel = 'Read the full example summary',
+}: HeroExampleProps) {
   const data = example ?? FALLBACK
   const isFallback = example === null
   // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
@@ -81,7 +93,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
     : format(parsedDate, 'MMM d, yyyy')
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 max-w-full">
       {/* Browser frame — no ambient glow: DS §7, the only glow is the hero search. */}
       <div className="mockup-frame relative shadow-e5 dark:shadow-none">
         {/* Title bar */}
@@ -91,7 +103,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
             <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
             <span className="h-3 w-3 rounded-full bg-brand/70" />
           </div>
-          <div className="mx-auto flex-1 max-w-xs">
+          <div className="mx-auto min-w-0 flex-1 max-w-xs">
             <div className="rounded border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
               earningsnerd.io · example summary
             </div>
@@ -101,10 +113,12 @@ function HeroExample({ example }: { example: ExampleData | null }) {
         {/* Page content */}
         <div className="space-y-4 p-5">
           {/* Header area */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
-              <span className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{data.companyName}</span>
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+                <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
+                <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:truncate">{data.companyName}</span>
+              </div>
               <span className="flex-shrink-0 rounded-full border border-border-light dark:border-white/10 bg-white dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.filingType}
               </span>
@@ -140,30 +154,32 @@ function HeroExample({ example }: { example: ExampleData | null }) {
           {/* Metrics — with the receipt: where the numbers come from */}
           {data.metrics.length > 0 && (
             <div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {data.metrics.map((metric) => (
                   <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
                 ))}
               </div>
-              <a
-                href={data.secUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-text-tertiary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark hover:underline"
-              >
-                Figures from the company&apos;s XBRL filing · verify on SEC EDGAR ↗
-              </a>
             </div>
           )}
+          <a
+            href={data.secUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-text-tertiary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark hover:underline"
+          >
+            {data.metrics.length > 0
+              ? "Figures from the company's XBRL filing · verify on SEC EDGAR ↗"
+              : 'Source filing · read on SEC EDGAR ↗'}
+          </a>
 
           {/* Footer CTA into the real example */}
           <ExampleCtaLink
-            href={exampleFilingHref('hero_visual_example')}
-            placement="hero_visual"
+            href={ctaHref}
+            placement={ctaPlacement}
             className="group flex items-center justify-between rounded-xl border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 transition-colors hover:border-brand-strong/40 dark:hover:border-brand-dark/40 hover:bg-brand-strong/15 dark:hover:bg-brand-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <span className="text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-              Read the full example summary
+              {ctaLabel}
             </span>
             <span
               className="text-xs text-brand-strong dark:text-brand-strong-dark transition-transform group-hover:translate-x-0.5"
