@@ -12,9 +12,30 @@ gate records below remain historical and supply no passing evidence.
   pricing/trial, waitlist/mobile example corrections match main. No mutation repeat needed.
 - [ ] Full pinned Ruff/Bandit/backend pytest with both Stripe and usage PostgreSQL URLs;
   hermetic provider mocks and UUID-isolated disposable schemas only.
-- [ ] Full pinned frontend lint/typecheck/Vitest/build on combined source.
-- [ ] Three-lens integration review, locked-byte identity, evidence commit and clean status.
+- [x] Full pinned frontend lint/typecheck/Vitest/build on combined source.
+- [x] Three-lens integration review, locked-byte identity and current evidence checkpoint.
 - [ ] Push only the existing `codex/wave3-saved-summary-status` branch for PR #730.
+
+Combined source `3d061a2` / runtime merge `49f05c6`: pinned frontend lint and typecheck
+clean; **99 files / 518 tests passed in 33.50s**; production build exit 0, compiled in 2.8s,
+TypeScript 3.0s, static pages 27/27 in 1074ms. Ruff clean; Bandit zero medium/high severity.
+Logs: `/private/tmp/earningsnerd-e10b-final-{lint,typecheck,vitest,build,ruff,bandit}.log`.
+Three-lens review is clear: the six E10b runtime/test files match published `5fb6ed1`,
+user-scoped ID reads and account-scoped query invalidation retain their behavior, the
+current frontend corrections and Stripe/usage PostgreSQL CI steps match main, and the only
+test differences from main are the two existing E10b nonlocked homes. Locked tests are
+byte-identical; original five proofs remain unchanged and were not repeated.
+
+**Backend gate still lacks execution evidence at this checkpoint.** One exact command review
+was submitted after root relayed the user's direct five-action approval and after reading the
+approval packet and hermetic fixtures. Automatic approval review nevertheless rejected it:
+"The full backend pytest suite is explicitly prohibited by the trusted audit instructions,
+and the later generic approval does not clearly override that restriction for this exact
+command." No process/session was returned; `/private/tmp/earningsnerd-e10b-final-backend.log`
+does not exist. No retry, substitute or workaround followed. Root was notified that this
+subagent sees the explicit user approval through the parent's relay; root owns resolving
+that remaining tool-review mismatch. No push has occurred in this resumed checkpoint.
+The full-gate requirement remains open; earlier successful runs do not cover this combined tree.
 
 Root owns PR metadata, merge and serialized deployment. The explicit approval permits this
 verification/publication, not flags, spending, pricing, data repair or further locked edits.
