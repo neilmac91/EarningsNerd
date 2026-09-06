@@ -12,11 +12,17 @@ and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence 
   keeping its obsolete-stack and frozen legacy checks unchanged.
 - [x] Correct the backend brief and conflicting active CLAUDE/architecture prose: existing
   EFTS uses the shared limiter/backoff without the breaker; new bypasses remain prohibited.
-- [ ] Prove one actual missing-brief deletion fails the intended assertion, restore exactly,
-  run the corrected full backend gate and documentation/preservation checks.
+- [x] Actual backend-brief deletion failed the intended required-file assertion: `1 failed in
+  0.03s`; exact restoration passed (`1 passed in 0.03s`). The initial old-runtime attempt
+  timed out before pytest output, restored in `finally`, and is excluded from mutation credit.
+- [x] Corrected source `609c84f9`: isolated Python 3.11.16, 105 exact runtime/dev pins;
+  Ruff/Bandit exit 0; `2383 passed, 2 deselected, 23 warnings in 55.03s`, exit 0.
+  Documentation checks: 79 brief source paths, 31 brief links, 148 expanded local links
+  with none broken. Locked contracts, sole baseline, original §7/ledger and 52 archives preserved.
+  Original obsolete-stack mutation evidence still applies to its unchanged assertion branch.
 - [ ] Obtain independent delta reviews before root pushes the corrected draft.
 
-W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
+W3-2 (#709) is deployed and its effective pins are verified. This branch is based on
 [#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
 corrected green/red acceptance are verified below. Root controls publication and serialized deployment.
 W3-3's observed FMP HTTP 402 / issue #710 is a founder entitlement prerequisite; it does not
@@ -31,15 +37,17 @@ block this independent engineering work. Other founder boundaries remain unchang
 - [x] Corrected timeout-safe #711 union at `d3986771`: 105 exact runtime/dev pins,
   Ruff/Bandit exit 0; `2383 passed, 2 deselected, 72 warnings in 48.26s`.
 - [x] W3-4 verification is complete; root authorized W3-5 publication.
-- [ ] Root: publish W3-5 as a draft, inspect actual CI, merge and verify its backend deployment.
-  No W3-5 publication, CI or deployment is claimed at this source checkpoint.
+- [x] Root published draft #715; its prior CI evidence is retained.
+- [ ] Root: inspect corrected actual CI, merge and verify W3-5 backend deployment.
+  No corrected CI, merge or deployment is claimed at this source checkpoint.
 
 Initial gate: `2355 passed, 2 deselected, 72 warnings in 52.52s`; the Firebase mutant failed its
 intended assertion and restored with `1 passed in 0.03s`. Previous W3-2 union at `29f1dc61`:
 105 exact pins, Ruff/Bandit clean; `2382 passed, 2 deselected, 72 warnings in 53.66s`.
-The seven briefs and structural gate remain byte-identical to that mutation-proved source;
-all four locked contracts and the sole baseline remain unchanged. Source checks resolve
-78 paths and 31 Markdown links/anchors. The new base adds W3-4's scheduled workflow gate case.
+These earlier gates are historical evidence. The review correction above adds required-file
+presence and qualifies SEC prose; the original obsolete-stack assertion branch, all four locked
+contracts and the sole baseline remain unchanged. Source checks resolve
+79 paths and 31 Markdown links/anchors after the SEC source-pointer correction. The new base adds W3-4's scheduled workflow gate case.
 
 The chief engineer reviewed #705 and the standalone writeup on 2026-09-05: sound, with eleven
 discrepancies (none invalidating the handover). The ordered plan, founder prerequisites and the
