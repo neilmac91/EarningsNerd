@@ -3,6 +3,15 @@ from pathlib import Path
 import re
 
 AGENTS = Path(__file__).resolve().parents[3] / ".claude" / "agents"
+REQUIRED_ENGINEERING_FILES = {
+    "engineering/ai-engineer.md",
+    "engineering/api-architect.md",
+    "engineering/backend-developer.md",
+    "engineering/database-specialist.md",
+    "engineering/devops-automator.md",
+    "engineering/frontend-developer.md",
+    "engineering/infrastructure-maintainer.md",
+}
 OBSOLETE_STACK = re.compile(
     r"Firebase|Firestore|Alembic|Celery|\bVite\b|React Router|GPT-4|GPT-3\.5|"
     r"AsyncSession|create_async_engine|/api/v1|render\.yaml|on Render|"
@@ -24,6 +33,10 @@ LEGACY_FILES = {
 def test_agent_files_use_supported_stack_outside_frozen_legacy_files():
     paths = sorted(AGENTS.rglob("*.md"))
     assert paths, f"Agent documentation scan is empty: {AGENTS}"
+    missing = REQUIRED_ENGINEERING_FILES - {
+        path.relative_to(AGENTS).as_posix() for path in paths
+    }
+    assert not missing, f"Required engineering briefs are missing: {sorted(missing)}"
     found = {}
     for path in paths:
         lines = [

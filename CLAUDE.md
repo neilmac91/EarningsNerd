@@ -64,9 +64,11 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
-5. **SEC calls:** all sec.gov traffic goes through the edgar service layer
-   (`app/services/edgar/` — rate limiter + circuit breaker). Never raw httpx to sec.gov outside
-   it. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
+5. **SEC calls:** use the edgar service layer (`app/services/edgar/` — shared rate limiter
+   and circuit-breaker facilities). The existing `SECFullTextSearchClient` in
+   `app/integrations/sec_api.py` is the sanctioned EFTS exception: direct httpx through the
+   shared limiter/backoff, without the circuit breaker. Never add raw httpx SEC bypasses outside
+   these existing paths. SEC's cap is 10 req/s per IP; limiter state is per-process, so every new call path outside
    the layer raises ban risk (API service + Cloud Run jobs each carry their own bucket). Gate:
    `tests/unit/test_sec_gov_importers_allowlist.py` (sec.gov literals only in the edgar layer,
    `integrations/sec_api.py`, `utils/sec_urls.py`, `config.py`).
@@ -99,7 +101,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
-  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns all SEC traffic.
+  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns the SEC service
+  layer; the existing EFTS client in `integrations/sec_api.py` shares its limiter/backoff but not its breaker.
   `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
   `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys

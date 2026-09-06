@@ -4,6 +4,18 @@
 
 ### W3-5 local preparation — agent stack truth
 
+PR #715 is draft during a bounded review correction. Two independent refutations confirmed
+that the original obsolete-stack gate did not require the seven named engineering files,
+and that the SEC prose overstated circuit-breaker coverage. Earlier CI evidence is retained.
+
+- [x] Add explicit required-file presence to the existing gate (a review-added invariant),
+  keeping its obsolete-stack and frozen legacy checks unchanged.
+- [x] Correct the backend brief and conflicting active CLAUDE/architecture prose: existing
+  EFTS uses the shared limiter/backoff without the breaker; new bypasses remain prohibited.
+- [ ] Prove one actual missing-brief deletion fails the intended assertion, restore exactly,
+  run the corrected full backend gate and documentation/preservation checks.
+- [ ] Obtain independent delta reviews before root pushes the corrected draft.
+
 W3-2 (#709) is deployed and its effective pins are verified. This unpublished branch is based on
 [#713](https://github.com/neilmac91/EarningsNerd/pull/713) merge `99b506d7`. W3-4 deployment and
 corrected green/red acceptance are verified below. Root controls publication and serialized deployment.

@@ -150,7 +150,10 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
 period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, plus
-`config.py`/`exceptions.py`/`models.py`. All sec.gov traffic goes through this layer.
+`config.py`/`exceptions.py`/`models.py`. The existing `SECFullTextSearchClient` in
+`app/integrations/sec_api.py` is the sanctioned EFTS exception: direct httpx through this
+layer's shared limiter/backoff, without its circuit breaker. New SEC bypasses are prohibited;
+the existing `test_sec_gov_importers_allowlist.py` gate bounds the allowed importers.
 
 ### Integrations (`app/integrations/`)
 
