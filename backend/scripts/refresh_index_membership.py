@@ -6,14 +6,12 @@ is the committed ``backend/app/data/index_membership.json`` — this script only
 file, and a human reviews the diff in a PR before it ships. That keeps the calendar's universe
 auditable and impossible to corrupt from a bad/empty API response at runtime.
 
-Source precedence (``--source auto``, the workflow default):
-  1. FMP  (``FMP_API_KEY`` set)  — stable-API /sp500-constituent + /nasdaq-constituent for BOTH
-     indices (the legacy /api/v3 endpoints were cut off 2026-07-03).
-  2. Wikipedia (keyless) — the "List of S&P 500 companies" table only. The "Nasdaq-100" article no
-     longer carries a constituents table (verified live 2026-09-04), so a keyless run fetches the
-     S&P 500 half, then ABORTS with exit code 2 and a message naming the fix (add ``FMP_API_KEY``).
-     It never writes an S&P-only file: the served universe is "S&P 500 ∪ Nasdaq 100", and a partial
-     list would silently drop ~100 Nasdaq-only names from the calendar.
+Sources:
+  - ``--source auto`` (the workflow default) and ``--source wikipedia`` use the public
+    "List of S&P 500 companies" and "List of NASDAQ-100 companies" tables without credentials.
+    The dedicated Nasdaq list is separate from the general "Nasdaq-100" article.
+  - ``--source fmp`` explicitly selects the stable-API /sp500-constituent + /nasdaq-constituent
+    routes and requires ``FMP_API_KEY``. A supplied key never changes the automatic source.
 
 Safety: EVERY source must deliver both halves at plausible size (S&P 500 >= ``SP500_FLOOR``,
 Nasdaq-100 >= ``NASDAQ100_FLOOR``) and the union must clear ``SANITY_FLOOR``, else the run ABORTS
@@ -51,16 +49,10 @@ SANITY_FLOOR = 450
 SP500_FLOOR = 480
 NASDAQ100_FLOOR = 90
 
-# Tickers Wikipedia pre-lists for announced-but-not-yet-trading spin-offs (e.g. FedEx Freight,
-# Honeywell Aerospace). They can never match an Alpha Vantage earnings event because they don't
-# trade, so they're harmless to the filter — but we drop them to keep the committed universe clean
-# and auditable. Remove an entry here once it actually begins trading and is index-listed.
-NONTRADING_ARTIFACTS = {"FDXF", "HONA"}
-
 # Wikipedia 403s the default httpx UA; a descriptive UA per their bot policy gets a 200.
 _WIKI_UA = "EarningsNerd/1.0 (https://earningsnerd.io; contact@earningsnerd.io) python-httpx"
 _SP500_WIKI = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-_NASDAQ100_WIKI = "https://en.wikipedia.org/wiki/Nasdaq-100"
+_NASDAQ100_WIKI = "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"
 # FMP "stable" API. The legacy /api/v3 (sp500_constituent, nasdaq_constituent) was cut off on
 # 2026-07-03 — see tests/unit/test_dead_integrations_allowlist.py — and 403s even with a valid key.
 _FMP_BASE = "https://financialmodelingprep.com/stable"
@@ -143,21 +135,15 @@ def _read_wiki_table(url: str, symbol_cols: Tuple[str, ...]) -> Dict[str, str]:
 
 
 def fetch_wikipedia() -> Tuple[Dict[str, str], Dict[str, str]]:
-    """Keyless source. Raises ``PartialUniverseError`` when only the S&P 500 half is available.
-
-    Wikipedia's Nasdaq-100 article dropped its constituents table in 2026; the lookup is kept so a
-    future restoration works unchanged, but its failure is reported as a *partial* universe (with
-    the S&P 500 count, proving that half is healthy) rather than a generic fetch error.
-    """
+    """Fetch both dedicated public lists; report a failed Nasdaq half without writing."""
     sp = _read_wiki_table(_SP500_WIKI, ("Symbol", "Ticker"))
     try:
         nd = _read_wiki_table(_NASDAQ100_WIKI, ("Ticker", "Symbol"))
     except Exception as exc:  # noqa: BLE001 - re-raised with an actionable message
         raise PartialUniverseError(
             f"S&P 500 fetched from Wikipedia ({len(sp)} tickers) but the Nasdaq-100 half is "
-            f"unavailable ({exc}). Wikipedia no longer publishes a Nasdaq-100 constituents table, "
-            "so a keyless run cannot produce the full S&P 500 ∪ Nasdaq 100 universe. Fix: set "
-            "FMP_API_KEY (repo secret for the workflow) and re-run with --source auto|fmp."
+            f"unavailable ({exc}). Check the public constituents table at {_NASDAQ100_WIKI} "
+            "and retry after retrieval or parsing is repaired. Nothing written."
         ) from exc
     return sp, nd
 
@@ -183,8 +169,6 @@ def build_entries(sp500: Dict[str, str], nasdaq100: Dict[str, str]) -> List[dict
     entries: Dict[str, dict] = {}
     for tickers, label in ((sp500, "sp500"), (nasdaq100, "nasdaq100")):
         for sym, name in tickers.items():
-            if sym in NONTRADING_ARTIFACTS:
-                continue
             e = entries.setdefault(sym, {"ticker": sym, "name": name, "indices": []})
             if name and not e["name"]:
                 e["name"] = name
@@ -216,16 +200,11 @@ def _print_diff(old: List[dict], new: List[dict]) -> None:
 
 def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
     api_key = os.environ.get("FMP_API_KEY", "") or ""
-    use_fmp = source == "fmp" or (source == "auto" and bool(api_key))
+    use_fmp = source == "fmp"
     if use_fmp and not api_key:
         logger.error("source=fmp but FMP_API_KEY is unset")
         return 2
     label = "fmp" if use_fmp else "wikipedia"
-    if source == "auto" and not use_fmp:
-        logger.warning(
-            "FMP_API_KEY unset — falling back to Wikipedia, which can only supply the S&P 500 half; "
-            "this run will fail unless the Nasdaq-100 table has been restored."
-        )
     try:
         sp500, nasdaq100 = fetch_fmp(api_key) if use_fmp else fetch_wikipedia()
         require_both_halves(sp500, nasdaq100, label)
@@ -256,6 +235,10 @@ def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
         "_comment": "Generated by scripts/refresh_index_membership.py. S&P 500 ∪ Nasdaq 100. "
                     "Review diffs in PRs; do not hand-edit casually. Tickers are AV/dot format.",
         "source": label,
+        "source_urls": {
+            "sp500": f"{_FMP_BASE}/{_FMP_SP500_PATH}" if use_fmp else _SP500_WIKI,
+            "nasdaq100": f"{_FMP_BASE}/{_FMP_NASDAQ100_PATH}" if use_fmp else _NASDAQ100_WIKI,
+        },
         # Stamped on every run (the monthly workflow PR is then a heartbeat, and the 100-day test gate
         # stays honest). Stdlib rather than app.utils.datetimes.utcnow(): this script runs in the
         # workflow's bare venv (httpx + pandas only) and must not import the app package.
