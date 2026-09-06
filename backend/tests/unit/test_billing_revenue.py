@@ -2,6 +2,9 @@
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
+import json
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from sqlalchemy import create_engine
@@ -10,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import Base
 from app.models import BillingPayment, InviteCode, Subscription, User
 from app.services import billing_revenue_service as revenue
+from app.services import stripe_subscription_reader as reader
 
 PAID_AT = 1788739200
 SINCE = datetime(2026, 9, 1, tzinfo=timezone.utc)
@@ -175,6 +179,7 @@ def test_report_counts_allocations_not_invoice_totals_and_separates_all_exclusio
     assert eur["currency"] == "eur" and eur["amount_minor"] == 3900
     assert usd == {"currency": "usd", "amount_minor": 4400, "payment_count": 3,
                    "unattributed_amount_minor": 500, "unattributed_payment_count": 1,
+                   "billing_cycle_counts": [{"billing_cycle": "unknown", "payment_count": 3, "invoice_count": 2}],
                    "nonzero_invoice_count": 2, "observed_paying_users": 1}
     assert report["excluded_payment_counts"] == {"zero_amount": 1, "unsupported_payment_type": 2, "non_subscription_invoice": 1}
     assert report["first_observed_payment_cohorts"] == [{"month": "2026-09", "is_beta_observed": True, "invite_cohort_observed": None, "users": 1}]
@@ -200,3 +205,30 @@ def test_account_deletion_erases_attributed_observation_without_retained_cohort(
     db.commit()
     assert db.query(BillingPayment).count() == 0
     assert revenue.payment_report(db, SINCE, UNTIL)["currencies"] == []
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_invoice_reader_uses_shared_transport_and_closes_it(monkeypatch, fail):
+    response = SimpleNamespace(content=json.dumps(invoice()).encode(), status_code=200, headers={})
+    session = SimpleNamespace(request=Mock(return_value=response, side_effect=RuntimeError("provider failed") if fail else None), close=Mock())
+    real_transport = reader.stripe.RequestsClient
+    monkeypatch.setattr(reader.stripe, "RequestsClient", lambda **kwargs: real_transport(session=session, **kwargs))
+    if fail:
+        with pytest.raises(reader.SubscriptionReconciliationUnavailable):
+            reader.retrieve_invoice_snapshot("in_one")
+    else:
+        assert reader.retrieve_invoice_snapshot("in_one") == invoice()
+    session.close.assert_called_once()
+    session.request.assert_called_once()
+    assert session.request.call_args.args[:2] == ("get", "https://api.stripe.com/v1/invoices/in_one")
+
+
+def test_report_billing_mix_uses_invoice_evidence_and_preserves_unknown(db, monkeypatch):
+    monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_MONTHLY_ID", "price_month")
+    monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_YEARLY_ID", "price_year")
+    owner = user(db)
+    record(db, payment_event(), invoice(), owner)
+    record(db, payment_event("inpay_year", "in_year"), invoice("in_year", lines={"has_more": False, "data": [{"price": "price_year"}]}), owner)
+    record(db, payment_event("inpay_partial", "in_partial"), invoice("in_partial", lines={"has_more": True, "data": [{"price": "price_year"}]}), owner)
+    assert revenue.payment_report(db, SINCE, UNTIL)["currencies"][0]["billing_cycle_counts"] == [
+        {"billing_cycle": cycle, "payment_count": 1, "invoice_count": 1} for cycle in ("monthly", "unknown", "yearly")]

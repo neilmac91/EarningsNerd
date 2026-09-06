@@ -21,7 +21,7 @@ from app.utils.datetimes import iso_z
 
 COLLECTED_PAYMENT_TYPES = frozenset({"payment_intent", "charge"})
 REPORT_LIMITS = [
-    "Gross observed Stripe payment allocations before refunds, disputes, fees and tax adjustments; not net revenue, MRR or ARR.",
+    "Gross observed Stripe payment allocations before refunds, credit-note adjustments, disputes, fees and tax adjustments; not net revenue, MRR or ARR.",
     "No currency conversion. Amounts remain integer minor units; currencies are never summed together.",
     "Coverage starts with observed events, not account inception. Missing events and historical payments are not backfilled.",
     "First-payment cohorts mean first observed qualifying payment, not a proven first lifetime purchase or churn measure.",
@@ -59,11 +59,19 @@ def _identifier(value: object, name: str, *, optional: bool = False) -> Optional
     return value
 
 
+def _mapping(value: object, name: str) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Invalid {name} object")
+    return value
+
+
 def payment_from_event(event: dict) -> PaymentEvidence:
     """Validate only the canonical event, before any optional provider read or database work."""
     if event.get("type") != "invoice_payment.paid" or event.get("account"):
         raise ValueError("Expected an account-local invoice_payment.paid event")
-    obj = event["data"]["object"]
+    obj = _mapping(_mapping(event.get("data"), "event data").get("object"), "InvoicePayment")
     if obj.get("object") != "invoice_payment" or obj.get("status") != "paid":
         raise ValueError("Expected a paid InvoicePayment")
     amount = obj.get("amount_paid")
@@ -75,12 +83,13 @@ def payment_from_event(event: dict) -> PaymentEvidence:
     live = obj.get("livemode")
     if type(live) is not bool or event.get("livemode") is not live:
         raise ValueError("Inconsistent payment livemode")
-    kind = obj["payment"]["type"]
+    payment = _mapping(obj.get("payment"), "payment")
+    kind = payment.get("type")
     if not isinstance(kind, str) or not re.fullmatch(r"[a-z_]{1,80}", kind):
         raise ValueError("Invalid payment type")
     if kind in COLLECTED_PAYMENT_TYPES:
-        _identifier(obj["payment"].get(kind), "payment reference")
-    timestamp = obj["status_transitions"].get("paid_at")
+        _identifier(payment.get(kind), "payment reference")
+    timestamp = _mapping(obj.get("status_transitions"), "status transitions").get("paid_at")
     if type(timestamp) is not int or timestamp < 0:
         raise ValueError("Invalid payment paid_at")
     try:
@@ -105,8 +114,8 @@ def with_invoice(evidence: PaymentEvidence, invoice: dict) -> PaymentEvidence:
             or invoice.get("currency") != evidence.currency
             or invoice.get("livemode") is not evidence.livemode):
         raise ValueError("Invoice does not match payment evidence")
-    parent = invoice.get("parent") or {}
-    current = (parent.get("subscription_details") or {}).get("subscription")
+    parent = _mapping(invoice.get("parent"), "invoice parent")
+    current = _mapping(parent.get("subscription_details"), "subscription details").get("subscription")
     current = _identifier(current, "invoice parent subscription", optional=True)
     legacy = _identifier(invoice.get("subscription"), "legacy invoice subscription", optional=True)
     if current and legacy and current != legacy:
@@ -114,20 +123,23 @@ def with_invoice(evidence: PaymentEvidence, invoice: dict) -> PaymentEvidence:
     customer = _identifier(invoice.get("customer"), "invoice customer", optional=True)
     # Classification is advisory. Never substitute today's user's subscription/price for this invoice.
     prices = set()
-    lines = invoice.get("lines") or {}
+    lines = _mapping(invoice.get("lines"), "invoice lines")
     data = lines.get("data")
-    if lines.get("has_more") is False and isinstance(data, list) and data:
+    if data is not None and not isinstance(data, list):
+        raise ValueError("Invalid invoice line data")
+    if "has_more" in lines and type(lines["has_more"]) is not bool:
+        raise ValueError("Invalid invoice lines has_more")
+    if isinstance(data, list) and data:
         for line in data:
-            if not isinstance(line, dict):
-                prices.add(None)
-                continue
-            modern = ((line.get("pricing") or {}).get("price_details") or {}).get("price")
+            line = _mapping(line, "invoice line")
+            pricing = _mapping(line.get("pricing"), "invoice line pricing")
+            modern = _mapping(pricing.get("price_details"), "invoice price details").get("price")
             price = modern or line.get("price")
             if isinstance(price, dict):
                 price = price.get("id")
             prices.add(price if isinstance(price, str) else None)
     cycle = None
-    if len(prices) == 1:
+    if lines.get("has_more") is False and len(prices) == 1:
         price = next(iter(prices))
         monthly, yearly = settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PRICE_YEARLY_ID
         if price and monthly != yearly:
@@ -229,10 +241,14 @@ def payment_report(db: Session, since: datetime, until: datetime, *, livemode: b
         group = currencies.setdefault(row.currency, {
             "amount_minor": 0, "payment_count": 0, "invoices": set(), "users": set(),
             "unattributed_amount_minor": 0, "unattributed_payment_count": 0,
+            "billing_cycles": {},
         })
         group["amount_minor"] += row.amount_minor
         group["payment_count"] += 1
         group["invoices"].add(row.stripe_invoice_id)
+        cycle = group["billing_cycles"].setdefault(row.billing_cycle or "unknown", {"payments": 0, "invoices": set()})
+        cycle["payments"] += 1
+        cycle["invoices"].add(row.stripe_invoice_id)
         if row.user_id is None:
             group["unattributed_amount_minor"] += row.amount_minor
             group["unattributed_payment_count"] += 1
@@ -247,7 +263,12 @@ def payment_report(db: Session, since: datetime, until: datetime, *, livemode: b
     result_currencies = []
     for currency, group in sorted(currencies.items()):
         invoices, users = group.pop("invoices"), group.pop("users")
+        cycles = group.pop("billing_cycles")
         result_currencies.append({"currency": currency, **group,
+                                  "billing_cycle_counts": [
+                                      {"billing_cycle": name, "payment_count": values["payments"],
+                                       "invoice_count": len(values["invoices"])}
+                                      for name, values in sorted(cycles.items())],
                                   "nonzero_invoice_count": len(invoices), "observed_paying_users": len(users)})
     observed_from = db.query(func.min(BillingPayment.observed_at)).filter(BillingPayment.livemode == livemode).scalar()
     return {

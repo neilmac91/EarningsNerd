@@ -13,9 +13,11 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.models import Subscription, User
-from app.services import subscription_sync
+from app.services import subscription_sync, billing_revenue_service
 from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
-from app.services.stripe_subscription_reader import retrieve_subscription_snapshot
+from app.services.stripe_subscription_reader import (
+    SubscriptionReconciliationUnavailable, retrieve_invoice_snapshot, retrieve_subscription_snapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +38,15 @@ def _event_owner_id(db: Session, event_type: str, obj: dict) -> Optional[int]:
     return user.id if user else None
 
 
-def _lock_event_owner(db: Session, event_type: str, obj: dict) -> Optional[User]:
-    owner_id = _event_owner_id(db, event_type, obj)
+def _lock_event_owner(
+    db: Session, event_type: str, obj: dict,
+    payment: Optional[billing_revenue_service.PaymentEvidence] = None,
+) -> Optional[User]:
+    def resolve() -> Optional[int]:
+        return (billing_revenue_service.payment_attribution(db, payment)[0] if payment is not None
+                else _event_owner_id(db, event_type, obj))
+
+    owner_id = resolve()
     if owner_id is None:
         return None
     user = db.query(User).filter(User.id == owner_id).populate_existing().with_for_update(nowait=True).first()
@@ -46,7 +55,7 @@ def _lock_event_owner(db: Session, event_type: str, obj: dict) -> Optional[User]
     # Candidate resolution can load a subscription before the lock. Expire it and the user so
     # every handler/entitlement read sees state committed before this transaction acquired it.
     db.expire_all()
-    if _event_owner_id(db, event_type, obj) != owner_id:
+    if resolve() != owner_id:
         raise SubscriptionEventBusy("Stripe ownership changed while acquiring the account lock")
     return user
 
@@ -99,11 +108,28 @@ def process_stripe_event(event: dict) -> dict:
     db = SessionLocal()
     try:
         event_id, event_type, obj = event.get("id"), event["type"], event["data"]["object"]
-        user = _lock_event_owner(db, event_type, obj)
+        payment = None
+        if event_type == "invoice_payment.paid":
+            payment = billing_revenue_service.payment_from_event(event)
+            if subscription_sync.is_event_processed(db, event_id):
+                return {"status": "success", "idempotent": True}
+            db.rollback()  # Release the receipt lookup transaction before the provider read.
+            # No DB locks remain during this read. Unlike subscription reconciliation it
+            # only enriches immutable allocation evidence, not an ordered entitlement snapshot.
+            invoice = retrieve_invoice_snapshot(payment.invoice_id)
+            try:
+                payment = billing_revenue_service.with_invoice(payment, invoice)
+            except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                raise SubscriptionReconciliationUnavailable("Stripe invoice evidence is unavailable") from exc
+        user = _lock_event_owner(db, event_type, obj, payment)
         if subscription_sync.is_event_processed(db, event_id):
             return {"status": "success", "idempotent": True}
-        obj = _reconcile_current_subscription(db, event_type, obj, user)
-        analytics = _apply_event(db, event_type, obj, user)
+        if payment is not None:
+            signal = billing_revenue_service.record_payment(db, payment, user)
+            analytics = [signal] if signal else []
+        else:
+            obj = _reconcile_current_subscription(db, event_type, obj, user)
+            analytics = _apply_event(db, event_type, obj, user)
         subscription_sync.mark_event_processed(db, event_id, event_type)
         db.commit()
     except DBAPIError as exc:
