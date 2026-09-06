@@ -461,6 +461,11 @@ export const getSavedSummaries = async (): Promise<SavedSummary[]> => {
   return response.data
 }
 
+export const getSavedSummaryStatus = async (summaryId: number): Promise<{ is_saved: boolean }> => {
+  const response = await api.get(`/api/saved-summaries/status/${summaryId}`)
+  return response.data
+}
+
 export const deleteSavedSummary = async (savedSummaryId: number): Promise<void> => {
   await api.delete(`/api/saved-summaries/${savedSummaryId}`)
 }
