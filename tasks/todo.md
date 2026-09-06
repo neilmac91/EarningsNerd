@@ -47,6 +47,24 @@ bound for arbitrary library size. Root owns integration, actual CI/evals and ser
 this checkpoint is local verification only.
 
 
+E10b integration checkpoint: root authorized latest-main integration and branch push after gates.
+Merge `d146909` incorporates E06 main `cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` without
+rewriting history; the only conflict was the task ledger, resolved by retaining both E10b and
+incoming E06/E05c sections. E10b runtime/tests and the entire frontend tree are byte-identical
+to the already-reviewed `f9106ef` / `5eda3ae`; no frontend code, package or lockfile changed.
+Prior full frontend evidence therefore remains applicable and no mutation proof was repeated.
+
+Integration review: correctness preserves the two user-scoped ID reads and shared invalidation;
+rules/brief retains the narrow status slice with no generation/entitlement/schema changes;
+tests/gates remain the same behavioral homes. All locked tests equal current main, including
+its separately approved E05c fixture edit. No actionable integration finding. The full pinned
+backend gate ran with `STRIPE_CONCURRENCY_TEST_DATABASE_URL` against the existing disposable
+local PostgreSQL cluster, including E06 payment/export/concurrency cases. Ruff clean; Bandit
+0 medium/high; pytest `2528 passed, 2 deselected, 23 warnings in 60.28s`, exit 0 (no skips).
+The existing post-summary asynchronous
+client shutdown logging diagnostic remains unrelated to the passing result. Push is authorized;
+PR creation/readiness, merge and serialized release remain root-owned and pending.
+
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
 CI run 34034568223 failed the existing nonlocked E03 lifetime case before provider readiness:
