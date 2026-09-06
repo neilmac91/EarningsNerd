@@ -148,5 +148,9 @@ Full backend with both PostgreSQL suites enabled: Ruff clean, Bandit 0 medium/hi
 Node pin: 3 passed. Locked contracts and eval baseline are untouched. Old service/job writers
 must drain before the first-use protocol holds; this stage does not reserve admission, repair
 old duplicates or change existing best-effort meter policy. Independent review cleared `60f28a0`;
-main `cab71f9` is integrated with E06 corrections intact. One final combined gate is pending before
-authorized branch push; root owns PR publication and serial release. Prior mutation proofs are retained.
+main `cab71f9` is integrated with E06 corrections intact. The final combined gate passed on `5c5f8b3`: Ruff clean, Bandit 0 medium/high;
+2545 passed, 2 deselected, 23 warnings in 57.06s with Stripe and usage PostgreSQL cases enabled.
+Workflow readers: 103 passed; Node pin: 3 passed. Integration correctness/rules/tests review is
+clear; locked contracts match `cab71f9`, all E06 corrections are retained and E07a source is
+unchanged. Authorized branch push follows; root owns PR publication and serial release. Prior
+mutation proofs are retained without repetition.

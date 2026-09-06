@@ -242,6 +242,26 @@ patch context mechanically reduces to the exact base file; all other locked file
 Lesson index link checked. Root and independent correctness/rules/tests review of `aa36c95`
 found no actionable issue. After integrating main `a5ba97e` as `d404908`, full pinned Ruff/Bandit passed and the PostgreSQL-enabled backend gate reported `2486 passed, 2 deselected, 23 warnings in 47.31s`, exit 0. Runtime reconciliation source and approved locked fixture are unchanged; no mutation repeat was needed. Publication and production verification remain pending.
 
+E07a combined integration `5c5f8b3` includes released E06 main
+`cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c`. Final pinned gate: Ruff clean; Bandit 0 medium/high;
+**2545 passed, 2 deselected, 23 warnings in 57.06s**, exit 0, with both Stripe and usage
+PostgreSQL URLs configured against disposable schemas. Workflow readers: **103 passed**; Node
+22.23.2 pin gate: **3 passed**. The existing closed logging-stream teardown diagnostic followed
+the passing pytest summary. No mutation was repeated; E07a source/tests/CI remain byte-identical
+to `714b686`, and E06 export/timezone/lifetime corrections match `cab71f9` exactly.
+
+Integration review is clear across all three lenses: correctness preserves public counter helpers,
+completion timing, selected history and bounded lock waits; rules/brief introduce no reservations,
+schema change, founder policy, new orchestrator or entitlement path; tests/gates retain the ten
+prior mutation proofs and execute real PostgreSQL cases in required CI. The only test differences
+against main are the new usage transaction home and the nonlocked parameterized CI structural
+check. All locked contracts and eval baselines are byte-identical to `cab71f9`.
+
+Exact combined logs: `/private/tmp/earningsnerd-e07-evidence/integrated-full.log`,
+`integrated-bandit.log`, `integrated-workflow.log` and `integrated-node.log` in that directory.
+The parent authorized branch push after this gate; PR creation/merge and production deployment
+remain root-owned. E07b is design-only and is not included.
+
 ### E10a — Filing-first financial-facts index (engineering)
 
 Bounded E10 slice, based on `f94501f`: `get_filing_fundamentals` filters `filing_id` and
