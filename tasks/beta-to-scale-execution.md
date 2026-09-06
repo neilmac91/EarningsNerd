@@ -21,7 +21,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
 | E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
-| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Queued |
+| E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 merged; production verification pending. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
 | E12 | Expose saturation and bound startup/probe failure | E03; connect E09 counters | Queued |
 | E13 | Atomic login failure counts and bounded local limiter state | Locked auth unchanged | Queued |
