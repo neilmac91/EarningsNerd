@@ -1,3 +1,21 @@
+## E14a — grounded waitlist example (2026-09-06)
+
+Tag: engineering. Base: `53348d6`. Scope: reuse the existing server example fetch and
+HeroExample in a separate Suspense child; preserve signup, referral policy, homepage
+CTA defaults and filing quality. E14b canonical-copy action remains separate.
+
+- [x] Read AGENTS/CLAUDE, wave-3, design system and applicable testing/frontend lessons.
+- [ ] Replace anonymous preview; unavailable/placeholder data stays neutral, never Apple fallback.
+- [ ] Preserve same-filing source/metrics/quality and direct canonical preview CTA; sparse source visible.
+- [ ] Add one integration test home using real fetch boundary/shared rendering, including pending signup.
+- [ ] Commit source, run one coordinated mutation per meaningful invariant and restore exact bytes.
+- [ ] Full pinned frontend lint/typecheck/Vitest/build; review correctness, rules and gates.
+- [ ] Root independent review and both-theme preview (root owns PR/release; no push here).
+
+Constraints: CLAUDE rules 2, 6, 9, 11, 12; no backend, generation, access, flags, prices,
+locked tests, invite/referral changes or private data forwarding. Existing hourly public fetch
+is the sole data source. Source receipts describe a filing link, not excerpt-level verification.
+
 # Remediation plan — from the September 2026 engineering audit
 
 ## Beta-to-scale implementation — approved 2026-09-06
