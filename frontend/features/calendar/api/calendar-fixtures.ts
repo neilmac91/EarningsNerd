@@ -165,7 +165,7 @@ export async function fixtureAlertTickers(): Promise<string[]> {
 
 export async function fixtureEnableAlert(ticker: string): Promise<void> {
   await wait(280)
-  if (FIXTURE_PLAN === 'free' && enabled.size >= 3 && !enabled.has(ticker)) {
+  if (FIXTURE_PLAN === 'free' && enabled.size >= FREE_EARNINGS_ALERT_LIMIT && !enabled.has(ticker)) {
     throw new EarningsAlertError(
       403,
       `Free includes earnings alerts for ${FREE_EARNINGS_ALERT_LIMIT} companies. Upgrade to Pro for more.`,
