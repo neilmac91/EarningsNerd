@@ -33,11 +33,13 @@ Independent detailed health is healthy (DB 6.41 ms, SEC closed, Redis disabled/h
 The Notable job remains absent; its image update was skipped, preserving the founder hold.
 #716 also includes the late W3-5 DevOps
 prose qualification about ancillary installers; it adds no new unpinned installation policy.
-W3-3 remains held after run 34000192154 returned HTTP 402 at `/stable/sp500-constituent`;
-issue #710 is open. The supplied key reached that first route; `/stable/nasdaq-constituent`
-was not reached. Founder account/key entitlement for both documented routes is needed before
-retry; the response does not establish a billing cause or missing secret. Other founder holds,
-including the first strong-judge readout, remain unchanged. Wave 3 is not complete.
+W3-3 public-source replacement is in progress following the founder's 2026-09-06 request.
+The earlier FMP run 34000192154 returned HTTP 402 at `/stable/sp500-constituent` and never
+reached Nasdaq; that failure remains historical evidence, not a prerequisite for public refresh.
+Both dedicated public Wikipedia lists were retrieved without credentials and matched current
+SPY/QQQ equity holdings. The old general Nasdaq article was the wrong source page. Source
+repair, reviewed data and actual workflow/deploy verification are tracked in the active todo.
+Issue #710 remains open until verified closure. Other founder holds remain unchanged.
 The following original review checkpoint remains historical evidence.
 
 | Item | Observed 2026-09-05 |
@@ -102,7 +104,7 @@ do not remove a supplied credential to manufacture a failure. Strong-judge dispa
 | Founder action | Unblocks | Evidence to retain |
 |---|---|---|
 | Add `ANTHROPIC_API_KEY` as an Actions secret, then dispatch `data-quality-weekly.yml` | W3-7 | The `weekly-judged-readout-<run>` artifact with `status != unavailable` and 24/24 scored; the emailed report |
-| Supplied `Production` FMP key reached the API; founder account/key entitlement for both stable constituent routes remains needed | W3-3 retry after HTTP 402 / issue #710 | Successful refresh and reviewed auto-PR still pending; Nasdaq route untested |
+| FMP access is superseded for W3-3 by the founder-requested public-source replacement | Engineering refresh/verification; no credential required | Public-source PR, workflow outcome and deployment pending; original FMP HTTP 402 remains unrepaired |
 | Create the `earningsnerd-notable-filings` Cloud Run job + Scheduler per `docs/DEPLOYMENT.md` §12; seed `--days 7`; review one full subsequent week; record retain/kill | W3-10 Notable | Execution ids, counts, the week's review notes |
 | Read the effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS`; run the companyfacts warm-up (`scripts/sync_companyfacts.py`) on the seeded cohort | W3-10 Analysis | Deployment id, cohort, success/error counts |
 | Grant the deployer SA access to `INTERNAL_JOB_TOKEN`; run `backfill_filing_history.py --tickers C,MS,WFC,GS` | Weekly-report anomalies | Live report coverage evidence |
@@ -210,19 +212,22 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 **Entry satisfied:** W3-1 output reviewed and the calendar split explicitly approved.
 **Completed:** W3-2 #709 source gates, independent reviews, CI, merge, deployment and effective-pin observation are verified in §0 and the active todo.
 
-### W3-3 — Universe refresh (founder key, then engineering verification; auto-PR deploys)
-- **Current hold:** the supplied `Production` key reached run 34000192154 after W3-2
-  verification. The first route `/stable/sp500-constituent` returned HTTP 402 (exit 2);
-  `/stable/nasdaq-constituent` was not reached. Issue #710 remains open; no data or auto-PR
-  was produced. The founder must provide account/key entitlement for both routes before
-  retrying `refresh-index-membership.yml`. Do not infer a billing cause or manufacture a
-  keyless failure. Preserve actual success/failure evidence.
-- **Successful refresh:** draft PR "Refresh index membership (S&P 500 / Nasdaq 100)"
-  on `automation/refresh-index-membership`; review added/removed tickers; merge (deploys because
-  `backend/app/data/` changed; verify per `AGENTS.md` §6); close the issue with the PR link.
-- **Deadline:** before the 2026-10-01 cron and the 2026-10-16 age trip (`MAX_UNIVERSE_AGE_DAYS =
-  100` in `backend/tests/unit/test_index_membership_service.py`, `generated_on` 2026-07-07).
-- **Never** raise `MAX_UNIVERSE_AGE_DAYS`; CI going red on 10-16 is the designed escalation.
+### W3-3 — Public universe refresh (engineering; backend data deploys)
+- **Updated scope, founder 2026-09-06:** remove FMP as a refresh prerequisite. Automatic mode
+  uses the dedicated public S&P 500 and Nasdaq-100 lists regardless of whether a key exists.
+  Explicit FMP mode remains optional; do not retry its HTTP 402 or alter secrets/account settings.
+- **Source evidence:** public lists returned 503 and 102 securities; independently matched
+  SPY September 3 and QQQ September 4 equity holdings. Preserve dual classes and dot-format
+  normalization. Remove the stale FDXF/HONA exclusion: both are current trading constituents.
+- **Delivery:** review union additions/removals plus per-index labels, run the gates and three
+  lenses, merge the source/data PR and verify deployment per `AGENTS.md` §6. Dispatch the
+  public refresh and retain its actual counts and publication outcome; no-change is a valid
+  same-day result. Close #710 only with verified outcome evidence.
+- **Automation:** retain the validated candidate artifact before draft-PR publication. A
+  GitHub publication-policy failure must stay distinct from successful source retrieval;
+  settings and PAT workarounds remain founder-held. This does not change the Calendar UI flag.
+- **Deadline:** before the 2026-10-01 cron and original 2026-10-16 age trip. Never raise
+  `MAX_UNIVERSE_AGE_DAYS = 100`; the date may advance only through actual regeneration.
 
 ### W3-4 — Daily production smoke (workflow plus backend gate: deploys)
 - **File:** `.github/workflows/prod-smoke.yml`: `schedule: '23 6 * * *'` (clear of the 06:00

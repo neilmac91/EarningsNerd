@@ -395,24 +395,38 @@ run**: the file's `generated_on` date is re-stamped each time, so the monthly PR
 proves the refresh still works, and its diff shows any constituent changes alongside the date bump.
 Merge it even when only the date moved — that is what keeps the 100-day age gate in
 `tests/unit/test_index_membership_service.py` green. The workflow opens its auto-PR as a draft;
-review and required validation precede readiness and merge. **Source order:** with the `FMP_API_KEY`
-secret in the GitHub `Production` environment, both indices come from FMP's stable API (`/stable/sp500-constituent`,
-`/stable/nasdaq-constituent`; the legacy `/api/v3` was cut off 2026-07-03); without it the script
-falls back to Wikipedia, which can supply only the S&P 500 half — its Nasdaq-100 article dropped the
-constituents table in 2026 — so the run **fails with exit 2, writes nothing, and opens/updates a
-"Universe refresh failed <date>" issue**. Every source must deliver both halves at plausible size
-(S&P 500 ≥ 480, Nasdaq-100 ≥ 90) or the run aborts the same way; an S&P-only universe is never shipped.
+review and required validation precede readiness and merge. **Public sources:** the default
+`--source auto` reads Wikipedia's [S&P 500 list](https://en.wikipedia.org/wiki/List_of_S%26P_500_companies)
+and [dedicated Nasdaq-100 list](https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies).
+The general Nasdaq-100 article no longer contains that table; its absence never established that
+public constituents were unavailable elsewhere. No FMP key is read on the automatic path, even
+if one exists. Explicit `--source fmp` remains an optional operator choice; its existing HTTP 402
+failure is not repaired or retried by this change.
 
-Configure the secret at **Settings → Environments → Production**, not merely on the Cloud Run
-service. The refresh job binds `environment: Production`. Its secret-name metadata was verified
-on 2026-09-06 without accessing the value; W3-2 merge/deployment and the subsequent W3-3
-refresh/auto-PR evidence remain pending. No key rotation or refresh dispatch is part of W3-2.
+Every source must deliver both halves at plausible size (S&P 500 ≥ 480, Nasdaq-100 ≥ 90), or
+fetch/parse failure aborts with exit 2 and leaves the previous file untouched. The workflow retains
+the validated JSON before PR publication and opens/updates a failure issue for any failed step.
+A publication failure is distinct from source failure; required review/CI and any founder-owned
+Actions policy still apply. No PAT workaround or settings change is part of the refresh.
+
+`source_urls` records the source pages, and `generated_on` is the UTC retrieval date, not an
+index-effective date or a claim of historical membership. On 2026-09-06 the two public lists
+contained 503 and 102 securities and matched the equity subsets of SPY's September 3 and QQQ's
+September 4 holdings, respectively. ETF cash, futures, collateral and the Hologic CVR were
+excluded from that independent cross-check. The dated cross-check is review evidence, not an
+additional runtime provider or a guarantee that future page edits are correct. Review ticker
+additions/removals and index-label changes before merging each update.
+
+FDXF and HONA are now trading constituents. The old unconditional artifact exclusion has been
+removed; membership follows the reviewed source lists. The service calendar-filter flag stays
+true, pregenerate stays false, and the Calendar UI activation remains founder-held.
 
 ```bash
-cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # --check = dry-run diff only
-#   Prints the added/removed tickers and rewrites app/data/index_membership.json; commit it via PR.
-#   Aborts without writing if the fetch yields < 450 tickers (never truncates the committed list)
-#   or if either index half is missing/short (exit 2; the message names the fix, e.g. FMP_API_KEY).
+cd backend && python scripts/refresh_index_membership.py --check
+# Public-source dry run: print additions/removals and write nothing.
+python scripts/refresh_index_membership.py
+# Regenerate app/data/index_membership.json; review and commit the result through a PR.
+# The 100-day freshness limit remains unchanged.
 ```
 
 The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers
