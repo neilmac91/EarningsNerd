@@ -32,7 +32,10 @@ restored byte-for-byte; the unchanged full lifecycle home then passed 24 tests.
 Final full gate on `7b6d8c3`: Ruff clean; Bandit 0 medium/high; **2526 passed, 2 deselected,
 23 warnings in 56.65s**, exit 0, including actual PostgreSQL transaction cases. The existing closed
 logging-stream teardown diagnostic followed the passing summary. Prior payment/export proofs
-were not repeated. Root owns independent final review, publication and serial deployment.
+were not repeated. Root reviewed committed `7b6d8c3` and cleared correctness, rules/brief and
+tests/gates: worker mutex spans cleanup, independent probes and strict original assertions remain
+intact, and the controlled contention/retention evidence supports the correction. Root owns
+publication and serial deployment.
 Evidence: `/private/tmp/earningsnerd-e06-contention-repro.log`,
 `/private/tmp/earningsnerd-e06-contention-corrected.log`,
 `/private/tmp/earningsnerd-e06-lifetime-retention-mutation.log`,
