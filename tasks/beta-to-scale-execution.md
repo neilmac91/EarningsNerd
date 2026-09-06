@@ -399,3 +399,18 @@ Ruff clean; Bandit zero medium/high; 2570 passed / 2 deselected / 23 warnings in
 all three PostgreSQL URLs enabled, no skips. Three-lens integration review is clear; original
 mutations retained and locked contracts/frontend match main. Authorized normal branch update
 follows the evidence commit. Root owns fresh actual CI/eval acceptance and serial release.
+
+### E14b final publication preparation
+
+Merge `523e15e` integrates exact sitemap main `93e30b0` and preserves both task histories.
+The whole frontend tree equals full-tested `9974f4d`; backend/CI equal main, and four E14b
+runtime/test files equal reviewed `2ee65a7`. No new source, locked-test or dependency change.
+Retain lint/typecheck, 100 files / 525 tests and 27/27 build, plus the original six-failure
+mutation and root's local both-theme/mobile success evidence without repetition. Actual
+browser denial remains test-only evidence. All three integration-review lenses are clear;
+root owns publication and remote acceptance. Exact logs and limitations are in tasks/todo.md.
+
+Current release rows supersede historical pending checkpoints: root reports #730, #734,
+#735 and #736 released; #737 merged as `93e30b0`, production verification pending. #735
+production run `34044729118` / deploy `101518082921` succeeded, `applied=0 skipped=36`,
+revision `earningsnerd-backend-00288-kgv` at 100% traffic; independent DB health 7.31 ms.

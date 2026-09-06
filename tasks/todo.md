@@ -1,3 +1,33 @@
+## E14b — Final sitemap-main integration (2026-09-06)
+
+- [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
+  `523e15e232a98fd35954adc8bdc2fabd5c9e7678`, retaining both task-document histories.
+- [x] Verify the entire frontend tree equals full-tested `9974f4d`; backend and `.github`
+  equal `93e30b0`. All four E14b runtime/test files still equal reviewed `2ee65a7`.
+- [x] Retain original mutation and combined full frontend evidence without repetition.
+- [x] Refresh the local PR draft; keep push, draft PR, CI and release root-owned.
+
+Current release state, reported by root: #730, #734, #735 and #736 are released.
+#737 is merged as `93e30b0`, with production verification pending. Root verified #735
+production run `34044729118`, deploy job `101518082921`, `applied=0 skipped=36`, revision
+`earningsnerd-backend-00288-kgv` at 100% traffic and independent DB health 7.31 ms.
+Older pending/failed checkpoints below are retained as history, not current release status.
+
+Tree identity proves gate applicability: frontend `6e4a99d7f0b2b81de998d3a313dacc9d925ff6c3`
+matches `9974f4d`; backend `99e5e820f2eb06afbc888faaf686cec6da6ece74` and CI tree
+`c5f0c34483e2c39cd7fec6983dc033d9f1b2d31d` match `93e30b0`. No runtime, test, locked-file
+or dependency change was needed. Three-lens final review remains clear: copy identity and
+pending ownership are unchanged, all scope constraints hold, and the original regression
+home/proof and 525-test integrated gate remain applicable. No source or mutation repeats.
+
+Retained combined gate: lint/typecheck clean; **100 files / 525 tests passed in 56.11s**;
+build exit 0, compiled **6.0s**, TypeScript **14.8s**, **27/27** static pages in 1758ms.
+Logs: `/private/tmp/earningsnerd-e14b-integrated-{lint,typecheck,vitest,build}.log`.
+The original proof on `2ee65a7` failed **6 cases with 1 control passing**, then exact bytes
+were restored. Root's local 320/390/1280 px both-theme success evidence remains as recorded
+below. Browser denial remains unverified; automated rejection/missing-API cases cover it.
+No new test execution, push, PR, production operation or account operation in this checkpoint.
+
 ## E14b — Copy the canonical filing link (engineering, 2026-09-06)
 
 ### Root local-browser checkpoint (documentation only)
