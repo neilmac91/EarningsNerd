@@ -1,3 +1,23 @@
+## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
+
+Base: released main `d048e215bbcc9d522af03af55fae9f7f449c1904`.
+Approved local scope: CI filing concurrency two as an unmeasured starting assumption,
+separate nonsecret invocation/source/concurrency artifact, existing offline gate and runbook.
+Root owns publication, normal live CI acceptance and serialized release. No push or live eval here.
+
+- [x] Read AGENTS/CLAUDE, applicable lessons, wave-3 context and full eval RUNBOOK.
+- [ ] Add explicit CI cap and retain execution evidence separately from the unchanged harness.
+- [ ] Extend the existing parity test; execute one meaningful mutation and restore exact bytes.
+- [ ] Full pinned Ruff/Bandit/backend with all three disposable PostgreSQL lanes; workflow
+  readers, YAML parse and Node lockstep gate; three review lenses; commit with clean status.
+
+Preserve runner default, baseline/harness/goldens, model/flags/deadlines, complete cohorts,
+repeat/dispatch semantics and per-PR groups. Recovery fan-out means two filings is not a
+provider-request cap. Overlap occurred in both failed and accepted E09 runs; no causality,
+production failure-rate or measured timeout improvement is claimed. The RUNBOOK edit is under
+`backend/evals`, so normal PR summary CI will trigger; it must retain actual results and
+unchanged hard acceptance criteria. Existing baseline authority is unaffected; no re-pin.
+
 ## E14b — Final sitemap-main integration (2026-09-06)
 
 - [x] Integrate exact main `93e30b0bd1f6e36228bdea6583daa914acdc29e8` as
