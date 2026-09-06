@@ -19,7 +19,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, review clear; combined full gate passed, publication/release pending |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a trial presentation parity in progress; pricing and activation decisions remain held |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a implemented and reviewed locally; frontend gates pass, preview/release pending. Pricing and activation decisions remain held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |
@@ -138,3 +138,16 @@ with PostgreSQL enabled (2 deselected, 23 warnings, 56.08s; exit 0). Earlier 35-
 replay remains scoped evidence; combined migration CI must include all 36 files after E10.
 Root/independent review is clear, locked files match main, and no mutation was repeated.
 Publication follows verified E05c deployment; event coverage is still unverified.
+
+
+## E08a — Trial presentation follows resolved entitlements
+
+Source `48f51f3`, based on `cab71f9`, requires server-resolved Pro access before showing a current
+trial on pricing and settings. Expired-trial Free responses regain the existing upgrade action;
+customer-ID portal routing and all backend/checkout behavior remain unchanged. Existing test
+homes cover both surfaces. One coordinated original-predicate mutation produced three intended
+failures; exact restoration passed lint, typecheck, 504 tests in 97 files and the production build.
+Root independently cleared correctness, rules/brief and tests/gates. Exact evidence is in todo.
+Both-theme preview, remote CI and release remain root-owned; no live expired-trial fixture was
+used. Price amounts/mapping, trial activation, promo, loading labels and FAQ timing are outside
+this slice.

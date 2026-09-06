@@ -9,14 +9,14 @@ subscription API resolves an expired trial to `is_pro = false`. Pricing then dis
 that the existing backend permits, and settings labels a Free account Pro. Independent root
 refutation confirmed the mismatch; backend billing behavior remains authoritative and unchanged.
 
-- [ ] Require the API's `is_pro` plus raw trial status for the trial presentation in
+- [x] Require the API's `is_pro` plus raw trial status for the trial presentation in
   `frontend/app/pricing/page.tsx` and `frontend/features/settings/components/BillingPanel.tsx`.
-- [ ] Extend only their existing `PricingPage.spec.tsx` and `BillingPanel.spec.tsx` homes:
+- [x] Extend only their existing `PricingPage.spec.tsx` and `BillingPanel.spec.tsx` homes:
   expired-trial Free response enables the existing upgrade, suppresses trial labels/countdown,
   and retains customer-ID portal routing. Existing entitled-trial behavior stays unchanged.
-- [ ] Commit source; run one coordinated original-predicate mutation across both surfaces,
+- [x] Commit source; run one coordinated original-predicate mutation across both surfaces,
   restore exact bytes, and run full frontend lint/typecheck/Vitest/build gates.
-- [ ] Record three-lens and independent root review, evidence and clean head. Push only after
+- [x] Record three-lens and independent root review, evidence and clean head. Push only after
   gates pass; root owns PR creation/readiness/merge and both-theme preview verification.
 
 Read `frontend/DESIGN_SYSTEM.md` and relevant lessons. Rules 4, 6, 11 and 12 apply; use server
@@ -25,6 +25,39 @@ trial activation, promo, analytics, token or styling change. E08-3 loading/error
 FAQ timing, annual totals and price experiments remain separate. No live expired-trial account
 or preview acceptance is claimed from mocked tests.
 
+
+
+Source `48f51f3` changes only the two trial predicates/comments in runtime code. A resolved
+Free subscription with raw `trialing` status now gets the existing upgrade action and Free label;
+customer-ID portal routing is unchanged. Existing entitled-trial cases still pass. The pricing
+regression seeds the resolved subscription cache before rendering to avoid a false pass through
+the pre-existing transient Free loading label. The settings regression covers with/without a
+Stripe customer. All backend/locked tests, dependency pins, price variants and flags are unchanged.
+
+Verification used Node 22.23.2 and an APFS clone of the existing matching dependency tree;
+package-lock identity was checked, with no install or pin change. Initial setup invocations ran
+before copying finished and then from the wrong working directory; neither reached test assertions.
+The first actual focused run exposed one mistaken new expectation: a Free user without a customer
+already uses the label “Upgrade to Pro”, not “Subscribe to Pro”. The test was corrected to the
+existing branch, with no additional runtime change. The focused homes then passed all 11 tests.
+
+Exactly one coordinated mutation restored the original raw-status predicate in both components:
+pricing failed to find the permitted upgrade button, and both settings cases failed to find Free.
+Result: `2 failed` files, `3 failed | 8 skipped` tests, 4.36 s. Both files were restored byte-for-byte
+to committed `48f51f3`; no mutation was repeated. Final full frontend gate passed: lint with zero
+warnings, `tsc -p tsconfig.ci.json`, Vitest **97 files / 504 tests passed** in 31.44 s, and
+`next build` (compiled 17.2 s, 27/27 static pages, `/pricing` prerendered). All commands exited 0.
+The build used narrowly approved network access for existing font downloads. Its no-Sentry-token
+warnings mean no local release/source-map upload; existing jsdom navigation diagnostics appeared
+in the successful Vitest run. Logs live at `/private/tmp/earningsnerd-e08-{lint,typecheck,full-vitest,build}.log`,
+`/private/tmp/earningsnerd-e08-focused-corrected.log` and
+`/private/tmp/earningsnerd-e08-mutation-trial-predicates.log`.
+
+Self-review and root's independent three-lens review of `48f51f3` are clear: the backend remains
+the only plan resolver, the historical raw row cannot override its result, and the gate proves
+both affected surfaces without editing locked anchors. Lesson link and `git diff --check` passed.
+Source and evidence are ready for the authorized branch push. Root owns PR creation/readiness,
+remote CI, both-theme preview and release; no live expired-trial account behavior is claimed.
 
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
