@@ -50,11 +50,11 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   const delta = formatDelta(metric.deltaPercent)
   return (
     <div
-      className="min-w-0 break-words rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
+      className="min-w-0 rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
-      <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
-      <div className="mt-1 text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
+      <div className="break-words text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
+      <div className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
       {delta && (
         <div
           className={`mt-0.5 text-xs font-medium tabular-nums ${
