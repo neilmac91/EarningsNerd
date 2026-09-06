@@ -1,3 +1,25 @@
+## E11b-0 — Reject unsafe filing-job dry runs (engineering, 2026-09-06)
+
+Base `639e48ca`; isolated local branch `codex/wave3-filing-dry-run-safety`.
+
+- [x] Read CLAUDE/AGENTS, applicable hermeticity/lock/proof/job-outcome lessons, job script,
+  job-reporting test home and tracker; preserve locked T7 and all live job boundaries.
+- [ ] Reject both scan and digest `--dry-run` with readable nonzero SystemExit before app
+  imports, SessionLocal, track_job or business service calls; remove the no-op sender path.
+- [ ] Update CLI help/doc and the existing job-outcome lesson: safe preview is unavailable;
+  a dry-run heartbeat alone cannot protect business logs and watchlist watermarks.
+- [ ] Extend unlocked `test_job_reporting.py` with actual CLI branches, import/DB/tracker/
+  service spies and normal scan/digest/cadence/reporting controls.
+- [ ] Commit source; one original mutation bypassing rejection must fail; restore exact bytes.
+  Focused offline gate, Ruff/Bandit, three-lens review and clean local evidence checkpoint.
+- [ ] Root final integration, full suite/PostgreSQL lanes, publication approval and release.
+
+Current `_noop_send` returns success while the service writes notification logs and advances
+watchlist watermarks. This slice disables that unsafe CLI option; it does not implement a
+working preview or repair historical state. Normal scan/digest and failure reporting remain
+unchanged. No provider/email/job execution, network, flags, baseline, schema, entitlement,
+transport, locked-test edits, push or deployment here. Independent source review follows.
+
 ## CI-P1 — Bound summary CI filing concurrency (engineering, 2026-09-06)
 
 ### Approved full gate
