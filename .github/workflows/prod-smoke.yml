@@ -77,9 +77,16 @@ jobs:
             frontend/test-results/
           retention-days: 14
           if-no-files-found: warn
+  report-failure:
+    needs: smoke
+    if: always() && needs.smoke.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
       - name: Open or update a failure issue
-        if: failure()
+        shell: bash
         env:
+          SMOKE_RESULT: ${{ needs.smoke.result }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -88,9 +95,10 @@ jobs:
           BODY_FILE="$(mktemp)"
           trap 'rm -f "$BODY_FILE"' EXIT
           cat > "$BODY_FILE" <<EOF_BODY
-          The daily production smoke failed: $RUN_URL
+          The daily production smoke finished with result $SMOKE_RESULT: $RUN_URL
 
-          Inspect the failed step and retained API/browser artifacts. The smoke checks API availability
+          Inspect the failed or cancelled job and any retained API/browser artifacts. Artifacts may be
+          unavailable after a timeout. The smoke checks API availability
           and the public filing summary plus Ask this Filing launcher; it does not generate a summary
           or send a Copilot question. A missing cached example is a failed prerequisite.
           EOF_BODY

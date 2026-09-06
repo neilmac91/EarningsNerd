@@ -72,7 +72,11 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
 - [x] Three independent reviews cleared the corrected source; the ancestry/documentation updates
   preserve all tested workflow and test bytes.
-- [ ] Root: draft publication and actual CI. Adding the backend tuple causes an accepted
+- [ ] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
+  dependent job with `always()` and a non-success worker result; extend the existing parametrized
+  gate, prove the condition with one intended mutation, restore and run the full backend gate.
+  Artifact upload in the 15-minute worker remains best effort after timeout.
+- [ ] Root: #711 publication and actual CI, including the timeout correction. Adding the backend tuple causes an accepted
   deployment with no migration change; verify it before subsequent backend merges.
 - [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
   bad route red (`/filing/does-not-exist`); retain run/artifact/issue evidence and close only the
