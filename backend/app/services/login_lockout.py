@@ -19,7 +19,9 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -57,46 +59,40 @@ def seconds_until_unlock(db: Session, email: str) -> Optional[int]:
 
 
 def record_failure(db: Session, email: str) -> None:
-    """Count one failed login for ``email`` (existent or not) and lock it past the threshold."""
+    """Atomically count one failed login (existent email or not) and commit its lock state.
+
+    The existing primary key serializes concurrent insert/update and success-clear operations.
+    This counts completed failures; it does not reserve credential checks already in progress.
+    """
     email_hash = _email_hash(email)
     now = datetime.now(timezone.utc)
-    row = db.query(LoginAttempt).filter(LoginAttempt.email_hash == email_hash).first()
-    if row is None:
-        db.add(LoginAttempt(email_hash=email_hash, failed_count=1))
-        try:
-            db.commit()
-            return
-        except IntegrityError:
-            # A concurrent request inserted the same row first — fall through to increment it.
-            db.rollback()
-            row = db.query(LoginAttempt).filter(LoginAttempt.email_hash == email_hash).first()
-            if row is None:
-                return
-    # Start a fresh window when either (a) a prior lock has fully expired, or (b) the last failure
-    # was longer ago than the lock window. Without (b) failures would accumulate forever, so a user
-    # who mistypes once every few weeks (never logging in successfully between) would eventually
-    # lock — the retired in-memory limiter was a sliding 15-minute window and never did that.
-    # updated_at carries the previous failure's time (stamped explicitly on every failure below).
-    locked_until = _as_aware(row.locked_until)
-    last_failure = _as_aware(row.updated_at)
-    if locked_until is not None and locked_until <= now:
-        row.failed_count = 0
-        row.locked_until = None
-    elif (
-        locked_until is None
-        and last_failure is not None
-        and (now - last_failure) > timedelta(seconds=LOCKOUT_SECONDS)
-    ):
-        row.failed_count = 0
-    row.failed_count = (row.failed_count or 0) + 1
-    # Stamp the failure time explicitly so this row is ALWAYS written. A stale-window reset that
-    # lands back on the same count (1 → 0 → 1) is a net-zero change to failed_count; if updated_at
-    # relied solely on onupdate=func.now(), SQLAlchemy would detect no change, emit no UPDATE, and
-    # leave updated_at stale — so every later attempt would reset to 1 and the account could never
-    # lock (a total lockout bypass). Setting it unconditionally also keeps the window on one clock.
-    row.updated_at = now
-    if row.failed_count >= LOCKOUT_THRESHOLD:
-        row.locked_until = now + timedelta(seconds=LOCKOUT_SECONDS)
+    expired_lock = and_(LoginAttempt.locked_until.is_not(None), LoginAttempt.locked_until <= now)
+    stale_unlocked = and_(
+        LoginAttempt.locked_until.is_(None),
+        LoginAttempt.updated_at.is_not(None),
+        LoginAttempt.updated_at < now - timedelta(seconds=LOCKOUT_SECONDS),
+    )
+    next_count = case(
+        (or_(expired_lock, stale_unlocked), 1),
+        else_=func.coalesce(LoginAttempt.failed_count, 0) + 1,
+    )
+    next_lock = case(
+        (next_count >= LOCKOUT_THRESHOLD, now + timedelta(seconds=LOCKOUT_SECONDS)),
+        (expired_lock, None),
+        else_=LoginAttempt.locked_until,
+    )
+    dialect = db.get_bind().dialect.name
+    insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
+    if insert is None:
+        raise ValueError(f"Unsupported login-lockout database dialect: {dialect}")
+    # Omit updated_at on INSERT, retaining its existing server default. On conflict, stamp every
+    # failure explicitly, including the net-zero 1 -> reset -> 1 case pinned by the behavior tests.
+    statement = insert(LoginAttempt).values(email_hash=email_hash, failed_count=1)
+    statement = statement.on_conflict_do_update(
+        index_elements=[LoginAttempt.email_hash],
+        set_={"failed_count": next_count, "locked_until": next_lock, "updated_at": now},
+    )
+    db.execute(statement)
     db.commit()
 
 
