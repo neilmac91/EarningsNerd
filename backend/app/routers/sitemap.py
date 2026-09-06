@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Company, Filing, Summary
+from app.services.company_coverage import unsupported_foreign_name
 
 router = APIRouter()
 
@@ -41,8 +42,9 @@ STATIC_PAGES = [
     ("/security", "yearly", "0.3"),
 ]
 
-# The sitemap protocol caps a file at 50k URLs; stay under it with headroom. Newest filings
-# win (the query orders by filing_date DESC). Past this, move to a sitemap index — roadmap.
+# Limit filing rows with headroom toward the 50k-URL protocol cap. Company rows are still
+# unbounded, so this is not a whole-document limit; partitioning remains separate E15b work.
+# Newest eligible filings win (the query orders by filing_date DESC).
 MAX_FILING_URLS = 45_000
 
 _CACHE_TTL_SECONDS = 3600
@@ -95,7 +97,7 @@ def _build_sitemap(db: Session) -> str:
         .all()
     )
     for ticker, latest_filing_date in company_rows:
-        if not ticker:
+        if not ticker or unsupported_foreign_name(ticker) is not None:
             continue
         lastmod = latest_filing_date.strftime("%Y-%m-%d") if latest_filing_date else None
         parts.append(
@@ -109,6 +111,12 @@ def _build_sitemap(db: Session) -> str:
         .join(Summary, Summary.filing_id == Filing.id)
         .filter(Summary.business_overview.isnot(None))
         .filter(Summary.business_overview != "")
+        # Match serverApi.ts::summaryHasDisplayableContent before applying the cap.
+        # REPLACE is case-sensitive on SQLite and PostgreSQL, unlike SQLite LIKE.
+        .filter(
+            func.replace(Summary.business_overview, "Generating summary", "")
+            == Summary.business_overview
+        )
         .order_by(Filing.filing_date.desc())
         .limit(MAX_FILING_URLS)
         .all()

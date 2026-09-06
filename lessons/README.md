@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-sitemap-page-eligibility.md`](./arch-sitemap-page-eligibility.md) — Match sitemap eligibility to the existing page predicates
+
 - [`arch-reconciliation-follows-values-and-growth.md`](./arch-reconciliation-follows-values-and-growth.md) — Carry reconciliation quality through values, growth, citations and exports
 
 - [`arch-committed-universe-fail-open.md`](./arch-committed-universe-fail-open.md) — Bound discovery surfaces to a committed universe with a fail-open filter
