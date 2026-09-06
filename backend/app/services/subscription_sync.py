@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.models import StripeEvent, Subscription, User
 from app.models.subscription import ACTIVE_STATUSES
+from app.services.entitlements import is_pro_user
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +80,42 @@ def _apply_mirror(user: User, status: str) -> None:
     user.is_pro = status in ACTIVE_STATUSES
 
 
+def _checkout_identity_conflict(
+    db: Session, user: User, sub: Optional[Subscription],
+    stripe_sub_id: Optional[str], stripe_customer_id: Optional[str],
+) -> Optional[str]:
+    """Check existing ownership before accepting a verified checkout's identity fields."""
+    if stripe_customer_id:
+        existing_customers = (user.stripe_customer_id, sub.stripe_customer_id if sub else None)
+        if any(customer and customer != stripe_customer_id for customer in existing_customers):
+            return "customer_mismatch"
+
+    for field, value in (
+        ("stripe_customer_id", stripe_customer_id),
+        ("stripe_subscription_id", stripe_sub_id),
+    ):
+        if not value:
+            continue
+        if db.query(User.id).filter(getattr(User, field) == value, User.id != user.id).first():
+            return "identity_owned_by_another_user"
+        if db.query(Subscription.id).filter(
+            getattr(Subscription, field) == value, Subscription.user_id != user.id,
+        ).first():
+            return "identity_owned_by_another_user"
+
+    current_sub_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
+    if stripe_sub_id and current_sub_id and stripe_sub_id != current_sub_id and is_pro_user(user):
+        return "different_entitled_subscription"
+    return None
+
+
 # --------------------------------------------------------------------------- event handlers
 
 def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
     """Handle ``checkout.session.completed``: link Stripe ids and grant Pro.
 
-    Period/trial details arrive on the following ``customer.subscription.*`` event; here we only
-    establish the link + entitlement. Returns the affected user (or None if unknown).
+    Bootstrap a previously unlinked subscription. If subscription events arrived first, retain
+    their authoritative state. Returns the affected user, or None for unknown/ignored checkouts.
     """
     metadata = session_obj.get("metadata") or {}
     user_id = int(metadata["user_id"])  # KeyError/ValueError → caller maps to 400
@@ -96,7 +126,25 @@ def apply_checkout_completed(db: Session, session_obj: dict) -> Optional[User]:
     stripe_sub_id = session_obj.get("subscription")
     stripe_customer_id = session_obj.get("customer")
 
-    sub = _get_or_create_subscription(db, user)
+    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+    conflict = _checkout_identity_conflict(db, user, sub, stripe_sub_id, stripe_customer_id)
+    if conflict:
+        logger.warning(
+            "Ignoring Stripe checkout user_id=%s subscription_id=%s reason=%s",
+            user.id, stripe_sub_id, conflict,
+        )
+        return None
+    if stripe_sub_id and sub and sub.stripe_subscription_id == stripe_sub_id:
+        # A late checkout is only a linking event; it cannot reactivate a canceled/past-due
+        # subscription or turn a Stripe trial into an active subscription. Returning None also
+        # avoids emitting another subscription_activated signal from the webhook router.
+        logger.info(
+            "Ignoring Stripe checkout user_id=%s subscription_id=%s reason=already_synchronized",
+            user.id, stripe_sub_id,
+        )
+        return None
+
+    sub = sub or _get_or_create_subscription(db, user)
     sub.plan = "pro"
     sub.status = "active"
     sub.stripe_subscription_id = stripe_sub_id or sub.stripe_subscription_id
@@ -146,7 +194,16 @@ def apply_subscription_deleted(db: Session, sub_obj: dict) -> Optional[User]:
     if not user:
         return None
 
-    sub = _get_or_create_subscription(db, user)
+    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+    current_sub_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
+    if not sub_obj.get("id") or sub_obj["id"] != current_sub_id:
+        logger.info(
+            "Ignoring Stripe deletion user_id=%s subscription_id=%s reason=not_current_subscription",
+            user.id, sub_obj.get("id"),
+        )
+        return None
+
+    sub = sub or _get_or_create_subscription(db, user)
     sub.status = "canceled"
     sub.plan = "free"
     sub.cancel_at_period_end = False
