@@ -15,7 +15,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E01 | Keep mobile example identity and figures from one source | None | #720 merged; mobile preview verified; production verification pending |
 | E02 | Correct SEC refill elapsed-time accounting | None; isolated branch | Local gates/reviews and prior CI passed; current-head CI/Copilot pending |
 | E03 | Release DB connections before generation waits; offload health probe | Before E09; coordinate W3-8b | Queued |
-| E04 | Bound SSE handshake and reject premature EOF | Independent frontend | Queued |
+| E04 | Bound SSE handshake and reject premature EOF | Independent frontend | Implemented; local gates/review passed; CI pending |
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | Queued |
 | E06 | Record actual nonzero invoices and revenue cohorts | Coordinate E05 router changes | Queued |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
