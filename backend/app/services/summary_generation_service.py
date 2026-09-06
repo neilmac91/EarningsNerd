@@ -4,6 +4,7 @@ from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
+from fastapi.concurrency import run_in_threadpool
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 from app.services.openai_service import openai_service
 from app.services.subscription_service import increment_user_usage, get_current_month
@@ -510,16 +511,8 @@ def get_or_cache_excerpt(
         db.commit()
     return excerpt
 
-async def generate_summary_background(
-    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False
-):
-    """Background task to generate summary.
-
-    ``force_regenerate=True`` (admin refresh-stale) skips the existing-summary short-circuit and
-    threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
-    ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
-    """
-    
+def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, force_regenerate: bool) -> bool:
+    """Complete preflight in its worker, releasing the read transaction before the drain."""
     # Create a new database session for the background task
     with SessionLocal() as db:
         logger.info(f"Starting summary generation for filing {filing_id}")
@@ -530,7 +523,7 @@ async def generate_summary_background(
         ).filter(Filing.id == filing_id).first()
         if not filing:
             logger.warning(f"Filing {filing_id} not found")
-            return
+            return False
 
         # Check if summary already exists (skipped under force_regenerate — a refresh must reach
         # the very row it is refreshing rather than short-circuit on it).
@@ -543,7 +536,7 @@ async def generate_summary_background(
                 if user:
                     month = get_current_month()
                     increment_user_usage(user.id, month, db)
-            return
+            return False
         
         # Check if OpenAI API key is configured
         if not settings.OPENAI_API_KEY:
@@ -568,39 +561,57 @@ async def generate_summary_background(
                 # A real summary already exists for this filing (filing_id UNIQUE) — the placeholder
                 # is unnecessary; don't error the cron job (S1 decision #3).
                 db.rollback()
-            return
+            return False
         
-        # S1: the background/cron/pregenerate path drains the ONE orchestrator
-        # (stream_filing_summary) headless — inheriting its filing-only generation, the
-        # 9-section assess_quality verdict, partial-persistence, and filing_id-conflict handling.
-        # Funnel telemetry is suppressed (a precompute run emits ZERO funnel events — T2 pin);
-        # current_user=None skips the user-facing paywall gate, while usage still increments for a
-        # signed-in user_id on a full result via the pipeline's own count_usage. The existing-summary
-        # short-circuit above is the caller's job here (the pipeline does not re-check it).
-        from app.services.summary_pipeline import stream_filing_summary
+    return True
 
-        drain_started = time.time()
-        terminal_event: Optional[Dict[str, Any]] = None
-        async for terminal_event in stream_filing_summary(
-            filing_id=filing_id,
-            current_user=None,
-            user_id=user_id,
-            telemetry_distinct_id=str(user_id) if user_id else "precompute",
-            telemetry_entry_point=None,
-            telemetry_ctx={},
-            emit_funnel_telemetry=False,
-            force_regenerate=force_regenerate,
-        ):
-            pass
-        # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal in
-        # the Cloud Run job logs. Crucially, the pipeline converts exceptions into terminal error
-        # EVENTS (the job still exits 0), so without this line a failing pregenerate batch would
-        # look identical to a successful one.
-        terminal_type = (terminal_event or {}).get("type", "none")
-        drain_secs = time.time() - drain_started
-        log = logger.warning if terminal_type == "error" else logger.info
-        log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
+
+async def generate_summary_background(
+    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False
+):
+    """Background task to generate summary.
+
+    ``force_regenerate=True`` (admin refresh-stale) skips the existing-summary short-circuit and
+    threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
+    ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
+    """
+
+    if not await run_in_threadpool(
+        _prepare_background_generation, filing_id, user_id, force_regenerate=force_regenerate
+    ):
         return
+
+    # S1: the background/cron/pregenerate path drains the ONE orchestrator
+    # (stream_filing_summary) headless — inheriting its filing-only generation, the
+    # 9-section assess_quality verdict, partial-persistence, and filing_id-conflict handling.
+    # Funnel telemetry is suppressed (a precompute run emits ZERO funnel events — T2 pin);
+    # current_user=None skips the user-facing paywall gate, while usage still increments for a
+    # signed-in user_id on a full result via the pipeline's own count_usage. The existing-summary
+    # short-circuit is preserved in preflight; the pipeline also handles concurrent writers.
+    from app.services.summary_pipeline import stream_filing_summary
+
+    drain_started = time.time()
+    terminal_event: Optional[Dict[str, Any]] = None
+    async for terminal_event in stream_filing_summary(
+        filing_id=filing_id,
+        current_user=None,
+        user_id=user_id,
+        telemetry_distinct_id=str(user_id) if user_id else "precompute",
+        telemetry_entry_point=None,
+        telemetry_ctx={},
+        emit_funnel_telemetry=False,
+        force_regenerate=force_regenerate,
+    ):
+        pass
+    # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal in
+    # the Cloud Run job logs. Crucially, the pipeline converts exceptions into terminal error
+    # EVENTS (the job still exits 0), so without this line a failing pregenerate batch would
+    # look identical to a successful one.
+    terminal_type = (terminal_event or {}).get("type", "none")
+    drain_secs = time.time() - drain_started
+    log = logger.warning if terminal_type == "error" else logger.info
+    log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
+    return
 
 # Stages from which generation can no longer make progress on its own.
 TERMINAL_STAGES = {"completed", "error", "partial"}

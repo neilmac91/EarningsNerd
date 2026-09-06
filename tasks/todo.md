@@ -48,7 +48,7 @@ separate founder decisions. Revenue and production readiness remain goals, not a
 - [x] Add the non-AAPL empty-metrics regression plus live and null controls in one test home.
 - [x] Retain one mutation proof, full frontend gates and both-theme preview evidence.
 - [x] Complete the three review lenses, publish draft #720, inspect exact-head CI and merge.
-- [ ] Verify the production Vercel deployment; merge and preview evidence are not that result.
+- [x] Root verified production Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u` succeeded and the canonical homepage returned HTTP 200.
 
 Source `0c92a25`: Node 22.23.2; lint/typecheck/build exit 0; Vitest 96 files / 490 tests passed
 in 39.66s. The single mutation restored the mixed-source branch: the ASML fixture rendered
@@ -59,8 +59,8 @@ The build used an unavailable local API and retained existing middleware/Sentry-
 [CI 34019162195](https://github.com/neilmac91/EarningsNerd/actions/runs/34019162195)
 passed; its frontend-only eval skip was expected. The branch preview was inspected at
 390 × 844 in both themes: live Apple 10-K, $416.2B / $112.0B / $7.46, no card clipping.
-That preview did not alter data or reproduce the sparse fixture. Production verification
-remains pending for Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u`.
+That preview did not alter data or reproduce the sparse fixture. Root subsequently verified
+production Vercel deployment `G1Rdtbtf64kNcUD3GAqnVH4Usp5u` succeeded; canonical homepage HTTP 200.
 See the [execution ledger](beta-to-scale-execution.md#release-checkpoint--2026-09-06).
 
 ### E04 — Bound the summary reader and reject truncated streams (engineering)
@@ -70,9 +70,10 @@ See the [execution ledger](beta-to-scale-execution.md#release-checkpoint--2026-0
 - [x] Stop on terminal frames and avoid automatic replay after any visible preview or chunk.
 - [x] Add focused reader regressions in `frontend/tests/unit/summaryStreamResilience.spec.ts`;
   leave recorded SSE/auth contracts unchanged; retain exactly one mutation proof per new invariant.
-- [ ] Run the full frontend gate, independent review, and publish a draft PR with exact evidence.
+- [x] Run the full frontend gate, independent review, publish draft #722 and inspect exact-head CI.
+- [x] Merge and verify production Vercel deployment `BYywW33Tav6FAoyHa4LZ43h2cCSE` succeeded.
 
-The current reader returns success at premature EOF and starts its timeout only after headers.
+Before E04, the reader returned success at premature EOF and started its timeout only after headers.
 E04 keeps the SSE wire format, shared refresh owner, existing one-retry policy and timeout value.
 It changes transport handling only; no summary generation, quota, prompt, theme or flag changes.
 W3-8b and E03 are independent backend work; serialize task-doc integration when merging.
@@ -85,7 +86,62 @@ intended timeout/terminal/replay assertions. Exact restoration: 26 focused tests
 Independent correctness/rules/tests review found no actionable issue; backend persistence before
 terminal emission was checked in two fresh passes. Locked SSE/auth fixtures are unchanged.
 E02 main `5298c77` was merged locally; frontend source/test bytes remain identical to `5eb8e03`.
-Draft publication and exact-head CI remain pending. This is transport handling; no visual change.
+[#722](https://github.com/neilmac91/EarningsNerd/pull/722) merged as `049cd4f` after
+[CI 34025236804](https://github.com/neilmac91/EarningsNerd/actions/runs/34025236804) passed.
+Root verified Vercel `BYywW33Tav6FAoyHa4LZ43h2cCSE` succeeded; main CI `34025409826`
+succeeded with backend deploy correctly skipped. This is transport handling; no visual change.
+
+## E03 — Short database ownership during generation (2026-09-06)
+
+Approved engineering scope from the beta-to-scale plan. Start: `7d06edc`.
+Keep the sole summary orchestrator, filing grounding, quota semantics and locked contracts.
+No prompt, flag, schema, capacity or W3-8b classifier change. Root owns publication/deployment.
+
+- [x] Return plain filing/cache snapshots from worker-owned sessions; close progress/save/usage
+  sessions in their worker before network, admission or stream waits.
+- [x] Close background preflight before draining the same orchestrator; preserve all early returns.
+- [x] Release the request session before SSE, preserving current-user entitlement inputs and
+  the locked stand-in identity; offload the complete detailed-health DB probe.
+- [x] Extend existing lifecycle and health test homes with real pool/ownership evidence.
+- [x] Prove each new invariant with exactly one mutation, restoring committed implementation.
+- [x] Run pinned Ruff, Bandit, full pytest and unchanged locked contracts; prepare review evidence.
+- [ ] Independent review, publication, CI/eval inspection and serialized deployment (root).
+
+Runtime evidence: installed FastAPI `routing.py::request_response` closes its request dependency
+stack after `await response(...)`; `dependencies/utils.py` defaults yielded dependencies to that
+stack. The route's earlier "session is gone" comment is false for streaming on the pinned runtime.
+
+Local implementation evidence (`1dafb69`): Ruff `All checks passed!`; Bandit 0 medium/high
+findings; full pytest `2402 passed, 2 deselected, 23 warnings in 44.27s`. Locked SSE,
+background, auth, Stripe, expired-trial tests and recorded stream frames are byte-identical.
+The lifetime mutation retained the initial read session and failed with `follower retained a DB
+connection`; the health mutation moved the query back onto the event loop and failed both probe
+cases. Restoring committed bytes produced `45 passed, 17 warnings` across the two gate homes.
+One mutation per invariant; no live SEC/provider requests, flags or production operations.
+
+Review correction: the initial route gate used a standalone identity and missed a real User's
+lazy subscription lookup, which the first implementation moved onto the event loop. Correction
+`a89d90a` copies loaded primitive inputs into frozen snapshots before closing the request session;
+only unresolved subscription fields are loaded in a fresh worker-owned session. Loaded billing
+state and standalone identities retain their semantics; no persisted User row is required.
+The same gate now covers unloaded, already-loaded and expired real subscription state and records
+SQL thread identity. Reintroducing the exact event-loop lookup failed with `subscription SQL blocked
+the event loop` (1 expected failure); restoration passed 38 focused lifecycle/locked checks.
+The original two mutation proofs were not repeated. Root and independent review cleared the correction.
+
+Final integrated source `43eb5c8` includes main `049cd4f` (E01/E02/E04). Ruff clean, Bandit 0
+medium/high, full pytest `2412 passed, 2 deselected, 23 warnings in 50.01s`, exit 0. The retained
+log also contains the existing post-summary Yahoo-client shutdown logging error. Locked contracts
+and stream frames remain unchanged. E03 publication, CI/eval evidence and deployment remain pending.
+
+Precedence correction: the touched single-orchestrator lesson still named Multi-Period Analysis
+as the cross-filing insight destination. Its prose now names the labeled Change Report to match
+the higher-priority CLAUDE.md rule 2; existing Analysis behaviour is unchanged.
+
+Limits: local SQLite pool evidence is not a PostgreSQL load test. A running synchronous DB
+operation cannot be forcibly cancelled; its worker remains responsible for session cleanup.
+This change releases the summary route's transaction before streaming; it does not convert all
+synchronous route queries to async I/O, alter fleet capacity or change generation admission.
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
@@ -104,8 +160,8 @@ existing SEC transport ownership, Retry-After handling and per-process configura
 - [x] Root and an independent reviewer completed correctness, rules and tests lenses;
   prior CI 34019200809 passed with the retained 52-result eval artifact.
 - [x] Merge E01's current main without rewriting E02 history; preserve both task sections.
-- [ ] Root publishes the updated branch, verifies current-head CI and Copilot, then serializes
-  backend merge/deployment verification. The implementation agent does not push or deploy.
+- [x] Root published and merged #721, then verified its serialized backend deployment.
+  The implementation agent did not push or deploy.
 
 
 Source `4a196b7`: 102 exact runtime/dev pins matched (Python 3.11.16). Focused SEC
@@ -123,7 +179,11 @@ After merging E01 main at local merge `09758a7`, the full backend gate passed ag
 Ruff/Bandit exit 0; `2390 passed, 2 deselected, 23 warnings in 46.41s`, exit 0.
 Backend source/test bytes remain identical to `ec5419f`; only E01 frontend/docs and this
 status update entered the branch. The original mutation proof therefore remains scoped
-to the unchanged guarded source. Current-head remote gates and production verification remain pending.
+to the unchanged guarded source. Root subsequently merged [#721](https://github.com/neilmac91/EarningsNerd/pull/721)
+as `5298c77` and verified [production CI 34024814391](https://github.com/neilmac91/EarningsNerd/actions/runs/34024814391),
+deploy job `101464120936`: `applied=0 skipped=34`; revision `00276-qhd` at 100%; image
+`9bb76917797ccc8473eb6b0aa8722151056c724024e317084007b466d6bdcec9`. Independent detailed
+health was healthy (DB 7.89 ms, Redis disabled, SEC closed).
 
 ### W3-3 public-source replacement — 2026-09-06
 

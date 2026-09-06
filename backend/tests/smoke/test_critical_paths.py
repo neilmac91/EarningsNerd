@@ -24,6 +24,8 @@ Note:
 """
 
 import pytest
+import json
+import threading
 from fastapi.testclient import TestClient
 from sqlite3 import OperationalError as SQLiteOperationalError
 
@@ -89,6 +91,39 @@ class TestHealthEndpoints:
         assert "redis" in data["checks"]
         # Redis check should have healthy key
         assert "healthy" in data["checks"]["redis"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("fails", [False, True])
+    async def test_database_probe_owns_its_session_off_event_loop(self, monkeypatch, fails):
+        from app import database
+        from main import health_check_detailed
+
+        loop_thread = threading.get_ident()
+        operations = []
+
+        class ProbeSession:
+            def __init__(self):
+                operations.append(("create", threading.get_ident()))
+
+            def __enter__(self):
+                return self
+
+            def execute(self, statement):
+                operations.append(("query", threading.get_ident()))
+                if fails:
+                    raise RuntimeError("private-database-host")
+
+            def __exit__(self, *args):
+                operations.append(("close", threading.get_ident()))
+
+        monkeypatch.setattr(database, "SessionLocal", ProbeSession)
+        result = await health_check_detailed()
+        payload = json.loads(result.body) if hasattr(result, "body") else result
+        assert payload["checks"]["database"]["healthy"] is not fails
+        assert "private-database-host" not in json.dumps(payload)
+        assert [name for name, _ in operations] == ["create", "query", "close"]
+        worker_threads = {owner for _, owner in operations}
+        assert len(worker_threads) == 1 and loop_thread not in worker_threads
 
 
 class TestRootEndpoint:
