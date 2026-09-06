@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Opt-in PRODUCTION smoke check — proves the live site is serving current `main`, not a stale build.
+ * Opt-in PRODUCTION smoke check for a cached summary and the Copilot launcher.
  *
  * Why this exists: the "Ask this Filing" Copilot (and other frontend work) merged to `main` but a
  * stale Vercel production deployment kept serving an older build, so the feature was invisible on
@@ -31,9 +31,10 @@ test.describe('production smoke', () => {
     // 1) The filing summary must load (rules out a broken page / wrong id before we blame the deploy).
     await expect(page.getByRole('heading', { name: /summary/i }).first()).toBeVisible({ timeout: 45000 })
 
-    // 2) The Copilot launcher only renders when the deployed bundle contains the Copilot frontend
-    //    (PR #350+). If this fails, production is serving a build older than the Copilot — i.e. a
-    //    stale deploy, not a code problem.
-    await expect(page.getByRole('button', { name: /ask this filing/i })).toBeVisible({ timeout: 20000 })
+    // 2) Target the closed dialog launcher; the summary also has an "Ask this filing" CTA.
+    //    This checks feature presence, not the deployed commit identity or why a feature is missing.
+    const launcher = page.getByRole('button', { name: 'Ask this Filing', exact: true })
+      .and(page.locator('[aria-haspopup="dialog"]'))
+    await expect(launcher).toBeVisible({ timeout: 20000 })
   })
 })
