@@ -2,7 +2,40 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
-### W3-5 local preparation — agent stack truth
+### W3-6 implementation — PyJWT migration (active)
+
+Owner: plan_correctness. Root owns publication, independent reviews, CI, merge and deployment.
+Entry satisfied: #715 merged `56d33f0435723030b072017ba47e2d3e32697132`; production
+[34006685337](https://github.com/neilmac91/EarningsNerd/actions/runs/34006685337), deploy job
+101415369329, succeeded with `applied=0 skipped=34`, revision `00273-r65` at 100%.
+Image digest `d3c86ac5d708dd272e0a7619d3e3eff2deb83428f16705f2beadd662ef92548b`;
+independent detailed health healthy (DB 15.29 ms, SEC closed). Notable job was not found and
+its update was skipped; its founder provisioning/activation hold remains.
+
+- [ ] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
+  issuers, nonce binding, string subjects and configured clock-skew leeway. Disclose that
+  PyJWT enforces the existing required-claim lists and future `iat` validation.
+- [ ] Apply the two founder-preapproved non-locked test edits: library/leeway in
+  `test_security_hardening_week7.py`, selected-JWK conversion in `test_apple_signin.py`.
+  Keep all assertions and the four locked contracts unchanged; no live OAuth.
+- [ ] Replace the dependency input with `PyJWT[crypto]>=2.10,<3`; compile using documented
+  Python 3.11 command and pip-tools 7.6.1, preserving unrelated pins. Install a fresh coherent
+  runtime outside Documents; prove retired jose/ecdsa/rsa/pyasn1 distributions absent.
+- [ ] Add the one planned AST/dependency gate; inject one actual jose import, demonstrate its
+  intended assertion failure, restore exact committed bytes and retain both tails.
+- [ ] Run full Ruff/Bandit/pytest and actual pip-audit; preserve advisory posture and report
+  remaining findings. Prove locked contracts, sole baseline and historical archives unchanged.
+- [ ] Synchronize active handover/todo checkpoints with observed evidence; retain dated
+  historical findings and original definition of done. Commit final results, stop before push.
+
+### W3-5 preparation history — verified #715
+
+W3-5 is complete with the deployment evidence above. Final CI 34006454576 passed backend
+2383 tests, performance 2, frontend 487 and browser 21 (3 existing skips), plus PostgreSQL
+triple application. Copilot run 34006471949 artifact 9981128325 contains 18 passing results,
+zero errors/vetoes and verified six-source/database hashes. The checkboxes and draft-status
+statements below preserve their pre-merge source checkpoints; they are not current holds.
+
 
 Latest review confirmed two bounded gaps after independent refutation: companyfacts transport
 made the EFTS-only exception wording incomplete, and case-insensitive Render phrases matched
@@ -105,7 +138,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
 - [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
 - [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
-- [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
+- [x] W3-5 Rewrite the seven engineering agent files to the real stack; gate and #715 deployment verified above
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
