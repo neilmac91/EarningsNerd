@@ -2,6 +2,25 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E15a — Integrated main checkpoint (engineering)
+
+Integrated main `cab71f9a71f51ce21dfc5f0fa29d3b3f8941bf5c` as merge `4f65b8d`.
+The three documentation conflicts retained both task histories and both lesson links. Sitemap
+runtime, its existing test home and its lesson remain byte-identical to reviewed `b922d32`;
+frontend and locked contracts match main. Correctness, rules/brief and tests/gates integration
+review found no actionable issue. Both original mutation proofs remain valid and were not repeated.
+
+Combined full backend gate on `4f65b8d`: Ruff clean; Bandit zero medium/high severity;
+**2530 passed, 2 deselected, 23 warnings in 51.22s**, exit 0, with actual PostgreSQL billing
+cases enabled and no skips. The existing closed logging-stream shutdown diagnostic appeared
+after pytest's passing summary. Logs: `/private/tmp/earningsnerd-e15-evidence/integrated-ruff.log`,
+`integrated-bandit.log` and `integrated-full.log` in that same directory. No runtime edit,
+provider call, migration replay, frontend gate or additional mutation was needed for integration.
+
+The 567-URL observation below remains explicitly dated cached public output, not current DB
+coverage or E15a deployment verification. Branch publication is authorized after these checks;
+root retains PR creation, CI acceptance and serialized deployment. E15b remains separate.
+
 ### E15a — Match sitemap eligibility to existing page content (engineering)
 
 Based on `6a648f7`. The filing-page server predicate rejects the exact, case-sensitive
