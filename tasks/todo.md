@@ -17,9 +17,9 @@ all other locked tests remain unchanged. This does not approve a replacement-tra
   payload as a success fallback. Retain the existing entitlement writer and original event identity.
 - [x] Apply the approved helper-only stub; add boundary/stale-state tests and extend the existing
   PostgreSQL transaction home for provider contention, cancellation and successful retry.
-- [ ] Commit source, run one bounded mutation per new invariant with exact restore, and run
+- [x] Commit source, run one bounded mutation per new invariant with exact restore, and run
   Ruff/Bandit/full backend plus real PostgreSQL gates. Record evidence and scope limits.
-- [ ] Update configuration/architecture and execution-ledger evidence; return a clean committed
+- [x] Update configuration/architecture and execution-ledger evidence; return a clean committed
   branch to root for independent review/publication. No push, PR, merge or deployment by this agent.
 
 The proposed 2-second connect / 3-second read values are phase/inactivity limits, not a total
@@ -27,9 +27,23 @@ five-second deadline. DNS/progressing responses may exceed their sum. The accoun
 connection remain owned by the worker during this read. Cross-ID replacement chronology,
 cross-user identity races and analytics exactly-once remain separate work.
 
-Focused source checkpoint: 93 billing tests passed, including all unchanged assertions in the
-approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. Source
-commit, invariant mutations, full backend gate and independent review remain pending.
+Source `aa36c95`: 93 focused billing tests passed, including all unchanged assertions in the
+approved locked fixture; real PostgreSQL transaction/provider-wait gate: 13 passed. The full
+local backend gate with real PostgreSQL enabled passed: Ruff clean, Bandit 0 medium/high,
+`2486 passed, 2 deselected, 23 warnings in 55.96s`, exit 0. The first invocation wrapped Python
+in `/bin/sh`, which stripped macOS `DYLD_FALLBACK_LIBRARY_PATH`: 2 PDF native-library failures,
+2484 passed. A direct Python invocation restored the intended environment; no source changed.
+
+Exactly one mutation per new invariant, each with intended assertion failures: stale event in
+place of current snapshot → 4; stale payload fallback after provider failure → 5; skipped provider
+validation → 16; omitted explicit timeout/retry configuration → 3; skipped transport close → 3;
+unbounded/nonfinite settings → 10; disabled reconciliation scope admission → 4 (unknown-owner
+case still passed). The first six proofs preceded the full gate; the final scope proof restored
+exact `aa36c95` source and its focused reconciliation gate passed all 45 tests. Existing worker/lock
+mutations were not repeated; the PostgreSQL
+provider-wait cases extend their contention/cancellation coverage. The approved locked helper
+patch context mechanically reduces to the exact base file; all other locked files are untouched.
+Lesson index link checked. Independent review and root-owned publication/release remain pending.
 
 ### E05b prerequisite — Serialized webhook transactions (engineering)
 

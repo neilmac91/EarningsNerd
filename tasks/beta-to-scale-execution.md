@@ -113,6 +113,11 @@ deploy `101477674329`, succeeded with `applied=0 skipped=34`. Image digest
 E05c reconciles only currently bound created/updated events after the existing account lock and
 dedup. Initial/different-ID, checkout and exact-ID deletion behavior stay unchanged. The founder
 approved only the locked `_post_event` provider stub; every contract assertion remains intact.
-Local source checkpoint: 93 focused billing checks and 13 real PostgreSQL transaction checks
-passed. Provider timeout settings limit connect/read inactivity, not total duration. Mutation,
-full gate, independent review and release evidence remain pending at this checkpoint.
+Source `aa36c95`: 93 focused billing checks and 13 real PostgreSQL transaction checks passed.
+Seven distinct new-invariant mutations produced intended failures and restored exact committed
+bytes; the final scope-admission proof restored `aa36c95` and all 45 focused tests passed.
+Full backend gate with PostgreSQL enabled: Ruff clean, Bandit 0 medium/high,
+`2486 passed, 2 deselected, 23 warnings in 55.96s`, exit 0. The initial `/bin/sh` invocation lost
+the macOS native-library environment and failed two PDF tests; direct Python invocation passed
+without a source change. Provider timeout settings limit connect/read inactivity, not total
+duration. Independent review and release evidence remain pending at this checkpoint.
