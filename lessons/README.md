@@ -65,6 +65,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
+
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action
 
 - [`frontend-citation-offset-boundaries.md`](./frontend-citation-offset-boundaries.md) — Resolve citation starts to the first matched character's text node and pin the actual flash target
