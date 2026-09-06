@@ -134,7 +134,8 @@ the ledger skip). Cloud SQL flag `idle_in_transaction_session_timeout` (founder,
    `@supports selector(::highlight(x))` or move to a JS-registered style); then `@dependabot recreate` #652.
    **#652 as-is would break the Vercel production build.**
 4. Node 20 → 22: `frontend/.nvmrc`, `package.json engines`, `ci.yml:51,91,219`, Vercel project setting
-   (founder) — one PR, lockstep.
+   (founder) — one PR, lockstep. This historical upgrade inventory predates the smoke workflow;
+   future upgrades must update every workflow Node pin per [the deployment guide](../docs/DEPLOYMENT.md).
 5. Advisory-then-blocking audit steps: `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high`.
 **Gate.** Frontend full gate + Playwright; backend full gate; eval gate for (2b). **Size** ~1 day + waits.
 

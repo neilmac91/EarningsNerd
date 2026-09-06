@@ -218,7 +218,7 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 - **Gate:** add `prod-smoke.yml` to `SCHEDULED_FAIL_LOUD` in `test_scheduled_workflows_fail_loud.py`
   (that edit is a `backend/tests/` change: land it with W3-2 if W3-4 is ready in time, otherwise
   accept one no-op deploy). Extend `frontend/tests/unit/nodeVersionLockstep.spec.ts` to read
-  every `.github/workflows/*.yml`, not only `ci.yml`, so the new `node-version` pin is gated.
+  every `.github/workflows/*.yml` and `*.yaml`, so the new `node-version` pin is gated.
 - **Done:** one dispatched green run; one deliberate red dispatch (`filing_path=/filing/does-not-exist`)
   opens the issue; close it. Tick the prod-smoke line in `tasks/todo.md` Phase 1.
 - **Founder row:** set repo variable `SMOKE_FILING_PATH` when the live example filing id is known.

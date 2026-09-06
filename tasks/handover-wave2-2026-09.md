@@ -200,7 +200,7 @@ it does not rewrite old archives or quality-plan bodies. Broader agent/spec debt
    caught the doc saying the opposite.
 6. **Node patch currency is part of "dependency currency".** The first WS-3 draft pinned 22.22.2 while
    22.23.0 and 22.23.2 were security releases. `frontend/tests/unit/nodeVersionLockstep.spec.ts`
-   ties `.nvmrc` / `engines` / `ci.yml`; it does not check patch currency — check nodejs.org
+   ties `.nvmrc` / `engines` / every workflow Node pin (`*.yml` and `*.yaml`); it does not check patch currency — check nodejs.org
    `index.json` when you bump.
 7. **`locate()` boundary defect, fixed in #691.** Historically it had an inclusive upper bound; an excerpt starting exactly at
    a text-node boundary flashes the previous block. The e2e spec no longer depends on it; the fix is
