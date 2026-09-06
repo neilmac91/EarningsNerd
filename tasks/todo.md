@@ -70,12 +70,17 @@ or Copilot. The existing health policy accepts degraded serving status and rejec
   105 exact runtime/dev pins; Ruff/Bandit exit 0; 2382 passed, 2 deselected, 72 warnings (80.15s).
   Frontend lint/TypeScript exit 0, 95 files/487 tests passed (49.74s), production build passed.
   The CI-presence mutant failed its intended assertion; exact restoration passed all three Node checks.
-- [x] Three independent reviews cleared the corrected source; the ancestry/documentation updates
-  preserve all tested workflow and test bytes.
-- [ ] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
+- [x] Three independent reviews cleared the pre-timeout-correction source; its ancestry/docs
+  updates preserved the then-tested workflow and test bytes. Fresh timeout-delta reviews are pending.
+- [x] Correct confirmed #711 timeout reporting: move issue creation/comment to a bounded
   dependent job with `always()` and a non-success worker result; extend the existing parametrized
   gate, prove the condition with one intended mutation, restore and run the full backend gate.
   Artifact upload in the 15-minute worker remains best effort after timeout.
+  Source `481dc168`: 105 exact pins; Ruff/Bandit exit 0; full backend 2382 passed,
+  2 deselected, 72 warnings (52.01s), exit 0. Focused checks 52 passed (3.74s); Node gate
+  3 passed (830ms). Exactly one result-condition mutant failed the intended assertion
+  (1 failed, 1 passed in 0.06s); exact restoration passed both parametrized cases (0.04s).
+  Existing shutdown logging warning is retained. Frontend source/full-gate proof unchanged.
 - [ ] Root: #711 publication and actual CI, including the timeout correction. Adding the backend tuple causes an accepted
   deployment with no migration change; verify it before subsequent backend merges.
 - [ ] After this candidate is merged and its deployment verified, dispatch one genuine green and one deliberate
