@@ -1,3 +1,34 @@
+## E10b — Login integration and retained provider-timeout evidence (2026-09-06)
+
+- [x] Normal approved update published `48725b6`; preserve its actual failed remote gate.
+- [x] Integrate approved login main `414ea913` as `af01a717` without conflicts or E10b source edits.
+- [x] Review combined source, all three PostgreSQL CI lanes, locked bytes and unchanged frontend.
+- [x] Run full Ruff/Bandit/backend with Stripe, usage and login PostgreSQL URLs.
+- [ ] Publish this verified combined source; require new actual CI acceptance before release.
+
+Prior CI `34042727599`, summary artifact `9992270917`, actual regression job `101512271962`
+failed: 52 attempted, 51 scored, one JD 20-F run-0 TimeoutError at 75.003 seconds (10 previews).
+The gate reported execution_errors=1 and missing_scores=1, exit 1; workflow-level green is
+not acceptance. Copilot `34042727616`, artifact `9992209287`, accepted all 18 questions;
+all 24 source hashes and scratch DB verified. Evaluated merge `03b26d4937c3873cdcb34a379958667b11b5e23f`
+has independently verified parents `ee3ac988` and `48725b6`. Retained reports live in
+`/private/tmp/earningsnerd-e10b-evidence/approved-remote`. No old workflow retry, timeout,
+model, prompt, flag or baseline change was used to address this provider timeout.
+
+Combined source `af01a717`: Ruff clean; Bandit zero medium/high;
+`2567 passed, 2 deselected, 23 warnings in 79.27s (0:01:19)`, exit 0, all three PostgreSQL
+URLs enabled. Logs: `/private/tmp/earningsnerd-e10b-login-{ruff,bandit,backend}.log`.
+The frontend is byte-identical to the 518-test/lint/typecheck/build verified `48725b6` tree;
+incoming login source/tests/workflow match main `414ea913`. E10b source/tests equal reviewed
+`5fb6ed1`; original five proofs remain valid and were not repeated. Three-lens integration
+review found no actionable issue. Locked tests and eval baselines match main. The direct
+five-action approval explicitly covers this integration, required gates and normal publication.
+
+Root verified #734 production Vercel deployment `6294637779` for merge `ee3ac988` and canonical
+waitlist HTTP 200. Main CI `34042183730` passed and correctly skipped actual backend deployment.
+#736 is merged as `414ea913`; production run `34043130684` remains in verification here.
+No next backend merge is authorized by an incomplete deployment record.
+
 ## E10b — Explicitly approved verification/publication resumed (2026-09-06)
 
 The user explicitly approved all five actions in the prepared
