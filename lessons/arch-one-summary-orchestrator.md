@@ -21,3 +21,17 @@ Analysis).
 **Evidence**: PRs #549/#565; T1/T2 anchors (`test_summary_stream_contract.py`,
 `test_background_generation_characterization.py`); founder decision record in the plan
 delta log (filing-only convergence, 9-section verdict, `Summary.filing_id` UNIQUE).
+
+**Database ownership (2026-09-06)**: The shared generator's DB units create and close
+their sessions inside the worker, returning plain snapshots or scalar IDs. Progress
+writes also close the read transaction opened by their post-commit refresh. Neither
+admission/provider waits nor the background drain retain preflight connections; the
+SSE route captures its response and entitlement inputs before releasing its request
+session. The pinned FastAPI runtime otherwise keeps yielded request dependencies open
+until the streaming response finishes. A cancelled coroutine must not close a session
+that its worker is still using.
+
+Gate: `backend/tests/unit/test_summary_provider_lifecycle.py::test_generation_waits_release_database_connections`
+uses a real one-connection pool across leader, follower, queue, drain and SSE waits,
+including cancellation while a DB worker owns its transaction. The health-probe
+worker ownership gate lives in `backend/tests/smoke/test_critical_paths.py`.

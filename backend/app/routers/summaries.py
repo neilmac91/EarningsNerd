@@ -203,13 +203,15 @@ async def generate_summary_stream(
 
             db.commit()
         else:
-            # Return existing summary as JSON
+            # Capture the response before closing the dependency's read transaction.
+            payload = {
+                'type': 'complete',
+                'summary': summary.business_overview,
+                'summary_id': summary.id,
+            }
+            db.close()
+
             async def existing_summary():
-                payload = {
-                    'type': 'complete',
-                    'summary': summary.business_overview,
-                    'summary_id': summary.id,
-                }
                 yield f"data: {json.dumps(payload)}\n\n"
             return StreamingResponse(
                 existing_summary(),
@@ -225,8 +227,7 @@ async def generate_summary_stream(
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
     # Activation funnel telemetry context. Plain values are captured eagerly here —
-    # the pipeline generator below runs after this request's DB session is gone, so ORM
-    # attribute access inside it would be unsafe. Prefer the client's PostHog
+    # this route releases its request session before streaming. Prefer the client's PostHog
     # distinct_id so server events join frontend events on the same person.
     telemetry_distinct_id = (ph_id or "")[:200] or str(current_user.id)
     telemetry_entry_point = (entry_point or "")[:64] or None
@@ -237,6 +238,12 @@ async def generate_summary_stream(
         "user_type": "authenticated",
         "forced": force,
     }
+
+    # Populate entitlement inputs while their owning request session is available, then
+    # detach them by closing it. Keep the supplied identity (including internal/test
+    # stand-ins); the pipeline's usage query owns a different, short-lived session.
+    get_entitlements(current_user)
+    db.close()
 
     async def event_stream():
         async for event in stream_filing_summary(
