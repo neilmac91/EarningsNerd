@@ -2,7 +2,52 @@
 
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
-### W3-6 implementation — PyJWT migration (active)
+### Current checkpoint — 2026-09-06
+
+W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete with the recorded verification below.
+W3-6 [#716](https://github.com/neilmac91/EarningsNerd/pull/716) merged
+`a7bc78be791d188f4f36d399dd117ee4282a84bd`; its source gates and independent reviews are
+verified. [Production run 34010252813](https://github.com/neilmac91/EarningsNerd/actions/runs/34010252813),
+deploy job 101424963044, succeeded with `applied=0 skipped=34`; revision
+`earningsnerd-backend-00274-fgq` serves 100% of traffic. Image digest
+`b5ab6f9067f5047df5c4adb4b4071ca9a7315d5e97527d5a9911c291583b9f58` matches source `a7bc78be`.
+Independent `/health/detailed` is healthy: DB 6.41 ms, SEC closed, Redis disabled/healthy.
+The Notable job was not found and its update was skipped; provisioning/activation remains held.
+This is not completion of wave 3.
+
+- [x] Final [CI 34009654771](https://github.com/neilmac91/EarningsNerd/actions/runs/34009654771):
+  backend 2386 passed, 2 deselected, 23 warnings (70.51s); performance 2 passed,
+  18 warnings (15.03s); frontend 487 passed; browser 21 passed (17.1s), 3 existing skips.
+  PostgreSQL migration passes: applied/skipped `34/0`, `0/34`, `34/0`.
+- [x] Summary artifact `9982136005`: 52 complete results, zero errors/vetoes; typed guards
+  and source hashes preserved. Mean untraceable figures 2.0769 remains advisory.
+  [Copilot 34010025095](https://github.com/neilmac91/EarningsNerd/actions/runs/34010025095),
+  artifact `9982206256`: 18 passing results, zero errors/vetoes; six source bundles and
+  database hashes verified. Neither result is the held strong-judge readout.
+- [x] W3-5's late DevOps dependency-pinning prose qualification is included in merged #716;
+  application/lint-test requirements are locked, ancillary installers are not uniformly pinned.
+- [x] #716 deployment, actual migration tail, serving revision/traffic and independent public
+  health verified as recorded above.
+- [ ] Separate frontend audit follow-up: the current GitHub open-alert readout retains
+  [Dependabot #270](https://github.com/neilmac91/EarningsNerd/security/dependabot/270),
+  high-severity `extract-zip` in `frontend/package-lock.json`, development
+  scope. No backend alert is open and the runtime-lock pip-audit is clean; this does not
+  establish repository-wide audit clearance or change the advisory policy. No dependency
+  change for this unrelated finding is included in W3-6.
+
+W3-3 remains held: supplied `Production` credentials reached
+[run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), which
+failed at the first S&P 500 route `/stable/sp500-constituent` with HTTP 402 (exit 2).
+[Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data or
+auto-PR was produced; `/stable/nasdaq-constituent` was not reached. The founder must provide
+account/key entitlement for both documented routes before retry. The response alone does not
+establish a billing cause, and this is not a missing-secret finding. All later founder holds remain.
+
+### W3-6 implementation history — PyJWT migration
+
+The following checklists preserve pre-merge source and correction checkpoints, including their
+then-current draft/release status. The current status is the checkpoint above.
+
 
 Owner: plan_correctness. Root owns publication, independent reviews, CI, merge and deployment.
 Entry satisfied: #715 merged `56d33f0435723030b072017ba47e2d3e32697132`; production
@@ -220,7 +265,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [ ] W3-3 Universe refresh: supplied `Production` key reached [run 34000192154](https://github.com/neilmac91/EarningsNerd/actions/runs/34000192154), job 101397548811; FMP `/stable/sp500-constituent` returned HTTP 402 Payment Required and the script exited 2. [Issue #710](https://github.com/neilmac91/EarningsNerd/issues/710) remains open. No data changed or auto-PR step ran; Nasdaq entitlement is untested. Held for founder-provided endpoint entitlement/key before retry, without changing billing, keys or Actions settings — deadline remains 2026-10-01 cron / 2026-10-16 age gate.
 - [x] W3-4 Daily production smoke: #711 deployed; #713 corrected launcher targeting; actual green 34002892976 and deliberate red 34003003306 verified with separate failure reporter and resolved issues (details below).
 - [x] W3-5 Rewrite the seven engineering agent files to the real stack; gate and #715 deployment verified above
-- [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
+- [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
 - [ ] W3-9 Historical reconciliation-flag audit/repair script (dry-run default) → **(founder)** executes

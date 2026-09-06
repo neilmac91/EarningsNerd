@@ -21,8 +21,24 @@ W3-4 smoke acceptance is verified after #713 (green 34002892976, deliberate red 
 W3-5 #715 merged `56d33f04`; production run 34006685337/deploy job 101415369329 succeeded
 with `applied=0 skipped=34`, revision `00273-r65` at 100%, and independent healthy DB 15.29 ms,
 SEC closed. Notable provisioning/activation remains held; its absent job update was skipped.
-W3-6 is active. W3-3 remains held after actual FMP HTTP 402 / issue #710; other founder holds
-remain unchanged. The following original review checkpoint remains historical evidence.
+W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete. W3-6
+[#716](https://github.com/neilmac91/EarningsNerd/pull/716) merged
+`a7bc78be791d188f4f36d399dd117ee4282a84bd`; final CI 34009654771 and Copilot 34010025095
+are verified (exact tails and artifacts in the [current todo checkpoint](todo.md#current-checkpoint--2026-09-06)).
+[Production run 34010252813](https://github.com/neilmac91/EarningsNerd/actions/runs/34010252813),
+deploy job 101424963044, succeeded: `applied=0 skipped=34`, revision
+`earningsnerd-backend-00274-fgq` at 100% traffic, image digest
+`b5ab6f9067f5047df5c4adb4b4071ca9a7315d5e97527d5a9911c291583b9f58` from source `a7bc78be`.
+Independent detailed health is healthy (DB 6.41 ms, SEC closed, Redis disabled/healthy).
+The Notable job remains absent; its image update was skipped, preserving the founder hold.
+#716 also includes the late W3-5 DevOps
+prose qualification about ancillary installers; it adds no new unpinned installation policy.
+W3-3 remains held after run 34000192154 returned HTTP 402 at `/stable/sp500-constituent`;
+issue #710 is open. The supplied key reached that first route; `/stable/nasdaq-constituent`
+was not reached. Founder account/key entitlement for both documented routes is needed before
+retry; the response does not establish a billing cause or missing secret. Other founder holds,
+including the first strong-judge readout, remain unchanged. Wave 3 is not complete.
+The following original review checkpoint remains historical evidence.
 
 | Item | Observed 2026-09-05 |
 |---|---|
@@ -44,7 +60,7 @@ disposition:
 | D4 | Both refresh runs in the complete available history (2026-08-01 and 2026-09-01) failed on old source `e8ea339f`, which explicitly selected Wikipedia and supplied no FMP input; the Nasdaq-100 parser found no usable constituents table. Both revisions lacked an issue step, so no failure issue is expected from them. The current FMP auto-selection/issue path has not yet run; `FMP_API_KEY` was absent from repository secret names at review, which does not establish historical secret state. The founder has since supplied it in GitHub `Production`; metadata is verified, environment binding/refresh evidence remain pending. Next cron 2026-10-01; age gate trips 2026-10-16. | W3-3 |
 | D5 | No scheduled production smoke; `frontend/tests/e2e/prod-smoke.spec.ts` is opt-in via `SMOKE_BASE_URL`. This gap hid a seven-week frontend/backend skew earlier. | W3-4 |
 | D6 | Stale docs: `CONTRIBUTING.md` Node 20.x; briefs pointer to old DEPLOYMENT.md lines; briefs "#687 this PR"; dashboard plan config line numbers. | Fixed in the PR that added this file |
-| D7 | Advisory `ecdsa 0.19.2 / PYSEC-2026-1325` has no upstream fix; python-jose is its only direct dependency parent in the inspected environment. Four production modules import jose. Inspected default HS256 signing and explicit RS256 OAuth verification do not use the vulnerable private-key operations; the exact pinned local runtime selects cryptography backends. This is not proof about every deployed/configured path and does not remove the advisory. The locked auth contract test has no jose import; two non-locked test modules do. | W3-6 |
+| D7 | Advisory `ecdsa 0.19.2 / PYSEC-2026-1325` has no upstream fix; python-jose is its only direct dependency parent in the inspected environment. Four production modules import jose. Inspected default HS256 signing and explicit RS256 OAuth verification do not use the vulnerable private-key operations; the exact pinned local runtime selects cryptography backends. This is not proof about every deployed/configured path and does not remove the advisory. The locked auth contract test has no jose import; two non-locked test modules do. | W3-6 #716 merged; CI, deployment and health verified |
 | D8 | Two stale remote branches with no PR: `claude/earnings-nerd-audit-plan-8iikp3`, `claude/earningsnerd-sections-review-prompt-aw2u7c`. | Founder OK, then delete |
 | D9 | The GitHub bot did not re-review after `c660e9a1`; final manual correctness/rules/evidence reviews covered `34350292`, and its tree equals the merge. Do not conflate the bot checkpoint with missing manual review. | W3-0 verified |
 | D10 | Vercel quota caveat is moot (Pro). | Recorded above |
@@ -86,7 +102,7 @@ do not remove a supplied credential to manufacture a failure. Strong-judge dispa
 | Founder action | Unblocks | Evidence to retain |
 |---|---|---|
 | Add `ANTHROPIC_API_KEY` as an Actions secret, then dispatch `data-quality-weekly.yml` | W3-7 | The `weekly-judged-readout-<run>` artifact with `status != unavailable` and 24/24 scored; the emailed report |
-| `FMP_API_KEY` supplied in GitHub `Production` (metadata verified; founder step done) | W3-3 after W3-2 environment binding/deployment | Successful refresh and reviewed auto-PR still pending |
+| Supplied `Production` FMP key reached the API; founder account/key entitlement for both stable constituent routes remains needed | W3-3 retry after HTTP 402 / issue #710 | Successful refresh and reviewed auto-PR still pending; Nasdaq route untested |
 | Create the `earningsnerd-notable-filings` Cloud Run job + Scheduler per `docs/DEPLOYMENT.md` §12; seed `--days 7`; review one full subsequent week; record retain/kill | W3-10 Notable | Execution ids, counts, the week's review notes |
 | Read the effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS`; run the companyfacts warm-up (`scripts/sync_companyfacts.py`) on the seeded cohort | W3-10 Analysis | Deployment id, cohort, success/error counts |
 | Grant the deployer SA access to `INTERNAL_JOB_TOKEN`; run `backfill_filing_history.py --tickers C,MS,WFC,GS` | Weekly-report anomalies | Live report coverage evidence |
@@ -195,10 +211,12 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 **Completed:** W3-2 #709 source gates, independent reviews, CI, merge, deployment and effective-pin observation are verified in §0 and the active todo.
 
 ### W3-3 — Universe refresh (founder key, then engineering verification; auto-PR deploys)
-- **Credential prerequisite supplied:** `FMP_API_KEY` exists in GitHub `Production` (metadata
-  verified, value unread). After W3-2 environment binding and verified deployment, dispatch
-  `refresh-index-membership.yml`. Preserve actual success/failure evidence; do not manufacture
-  a keyless failure now that the founder supplied the key.
+- **Current hold:** the supplied `Production` key reached run 34000192154 after W3-2
+  verification. The first route `/stable/sp500-constituent` returned HTTP 402 (exit 2);
+  `/stable/nasdaq-constituent` was not reached. Issue #710 remains open; no data or auto-PR
+  was produced. The founder must provide account/key entitlement for both routes before
+  retrying `refresh-index-membership.yml`. Do not infer a billing cause or manufacture a
+  keyless failure. Preserve actual success/failure evidence.
 - **Successful refresh:** draft PR "Refresh index membership (S&P 500 / Nasdaq 100)"
   on `automation/refresh-index-membership`; review added/removed tickers; merge (deploys because
   `backend/app/data/` changed; verify per `AGENTS.md` §6); close the issue with the PR link.
