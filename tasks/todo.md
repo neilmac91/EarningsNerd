@@ -13,9 +13,9 @@ semantics; no locked contract, schema, payment policy, retention or production c
   account, with explicit fields and UTC timestamps; exclude other accounts and unattributed rows.
 - [x] Gate the real export route in the existing billing unit home, including retained live/test
   evidence, optional nulls, exact timestamps, account isolation and an empty account result.
-- [ ] Commit source, perform one original-export mutation proof and exact restoration, then run
+- [x] Commit source, perform one original-export mutation proof and exact restoration, then run
   the full backend gate with the actual PostgreSQL transaction cases enabled.
-- [ ] Return reviewable committed evidence to root; root owns publication and serial deployment.
+- [x] Return reviewable committed evidence to root; root owns publication and serial deployment.
 
 Source `f5f4c99` passed the existing billing home (28 tests). One original-export mutation
 failed with `KeyError: 'billing_payments'`; exact restoration passed 28 tests. Independent review
@@ -23,6 +23,22 @@ then identified timezone relabeling of aware database values. The correction con
 values to UTC and attaches UTC only to SQLite's naive values. The same route regression now
 also covers a database value represented at UTC+02:00; its represented instant must survive.
 The initial full run is superseded because it began before this correction was requested.
+
+Corrected source `b79ac6e` passed 29 billing tests. Exactly one prior-serialization mutation
+failed on shifted `02:00:00Z` timestamps; exact restoration passed all 29 tests. Earlier payment,
+report and original-export proofs were retained without repetition. Root's corrected review is
+clear across correctness, rules/brief and tests/gates. Both review findings survived two independent
+refutation attempts; all locked tests remain byte-identical to `1fbec92`.
+
+Final corrected full gate: Ruff clean; Bandit 0 medium/high severity; **2526 passed, 2 deselected,
+23 warnings in 50.00s**, exit 0, with the actual PostgreSQL transaction home enabled.
+The same pre-existing closed logging-stream teardown diagnostic followed pytest's passing summary.
+No workflow, migrations, schema, policy or provider calls changed. No push or deployment by this task.
+Evidence: `/private/tmp/earningsnerd-e06-export-mutation.log`,
+`/private/tmp/earningsnerd-e06-export-timezone-mutation.log`,
+`/private/tmp/earningsnerd-e06-export-final-focused.log`,
+`/private/tmp/earningsnerd-e06-export-final-bandit.log` and
+`/private/tmp/earningsnerd-e06-export-final-full.log`.
 
 ### E06 — Observed invoice-payment evidence (engineering)
 
