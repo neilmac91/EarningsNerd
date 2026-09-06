@@ -136,6 +136,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `PRO_SUMMARY_MONTHLY_CAP` | `300` | Invisible Pro anti-abuse ceiling for fresh generations per month; 0 disables; billing remains unlimited. |
 | `USAGE_COUNTER_LOCK_TIMEOUT_MS` | `3000` | PostgreSQL transaction-local lock waits for monthly counter writes; whole milliseconds from 1 through 10000. Does not bound total transaction/network duration. |
+| `USAGE_RESERVATION_TTL_SECONDS` | `300` | How long a summary admission reservation (E07b lease in `earningsnerd_usage_reservations`) holds a quota unit if the owning process dies before converting or releasing it; must exceed the 120 s pipeline timeout, at most 3600. Expired rows are ignored by admission and swept on the account's next admission. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
 | `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls. |
 | `COPILOT_MONTHLY_QUESTION_CAP` | `1000` | Monthly question fair-use ceiling per Pro account. |
