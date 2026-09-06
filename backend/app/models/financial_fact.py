@@ -61,6 +61,14 @@ class FinancialFact(Base):
             "accession",
             name="uq_financial_fact_identity",
         ),
+        # Filing-scoped annual figures include the filing's restated (non-latest) facts too.
+        Index(
+            "ix_financial_fact_filing_period_concept_end",
+            "filing_id",
+            "fiscal_period",
+            "concept",
+            "period_end",
+        ),
         # Current-values-only partial indexes power the two hot read paths (peers + time-series).
         # The `WHERE` is Postgres-only; on SQLite SQLAlchemy emits a plain index, which is fine.
         Index("ix_financial_fact_peer", "concept", "period_end", postgresql_where=text("is_latest")),
