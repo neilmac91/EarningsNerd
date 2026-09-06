@@ -3,6 +3,20 @@
 ## Beta-to-scale implementation — approved 2026-09-06
 
 
+### E06 review correction — Include attributed payment evidence in account export (engineering)
+
+Two independent code refutation passes confirmed that the explicit account export omits the
+new account-linked BillingPayment observations. Preserve the existing export fields and billing
+semantics; no locked contract, schema, payment policy, retention or production changes.
+
+- [ ] Add a `billing_payments` array containing all stored observations owned by the authenticated
+  account, with explicit fields and UTC timestamps; exclude other accounts and unattributed rows.
+- [ ] Gate the real export route in the existing billing unit home, including retained live/test
+  evidence, optional nulls, exact timestamps, account isolation and an empty account result.
+- [ ] Commit source, perform one original-export mutation proof and exact restoration, then run
+  the full backend gate with the actual PostgreSQL transaction cases enabled.
+- [ ] Return reviewable committed evidence to root; root owns publication and serial deployment.
+
 ### E06 — Observed invoice-payment evidence (engineering)
 
 Founder-approved implementation follows the bounded read-only design. Start at `f94501f`;
