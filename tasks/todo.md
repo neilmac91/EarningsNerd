@@ -12,27 +12,48 @@ Image digest `d3c86ac5d708dd272e0a7619d3e3eff2deb83428f16705f2beadd662ef92548b`;
 independent detailed health healthy (DB 15.29 ms, SEC closed). Notable job was not found and
 its update was skipped; its founder provisioning/activation hold remains.
 
-- [ ] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
+- [x] Migrate only the four JWT production modules, preserving fixed algorithms, audiences,
   issuers, nonce binding, string subjects and configured clock-skew leeway. Disclose that
   PyJWT enforces the existing required-claim lists and future `iat` validation.
-- [ ] Apply the two founder-preapproved non-locked test edits: library/leeway in
+- [x] Apply the two founder-preapproved non-locked test edits: library/leeway in
   `test_security_hardening_week7.py`, selected-JWK conversion in `test_apple_signin.py`.
   Keep all assertions and the four locked contracts unchanged; no live OAuth.
 - [x] Resolve the observed compiler platform delta before accepting the lock: macOS ARM
   SQLAlchemy metadata omits greenlet, although existing Linux/CI lock includes 3.5.1. Preserve
   that existing runtime pin through an explicit input, without enabling async database behavior.
   Retain the first compiler output and re-check that only the four retired packages disappear.
-- [ ] Replace the dependency input with `PyJWT[crypto]>=2.10,<3`; compile using documented
+- [x] Replace the dependency input with `PyJWT[crypto]>=2.10,<3`; compile using documented
   Python 3.11 command and pip-tools 7.6.1, preserving unrelated pins. Install a fresh coherent
   runtime outside Documents; prove retired jose/ecdsa/rsa/pyasn1 distributions absent.
-- [ ] Add the one planned AST/dependency gate; inject one actual jose import, demonstrate its
+- [x] Add the one planned AST/dependency gate; inject one actual jose import, demonstrate its
   intended assertion failure, restore exact committed bytes and retain both tails.
-- [ ] Run full Ruff/Bandit/pytest and actual pip-audit; preserve advisory posture and report
+- [x] Run full Ruff/Bandit/pytest and actual pip-audit; preserve advisory posture and report
   remaining findings. Prove locked contracts, sole baseline and historical archives unchanged.
 - [x] Include the separately confirmed late W3-5 prose correction: qualify the DevOps brief
   dependency-pinning claim; preserve its no-new-unpinned-installs directive and change no tools/workflows.
-- [ ] Synchronize active handover/todo checkpoints with observed evidence; retain dated
+- [x] Synchronize active handover/todo checkpoints with observed evidence; retain dated
   historical findings and original definition of done. Commit final results, stop before push.
+
+Local source `25548116`: Python 3.11.16 / PyJWT 2.13.0, 102 exact runtime/dev pins,
+retired jose/ecdsa/rsa/pyasn1 distributions and modules absent. Documented pip-compile command
+retained every unrelated version; explicit greenlet 3.5.1 input preserves the prior Linux pin.
+The first platform-dropping output is retained and excluded. The supported compiler header
+override records actual arguments after a Click default-rendering artifact; no resolver flag
+or compiled version was hand-edited.
+
+Focused existing auth/refresh/Apple/leeway and the new gate: 44 passed, 17 warnings (28.74s).
+The sole new actual-jose-import mutant failed its intended AST assertion (1 failed in 0.58s),
+then exact restoration passed (1 passed in 0.51s). Full Ruff/Bandit exit 0;
+2384 passed, 2 deselected, 23 warnings (67.59s), exit 0. The existing post-summary shutdown
+logging error is retained. Actual runtime-lock pip-audit reports 99 dependencies, no known
+vulnerabilities, exit 0; audit policy stays advisory and other ecosystems are not covered.
+All 59 current archives (including the original 52), original handover/ledger, dated review
+finding text, four locked contracts and sole baseline are byte-identical; 18 local owning-doc
+links resolve. The private initial archive-count assumption (52 total versus actual 59) was
+corrected to compare complete inventories and retained as excluded checker evidence.
+
+- [ ] Root: final independent review, draft publication, actual required CI, merge and verified
+  deployment. Local source/evidence completion does not claim a shipped W3-6 change.
 
 ### W3-5 preparation history — verified #715
 
