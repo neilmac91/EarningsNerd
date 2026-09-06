@@ -20,12 +20,12 @@ from starlette.requests import Request
 
 from app import database
 from app.database import Base
-from app.models import StripeEvent, Subscription, User
+from app.models import BillingPayment, InviteCode, StripeEvent, Subscription, User
 from app.routers import subscriptions
 from app.services import subscription_sync, subscription_webhook_service as service
 
 
-TABLES = [User.__table__, Subscription.__table__, StripeEvent.__table__]
+TABLES = [User.__table__, Subscription.__table__, StripeEvent.__table__, InviteCode.__table__, BillingPayment.__table__]
 
 
 @pytest.fixture
@@ -374,3 +374,150 @@ async def test_postgres_provider_read_holds_lock_through_completion_and_retry(po
     assert _billing(postgres_engine, user_id) == (False, "past_due", 1, 2)
     assert await _deliver(payload) == {"status": "success", "idempotent": True}
     assert reads == [("sub_test", "cus_test")]
+
+
+def _payment_event(event_id="evt_payment"):
+    return {"id": event_id, "type": "invoice_payment.paid", "livemode": True,
+            "data": {"object": {"id": "inpay_test", "object": "invoice_payment", "invoice": "in_test",
+                                 "livemode": True, "currency": "usd", "amount_paid": 3900, "status": "paid",
+                                 "payment": {"type": "payment_intent", "payment_intent": "pi_test"},
+                                 "status_transitions": {"paid_at": 1788739200}}}}
+
+
+def _payment_invoice():
+    return {"id": "in_test", "object": "invoice", "currency": "usd", "livemode": True,
+            "customer": "cus_test", "parent": {"subscription_details": {"subscription": "sub_old"}}}
+
+
+def _payments(engine):
+    with Session(engine) as db:
+        return (db.query(BillingPayment).count(), db.query(StripeEvent).count(),
+                sum(row.amount_minor for row in db.query(BillingPayment)))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [None, "provider", "ledger"])
+async def test_payment_and_event_commit_together_before_signal(sqlite_engine, monkeypatch, failure):
+    _seed(sqlite_engine)
+    closed, captures = threading.Event(), []
+
+    class ObservedSession(Session):
+        def close(self):
+            super().close()
+            closed.set()
+
+    _install_factory(monkeypatch, sqlite_engine, ObservedSession)
+
+    def read_invoice(_):
+        if failure == "provider":
+            raise service.SubscriptionReconciliationUnavailable("unavailable")
+        return _payment_invoice()
+
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", read_invoice)
+    monkeypatch.setattr(service, "capture_event", lambda *args: captures.append((closed.is_set(), _payments(sqlite_engine))))
+    if failure == "ledger":
+        def fail(db, *_):
+            db.flush()
+            raise RuntimeError("forced ledger failure")
+        monkeypatch.setattr(subscription_sync, "mark_event_processed", fail)
+    if failure:
+        with pytest.raises(HTTPException) as error:
+            await _deliver(_payment_event())
+        assert error.value.status_code == (503 if failure == "provider" else 500)
+        assert _payments(sqlite_engine) == (0, 0, 0)
+        assert captures == []
+    else:
+        assert await _deliver(_payment_event()) == {"status": "success"}
+        assert captures == [(True, (1, 1, 3900))]
+        monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: pytest.fail("duplicate read Stripe"))
+        assert await _deliver(_payment_event()) == {"status": "success", "idempotent": True}
+        assert _payments(sqlite_engine) == (1, 1, 3900)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("malformed", [
+    {"parent": []}, {"parent": {"subscription_details": "bad"}}, {"lines": "bad"},
+    {"lines": {"data": "bad"}}, {"lines": {"has_more": False, "data": [{"pricing": []}]}},
+    {"lines": {"has_more": False, "data": [{"pricing": {"price_details": "bad"}}]}},
+])
+async def test_invoice_shape_failure_is_retryable_and_preserves_evidence(sqlite_engine, monkeypatch, malformed):
+    _seed(sqlite_engine)
+    _install_factory(monkeypatch, sqlite_engine)
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: {**_payment_invoice(), **malformed})
+    with pytest.raises(HTTPException) as error:
+        await _deliver(_payment_event())
+    assert error.value.status_code == 503
+    assert _payments(sqlite_engine) == (0, 0, 0)
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: _payment_invoice())
+    assert await _deliver(_payment_event()) == {"status": "success"}
+    assert _payments(sqlite_engine) == (1, 1, 3900)
+
+
+@pytest.mark.asyncio
+async def test_postgres_duplicate_payment_distinct_events_count_once(postgres_engine, monkeypatch):
+    _seed(postgres_engine)
+    _install_factory(monkeypatch, postgres_engine)
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: _payment_invoice())
+    entered, release = threading.Event(), threading.Event()
+    original = service.billing_revenue_service.record_payment
+
+    def hold_first(*args):
+        if not entered.is_set():
+            entered.set()
+            assert release.wait(5), "test did not release payment worker"
+        return original(*args)
+
+    monkeypatch.setattr(service.billing_revenue_service, "record_payment", hold_first)
+    first = asyncio.create_task(_deliver(_payment_event()))
+    try:
+        assert await asyncio.to_thread(entered.wait, 5)
+        with pytest.raises(HTTPException) as error:
+            await _deliver(_payment_event("evt_another_payment_delivery"))
+        assert error.value.status_code == 503
+        assert _payments(postgres_engine) == (0, 0, 0)
+    finally:
+        release.set()
+        assert await first == {"status": "success"}
+    assert await _deliver(_payment_event("evt_another_payment_delivery")) == {"status": "success"}
+    assert _payments(postgres_engine) == (1, 2, 3900)
+
+
+def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(postgres_engine):
+    """A concurrent first payment must not outgrow a separate user-to-first-time dictionary."""
+    from datetime import datetime, timezone
+    from app.services.billing_revenue_service import payment_report
+
+    user_id = _seed(postgres_engine)
+    since = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    until = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    inserted = False
+
+    def insert_after_snapshot(conn, cursor, statement, parameters, context, executemany):
+        nonlocal inserted
+        if inserted or "min(" not in statement.lower() or "earningsnerd_billing_payments" not in statement:
+            return
+        inserted = True
+        with Session(postgres_engine) as writer:
+            writer.add(BillingPayment(
+                stripe_payment_id="inpay_concurrent_report", livemode=True,
+                stripe_invoice_id="in_concurrent_report", source_event_id="evt_concurrent_report",
+                amount_minor=3900, currency="usd", payment_type="payment_intent", paid_at=since,
+                subscription_invoice=True, user_id=user_id, attribution="attributed",
+            ))
+            writer.commit()
+
+    sqlalchemy_event.listen(postgres_engine, "after_cursor_execute", insert_after_snapshot)
+    try:
+        with Session(postgres_engine) as reader:
+            report = payment_report(reader, since, until)
+    finally:
+        sqlalchemy_event.remove(postgres_engine, "after_cursor_execute", insert_after_snapshot)
+    assert inserted
+    assert report["currencies"] == []
+    assert report["first_observed_payment_cohorts"] == []
+    # This separate coverage-metadata statement can see a newer committed observation.
+    assert report["earliest_retained_observation"] is not None
+    with Session(postgres_engine) as reader:
+        next_report = payment_report(reader, since, until)
+    assert next_report["currencies"][0]["observed_paying_users"] == 1
+    assert next_report["first_observed_payment_cohorts"][0]["users"] == 1

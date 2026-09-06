@@ -2,6 +2,155 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+
+### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
+
+CI run 34034568223 failed the existing nonlocked E03 lifetime case before provider readiness:
+progress SQL raced an excerpt worker against its one-connection/50 ms test pool. Three independent
+code passes support this interleaving; the actual CI connection holder remains inferred. Preserve
+all runtime code, locked anchors, pool limits, readiness checks and cancellation/ownership assertions.
+
+- [x] Serialize only this fixture's dispatched DB units inside their worker with a threading mutex;
+  retain independent connection probes outside it, including cancellation-before-worker-close checks.
+- [x] Reproduce controlled preparatory contention once and pass the corrected target under the same
+  delay; prove intentional connection retention still fails the existing lifetime assertion once.
+- [x] Restore committed source, run the full PostgreSQL backend gate, record evidence and return a
+  clean reviewed head to root for publication. No timeout increase, retries, skip or production edit.
+
+Source `7b6d8c3` changes only 14 lines in the nonlocked lifecycle gate. The mutex lives inside
+actual dispatched workers and spans each complete DB unit, so cancelling its await cannot release
+serialization before session cleanup. Runtime code and locked anchors are unchanged.
+
+A controlled diagnostic held the excerpt's connection for 150 ms and waited for its ownership
+before dispatching analyzing progress. The original fixture failed with the same 50 ms QueuePool
+error (1 failed); the corrected fixture passed under identical conditions (1 passed). This proves
+the competing-worker interleaving, not the identity of the connection holder in the CI failure.
+Exactly one harness-integrity mutation retained a Session during provider wait and failed the
+existing `provider retained a DB connection` assertion. All temporary diagnostics/mutations were
+restored byte-for-byte; the unchanged full lifecycle home then passed 24 tests.
+
+Final full gate on `7b6d8c3`: Ruff clean; Bandit 0 medium/high; **2526 passed, 2 deselected,
+23 warnings in 56.65s**, exit 0, including actual PostgreSQL transaction cases. The existing closed
+logging-stream teardown diagnostic followed the passing summary. Prior payment/export proofs
+were not repeated. Root reviewed committed `7b6d8c3` and cleared correctness, rules/brief and
+tests/gates: worker mutex spans cleanup, independent probes and strict original assertions remain
+intact, and the controlled contention/retention evidence supports the correction. Root owns
+publication and serial deployment.
+Evidence: `/private/tmp/earningsnerd-e06-contention-repro.log`,
+`/private/tmp/earningsnerd-e06-contention-corrected.log`,
+`/private/tmp/earningsnerd-e06-lifetime-retention-mutation.log`,
+`/private/tmp/earningsnerd-e06-lifetime-final-focused.log`,
+`/private/tmp/earningsnerd-e06-ci-fixture-final-bandit.log` and
+`/private/tmp/earningsnerd-e06-ci-fixture-final-full.log`.
+
+### E06 review correction — Include attributed payment evidence in account export (engineering)
+
+Two independent code refutation passes confirmed that the explicit account export omits the
+new account-linked BillingPayment observations. Preserve the existing export fields and billing
+semantics; no locked contract, schema, payment policy, retention or production changes.
+
+- [x] Add a `billing_payments` array containing all stored observations owned by the authenticated
+  account, with explicit fields and UTC timestamps; exclude other accounts and unattributed rows.
+- [x] Gate the real export route in the existing billing unit home, including retained live/test
+  evidence, optional nulls, exact timestamps, account isolation and an empty account result.
+- [x] Commit source, perform one original-export mutation proof and exact restoration, then run
+  the full backend gate with the actual PostgreSQL transaction cases enabled.
+- [x] Return reviewable committed evidence to root; root owns publication and serial deployment.
+
+Source `f5f4c99` passed the existing billing home (28 tests). One original-export mutation
+failed with `KeyError: 'billing_payments'`; exact restoration passed 28 tests. Independent review
+then identified timezone relabeling of aware database values. The correction converts aware
+values to UTC and attaches UTC only to SQLite's naive values. The same route regression now
+also covers a database value represented at UTC+02:00; its represented instant must survive.
+The initial full run is superseded because it began before this correction was requested.
+
+Corrected source `b79ac6e` passed 29 billing tests. Exactly one prior-serialization mutation
+failed on shifted `02:00:00Z` timestamps; exact restoration passed all 29 tests. Earlier payment,
+report and original-export proofs were retained without repetition. Root's corrected review is
+clear across correctness, rules/brief and tests/gates. Both review findings survived two independent
+refutation attempts; all locked tests remain byte-identical to `1fbec92`.
+
+Final corrected full gate: Ruff clean; Bandit 0 medium/high severity; **2526 passed, 2 deselected,
+23 warnings in 50.00s**, exit 0, with the actual PostgreSQL transaction home enabled.
+The same pre-existing closed logging-stream teardown diagnostic followed pytest's passing summary.
+No workflow, migrations, schema, policy or provider calls changed. No push or deployment by this task.
+Evidence: `/private/tmp/earningsnerd-e06-export-mutation.log`,
+`/private/tmp/earningsnerd-e06-export-timezone-mutation.log`,
+`/private/tmp/earningsnerd-e06-export-final-focused.log`,
+`/private/tmp/earningsnerd-e06-export-final-bandit.log` and
+`/private/tmp/earningsnerd-e06-export-final-full.log`.
+
+### E06 — Observed invoice-payment evidence (engineering)
+
+Founder-approved implementation follows the bounded read-only design. Start at `f94501f`;
+merge E05c before publication. Only `invoice_payment.paid` records allocations. This is gross
+observed payment evidence, not MRR/ARR, net revenue or an accounting ledger. No prices, promo,
+trial, production endpoint selection, API-version setting or monetary transaction changes.
+
+- [x] Add a minimal minor-unit payment model and new guarded idempotent migration; preserve
+  account deletion through ORM/FK cascade and minimize unattributed pseudonymous references.
+- [x] Validate canonical payment evidence, attribute only unambiguous customer ownership,
+  deduplicate payment IDs across event IDs, and snapshot beta/invite dimensions without inference.
+- [x] Add a read-only report with separate currencies/modes, supported payment types, zero and
+  unattributed exclusions from paying-user cohorts, and explicit coverage/refund/credit limits.
+- [x] Integrate E05c's bounded reader and existing transaction worker; record payment/event in
+  one commit and emit best-effort analytics after session closure. No second Stripe client owner.
+- [x] Add money/evidence/model tests in one new unit home and extend the existing transaction
+  home for actual PostgreSQL duplicate delivery. Keep locked tests byte-identical.
+- [x] Commit source, retain exactly one mutation proof per new invariant, and run full backend
+  and actual PostgreSQL/migration gates with exact evidence.
+- [x] Complete independent review of the corrected final source before publication.
+- [ ] Root publishes and verifies CI/release serially after E05c; verify production endpoint
+  event selection separately before claiming observation coverage. No historical backfill.
+
+
+E06 source `26f66a2` integrated E05c `aa36c95` without further locked-test edits. Initial focused
+billing gate: 99 passed, 9 PostgreSQL-only skips; actual PostgreSQL transaction home: 23 passed.
+Eight bounded mutations each produced one intended failure: allocation conflict, ambiguous
+attribution, zero exclusion, truncated price page, cohort paid-time ordering, account erasure,
+payment/event atomicity, and provider invoice identity. Every mutation restored committed bytes.
+
+Independent review found a READ COMMITTED report race that the initial gate missed: a first
+payment inserted between separate first-timestamp/window reads could raise KeyError. Corrected
+source `a7e2ff4` uses a grouped first-payment subquery in the same window-row statement. The new
+PostgreSQL interleaving regression and revenue unit home passed 28 tests. Exactly one additional
+prior-query mutation reproduced the KeyError (1 failed); it was restored. Earlier eight proofs
+were not repeated. Coverage metadata remains a later read, not an atomic full-report snapshot.
+
+Prior source gate on `a7e2ff4`: Ruff clean; Bandit 0 medium/high severity; **2524 passed, 2 deselected,
+23 warnings in 51.90s**, including all actual PostgreSQL cases. The interpreter emitted a closed
+logging-stream teardown diagnostic after pytest's passing summary; no test failed. Prior source's
+2514-passed/9-skipped result is superseded. No eval runner, live Stripe call, endpoint change,
+price/promo change, push or deployment was performed by this task.
+
+The dedicated local PostgreSQL 15 database `earningsnerd_e06_migrations` passed the repository
+migration script with the legacy-name decoy: **applied=35 skipped=0 → applied=0 skipped=35 →
+applied=35 skipped=0** after test-ledger reset; the new User FK reports cascade. Initial harness
+setup stopped before applying SQL because the standalone Settings required a test SECRET_KEY;
+setting that test-only value resolved it. Existing applied migrations remain untouched.
+
+Evidence files retained locally: `/private/tmp/earningsnerd-e06-focused.log`,
+`earningsnerd-e06-postgres.log`, `earningsnerd-e06-mutation-*.log`,
+`earningsnerd-e06-report-race-fixed.log`, `earningsnerd-e06-migrations.log`,
+`earningsnerd-e06-bandit-final.log` and `earningsnerd-e06-full-final.log` (same `/private/tmp/`
+prefix). [Operating guide](../docs/observed-invoice-payments.md) defines report limits and the
+production endpoint/event-selection verification still required before coverage is claimed.
+
+E06 integration checkpoint: root and independent correctness/rules/tests reviews cleared the
+report correction. Integrated E10 main `a5ba97e` as `fb0e846`, then E05c main `6a648f7` as
+`bef2dc8`. E05c source equals inherited `aa36c95`; expected squash conflicts retained E06's
+reader factoring, payment worker path and PostgreSQL regression. Mechanical diff against
+`fb0e846` found no E06 runtime/test changes. Locked contracts are byte-identical to current main.
+No mutation proof was repeated. The prior 35-file migration replay excludes the separately
+verified E10 migration now integrated; remote combined migration CI must cover all 36 files.
+
+Combined full gate on `bef2dc8`: Ruff clean, Bandit 0 medium/high severity,
+**2524 passed, 2 deselected, 23 warnings in 56.08s**, exit 0. Direct pinned Python invocation
+preserved `DYLD_FALLBACK_LIBRARY_PATH`; PostgreSQL cases used disposable schemas. Exact logs:
+`/private/tmp/earningsnerd-e06-integrated-full.log` and
+`/private/tmp/earningsnerd-e06-integrated-bandit.log`. This supersedes the prior local full gate.
+Root owns publication after E05c production verification; this task did not push or deploy.
+
 ### E05c — Reconcile the currently bound Stripe subscription (engineering)
 
 The founder explicitly approved the fixture-only `_post_event` change on 2026-09-06:

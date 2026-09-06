@@ -129,6 +129,20 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
         poolclass=QueuePool, pool_size=1, max_overflow=0, pool_timeout=0.05,
     )
     Base.metadata.create_all(engine)
+    # This gate measures connection lifetime while external work is suspended. Serialize
+    # preparatory DB units so the one-slot pool does not instead measure thread scheduling.
+    # Hold the mutex inside the worker through session cleanup, even if its await is cancelled.
+    db_unit_lock = threading.Lock()
+    dispatch_db_unit = pipeline.run_in_threadpool
+
+    async def serialized_db_unit(func, *args, **kwargs):
+        def owned_unit():
+            with db_unit_lock:
+                return func(*args, **kwargs)
+
+        return await dispatch_db_unit(owned_unit)
+
+    monkeypatch.setattr(pipeline, "run_in_threadpool", serialized_db_unit)
     ownership_errors = []
     loop_thread = threading.get_ident()
     admission_started = False

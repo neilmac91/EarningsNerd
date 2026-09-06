@@ -18,6 +18,7 @@ from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
 from app.models.feedback import Feedback
 from app.models.job_run import JobRun
+from app.models.billing_payment import BillingPayment
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,9 @@ class User(Base):
     # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
     subscription = relationship(
         "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    billing_payments = relationship(
+        "BillingPayment", back_populates="user", cascade="all, delete-orphan"
     )
     # New-filing alert preferences (1:1) + send/dedup log. Cascade so GDPR delete removes them.
     notification_preferences = relationship(
