@@ -19,7 +19,7 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E05 | Protect checkout identity and subscription event ordering | Preserve locked Stripe contract | E05a #724 and E05b #725 released; E05c #727 merged after CI/evals and review under helper-only fixture approval; production verification pending. Cross-ID policy remains separate |
 | E06 | Record actual nonzero invoices and revenue cohorts | Integrated E05c source; release after E05c | Locally implemented; full backend/PG/migration gates passed, review clear; combined full gate passed, publication/release pending |
 | E07 | Reserve usage atomically across processes | E03; founder reviews any existing duplicate repair | Queued |
-| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | Queued |
+| E08 | Align pricing copy, annual totals and server-derived limits | Coordinate E06/E07 response changes | E08a trial presentation parity in progress; pricing and activation decisions remain held |
 | E09 | Bound fleet/provider/SEC admission and generation ownership | E02, E03, E07; no second generator | Queued |
 | E10 | Bound hot reads and add filing-first facts index | E03; coordinate W3-9 | Index #726 released; production migration/revision/health verified. Other hot reads queued |
 | E11 | Bound delivery and measure alert-to-return loop | E08 limits; calendar activation held | Queued |

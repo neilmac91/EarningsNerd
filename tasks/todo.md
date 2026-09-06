@@ -2,6 +2,29 @@
 
 ## Beta-to-scale implementation — approved 2026-09-06
 
+### E08a — Render trial state from resolved entitlements (engineering)
+
+Base `cab71f9`. Pricing and settings currently use raw `status = trialing` even when the
+subscription API resolves an expired trial to `is_pro = false`. Pricing then disables an upgrade
+that the existing backend permits, and settings labels a Free account Pro. Independent root
+refutation confirmed the mismatch; backend billing behavior remains authoritative and unchanged.
+
+- [ ] Require the API's `is_pro` plus raw trial status for the trial presentation in
+  `frontend/app/pricing/page.tsx` and `frontend/features/settings/components/BillingPanel.tsx`.
+- [ ] Extend only their existing `PricingPage.spec.tsx` and `BillingPanel.spec.tsx` homes:
+  expired-trial Free response enables the existing upgrade, suppresses trial labels/countdown,
+  and retains customer-ID portal routing. Existing entitled-trial behavior stays unchanged.
+- [ ] Commit source; run one coordinated original-predicate mutation across both surfaces,
+  restore exact bytes, and run full frontend lint/typecheck/Vitest/build gates.
+- [ ] Record three-lens and independent root review, evidence and clean head. Push only after
+  gates pass; root owns PR creation/readiness/merge and both-theme preview verification.
+
+Read `frontend/DESIGN_SYSTEM.md` and relevant lessons. Rules 4, 6, 11 and 12 apply; use server
+plan truth without new browser expiry arithmetic. No backend/API/schema/locked-test, pricing,
+trial activation, promo, analytics, token or styling change. E08-3 loading/error labels, E08-4
+FAQ timing, annual totals and price experiments remain separate. No live expired-trial account
+or preview acceptance is claimed from mocked tests.
+
 
 ### E06 CI fixture correction — Isolate connection lifetime from preparatory contention (engineering)
 
