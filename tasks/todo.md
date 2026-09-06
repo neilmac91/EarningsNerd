@@ -21,6 +21,20 @@ in 39.66s. The single mutation restored the mixed-source branch: the ASML fixtur
 The build used an unavailable local API and retained existing middleware/Sentry-token warnings.
 Remote CI and both-theme preview verification remain pending; this is not production completion.
 
+### E04 — Bound the summary reader and reject truncated streams (engineering)
+
+- [ ] Bound the complete connect/refresh handshake with the existing 120-second timeout.
+- [ ] Require one valid complete/partial frame; consume a final frame without a newline.
+- [ ] Stop on terminal frames and avoid automatic replay after any visible preview or chunk.
+- [ ] Add focused reader regressions in `frontend/tests/unit/summaryStreamResilience.spec.ts`;
+  leave recorded SSE/auth contracts unchanged; retain exactly one mutation proof per new invariant.
+- [ ] Run the full frontend gate, independent review, and publish a draft PR with exact evidence.
+
+The current reader returns success at premature EOF and starts its timeout only after headers.
+E04 keeps the SSE wire format, shared refresh owner, existing one-retry policy and timeout value.
+It changes transport handling only; no summary generation, quota, prompt, theme or flag changes.
+W3-8b and E03 are independent backend work; serialize task-doc integration when merging.
+
 ## Wave 3 — GPT-6 Astra session (2026-09)
 
 ### W3-3 public-source replacement — 2026-09-06
