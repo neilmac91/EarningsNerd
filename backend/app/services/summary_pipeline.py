@@ -16,16 +16,18 @@ import datetime
 import json
 import logging
 import time
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import AsyncIterator, List, Optional
 
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from app import database
 from app.config import settings
-from app.models import Filing, Summary, User
+from app.models import Filing, Summary, User, Subscription
 from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
@@ -63,6 +65,66 @@ logger = logging.getLogger(__name__)
 # off, and even when scaled it bounds redundant work per instance.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+@dataclass(frozen=True)
+class _GenerationSubscription:
+    status: Optional[str]
+    trial_end: Optional[datetime.datetime]
+
+
+@dataclass(frozen=True)
+class GenerationUserSnapshot:
+    id: int
+    is_pro: bool
+    subscription: Optional[_GenerationSubscription]
+    subscription_unloaded: bool = False
+
+
+def snapshot_generation_user(user: User, user_id: int) -> GenerationUserSnapshot:
+    """Copy identity inputs without triggering ORM loads on the request thread.
+
+    Already supplied subscription state stays authoritative for this request. An
+    unloaded relationship (or expired subscription fields) is resolved separately,
+    after the request session closes. This records inputs, not entitlement decisions.
+    """
+    state = sa_inspect(user, raiseerr=False)
+    if state is None:
+        # Standalone identities are supported by internal callers and locked anchors.
+        is_pro = bool(getattr(user, "is_pro", False))
+        subscription = getattr(user, "subscription", None)
+        unloaded = False
+    else:
+        is_pro = bool(state.dict.get("is_pro", False))
+        subscription = state.dict.get("subscription")
+        unloaded = "subscription" not in state.dict and state.identity is not None
+
+    copied_subscription = None
+    if subscription is not None:
+        sub_state = sa_inspect(subscription, raiseerr=False)
+        if sub_state is not None:
+            unloaded = sub_state.identity is not None and not {"status", "trial_end"}.issubset(sub_state.dict)
+            if not unloaded:
+                copied_subscription = _GenerationSubscription(
+                    sub_state.dict.get("status"), sub_state.dict.get("trial_end")
+                )
+        else:
+            copied_subscription = _GenerationSubscription(
+                getattr(subscription, "status", None), getattr(subscription, "trial_end", None)
+            )
+    return GenerationUserSnapshot(user_id, is_pro, copied_subscription, unloaded)
+
+
+def load_generation_user(snapshot: GenerationUserSnapshot) -> GenerationUserSnapshot:
+    """Resolve only missing subscription inputs in a fresh worker-owned transaction."""
+    if not snapshot.subscription_unloaded:
+        return snapshot
+    with database.SessionLocal() as session:
+        row = session.query(Subscription.status, Subscription.trial_end).filter(
+            Subscription.user_id == snapshot.id
+        ).first()
+        subscription = _GenerationSubscription(row.status, row.trial_end) if row else None
+        return replace(snapshot, subscription=subscription, subscription_unloaded=False)
 
 
 def _claim_inflight(filing_id: int) -> asyncio.Event:
@@ -150,7 +212,7 @@ def to_sse(event: dict) -> str:
 async def stream_filing_summary(
     *,
     filing_id: int,
-    current_user: Optional[User],
+    current_user: Optional[User | GenerationUserSnapshot],
     user_id: Optional[int],
     telemetry_distinct_id: str,
     telemetry_entry_point: Optional[str],
