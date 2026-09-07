@@ -136,3 +136,34 @@ async def test_wait_is_bounded_by_the_budget_and_leaks_no_slot(monkeypatch):
 def test_zero_disables_the_ceiling(monkeypatch):
     monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 0)
     assert provider_admission.limit() == 2**31
+
+
+@pytest.mark.asyncio
+async def test_chat_wait_is_bounded_by_its_own_deadline(monkeypatch):
+    """The chat path has no outer budget: the gate's own timeout is what bounds its wait, and
+    the consumer sees the existing error sentinel instead of hanging behind the provider."""
+    from app.services.ai import copilot_chat
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 1)
+    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.05)
+    calls, closed = [], []
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    def handler(req):
+        calls.append(req)
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"},
+                               stream=_blocked_stream(entered, release, closed))
+
+    async with service_for(handler) as service:
+        holder = asyncio.create_task(service._request_content(KW, stream_cb=lambda _: None))
+        await entered.wait()
+        chat = service.stream_chat([{"role": "user", "content": "hi"}])
+        first = await asyncio.wait_for(chat.__anext__(), timeout=2.0)
+        assert first.startswith(copilot_chat.STREAM_ERROR_SENTINEL)
+        await chat.aclose()
+        assert len(calls) == 1, "the queued chat never reached the wire"
+        snap = provider_admission.snapshot()
+        assert snap["rejected"] >= 1 and snap["waiting"] == 0 and snap["in_flight"] == 1
+        release.set()
+        assert await holder == "ok"
+    assert provider_admission.snapshot()["in_flight"] == 0
