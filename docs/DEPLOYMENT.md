@@ -35,9 +35,9 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
-traffic to the new revision, updates the required pregenerate job image, and updates six other
+traffic to the new revision, updates the required pregenerate job image, and updates seven other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
-earnings-calendar-refresh, earnings-day-alerts, notable-filings). Missing jobs are skipped,
+earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge). Missing jobs are skipped,
 not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
 30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
@@ -345,6 +345,33 @@ Smoke-test each before trusting the schedule:
 gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
 gcloud run jobs execute earningsnerd-earnings-day-alerts       --region=us-west1
 ```
+
+### Retention purge job (DATA_RETENTION_POLICY.md)
+
+`scripts/retention_purge.py` deletes, in bounded batches, the rows the retention policy promises
+to delete on a clock (search history, stale failed-login state, expired OAuth states, long-expired
+or long-revoked refresh tokens, contact-form submissions); counts only go to the job ledger.
+Founder-held deletions (inactive accounts, waitlist and referral data, audit logs, billing) are
+not part of it. Preview first with `--dry-run`, then create the job and a weekly schedule:
+
+```bash
+gcloud run jobs create earningsnerd-retention-purge --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=512Mi --task-timeout=1800 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/retention_purge.py
+
+gcloud run jobs execute earningsnerd-retention-purge --region=us-west1 --args=scripts/retention_purge.py,--dry-run
+
+# Sundays 03:00 UTC, off the Monday pregenerate window.
+gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
+  --schedule="0 3 * * 0" --time-zone="Etc/UTC" \
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-retention-purge:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
+```
+
+CI updates this job's image with the others once it exists; until then the deploy logs
+"not found — create it once per DEPLOYMENT.md. Skipping."
 
 **One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next

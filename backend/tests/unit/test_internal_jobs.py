@@ -81,3 +81,22 @@ def test_valid_token_triggers_digest(client, monkeypatch):
     assert resp.status_code == 202
     assert resp.json()["job"] == "filing-digest"
     mock_digest.assert_awaited_once()
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_valid_token_triggers_retention_purge(client, monkeypatch, dry_run):
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", "s3cret-token")
+    with patch("app.routers.internal.retention_service.run_retention_purge", return_value={}) as mock_purge:
+        resp = client.post(
+            f"/internal/jobs/retention-purge?dry_run={'true' if dry_run else 'false'}",
+            headers={"X-Internal-Token": "s3cret-token"},
+        )
+    assert resp.status_code == 202
+    assert resp.json() == {"status": "accepted", "job": "retention-purge", "dry_run": dry_run}
+    mock_purge.assert_called_once()
+    assert mock_purge.call_args.kwargs == {"dry_run": dry_run}
+
+
+def test_retention_purge_requires_token(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", "s3cret-token")
+    assert client.post("/internal/jobs/retention-purge").status_code == 401

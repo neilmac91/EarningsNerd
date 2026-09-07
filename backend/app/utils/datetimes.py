@@ -11,6 +11,8 @@ purpose and are written/compared with the stdlib `datetime.utcnow()` in `routers
 `services/refresh_token_service.py`. Mixing an aware value with those naive columns raises
 "can't compare offset-naive and offset-aware datetimes" (Postgres returns tz-aware, SQLite
 returns naive). Keep both the column and its comparisons naive — see those models' docstrings.
+The retention purge (`services/retention_service.py`) compares them with a naive projection of
+the aware instant (`now.replace(tzinfo=None)`), never with a new `datetime.utcnow()` call.
 """
 from datetime import datetime, timezone
 

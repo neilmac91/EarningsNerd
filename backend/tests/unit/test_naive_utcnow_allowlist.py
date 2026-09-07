@@ -5,6 +5,8 @@ columns are naive `DateTime` BY DESIGN — `OAuthState.expires_at` and
 `RefreshToken.expires_at`/`revoked_at` — and are written/compared with the stdlib naive
 `datetime.utcnow()` in exactly two modules to avoid the offset-naive/offset-aware `TypeError`
 (Postgres tz-aware vs SQLite naive). See `app/utils/datetimes.py` + those models' docstrings.
+(`services/retention_service.py` also compares them, through a naive projection of the aware
+`utcnow()` instant rather than a new naive call, so it needs no allow-list entry.)
 
 The plan's original "rg 'datetime.utcnow' → 0" expectation therefore became a 6-site allow-list.
 This test encodes it structurally (the same move as the components allowlist + the query-key rule)

@@ -22,12 +22,18 @@ This policy defines how long EarningsNerd retains user data and the procedures f
 
 | Data Type | Retention Period | Deletion Trigger | Automated |
 |-----------|------------------|------------------|-----------|
-| Email address | Account lifetime + 30 days after deletion request | User deletion or 2 years inactivity | Yes |
-| Hashed password | Account lifetime | User deletion or 2 years inactivity | Yes |
-| Full name | Account lifetime | User deletion or 2 years inactivity | Yes |
-| Profile settings | Account lifetime | User deletion or 2 years inactivity | Yes |
+| Email address | Account lifetime + 30 days after deletion request | User deletion or 2 years inactivity | Partial (deletion request yes; inactivity purge not yet automated) |
+| Hashed password | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
+| Full name | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
+| Profile settings | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
 | Account creation date | Account lifetime + 7 years (audit) | 7 years after account deletion | Yes |
-| Last login timestamp | Account lifetime | User deletion or 2 years inactivity | Yes |
+| Last login timestamp | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
+
+**Automation status (2026-09-07)**: the weekly `earningsnerd-retention-purge` job
+(`docs/DEPLOYMENT.md`, `docs/OPERATIONS.md`) applies the rows marked "weekly retention purge
+job" plus expired OAuth states and refresh tokens expired or revoked more than 30 days ago.
+Rows marked "Not yet automated" are applied manually until their jobs exist; inactivity-based
+account deletion needs the warning emails below first and is a founder decision.
 
 **Inactivity Definition**: No login for 24 consecutive months
 
@@ -44,14 +50,14 @@ This policy defines how long EarningsNerd retains user data and the procedures f
 | JWT tokens | Until expiration (24 hours) | Token expiry | Yes |
 | Password reset tokens | Until expiration (1 hour) | Token expiry | Yes |
 | Email verification tokens | Until expiration (24 hours) | Token expiry or verification | Yes |
-| Failed login attempts | 7 days | Rolling 7-day window | Yes |
-| Security audit logs | 3 years | 3 years from event | Yes |
+| Failed login attempts | 7 days | Rolling 7-day window | Yes (weekly retention purge job) |
+| Security audit logs | 3 years | 3 years from event | Not yet automated |
 
 ### 2.3 User-Generated Content
 
 | Data Type | Retention Period | Deletion Trigger | Automated |
 |-----------|------------------|------------------|-----------|
-| Search history | 1 year | 1 year from search date OR user deletion | Yes |
+| Search history | 1 year | 1 year from search date OR user deletion | Yes (weekly retention purge job) |
 | Saved summaries | Until user deletes | Manual deletion by user OR account deletion | Partial |
 | Watchlist items | Until user deletes | Manual deletion by user OR account deletion | Partial |
 | Custom notes (if added) | Until user deletes | Manual deletion by user OR account deletion | Partial |
@@ -65,7 +71,7 @@ This policy defines how long EarningsNerd retains user data and the procedures f
 
 | Data Type | Retention Period | Deletion Trigger | Automated |
 |-----------|------------------|------------------|-----------|
-| Monthly usage counts | Current billing cycle + 12 months | 12 months after billing cycle | Yes |
+| Monthly usage counts | Current billing cycle + 12 months | 12 months after billing cycle | Not yet automated |
 | API request logs | 90 days | 90 days from request | Yes |
 | PostHog analytics events | Per PostHog policy (configurable) | PostHog retention setting | Via PostHog |
 | PostHog session recordings | 30 days (if user opted in) | 30 days OR user deletion | Via PostHog |
@@ -81,7 +87,7 @@ This policy defines how long EarningsNerd retains user data and the procedures f
 
 | Data Type | Retention Period | Deletion Trigger | Automated |
 |-----------|------------------|------------------|-----------|
-| Contact form submissions | 1 year | 1 year from submission date | Yes |
+| Contact form submissions | 1 year | 1 year from submission date | Yes (weekly retention purge job) |
 | Support ticket emails | 2 years | 2 years from ticket closure | Yes |
 | Marketing email subscriptions | Until unsubscribe | User unsubscribe OR account deletion | Yes |
 | Transactional email logs (Resend) | 30 days | Resend automatic deletion | Via Resend |
@@ -90,10 +96,10 @@ This policy defines how long EarningsNerd retains user data and the procedures f
 
 | Data Type | Retention Period | Deletion Trigger | Automated |
 |-----------|------------------|------------------|-----------|
-| Waitlist signups (unconverted) | 1 year | 1 year from signup OR manual deletion | Yes |
+| Waitlist signups (unconverted) | 1 year | 1 year from signup OR manual deletion | Not yet automated |
 | Waitlist signups (converted to user) | Merged into user account | Account deletion | Yes |
-| Referral codes | 1 year from last activity | 1 year inactive OR user deletion | Yes |
-| Referral tracking data | 1 year | 1 year from referral event | Yes |
+| Referral codes | 1 year from last activity | 1 year inactive OR user deletion | Not yet automated |
+| Referral tracking data | 1 year | 1 year from referral event | Not yet automated |
 
 **Conversion Definition**: User signs up for account using waitlist email
 
@@ -171,30 +177,28 @@ AND deletion_scheduled_at IS NULL;
 
 ### 3.3 Automated Data Cleanup Jobs
 
-**Schedule**: Daily at 3:00 AM UTC
+**Running job**: `earningsnerd-retention-purge` (Cloud Run job, `backend/scripts/retention_purge.py`),
+scheduled weekly on Sundays at 03:00 UTC; ad hoc through `POST /internal/jobs/retention-purge`
+(`dry_run=true` counts without deleting). It deletes in bounded batches and records counts only
+in the job ledger. Its five targets are the clocked rows of §2:
 
-**Jobs**:
+1. **Search history** — `user_searches` older than 1 year (§2.3)
+2. **Failed-login state** — `login_attempts` untouched for 7 days and not currently locked (§2.2)
+3. **Expired OAuth state** — `oauth_states` past `expires_at` (§2.2)
+4. **Dead refresh tokens** — `refresh_tokens` expired or revoked more than 30 days ago (§2.2;
+   the 30-day grace keeps reuse detection working for the token lifetime)
+5. **Contact-form submissions** — `contact_submissions` older than 1 year (§2.5)
 
-1. **Old Search History Cleanup**
-   ```sql
-   DELETE FROM user_searches
-   WHERE created_at < NOW() - INTERVAL '1 year';
-   ```
+**Planned (not yet automated; applied manually until their jobs exist)**:
 
-2. **Old Contact Submissions Cleanup**
-   ```sql
-   DELETE FROM contact_submissions
-   WHERE created_at < NOW() - INTERVAL '1 year';
-   ```
-
-3. **Old Waitlist Cleanup** (unconverted only)
+1. **Old Waitlist Cleanup** (unconverted only)
    ```sql
    DELETE FROM waitlist_signups
    WHERE created_at < NOW() - INTERVAL '1 year'
    AND email NOT IN (SELECT email FROM users);
    ```
 
-4. **Expired Tokens Cleanup**
+2. **Expired Tokens Cleanup**
    ```sql
    DELETE FROM password_reset_tokens
    WHERE expires_at < NOW();
@@ -203,7 +207,7 @@ AND deletion_scheduled_at IS NULL;
    WHERE expires_at < NOW();
    ```
 
-5. **Old Audit Logs Cleanup**
+3. **Old Audit Logs Cleanup**
    ```sql
    DELETE FROM audit_logs
    WHERE created_at < NOW() - INTERVAL '3 years';
