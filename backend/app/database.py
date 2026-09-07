@@ -81,7 +81,9 @@ def ensure_additive_columns(bind=None, specs: list[tuple[str, str, str]] | None 
     For each ``(table, column, column_ddl)`` the column is added only when the table exists and the
     column is absent (inspector check), so this is a no-op once applied and on fresh DBs where
     ``create_all`` already created it. Failures are logged, never raised — a migration hiccup must
-    not block app startup. Restricted to additive, defaulted columns by construction.
+    not block app startup. Restricted to additive, defaulted columns by construction. The caller
+    (``main.lifespan``) bounds the whole step with ``STARTUP_SCHEMA_DEADLINE_SECONDS``: a run that
+    exceeds it fails the start (E12b), which is the only fatal outcome here.
     """
     bind = bind if bind is not None else engine
     specs = specs if specs is not None else _ADDITIVE_COLUMNS

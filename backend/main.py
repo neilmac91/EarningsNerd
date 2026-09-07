@@ -139,7 +139,8 @@ async def lifespan(app: FastAPI):
     await bounded_startup_step("create_all", lambda: Base.metadata.create_all(bind=engine))
     # create_all() never ALTERs existing tables, so self-apply small additive columns that post-date
     # a table's original CREATE (e.g. the FPI alert prefs) — keeps deployed code + schema in sync
-    # without a manual migration step. Idempotent + non-fatal; see database.ensure_additive_columns.
+    # without a manual migration step. Idempotent + non-fatal per column (see
+    # database.ensure_additive_columns); only exceeding the step deadline fails the start.
     await bounded_startup_step("ensure_additive_columns", ensure_additive_columns)
 
     # Validate database connection at startup
