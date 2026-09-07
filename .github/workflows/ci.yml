@@ -569,7 +569,7 @@ jobs:
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
         # CI only bumps the image. Skip each gracefully if it hasn't been created yet so CD never fails.
         run: |
-          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings; do
+          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
               # Jobs run serially, so a tiny DB pool is ample and keeps the Monday cron window from
               # stacking 30-connection pools against Cloud SQL max_connections (see database.py).

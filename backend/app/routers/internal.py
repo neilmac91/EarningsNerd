@@ -18,7 +18,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.services import filing_scan_service
+from app.services import filing_scan_service, retention_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -72,6 +72,26 @@ async def trigger_filing_scan(background: BackgroundTasks):
 async def trigger_filing_digest(background: BackgroundTasks):
     background.add_task(_run_daily_digest)
     return {"status": "accepted", "job": "filing-digest"}
+
+
+def _run_retention_purge(dry_run: bool) -> None:
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        stats = retention_service.run_retention_purge(db, dry_run=dry_run)
+        logger.info("Retention purge (internal trigger) complete: %s", stats)
+    except Exception:
+        logger.exception("Retention purge (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/retention-purge", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_retention_purge(background: BackgroundTasks, dry_run: bool = False):
+    """Apply (or with ``dry_run`` preview) the scheduled retention purge; counts only in the logs."""
+    background.add_task(_run_retention_purge, dry_run)
+    return {"status": "accepted", "job": "retention-purge", "dry_run": dry_run}
 
 
 async def _run_earnings_refresh() -> None:
