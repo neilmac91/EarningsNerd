@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Company, Filing, User, Watchlist
 from app.models.notification_delivery import (
+    KIND_FILING_DIGEST,
     KIND_FILING_REALTIME,
     STATUS_ACCEPTED,
     STATUS_AMBIGUOUS,
@@ -67,7 +68,8 @@ ERROR_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
 ERROR_ELIGIBILITY_CHANGED = "eligibility_changed"
 ERROR_REROUTED_TO_DIGEST = "rerouted_to_digest"  # still wanted, no longer realtime: ownership released
 ERROR_ENVELOPE_CHANGED = "envelope_changed"  # recipient address changed: ownership released, fresh envelope
-RELEASE_REASONS = frozenset({ERROR_REROUTED_TO_DIGEST, ERROR_ENVELOPE_CHANGED})
+ERROR_MEMBERSHIP_CHANGED = "membership_changed"  # some items no longer wanted: the wanted remainder is rebuilt
+RELEASE_REASONS = frozenset({ERROR_REROUTED_TO_DIGEST, ERROR_ENVELOPE_CHANGED, ERROR_MEMBERSHIP_CHANGED})
 ERROR_PROVIDER_REJECTED = "provider_rejected"
 ERROR_PROVIDER_RETRYABLE = "provider_retryable"
 ERROR_PROVIDER_AMBIGUOUS = "provider_ambiguous"
@@ -100,6 +102,7 @@ class DrainStats:
     ambiguous: int = 0
     rejected: int = 0    # provider refused the payload (a delivery failure)
     suppressed: int = 0  # current eligibility forbids dispatch (not a failure)
+    rebuilt: int = 0     # released batches rebuilt into a fresh envelope for what is still wanted
     lost_claims: int = 0
 
     def as_dict(self) -> dict:
@@ -343,37 +346,79 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
     return out
 
 
-def _ineligible_reason(db: Session, batch: DeliveryBatch, user: Optional[User]) -> Optional[str]:
-    """Why current user, watch, preference and entitlement state forbids this dispatch (None = go).
-
-    Two changes release ownership so selection builds a fresh batch (``RELEASE_REASONS``): a
-    realtime batch whose user still wants the filing but no longer in realtime (preference off or
-    entitlement lost) is ``rerouted`` to the digest, and a recipient whose address changed gets a
-    new envelope under a new key (the frozen one must never be re-addressed). Every other change
-    is a plain suppression that keeps ownership.
-    """
-    if user is None or not user.is_active or not batch.items or len(batch.items) != batch.expected_item_count:
-        return ERROR_ELIGIBILITY_CHANGED
-    if user.email != batch.to_email:
-        return ERROR_ENVELOPE_CHANGED
+def _wanted_items(db: Session, batch: DeliveryBatch, user: User) -> list[tuple[DeliveryItem, bool]]:
+    """The batch's items the user still wants under current watch, preference and entitlement
+    state, each with whether it may still go realtime."""
     prefs = get_or_create_preferences(db, user.id)
     ent = get_entitlements(user)
-    reroute = False
+    wanted = []
     for item in batch.items:
         filing = db.get(Filing, item.filing_id)
         if filing is None:
-            return ERROR_ELIGIBILITY_CHANGED
+            continue
         watched = db.query(Watchlist.id).filter(
             Watchlist.user_id == user.id, Watchlist.company_id == filing.company_id,
         ).first() is not None
         if not watched:
-            return ERROR_ELIGIBILITY_CHANGED
+            continue
         eligible, realtime = evaluate_delivery(prefs, ent, filing.filing_type)
-        if not eligible:
-            return ERROR_ELIGIBILITY_CHANGED
-        if batch.kind == KIND_FILING_REALTIME and not realtime:
-            reroute = True
-    return ERROR_REROUTED_TO_DIGEST if reroute else None
+        if eligible:
+            wanted.append((item, realtime))
+    return wanted
+
+
+def _ineligible_reason(db: Session, batch: DeliveryBatch, user: Optional[User]) -> Optional[str]:
+    """Why current user, watch, preference and entitlement state forbids this dispatch (None = go).
+
+    A frozen envelope is never re-addressed, re-scoped or re-routed. When something is still
+    wanted but the envelope no longer fits, the reason is one of ``RELEASE_REASONS``: the batch
+    is suppressed, its items released, and ``_rebuild`` immediately persists a fresh batch for
+    the wanted remainder (new address, digest instead of realtime, or the subset of filings
+    still watched and opted in). When nothing is wanted any more the suppression keeps ownership.
+    """
+    if user is None or not user.is_active or not batch.items or len(batch.items) != batch.expected_item_count:
+        return ERROR_ELIGIBILITY_CHANGED
+    wanted = _wanted_items(db, batch, user)
+    if not wanted:
+        return ERROR_ELIGIBILITY_CHANGED
+    if len(wanted) < len(batch.items):
+        return ERROR_MEMBERSHIP_CHANGED
+    if user.email != batch.to_email:
+        return ERROR_ENVELOPE_CHANGED
+    if batch.kind == KIND_FILING_REALTIME and not all(realtime for _item, realtime in wanted):
+        return ERROR_REROUTED_TO_DIGEST
+    return None
+
+
+@dataclass
+class RebuildPlan:
+    kind: str
+    subject: str
+    html: str
+    filing_ids: list[int]
+
+
+def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User) -> Optional[RebuildPlan]:
+    """What a released batch becomes for what the user still wants: the current address, realtime
+    only if its single item may still go realtime, otherwise one digest. Computed BEFORE the
+    release (the items are gone afterwards). Selection cannot do this later: released filings
+    are usually outside the next run's window."""
+    from app.services import email_service
+
+    wanted = _wanted_items(db, batch, user)
+    if not wanted:
+        return None
+    by_id = {d["filing_id"]: d for d in _item_dicts(db, batch)}
+    items = [by_id[item.filing_id] for item, _realtime in wanted if item.filing_id in by_id]
+    if not items:
+        return None
+    if batch.kind == KIND_FILING_REALTIME and len(items) == 1 and all(realtime for _item, realtime in wanted):
+        subject, html = email_service.build_new_filing_alert(name=user.full_name, **items[0])
+        kind = KIND_FILING_REALTIME
+    else:
+        subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
+        kind = KIND_FILING_DIGEST
+    return RebuildPlan(kind=kind, subject=subject, html=html, filing_ids=[d["filing_id"] for d in items])
 
 
 async def send_prepared(prepared: PreparedSend) -> Optional[str]:
@@ -399,7 +444,9 @@ async def drain(
     now = clock()
     expired = expire_stale(db, now, kind=kind)
     stats.ambiguous += expired["lease_expired"]
-    for batch_id in due_batch_ids(db, kind, now):
+    pending = due_batch_ids(db, kind, now)
+    while pending:
+        batch_id = pending.pop(0)
         now = clock()
         token = uuid4().hex
         if not claim(db, batch_id, token, now):
@@ -431,7 +478,15 @@ async def drain(
         ineligible = _ineligible_reason(db, batch, user)
         if ineligible is not None:
             if ineligible in RELEASE_REASONS:
+                plan = _rebuild_plan(db, batch, user)  # before the release empties the items
                 parked = park_and_release(db, batch_id, token, ineligible, now)
+                if parked and plan is not None:
+                    rebuilt = create_batch(db, kind=plan.kind, user_id=user.id, subject=plan.subject,
+                                           html=plan.html, filing_ids=plan.filing_ids, now=now)
+                    if rebuilt is not None:
+                        stats.rebuilt += 1
+                        if rebuilt.kind == kind:
+                            pending.append(rebuilt.id)  # dispatched in this same run
             else:
                 parked = park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ineligible, now)
             if parked:
@@ -480,12 +535,18 @@ async def drain(
             else:
                 stats.lost_claims += 1
         elif outcome == STATUS_RETRYABLE:
-            finalize_retryable(db, batch, token, now)
-            stats.retryable += 1
+            if finalize_retryable(db, batch, token, now):
+                stats.retryable += 1
+            else:
+                stats.lost_claims += 1
         elif outcome == STATUS_SUPPRESSED:
-            park(db, batch_id, token, STATUS_SENDING, STATUS_SUPPRESSED, reason, now)
-            stats.rejected += 1
+            if park(db, batch_id, token, STATUS_SENDING, STATUS_SUPPRESSED, reason, now):
+                stats.rejected += 1
+            else:
+                stats.lost_claims += 1
         else:
-            park(db, batch_id, token, STATUS_SENDING, STATUS_AMBIGUOUS, reason, now)
-            stats.ambiguous += 1
+            if park(db, batch_id, token, STATUS_SENDING, STATUS_AMBIGUOUS, reason, now):
+                stats.ambiguous += 1
+            else:
+                stats.lost_claims += 1
     return stats

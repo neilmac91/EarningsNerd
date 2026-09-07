@@ -66,9 +66,21 @@ if needed (recorded below). No email or production job execution as a test is au
   intended and restored (`e11-evidence/mutation3-*.log`). Design note for the founder: a
   `retryable` batch past the replay window is re-keyed (deviation from the reviewed summary,
   where it was parked); rationale in the PR body.
-- [ ] After the reviewer-round full gate: push, refresh the PR body, then one founder-approved
-  Copilot run on the fix head, Codex, fresh-head merge and serial production verification. No
-  release claim from local checks alone.
+- [x] Reviewer-round full gate on `eb23bc3`: 2637 passed, Ruff/Bandit clean; PR CI 34151573052
+  success. Founder approved one paid Copilot run (chat, 2026-09-07 18:44 UTC); marked ready;
+  run 34152865495 success (`accepted: true`, 18/18, pass rate 1.0, artifact 10030008827,
+  sha256 `6272c83e…fbcddb`). Codex on `eb23bc3`: three P2 findings, all confirmed and fixed
+  (PR back in draft before the push): (1) post-send fence results were ignored for the
+  retryable/rejected/ambiguous branches → honoured like the accepted branch (lost claim);
+  (2) a mixed digest was suppressed whole when one company was unwatched, the rest owned
+  forever → `membership_changed`; (3) released digest work fell outside the next day's
+  selection window → every release reason now rebuilds a fresh batch for what is still wanted
+  (current address; realtime only if its single item may still go realtime, else one digest)
+  and dispatches it in the same run when it is the drained kind. Two new unit cases, two
+  rewritten; four mutations each failed as intended and restored (`e11-evidence/mutation4-*`).
+- [ ] After the second-Codex-round full gate: push, reply/resolve the three threads, refresh the
+  PR body, then one more founder-approved Copilot run at ready, Codex, fresh-head merge and
+  serial production verification. No release claim from local checks alone.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 

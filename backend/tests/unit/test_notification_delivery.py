@@ -25,6 +25,7 @@ from app.models.notification_delivery import (
     STATUS_ACCEPTED,
     STATUS_AMBIGUOUS,
     STATUS_CLAIMED,
+    STATUS_READY,
     STATUS_RETRYABLE,
     STATUS_SENDING,
     STATUS_SUPPRESSED,
@@ -273,13 +274,17 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
         db.commit()
         send = _recorder()
         drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, now=NOW + timedelta(seconds=300))
-        (batch,) = _batches(db)
-        assert send.calls == [] and drained.suppressed == 1
-        assert batch.status == STATUS_SUPPRESSED and batch.last_error_kind == delivery.ERROR_REROUTED_TO_DIGEST
-        assert db.query(DeliveryItem).count() == 0  # ownership released
+        old, rebuilt = _batches(db)
+        assert send.calls == [] and (drained.suppressed, drained.rebuilt) == (1, 1)
+        assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_REROUTED_TO_DIGEST
+        # Ownership moved to a fresh digest batch built right away (selection could not: the
+        # filing may be outside the next run's window), left for the digest drain.
+        assert rebuilt.kind == KIND_FILING_DIGEST and rebuilt.status == STATUS_READY
+        assert [i.batch_id for i in db.query(DeliveryItem)] == [rebuilt.id]
+        assert rebuilt.idempotency_key != old.idempotency_key and rebuilt.subject != old.subject
         digest = AsyncMock()
         stats = await run_daily_digest(db, send_digest=digest, now=NOW + timedelta(seconds=300))
-        assert stats["digests_sent"] == 1
+        assert stats["digests_sent"] == 1 and len(_batches(db)) == 2  # no third batch: the rebuilt one owns it
         assert [i["filing_id"] for i in digest.await_args.kwargs["items"]] == [db.query(Filing).one().id]
         assert _log_count(db) == 1
 
@@ -330,6 +335,55 @@ async def test_a_lost_fence_while_parking_is_a_lost_claim_not_a_reported_outcome
         db.commit()
         drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW)
         assert (drained.lost_claims, drained.ambiguous, drained.suppressed) == (3, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_same_run(engine, monkeypatch):
+    """A retryable digest that mixes companies must not be suppressed whole when one of them is
+    unwatched: the still-wanted remainder is rebuilt and dispatched in this run."""
+    monkeypatch.setattr(settings, "DELIVERY_RETRY_BACKOFF_SECONDS", 60)
+    with Session(engine) as db:
+        _seed(db, is_pro=False, realtime=False)
+        db.add(Company(id=2, cik="2", ticker="T2", name="Company Two"))
+        db.add(Watchlist(user_id=1, company_id=2, created_at=WATCH_SINCE))
+        db.add_all([Filing(id=i, company_id=i, accession_number=f"mix{i}", filing_type="10-Q",
+                           filing_date=NOW - timedelta(hours=i), sec_url=f"https://sec.example/mix{i}/",
+                           document_url=f"https://sec.example/mix{i}/doc.htm") for i in (1, 2)])
+        db.commit()
+        first = AsyncMock(side_effect=resend_service.ResendRetryableError("503"))
+        await run_daily_digest(db, send_digest=first, now=NOW)
+        assert [i["filing_id"] for i in first.await_args.kwargs["items"]] == [1, 2]
+        db.execute(delete(Watchlist).where(Watchlist.company_id == 1))
+        db.commit()
+        second = AsyncMock()
+        stats = await run_daily_digest(db, send_digest=second, now=NOW + timedelta(seconds=60))
+        old, rebuilt = _batches(db)
+        assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_MEMBERSHIP_CHANGED
+        assert rebuilt.status == STATUS_ACCEPTED and [i.filing_id for i in rebuilt.items] == [2]
+        assert second.await_count == 1 and [i["filing_id"] for i in second.await_args.kwargs["items"]] == [2]
+        assert stats["digests_sent"] == 1 and stats["filings_included"] == 1 and stats["delivery_suppressed"] == 1
+        assert _log_count(db) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_lost_fence_after_the_provider_call_is_a_lost_claim_not_a_reported_outcome(engine, monkeypatch):
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add_all([Filing(id=i, company_id=1, accession_number=f"post{i}", filing_type="10-Q", filing_date=NOW,
+                           sec_url=f"https://sec.example/post{i}/", document_url=f"https://sec.example/post{i}/doc.htm")
+                    for i in (1, 2, 3)])
+        db.commit()
+        for fid in (1, 2, 3):
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[fid], now=NOW)
+        outcomes = iter([resend_service.ResendRetryableError("429"), resend_service.ResendPermanentError("422"), RuntimeError("timeout")])
+
+        async def send(prepared):
+            raise next(outcomes)
+
+        monkeypatch.setattr(delivery, "finalize_retryable", lambda *a, **k: False)
+        monkeypatch.setattr(delivery, "park", lambda *a, **k: False)
+        drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, now=NOW)
+        assert (drained.lost_claims, drained.retryable, drained.rejected, drained.ambiguous) == (3, 0, 0, 0)
 
 
 @pytest.mark.asyncio
@@ -645,18 +699,23 @@ async def test_retry_freezes_complete_envelope_and_rejects_changed_recipient(eng
         assert len(requests) == 2 and requests[0] == requests[1]
         db.get(User, 1).email = "changed-recipient@example.com"
         db.commit()
+        monkeypatch.setattr(resend_service.httpx, "AsyncClient", _client_factory(
+            lambda request: (requests.append((request.headers["Idempotency-Key"], request.content)),
+                             httpx.Response(200, json={"id": "email_fresh"}))[1]))
         result = await delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW + timedelta(minutes=20))
-        assert len(requests) == 2 and result.suppressed == 1
-        (old,) = _batches(db)
+        # The frozen envelope is never re-addressed: released, rebuilt for the new address under a
+        # fresh key, and dispatched in this same run (selection could not: window semantics).
+        assert (result.suppressed, result.rebuilt, result.accepted) == (1, 1, 1)
+        old, fresh = _batches(db)
         assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_ENVELOPE_CHANGED
-        assert db.query(DeliveryItem).count() == 0  # the frozen envelope is never re-addressed: released
-        assert _log_count(db) == 0 and _watermark(db) is None
-        # Selection builds a fresh envelope, under a fresh key, for the new address.
-        await run_filing_scan(db, fetch_filings=_fetch, now=NOW + timedelta(minutes=21), cadence_minutes=0)
-        fresh = [b for b in _batches(db) if b.id != old.id]
-        assert len(fresh) == 1 and fresh[0].to_email == "changed-recipient@example.com"
-        assert fresh[0].idempotency_key != old.idempotency_key and len(requests) == 3
+        assert fresh.status == STATUS_ACCEPTED and fresh.to_email == "changed-recipient@example.com"
+        assert fresh.idempotency_key != old.idempotency_key and [i.batch_id for i in db.query(DeliveryItem)] == [fresh.id]
+        assert len(requests) == 3 and requests[2][0] == fresh.idempotency_key
         assert json.loads(requests[2][1])["to"] == ["changed-recipient@example.com"]
+        assert _log_count(db) == 1 and _watermark(db) == "new-10q"
+        # A later scan finds the filing owned and creates nothing further.
+        await run_filing_scan(db, fetch_filings=_fetch, now=NOW + timedelta(minutes=21), cadence_minutes=0)
+        assert len(_batches(db)) == 2 and len(requests) == 3
 
 
 @pytest.mark.asyncio
