@@ -11,6 +11,7 @@ DB-touching tests are marked ``requires_db`` and override ``get_current_user`` w
 entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` dep resolves through
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
+import asyncio
 import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -1597,11 +1598,10 @@ def test_endpoint_expired_free_taste_lease_does_not_block(client, monkeypatch):
         assert _qa_state(uid) == ([], 0, 3)  # stale lease swept, the last unit consumed
 
 
-def _asgi_post(path: str, body: dict, *, disconnect_after: "asyncio.Event"):
+def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event):
     """Drive the real ASGI app the way uvicorn does (ASGI spec 2.3): Starlette then runs the
     stream and a disconnect listener in one task group and CANCELS the stream when the client
     leaves. TestClient never exercises that path, so the disconnect cases speak raw ASGI."""
-    import asyncio
     import json
 
     payload = json.dumps(body).encode()
