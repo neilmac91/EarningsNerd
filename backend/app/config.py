@@ -437,6 +437,11 @@ class Settings(BaseSettings):
     PRO_SUMMARY_MONTHLY_CAP: int = 300
     # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
     USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
+    # E12b: deadline for each schema step the serving container runs at startup (create_all,
+    # additive columns). A step that hangs on a lock or a slow database becomes a fast failed
+    # start, so Cloud Run keeps the last healthy revision instead of waiting out its own
+    # startup timeout on a container that never listens.
+    STARTUP_SCHEMA_DEADLINE_SECONDS: int = Field(default=60, gt=0, le=600)
     # E07b: how long an admission reservation holds a quota unit if the owning process dies
     # before converting or releasing it. Cover the 120 s pipeline deadline plus conversion's
     # bounded counter-lock wait; expired rows are ignored by admission.

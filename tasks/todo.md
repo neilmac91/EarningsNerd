@@ -130,6 +130,36 @@ if needed (recorded below). No email or production job execution as a test is au
   20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
 
+## E12b — Startup schema deadlines (engineering, 2026-09-07)
+
+Facts (read against `85c2c23`): `lifespan` ran `create_all` and `ensure_additive_columns` on
+the default executor with no deadline; a step blocked on a lock (the draining revision's share
+locks during a rolling deploy) or a slow database left a container that never listened until
+Cloud Run's own startup timeout, and because the default executor is joined at loop shutdown a
+raised error could not let the process exit while the thread stayed blocked. Only the DB
+validation had a 5 s deadline.
+
+- [x] `STARTUP_SCHEMA_DEADLINE_SECONDS` (60, 1–600) + docs row; `main._run_on_daemon_thread`
+  runs each step on a daemon thread and settles a loop future (guarded against the timeout's
+  cancellation and a closed loop); `lifespan` awaits each step under `asyncio.wait_for` and
+  raises `RuntimeError("Cannot start application: <step> timed out")`.
+- [x] `ensure_additive_columns`: `SET LOCAL lock_timeout = '5000ms'` before each additive ALTER
+  on PostgreSQL (`_ADDITIVE_LOCK_TIMEOUT_MS`, module constant: `database.py` is pre-Settings
+  bootstrap); a lock timeout stays a logged per-column miss.
+- [x] Tests: `test_additive_columns.py` (statement order on a postgresql-dialect mock bind;
+  SQLite path unchanged), `test_app_loop_lifespan.py` (a hanging `create_all` fails the start
+  in about one second; the test releases the daemon thread). Mutations on committed state,
+  restored: deadline removed → 1 failed (waited out the 30 s hang); default executor instead of
+  a daemon thread → 1 failed (> 5 s, loop shutdown joined the thread); `SET LOCAL` dropped →
+  1 failed. Full gate on `6cc30d0`: ruff/bandit clean, 2663 passed.
+- [x] Independent lens: no defect; two trade-offs stated in `29be48e` (docstring, comment,
+  `lessons/ops-no-ddl-in-startup-path.md`): a whole-step run past the deadline is now fatal for
+  the otherwise non-fatal additive step (7 columns × 5 s stays well under 60 s); a queued
+  ACCESS EXCLUSIVE still stalls the draining revision for up to 5 s per drifted column —
+  bounded, not eliminated.
+- [ ] PR after #755 merges, one paid Copilot run at ready under the standing authorization,
+  merge, deploy verification.
+
 ## E15b — Bound the whole sitemap document (engineering, 2026-09-07)
 
 Facts (read against `52e0406`): `MAX_FILING_URLS = 45_000` capped filing rows only; company
@@ -167,8 +197,13 @@ the eligible set approaches the cap — at 574 URLs that is not engineering wort
   sort determinism, budget arithmetic, index support (order clause unchanged but for the id
   tiebreak, join bounds the sort set, 1 h cache), test row-order sensitivity, pre-existing
   case-variant ticker duplicates.
-- [ ] Full gate on the final head, one paid Copilot run at ready under the standing
-  authorization, merge, deploy verification.
+- [x] PR CI run 34163613442 on `d27db37`: every job green (`eval-baseline` included). Marked
+  ready at 21:49 UTC under the standing authorization: `copilot-eval.yml` run 34164525849
+  success, artifact `copilot-fidelity-34164525849` (id 10033751454, sha256 `faa8849b…c9182`);
+  Codex posted only its quota notice. Squash-merged as
+  [#755](https://github.com/neilmac91/EarningsNerd/pull/755) = `757a8f1` at 21:53 UTC.
+- [ ] Main CI on `757a8f1`, deploy verification (`applied=0`, new revision at 100 %,
+  independent detailed health).
 
 ## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
 

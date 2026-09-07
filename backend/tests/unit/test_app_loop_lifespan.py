@@ -10,6 +10,8 @@ is visible inside it and cleared after shutdown.
 """
 import asyncio
 
+import pytest
+
 from app.services.event_loop import get_app_loop
 
 
@@ -26,3 +28,34 @@ def test_lifespan_registers_the_running_loop_and_clears_it_on_shutdown():
     inside, after = asyncio.run(_drive_lifespan())
     assert inside, "lifespan must register the running loop via set_app_loop()"
     assert after is None, "lifespan must clear the registered loop on shutdown"
+
+
+def test_hanging_startup_schema_step_fails_the_start_within_the_deadline(monkeypatch):
+    """E12b: a create_all that never returns (lock contention, unreachable database) must turn
+    into a failed start inside STARTUP_SCHEMA_DEADLINE_SECONDS, not a container that never
+    listens until Cloud Run's own startup timeout."""
+    import threading
+    import time
+
+    import main
+    from app.config import settings
+
+    release = threading.Event()
+
+    def hanging_create_all(bind=None):
+        release.wait(30)
+
+    monkeypatch.setattr(main.Base.metadata, "create_all", hanging_create_all)
+    monkeypatch.setattr(settings, "STARTUP_SCHEMA_DEADLINE_SECONDS", 1)
+
+    async def drive():
+        async with main.lifespan(main.app):
+            pass
+
+    started = time.monotonic()
+    try:
+        with pytest.raises(RuntimeError, match="create_all timed out"):
+            asyncio.run(drive())
+        assert time.monotonic() - started < 5
+    finally:
+        release.set()  # let the executor thread finish instead of lingering for 30 s
