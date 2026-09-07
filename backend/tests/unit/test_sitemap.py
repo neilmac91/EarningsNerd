@@ -9,6 +9,7 @@ The sitemap is a crawler-facing contract:
 
 Runs against a real in-memory SQLite DB so the actual queries execute.
 """
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -137,7 +138,7 @@ def test_only_summarized_filings_are_listed(client):
 @pytest.mark.parametrize("placeholder", ["Generating summary", "Please wait: Generating summary…"])
 def test_placeholder_is_excluded_before_cap_but_partial_content_remains(client, monkeypatch, placeholder):
     test_client, TestingSession = client
-    monkeypatch.setattr(sitemap_mod, "MAX_FILING_URLS", 1)
+    monkeypatch.setattr(sitemap_mod, "MAX_SITEMAP_URLS", len(sitemap_mod.STATIC_PAGES) + 2)  # one company + one filing
     with TestingSession() as session:
         company = _seed_company(session, "ACME", "0000000002")
         pending = _seed_filing(session, company, "acc-pending", year=2026)
@@ -212,3 +213,36 @@ def test_cold_cache_rebuild_is_single_flight(client, monkeypatch):
 
     assert statuses == [200] * 5
     assert calls["n"] == 1
+
+
+def _seed_summarized_company(session, ticker, cik, year):
+    company = _seed_company(session, ticker, cik)
+    filing = _seed_filing(session, company, f"acc-{ticker}", year=year)
+    _seed_summary(session, filing)
+    return filing.id
+
+
+@pytest.mark.parametrize("extra,expected_companies,expected_filings", [
+    (2, ["NEW", "MID"], []),  # the budget is spent on the newest companies first
+    (5, ["NEW", "MID", "OLD"], [2026, 2025]),  # then on the newest summarized filings
+    (0, [], []),  # a budget below the static core still serves the core
+])
+def test_whole_document_is_bounded_newest_first_across_companies_and_filings(
+    client, monkeypatch, extra, expected_companies, expected_filings,
+):
+    """E15b: the bound covers the WHOLE document (companies were unbounded before), and it
+    drops the least-recently-changed pages first so a crawler always sees the freshest set."""
+    test_client, TestingSession = client
+    monkeypatch.setattr(sitemap_mod, "MAX_SITEMAP_URLS", len(sitemap_mod.STATIC_PAGES) + extra)
+    with TestingSession() as session:
+        filing_ids = {
+            year: _seed_summarized_company(session, ticker, cik, year)
+            for ticker, cik, year in (("OLD", "0000000010", 2023), ("NEW", "0000000011", 2026), ("MID", "0000000012", 2025))
+        }
+    xml = test_client.get("/sitemap.xml").text
+    locs = re.findall(r"<loc>(.*?)</loc>", xml)
+    assert len(locs) == len(sitemap_mod.STATIC_PAGES) + len(expected_companies) + len(expected_filings)
+    assert len(locs) <= max(sitemap_mod.MAX_SITEMAP_URLS, len(sitemap_mod.STATIC_PAGES))
+    assert [loc.rsplit("/", 1)[1] for loc in locs if "/company/" in loc] == expected_companies
+    assert [int(loc.rsplit("/", 1)[1]) for loc in locs if "/filing/" in loc] == [filing_ids[y] for y in expected_filings]
+    assert "<loc>https://www.earningsnerd.io/terms</loc>" in xml
