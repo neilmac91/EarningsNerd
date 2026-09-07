@@ -143,6 +143,42 @@ registration, legal, destructive data or history operations, historical replay, 
 live email/job execution as a test, live account actions, the AI provider, console actions such
 as the retention job and scheduler, Dependabot #270).
 
+## E09b — Process-wide provider admission gate (engineering, 2026-09-07)
+
+Facts (read against `c7510ac`): per process the summary path was bounded (generation semaphore
+`MAX_CONCURRENT_GENERATIONS` 6, recovery semaphore 3) but the chat paths (`_chat_chunks`, used by
+Copilot and Analysis) were bounded only by per-user quotas, so one instance could hold up to its
+request concurrency (40) in provider streams and the fleet about a hundred on one key; provider
+429/5xx replies fed the retry loop. Nothing exposed the SEC bucket, so the aggregate against the
+per-IP cap (two instances plus overlapping Monday jobs, each with its own bucket) was
+unobservable. Cross-instance generation ownership and a fleet-wide SEC budget need schema or
+production capacity values and stay separate (the latter also needs the founder's egress
+evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
+
+- [x] `services/ai/provider_admission.py`: loop- and limit-keyed semaphore behind
+  `admit(deadline_seconds)`; a wait past the caller's own budget (or cancelled) counts as
+  `rejected` and releases nothing; counters `limit`, `in_flight`, `waiting`, `admitted`,
+  `rejected`, `peak_in_flight`. Wrapped at the two wire sites: `_request_content` (slot spans
+  exactly the attempt; the backoff sleep holds nothing) and `_chat_chunks` (slot spans the
+  stream's life, released through the generator's finally via `aclose()`). Lock order is
+  always generation/recovery semaphore first, admission second; no deadlock.
+- [x] `AI_PROVIDER_MAX_INFLIGHT` (default 16, 0 through 512, 0 disables): strictly above the
+  summary path's own maximum (6 + 3) so no summary behaviour changes; chat queues at 7
+  concurrent streams per process; fleet worst case 2 × 16 + the pregenerate job's 4. The one
+  capacity-flavoured number in the slice, env-tunable, left at the default (founder-held).
+- [x] `/metrics`: `provider_admission` and `sec_rate_limiter` snapshots, both `scope: process`
+  (E12's "connect E09 counters"). Docs: CONFIGURATION row, OPERATIONS paragraph (what the
+  snapshots mean, the Monday job overlap, that only lower per-process budgets fix an
+  aggregate SEC overrun), ARCHITECTURE resilience line.
+- [x] Tests: `test_provider_admission.py` (5), `test_ai_metrics.py` (+1),
+  `test_configuration_reference.py` (+2). Mutations on committed state, restored: admission
+  wrap removed → 3 failed; chat slot narrowed to `create` → 1 failed; wait made unbounded →
+  1 failed (the chat-path gate; the summary path's outer budget masks it, which is why that
+  gate exists); metrics keys dropped → 1 failed; `ge=0` dropped → 1 failed. Full gate on
+  `0502c2d`: ruff/bandit clean, 2680 passed.
+- [ ] Independent lens, draft PR, one paid Copilot run at ready, merge, deploy verification
+  (`applied=0`).
+
 ## Stripe dunning-policy gates (engineering, 2026-09-07)
 
 Facts (read against `c7510ac`): the E06 row's open item, "event-selection coverage remains
@@ -164,8 +200,12 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
 - [x] Draft [#759](https://github.com/neilmac91/EarningsNerd/pull/759) on `6902690` (the test
   commit cherry-picked onto #758's merge, the ledger records and the widened lesson); PR CI run
   34170088821 green on every job. The #758 release record rides on the draft.
-- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
-  verification (`applied=0`).
+- [x] `27bcb27` added the #758 release record while still a draft. Marked ready at 23:31 UTC
+  under the standing authorization: `copilot-eval.yml` run 34170331950 success; PR CI run
+  34170327527 green on every job; Codex posted only its quota notice. Squash-merged as
+  `bc973b2` at 23:35 UTC.
+- [ ] Main CI on `bc973b2`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
+  independent detailed health).
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
@@ -207,7 +247,7 @@ counters). Expired OAuth states are swept only on the next login; refresh tokens
   `earningsnerd-backend-00300-7nj` at 100 % traffic; five job images updated, the loop now
   names `earningsnerd-retention-purge` and reports it not found (create once per
   DEPLOYMENT.md); CI `/health/detailed` healthy (database 8.99 ms) at 23:30:29Z; independent
-  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:32 UTC. Released.
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:31 UTC. Released.
 - [ ] Founder console: create `earningsnerd-retention-purge` and the Sunday 03:00 UTC scheduler
   per DEPLOYMENT.md (a `--dry-run` execution first). Until then job health lists the job as
   never observed and the weekly data-quality report flags it stale.
