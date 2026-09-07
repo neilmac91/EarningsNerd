@@ -133,3 +133,73 @@ def test_limit_is_bounded(client):
         _as_user(s.uid, None)
         assert client.get("/api/users/me/notifications?limit=1").json()["items"].__len__() == 1
         assert client.get("/api/users/me/notifications?limit=0").status_code == 422
+
+
+@contextmanager
+def _statement_capture():
+    """Every SQL statement the app engine runs, plus a trip-wire that fails the test if any
+    NotificationLog row is materialised (the unread count must stay an aggregate)."""
+    from sqlalchemy import event
+
+    from app.database import engine
+    from app.models import NotificationLog
+
+    statements = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement.lower())
+
+    def loaded(target, context):
+        raise AssertionError("the unread count materialised a NotificationLog row")
+
+    event.listen(engine, "before_cursor_execute", capture)
+    event.listen(NotificationLog, "load", loaded)
+    try:
+        yield statements
+    finally:
+        event.remove(NotificationLog, "load", loaded)
+        event.remove(engine, "before_cursor_execute", capture)
+
+
+@pytest.mark.requires_db
+def test_unread_count_is_one_aggregate_statement_and_loads_no_rows(client):
+    """E10c: with `seen` set, the count is a single SQL aggregate over notification_log; no
+    log rows are fetched into Python. (The list itself is bounded by `limit` and loads rows.)"""
+    from app.routers.users import _unread_count
+
+    with _seeded() as s:
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = SimpleNamespace(id=s.uid, notifications_seen_at=s.times[1])
+            with _statement_capture() as statements:
+                assert _unread_count(db, user) == 1
+            counts = [st for st in statements if "count(" in st and "notification_log" in st]
+            assert len(counts) == 1, statements
+            assert "created_at >" in counts[0]
+            assert not [st for st in statements if "notification_log" in st and "count(" not in st], statements
+        finally:
+            db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("offset_us, expected", [(0, 0), (-1, 1)])
+def test_unread_boundary_is_strict_at_microsecond_precision(client, offset_us, expected):
+    """`seen` exactly at an alert's stamp does not count it; one microsecond earlier does. Holds
+    for a naive `seen` (the SQLite shape) and an aware one (the PostgreSQL shape)."""
+    from datetime import timezone
+
+    from app.routers.users import _unread_count
+
+    with _seeded() as s:
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            naive_seen = s.times[2] + timedelta(microseconds=offset_us)
+            for seen in (naive_seen, naive_seen.replace(tzinfo=timezone.utc)):
+                user = SimpleNamespace(id=s.uid, notifications_seen_at=seen)
+                assert _unread_count(db, user) == expected
+        finally:
+            db.close()
