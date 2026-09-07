@@ -34,6 +34,8 @@ class DeliveryBatch(Base):
     __table_args__ = (
         Index("ix_earningsnerd_delivery_batches_due", "status", "next_attempt_at"),
         Index("ix_earningsnerd_delivery_batches_lease", "status", "lease_expires_at"),
+        # E11c: the provider's click webhook resolves its email id back to the batch it belongs to.
+        Index("ix_earningsnerd_delivery_batches_provider_email_id", "provider_email_id"),
     )
 
     id = Column(Integer, primary_key=True)
@@ -56,6 +58,9 @@ class DeliveryBatch(Base):
     attempts = Column(Integer, nullable=False, default=0)
     next_attempt_at = Column(DateTime(timezone=True), nullable=True)
     provider_email_id = Column(String(64), nullable=True)
+    # E11c alert-to-return measurement: when the recipient first followed a link in this email
+    # (from the provider's click webhook); later clicks never move it.
+    first_click_at = Column(DateTime(timezone=True), nullable=True)
     last_error_kind = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False)

@@ -29,11 +29,11 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Optional
 from uuid import uuid4
 
-from sqlalchemy import func, or_, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -56,7 +56,7 @@ from app.models.notifications import CHANNEL_EMAIL
 from app.services import resend_service
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import ensure_utc, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +122,7 @@ def payload_digest(subject: str, html: str, *, to_email: str, from_email: str) -
 
 
 def _aware(value: Optional[datetime]) -> Optional[datetime]:
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return None if value is None else ensure_utc(value)
 
 
 # --------------------------------------------------------------------------- selection
@@ -561,3 +559,42 @@ async def drain(
             else:
                 stats.lost_claims += 1
     return stats
+
+
+
+@dataclass(frozen=True)
+class FirstClick:
+    """The batch a provider click resolved to, the first time only (E11c)."""
+
+    batch_id: int
+    kind: str
+    user_id: int
+    first_dispatch_at: Optional[datetime]
+    first_click_at: datetime
+
+
+def record_first_click(db: Session, provider_email_id: str, now: datetime) -> Optional[FirstClick]:
+    """Stamp ``first_click_at`` on the batch the provider's email id belongs to, once.
+
+    The click webhook is the only signal that an alert brought the reader back, so this is the
+    alert-to-return measurement's write. Conditional on ``first_click_at IS NULL``: a second click
+    (or a webhook retry) is not a new return and leaves the stamp alone; unknown ids (transactional
+    mail, pre-E11b-1 sends) resolve to nothing. Commits; returns the batch facts the caller reports.
+    """
+    row = db.execute(
+        select(DeliveryBatch.id, DeliveryBatch.kind, DeliveryBatch.user_id, DeliveryBatch.first_dispatch_at)
+        .where(DeliveryBatch.provider_email_id == provider_email_id)
+    ).first()
+    if row is None:
+        return None
+    stamped = db.execute(
+        update(DeliveryBatch)
+        .where(DeliveryBatch.id == row.id, DeliveryBatch.first_click_at.is_(None))
+        .values(first_click_at=now, updated_at=now)
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    if stamped != 1:
+        db.rollback()
+        return None
+    db.commit()
+    return FirstClick(row.id, row.kind, row.user_id, row.first_dispatch_at, now)

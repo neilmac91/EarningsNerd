@@ -30,3 +30,13 @@ def iso_z(dt: datetime) -> str:
     ``new Date()`` and our cache ``_parse_timestamp`` expect). Pass a tz-aware UTC datetime.
     """
     return dt.isoformat().replace("+00:00", "Z")
+
+
+def ensure_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as an aware UTC datetime.
+
+    Timezone-aware columns come back naive from SQLite and aware from PostgreSQL; arithmetic
+    against ``utcnow()`` needs one representation. A naive value is taken to be UTC (the only
+    convention the code base writes).
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)

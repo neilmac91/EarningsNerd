@@ -130,6 +130,41 @@ if needed (recorded below). No email or production job execution as a test is au
   20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
 
+## E11c — Alert-to-return measurement (engineering, 2026-09-07)
+
+Facts (read against `85c2c23`): Resend's `email.clicked` webhook reached
+`routers/webhooks.py::handle_email_clicked` and was only logged; every delivered alert email is
+one `earningsnerd_delivery_batches` row carrying `provider_email_id` (E11b-1). Opens are
+unreliable (pixel prefetch); clicks are the return signal.
+
+- [x] `first_click_at` column + `provider_email_id` index (model + guarded migration; applied
+  three times to a fresh local PostgreSQL 16 database, index valid).
+  `record_first_click` stamps once (`IS NULL` conditional update). `handle_email_clicked`
+  stamps in the threadpool and emits `alert_email_clicked` (user id; `kind`, `batch_id`,
+  `hours_to_first_click`, `link_path` only); failures are logged and swallowed; unknown/blank
+  ids are clean misses. `ensure_utc` normalises SQLite's naive stamps. OPERATIONS.md carries the
+  per-kind weekly return-rate SQL.
+- [x] Tests (+2 in `test_resend_webhook_handlers.py`, schema fixture for the existing masked-log
+  cases); mutations restored: `IS NULL` dropped → 1 failed; capture removed → 1 failed.
+- [x] Full gate on `e12b67e`: ruff/bandit clean, 2662 passed.
+- [x] Independent lens: one defect, fixed in `76aa87a` — Resend nests the clicked URL under
+  `data.click.link` (with `timestamp`, `ipAddress`, `userAgent`); the handler read a top-level
+  `link` the provider never sends, so every real click would have reported no path, and the
+  test passed only because its payload had the same wrong shape. Now the documented shape is
+  read, the provider's click timestamp stamps the row (a delayed retry no longer overstates the
+  delay), the path is derived before any database work, and the tests carry the nested payload
+  with IP and user agent present and proven absent from the event. Doc sentence aligned with
+  the INFO line; the service's private aware-UTC helper folds onto `ensure_utc`. Third
+  mutation: top-level `link` read instead of `data.click` → 1 failed. Refuted: id validation
+  depth, the raw-address log gate, duplicate provider ids, blank/NULL matching, concurrent
+  clicks and rollback-on-miss, datetime handling, migration legality (lock-safety gate,
+  statement-by-statement psql, guard schema, model/migration parity), the 30 s webhook
+  timeout, the autouse schema fixture, the analytics id convention and the event name already
+  reserved in `docs/IMPLEMENTATION_PLAN.md`.
+- [x] Full gate on `76aa87a`: ruff/bandit clean, 2662 passed.
+- [ ] PR after E12b merges, one paid Copilot run at ready under the
+  standing authorization, merge, deploy verification (`applied=1`).
+
 ## E12b — Startup schema deadlines (engineering, 2026-09-07)
 
 Facts (read against `85c2c23`): `lifespan` ran `create_all` and `ensure_additive_columns` on
@@ -157,8 +192,13 @@ validation had a 5 s deadline.
   the otherwise non-fatal additive step (7 columns × 5 s stays well under 60 s); a queued
   ACCESS EXCLUSIVE still stalls the draining revision for up to 5 s per drifted column —
   bounded, not eliminated.
-- [ ] PR after #755 merges, one paid Copilot run at ready under the standing authorization,
-  merge, deploy verification.
+- [x] Draft [#756](https://github.com/neilmac91/EarningsNerd/pull/756) on `060f19a`; PR CI run
+  34164809020 green on every job. Marked ready at 22:10 UTC under the standing authorization:
+  `copilot-eval.yml` run 34165763496 success, artifact `copilot-fidelity-34165763496`
+  (id 10034131333, sha256 `2c6e3647…43b67`); Codex posted only its quota notice.
+  Squash-merged as `0768b86` at 22:15 UTC.
+- [ ] Main CI on `0768b86`, deploy verification (`applied=0`, new revision at 100 %,
+  independent detailed health).
 
 ## E15b — Bound the whole sitemap document (engineering, 2026-09-07)
 
@@ -202,8 +242,11 @@ the eligible set approaches the cap — at 574 URLs that is not engineering wort
   success, artifact `copilot-fidelity-34164525849` (id 10033751454, sha256 `faa8849b…c9182`);
   Codex posted only its quota notice. Squash-merged as
   [#755](https://github.com/neilmac91/EarningsNerd/pull/755) = `757a8f1` at 21:53 UTC.
-- [ ] Main CI on `757a8f1`, deploy verification (`applied=0`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34164749968 on `757a8f1`: success on every job. deploy-backend job
+  101873968238: `apply_migrations: applied=0 skipped=38`, Cloud Run revision
+  `earningsnerd-backend-00297-bwf` at 100 % traffic, five job images updated, CI
+  `/health/detailed` healthy (database 8.22 ms) at 22:00:33Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 22:11 UTC. Released.
 
 ## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
 
