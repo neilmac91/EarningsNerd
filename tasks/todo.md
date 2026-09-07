@@ -185,7 +185,36 @@ contract change; no migration (the table and index already exist); no new settin
   → 1 failed; `_reserve_use` reads the completed count before the leases → the #746
   interleaving test PASSED because its hook converted before counting (both orders saw the
   completed use); hook re-ordered to count-then-convert, unmutated 1 passed, mutated 1 failed.
-- [ ] Full gate, independent lens, draft PR, one founder-approved Copilot run at ready, merge,
+- [x] Draft [#754](https://github.com/neilmac91/EarningsNerd/pull/754) opened on `aaff900`
+  (paid eval skipped on the draft). Independent correctness lens (two refutations per
+  candidate): one defect, fixed — on a client disconnect Starlette cancels the streaming task
+  under ASGI < 2.4 (uvicorn 0.52.4 speaks 2.3: `StreamingResponse.__call__` runs the stream
+  and the disconnect listener in one task group and cancels it), and the release awaited in
+  the generator's `finally` hit anyio's pre-shield checkpoint and was cancelled before it
+  ran, so the lease leaked until the 300 s TTL (a Free user who navigated away mid-answer saw
+  the "used your free questions" upsell for up to five minutes). Fix: the release runs under
+  `anyio.CancelScope(shield=True)` in both routes. Gate: one ASGI-driven disconnect test per
+  route (raw scope with `spec_version: "2.3"`, disconnect after the first event; `TestClient`
+  never exercises that path): before the fix `2 failed` (taste lease still held, analysis
+  release never recorded), after `3 passed`. Two minor items also taken: the filing / company
+  / user snapshots are read before the admission commits (no expired-instance refresh while a
+  lease is held), and `test_analysis_metering_converts_the_lease_in_the_counter_commit` runs
+  the real `_meter_analysis_best_effort` body against SQLite (failing increment keeps the
+  lease and returns False; success converts and counts in one commit). Refuted: stale
+  completed count via the identity map, rollback on a block breaking the cached-key probe,
+  HTTPException after the lease, sentinel width / index scope / sweep, taste ↔ monthly
+  cross-conversion, expired lease mid-answer (still counted, matches prior behaviour),
+  metering-failure double charge, at-cap cached bypass parity, taste READ COMMITTED
+  interleavings, rules 4/6/7/8, wall-clock and id-reuse flakes.
+- [ ] Follow-up (next bounded PR, NOT in #754): `summary_pipeline.stream_filing_summary`'s
+  `finally` has the same shape — `await asyncio.gather(summary_task)` then the reservation
+  release, then the generation-semaphore and in-flight releases — and a scratch reproduction
+  of that shape under a spec-2.3 disconnect aborted at the first await (`CancelledError`),
+  which would skip the lease, slot and leadership releases. Needs a real-pipeline
+  reproduction through `StreamingResponse` (harness `tests/support/summary_stream_harness`)
+  before any change; the SSE contract tests are locked, so the fix is confined to the
+  `finally` (shielded scope) with its own gate.
+- [ ] Full gate on the final head, PR body, one founder-approved Copilot run at ready, merge,
   deploy verification (`applied=0`, new revision at 100 %, independent detailed health).
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
