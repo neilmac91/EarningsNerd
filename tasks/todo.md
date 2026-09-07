@@ -130,6 +130,38 @@ if needed (recorded below). No email or production job execution as a test is au
   20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
 
+## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
+
+Facts (read against `0768b86`): `docs/DATA_RETENTION_POLICY.md` promised automated deletion
+for search history (1 year), failed-login state (7 days) and contact-form submissions
+(1 year), and nothing implemented any of them; the deferred list carried "retention purge
+jobs (policy promise — schedule before public launch)". The policy also marked as automated
+rows nothing automates (inactivity deletion, waitlist and referral data, audit logs, usage
+counters). Expired OAuth states are swept only on the next login; refresh tokens never.
+
+- [x] `retention_service.run_retention_purge` (five targets, bounded batches of 5,000
+  committed per batch, `dry_run` counts), `scripts/retention_purge.py` under
+  `track_job("retention-purge")`, `/internal/jobs/retention-purge?dry_run=`. Excluded by
+  design (founder-held): inactivity account deletion, waitlist/referral rows, audit logs,
+  usage counters, billing rows.
+- [x] Docs: DEPLOYMENT.md job + Sunday 03:00 UTC schedule (job creation is a founder console
+  action; CI updates its image once it exists), OPERATIONS.md section, the policy's
+  "Automated" column made truthful, ci.yml job list.
+- [x] Tests: `test_retention_purge.py` (5) + `test_internal_jobs.py` (+2). Mutations on
+  committed state, restored: locked-attempt guard dropped → 2 failed; dry run made to delete
+  → 1 failed; refresh-token grace dropped → 2 failed.
+- [x] Independent lens: four findings fixed in `462dedf` (delete re-applies the predicate
+  and counts `rowcount`, gated by a `before_execute` race test; `retention-purge` in
+  `JOB_CADENCES`; policy §3.3 rewritten around the running job; CLAUDE.md / DEPLOYMENT.md
+  job-target counts and the naive-datetime docstrings realigned). Mutations, restored:
+  predicate dropped → 1 failed; cadence entry removed → 2 failed; keys counted instead of
+  rowcount → 1 failed. Full gate on `462dedf`: ruff clean, bandit clean, 2676 passed
+  (four PostgreSQL lanes; an earlier pass showed 39 lane errors that were only the local
+  server having died).
+- [ ] PR after #757 merges, one paid Copilot run at ready under the standing authorization,
+  merge, deploy verification (`applied=0`), then the founder creates the job and schedule
+  per DEPLOYMENT.md.
+
 ## E11c — Alert-to-return measurement (engineering, 2026-09-07)
 
 Facts (read against `85c2c23`): Resend's `email.clicked` webhook reached
@@ -162,8 +194,14 @@ unreliable (pixel prefetch); clicks are the return signal.
   timeout, the autouse schema fixture, the analytics id convention and the event name already
   reserved in `docs/IMPLEMENTATION_PLAN.md`.
 - [x] Full gate on `76aa87a`: ruff/bandit clean, 2662 passed.
-- [ ] PR after E12b merges, one paid Copilot run at ready under the
-  standing authorization, merge, deploy verification (`applied=1`).
+- [x] Draft [#757](https://github.com/neilmac91/EarningsNerd/pull/757) on `fd17362` (the
+  three worktree commits plus the ledger records); PR CI run 34167066568 green on every job
+  (eval-baseline included). Marked ready at 22:48 UTC under the standing authorization:
+  `copilot-eval.yml` run 34167912237 success; Codex posted only its quota notice.
+  Squash-merged as `c7510ac` at 22:51 UTC.
+- [ ] Main CI on `c7510ac`, deploy verification (`applied=1` for
+  `20260908_earningsnerd_delivery_first_click.sql`, new revision at 100 %, independent
+  detailed health).
 
 ## E12b — Startup schema deadlines (engineering, 2026-09-07)
 
@@ -197,8 +235,12 @@ validation had a 5 s deadline.
   `copilot-eval.yml` run 34165763496 success, artifact `copilot-fidelity-34165763496`
   (id 10034131333, sha256 `2c6e3647…43b67`); Codex posted only its quota notice.
   Squash-merged as `0768b86` at 22:15 UTC.
-- [ ] Main CI on `0768b86`, deploy verification (`applied=0`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34167002241 on `0768b86`: success on every job. deploy-backend job
+  101880433011: `apply_migrations: applied=0 skipped=38`, Cloud Run revision
+  `earningsnerd-backend-00298-wnc` at 100 % traffic (the new startup deadline path booted
+  cleanly), five job images updated, CI `/health/detailed` healthy (database 5.9 ms) at
+  22:38:38Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy at
+  22:40 UTC. Released.
 
 ## E15b — Bound the whole sitemap document (engineering, 2026-09-07)
 
@@ -3688,8 +3730,7 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 ## Deferred (tracked in appendix 06, not scheduled)
 
 SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13F); competitive roadmap
-A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
-launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
+A4/A7/A8; cold-path Phase C; MFA/TOTP; Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
 `SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
 
 ## Parity and the sole measured baseline — archived
