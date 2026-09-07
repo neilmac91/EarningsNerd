@@ -178,7 +178,7 @@ contract change; no migration (the table and index already exist); no new settin
   an admission on the users-row lock never over-admits. Both route suites now start each test
   with a fresh per-user route limiter (process-wide window + SQLite id reuse tripped the
   10/min cap late in the file). Locked `test_expired_trial_gating.py` untouched and green.
-- [x] Mutations, each restored (`scratchpad/e11-evidence/e07b-slice2-mutations.log`): taste
+- [x] Mutations, each restored (session workspace, `e11-evidence/e07b-slice2-mutations.log`): taste
   scoped to the current month → 3 failed; Copilot `finally` release dropped → 3 failed;
   Analysis `finally` release dropped → 5 failed; Analysis reserves after a read-side block →
   3 failed; Pro admission not serialized → 2 failed; taste metering counts without converting
