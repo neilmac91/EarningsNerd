@@ -72,7 +72,7 @@ async def test_digest_loads_only_watched_filings_since_normalized_window(now):
             assert stats == {
                 "digests_sent": 1, "digests_failed": 0, "filings_included": 3,
                 "delivery_accepted": 1, "delivery_retryable": 0, "delivery_ambiguous": 0,
-                "delivery_rejected": 0, "delivery_suppressed": 0,
+                "delivery_rejected": 0, "delivery_suppressed": 0, "delivery_rebuilt": 0,
             }
     finally:
         engine.dispose()

@@ -361,7 +361,8 @@ async def test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_sa
         assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_MEMBERSHIP_CHANGED
         assert rebuilt.status == STATUS_ACCEPTED and [i.filing_id for i in rebuilt.items] == [2]
         assert second.await_count == 1 and [i["filing_id"] for i in second.await_args.kwargs["items"]] == [2]
-        assert stats["digests_sent"] == 1 and stats["filings_included"] == 1 and stats["delivery_suppressed"] == 1
+        assert stats["digests_sent"] == 1 and stats["filings_included"] == 1
+        assert (stats["delivery_suppressed"], stats["delivery_rebuilt"]) == (1, 1)  # both visible in the job outcome
         assert _log_count(db) == 1
 
 

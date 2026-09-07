@@ -204,9 +204,10 @@ async def send_earnings_day_alerts(
             if existing is not None:
                 # Take over ONLY committed 'failed' rows, and claim atomically: the UPDATE's WHERE
                 # re-evaluates under the row lock, so of two concurrent runs exactly one gets
-                # rowcount=1 and sends; the other sees 0 and skips. ('pending' rows are never
-                # committed — the claim transaction commits only after the send resolves — so a
-                # visible 'pending' is unreachable today and deliberately NOT retried.)
+                # rowcount=1 and sends; the other sees 0 and skips. A visible 'pending' row is a
+                # claim whose send outcome was lost (the process died after the claim committed,
+                # possibly after the provider accepted): it is deliberately NOT retried, because a
+                # resend could duplicate; docs/OPERATIONS.md covers its reconciliation.
                 if existing.status == "failed":
                     took_over = (
                         db.query(EarningsAlertLog)
@@ -236,8 +237,14 @@ async def send_earnings_day_alerts(
             {"ticker": t, "company_name": ev.company_name or t, "time": ev.event_time, "status": ev.status}
             for t, ev, _ in sorted(claimed, key=lambda c: -float(c[1].anticipation_score or 0))
         ]
+        recipient, name = user.email, getattr(user, "full_name", None)
+        # The claim is durable BEFORE any external I/O: a crash after the provider accepted the
+        # email leaves visible 'pending' rows instead of erasing the claim (which would resend).
+        # Nothing is queried between this commit and the await, so no transaction is held open
+        # while the network call runs; the outcome is recorded in a fresh short transaction.
+        db.commit()
         try:
-            await sender(to_email=user.email, name=getattr(user, "full_name", None), items=items)
+            await sender(to_email=recipient, name=name, items=items)
             status = "sent"
             emails += 1
             events_sent += len(claimed)

@@ -97,9 +97,21 @@ if needed (recorded below). No email or production job execution as a test is au
   five configured jobs updated (notable-filings still not provisioned), `/health/detailed`
   healthy in CI (19:39:28Z) and independently (19:39:56Z). #746's TTL thread answered and
   resolved. Paid Copilot runs consumed on #747: three (`9df9140`, `eb23bc3`, `d22192b`).
-- [ ] Next backend PR (alert-delivery follow-ups, bounded): the four nits above plus the
-  earnings-day D4 fix (commit the `pending` claim before the send in
-  `earnings_alert_service`). Then E07b slice 2 as its own PR.
+- [x] Alert-delivery follow-ups implemented (next PR): `delivery_rebuilt` exported in job
+  counters; rebuild collision logged (count only); `_wanted_items` computed once per batch and
+  only for a structurally intact batch (a batch with a missing filing never touches
+  entitlements, which the PostgreSQL lane's minimal schema pinned); docstring names
+  `_rebuild_plan`; behaviour note on one-item rebuilt digests. Earnings-day D4: the `pending`
+  claim (and any `failed` take-over) is committed before the provider call, items are built
+  before that commit so no transaction spans the await, the outcome lands in a fresh short
+  transaction; a visible `pending` row is now a real lost-outcome state, documented in
+  `docs/OPERATIONS.md` next to the `ambiguous` runbook, still never auto-retried. Gates:
+  `test_claim_is_committed_before_the_send_and_no_transaction_spans_it` (observes the claim
+  from another session during the send and `in_transaction() is False`), counter export
+  asserted in the window and membership cases. Mutations (restored): commit moved after the
+  send → 1 failed; counter export removed → 4 failed. Focused suites: 93 passed.
+- [ ] Full gate, draft PR, independent lens, one founder-approved Copilot run at ready, merge,
+  deploy verification. Then E07b slice 2 as its own PR.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 

@@ -174,6 +174,12 @@ Confirm in the Resend dashboard whether an email with that `idempotency_key` (or
   builds a fresh batch under a fresh key if the filing is still inside the selection window and
   wanted. Leave the batch row as evidence.
 
+Earnings-day alerts (`earnings_alert_log`) follow the same rule with a smaller ledger: the
+`pending` claim is committed before the send, so a row still `pending` after its run finished is
+a lost outcome (the process died after the claim, possibly after the provider accepted). The job
+never retries it; confirm in Resend by recipient and subject around the run time, then set the
+row to `sent` (accepted) or `failed` (not accepted; the next run retries it).
+
 Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
 (`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
 the job retries it with backoff, re-keying it if the replay window closed. Historical

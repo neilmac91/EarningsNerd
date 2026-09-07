@@ -253,6 +253,43 @@ async def test_digest_retries_after_a_failed_send():
 
 @pytest.mark.requires_db
 @pytest.mark.asyncio
+async def test_claim_is_committed_before_the_send_and_no_transaction_spans_it():
+    """D4: the 'pending' claim must be durable before the provider call, so a crash after the
+    provider accepted cannot erase it and resend; and the session must hold no transaction while
+    the network call runs."""
+    from app.database import SessionLocal
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Watchlist
+
+    uid = _mk_user(is_pro=False)
+    today = date.today()
+    db = SessionLocal()
+    c = Company(cik=f"d4-{uuid.uuid4().hex[:10]}", ticker="DFOR", name="Durable Inc")
+    db.add(c)
+    db.flush()
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    db.add(EarningsEvent(
+        ticker="DFOR", company_name="Durable Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=today, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    ))
+    db.commit()
+    observed = {}
+
+    async def _observing_sender(*, to_email, name, items):
+        observed["in_transaction"] = db.in_transaction()
+        with SessionLocal() as other:  # what a concurrent run (or a post-crash operator) sees
+            row = other.query(EarningsAlertLog).filter(EarningsAlertLog.user_id == uid).one_or_none()
+            observed["visible_status"] = row.status if row is not None else None
+        raise RuntimeError("process died after the provider accepted")
+
+    stats = await alerts.send_earnings_day_alerts(db, today=today, sender=_observing_sender)
+    assert stats["failed"] == 1
+    assert observed == {"in_transaction": False, "visible_status": "pending"}
+    db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
 async def test_digest_does_not_retry_pending_rows():
     """A committed 'pending' row (another run's in-flight claim, or a future code path) is NOT
     taken over — only 'failed' is retryable. Prevents concurrent double-sends by construction."""
