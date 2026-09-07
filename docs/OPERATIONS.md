@@ -149,8 +149,10 @@ Every delivered alert email is one `earningsnerd_delivery_batches` row (`status 
 `provider_email_id` set). Resend's `email.clicked` webhook stamps `first_click_at` on that row
 the first time the recipient follows any link in it (later clicks and webhook retries never move
 it) and emits one PostHog event `alert_email_clicked` (`kind`, `batch_id`,
-`hours_to_first_click`, `link_path`; never the address or the query string). Opens are not
-used: mail clients prefetch tracking pixels. The return rate per kind and week:
+`hours_to_first_click`, `link_path`; never the address, the query string, the IP or the user
+agent the provider also sends). The stamp uses the provider's click timestamp, so a delayed
+webhook retry does not overstate the delay. Opens are not used: mail clients prefetch tracking
+pixels. The return rate per kind and week:
 
 ```sql
 SELECT date_trunc('week', first_dispatch_at) AS week, kind,
@@ -165,7 +167,7 @@ GROUP BY 1, 2 ORDER BY 1 DESC, 2;
 
 Only batches sent after this column existed carry a stamp; earlier sends count as delivered
 with no return. A `provider_email_id` the webhook cannot resolve (transactional mail, older
-sends) is a clean miss, logged at INFO with the masked recipient and the id only.
+sends) is a clean miss, logged at INFO with the masked recipient, the id and the link path only.
 
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 

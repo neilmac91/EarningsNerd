@@ -42,7 +42,8 @@ def test_handler_logs_masked_recipient_and_email_id(handler, caplog):
         "to": [RAW_ADDRESS],
         "subject": "Your EarningsNerd invite",
         "bounce_type": "hard",
-        "link": "https://earningsnerd.io/register",
+        # Resend nests the click (link, timestamp, ipAddress, userAgent) under ``click``.
+        "click": {"link": "https://earningsnerd.io/register", "timestamp": "2026-09-07T21:00:00.000Z"},
     }
 
     asyncio.run(handler(data))
@@ -109,17 +110,28 @@ def test_first_click_on_an_alert_email_is_stamped_once_and_reported_without_the_
     events: list[tuple] = []
     monkeypatch.setattr("app.services.posthog_client.capture_event", lambda *a, **k: events.append((a, k)))
     user_id, batch_id = _seed_batch("em_click_1")
-    data = {"email_id": "em_click_1", "to": [RAW_ADDRESS], "link": "https://www.earningsnerd.io/filing/42?utm=x"}
+    from datetime import timedelta
+
+    from app.utils.datetimes import iso_z, utcnow
+
+    clicked_at = utcnow() - timedelta(hours=1)  # the provider's click instant, before this (retried) webhook
+    data = {
+        "email_id": "em_click_1", "to": [RAW_ADDRESS],
+        "click": {"link": "https://www.earningsnerd.io/filing/42?utm=x", "timestamp": iso_z(clicked_at),
+                  "ipAddress": "203.0.113.5", "userAgent": "Mozilla/5.0"},
+    }
 
     asyncio.run(webhooks.handle_email_clicked(data))
     stamped = _first_click(batch_id)
     assert stamped is not None
+    assert abs((stamped.replace(tzinfo=None) - clicked_at.replace(tzinfo=None)).total_seconds()) < 2  # the click instant, not receipt
     assert len(events) == 1
     args, _kwargs = events[0]
     distinct_id, event, props = args
     assert (distinct_id, event) == (str(user_id), "alert_email_clicked")
     assert props["kind"] == "alert" and props["batch_id"] == batch_id and props["link_path"] == "/filing/42"
-    assert 2.9 < props["hours_to_first_click"] < 3.1
+    assert 1.9 < props["hours_to_first_click"] < 2.1  # dispatched 3 h ago, clicked 1 h ago
+    assert "203.0.113.5" not in repr(props) and "Mozilla" not in repr(props)
     assert RAW_ADDRESS not in repr(props) and RAW_ADDRESS not in caplog.text
     assert "Could not record" not in caplog.text
 
@@ -132,7 +144,7 @@ def test_click_on_unknown_or_blank_email_id_is_a_clean_miss(monkeypatch, caplog)
     caplog.set_level(logging.DEBUG, logger="app.routers.webhooks")
     events: list = []
     monkeypatch.setattr("app.services.posthog_client.capture_event", lambda *a, **k: events.append(a))
-    asyncio.run(webhooks.handle_email_clicked({"email_id": "em_unknown", "to": [RAW_ADDRESS], "link": "https://x/y"}))
+    asyncio.run(webhooks.handle_email_clicked({"email_id": "em_unknown", "to": [RAW_ADDRESS], "click": {"link": "https://x/y"}}))
     asyncio.run(webhooks.handle_email_clicked({"email_id": "  ", "to": [RAW_ADDRESS]}))
     assert events == []
     assert "Could not record" not in caplog.text

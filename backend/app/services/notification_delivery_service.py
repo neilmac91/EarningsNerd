@@ -29,7 +29,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Optional
 from uuid import uuid4
 
@@ -56,7 +56,7 @@ from app.models.notifications import CHANNEL_EMAIL
 from app.services import resend_service
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import ensure_utc, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +122,7 @@ def payload_digest(subject: str, html: str, *, to_email: str, from_email: str) -
 
 
 def _aware(value: Optional[datetime]) -> Optional[datetime]:
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return None if value is None else ensure_utc(value)
 
 
 # --------------------------------------------------------------------------- selection
