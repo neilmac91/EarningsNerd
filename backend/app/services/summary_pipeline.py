@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import AsyncIterator, List, Optional
 
+import anyio
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
@@ -1144,26 +1145,30 @@ async def stream_filing_summary(
 
         yield {'type': 'error', 'message': error_message}
     finally:
-        # This generator owns the provider task: disconnect/timeout must close its stream
-        # before releasing the slot, with no background retry left running.
-        if summary_task is not None:
-            if not summary_task.done():
-                summary_task.cancel()
-            await asyncio.gather(summary_task, return_exceptions=True)
-        # A reservation still held here was neither converted nor released (error, timeout,
-        # disconnect, or an uncounted partial result): give the quota unit back now.
-        if usage_reservation_token is not None:
-            token_to_release = usage_reservation_token
-            usage_reservation_token = None
+        # On a client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks)
+        # and re-delivers the cancellation at every await until the generator exits, so an
+        # unshielded cleanup would abort at its first await and skip every release below.
+        with anyio.CancelScope(shield=True):
+            # This generator owns the provider task: disconnect/timeout must close its stream
+            # before releasing the slot, with no background retry left running.
+            if summary_task is not None:
+                if not summary_task.done():
+                    summary_task.cancel()
+                await asyncio.gather(summary_task, return_exceptions=True)
+            # A reservation still held here was neither converted nor released (error, timeout,
+            # disconnect, or an uncounted partial result): give the quota unit back now.
+            if usage_reservation_token is not None:
+                token_to_release = usage_reservation_token
+                usage_reservation_token = None
 
-            def release_reservation_sync() -> None:
-                with database.SessionLocal() as session:
-                    release_reservation(token_to_release, session)
+                def release_reservation_sync() -> None:
+                    with database.SessionLocal() as session:
+                        release_reservation(token_to_release, session)
 
-            try:
-                await run_sync_db(release_reservation_sync)
-            except Exception as release_error:  # the lease expires on its own; never mask the outcome
-                logger.warning(f"[stream:{filing_id}] Could not release usage reservation: {release_error}")
+                try:
+                    await run_sync_db(release_reservation_sync)
+                except Exception as release_error:  # the lease expires on its own; never mask the outcome
+                    logger.warning(f"[stream:{filing_id}] Could not release usage reservation: {release_error}")
         # Release the generation slot first (only if actually acquired), then in-flight leadership,
         # so a queued generation can start as soon as this one is done.
         if generation_slot_held and generation_semaphore is not None:

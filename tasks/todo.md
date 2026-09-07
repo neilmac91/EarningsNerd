@@ -206,14 +206,23 @@ contract change; no migration (the table and index already exist); no new settin
   cross-conversion, expired lease mid-answer (still counted, matches prior behaviour),
   metering-failure double charge, at-cap cached bypass parity, taste READ COMMITTED
   interleavings, rules 4/6/7/8, wall-clock and id-reuse flakes.
-- [ ] Follow-up (next bounded PR, NOT in #754): `summary_pipeline.stream_filing_summary`'s
-  `finally` has the same shape — `await asyncio.gather(summary_task)` then the reservation
-  release, then the generation-semaphore and in-flight releases — and a scratch reproduction
-  of that shape under a spec-2.3 disconnect aborted at the first await (`CancelledError`),
-  which would skip the lease, slot and leadership releases. Needs a real-pipeline
-  reproduction through `StreamingResponse` (harness `tests/support/summary_stream_harness`)
-  before any change; the SSE contract tests are locked, so the fix is confined to the
-  `finally` (shielded scope) with its own gate.
+- [x] Second lens defect, pre-existing and folded into #754 (same invariant, same fix shape,
+  one paid run instead of two): `summary_pipeline.stream_filing_summary`'s `finally` awaited
+  the provider-task drain and the lease release BEFORE releasing the generation slot and
+  in-flight leadership. Real-pipeline reproduction through the route's wrapper and
+  `StreamingResponse` under a spec-2.3 disconnect (three identical runs): the cancel enters at
+  the heartbeat `asyncio.wait`, `summary_task.cancel()` runs, then
+  `await asyncio.gather(summary_task)` raises a fresh `CancelledError` and the generator is
+  finished — lease row left (until TTL), `MAX_CONCURRENT_GENERATIONS` slot leaked for the
+  process lifetime, `_inflight_generations` entry left with its Event never set (every later
+  request for that filing waits `INFLIGHT_WAIT_CAP_SECONDS` and times out), no warning
+  logged (`except Exception` cannot see `CancelledError`). Under spec 2.4 the releases run
+  only when the asyncgen finalizer eventually closes the generator. Fix: the awaiting part of
+  the cleanup runs under `anyio.CancelScope(shield=True)`; the slot and leadership releases
+  follow it unchanged. Gate: `test_client_disconnect_mid_generation_releases_lease_slot_and_leadership`
+  in `test_usage_reservation_wiring.py` (real pipeline, raw 2.3 scope, disconnect 50 ms into
+  the provider call): before `1 failed` (lease still held), after `1 passed`; locked
+  `test_summary_stream_contract.py` untouched and green.
 - [ ] Full gate on the final head, PR body, one founder-approved Copilot run at ready, merge,
   deploy verification (`applied=0`, new revision at 100 %, independent detailed health).
 
