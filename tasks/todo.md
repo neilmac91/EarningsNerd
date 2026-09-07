@@ -120,8 +120,73 @@ if needed (recorded below). No email or production job execution as a test is au
   mutation back to the instance writes → `DetachedInstanceError`, 1 failed); (2) the runbook
   said a `failed` earnings row is retried by the next run, but the job only takes over rows
   whose `event_date` is today → same-ET-day re-run wording.
-- [ ] Full gate on the fix, push, PR body, one founder-approved Copilot run at ready, merge,
-  deploy verification. Then E07b slice 2 as its own PR.
+- [x] Full gate on `ee5e1b5`: 2641 passed, Ruff/Bandit clean. Founder approved one paid Copilot
+  run (chat, "approved"); marked ready, eval and PR CI green; squash-merged as
+  [#753](https://github.com/neilmac91/EarningsNerd/pull/753) = `52e0406`. Main CI run
+  34158297001 success (all jobs; `eval-baseline` skipped by path filter). deploy-backend job
+  101855139863: `apply_migrations: applied=0 skipped=38` (no new file), Cloud Run revision
+  `earningsnerd-backend-00295-s9z` at 100 % traffic, five job images updated
+  (`notable-filings` not provisioned, skipped as designed), CI `/health/detailed` healthy at
+  20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
+  (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
+
+## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
+
+Facts (read against `52e0406`): Copilot admission is `require_copilot_or_taste` (a read of the
+stand-in's `copilot_free_taste_used`) plus, for Pro, `check_qa_limit` (a read of
+`user_usage.qa_count`), both in `summaries.py::ask_filing_stream`; Analysis admission is
+`check_analysis_limit` in `analysis.py::stream_analysis` with a cached-key bypass for at-cap
+users. Completion metering (`_meter_qa_best_effort`, `_meter_analysis_best_effort`) runs in a
+fresh session from inside the SSE generator. The Free Copilot taste is a lifetime allowance on
+`users.copilot_free_taste_used` and never rolls over, so a month-keyed lease would let a
+question straddling a rollover slip past it. #746's `reserve_summary_use` already holds the
+serialized decision shape (users-row lock, sweep, leases-then-completed reads, insert).
+
+Design: one generic `_reserve_use(user, db, kind, month, limit, completed_count)` in
+`subscription_service.py` re-expresses `reserve_summary_use` unchanged and adds
+`reserve_qa_use` (`qa`, monthly, `COPILOT_MONTHLY_QUESTION_CAP`), `reserve_qa_taste_use`
+(`qa_taste`, scope sentinel `LIFETIME_SCOPE = "0000-00"` — seven characters because the
+`month` column is `VARCHAR(7)`, which PostgreSQL enforces and SQLite does not; completed count
+read from the locked users row) and `reserve_analysis_use` (`analysis`, monthly,
+`ANALYSIS_MONTHLY_CAP`). Routes keep the patchable read-side checks first, then take the lease:
+Copilot Free → taste lease (403 with the existing upsell on a block), Pro → `check_qa_limit`
+then `reserve_qa_use` (429); Analysis → `check_analysis_limit` then `reserve_analysis_use`
+(a block falls into the existing cached-key / 429 handling, so at-cap users still re-open
+cached ranges free). Metering converts the lease in the same commit and reports whether it
+did; `finally` releases whatever is still held (error event, raised pipeline error, client
+disconnect, metering failure, cached re-serve, exempt regeneration, not-enough-data). No SSE
+contract change; no migration (the table and index already exist); no new settings.
+
+- [x] Service: `_reserve_use`, three `reserve_*_use` functions, `LIFETIME_SCOPE`; model comments;
+  `increment_user_copilot_free_taste` docstring no longer claims admission is unserialized.
+- [x] Routes: `summaries.py` (taste/Pro admission, `_meter_qa_best_effort(..., token)` →
+  bool, `_release_reservation_best_effort`, `held` token released in `finally`);
+  `analysis.py` (same shape; reservation only when the read admitted); `dependencies.py`
+  exposes `copilot_taste_exhausted_detail` so the serialized 403 reads like the gate's.
+- [x] Tests. `test_copilot.py` (+8): Pro lease visible while the answer streams and converted
+  on `complete`; error event, raised error and metering failure each release; serialized Pro
+  block → 429 with nothing held; taste lease is `("qa_taste", "0000-00")` and converts to the
+  lifetime counter; a held taste lease refuses a concurrent question with the upsell, also
+  after a month rollover; an expired taste lease is swept and the last unit consumed.
+  `test_analysis_stream.py` (+3, harness stubs the reservation seams and records releases):
+  cached / exempt / not-enough-data release, fresh converts, read-side block never reserves,
+  serialized block 429s, pipeline error and metering failure release. PostgreSQL lane
+  `test_usage_counter_transactions.py` (+4): 3 parallel `qa` / `analysis` admissions against
+  cap 2 with one counted admit exactly one; 3 parallel taste admissions against allowance 2
+  with one used admit exactly one, the lease carries the sentinel scope (PostgreSQL accepted
+  the width), a rollover changes nothing, conversion spends the allowance; a completion racing
+  an admission on the users-row lock never over-admits. Both route suites now start each test
+  with a fresh per-user route limiter (process-wide window + SQLite id reuse tripped the
+  10/min cap late in the file). Locked `test_expired_trial_gating.py` untouched and green.
+- [x] Mutations, each restored (`scratchpad/e11-evidence/e07b-slice2-mutations.log`): taste
+  scoped to the current month → 3 failed; Copilot `finally` release dropped → 3 failed;
+  Analysis `finally` release dropped → 5 failed; Analysis reserves after a read-side block →
+  3 failed; Pro admission not serialized → 2 failed; taste metering counts without converting
+  → 1 failed; `_reserve_use` reads the completed count before the leases → the #746
+  interleaving test PASSED because its hook converted before counting (both orders saw the
+  completed use); hook re-ordered to count-then-convert, unmutated 1 passed, mutated 1 failed.
+- [ ] Full gate, independent lens, draft PR, one founder-approved Copilot run at ready, merge,
+  deploy verification (`applied=0`, new revision at 100 %, independent detailed health).
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 

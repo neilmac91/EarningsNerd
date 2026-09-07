@@ -347,21 +347,24 @@ def test_postgres_reservation_lock_wait_is_bounded_and_admits_nothing(postgres_e
 
 def test_postgres_conversion_between_admission_reads_blocks_instead_of_over_admitting(postgres_engine, monkeypatch):
     """READ COMMITTED: a completion that commits between admission's two reads must count at
-    least once. Leases are read first, so the racing conversion is seen as a lease AND as a
-    completed use (conservative block); reading the counter first would see neither."""
+    least once. Leases are read first, so a conversion that lands right after the counter read
+    was already seen as a lease (conservative block); reading the counter first would see
+    neither. The hook reads the counter and only then lets the completion commit, which is the
+    one interleaving that tells the two read orders apart."""
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
     with Session(postgres_engine) as db:
         _, _, _, token = usage.reserve_summary_use(_load_user(db, uid), db)
     real_count = usage.get_user_usage_count
 
-    def convert_then_count(user_id, month, db):
+    def count_then_convert(user_id, month, db):
+        completed = real_count(user_id, month, db)
         # The in-flight generation completes in another session while admission is mid-decision.
         with Session(postgres_engine) as other:
             usage.increment_user_usage(uid, usage.convert_reservation(token, other), other)
-        return real_count(user_id, month, db)
+        return completed
 
-    monkeypatch.setattr(usage, "get_user_usage_count", convert_then_count)
+    monkeypatch.setattr(usage, "get_user_usage_count", count_then_convert)
     with Session(postgres_engine) as db:
         assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is False
     assert _rows(postgres_engine, uid)[0][1] == 1
