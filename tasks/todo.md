@@ -199,9 +199,13 @@ unreliable (pixel prefetch); clicks are the return signal.
   (eval-baseline included). Marked ready at 22:48 UTC under the standing authorization:
   `copilot-eval.yml` run 34167912237 success; Codex posted only its quota notice.
   Squash-merged as `c7510ac` at 22:51 UTC.
-- [ ] Main CI on `c7510ac`, deploy verification (`applied=1` for
-  `20260908_earningsnerd_delivery_first_click.sql`, new revision at 100 %, independent
-  detailed health).
+- [x] Main CI run 34168106895 on `c7510ac`: success on every job. deploy-backend job
+  101883531459: `== applying 20260908_earningsnerd_delivery_first_click.sql ==` (DO, CREATE
+  INDEX), `apply_migrations: applied=1 skipped=38`; Cloud Run revision
+  `earningsnerd-backend-00299-vxc` at 100 % traffic; five job images updated (notable-filings
+  still absent, skipped); CI `/health/detailed` healthy (database 7.85 ms) at 22:57:54Z;
+  independent `curl https://api.earningsnerd.io/health/detailed` healthy at 23:08 UTC.
+  Released. First stamps arrive with the next alert send; the OPERATIONS.md query reads them.
 
 ## E12b — Startup schema deadlines (engineering, 2026-09-07)
 
