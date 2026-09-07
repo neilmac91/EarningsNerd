@@ -18,15 +18,19 @@ from app.models import (
     SummaryGenerationProgress,
 )
 from app.routers.auth import get_current_user, get_current_user_optional
-from app.dependencies import require_copilot_or_taste
+from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_taste
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     check_qa_limit,
+    convert_reservation,
     get_current_month,
     increment_user_copilot_free_taste,
     increment_user_qa,
+    release_reservation,
+    reserve_qa_taste_use,
+    reserve_qa_use,
 )
 from app.services.copilot_service import answer_filing_question, snapshot_filing
 from app.services.summary_generation_service import (
@@ -271,23 +275,42 @@ async def generate_summary_stream(
     )
 
 
-def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False) -> None:
+def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> bool:
     """Meter one answered Copilot question in a fresh DB session (best-effort).
 
     Free users (``is_free_taste``) decrement their lifetime free-taste allowance; Pro users
-    increment the monthly fair-use ``qa_count``. Called from inside the SSE generator, which runs
-    after the request's DB session may already be gone (see ``snapshot_filing``), so it opens its own
-    short-lived session. A metering failure must never break the answer stream, so errors are
-    swallowed (and logged).
+    increment the monthly fair-use ``qa_count``. The admission lease (``token``) is converted in
+    the same commit, so a unit is never both held and counted. Called from inside the SSE
+    generator, which runs after the request's DB session may already be gone (see
+    ``snapshot_filing``), so it opens its own short-lived session. A metering failure must never
+    break the answer stream, so errors are swallowed (and logged); returns whether the lease was
+    converted, so the caller can release it otherwise.
     """
     db = SessionLocal()
     try:
         if is_free_taste:
+            convert_reservation(token, db)  # lifetime scope: the returned scope is not a month
             increment_user_copilot_free_taste(user_id, db)
         else:
-            increment_user_qa(user_id, get_current_month(), db)
+            month = convert_reservation(token, db) or get_current_month()
+            increment_user_qa(user_id, month, db)
+        return True
     except Exception:  # noqa: BLE001 — metering must not break the answer stream
         logger.warning("Failed to meter Copilot QA for user %s", user_id, exc_info=True)
+        return False
+    finally:
+        db.close()
+
+
+def _release_reservation_best_effort(token: Optional[str]) -> None:
+    """Give an admission lease back (fresh session; the lease expires on its own if this fails)."""
+    if not token:
+        return
+    db = SessionLocal()
+    try:
+        release_reservation(token, db)
+    except Exception:  # noqa: BLE001 — never mask the stream outcome
+        logger.warning("Could not release a Copilot admission reservation", exc_info=True)
     finally:
         db.close()
 
@@ -372,8 +395,17 @@ async def ask_filing_stream(
     # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
     # fair-use cap is a Pro-only protection against runaway volume.
     is_free_taste = not get_entitlements(current_user).copilot
-    if not is_free_taste:
+    if is_free_taste:
+        # The gate above is a plain read; concurrent questions could all pass it. The serialized
+        # admission holds one unit of the LIFETIME allowance under a lease until the answer
+        # completes (converted) or fails (released).
+        admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
+        if not admitted:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance))
+    else:
         allowed, count, cap = check_qa_limit(current_user, db)
+        if allowed:
+            allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
         if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -387,33 +419,42 @@ async def ask_filing_stream(
     # generate_summary_stream's eager value capture).
     filing_ctx = snapshot_filing(filing)
     user_id = current_user.id
+    held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
         # Meter on the first successful completion only: a failed/aborted generation (an ``error``
         # event, or a client disconnect before completion) must NOT burn the user's fair-use quota.
         # The not-disclosed path still emits ``complete`` (the model did its job), so it counts.
         metered = False
-        async for event in answer_filing_question(
-            filing=filing_ctx,
-            question=body.question,
-            history=body.history,
-        ):
-            if not metered and event.get("type") == "complete":
-                # Offload the synchronous DB write to a worker thread so it never blocks the event
-                # loop mid-stream (it opens its own fresh SessionLocal, so it's thread-safe). Free
-                # users decrement the lifetime free-taste counter; Pro the monthly fair-use count.
-                await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste)
-                metered = True
-                # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the complete
-                # event; cost is estimated here. Non-blocking (PostHog batches) + best-effort.
-                _emit_copilot_cost_best_effort(
-                    user_id,
-                    filing_id,
-                    getattr(getattr(filing_ctx, "company", None), "ticker", None),
-                    event,
-                    is_free_taste,
-                )
-            yield to_sse(event)
+        try:
+            async for event in answer_filing_question(
+                filing=filing_ctx,
+                question=body.question,
+                history=body.history,
+            ):
+                if not metered and event.get("type") == "complete":
+                    # Offload the synchronous DB write to a worker thread so it never blocks the
+                    # event loop mid-stream (it opens its own fresh SessionLocal, so it's
+                    # thread-safe). Free users decrement the lifetime free-taste counter; Pro the
+                    # monthly fair-use count; either converts the lease in the same commit.
+                    if await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"]):
+                        held["token"] = None
+                    metered = True
+                    # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
+                    # complete event; cost is estimated here. Non-blocking + best-effort.
+                    _emit_copilot_cost_best_effort(
+                        user_id,
+                        filing_id,
+                        getattr(getattr(filing_ctx, "company", None), "ticker", None),
+                        event,
+                        is_free_taste,
+                    )
+                yield to_sse(event)
+        finally:
+            # Anything still held here was neither converted nor released (error, disconnect,
+            # metering failure): give the unit back now rather than after the lease TTL.
+            if held["token"] is not None:
+                await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(
         event_stream(),

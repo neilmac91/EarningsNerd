@@ -409,3 +409,96 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
     with Session(sqlite_engine) as db:
         buckets = {r.month: r.summary_count for r in db.query(UserUsage).filter_by(user_id=uid)}
     assert buckets == {admitted_month: 1}
+
+
+# E07b slice 2: the Copilot (`qa`, monthly), Copilot free-taste (`qa_taste`, LIFETIME) and
+# Analysis (`analysis`, monthly) admissions share _reserve_use, so they inherit the summary
+# proofs above; these pin what is specific to each: the cap each one reads, the completed count
+# it converts into, and the lifetime scope that must survive a month rollover.
+
+def _pin_month(monkeypatch):
+    monkeypatch.setattr(usage, "get_current_month", lambda: MONTH)
+
+
+def _parallel(engine, uid, reserve, workers=3):
+    ready = threading.Barrier(workers, timeout=5)
+
+    def run():
+        with Session(engine) as db:
+            user = _load_user(db, uid)
+            ready.wait()
+            return reserve(user, db)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return [f.result(timeout=8) for f in [pool.submit(run) for _ in range(workers)]]
+
+
+@pytest.mark.parametrize("reserve,setting,kind,column", [
+    (usage.reserve_qa_use, "COPILOT_MONTHLY_QUESTION_CAP", usage.QA_RESERVATION_KIND, 2),
+    (usage.reserve_analysis_use, "ANALYSIS_MONTHLY_CAP", usage.ANALYSIS_RESERVATION_KIND, 3),
+])
+def test_postgres_parallel_monthly_reservations_admit_exactly_the_cap(postgres_engine, monkeypatch, reserve, setting, kind, column):
+    _pin_month(monkeypatch)
+    monkeypatch.setattr(settings, setting, 2)
+    uid = _seed(postgres_engine, (0, 1, 1))  # one completed use of each kind already counted
+    outcomes = _parallel(postgres_engine, uid, reserve)
+    admitted = [o for o in outcomes if o[0]]
+    blocked = [o for o in outcomes if not o[0]]
+    assert len(admitted) == 1 and len(blocked) == 2  # cap 2, one counted, one unit left
+    assert admitted[0][3] and all(o == (False, 1, 2, None) for o in blocked)
+    assert _reservations(postgres_engine, uid) == [(admitted[0][3], kind)]
+    assert _rows(postgres_engine, uid)[0][column] == 1  # nothing counted until completion
+
+
+def test_postgres_parallel_taste_reservations_admit_exactly_the_lifetime_allowance(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
+    monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(copilot_free_taste=2))
+    uid = _seed(postgres_engine)
+    with Session(postgres_engine) as db:
+        db.query(User).filter(User.id == uid).update({User.copilot_free_taste_used: 1})
+        db.commit()
+    outcomes = _parallel(postgres_engine, uid, usage.reserve_qa_taste_use)
+    admitted = [o for o in outcomes if o[0]]
+    assert len(admitted) == 1 and [o for o in outcomes if not o[0]] == [(False, 1, 2, None)] * 2
+    token = admitted[0][3]
+    with Session(postgres_engine) as db:  # the lease is lifetime-scoped: PostgreSQL accepted the sentinel
+        assert [(r.kind, r.month) for r in db.query(UsageReservation).filter_by(user_id=uid)] == \
+            [(usage.QA_TASTE_RESERVATION_KIND, usage.LIFETIME_SCOPE)]
+        # A month rollover between admission and the next question changes nothing for a
+        # lifetime allowance: the held lease is still seen, the request is still refused.
+        monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
+        assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 2, None)
+        # Completion converts into the users-row counter; the allowance is then spent for good.
+        assert usage.convert_reservation(token, db) == usage.LIFETIME_SCOPE
+        usage.increment_user_copilot_free_taste(uid, db)
+        assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 2, 2, None)
+    assert _reservations(postgres_engine, uid) == []
+
+
+def test_postgres_taste_completion_racing_admission_never_over_admits(postgres_engine, monkeypatch):
+    """The lifetime counter lives on the users row that admission locks, so a racing completion
+    and a racing admission serialize on that lock: whichever commits first, the admission sees
+    the in-flight unit as a lease or as a completed use and refuses."""
+    monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(copilot_free_taste=1))
+    uid = _seed(postgres_engine)
+    with Session(postgres_engine) as db:
+        _, _, _, token = usage.reserve_qa_taste_use(_load_user(db, uid), db)
+
+    def complete():
+        with Session(postgres_engine) as other:
+            usage.convert_reservation(token, other)
+            usage.increment_user_copilot_free_taste(uid, other)
+
+    def admit():
+        with Session(postgres_engine) as db:
+            return usage.reserve_qa_taste_use(_load_user(db, uid), db)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        completion, admission = pool.submit(complete), pool.submit(admit)
+        completion.result(timeout=8)
+        outcome = admission.result(timeout=8)
+    assert outcome in ((False, 0, 1, None), (False, 1, 1, None))  # lease seen, or completed use seen
+    with Session(postgres_engine) as db:
+        assert db.query(User.copilot_free_taste_used).filter(User.id == uid).scalar() == 1
+        assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 1, None)
+    assert _reservations(postgres_engine, uid) == []

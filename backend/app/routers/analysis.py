@@ -40,8 +40,11 @@ from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     check_analysis_limit,
+    convert_reservation,
     get_current_month,
     increment_user_analysis,
+    release_reservation,
+    reserve_analysis_use,
 )
 from app.services.summary_pipeline import to_sse
 
@@ -222,16 +225,35 @@ async def export_analysis_xlsx(
     )
 
 
-def _meter_analysis_best_effort(user_id: int) -> None:
+def _meter_analysis_best_effort(user_id: int, token: str | None = None) -> bool:
     """Meter one FRESH analysis generation in a fresh DB session (best-effort — a metering failure
-    must never break the stream the user already received)."""
+    must never break the stream the user already received). Converts the admission lease
+    (``token``) in the same commit; returns whether it did, so the caller can release otherwise."""
     from app.database import SessionLocal
 
     db = SessionLocal()
     try:
-        increment_user_analysis(user_id, get_current_month(), db)
+        month = convert_reservation(token, db) or get_current_month()
+        increment_user_analysis(user_id, month, db)
+        return True
     except Exception:  # noqa: BLE001 - metering must not break the stream
         logger.warning("Failed to meter analysis for user %s", user_id, exc_info=True)
+        return False
+    finally:
+        db.close()
+
+
+def _release_reservation_best_effort(token: str | None) -> None:
+    """Give an admission lease back (fresh session; the lease expires on its own if this fails)."""
+    if not token:
+        return
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        release_reservation(token, db)
+    except Exception:  # noqa: BLE001 - never mask the stream outcome
+        logger.warning("Could not release an analysis admission reservation", exc_info=True)
     finally:
         db.close()
 
@@ -289,6 +311,11 @@ async def stream_analysis(
     company = _get_company(db, ticker)
 
     allowed, _count, cap = check_analysis_limit(current_user, db)
+    token = None
+    if allowed:
+        # The read above is not serialized; the reservation is (E07b slice 2). It holds one unit
+        # until a fresh generation converts it or a cached / exempt outcome releases it.
+        allowed, _count, cap, token = reserve_analysis_use(current_user, db)
     if not allowed:
         # The cap blocks only runs that would CONSUME quota. A non-force request whose range
         # already has a cached row can only resolve free — a cache re-serve, or a
@@ -312,35 +339,44 @@ async def stream_analysis(
     ticker_value = company.ticker
     user_id = current_user.id
 
+    held = {"token": token}  # the admission lease, until converted by metering or released
+
     async def event_stream():
         metered = False
-        async for event in trend_analysis_service.stream_trend_narrative(
-            company_id=company_id,
-            mode=body.mode,
-            start_period=body.start_period,
-            end_period=body.end_period,
-            force=body.force,
-            user_id=user_id,
-        ):
-            fresh_completion = (
-                event.get("type") == "complete"
-                and event.get("kind") == "analysis"
-                and not event.get("cached")
-            )
-            if fresh_completion:
-                # System-invalidated regenerations (prompt bump / new facts changed the
-                # fingerprint under an existing cached row) don't burn the user's fair-use
-                # quota; a user-initiated `force` refresh is never flagged and stays metered.
-                # The exemption requires a SUCCESSFUL cache persist (analysis_id set): if the
-                # write keeps failing, every request would regenerate "invalidated" forever —
-                # metering those bounds the unmetered-model-call exposure at the cap.
-                exempt = event.get("invalidated") and event.get("analysis_id") is not None
-                if not metered and not exempt:
-                    await run_in_threadpool(_meter_analysis_best_effort, user_id)
-                    metered = True
-                # Cost telemetry fires for EVERY fresh generation — a model call happened.
-                _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
-            yield to_sse(event)
+        try:
+            async for event in trend_analysis_service.stream_trend_narrative(
+                company_id=company_id,
+                mode=body.mode,
+                start_period=body.start_period,
+                end_period=body.end_period,
+                force=body.force,
+                user_id=user_id,
+            ):
+                fresh_completion = (
+                    event.get("type") == "complete"
+                    and event.get("kind") == "analysis"
+                    and not event.get("cached")
+                )
+                if fresh_completion:
+                    # System-invalidated regenerations (prompt bump / new facts changed the
+                    # fingerprint under an existing cached row) don't burn the user's fair-use
+                    # quota; a user-initiated `force` refresh is never flagged and stays metered.
+                    # The exemption requires a SUCCESSFUL cache persist (analysis_id set): if the
+                    # write keeps failing, every request would regenerate "invalidated" forever —
+                    # metering those bounds the unmetered-model-call exposure at the cap.
+                    exempt = event.get("invalidated") and event.get("analysis_id") is not None
+                    if not metered and not exempt:
+                        if await run_in_threadpool(_meter_analysis_best_effort, user_id, held["token"]):
+                            held["token"] = None
+                        metered = True
+                    # Cost telemetry fires for EVERY fresh generation — a model call happened.
+                    _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
+                yield to_sse(event)
+        finally:
+            # Cached re-serves, exempt regenerations, errors and disconnects never consumed the
+            # unit: give it back now rather than after the lease TTL.
+            if held["token"] is not None:
+                await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(
         event_stream(),

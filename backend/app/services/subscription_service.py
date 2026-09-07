@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from typing import Optional
+from typing import Callable, Optional
 from app.models import User, UserUsage, UsageReservation
 from app.utils.datetimes import utcnow
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
@@ -99,6 +99,13 @@ def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]
 
 
 SUMMARY_RESERVATION_KIND = "summary"
+QA_RESERVATION_KIND = "qa"
+QA_TASTE_RESERVATION_KIND = "qa_taste"
+ANALYSIS_RESERVATION_KIND = "analysis"
+# Month sentinel for lifetime allowances: the lease scope must never roll over. Never a real
+# calendar month, and exactly seven characters because the ``month`` column is VARCHAR(7)
+# (PostgreSQL enforces the width; SQLite does not).
+LIFETIME_SCOPE = "0000-00"
 
 
 def _set_transaction_lock_timeout(db: Session) -> None:
@@ -108,27 +115,18 @@ def _set_transaction_lock_timeout(db: Session) -> None:
         )))
 
 
-def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
-    """Admit one summary generation and hold its quota unit under a short lease (E07b).
+def _reserve_use(
+    user: User, db: Session, *, kind: str, month: str, limit: int, completed_count: Callable[[Session], int],
+) -> tuple[bool, int, Optional[str]]:
+    """The one serialized admission decision every metered feature shares (E07b).
 
-    ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
-    each complete. This is the serialized decision: one transaction takes the account's
-    ``users`` row lock (bounded by ``USAGE_COUNTER_LOCK_TIMEOUT_MS``), counts completed uses
-    plus unexpired reservations, and only then inserts a reservation. Returns
-    ``(admitted, completed_count, limit, token)`` with the same limit semantics as
-    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
-    unlimited Pro returns no token). The caller converts or releases the token; a process
-    death leaves a row that admission ignores once ``expires_at`` passes and sweeps on the
-    account's next admission. No historical duplicate repair; Redis is not involved.
+    One transaction takes the account's ``users`` row lock (bounded by
+    ``USAGE_COUNTER_LOCK_TIMEOUT_MS``), sweeps the account's expired leases, counts this kind's
+    unexpired leases in ``month`` FIRST and then the completed uses (``completed_count`` reads
+    inside the locked transaction), and inserts a lease only if their sum is below ``limit``.
+    Returns ``(admitted, completed, token)``. A process death leaves a row that admission ignores
+    once ``expires_at`` passes and sweeps on the account's next admission.
     """
-    limit = get_entitlements(user).monthly_summary_limit
-    unlimited = limit is None
-    if unlimited:
-        cap = settings.PRO_SUMMARY_MONTHLY_CAP
-        if not cap:
-            return True, 0, None, None
-        limit = cap
-    month = get_current_month()
     now = utcnow()
     _set_transaction_lock_timeout(db)
     db.query(User.id).filter(User.id == user.id).with_for_update().first()
@@ -142,20 +140,89 @@ def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[in
     active = db.query(func.count(UsageReservation.id)).filter(
         UsageReservation.user_id == user.id,
         UsageReservation.month == month,
-        UsageReservation.kind == SUMMARY_RESERVATION_KIND,
+        UsageReservation.kind == kind,
         UsageReservation.expires_at > now,
     ).scalar() or 0
-    completed = get_user_usage_count(user.id, month, db)
+    completed = completed_count(db)
     if completed + active >= limit:
         db.rollback()
-        return False, completed, limit, None
+        return False, completed, None
     token = uuid4().hex
     db.add(UsageReservation(
-        user_id=user.id, month=month, kind=SUMMARY_RESERVATION_KIND, token=token,
+        user_id=user.id, month=month, kind=kind, token=token,
         expires_at=now + timedelta(seconds=settings.USAGE_RESERVATION_TTL_SECONDS), created_at=now,
     ))
     db.commit()
+    return True, completed, token
+
+
+def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
+    """Admit one summary generation and hold its quota unit under a short lease (E07b).
+
+    ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
+    each complete; this is the serialized decision (see ``_reserve_use``). Returns
+    ``(admitted, completed_count, limit, token)`` with the same limit semantics as
+    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
+    unlimited Pro returns no token). The caller converts or releases the token. No historical
+    duplicate repair; Redis is not involved.
+    """
+    limit = get_entitlements(user).monthly_summary_limit
+    unlimited = limit is None
+    if unlimited:
+        cap = settings.PRO_SUMMARY_MONTHLY_CAP
+        if not cap:
+            return True, 0, None, None
+        limit = cap
+    month = get_current_month()
+    admitted, completed, token = _reserve_use(
+        user, db, kind=SUMMARY_RESERVATION_KIND, month=month, limit=limit,
+        completed_count=lambda session: get_user_usage_count(user.id, month, session),
+    )
+    if not admitted:
+        return False, completed, limit, None
     return True, completed, (None if unlimited else limit), token
+
+
+def reserve_qa_use(user: User, db: Session) -> tuple[bool, int, int, Optional[str]]:
+    """Admit one Pro Copilot question under the monthly fair-use cap (E07b slice 2). Returns
+    ``(admitted, completed_count, cap, token)``; ``check_qa_limit`` stays the patchable read."""
+    cap = settings.COPILOT_MONTHLY_QUESTION_CAP
+    month = get_current_month()
+    admitted, completed, token = _reserve_use(
+        user, db, kind=QA_RESERVATION_KIND, month=month, limit=cap,
+        completed_count=lambda session: get_user_qa_count(user.id, month, session),
+    )
+    return admitted, completed, cap, token
+
+
+def reserve_qa_taste_use(user: User, db: Session) -> tuple[bool, int, int, Optional[str]]:
+    """Admit one Free Copilot question against the LIFETIME free-taste allowance (E07b slice 2).
+
+    The allowance lives on ``users.copilot_free_taste_used`` and never rolls over, so the lease
+    is scoped to ``LIFETIME_SCOPE`` instead of a month and the completed count is read from the
+    users row inside the locked transaction. Returns ``(admitted, used, allowance, token)``.
+    """
+    allowance = get_entitlements(user).copilot_free_taste or 0
+    if not allowance:
+        return False, 0, 0, None
+    admitted, used, token = _reserve_use(
+        user, db, kind=QA_TASTE_RESERVATION_KIND, month=LIFETIME_SCOPE, limit=allowance,
+        completed_count=lambda session: session.query(User.copilot_free_taste_used)
+        .filter(User.id == user.id).scalar() or 0,
+    )
+    return admitted, used, allowance, token
+
+
+def reserve_analysis_use(user: User, db: Session) -> tuple[bool, int, int, Optional[str]]:
+    """Admit one fresh Multi-Period Analysis generation under the monthly fair-use cap (E07b
+    slice 2). Returns ``(admitted, completed_count, cap, token)``."""
+    cap = settings.ANALYSIS_MONTHLY_CAP
+    month = get_current_month()
+    admitted, completed, token = _reserve_use(
+        user, db, kind=ANALYSIS_RESERVATION_KIND, month=month, limit=cap,
+        completed_count=lambda session: get_user_analysis_count(user.id, month, session),
+    )
+    return admitted, completed, cap, token
 
 
 def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
@@ -206,8 +273,9 @@ def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
     ``user_usage``. Metered after a successful answer; Pro users never reach this path.
 
     Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
-    parallel requests — cannot lose a completed-answer increment. Admission remains a separate
-    check, so this alone does not prevent concurrent requests exceeding the taste allowance.
+    parallel requests — cannot lose a completed-answer increment. Admission is serialized
+    separately by ``reserve_qa_taste_use`` (a lifetime-scoped lease), so concurrent questions
+    cannot exceed the taste allowance either.
     """
     db.query(User).filter(User.id == user_id).update(
         {User.copilot_free_taste_used: User.copilot_free_taste_used + 1},

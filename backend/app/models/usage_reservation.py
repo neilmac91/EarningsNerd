@@ -23,8 +23,8 @@ class UsageReservation(Base):
     # Cascade on both layers: the ORM path (DELETE /api/users/me) and any Core/SQL delete of a
     # users row must take live and expired leases with it, never fail an account deletion.
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    month = Column(String(7), nullable=False)  # "YYYY-MM", same bucket key as user_usage
-    kind = Column(String(20), nullable=False)  # "summary" (Copilot/Analysis reserved for slice 2)
+    month = Column(String(7), nullable=False)  # "YYYY-MM" bucket key, or LIFETIME_SCOPE ("0000-00")
+    kind = Column(String(20), nullable=False)  # "summary" | "qa" | "qa_taste" | "analysis"
     token = Column(String(36), nullable=False, unique=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)

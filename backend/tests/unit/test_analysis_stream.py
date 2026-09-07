@@ -543,9 +543,22 @@ class TestStreamRouteMetering:
         app.dependency_overrides[dependencies._resolve_current_user] = lambda: pro
         app.dependency_overrides[analysis_router.get_current_user] = lambda: pro
         app.dependency_overrides[analysis_router.get_db] = lambda: MagicMock()
+        # Process-wide per-user limiter: every test starts with a fresh window.
+        monkeypatch.setattr(
+            analysis_router, "STREAM_LIMITER", analysis_router.RateLimiter(limit=10, window_seconds=60)
+        )
 
         monkeypatch.setattr(
             analysis_router, "check_analysis_limit", lambda user, db: (allowed, 0, 100)
+        )
+        # The admission lease (E07b slice 2) is taken only when the read-side check admits;
+        # the real reservation needs a DB, so stub it and record what happens to the token.
+        monkeypatch.setattr(
+            analysis_router, "reserve_analysis_use", lambda user, db: (True, 0, 100, "lease-1")
+        )
+        released: list[str] = []
+        monkeypatch.setattr(
+            analysis_router, "_release_reservation_best_effort", lambda token: released.append(token)
         )
         monkeypatch.setattr(
             analysis_router.trend_analysis_service,
@@ -560,14 +573,17 @@ class TestStreamRouteMetering:
         monkeypatch.setattr(
             analysis_router.trend_analysis_service, "stream_trend_narrative", fake_pipeline
         )
-        metered: list[int] = []
-        monkeypatch.setattr(
-            analysis_router, "_meter_analysis_best_effort", lambda user_id: metered.append(user_id)
-        )
+        metered: list[tuple[int, str | None]] = []
+
+        def fake_meter(user_id: int, token: str | None = None) -> bool:
+            metered.append((user_id, token))
+            return True
+
+        monkeypatch.setattr(analysis_router, "_meter_analysis_best_effort", fake_meter)
         monkeypatch.setattr(
             analysis_router, "_emit_analysis_cost_best_effort", lambda *a, **k: None
         )
-        return TestClient(app), metered
+        return TestClient(app), metered, released
 
     BODY = {"mode": "annual", "start_period": "FY2021", "end_period": "FY2023"}
 
@@ -576,17 +592,19 @@ class TestStreamRouteMetering:
             {"type": "progress", "stage": "writing", "percent": 30},
             {"type": "complete", "kind": "analysis", "cached": False, "usage": {}},
         ]
-        client, metered = self._client(monkeypatch, events)
+        client, metered, released = self._client(monkeypatch, events)
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 200
         assert "data: " in response.text
-        assert metered == [42]
+        assert metered == [(42, "lease-1")]
+        assert released == []  # converted by metering, never given back
 
     def test_cached_complete_never_meters(self, monkeypatch):
         events = [{"type": "complete", "kind": "analysis", "cached": True, "usage": {}}]
-        client, metered = self._client(monkeypatch, events)
+        client, metered, released = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
         assert metered == []
+        assert released == ["lease-1"]  # the cached re-serve consumed nothing
 
     def test_system_invalidated_regeneration_never_meters(self, monkeypatch):
         # Prompt bump / new facts under an existing cached row: fresh model call, but the
@@ -595,9 +613,10 @@ class TestStreamRouteMetering:
             "type": "complete", "kind": "analysis", "cached": False, "invalidated": True,
             "analysis_id": 7, "usage": {},
         }]
-        client, metered = self._client(monkeypatch, events)
+        client, metered, released = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
         assert metered == []
+        assert released == ["lease-1"]
 
     def test_invalidated_without_persist_still_meters(self, monkeypatch):
         # The exemption requires a SUCCESSFUL cache persist — if the write failed
@@ -607,33 +626,86 @@ class TestStreamRouteMetering:
             "type": "complete", "kind": "analysis", "cached": False, "invalidated": True,
             "analysis_id": None, "usage": {},
         }]
-        client, metered = self._client(monkeypatch, events)
+        client, metered, released = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
-        assert metered == [42]
+        assert metered == [(42, "lease-1")]
+        assert released == []
 
     def test_over_cap_with_cached_key_proceeds_unmetered(self, monkeypatch):
         # At-cap user re-opening an existing range: the run can only resolve free (cache hit or
         # system-invalidated regen), so the 429 gate must not block it — otherwise the very
         # prompt bump that invalidates the fleet locks at-cap users out of their analyses.
         events = [{"type": "complete", "kind": "analysis", "cached": True, "usage": {}}]
-        client, metered = self._client(monkeypatch, events, allowed=False, cached_exists=True)
+        client, metered, released = self._client(
+            monkeypatch, events, allowed=False, cached_exists=True
+        )
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
         assert metered == []
+        assert released == []  # no lease is taken when the read-side check already blocks
 
     def test_over_cap_force_refresh_still_429s(self, monkeypatch):
-        client, metered = self._client(monkeypatch, [], allowed=False, cached_exists=True)
+        client, metered, released = self._client(
+            monkeypatch, [], allowed=False, cached_exists=True
+        )
         response = client.post("/api/analysis/TST/stream", json={**self.BODY, "force": True})
         assert response.status_code == 429
         assert metered == []
+        assert released == []
 
     def test_not_enough_data_never_meters(self, monkeypatch):
         events = [{"type": "complete", "kind": "not_enough_data", "cached": False, "usage": {}}]
-        client, metered = self._client(monkeypatch, events)
+        client, metered, released = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
         assert metered == []
+        assert released == ["lease-1"]
 
     def test_over_cap_429s(self, monkeypatch):
-        client, metered = self._client(monkeypatch, [], allowed=False)
+        client, metered, released = self._client(monkeypatch, [], allowed=False)
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 429
         assert metered == []
+        assert released == []
+
+    def test_reservation_block_429s_after_read_side_admits(self, monkeypatch):
+        # The unserialized read admits, the serialized lease refuses (a parallel request took
+        # the last unit): the user sees the same 429 and nothing is held afterwards.
+        from app.routers import analysis as analysis_router
+
+        client, metered, released = self._client(monkeypatch, [])
+        monkeypatch.setattr(
+            analysis_router, "reserve_analysis_use", lambda user, db: (False, 100, 100, None)
+        )
+        response = client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert response.status_code == 429
+        assert metered == []
+        assert released == []
+
+    def test_pipeline_error_releases_the_lease(self, monkeypatch):
+        from app.routers import analysis as analysis_router
+
+        client, metered, released = self._client(monkeypatch, [])
+
+        async def exploding_pipeline(**kwargs):
+            yield {"type": "progress", "stage": "writing", "percent": 30}
+            raise RuntimeError("model down")
+
+        monkeypatch.setattr(
+            analysis_router.trend_analysis_service, "stream_trend_narrative", exploding_pipeline
+        )
+        with pytest.raises(RuntimeError):
+            client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert metered == []
+        assert released == ["lease-1"]  # the unit goes back now, not after the lease TTL
+
+    def test_metering_failure_releases_the_lease(self, monkeypatch):
+        # Conversion and the counter increment share one commit; if that commit fails the
+        # lease is still open, so it is released rather than left to expire.
+        from app.routers import analysis as analysis_router
+
+        events = [{"type": "complete", "kind": "analysis", "cached": False, "usage": {}}]
+        client, metered, released = self._client(monkeypatch, events)
+        monkeypatch.setattr(
+            analysis_router, "_meter_analysis_best_effort", lambda user_id, token=None: False
+        )
+        assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
+        assert released == ["lease-1"]
