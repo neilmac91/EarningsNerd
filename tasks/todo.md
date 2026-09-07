@@ -158,8 +158,17 @@ the eligible set approaches the cap — at 574 URLs that is not engineering wort
   companies already emitted → 2 failed. (A first attempt restored an uncommitted file with
   `git checkout` and wiped the implementation — `lessons/test-proofs-run-on-committed-state.md`
   applied the hard way; redone after committing.)
-- [ ] Full gate, PR after #754 merges (branch restart from main), one paid Copilot run at
-  ready under the standing authorization, merge, deploy verification.
+- [x] Draft [#755](https://github.com/neilmac91/EarningsNerd/pull/755). Independent lens:
+  no defect; two nits applied (wrapped two long test lines, index spacing). Caveat recorded
+  for the future index step: the frontend metadata route re-serializes the whole body, so the
+  trigger for partitioning is the frontend's response-size ceiling (Vercel serverless payload,
+  believed ~4.5 MB; not verifiable from the repo), reached near ~26,000 entries at ~174 bytes
+  each, before the 50,000-URL cap. Refuted: naive/aware `timestamp()` ordering, `None` dates,
+  sort determinism, budget arithmetic, index support (order clause unchanged but for the id
+  tiebreak, join bounds the sort set, 1 h cache), test row-order sensitivity, pre-existing
+  case-variant ticker duplicates.
+- [ ] Full gate on the final head, one paid Copilot run at ready under the standing
+  authorization, merge, deploy verification.
 
 ## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
 

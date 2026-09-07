@@ -237,12 +237,15 @@ def test_whole_document_is_bounded_newest_first_across_companies_and_filings(
     with TestingSession() as session:
         filing_ids = {
             year: _seed_summarized_company(session, ticker, cik, year)
-            for ticker, cik, year in (("OLD", "0000000010", 2023), ("NEW", "0000000011", 2026), ("MID", "0000000012", 2025))
+            for ticker, cik, year in (
+                ("OLD", "0000000010", 2023), ("NEW", "0000000011", 2026), ("MID", "0000000012", 2025),
+            )
         }
     xml = test_client.get("/sitemap.xml").text
     locs = re.findall(r"<loc>(.*?)</loc>", xml)
     assert len(locs) == len(sitemap_mod.STATIC_PAGES) + len(expected_companies) + len(expected_filings)
     assert len(locs) <= max(sitemap_mod.MAX_SITEMAP_URLS, len(sitemap_mod.STATIC_PAGES))
     assert [loc.rsplit("/", 1)[1] for loc in locs if "/company/" in loc] == expected_companies
-    assert [int(loc.rsplit("/", 1)[1]) for loc in locs if "/filing/" in loc] == [filing_ids[y] for y in expected_filings]
+    listed_filings = [int(loc.rsplit("/", 1)[1]) for loc in locs if "/filing/" in loc]
+    assert listed_filings == [filing_ids[year] for year in expected_filings]
     assert "<loc>https://www.earningsnerd.io/terms</loc>" in xml

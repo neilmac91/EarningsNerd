@@ -88,6 +88,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds
 
 - [`ops-keep-moving-under-standing-authorization.md`](./ops-keep-moving-under-standing-authorization.md) — Keep moving under a standing founder authorization; stop only at the boundaries still held
+
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
