@@ -284,3 +284,98 @@ def test_subscription_past_due_downgrades_to_free(client):
         assert _resolved_plan(user_id) == "free"
 
         _delete_events(checkout["id"], past_due["id"])
+
+
+def _event_recorded(event_id):
+    from app.database import SessionLocal
+    from app.models import StripeEvent
+
+    db = SessionLocal()
+    try:
+        return db.query(StripeEvent.event_id).filter(StripeEvent.event_id == event_id).first() is not None
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_invoice_payment_failed_keeps_entitlement_and_records_the_event(client):
+    """Dunning policy: a failed invoice never revokes Pro; only subscription status events do.
+
+    The policy lived only in a comment in `_apply_event`. If the handler ever "helped" by
+    downgrading on payment_failed, a customer inside Stripe's retry window would lose Pro on the
+    first declined card and nothing would fail. Posts a real payment_failed for a Pro user and
+    asserts money stays ON, through the mirror and the entitlements resolver, while the event is
+    still recorded so a redelivery is a no-op.
+    """
+    with _temp_user(is_pro=False) as user_id:
+        checkout = _checkout_event(user_id, "sub_dun_1", "cus_dun_1")
+        assert _post_event(client, checkout).status_code == 200
+        assert _fetch(user_id)[0] is True
+
+        failed = {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "type": "invoice.payment_failed",
+            "data": {"object": {"id": "in_dun_1", "subscription": "sub_dun_1", "customer": "cus_dun_1"}},
+        }
+        with patch("app.services.subscription_webhook_service.capture_event") as capture:
+            assert _post_event(client, failed).status_code == 200
+        capture.assert_not_called()
+
+        is_pro, plan, status, sub_id = _fetch(user_id)
+        assert is_pro is True
+        assert plan == "pro"
+        assert status == "active"
+        assert sub_id == "sub_dun_1"
+        assert _resolved_plan(user_id) == "pro"
+        assert _event_recorded(failed["id"])
+        assert _post_event(client, failed).json().get("idempotent") is True
+
+        _delete_events(checkout["id"], failed["id"])
+
+
+@pytest.mark.requires_db
+def test_trial_will_end_emits_analytics_only(client):
+    """trial_will_end is an analytics signal for the bound user and changes no entitlement."""
+    with _temp_user(is_pro=False) as user_id:
+        checkout = _checkout_event(user_id, "sub_twe_1", "cus_twe_1")
+        assert _post_event(client, checkout).status_code == 200
+
+        warning = {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "type": "customer.subscription.trial_will_end",
+            "data": {"object": {"id": "sub_twe_1", "customer": "cus_twe_1", "trial_end": 1790000000}},
+        }
+        with patch("app.services.subscription_webhook_service.capture_event") as capture:
+            assert _post_event(client, warning).status_code == 200
+        capture.assert_called_once_with(str(user_id), "trial_will_end", {"trial_end": 1790000000})
+
+        is_pro, plan, status, _ = _fetch(user_id)
+        assert (is_pro, plan, status) == (True, "pro", "active")
+        assert _event_recorded(warning["id"])
+
+        _delete_events(checkout["id"], warning["id"])
+
+
+@pytest.mark.requires_db
+def test_unhandled_event_type_is_a_recorded_no_op(client):
+    """An event type the handler does not act on (here `invoice.paid`, which is deliberately not
+    payment evidence) returns 200, touches no user, emits nothing, and is recorded so Stripe stops
+    redelivering it."""
+    with _temp_user(is_pro=False) as user_id:
+        checkout = _checkout_event(user_id, "sub_unk_1", "cus_unk_1")
+        assert _post_event(client, checkout).status_code == 200
+
+        stray = {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "type": "invoice.paid",
+            "data": {"object": {"id": "in_unk_1", "subscription": "sub_unk_1", "customer": "cus_unk_1"}},
+        }
+        with patch("app.services.subscription_webhook_service.capture_event") as capture:
+            response = _post_event(client, stray)
+        assert response.status_code == 200
+        capture.assert_not_called()
+        assert _fetch(user_id)[:3] == (True, "pro", "active")
+        assert _event_recorded(stray["id"])
+        assert _post_event(client, stray).json().get("idempotent") is True
+
+        _delete_events(checkout["id"], stray["id"])
