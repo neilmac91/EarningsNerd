@@ -56,7 +56,8 @@ async def send_email(
     idempotency_key: str | None = None,
 ) -> dict:
     if not settings.RESEND_API_KEY:
-        raise ResendError("Resend is not configured. Set RESEND_API_KEY.")
+        # Nothing was sent: a durable delivery may retry once the secret is configured.
+        raise ResendRetryableError("Resend is not configured. Set RESEND_API_KEY.")
 
     payload = {
         "from": from_email or settings.RESEND_FROM_EMAIL,

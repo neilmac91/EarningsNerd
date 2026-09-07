@@ -370,10 +370,21 @@ async def run_daily_digest(
             continue
 
         subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
-        delivery.create_batch(
+        created = delivery.create_batch(
             db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
             filing_ids=[filing.id for _watch, filing in to_log], now=now,
         )
+        if created is None:
+            # An overlapping run took at least one filing between our checks and the insert.
+            # Keep the rest of the digest rather than losing every other filing to the window.
+            kept = [(watch, filing, item) for (watch, filing), item in zip(to_log, items)
+                    if not delivery.already_owned(db, uid, filing.id, CHANNEL_EMAIL)]
+            if kept:
+                subject, html = email_service.build_daily_digest(name=user.full_name, items=[i for _, _, i in kept])
+                delivery.create_batch(
+                    db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+                    filing_ids=[filing.id for _watch, filing, _item in kept], now=now,
+                )
 
     drained = await delivery.drain(db, kind=KIND_FILING_DIGEST, send=_digest_transport(send_digest), now=delivery_now)
     _merge_drain(stats, drained, sent_key="digests_sent", failed_key="digests_failed")

@@ -13,8 +13,10 @@ rowcount checked, so a stale worker can never reach the send. The ``sending`` tr
 committed, and the session holds no transaction, while the provider call runs; a fresh short
 transaction finalises only the same owned attempt. An expired preparation claim is reclaimed;
 an expired sending lease is not (the email may have been accepted) and the batch is parked as
-``ambiguous`` for reconciliation, as is any batch whose replay window closed, whose attempts are
-exhausted, or whose frozen payload no longer matches its key. The compatibility ``NotificationLog``
+``ambiguous`` for reconciliation, as is any batch whose attempts are exhausted or whose frozen
+payload no longer matches its key. A ``retryable`` batch whose replay window closed (the daily
+digest cadence is longer than the provider's key retention) is re-keyed instead: every attempt so
+far was a documented non-acceptance, so a fresh key cannot duplicate an accepted email. The compatibility ``NotificationLog``
 row and the watchlist watermark are written only when the provider accepts the email.
 
 Historical ``NotificationLog`` rows are never mutated or replayed here. No queue, Redis or job
@@ -59,10 +61,11 @@ logger = logging.getLogger(__name__)
 
 # last_error_kind values (short, PII-free; surfaced only as counters and per-row reasons).
 ERROR_PAYLOAD_DRIFT = "payload_drift"
-ERROR_WINDOW_EXPIRED = "window_expired"
+ERROR_WINDOW_REKEYED = "window_rekeyed"  # retryable past the replay window: fresh key, never accepted
 ERROR_LEASE_EXPIRED = "lease_expired"
 ERROR_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
 ERROR_ELIGIBILITY_CHANGED = "eligibility_changed"
+ERROR_REROUTED_TO_DIGEST = "rerouted_to_digest"  # still wanted, no longer realtime: ownership released
 ERROR_PROVIDER_REJECTED = "provider_rejected"
 ERROR_PROVIDER_RETRYABLE = "provider_retryable"
 ERROR_PROVIDER_AMBIGUOUS = "provider_ambiguous"
@@ -261,8 +264,8 @@ def finalize_accepted(db: Session, batch: DeliveryBatch, owner_token: str, provi
 
 
 def expire_stale(db: Session, now: datetime, *, kind: Optional[str] = None) -> dict:
-    """Reclaim expired preparation claims; park expired sending leases and closed replay windows."""
-    counts = {"reclaimed": 0, "lease_expired": 0, "window_expired": 0}
+    """Reclaim expired preparation claims; park expired sending leases; re-key closed replay windows."""
+    counts = {"reclaimed": 0, "lease_expired": 0, "rekeyed": 0}
     window = timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)
     query = db.query(DeliveryBatch).filter(
         DeliveryBatch.status.in_([STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE]),
@@ -281,10 +284,25 @@ def expire_stale(db: Session, now: datetime, *, kind: Optional[str] = None) -> d
             if park(db, batch.id, batch.owner_token, STATUS_SENDING, STATUS_AMBIGUOUS, ERROR_LEASE_EXPIRED, now):
                 counts["lease_expired"] += 1
         elif batch.status == STATUS_RETRYABLE and first is not None and first + window <= now:
-            if _transition(db, batch.id, None, STATUS_RETRYABLE, now,
-                           status=STATUS_AMBIGUOUS, last_error_kind=ERROR_WINDOW_EXPIRED, next_attempt_at=None):
-                counts["window_expired"] += 1
+            if _rekey(db, batch.id, None, STATUS_RETRYABLE, now):
+                counts["rekeyed"] += 1
     return counts
+
+
+def _rekey(db: Session, batch_id: int, token: Optional[str], from_status: str, now: datetime) -> bool:
+    """A retryable batch past the replay window gets a fresh key and window anchor. Safe because
+    ``retryable`` is only ever reached through documented non-acceptance (429, 5xx with a parsed
+    body, no connection); an unknown outcome is parked as ``ambiguous`` and never re-keyed."""
+    return _transition(
+        db, batch_id, token, from_status, now,
+        idempotency_key=uuid4().hex, first_dispatch_at=None, last_error_kind=ERROR_WINDOW_REKEYED,
+    )
+
+
+def release_items(db: Session, batch_id: int) -> None:
+    """Give a terminal batch's filings back to selection (used when delivery mode changed)."""
+    db.query(DeliveryItem).filter(DeliveryItem.batch_id == batch_id).delete(synchronize_session=False)
+    db.commit()
 
 
 def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
@@ -315,26 +333,34 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
     return out
 
 
-def _still_eligible(db: Session, batch: DeliveryBatch, user: User) -> bool:
-    """Current user, watch, preference and entitlement state must still allow every owned item."""
-    if (not user.is_active or user.email != batch.to_email
+def _ineligible_reason(db: Session, batch: DeliveryBatch, user: Optional[User]) -> Optional[str]:
+    """Why current user, watch, preference and entitlement state forbids this dispatch (None = go).
+
+    A realtime batch whose user still wants the filing but no longer in realtime (preference off
+    or entitlement lost) is ``rerouted``: the batch is suppressed and its filings released so the
+    digest can own them; every other change is a plain suppression that keeps ownership.
+    """
+    if (user is None or not user.is_active or user.email != batch.to_email
             or not batch.items or len(batch.items) != batch.expected_item_count):
-        return False
+        return ERROR_ELIGIBILITY_CHANGED
     prefs = get_or_create_preferences(db, user.id)
     ent = get_entitlements(user)
+    reroute = False
     for item in batch.items:
         filing = db.get(Filing, item.filing_id)
         if filing is None:
-            return False
+            return ERROR_ELIGIBILITY_CHANGED
         watched = db.query(Watchlist.id).filter(
             Watchlist.user_id == user.id, Watchlist.company_id == filing.company_id,
         ).first() is not None
         if not watched:
-            return False
+            return ERROR_ELIGIBILITY_CHANGED
         eligible, realtime = evaluate_delivery(prefs, ent, filing.filing_type)
-        if not eligible or (batch.kind == KIND_FILING_REALTIME and not realtime):
-            return False
-    return True
+        if not eligible:
+            return ERROR_ELIGIBILITY_CHANGED
+        if batch.kind == KIND_FILING_REALTIME and not realtime:
+            reroute = True
+    return ERROR_REROUTED_TO_DIGEST if reroute else None
 
 
 async def send_prepared(prepared: PreparedSend) -> Optional[str]:
@@ -359,7 +385,7 @@ async def drain(
     stats = DrainStats()
     now = clock()
     expired = expire_stale(db, now, kind=kind)
-    stats.ambiguous += expired["lease_expired"] + expired["window_expired"]
+    stats.ambiguous += expired["lease_expired"]
     for batch_id in due_batch_ids(db, kind, now):
         now = clock()
         token = uuid4().hex
@@ -374,16 +400,22 @@ async def drain(
             stats.ambiguous += 1
             continue
         if first is not None and first + timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS) <= now:
-            park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_WINDOW_EXPIRED, now)
-            stats.ambiguous += 1
-            continue
+            # Only documented non-acceptances reach a claim with a closed window: replay under a
+            # fresh key rather than parking a batch the provider never accepted.
+            if not _rekey(db, batch_id, token, STATUS_CLAIMED, now):
+                stats.lost_claims += 1
+                continue
+            db.refresh(batch)
         if payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email) != batch.payload_sha256:
             park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now)
             stats.ambiguous += 1
             continue
         user = db.get(User, batch.user_id)
-        if user is None or not _still_eligible(db, batch, user):
-            park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ERROR_ELIGIBILITY_CHANGED, now)
+        ineligible = _ineligible_reason(db, batch, user)
+        if ineligible is not None:
+            if park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ineligible, now) \
+                    and ineligible == ERROR_REROUTED_TO_DIGEST:
+                release_items(db, batch_id)
             stats.suppressed += 1
             continue
         prepared = PreparedSend(
@@ -415,6 +447,11 @@ async def drain(
             logger.warning("Delivery %s outcome unknown: %s", batch_id, e.__class__.__name__)
         now = clock()
         batch = db.get(DeliveryBatch, batch_id)  # fresh short transaction for finalisation
+        if batch is None:
+            # The account (and, by cascade, this batch) was deleted while the provider call ran.
+            logger.warning("Delivery %s vanished during dispatch; nothing to finalise", batch_id)
+            stats.lost_claims += 1
+            continue
         if outcome == STATUS_ACCEPTED:
             if finalize_accepted(db, batch, token, provider_id, now):
                 stats.accepted += 1

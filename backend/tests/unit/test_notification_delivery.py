@@ -84,6 +84,16 @@ async def _fetch(*args, **kwargs):
     return [_sec("new-10q", "10-Q", NOW - timedelta(hours=2))]
 
 
+def _reset_delivery_state(db: Session) -> None:
+    """Start a fresh delivery scenario for the same user: drop batches, items, logs and the watermark."""
+    db.execute(delete(DeliveryItem))
+    db.execute(delete(DeliveryBatch))
+    db.execute(delete(NotificationLog))
+    watch = db.query(Watchlist).one()
+    watch.last_alerted_at, watch.last_alerted_accession = None, None
+    db.commit()
+
+
 def _recorder(outcome=None):
     """A transport that records what it was asked to send and the session state at that moment."""
     calls: list[dict] = []
@@ -202,24 +212,46 @@ async def test_provider_rejection_is_terminal_and_a_failure(engine):
 
 
 @pytest.mark.asyncio
-async def test_closed_replay_window_and_exhausted_attempts_park_the_batch(engine, monkeypatch):
+async def test_closed_replay_window_rekeys_a_retryable_batch_and_exhausted_attempts_park_it(engine, monkeypatch):
+    """The once-daily digest cadence is longer than the provider's key retention, so a retryable
+    batch past its replay window must be re-keyed (it was never accepted), not parked."""
     monkeypatch.setattr(settings, "DELIVERY_RETRY_BACKOFF_SECONDS", 1)
     monkeypatch.setattr(settings, "DELIVERY_REPLAY_WINDOW_SECONDS", 3600)
-    monkeypatch.setattr(settings, "DELIVERY_MAX_ATTEMPTS", 2)
+    monkeypatch.setattr(settings, "DELIVERY_MAX_ATTEMPTS", 3)
     with Session(engine) as db:
         _seed(db, is_pro=True, realtime=True)
-        await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("503")))
-        # Window closed: the due selector parks it before any claim.
-        late = _recorder()
-        await delivery.drain(db, kind=KIND_FILING_REALTIME, send=late, now=NOW + timedelta(seconds=3600))
+        first = _recorder(resend_service.ResendRetryableError("503"))
+        await _scan_with_transport(db, first)
         (batch,) = _batches(db)
-        assert late.calls == [] and batch.status == STATUS_AMBIGUOUS
-        assert batch.last_error_kind == delivery.ERROR_WINDOW_EXPIRED
+        old_key = batch.idempotency_key
+        assert delivery.expire_stale(db, NOW + timedelta(seconds=3600)) == {"reclaimed": 0, "lease_expired": 0, "rekeyed": 1}
+        (batch,) = _batches(db)
+        assert batch.status == STATUS_RETRYABLE and batch.idempotency_key != old_key
+        assert batch.first_dispatch_at is None and batch.last_error_kind == delivery.ERROR_WINDOW_REKEYED
+        late = _recorder()
+        drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=late, now=NOW + timedelta(seconds=3600))
+        (batch,) = _batches(db)
+        assert drained.accepted == 1 and late.calls[0]["key"] == batch.idempotency_key != old_key
+        assert late.calls[0]["html"] == first.calls[0]["html"]  # the frozen bytes, under the new key
+        assert batch.status == STATUS_ACCEPTED and batch.attempts == 2
+        assert batch.first_dispatch_at.replace(tzinfo=timezone.utc) == NOW + timedelta(seconds=3600)
+        assert _log_count(db) == 1
+
+        # A closed window met at claim time (not swept first) re-keys the same way.
+        _reset_delivery_state(db)
+        await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("503")), now=NOW)
+        (batch,) = _batches(db)
+        stale_key = batch.idempotency_key
+        monkeypatch.setattr(delivery, "expire_stale", lambda *a, **k: {"reclaimed": 0, "lease_expired": 0, "rekeyed": 0})
+        at_claim = _recorder()
+        await delivery.drain(db, kind=KIND_FILING_REALTIME, send=at_claim, now=NOW + timedelta(seconds=3600))
+        monkeypatch.undo()
+        assert at_claim.calls[0]["key"] != stale_key and _batches(db)[0].status == STATUS_ACCEPTED
 
         # Attempts exhausted: second failure spends the budget, the third drain never sends.
-        db.execute(delete(DeliveryBatch))
-        db.execute(delete(DeliveryItem))
-        db.commit()
+        monkeypatch.setattr(settings, "DELIVERY_RETRY_BACKOFF_SECONDS", 1)
+        monkeypatch.setattr(settings, "DELIVERY_MAX_ATTEMPTS", 2)
+        _reset_delivery_state(db)
         await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("503")), now=NOW)
         await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(resend_service.ResendRetryableError("503")),
                              now=NOW + timedelta(seconds=2))
@@ -228,6 +260,88 @@ async def test_closed_replay_window_and_exhausted_attempts_park_the_batch(engine
         (batch,) = _batches(db)
         assert third.calls == [] and batch.attempts == 2
         assert batch.status == STATUS_AMBIGUOUS and batch.last_error_kind == delivery.ERROR_ATTEMPTS_EXHAUSTED
+
+
+@pytest.mark.asyncio
+async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_realtime(engine, monkeypatch):
+    """Still wanted, no longer realtime: the batch is suppressed AND its filing released, so the
+    digest delivers it instead of the filing staying owned and undelivered forever."""
+    monkeypatch.setattr(settings, "DELIVERY_RETRY_BACKOFF_SECONDS", 300)
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("503")))
+        db.query(NotificationPreferences).one().realtime = False
+        db.commit()
+        send = _recorder()
+        drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=send, now=NOW + timedelta(seconds=300))
+        (batch,) = _batches(db)
+        assert send.calls == [] and drained.suppressed == 1
+        assert batch.status == STATUS_SUPPRESSED and batch.last_error_kind == delivery.ERROR_REROUTED_TO_DIGEST
+        assert db.query(DeliveryItem).count() == 0  # ownership released
+        digest = AsyncMock()
+        stats = await run_daily_digest(db, send_digest=digest, now=NOW + timedelta(seconds=300))
+        assert stats["digests_sent"] == 1
+        assert [i["filing_id"] for i in digest.await_args.kwargs["items"]] == [db.query(Filing).one().id]
+        assert _log_count(db) == 1
+
+        # A preference that drops the filing type altogether stays a plain suppression: owned, not re-sent.
+        _reset_delivery_state(db)
+        db.add(Filing(id=77, company_id=1, accession_number="kept", filing_type="10-Q", filing_date=NOW,
+                      sec_url="https://sec.example/kept/", document_url="https://sec.example/kept/doc.htm"))
+        db.query(NotificationPreferences).one().realtime = True
+        db.commit()
+        delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[77], now=NOW)
+        db.query(NotificationPreferences).one().notify_10q = False
+        db.commit()
+        await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW + timedelta(hours=2))
+        (batch,) = _batches(db)
+        assert batch.last_error_kind == delivery.ERROR_ELIGIBILITY_CHANGED and db.query(DeliveryItem).count() == 1
+
+
+@pytest.mark.asyncio
+async def test_digest_keeps_the_unowned_filings_when_an_overlapping_run_takes_one(engine):
+    """A collision on one filing must not discard the whole digest: the other filings would be
+    outside the selection window by the next daily run."""
+    with Session(engine) as db:
+        _seed(db, is_pro=False, realtime=False)
+        db.add_all([Filing(id=i, company_id=1, accession_number=f"race{i}", filing_type="10-Q",
+                           filing_date=NOW - timedelta(hours=i), sec_url=f"https://sec.example/race{i}/",
+                           document_url=f"https://sec.example/race{i}/doc.htm") for i in (1, 2)])
+        db.commit()
+        real_create = delivery.create_batch
+        calls = []
+
+        def racing_create(db_, **kwargs):
+            calls.append(kwargs["filing_ids"])
+            if len(calls) == 1:  # another run owns filing 1 after this digest's ownership checks
+                real_create(db_, kind=KIND_FILING_REALTIME, user_id=1, subject="x", html="x", filing_ids=[1], now=NOW)
+            return real_create(db_, **kwargs)
+
+        from unittest.mock import patch
+        digest = AsyncMock()
+        with patch.object(delivery, "create_batch", racing_create):
+            stats = await run_daily_digest(db, send_digest=digest, now=NOW)
+        assert calls == [[1, 2], [2]]
+        assert stats["digests_sent"] == 1 and stats["filings_included"] == 1
+        assert [i["filing_id"] for i in digest.await_args.kwargs["items"]] == [2]
+        kinds = sorted(b.kind for b in _batches(db))
+        assert kinds == [KIND_FILING_DIGEST, KIND_FILING_REALTIME]
+
+
+@pytest.mark.asyncio
+async def test_account_deleted_during_the_provider_call_is_a_lost_claim_not_a_crash(engine):
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+
+        async def send(prepared):
+            with Session(engine) as other:
+                other.delete(other.get(User, 1))  # the ORM cascade DELETE /api/users/me performs
+                other.commit()
+            return "email_1"
+
+        stats = await _scan_with_transport(db, send)
+        assert stats["alerts_sent"] == 0 and stats["alerts_failed"] == 0
+        assert _batches(db) == [] and db.query(DeliveryItem).count() == 0 and _log_count(db) == 0
 
 
 @pytest.mark.asyncio
@@ -425,6 +539,10 @@ async def test_transport_sends_the_idempotency_key_and_classifies_outcomes(monke
         with pytest.raises(expected):
             await resend_service.send_email(["a@example.com"], "s", "h", idempotency_key="key-1")
         assert issubclass(expected, resend_service.ResendError)  # existing callers keep catching the base class
+    # A missing API key never sends anything, so a durable delivery may retry once it is configured.
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    with pytest.raises(resend_service.ResendRetryableError):
+        await resend_service.send_email(["a@example.com"], "s", "h", idempotency_key="key-1")
 
 
 @pytest.mark.asyncio
