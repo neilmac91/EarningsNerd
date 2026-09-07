@@ -219,8 +219,12 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
   under the standing authorization: `copilot-eval.yml` run 34170331950 success; PR CI run
   34170327527 green on every job; Codex posted only its quota notice. Squash-merged as
   `bc973b2` at 23:35 UTC.
-- [ ] Main CI on `bc973b2`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34170515351 on `bc973b2`: success on every job. deploy-backend job
+  101890252557: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00301-9xm` at 100 % traffic; five job images updated (notable-filings
+  and retention-purge not found, skipped); CI `/health/detailed` healthy (database 11.83 ms)
+  at 23:41:07Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
+  (6.42 ms) at 23:41 UTC. Released.
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
