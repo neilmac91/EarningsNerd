@@ -280,8 +280,11 @@ contract change; no migration (the table and index already exist); no new settin
   run 34162155921 on `9358539`: every job green including `eval-baseline` (deterministic
   scorers, triggered by the pipeline change). Squash-merged as
   [#754](https://github.com/neilmac91/EarningsNerd/pull/754) = `85c2c23` at 21:31 UTC.
-- [ ] Main CI on `85c2c23`, deploy verification (`applied=0`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34163025781 on `85c2c23`: success on every job. deploy-backend job
+  101869064189: `apply_migrations: applied=0 skipped=38`, Cloud Run revision
+  `earningsnerd-backend-00296-zjt` at 100 % traffic, five job images updated, CI
+  `/health/detailed` healthy (database 8.74 ms) at 21:30:54Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 21:40 UTC. Released.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 
