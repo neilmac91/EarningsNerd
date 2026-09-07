@@ -11,6 +11,7 @@ DB-touching tests are marked ``requires_db`` and override ``get_current_user`` w
 entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` dep resolves through
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
+import asyncio
 import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -1414,3 +1415,274 @@ async def test_service_complete_event_carries_coverage_counters(monkeypatch):
     assert complete["figure_count"] == 2
     assert complete["uncited_figures"] == 1  # the naked gross-profit figure
     assert complete["misplaced_fact_markers"] == 0
+
+
+# --- Admission reservations (E07b slice 2) -----------------------------------------------------
+#
+# The endpoint's gate and cap checks are plain reads, so concurrent questions could all pass them.
+# reserve_qa_use (Pro, monthly `qa`) and reserve_qa_taste_use (Free, LIFETIME `qa_taste`) are the
+# serialized decisions: a unit is held under a lease while the answer streams, converted in the
+# metering commit on `complete`, and released on an error event, a raised pipeline error or a
+# metering failure. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
+
+@pytest.fixture(autouse=True)
+def _fresh_ask_limiter(monkeypatch):
+    """The route's per-user limiter is process-wide and SQLite reuses user ids across tests, so
+    every test starts with an empty window instead of tripping the 10/min cap late in the file."""
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "ASK_LIMITER", summaries_router.RateLimiter(limit=10, window_seconds=60))
+
+
+def _leases(uid):
+    from app.database import SessionLocal
+    from app.models import UsageReservation
+
+    with SessionLocal() as db:
+        return [(r.kind, r.month) for r in db.query(UsageReservation).filter_by(user_id=uid)]
+
+
+def _qa_state(uid):
+    """(active leases, monthly qa_count, lifetime free-taste used)."""
+    from app.database import SessionLocal
+    from app.models import User
+    from app.services.subscription_service import get_current_month, get_user_qa_count
+
+    with SessionLocal() as db:
+        taste = db.query(User.copilot_free_taste_used).filter(User.id == uid).scalar()
+        return _leases(uid), get_user_qa_count(uid, get_current_month(), db), taste
+
+
+def _insert_lease(uid, kind, month, *, expired=False):
+    from datetime import timedelta
+
+    from app.database import SessionLocal
+    from app.models import UsageReservation
+    from app.utils.datetimes import utcnow
+
+    now = utcnow()
+    with SessionLocal() as db:
+        db.add(UsageReservation(
+            user_id=uid, kind=kind, month=month, token=uuid.uuid4().hex, created_at=now,
+            expires_at=now + timedelta(seconds=-1 if expired else 300),
+        ))
+        db.commit()
+
+
+@pytest.mark.requires_db
+def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+    from app.services.subscription_service import QA_RESERVATION_KIND, get_current_month
+
+    seen = []
+
+    async def _observing_answer(*, filing, question, history=None):
+        seen.append(_qa_state(_observing_answer.uid))
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _observing_answer.uid = uid
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 200
+        assert seen == [([(QA_RESERVATION_KIND, get_current_month())], 0, 0)]  # held, nothing counted
+        assert _qa_state(uid) == ([], 1, 0)  # converted: one counted unit, no lease left
+
+
+@pytest.mark.requires_db
+def test_endpoint_error_event_releases_the_pro_lease(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+
+    async def _failing_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        yield {"type": "error", "message": "model down"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 0)
+
+
+@pytest.mark.requires_db
+def test_endpoint_raised_pipeline_error_releases_the_lease(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+
+    async def _exploding_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _exploding_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        with pytest.raises(RuntimeError):
+            client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert _qa_state(uid) == ([], 0, 0)  # released now, not after the lease TTL
+
+
+@pytest.mark.requires_db
+def test_endpoint_metering_failure_releases_the_lease(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+
+    async def _fake_answer(*, filing, question, history=None):
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _fake_answer)
+    monkeypatch.setattr(summaries_router, "increment_user_qa", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db")))
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 0)  # neither counted nor left held
+
+
+@pytest.mark.requires_db
+def test_endpoint_pro_serialized_block_returns_429_when_the_read_admits(client, monkeypatch):
+    # check_qa_limit sees 0 < cap 1 and admits; a concurrent question already holds the unit.
+    from app.config import settings
+    from app.services.subscription_service import QA_RESERVATION_KIND, get_current_month
+
+    monkeypatch.setattr(settings, "COPILOT_MONTHLY_QUESTION_CAP", 1)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _insert_lease(uid, QA_RESERVATION_KIND, get_current_month())
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 429
+        assert len(_leases(uid)) == 1  # the blocked request held nothing
+
+
+@pytest.mark.requires_db
+def test_endpoint_free_taste_lease_is_lifetime_scoped_and_converts_to_the_lifetime_counter(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+    from app.services.subscription_service import LIFETIME_SCOPE, QA_TASTE_RESERVATION_KIND
+
+    seen = []
+
+    async def _observing_answer(*, filing, question, history=None):
+        seen.append(_qa_state(_observing_answer.uid))
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
+    with _as_user(is_pro=False, free_taste_used=1) as uid, _seed_filing() as fid:
+        _observing_answer.uid = uid
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert seen == [([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1)]
+        assert _qa_state(uid) == ([], 0, 2)  # lifetime counter 1 → 2, monthly cap untouched
+
+
+@pytest.mark.requires_db
+def test_endpoint_concurrent_free_taste_questions_cannot_exceed_the_allowance(client, monkeypatch):
+    """The gate reads the stand-in (2 of 3 used → passes); the serialized admission also sees the
+    in-flight question's lease and refuses with the same upsell. The lease is lifetime-scoped, so
+    a month rollover between the two questions changes nothing."""
+    from app.services import subscription_service as usage
+    from app.services.subscription_service import LIFETIME_SCOPE, QA_TASTE_RESERVATION_KIND
+
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        _insert_lease(uid, QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 403
+        assert "free Copilot questions" in resp.json()["detail"]
+        monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 403
+        assert len(_leases(uid)) == 1
+
+
+@pytest.mark.requires_db
+def test_endpoint_expired_free_taste_lease_does_not_block(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+    from app.services.subscription_service import LIFETIME_SCOPE, QA_TASTE_RESERVATION_KIND
+
+    async def _fake_answer(*, filing, question, history=None):
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _fake_answer)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        _insert_lease(uid, QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE, expired=True)
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 3)  # stale lease swept, the last unit consumed
+
+
+def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event):
+    """Drive the real ASGI app the way uvicorn does (ASGI spec 2.3): Starlette then runs the
+    stream and a disconnect listener in one task group and CANCELS the stream when the client
+    leaves. TestClient never exercises that path, so the disconnect cases speak raw ASGI."""
+    import json
+
+    payload = json.dumps(body).encode()
+    scope = {
+        "type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+        "method": "POST", "scheme": "http", "path": path, "raw_path": path.encode(), "root_path": "",
+        "query_string": b"", "client": ("127.0.0.1", 1234), "server": ("testserver", 80),
+        "headers": [(b"host", b"testserver"), (b"content-type", b"application/json"),
+                    (b"content-length", str(len(payload)).encode())],
+    }
+    requests = [{"type": "http.request", "body": payload, "more_body": False}]
+
+    async def receive():
+        if requests:
+            return requests.pop(0)
+        await disconnect_after.wait()
+        return {"type": "http.disconnect"}
+
+    sent: list[dict] = []
+
+    async def send(message):
+        sent.append(message)
+
+    async def run():
+        await app(scope, receive, send)
+        return sent
+
+    return run()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
+    """The user navigates away while the model is still answering: Starlette cancels the stream
+    task, and the lease must still be given back now rather than after the 300 s TTL — for a
+    Free user that TTL would otherwise show the 'used your free questions' upsell."""
+    import asyncio
+
+    import app.routers.summaries as summaries_router
+
+    streaming = asyncio.Event()
+
+    async def _slow_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        streaming.set()
+        await asyncio.sleep(30)  # still answering when the client leaves
+        yield {"type": "complete", "answer": "late", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _slow_answer)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=streaming),
+            timeout=10,
+        )
+        assert sent[0]["status"] == 200
+        assert _qa_state(uid) == ([], 0, 2)  # released, not counted
+
+
+@pytest.mark.requires_db
+def test_analysis_metering_converts_the_lease_in_the_counter_commit(client, monkeypatch):
+    """The real `_meter_analysis_best_effort` body against the database: the lease is deleted
+    and the monthly analysis counter incremented in one commit; a failing increment leaves the
+    lease in place and reports False so the route releases it."""
+    from app.database import SessionLocal
+    from app.models import UsageReservation, User
+    from app.routers import analysis as analysis_router
+    from app.services import subscription_service as usage
+    from app.services.subscription_service import get_current_month, get_user_analysis_count
+
+    with _as_user(is_pro=True) as uid:
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.id == uid).one()
+            admitted, _, _, token = usage.reserve_analysis_use(user, db)
+        assert admitted and token
+        monkeypatch.setattr(analysis_router, "increment_user_analysis", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db")))
+        assert analysis_router._meter_analysis_best_effort(uid, token) is False
+        with SessionLocal() as db:
+            assert db.query(UsageReservation).filter_by(user_id=uid).count() == 1  # still held
+            assert get_user_analysis_count(uid, get_current_month(), db) == 0
+        monkeypatch.undo()
+        assert analysis_router._meter_analysis_best_effort(uid, token) is True
+        with SessionLocal() as db:
+            assert db.query(UsageReservation).filter_by(user_id=uid).count() == 0
+            assert get_user_analysis_count(uid, get_current_month(), db) == 1

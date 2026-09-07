@@ -40,9 +40,10 @@ def _reset_delivery_ownership():
 
     from app.database import engine
 
-    names = {"earningsnerd_delivery_items", "earningsnerd_delivery_batches"}
-    if names.issubset(set(inspect(engine).get_table_names())):
-        with engine.begin() as conn:
-            for name in ("earningsnerd_delivery_items", "earningsnerd_delivery_batches"):
+    names = ("earningsnerd_delivery_items", "earningsnerd_delivery_batches", "earningsnerd_usage_reservations")
+    present = set(inspect(engine).get_table_names())
+    with engine.begin() as conn:
+        for name in names:  # admission leases (E07b) are keyed by reused user ids too
+            if name in present:
                 conn.execute(text(f"DELETE FROM {name}"))  # nosec B608 - fixed table names
     yield

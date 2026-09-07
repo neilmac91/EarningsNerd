@@ -58,13 +58,16 @@ def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)
     if can_use_copilot(current_user):
         return current_user
     allowance = get_entitlements(current_user).copilot_free_taste
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=(
-            f"You've used your {allowance} free Copilot questions. {_UPGRADE_HINT}"
-            if allowance
-            else f"Ask this Filing is a Pro feature. {_UPGRADE_HINT}"
-        ),
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance))
+
+
+def copilot_taste_exhausted_detail(allowance: int) -> str:
+    """The upsell shown when a Free user's lifetime Copilot taste is spent (also raised by the
+    serialized admission when concurrent questions would exceed it)."""
+    return (
+        f"You've used your {allowance} free Copilot questions. {_UPGRADE_HINT}"
+        if allowance
+        else f"Ask this Filing is a Pro feature. {_UPGRADE_HINT}"
     )
 
 

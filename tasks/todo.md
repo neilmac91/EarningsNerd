@@ -120,8 +120,116 @@ if needed (recorded below). No email or production job execution as a test is au
   mutation back to the instance writes → `DetachedInstanceError`, 1 failed); (2) the runbook
   said a `failed` earnings row is retried by the next run, but the job only takes over rows
   whose `event_date` is today → same-ET-day re-run wording.
-- [ ] Full gate on the fix, push, PR body, one founder-approved Copilot run at ready, merge,
-  deploy verification. Then E07b slice 2 as its own PR.
+- [x] Full gate on `ee5e1b5`: 2641 passed, Ruff/Bandit clean. Founder approved one paid Copilot
+  run (chat, "approved"); marked ready, eval and PR CI green; squash-merged as
+  [#753](https://github.com/neilmac91/EarningsNerd/pull/753) = `52e0406`. Main CI run
+  34158297001 success (all jobs; `eval-baseline` skipped by path filter). deploy-backend job
+  101855139863: `apply_migrations: applied=0 skipped=38` (no new file), Cloud Run revision
+  `earningsnerd-backend-00295-s9z` at 100 % traffic, five job images updated
+  (`notable-filings` not provisioned, skipped as designed), CI `/health/detailed` healthy at
+  20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
+  (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
+
+## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
+
+Facts (read against `52e0406`): Copilot admission is `require_copilot_or_taste` (a read of the
+stand-in's `copilot_free_taste_used`) plus, for Pro, `check_qa_limit` (a read of
+`user_usage.qa_count`), both in `summaries.py::ask_filing_stream`; Analysis admission is
+`check_analysis_limit` in `analysis.py::stream_analysis` with a cached-key bypass for at-cap
+users. Completion metering (`_meter_qa_best_effort`, `_meter_analysis_best_effort`) runs in a
+fresh session from inside the SSE generator. The Free Copilot taste is a lifetime allowance on
+`users.copilot_free_taste_used` and never rolls over, so a month-keyed lease would let a
+question straddling a rollover slip past it. #746's `reserve_summary_use` already holds the
+serialized decision shape (users-row lock, sweep, leases-then-completed reads, insert).
+
+Design: one generic `_reserve_use(user, db, kind, month, limit, completed_count)` in
+`subscription_service.py` re-expresses `reserve_summary_use` unchanged and adds
+`reserve_qa_use` (`qa`, monthly, `COPILOT_MONTHLY_QUESTION_CAP`), `reserve_qa_taste_use`
+(`qa_taste`, scope sentinel `LIFETIME_SCOPE = "0000-00"` — seven characters because the
+`month` column is `VARCHAR(7)`, which PostgreSQL enforces and SQLite does not; completed count
+read from the locked users row) and `reserve_analysis_use` (`analysis`, monthly,
+`ANALYSIS_MONTHLY_CAP`). Routes keep the patchable read-side checks first, then take the lease:
+Copilot Free → taste lease (403 with the existing upsell on a block), Pro → `check_qa_limit`
+then `reserve_qa_use` (429); Analysis → `check_analysis_limit` then `reserve_analysis_use`
+(a block falls into the existing cached-key / 429 handling, so at-cap users still re-open
+cached ranges free). Metering converts the lease in the same commit and reports whether it
+did; `finally` releases whatever is still held (error event, raised pipeline error, client
+disconnect, metering failure, cached re-serve, exempt regeneration, not-enough-data). No SSE
+contract change; no migration (the table and index already exist); no new settings.
+
+- [x] Service: `_reserve_use`, three `reserve_*_use` functions, `LIFETIME_SCOPE`; model comments;
+  `increment_user_copilot_free_taste` docstring no longer claims admission is unserialized.
+- [x] Routes: `summaries.py` (taste/Pro admission, `_meter_qa_best_effort(..., token)` →
+  bool, `_release_reservation_best_effort`, `held` token released in `finally`);
+  `analysis.py` (same shape; reservation only when the read admitted); `dependencies.py`
+  exposes `copilot_taste_exhausted_detail` so the serialized 403 reads like the gate's.
+- [x] Tests. `test_copilot.py` (+8): Pro lease visible while the answer streams and converted
+  on `complete`; error event, raised error and metering failure each release; serialized Pro
+  block → 429 with nothing held; taste lease is `("qa_taste", "0000-00")` and converts to the
+  lifetime counter; a held taste lease refuses a concurrent question with the upsell, also
+  after a month rollover; an expired taste lease is swept and the last unit consumed.
+  `test_analysis_stream.py` (+3, harness stubs the reservation seams and records releases):
+  cached / exempt / not-enough-data release, fresh converts, read-side block never reserves,
+  serialized block 429s, pipeline error and metering failure release. PostgreSQL lane
+  `test_usage_counter_transactions.py` (+4): 3 parallel `qa` / `analysis` admissions against
+  cap 2 with one counted admit exactly one; 3 parallel taste admissions against allowance 2
+  with one used admit exactly one, the lease carries the sentinel scope (PostgreSQL accepted
+  the width), a rollover changes nothing, conversion spends the allowance; a completion racing
+  an admission on the users-row lock never over-admits. Both route suites now start each test
+  with a fresh per-user route limiter (process-wide window + SQLite id reuse tripped the
+  10/min cap late in the file). Locked `test_expired_trial_gating.py` untouched and green.
+- [x] Mutations, each restored (session workspace, `e11-evidence/e07b-slice2-mutations.log`): taste
+  scoped to the current month → 3 failed; Copilot `finally` release dropped → 3 failed;
+  Analysis `finally` release dropped → 5 failed; Analysis reserves after a read-side block →
+  3 failed; Pro admission not serialized → 2 failed; taste metering counts without converting
+  → 1 failed; `_reserve_use` reads the completed count before the leases → the #746
+  interleaving test PASSED because its hook converted before counting (both orders saw the
+  completed use); hook re-ordered to count-then-convert, unmutated 1 passed, mutated 1 failed.
+- [x] Draft [#754](https://github.com/neilmac91/EarningsNerd/pull/754) opened on `aaff900`
+  (paid eval skipped on the draft). Independent correctness lens (two refutations per
+  candidate): one defect, fixed — on a client disconnect Starlette cancels the streaming task
+  under ASGI < 2.4 (uvicorn 0.52.4 speaks 2.3: `StreamingResponse.__call__` runs the stream
+  and the disconnect listener in one task group and cancels it), and the release awaited in
+  the generator's `finally` hit anyio's pre-shield checkpoint and was cancelled before it
+  ran, so the lease leaked until the 300 s TTL (a Free user who navigated away mid-answer saw
+  the "used your free questions" upsell for up to five minutes). Fix: the release runs under
+  `anyio.CancelScope(shield=True)` in both routes. Gate: one ASGI-driven disconnect test per
+  route (raw scope with `spec_version: "2.3"`, disconnect after the first event; `TestClient`
+  never exercises that path): before the fix `2 failed` (taste lease still held, analysis
+  release never recorded), after `3 passed`. Two minor items also taken: the filing / company
+  / user snapshots are read before the admission commits (no expired-instance refresh while a
+  lease is held), and `test_analysis_metering_converts_the_lease_in_the_counter_commit` runs
+  the real `_meter_analysis_best_effort` body against SQLite (failing increment keeps the
+  lease and returns False; success converts and counts in one commit). Refuted: stale
+  completed count via the identity map, rollback on a block breaking the cached-key probe,
+  HTTPException after the lease, sentinel width / index scope / sweep, taste ↔ monthly
+  cross-conversion, expired lease mid-answer (still counted, matches prior behaviour),
+  metering-failure double charge, at-cap cached bypass parity, taste READ COMMITTED
+  interleavings, rules 4/6/7/8, wall-clock and id-reuse flakes.
+- [x] Second lens defect, pre-existing and folded into #754 (same invariant, same fix shape,
+  one paid run instead of two): `summary_pipeline.stream_filing_summary`'s `finally` awaited
+  the provider-task drain and the lease release BEFORE releasing the generation slot and
+  in-flight leadership. Real-pipeline reproduction through the route's wrapper and
+  `StreamingResponse` under a spec-2.3 disconnect (three identical runs): the cancel enters at
+  the heartbeat `asyncio.wait`, `summary_task.cancel()` runs, then
+  `await asyncio.gather(summary_task)` raises a fresh `CancelledError` and the generator is
+  finished — lease row left (until TTL), `MAX_CONCURRENT_GENERATIONS` slot leaked for the
+  process lifetime, `_inflight_generations` entry left with its Event never set (every later
+  request for that filing waits `INFLIGHT_WAIT_CAP_SECONDS` and times out), no warning
+  logged (`except Exception` cannot see `CancelledError`). Under spec 2.4 the releases run
+  only when the asyncgen finalizer eventually closes the generator. Fix: the awaiting part of
+  the cleanup runs under `anyio.CancelScope(shield=True)`; the slot and leadership releases
+  follow it unchanged. Gate: `test_client_disconnect_mid_generation_releases_lease_slot_and_leadership`
+  in `test_usage_reservation_wiring.py` (real pipeline, raw 2.3 scope, disconnect 50 ms into
+  the provider call): before `1 failed` (lease still held), after `1 passed`; locked
+  `test_summary_stream_contract.py` untouched and green.
+- [x] Full gate on `c2b4d80` (pinned Ruff/Bandit, four PostgreSQL lanes on the local 16.x
+  cluster): ruff clean, bandit clean, `2660 passed` (performance suite included). PR body
+  complete. One CI red on the way: `43fe8cb` failed ruff (F821/F401 in the new disconnect
+  helper — the local lint before that push covered only `app/`), fixed in `e80db07`. PR CI
+  on `0016552` (run 34161153954): success on every job, paid eval skipped on the draft.
+- [ ] One founder-approved Copilot run at ready, merge, deploy verification (`applied=0`,
+  new revision at 100 %, independent detailed health).
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 

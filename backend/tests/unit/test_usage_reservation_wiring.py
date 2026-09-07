@@ -168,3 +168,57 @@ def test_unlimited_pro_without_a_cap_reserves_nothing(monkeypatch):
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=None))
     monkeypatch.setattr(usage.settings, "PRO_SUMMARY_MONTHLY_CAP", 0)
     assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (True, 0, None, None)
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_mid_generation_releases_lease_slot_and_leadership():
+    """uvicorn speaks ASGI 2.3, so on a client disconnect Starlette CANCELS the streaming task
+    and keeps re-delivering the cancellation at every await until the generator exits. The
+    pipeline's ``finally`` awaits (provider task drain, lease release) before it releases the
+    generation slot and in-flight leadership, so unshielded cleanup aborts at its first await:
+    the lease waits out its TTL, the slot is gone for the process lifetime and every later
+    request for the filing joins a leader that never finishes. Drives the real pipeline through
+    the route's wrapper and ``StreamingResponse`` with a raw 2.3 scope; TestClient never takes
+    that path."""
+    import asyncio
+
+    from starlette.responses import StreamingResponse
+
+    from app.services.summary_pipeline import to_sse
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    provider_started, disconnected = asyncio.Event(), asyncio.Event()
+
+    async def blocking_provider(*args, **kwargs):
+        provider_started.set()
+        await asyncio.sleep(30)  # still generating when the client leaves
+        return CANONICAL_PAYLOAD
+
+    async def event_stream():
+        async for event in stream_filing_summary(
+            filing_id=filing_id, current_user=GenerationUserSnapshot(user_id, False, None), user_id=user_id,
+            telemetry_distinct_id=str(user_id), telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            yield to_sse(event)
+
+    async def receive():
+        await provider_started.wait()
+        await asyncio.sleep(0.05)
+        disconnected.set()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if disconnected.is_set() and message["type"] == "http.response.body":
+            raise OSError("peer closed connection")
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.2):
+        summarize.side_effect = blocking_provider
+        semaphore = summary_pipeline._get_generation_semaphore()
+        slots_before = semaphore._value
+        response = StreamingResponse(event_stream(), media_type="text/event-stream")
+        await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
+        await asyncio.sleep(0.1)
+    assert _state(user_id) == (0, 0)  # lease released, nothing counted
+    assert semaphore._value == slots_before  # generation slot given back
+    assert filing_id not in summary_pipeline._inflight_generations  # leadership released
