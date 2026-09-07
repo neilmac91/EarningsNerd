@@ -143,6 +143,30 @@ CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
 EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
 ```
 
+### Alert-to-return measurement (E11c)
+
+Every delivered alert email is one `earningsnerd_delivery_batches` row (`status = 'accepted'`,
+`provider_email_id` set). Resend's `email.clicked` webhook stamps `first_click_at` on that row
+the first time the recipient follows any link in it (later clicks and webhook retries never move
+it) and emits one PostHog event `alert_email_clicked` (`kind`, `batch_id`,
+`hours_to_first_click`, `link_path`; never the address or the query string). Opens are not
+used: mail clients prefetch tracking pixels. The return rate per kind and week:
+
+```sql
+SELECT date_trunc('week', first_dispatch_at) AS week, kind,
+       count(*)                                   AS delivered,
+       count(first_click_at)                      AS returned,
+       round(100.0 * count(first_click_at) / count(*), 1) AS return_pct,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY first_click_at - first_dispatch_at) AS median_delay
+FROM earningsnerd_delivery_batches
+WHERE status = 'accepted' AND first_dispatch_at >= now() - interval '8 weeks'
+GROUP BY 1, 2 ORDER BY 1 DESC, 2;
+```
+
+Only batches sent after this column existed carry a stamp; earlier sends count as delivered
+with no return. A `provider_email_id` the webhook cannot resolve (transactional mail, older
+sends) is a clean miss, logged at INFO with the masked recipient and the id only.
+
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per

@@ -1,9 +1,11 @@
 import hashlib
 import hmac
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.utils.pii import mask_recipients
@@ -194,10 +196,39 @@ async def handle_email_opened(data: Dict[str, Any]):
 
 
 async def handle_email_clicked(data: Dict[str, Any]):
-    """Handle email.clicked event"""
+    """Handle email.clicked event: the alert-to-return measurement's write (E11c)."""
     email_id = data.get("email_id")
     masked_to = mask_recipients(data.get("to"))
     link = data.get("link")
 
     logger.info(f"Email link clicked: {email_id} by {masked_to} - Link: {link}")
-    # Future: Track click-through rates for analytics
+    if isinstance(email_id, str) and email_id.strip():
+        # Best-effort and off the event loop: the provider expects a 200 whatever happens here.
+        await run_in_threadpool(_record_alert_return, email_id.strip(), link if isinstance(link, str) else None)
+
+
+def _record_alert_return(provider_email_id: str, link: Optional[str]) -> None:
+    """Stamp the batch's first click and report it, so alert-to-return is measurable per kind."""
+    from app.database import SessionLocal
+    from app.services.notification_delivery_service import record_first_click
+    from app.services.posthog_client import capture_event
+    from app.utils.datetimes import ensure_utc, utcnow
+
+    now = utcnow()
+    try:
+        with SessionLocal() as db:
+            hit = record_first_click(db, provider_email_id, now)
+        if hit is None:
+            return  # transactional mail, a repeat click, or a send that predates the batch ledger
+        # SQLite hands back naive stamps for timezone-aware columns; PostgreSQL returns aware ones.
+        dispatched = ensure_utc(hit.first_dispatch_at) if hit.first_dispatch_at is not None else None
+        hours = round((now - dispatched).total_seconds() / 3600, 2) if dispatched is not None else None
+        capture_event(str(hit.user_id), "alert_email_clicked", {
+            "kind": hit.kind,
+            "batch_id": hit.batch_id,
+            "hours_to_first_click": hours,
+            # The path identifies which page brought the reader back; never the query string.
+            "link_path": urlsplit(link).path if link else None,
+        })
+    except Exception:  # noqa: BLE001 — measurement must never fail the provider's webhook
+        logger.warning("Could not record the alert click for %s", provider_email_id, exc_info=True)
