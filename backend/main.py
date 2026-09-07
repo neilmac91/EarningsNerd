@@ -5,6 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
 import re
+import threading
 from dotenv import load_dotenv
 
 # Load environment variables early (Settings reads .env itself; the pre-Settings bootstrap
@@ -81,6 +82,34 @@ from app.routers import (
     calendar,
 )
 
+def _run_on_daemon_thread(loop: asyncio.AbstractEventLoop, name: str, step) -> asyncio.Future:
+    """Run a blocking startup step on a daemon thread and resolve a loop future with its outcome.
+
+    Unlike ``loop.run_in_executor`` the thread is never joined at loop shutdown, so a step that
+    hangs past its deadline cannot pin the process after startup has already failed.
+    """
+    future = loop.create_future()
+
+    def settle(setter, value) -> None:
+        if not future.done():
+            setter(value)
+
+    def worker() -> None:
+        try:
+            result = step()
+        except BaseException as exc:  # noqa: BLE001 — surfaced to the awaiting lifespan
+            outcome, setter = exc, future.set_exception
+        else:
+            outcome, setter = result, future.set_result
+        try:
+            loop.call_soon_threadsafe(settle, setter, outcome)
+        except RuntimeError:
+            pass  # the loop is already closed: startup failed on the deadline and the process is exiting
+
+    threading.Thread(target=worker, name=f"startup-{name}", daemon=True).start()
+    return future
+
+
 # Create database tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,11 +118,29 @@ async def lifespan(app: FastAPI):
     # Sync bridges (BackgroundTask bodies, threadpool work) hand coroutines to THIS loop via
     # run_coroutine_threadsafe instead of spinning private loops — see app/services/event_loop.py.
     set_app_loop(loop)
-    await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
+
+    async def bounded_startup_step(name: str, step) -> None:
+        # E12b: a schema step that hangs (lock contention with the draining revision, a slow
+        # database) must fail the start within a known deadline, so Cloud Run keeps serving the
+        # last healthy revision instead of waiting out its own startup timeout. The step runs on
+        # a DAEMON thread rather than the default executor: a hung executor thread would be
+        # joined at loop shutdown and keep the failed container alive after the error.
+        try:
+            await asyncio.wait_for(
+                _run_on_daemon_thread(loop, name, step), timeout=settings.STARTUP_SCHEMA_DEADLINE_SECONDS
+            )
+        except asyncio.TimeoutError:
+            logger.critical(
+                "%s did not finish within STARTUP_SCHEMA_DEADLINE_SECONDS=%s",
+                name, settings.STARTUP_SCHEMA_DEADLINE_SECONDS,
+            )
+            raise RuntimeError(f"Cannot start application: {name} timed out") from None
+
+    await bounded_startup_step("create_all", lambda: Base.metadata.create_all(bind=engine))
     # create_all() never ALTERs existing tables, so self-apply small additive columns that post-date
     # a table's original CREATE (e.g. the FPI alert prefs) — keeps deployed code + schema in sync
     # without a manual migration step. Idempotent + non-fatal; see database.ensure_additive_columns.
-    await loop.run_in_executor(None, ensure_additive_columns)
+    await bounded_startup_step("ensure_additive_columns", ensure_additive_columns)
 
     # Validate database connection at startup
     from sqlalchemy import text

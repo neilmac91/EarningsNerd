@@ -54,6 +54,10 @@ def get_db():
 # Columns introduced after a table's original CREATE. `create_all` never ALTERs existing
 # tables. CI applies SQL files through migration_ledger before deployment (ADR-0007); this
 # additive startup fallback also repairs local/older databases. No destructive startup DDL.
+# Transaction-local lock wait for each additive ALTER on PostgreSQL (E12b); a module constant
+# because database.py is pre-Settings infrastructure bootstrap.
+_ADDITIVE_LOCK_TIMEOUT_MS = 5000
+
 _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("filings", "superseded_by_accession", "TEXT"),
     ("notification_preferences", "notify_20f", "BOOLEAN NOT NULL DEFAULT TRUE"),
@@ -93,6 +97,11 @@ def ensure_additive_columns(bind=None, specs: list[tuple[str, str, str]] | None 
             if column in {c["name"] for c in inspector.get_columns(table)}:
                 continue
             with bind.begin() as conn:
+                if conn.dialect.name == "postgresql":
+                    # ADD COLUMN takes ACCESS EXCLUSIVE; during a rolling deploy the draining
+                    # revision still holds share locks. Wait briefly, then log and move on
+                    # (lessons/ops-no-ddl-in-startup-path.md) rather than hang the start.
+                    conn.execute(text(f"SET LOCAL lock_timeout = '{_ADDITIVE_LOCK_TIMEOUT_MS}ms'"))
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_ddl}"))
             logger.info("ensure_additive_columns: added %s.%s", table, column)
         except Exception as e:  # noqa: BLE001 — never block startup on a single column
