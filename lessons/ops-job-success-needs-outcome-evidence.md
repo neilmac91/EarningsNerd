@@ -25,3 +25,10 @@ not make business work read-only. Until a safe preview exists, `scripts/filing_s
 (scan and digest) must reject before application imports or any DB, tracker or service call.
 The existing `test_job_reporting.py` gate runs both actual CLI modes with import and boundary
 spies, plus normal-mode controls. Rejection is not a working preview or historical repair.
+
+**Durable delivery correction (2026-09-07):** Expiring a sending lease or an exhausted replay
+window creates an ambiguous delivery outcome even when this drain sends no new email. Include
+only newly parked batches of the current job kind in its failure counters; do not repeatedly
+report historical ambiguity. `tests/unit/test_notification_delivery.py::
+test_expired_ambiguity_is_reported_once_for_its_own_kind` exercises both job kinds and subsequent
+drains. Removing the expiry-counter merge failed its original mutation proof on `ea21e7f`.

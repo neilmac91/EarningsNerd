@@ -16,3 +16,10 @@ red). A green check that was never able to go red is not evidence.
 **Evidence**: PR #561 delta-log entry ("Vacuous-proof catch"): first proof compared
 identical commits pre-commit; re-run post-commit produced the real 25/25 symmetric
 import-only result.
+
+**Python bytecode observation (2026-09-07, #747):** Restoring a same-length Python mutation
+within the same timestamp second left a valid-looking `.pyc` containing the mutation. The
+source and cache header both had mtime 1788735858 and size 41811, but disassembly loaded TTL
+120 while committed source declared 180. The existing Settings gate caught this (two failures).
+A fresh `PYTHONPYCACHEPREFIX` makes the restored full gate read the committed source without
+deleting evidence or changing the test. Logs retain both the failed and restored runs.

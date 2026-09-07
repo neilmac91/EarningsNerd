@@ -4,6 +4,9 @@ import re
 from collections import Counter
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from app.config import Settings
 
 REFERENCE = Path(__file__).resolve().parents[3] / "docs/CONFIGURATION.md"
@@ -25,3 +28,14 @@ def test_configuration_reference_covers_settings_and_defaults():
         expected = "required" if field.is_required() else json.dumps(field.default)
         assert documented == expected, f"{name}: documented default {documented}, code default {expected}"
         assert guidance.strip(), f"{name}: describe the purpose and any override caveats"
+
+
+@pytest.mark.parametrize("seconds", [120, 121, 180])
+def test_usage_reservation_ttl_covers_generation_and_conversion(seconds):
+    with pytest.raises(ValidationError, match="USAGE_RESERVATION_TTL_SECONDS"):
+        Settings(USAGE_RESERVATION_TTL_SECONDS=seconds, _env_file=None)
+
+
+@pytest.mark.parametrize("seconds", [181, 300, 3600])
+def test_usage_reservation_ttl_accepts_supported_range(seconds):
+    assert Settings(USAGE_RESERVATION_TTL_SECONDS=seconds, _env_file=None).USAGE_RESERVATION_TTL_SECONDS == seconds

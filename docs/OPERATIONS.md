@@ -143,10 +143,47 @@ CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
 EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
 ```
 
+### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
+
+New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
+outbound email: frozen recipient/sender/subject/HTML, the provider `Idempotency-Key`, status,
+lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the filings each batch owns).
+`accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
+was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
+response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
+again, because a resend could duplicate an accepted email, and its filings stay owned so they
+are never re-selected. Every parked batch is counted once in the job's `delivery_ambiguous`
+counter (`earningsnerd_job_runs`); a non-zero count needs a human decision.
+
+Triage (read-only):
+
+```sql
+SELECT id, kind, user_id, last_error_kind, attempts, first_dispatch_at, idempotency_key, provider_email_id
+FROM earningsnerd_delivery_batches WHERE status = 'ambiguous' ORDER BY updated_at;
+```
+
+Confirm in the Resend dashboard whether an email with that `idempotency_key` (or the batch's
+`to_email` and `subject` around `first_dispatch_at`) was accepted. Then, per batch, either:
+
+- **It was accepted** → mark it delivered so the compatibility log and watermark match reality:
+  `UPDATE earningsnerd_delivery_batches SET status = 'accepted', provider_email_id = '<resend id>' WHERE id = <id>`,
+  then insert the `notification_log` rows (`status = 'sent'`) for its items and advance the
+  watchlist watermarks the way `finalize_accepted` does. Do not delete the items.
+- **It was not accepted** → give the filings back to selection:
+  `DELETE FROM earningsnerd_delivery_items WHERE batch_id = <id>`; the next scan or digest
+  builds a fresh batch under a fresh key if the filing is still inside the selection window and
+  wanted. Leave the batch row as evidence.
+
+Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
+(`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
+the job retries it with backoff, re-keying it if the replay window closed. Historical
+`notification_log` rows are never replayed.
+
 ### Monitoring Alerts (Suggested Thresholds)
 
 | Metric | Warning | Critical |
 |--------|---------|----------|
+| `delivery_ambiguous` (job counter, per run) | > 0 | > 10 |
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
