@@ -13,6 +13,7 @@ import httpx2
 from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError, AsyncOpenAI
 
 from app.config import settings
+from app.services.ai import provider_admission
 from app.services.ai.model_flags import _thinking_disabled_model
 from app.services.ai_metrics import record_ai_call, record_ai_summary
 
@@ -192,7 +193,11 @@ class _ProviderRequestsMixin:
             if not recovery:
                 budget.summary_attempts += 1
             try:
-                async with asyncio.timeout(min(timeout, budget.remaining())):
+                # The admission slot spans exactly the wire attempt (E09b): a wait past the budget
+                # is a timeout like any other, and the backoff sleep below holds nothing.
+                async with provider_admission.admit(budget.remaining()), asyncio.timeout(
+                    min(timeout, budget.remaining())
+                ):
                     if streaming:
                         content = await self._stream_collect(
                             request, stream_cb, filing_type_key, xbrl_metrics, _client=client, _observation=observation

@@ -14,6 +14,7 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from app.config import settings
+from app.services.ai import provider_admission
 from app.services.ai.model_flags import _thinking_disabled_model
 from app.services.ai.provider_requests import close_stream, is_timeout, retry_delay, transient
 from app.services.ai_metrics import record_ai_call
@@ -58,7 +59,9 @@ class _CopilotChatMixin:
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     raise TimeoutError("Chat deadline exhausted")
-                async with asyncio.timeout(remaining):
+                # The admission slot spans the stream's whole life (E09b); it is released through
+                # this generator's finally, which both consumers reach via aclose().
+                async with provider_admission.admit(remaining), asyncio.timeout(remaining):
                     stream = await self.client.chat.completions.create(**kwargs)
                     async for chunk in stream:
                         if getattr(chunk, "model", None):
