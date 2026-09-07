@@ -238,6 +238,7 @@ async def send_earnings_day_alerts(
             for t, ev, _ in sorted(claimed, key=lambda c: -float(c[1].anticipation_score or 0))
         ]
         recipient, name = user.email, getattr(user, "full_name", None)
+        claim_ids = [log.id for _t, _ev, log in claimed]  # populated by the flushes above
         # The claim is durable BEFORE any external I/O: a crash after the provider accepted the
         # email leaves visible 'pending' rows instead of erasing the claim (which would resend).
         # Nothing is queried between this commit and the await, so no transaction is held open
@@ -251,10 +252,20 @@ async def send_earnings_day_alerts(
         except Exception:
             failed += 1
             logger.exception("Earnings-day alert send failed for user %s", user_id)
-            status = "failed"  # ledger keeps the claim as non-terminal → retried next run
+            status = "failed"  # non-terminal: a same-day re-run of the job takes it over
 
-        for _t, _ev, log in claimed:
-            log.status = status
+        # Record the outcome with one conditional update, never through the expired instances:
+        # the claim commit released the users row, so an account deletion during the send may
+        # already have cascaded these rows away; that is a lost claim, not a crash for everyone
+        # after this user in the run.
+        matched = (
+            db.query(EarningsAlertLog)
+            .filter(EarningsAlertLog.id.in_(claim_ids), EarningsAlertLog.status == "pending")
+            .update({"status": status}, synchronize_session=False)
+        )
+        if matched != len(claim_ids):
+            logger.warning("Earnings-day alert ledger for user %s: %d of %d claims vanished during the send",
+                           user_id, len(claim_ids) - matched, len(claim_ids))
         db.commit()
 
     return {"users": len(per_user), "emails": emails, "events": events_sent, "failed": failed}

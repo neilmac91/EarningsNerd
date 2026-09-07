@@ -290,6 +290,43 @@ async def test_claim_is_committed_before_the_send_and_no_transaction_spans_it():
 
 @pytest.mark.requires_db
 @pytest.mark.asyncio
+async def test_claims_deleted_during_the_send_are_a_lost_claim_not_a_crash_for_later_users():
+    """With the claim committed before the send, an account deletion can cascade the ledger rows
+    away while the provider call runs; that must not abort the run for every later user."""
+    from app.database import SessionLocal
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Watchlist
+
+    uids = [_mk_user(is_pro=False), _mk_user(is_pro=False)]
+    today = date.today()
+    db = SessionLocal()
+    c = Company(cik=f"gone-{uuid.uuid4().hex[:10]}", ticker="GONE", name="Gone Inc")
+    db.add(c)
+    db.flush()
+    for uid in uids:
+        db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    db.add(EarningsEvent(
+        ticker="GONE", company_name="Gone Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=today, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    ))
+    db.commit()
+    attempted = []
+
+    async def _sender(*, to_email, name, items):
+        attempted.append(to_email)
+        if len(attempted) == 1:  # the first user's account is deleted mid-send (rows cascade away)
+            with SessionLocal() as other:
+                other.query(EarningsAlertLog).filter(EarningsAlertLog.user_id.in_(uids)).delete(synchronize_session=False)
+                other.commit()
+
+    stats = await alerts.send_earnings_day_alerts(db, today=today, sender=_sender)
+    assert len(attempted) == 2 and stats["emails"] == 2  # the second user was still served
+    assert db.query(EarningsAlertLog).filter(EarningsAlertLog.user_id.in_(uids)).count() == 1  # second user's row
+    db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
 async def test_digest_does_not_retry_pending_rows():
     """A committed 'pending' row (another run's in-flight claim, or a future code path) is NOT
     taken over — only 'failed' is retryable. Prevents concurrent double-sends by construction."""

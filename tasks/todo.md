@@ -110,7 +110,17 @@ if needed (recorded below). No email or production job execution as a test is au
   from another session during the send and `in_transaction() is False`), counter export
   asserted in the window and membership cases. Mutations (restored): commit moved after the
   send → 1 failed; counter export removed → 4 failed. Focused suites: 93 passed.
-- [ ] Full gate, draft PR, independent lens, one founder-approved Copilot run at ready, merge,
+- [x] Full gate on `6ec94f5`: 2640 passed, Ruff/Bandit clean; draft PR #753; independent lens
+  (two refutations per candidate): two should-fixes, both fixed: (1) with the claim committed
+  before the send, an account deletion during the provider call cascades the ledger rows away
+  and the outcome write through the expired instances raised, skipping every later user in
+  the run → the outcome is now one conditional `UPDATE … WHERE status = 'pending'` on the
+  claimed ids with a count-only warning on a shortfall (gate:
+  `test_claims_deleted_during_the_send_are_a_lost_claim_not_a_crash_for_later_users`;
+  mutation back to the instance writes → `DetachedInstanceError`, 1 failed); (2) the runbook
+  said a `failed` earnings row is retried by the next run, but the job only takes over rows
+  whose `event_date` is today → same-ET-day re-run wording.
+- [ ] Full gate on the fix, push, PR body, one founder-approved Copilot run at ready, merge,
   deploy verification. Then E07b slice 2 as its own PR.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)

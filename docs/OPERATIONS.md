@@ -178,7 +178,10 @@ Earnings-day alerts (`earnings_alert_log`) follow the same rule with a smaller l
 `pending` claim is committed before the send, so a row still `pending` after its run finished is
 a lost outcome (the process died after the claim, possibly after the provider accepted). The job
 never retries it; confirm in Resend by recipient and subject around the run time, then set the
-row to `sent` (accepted) or `failed` (not accepted; the next run retries it).
+row to `sent` (accepted) or `failed` (not accepted), and for `failed` re-run the job the same
+ET day (`POST /internal/jobs/earnings-day-alerts` or `gcloud run jobs execute
+earningsnerd-earnings-day-alerts`): the job only takes over `failed` rows whose `event_date` is
+today, so after that day the alert lapses.
 
 Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
 (`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
