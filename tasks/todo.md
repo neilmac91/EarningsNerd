@@ -161,8 +161,11 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
 - [x] Mutations on committed state, restored: payment_failed made to clear `is_pro` and the
   plan → 1 failed; `trial_will_end` analytics removed → 1 failed; unhandled types left
   unrecorded → 1 failed. Full gate on `a0d5373`: ruff/bandit clean, 2671 passed.
-- [ ] Draft PR after #758 merges, one paid Copilot run at ready, merge, deploy verification
-  (`applied=0`).
+- [x] Draft [#759](https://github.com/neilmac91/EarningsNerd/pull/759) on `6902690` (the test
+  commit cherry-picked onto #758's merge, the ledger records and the widened lesson); PR CI run
+  34170088821 green on every job. The #758 release record rides on the draft.
+- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
+  verification (`applied=0`).
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
@@ -199,10 +202,15 @@ counters). Expired OAuth states are swept only on the next login; refresh tokens
   the standing authorization: `copilot-eval.yml` run 34169078174 success; PR CI run
   34169076374 green on every job (eval-baseline 23:21:58Z); Codex posted only its quota
   notice. Squash-merged as `b84240d` at 23:27 UTC.
-- [ ] Main CI on `b84240d`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
-  independent detailed health). Then the founder creates `earningsnerd-retention-purge` and the
-  Sunday 03:00 UTC scheduler per DEPLOYMENT.md (until then job health lists it as never
-  observed).
+- [x] Main CI run 34169903896 on `b84240d`: success on every job. deploy-backend job
+  101888565690: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00300-7nj` at 100 % traffic; five job images updated, the loop now
+  names `earningsnerd-retention-purge` and reports it not found (create once per
+  DEPLOYMENT.md); CI `/health/detailed` healthy (database 8.99 ms) at 23:30:29Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:32 UTC. Released.
+- [ ] Founder console: create `earningsnerd-retention-purge` and the Sunday 03:00 UTC scheduler
+  per DEPLOYMENT.md (a `--dry-run` execution first). Until then job health lists the job as
+  never observed and the weekly data-quality report flags it stale.
 
 ## E11c — Alert-to-return measurement (engineering, 2026-09-07)
 
