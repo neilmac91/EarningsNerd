@@ -66,6 +66,8 @@ ERROR_LEASE_EXPIRED = "lease_expired"
 ERROR_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
 ERROR_ELIGIBILITY_CHANGED = "eligibility_changed"
 ERROR_REROUTED_TO_DIGEST = "rerouted_to_digest"  # still wanted, no longer realtime: ownership released
+ERROR_ENVELOPE_CHANGED = "envelope_changed"  # recipient address changed: ownership released, fresh envelope
+RELEASE_REASONS = frozenset({ERROR_REROUTED_TO_DIGEST, ERROR_ENVELOPE_CHANGED})
 ERROR_PROVIDER_REJECTED = "provider_rejected"
 ERROR_PROVIDER_RETRYABLE = "provider_retryable"
 ERROR_PROVIDER_AMBIGUOUS = "provider_ambiguous"
@@ -299,10 +301,18 @@ def _rekey(db: Session, batch_id: int, token: Optional[str], from_status: str, n
     )
 
 
-def release_items(db: Session, batch_id: int) -> None:
-    """Give a terminal batch's filings back to selection (used when delivery mode changed)."""
+def park_and_release(db: Session, batch_id: int, owner_token: str, reason: str, now: datetime) -> bool:
+    """claimed → suppressed AND give the filings back to selection, in one transaction, so a crash
+    can never leave a suppressed batch that still owns what the digest should now deliver."""
     db.query(DeliveryItem).filter(DeliveryItem.batch_id == batch_id).delete(synchronize_session=False)
+    stmt = update(DeliveryBatch).where(
+        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED, DeliveryBatch.owner_token == owner_token,
+    ).values(status=STATUS_SUPPRESSED, owner_token=None, lease_expires_at=None, last_error_kind=reason, updated_at=now)
+    if db.execute(stmt.execution_options(synchronize_session=False)).rowcount != 1:
+        db.rollback()  # lost ownership: the items stay with whoever owns the batch now
+        return False
     db.commit()
+    return True
 
 
 def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
@@ -336,13 +346,16 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
 def _ineligible_reason(db: Session, batch: DeliveryBatch, user: Optional[User]) -> Optional[str]:
     """Why current user, watch, preference and entitlement state forbids this dispatch (None = go).
 
-    A realtime batch whose user still wants the filing but no longer in realtime (preference off
-    or entitlement lost) is ``rerouted``: the batch is suppressed and its filings released so the
-    digest can own them; every other change is a plain suppression that keeps ownership.
+    Two changes release ownership so selection builds a fresh batch (``RELEASE_REASONS``): a
+    realtime batch whose user still wants the filing but no longer in realtime (preference off or
+    entitlement lost) is ``rerouted`` to the digest, and a recipient whose address changed gets a
+    new envelope under a new key (the frozen one must never be re-addressed). Every other change
+    is a plain suppression that keeps ownership.
     """
-    if (user is None or not user.is_active or user.email != batch.to_email
-            or not batch.items or len(batch.items) != batch.expected_item_count):
+    if user is None or not user.is_active or not batch.items or len(batch.items) != batch.expected_item_count:
         return ERROR_ELIGIBILITY_CHANGED
+    if user.email != batch.to_email:
+        return ERROR_ENVELOPE_CHANGED
     prefs = get_or_create_preferences(db, user.id)
     ent = get_entitlements(user)
     reroute = False
@@ -396,8 +409,10 @@ async def drain(
         db.refresh(batch)
         first = _aware(batch.first_dispatch_at)
         if batch.attempts >= settings.DELIVERY_MAX_ATTEMPTS:
-            park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_ATTEMPTS_EXHAUSTED, now)
-            stats.ambiguous += 1
+            if park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_ATTEMPTS_EXHAUSTED, now):
+                stats.ambiguous += 1
+            else:
+                stats.lost_claims += 1
             continue
         if first is not None and first + timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS) <= now:
             # Only documented non-acceptances reach a claim with a closed window: replay under a
@@ -407,16 +422,22 @@ async def drain(
                 continue
             db.refresh(batch)
         if payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email) != batch.payload_sha256:
-            park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now)
-            stats.ambiguous += 1
+            if park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now):
+                stats.ambiguous += 1
+            else:
+                stats.lost_claims += 1
             continue
         user = db.get(User, batch.user_id)
         ineligible = _ineligible_reason(db, batch, user)
         if ineligible is not None:
-            if park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ineligible, now) \
-                    and ineligible == ERROR_REROUTED_TO_DIGEST:
-                release_items(db, batch_id)
-            stats.suppressed += 1
+            if ineligible in RELEASE_REASONS:
+                parked = park_and_release(db, batch_id, token, ineligible, now)
+            else:
+                parked = park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ineligible, now)
+            if parked:
+                stats.suppressed += 1
+            else:
+                stats.lost_claims += 1
             continue
         prepared = PreparedSend(
             batch_id=batch.id, kind=batch.kind, to_email=batch.to_email, from_email=batch.from_email, name=user.full_name,

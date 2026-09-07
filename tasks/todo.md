@@ -50,9 +50,25 @@ if needed (recorded below). No email or production job execution as a test is au
   and abort the drain → lost claim, drain continues. Four new unit cases, the window case
   rewritten, the transport case extended; seven mutations each failed as intended and restored
   (`e11-evidence/mutation2-*.log`). Focused delivery/anchor suites: 47 passed.
-- [ ] After the fix-round full gate: push `9c7297f`, reply/resolve the five threads, refresh the
-  PR body, then one founder-approved Copilot run on the fix head, Codex, fresh-head merge and
-  serial production verification. No release claim from local checks alone.
+- [x] Fix-round full gate on `9c7297f`: 2636 passed, 24 warnings, Ruff/Bandit clean; pushed as
+  `93f5e07` (draft, eval skipped, PR CI 34151220030), five threads answered and resolved, PR body
+  refreshed.
+- [x] Independent lens on the current tree (two refutations per candidate, 109 focused cases +
+  migration triple pass reproduced): no state-machine survivor; two should-fix and three nits,
+  all fixed: (1) `ambiguous` had no reconciliation path → `docs/OPERATIONS.md` section (triage
+  SQL, accepted vs not-accepted resolutions, never re-send under the old key) and a
+  `delivery_ambiguous` alert row; (2) a changed recipient address suppressed the batch with the
+  filing owned forever → `envelope_changed` releases the items so selection builds a fresh
+  envelope under a fresh key (the frozen one is never re-addressed); (3) reroute was two commits
+  → `park_and_release` deletes the items and fences the suppression in one transaction, rolling
+  both back on a lost fence; (4) counters ignored fence results → lost claims are never reported
+  as ambiguous/suppressed; (5) dead expression in a test removed. Four mutations each failed as
+  intended and restored (`e11-evidence/mutation3-*.log`). Design note for the founder: a
+  `retryable` batch past the replay window is re-keyed (deviation from the reviewed summary,
+  where it was parked); rationale in the PR body.
+- [ ] After the reviewer-round full gate: push, refresh the PR body, then one founder-approved
+  Copilot run on the fix head, Codex, fresh-head merge and serial production verification. No
+  release claim from local checks alone.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 

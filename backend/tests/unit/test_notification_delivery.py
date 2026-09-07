@@ -130,8 +130,7 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
                 observed["watermark"] = other.query(Watchlist).one().last_alerted_accession
             return "email_1"
 
-        stats = await run_filing_scan(db, fetch_filings=_fetch, send_alert=None, now=NOW, cadence_minutes=0) \
-            if False else await _scan_with_transport(db, send)
+        stats = await _scan_with_transport(db, send)
         assert observed == {"in_transaction": False, "status": STATUS_SENDING, "attempts": 1,
                             "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None}
         (batch,) = _batches(db)
@@ -296,6 +295,41 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
         await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW + timedelta(hours=2))
         (batch,) = _batches(db)
         assert batch.last_error_kind == delivery.ERROR_ELIGIBILITY_CHANGED and db.query(DeliveryItem).count() == 1
+        # And the release is atomic: a lost fence rolls the item deletion back too.
+        db.add(Filing(id=78, company_id=1, accession_number="fence", filing_type="10-Q", filing_date=NOW,
+                      sec_url="https://sec.example/fence/", document_url="https://sec.example/fence/doc.htm"))
+        db.query(NotificationPreferences).one().notify_10q = True
+        db.commit()
+        other = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[78], now=NOW)
+        assert delivery.claim(db, other.id, "owner", NOW)
+        assert delivery.park_and_release(db, other.id, "stale", delivery.ERROR_REROUTED_TO_DIGEST, NOW) is False
+        assert db.query(DeliveryItem).filter_by(batch_id=other.id).count() == 1
+        assert db.get(DeliveryBatch, other.id).status == STATUS_CLAIMED
+
+
+@pytest.mark.asyncio
+async def test_a_lost_fence_while_parking_is_a_lost_claim_not_a_reported_outcome(engine, monkeypatch):
+    """A worker that lost ownership between its claim and the terminal update must not report the
+    batch as suppressed or ambiguous: those counters drive the job's failure outcome."""
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add_all([Filing(id=i, company_id=1, accession_number=f"fence{i}", filing_type="10-Q", filing_date=NOW,
+                           sec_url=f"https://sec.example/fence{i}/", document_url=f"https://sec.example/fence{i}/doc.htm")
+                    for i in (1, 2, 3)])
+        db.commit()
+        for fid in (1, 2, 3):
+            delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h", filing_ids=[fid], now=NOW)
+        # Batch 1: exhausted attempts; batch 2: rerouted; batch 3: plain suppression — every fence lost.
+        b1 = _batches(db)[0]
+        b1.attempts = 99
+        db.commit()
+        monkeypatch.setattr(delivery, "park", lambda *a, **k: False)
+        monkeypatch.setattr(delivery, "park_and_release", lambda *a, **k: False)
+        prefs = db.query(NotificationPreferences).one()
+        prefs.realtime = False
+        db.commit()
+        drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW)
+        assert (drained.lost_claims, drained.ambiguous, drained.suppressed) == (3, 0, 0)
 
 
 @pytest.mark.asyncio
@@ -613,8 +647,16 @@ async def test_retry_freezes_complete_envelope_and_rejects_changed_recipient(eng
         db.commit()
         result = await delivery.drain(db, kind=KIND_FILING_REALTIME, now=NOW + timedelta(minutes=20))
         assert len(requests) == 2 and result.suppressed == 1
-        assert _batches(db)[0].last_error_kind == delivery.ERROR_ELIGIBILITY_CHANGED
+        (old,) = _batches(db)
+        assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_ENVELOPE_CHANGED
+        assert db.query(DeliveryItem).count() == 0  # the frozen envelope is never re-addressed: released
         assert _log_count(db) == 0 and _watermark(db) is None
+        # Selection builds a fresh envelope, under a fresh key, for the new address.
+        await run_filing_scan(db, fetch_filings=_fetch, now=NOW + timedelta(minutes=21), cadence_minutes=0)
+        fresh = [b for b in _batches(db) if b.id != old.id]
+        assert len(fresh) == 1 and fresh[0].to_email == "changed-recipient@example.com"
+        assert fresh[0].idempotency_key != old.idempotency_key and len(requests) == 3
+        assert json.loads(requests[2][1])["to"] == ["changed-recipient@example.com"]
 
 
 @pytest.mark.asyncio
