@@ -274,9 +274,10 @@ unused since generation became account-required in #619; kept because migrations
   HALF_OPEN retry after 30s; only network errors trip it (404s/parse errors never do).
   SEC rate limit 10 req/s token bucket + exponential backoff — per-process, so count
   service instances + cron jobs against SEC's per-IP cap.
-  Provider admission (E09b): at most `AI_PROVIDER_MAX_INFLIGHT` (16) in-flight provider
-  streams per process across summaries, recovery, Copilot and Analysis; a request waits for
-  a slot only within its own budget. Per-process too; `/metrics` reports both gates.
+  Chat admission (E09b): at most `AI_CHAT_MAX_INFLIGHT` (8) in-flight Copilot / Analysis
+  provider streams per process, waiting for a slot only within their own budget; the summary
+  path is bounded by its own two semaphores and never queues behind chat. Per-process too;
+  `/metrics` reports every stream and both gates.
 - **Caching:** two-tier L1 (LRU, max 1000, `asyncio.Lock`) + L2 Redis with stale-L1
   fallback; `CacheTTL`: XBRL 24h, filing metadata 6h, hot filings 5m; all cache ops capped
   at 2s. Redis connections survive event-loop changes (`_reset_on_loop_change()`).

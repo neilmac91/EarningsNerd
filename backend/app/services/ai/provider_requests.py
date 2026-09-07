@@ -193,9 +193,9 @@ class _ProviderRequestsMixin:
             if not recovery:
                 budget.summary_attempts += 1
             try:
-                # The admission slot spans exactly the wire attempt (E09b): a wait past the budget
-                # is a timeout like any other, and the backoff sleep below holds nothing.
-                async with provider_admission.admit(budget.remaining()), asyncio.timeout(
+                # Counted by the admission gate (E09b) but never queued: this path is bounded by
+                # the generation and recovery semaphores. The backoff sleep below holds nothing.
+                async with provider_admission.admit(budget.remaining(), gated=False), asyncio.timeout(
                     min(timeout, budget.remaining())
                 ):
                     if streaming:

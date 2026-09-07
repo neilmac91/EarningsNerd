@@ -151,7 +151,7 @@ async def test_admin_metrics_carries_provider_admission_and_sec_pacing_without_t
     provider_admission.reset()
     result = await metrics_service.get_all_metrics()
     admission, pacing = result["provider_admission"], result["sec_rate_limiter"]
-    assert admission["scope"] == "process" and admission["limit"] == settings.AI_PROVIDER_MAX_INFLIGHT
+    assert admission["scope"] == "process" and admission["limit"] == settings.AI_CHAT_MAX_INFLIGHT
     assert (admission["in_flight"], admission["waiting"], admission["admitted"], admission["rejected"]) == (0, 0, 0, 0)
     assert pacing["scope"] == "process" and pacing["requests_per_second"] == settings.SEC_RATE_LIMIT_PER_SECOND
     assert {"total_requests", "rate_limit_hits", "current_tokens"} <= set(pacing)

@@ -43,10 +43,10 @@ def test_usage_reservation_ttl_accepts_supported_range(seconds):
 
 @pytest.mark.parametrize("value", [-1, 513])
 def test_provider_admission_limit_rejects_out_of_range(value):
-    with pytest.raises(ValidationError, match="AI_PROVIDER_MAX_INFLIGHT"):
-        Settings(AI_PROVIDER_MAX_INFLIGHT=value, _env_file=None)
+    with pytest.raises(ValidationError, match="AI_CHAT_MAX_INFLIGHT"):
+        Settings(AI_CHAT_MAX_INFLIGHT=value, _env_file=None)
 
 
-@pytest.mark.parametrize("value", [0, 1, 16, 512])
+@pytest.mark.parametrize("value", [0, 1, 8, 512])
 def test_provider_admission_limit_accepts_supported_range(value):
-    assert Settings(AI_PROVIDER_MAX_INFLIGHT=value, _env_file=None).AI_PROVIDER_MAX_INFLIGHT == value
+    assert Settings(AI_CHAT_MAX_INFLIGHT=value, _env_file=None).AI_CHAT_MAX_INFLIGHT == value

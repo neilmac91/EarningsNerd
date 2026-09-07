@@ -59,9 +59,10 @@ class _CopilotChatMixin:
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     raise TimeoutError("Chat deadline exhausted")
-                # The admission slot spans the stream's whole life (E09b); it is released through
-                # this generator's finally, which both consumers reach via aclose().
-                async with provider_admission.admit(remaining), asyncio.timeout(remaining):
+                # The chat slot spans the stream's whole life (E09b); it is released through this
+                # generator's finally, which both consumers reach via aclose(). The wire timeout is
+                # anchored to the original deadline, so time spent waiting for a slot is not added.
+                async with provider_admission.admit(remaining), asyncio.timeout_at(deadline):
                     stream = await self.client.chat.completions.create(**kwargs)
                     async for chunk in stream:
                         if getattr(chunk, "model", None):

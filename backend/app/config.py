@@ -466,14 +466,14 @@ class Settings(BaseSettings):
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent section-recovery API calls per process
 
-    # E09b: provider admission. At most this many in-flight provider streams per process across
-    # every consumer (summary primary/fallback attempts, section recovery, Copilot chat, Analysis
-    # narration). Set above the summary path's own maximum (MAX_CONCURRENT_GENERATIONS +
-    # RECOVERY_MAX_CONCURRENCY = 9 by default) so summaries never queue here; excess chat streams
-    # wait for a slot within their own budget and fail fast past it. Process scope, like the
-    # generation semaphore; fleet load on the shared key is the sum over instances and jobs.
-    # 0 disables the ceiling.
-    AI_PROVIDER_MAX_INFLIGHT: int = Field(default=16, ge=0, le=512)
+    # E09b: chat admission. At most this many in-flight Copilot chat / Analysis narration
+    # provider streams per process; excess chat requests wait for a slot within their own budget
+    # and fail fast past it. The summary path (primary/fallback attempts, section recovery) is
+    # bounded separately by MAX_CONCURRENT_GENERATIONS + RECOVERY_MAX_CONCURRENCY and never
+    # queues behind chat, so a process holds at most this many plus that maximum provider
+    # streams. Process scope, like the generation semaphore; fleet load on the shared key is
+    # the sum over instances and jobs. 0 disables.
+    AI_CHAT_MAX_INFLIGHT: int = Field(default=8, ge=0, le=512)
 
     # "Ask this Filing" Copilot (A2 / P1). Pro-only grounded single-filing Q&A.
     #   COPILOT_MONTHLY_QUESTION_CAP — fair-use soft cap per Pro user per month (degrade, not punish).

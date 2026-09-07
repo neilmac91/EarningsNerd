@@ -1,9 +1,11 @@
-"""E09b: one process-wide admission gate in front of every provider wire call.
+"""E09b: one process-wide admission gate for the chat provider streams.
 
-Locks: (1) at most AI_PROVIDER_MAX_INFLIGHT requests reach the wire concurrently across the
-summary and chat paths; (2) a chat stream holds its slot for its whole life and releases it on
-the consumer's aclose(); (3) a wait is bounded by the caller's own budget, counted as rejected,
-makes no wire call and leaks no slot. Requests are offline (mock transports on the real SDK).
+Locks: (1) at most AI_CHAT_MAX_INFLIGHT chat streams reach the wire concurrently, and a chat
+stream holds its slot for its whole life, releasing it on the consumer's aclose(); (2) the
+summary path is counted but never queues behind chat; (3) a chat wait is bounded by its own
+deadline, counted as rejected, makes no wire call and leaks no slot; (4) time spent waiting for
+a slot is not added to the chat's wall-clock budget. Requests are offline (mock transports on
+the real SDK).
 """
 import asyncio
 
@@ -11,159 +13,144 @@ import httpx2
 import pytest
 
 from app.config import settings
-from app.services.ai import provider_admission, provider_requests as requests
+from app.services.ai import copilot_chat, provider_admission, provider_requests as requests
 from tests.unit.test_provider_resilience import KW, chunk, completion, event, service_for
+
+MESSAGES = [{"role": "user", "content": "hi"}]
 
 
 @pytest.fixture(autouse=True)
 def fresh_gate(monkeypatch):
     provider_admission.reset()
+    monkeypatch.setattr(settings, "AI_CHAT_MAX_INFLIGHT", 1)
     monkeypatch.setattr(requests, "retry_delay", lambda *args: 0)
     yield
     provider_admission.reset()
 
 
-def _blocked_stream(entered: asyncio.Event, release: asyncio.Event, closed: list):
-    class Blocked(httpx2.AsyncByteStream):
-        async def __aiter__(self):
-            entered.set()
-            await release.wait()
-            yield event(chunk("ok"))
-            yield b"data: [DONE]\n\n"
+class Trickle(httpx2.AsyncByteStream):
+    """First chunk at once, then blocked until `release` (never, by default); closable."""
 
-        async def aclose(self):
-            closed.append(True)
+    def __init__(self, release: asyncio.Event | None = None):
+        self.release = release or asyncio.Event()
+        self.closed = False
 
-    return Blocked()
+    async def __aiter__(self):
+        yield event(chunk("first"))
+        await self.release.wait()
+        yield event(chunk("second"))
+        yield b"data: [DONE]\n\n"
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _handler(calls, streams):
+    def handler(req):
+        calls.append(req)
+        response = streams[len(calls) - 1]
+        if isinstance(response, Trickle):
+            return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=response)
+        return httpx2.Response(200, json=response)
+
+    return handler
+
+
+async def _first(chat):
+    return await asyncio.wait_for(chat.__anext__(), timeout=2.0)
 
 
 @pytest.mark.asyncio
-async def test_limit_holds_the_second_request_off_the_wire_until_the_first_releases(monkeypatch):
-    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 1)
-    calls, closed = [], []
-    entered, release = asyncio.Event(), asyncio.Event()
-
-    def handler(req):
-        calls.append(req)
-        if len(calls) == 1:
-            return httpx2.Response(200, headers={"content-type": "text/event-stream"},
-                                   stream=_blocked_stream(entered, release, closed))
-        return httpx2.Response(200, json=completion())
-
-    async with service_for(handler) as service:
-        first = asyncio.create_task(service._request_content(KW, stream_cb=lambda _: None))
-        await entered.wait()
-        second = asyncio.create_task(service._request_content(KW))
+async def test_chat_limit_holds_the_second_stream_off_the_wire_until_the_first_closes():
+    calls, holder, follower = [], Trickle(), Trickle()
+    async with service_for(_handler(calls, [holder, follower])) as service:
+        first = service.stream_chat(MESSAGES)
+        assert await _first(first) == "first"
+        second = service.stream_chat(MESSAGES)
+        task = asyncio.create_task(_first(second))
         await asyncio.sleep(0.05)
-        assert len(calls) == 1, "second request must not reach the wire while the slot is held"
+        assert len(calls) == 1, "the second chat must not reach the wire while the slot is held"
         snap = provider_admission.snapshot()
-        assert (snap["in_flight"], snap["waiting"], snap["admitted"], snap["rejected"]) == (1, 1, 1, 0)
-        release.set()
-        assert await first == "ok"
-        assert await second == '{"fresh":true}'
-    assert len(calls) == 2
+        assert (snap["chat_in_flight"], snap["waiting"], snap["admitted"], snap["rejected"]) == (1, 1, 1, 0)
+        await first.aclose()  # the consumer walks away mid-stream
+        assert holder.closed
+        assert await task == "first"
+        assert len(calls) == 2
+        await second.aclose()
     snap = provider_admission.snapshot()
-    assert (snap["in_flight"], snap["waiting"], snap["admitted"], snap["peak_in_flight"]) == (0, 0, 2, 1)
+    assert (snap["in_flight"], snap["chat_in_flight"], snap["waiting"], snap["admitted"], snap["peak_in_flight"]) == (
+        0, 0, 0, 2, 1
+    )
 
 
 @pytest.mark.asyncio
-async def test_chat_stream_holds_its_slot_until_the_consumer_closes_it(monkeypatch):
-    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 1)
-    calls, closed = [], []
-    entered, release = asyncio.Event(), asyncio.Event()
-
-    class Trickle(httpx2.AsyncByteStream):
-        async def __aiter__(self):
-            entered.set()
-            yield event(chunk("first"))
-            await release.wait()
-            yield event(chunk("second"))
-            yield b"data: [DONE]\n\n"
-
-        async def aclose(self):
-            closed.append(True)
-
-    def handler(req):
-        calls.append(req)
-        if len(calls) == 1:
-            return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=Trickle())
-        return httpx2.Response(200, json=completion())
-
-    async with service_for(handler) as service:
-        chat = service.stream_chat([{"role": "user", "content": "hi"}])
-        assert await chat.__anext__() == "first"
-        summary = asyncio.create_task(service._request_content(KW))
-        await asyncio.sleep(0.05)
-        assert len(calls) == 1, "an open chat stream holds the only slot"
-        assert provider_admission.snapshot()["waiting"] == 1
-        await chat.aclose()  # the consumer walks away mid-stream
-        assert closed == [True]
-        assert await summary == '{"fresh":true}'
-    assert len(calls) == 2
+async def test_summary_path_is_counted_but_never_queues_behind_chat():
+    calls = []
+    async with service_for(_handler(calls, [Trickle(), completion()])) as service:
+        chat = service.stream_chat(MESSAGES)
+        assert await _first(chat) == "first"
+        assert await asyncio.wait_for(service._request_content(KW), timeout=2.0) == '{"fresh":true}'
+        assert len(calls) == 2, "a summary attempt reaches the wire while chat holds the only slot"
+        snap = provider_admission.snapshot()
+        assert (snap["in_flight"], snap["chat_in_flight"], snap["waiting"], snap["admitted"]) == (1, 1, 0, 2)
+        assert snap["peak_in_flight"] == 2
+        await chat.aclose()
     assert provider_admission.snapshot()["in_flight"] == 0
 
 
 @pytest.mark.asyncio
-async def test_wait_is_bounded_by_the_budget_and_leaks_no_slot(monkeypatch):
-    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 1)
-    calls, closed = [], []
-    entered, release = asyncio.Event(), asyncio.Event()
-
-    def handler(req):
-        calls.append(req)
-        if len(calls) == 1:
-            return httpx2.Response(200, headers={"content-type": "text/event-stream"},
-                                   stream=_blocked_stream(entered, release, closed))
-        return httpx2.Response(200, json=completion())
-
-    async with service_for(handler) as service:
-        holder = asyncio.create_task(service._request_content(KW, stream_cb=lambda _: None))
-        await entered.wait()
-        monkeypatch.setattr(requests, "SUMMARY_SECONDS", 0.05)  # the waiter's budget only
-        with pytest.raises(TimeoutError):
-            await asyncio.wait_for(service._request_content(KW), timeout=2.0)
+async def test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot(monkeypatch):
+    calls = []
+    async with service_for(_handler(calls, [Trickle(), Trickle()])) as service:
+        holder = service.stream_chat(MESSAGES)
+        assert await _first(holder) == "first"
+        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.05)  # the waiter's budget only
+        waiter = service.stream_chat(MESSAGES)
+        assert (await _first(waiter)).startswith(copilot_chat.STREAM_ERROR_SENTINEL)
+        await waiter.aclose()
         assert len(calls) == 1, "a rejected wait never touches the wire"
         snap = provider_admission.snapshot()
-        assert snap["rejected"] == 1 and snap["waiting"] == 0 and snap["in_flight"] == 1
-        release.set()
-        assert await holder == "ok"
-        assert provider_admission.snapshot()["in_flight"] == 0
-        monkeypatch.setattr(requests, "SUMMARY_SECONDS", 5.0)
-        assert await service._request_content(KW) == '{"fresh":true}'
+        assert snap["rejected"] == 1 and snap["waiting"] == 0 and snap["chat_in_flight"] == 1
+        await holder.aclose()
+        assert provider_admission.snapshot()["chat_in_flight"] == 0
+        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 5.0)
+        third = service.stream_chat(MESSAGES)
+        assert await _first(third) == "first"
+        await third.aclose()
     assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_time_spent_waiting_for_a_slot_is_not_added_to_the_chat_budget(monkeypatch):
+    """A stream admitted after waiting W seconds is still cut at its original deadline, not at
+    deadline + W: otherwise contention would extend slot occupancy, which extends contention.
+    One task consumes the waiter throughout, as one request task does in production."""
+    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.3)
+    calls = []
+    async with service_for(_handler(calls, [Trickle(), Trickle()])) as service:
+        holder = service.stream_chat(MESSAGES)
+        assert await _first(holder) == "first"
+
+        async def consume():
+            started = asyncio.get_running_loop().time()
+            waiter = service.stream_chat(MESSAGES)
+            try:
+                first = await waiter.__anext__()
+                second = await waiter.__anext__()
+            finally:
+                await waiter.aclose()
+            return first, second, asyncio.get_running_loop().time() - started
+
+        task = asyncio.create_task(consume())
+        await asyncio.sleep(0.15)
+        await holder.aclose()  # the slot frees at ~0.15 s; the waiter's deadline is at 0.3 s
+        first, second, elapsed = await asyncio.wait_for(task, timeout=2.0)
+        assert first == "first"
+        assert second.startswith(copilot_chat.STREAM_ERROR_SENTINEL)
+        assert elapsed < 0.42, f"stream ran past its original deadline: {elapsed:.2f}s"
+    assert provider_admission.snapshot()["in_flight"] == 0
 
 
 def test_zero_disables_the_ceiling(monkeypatch):
-    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 0)
+    monkeypatch.setattr(settings, "AI_CHAT_MAX_INFLIGHT", 0)
     assert provider_admission.limit() == 2**31
-
-
-@pytest.mark.asyncio
-async def test_chat_wait_is_bounded_by_its_own_deadline(monkeypatch):
-    """The chat path has no outer budget: the gate's own timeout is what bounds its wait, and
-    the consumer sees the existing error sentinel instead of hanging behind the provider."""
-    from app.services.ai import copilot_chat
-
-    monkeypatch.setattr(settings, "AI_PROVIDER_MAX_INFLIGHT", 1)
-    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.05)
-    calls, closed = [], []
-    entered, release = asyncio.Event(), asyncio.Event()
-
-    def handler(req):
-        calls.append(req)
-        return httpx2.Response(200, headers={"content-type": "text/event-stream"},
-                               stream=_blocked_stream(entered, release, closed))
-
-    async with service_for(handler) as service:
-        holder = asyncio.create_task(service._request_content(KW, stream_cb=lambda _: None))
-        await entered.wait()
-        chat = service.stream_chat([{"role": "user", "content": "hi"}])
-        first = await asyncio.wait_for(chat.__anext__(), timeout=2.0)
-        assert first.startswith(copilot_chat.STREAM_ERROR_SENTINEL)
-        await chat.aclose()
-        assert len(calls) == 1, "the queued chat never reached the wire"
-        snap = provider_admission.snapshot()
-        assert snap["rejected"] >= 1 and snap["waiting"] == 0 and snap["in_flight"] == 1
-        release.set()
-        assert await holder == "ok"
-    assert provider_admission.snapshot()["in_flight"] == 0

@@ -156,26 +156,41 @@ production capacity values and stay separate (the latter also needs the founder'
 evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
 
 - [x] `services/ai/provider_admission.py`: loop- and limit-keyed semaphore behind
-  `admit(deadline_seconds)`; a wait past the caller's own budget (or cancelled) counts as
-  `rejected` and releases nothing; counters `limit`, `in_flight`, `waiting`, `admitted`,
-  `rejected`, `peak_in_flight`. Wrapped at the two wire sites: `_request_content` (slot spans
-  exactly the attempt; the backoff sleep holds nothing) and `_chat_chunks` (slot spans the
-  stream's life, released through the generator's finally via `aclose()`). Lock order is
-  always generation/recovery semaphore first, admission second; no deadlock.
-- [x] `AI_PROVIDER_MAX_INFLIGHT` (default 16, 0 through 512, 0 disables): strictly above the
-  summary path's own maximum (6 + 3) so no summary behaviour changes; chat queues at 7
-  concurrent streams per process; fleet worst case 2 × 16 + the pregenerate job's 4. The one
-  capacity-flavoured number in the slice, env-tunable, left at the default (founder-held).
+  `admit(deadline_seconds, gated=)`. The chat paths are gated: a wait past the caller's own
+  budget (or cancelled) counts as `rejected` and releases nothing; the summary path is
+  counted but never waits (its own two semaphores bound it). Counters `limit`, `in_flight`,
+  `chat_in_flight`, `waiting`, `admitted`, `rejected`, `peak_in_flight`. Wrapped at the two
+  wire sites: `_request_content` (counted; the backoff sleep holds nothing) and
+  `_chat_chunks` (slot spans the stream's life, released through the generator's finally via
+  `aclose()`; the wire timeout is `asyncio.timeout_at(deadline)`, so waiting for a slot is
+  not added to the chat budget). Lock order is always generation/recovery semaphore first,
+  admission second; no deadlock.
+- [x] `AI_CHAT_MAX_INFLIGHT` (default 8, 0 through 512, 0 disables): a process holds at most
+  8 chat streams plus the summary path's own maximum (6 + 3); fleet worst case 2 × 17 + the
+  pregenerate job's 4 on the key. The one capacity-flavoured number in the slice, env-tunable,
+  left at the default (founder-held).
 - [x] `/metrics`: `provider_admission` and `sec_rate_limiter` snapshots, both `scope: process`
   (E12's "connect E09 counters"). Docs: CONFIGURATION row, OPERATIONS paragraph (what the
   snapshots mean, the Monday job overlap, that only lower per-process budgets fix an
   aggregate SEC overrun), ARCHITECTURE resilience line.
-- [x] Tests: `test_provider_admission.py` (5), `test_ai_metrics.py` (+1),
-  `test_configuration_reference.py` (+2). Mutations on committed state, restored: admission
-  wrap removed → 3 failed; chat slot narrowed to `create` → 1 failed; wait made unbounded →
-  1 failed (the chat-path gate; the summary path's outer budget masks it, which is why that
-  gate exists); metrics keys dropped → 1 failed; `ge=0` dropped → 1 failed. Full gate on
-  `0502c2d`: ruff/bandit clean, 2680 passed.
+- [x] First cut (`0502c2d`, full gate 2680 passed) gated every stream through one shared FIFO
+  semaphore (`AI_PROVIDER_MAX_INFLIGHT` 16). Independent lens, two survivors, both fixed:
+  (1) the chat wire timeout was built from a `remaining` computed before the admission wait,
+  so a stream that waited W seconds could run to `deadline + W` while holding its slot, and
+  contention would extend contention; now anchored to the original deadline. (2) "summaries
+  never queue here" was false: sixteen chat streams on one instance would put every summary
+  attempt FIFO behind them, a new failure mode for the core product; the gate now bounds chat
+  only and the summary path is counted, never blocked. Refuted: slot leaks on disconnect /
+  `aclose()` / same-tick outer timeout, double release, lock order, the semaphore rebuild on
+  a limit change (transient over-admission, monkeypatch-only), counter paths, the backoff
+  sleep, rejected waits recorded as timeout calls (deliberate, `rejected` disambiguates), the
+  `get_stats()` fields, docs defaults, job processes (≤ 4 streams), the ungated
+  `_stream_collect` (only reached inside the gated attempt).
+- [x] Tests: `test_provider_admission.py` (5: the chat limit holds a second stream off the
+  wire until the first closes; the summary path reaches the wire while chat holds the only
+  slot; a chat wait is bounded by its own deadline, rejected, wire-free and leak-free; time
+  spent waiting is not added to the chat budget; 0 disables), `test_ai_metrics.py` (+1),
+  `test_configuration_reference.py` (+2).
 - [ ] Independent lens, draft PR, one paid Copilot run at ready, merge, deploy verification
   (`applied=0`).
 
