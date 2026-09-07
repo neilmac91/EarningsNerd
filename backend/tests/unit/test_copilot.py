@@ -1595,3 +1595,94 @@ def test_endpoint_expired_free_taste_lease_does_not_block(client, monkeypatch):
         _insert_lease(uid, QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE, expired=True)
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
         assert _qa_state(uid) == ([], 0, 3)  # stale lease swept, the last unit consumed
+
+
+def _asgi_post(path: str, body: dict, *, disconnect_after: "asyncio.Event"):
+    """Drive the real ASGI app the way uvicorn does (ASGI spec 2.3): Starlette then runs the
+    stream and a disconnect listener in one task group and CANCELS the stream when the client
+    leaves. TestClient never exercises that path, so the disconnect cases speak raw ASGI."""
+    import asyncio
+    import json
+
+    payload = json.dumps(body).encode()
+    scope = {
+        "type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+        "method": "POST", "scheme": "http", "path": path, "raw_path": path.encode(), "root_path": "",
+        "query_string": b"", "client": ("127.0.0.1", 1234), "server": ("testserver", 80),
+        "headers": [(b"host", b"testserver"), (b"content-type", b"application/json"),
+                    (b"content-length", str(len(payload)).encode())],
+    }
+    requests = [{"type": "http.request", "body": payload, "more_body": False}]
+
+    async def receive():
+        if requests:
+            return requests.pop(0)
+        await disconnect_after.wait()
+        return {"type": "http.disconnect"}
+
+    sent: list[dict] = []
+
+    async def send(message):
+        sent.append(message)
+
+    async def run():
+        await app(scope, receive, send)
+        return sent
+
+    return run()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
+    """The user navigates away while the model is still answering: Starlette cancels the stream
+    task, and the lease must still be given back now rather than after the 300 s TTL — for a
+    Free user that TTL would otherwise show the 'used your free questions' upsell."""
+    import asyncio
+
+    import app.routers.summaries as summaries_router
+
+    streaming = asyncio.Event()
+
+    async def _slow_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        streaming.set()
+        await asyncio.sleep(30)  # still answering when the client leaves
+        yield {"type": "complete", "answer": "late", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _slow_answer)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=streaming),
+            timeout=10,
+        )
+        assert sent[0]["status"] == 200
+        assert _qa_state(uid) == ([], 0, 2)  # released, not counted
+
+
+@pytest.mark.requires_db
+def test_analysis_metering_converts_the_lease_in_the_counter_commit(client, monkeypatch):
+    """The real `_meter_analysis_best_effort` body against the database: the lease is deleted
+    and the monthly analysis counter incremented in one commit; a failing increment leaves the
+    lease in place and reports False so the route releases it."""
+    from app.database import SessionLocal
+    from app.models import UsageReservation, User
+    from app.routers import analysis as analysis_router
+    from app.services import subscription_service as usage
+    from app.services.subscription_service import get_current_month, get_user_analysis_count
+
+    with _as_user(is_pro=True) as uid:
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.id == uid).one()
+            admitted, _, _, token = usage.reserve_analysis_use(user, db)
+        assert admitted and token
+        monkeypatch.setattr(analysis_router, "increment_user_analysis", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db")))
+        assert analysis_router._meter_analysis_best_effort(uid, token) is False
+        with SessionLocal() as db:
+            assert db.query(UsageReservation).filter_by(user_id=uid).count() == 1  # still held
+            assert get_user_analysis_count(uid, get_current_month(), db) == 0
+        monkeypatch.undo()
+        assert analysis_router._meter_analysis_best_effort(uid, token) is True
+        with SessionLocal() as db:
+            assert db.query(UsageReservation).filter_by(user_id=uid).count() == 0
+            assert get_user_analysis_count(uid, get_current_month(), db) == 1

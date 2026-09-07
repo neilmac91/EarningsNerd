@@ -17,6 +17,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import anyio
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi import Response as FastAPIResponse
 from fastapi.concurrency import run_in_threadpool
@@ -310,6 +312,12 @@ async def stream_analysis(
     )
     company = _get_company(db, ticker)
 
+    # Snapshot everything the generator needs — it runs after this request's session is gone.
+    # Read before the admission below commits, so no expired instance is refreshed under a lease.
+    company_id = company.id
+    ticker_value = company.ticker
+    user_id = current_user.id
+
     allowed, _count, cap = check_analysis_limit(current_user, db)
     token = None
     if allowed:
@@ -323,7 +331,7 @@ async def stream_analysis(
         # so it proceeds; without this, the very prompt bump that invalidates the cached fleet
         # would lock at-cap users out of analyses they already paid quota for.
         reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
-            db, company.id, body.mode, body.start_period, body.end_period
+            db, company_id, body.mode, body.start_period, body.end_period
         )
         if not reaches_free_path:
             raise HTTPException(
@@ -333,11 +341,6 @@ async def stream_analysis(
                     "It resets at the start of next month."
                 ),
             )
-
-    # Snapshot everything the generator needs — it runs after this request's session is gone.
-    company_id = company.id
-    ticker_value = company.ticker
-    user_id = current_user.id
 
     held = {"token": token}  # the admission lease, until converted by metering or released
 
@@ -375,8 +378,11 @@ async def stream_analysis(
         finally:
             # Cached re-serves, exempt regenerations, errors and disconnects never consumed the
             # unit: give it back now rather than after the lease TTL.
+            # Shielded: on a client disconnect Starlette cancels this task (ASGI < 2.4, which
+            # uvicorn speaks) and an unshielded await would be cancelled before the release ran.
             if held["token"] is not None:
-                await run_in_threadpool(_release_reservation_best_effort, held["token"])
+                with anyio.CancelScope(shield=True):
+                    await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(
         event_stream(),

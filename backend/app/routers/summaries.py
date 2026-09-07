@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 import json
+
+import anyio
 from pydantic import BaseModel, Field, field_validator
 import logging
 from fastapi.concurrency import run_in_threadpool
@@ -391,6 +393,13 @@ async def ask_filing_stream(
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 
+    # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
+    # this request's session may be gone, so it must never touch the ORM (mirrors
+    # generate_summary_stream's eager value capture). Done before the admission below commits,
+    # so nothing is re-selected from expired instances while a lease is already held.
+    filing_ctx = snapshot_filing(filing)
+    user_id = current_user.id
+
     # Free users reach here on their lifetime free-taste allowance (gated upstream by
     # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
     # fair-use cap is a Pro-only protection against runaway volume.
@@ -414,11 +423,6 @@ async def ask_filing_stream(
                     "It resets at the start of next month."
                 ),
             )
-    # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
-    # this request's session may be gone, so it must never touch the ORM (mirrors
-    # generate_summary_stream's eager value capture).
-    filing_ctx = snapshot_filing(filing)
-    user_id = current_user.id
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
@@ -452,9 +456,12 @@ async def ask_filing_stream(
                 yield to_sse(event)
         finally:
             # Anything still held here was neither converted nor released (error, disconnect,
-            # metering failure): give the unit back now rather than after the lease TTL.
+            # metering failure): give the unit back now rather than after the lease TTL. On a
+            # client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),
+            # and an unshielded await here would be cancelled before the release ran.
             if held["token"] is not None:
-                await run_in_threadpool(_release_reservation_best_effort, held["token"])
+                with anyio.CancelScope(shield=True):
+                    await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(
         event_stream(),

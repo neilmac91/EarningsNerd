@@ -697,6 +697,53 @@ class TestStreamRouteMetering:
         assert metered == []
         assert released == ["lease-1"]  # the unit goes back now, not after the lease TTL
 
+    @pytest.mark.asyncio
+    async def test_client_disconnect_mid_stream_releases_the_lease(self, monkeypatch):
+        # uvicorn speaks ASGI 2.3: Starlette cancels the stream task on disconnect, and the
+        # release in the generator's ``finally`` must survive that cancellation.
+        import asyncio
+        import json
+
+        from app.routers import analysis as analysis_router
+
+        client, metered, released = self._client(monkeypatch, [])
+        streaming = asyncio.Event()
+
+        async def slow_pipeline(**kwargs):
+            yield {"type": "progress", "stage": "writing", "percent": 10}
+            streaming.set()
+            await asyncio.sleep(30)
+            yield {"type": "complete", "kind": "analysis", "cached": False, "usage": {}}
+
+        monkeypatch.setattr(analysis_router.trend_analysis_service, "stream_trend_narrative", slow_pipeline)
+        monkeypatch.setattr(analysis_router, "_get_company", lambda db, ticker: SimpleNamespace(id=1, ticker="TST"))
+        payload = json.dumps(self.BODY).encode()
+        path = "/api/analysis/TST/stream"
+        scope = {
+            "type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+            "method": "POST", "scheme": "http", "path": path, "raw_path": path.encode(), "root_path": "",
+            "query_string": b"", "client": ("127.0.0.1", 1234), "server": ("testserver", 80),
+            "headers": [(b"host", b"testserver"), (b"content-type", b"application/json"),
+                        (b"content-length", str(len(payload)).encode())],
+        }
+        requests = [{"type": "http.request", "body": payload, "more_body": False}]
+
+        async def receive():
+            if requests:
+                return requests.pop(0)
+            await streaming.wait()
+            return {"type": "http.disconnect"}
+
+        sent: list[dict] = []
+
+        async def send(message):
+            sent.append(message)
+
+        await asyncio.wait_for(client.app(scope, receive, send), timeout=10)
+        assert sent[0]["status"] == 200
+        assert metered == []
+        assert released == ["lease-1"]
+
     def test_metering_failure_releases_the_lease(self, monkeypatch):
         # Conversion and the counter increment share one commit; if that commit fails the
         # lease is still open, so it is released rather than left to expire.
