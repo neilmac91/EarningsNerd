@@ -130,6 +130,46 @@ if needed (recorded below). No email or production job execution as a test is au
   20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
 
+## E15b — Bound the whole sitemap document (engineering, 2026-09-07)
+
+Facts (read against `52e0406`): `MAX_FILING_URLS = 45_000` capped filing rows only; company
+rows were unbounded, so the document had no whole-document bound under the protocol's 50,000
+URL limit. Crawlers read the frontend copy (`frontend/app/sitemap.ts` proxies the backend
+`/sitemap.xml` hourly and re-bases every URL); the frontend parser is format-agnostic, so a
+backend bound needs no frontend change. Measured: the served document at
+`https://www.earningsnerd.io/sitemap.xml` counted **574 URLs (6 static + 522 company +
+46 filing)** at 2026-09-07T21:17Z (curl through the sandbox proxy; the `earningsnerd.io` apex
+reset the connection, `www` served). That is the complete eligible set, since it is far
+below the cap, so "eligible DB count" is resolved by this measurement.
+
+Decision: a whole-document bound now (backend only, one PR); a sitemap index (several files,
+frontend `generateSitemaps` plus an index route, robots update, e2e cache contract) only when
+the eligible set approaches the cap — at 574 URLs that is not engineering worth spending.
+
+- [x] `MAX_SITEMAP_URLS = 45_000` covers static + companies + filings. Static pages always;
+  companies newest-filing-first (ticker breaks ties, deterministic across rebuilds) up to
+  the budget; filings newest-first (`filing_date DESC, id DESC`) into the remaining budget,
+  query skipped when the budget is spent. Runtime confined to `backend/app/routers/sitemap.py`.
+- [x] `test_sitemap.py`: parametrized whole-document case (budget 2 → two newest companies,
+  no filings; budget 5 → three companies + two newest filings in order; budget 0 → the static
+  core still complete), the existing placeholder case re-expressed on the new bound. 13 passed.
+- [x] Mutations on committed state, each restored (`e15b-mutations.log`): company truncation
+  removed → 2 failed; filings ordered oldest-first → 1 failed; filing budget ignoring the
+  companies already emitted → 2 failed. (A first attempt restored an uncommitted file with
+  `git checkout` and wiped the implementation — `lessons/test-proofs-run-on-committed-state.md`
+  applied the hard way; redone after committing.)
+- [x] Draft [#755](https://github.com/neilmac91/EarningsNerd/pull/755). Independent lens:
+  no defect; two nits applied (wrapped two long test lines, index spacing). Caveat recorded
+  for the future index step: the frontend metadata route re-serializes the whole body, so the
+  trigger for partitioning is the frontend's response-size ceiling (Vercel serverless payload,
+  believed ~4.5 MB; not verifiable from the repo), reached near ~26,000 entries at ~174 bytes
+  each, before the 50,000-URL cap. Refuted: naive/aware `timestamp()` ordering, `None` dates,
+  sort determinism, budget arithmetic, index support (order clause unchanged but for the id
+  tiebreak, join bounds the sort set, 1 h cache), test row-order sensitivity, pre-existing
+  case-variant ticker duplicates.
+- [ ] Full gate on the final head, one paid Copilot run at ready under the standing
+  authorization, merge, deploy verification.
+
 ## E07b slice 2 — Copilot and Analysis admission reservations (engineering, 2026-09-07)
 
 Facts (read against `52e0406`): Copilot admission is `require_copilot_or_taste` (a read of the
@@ -228,8 +268,23 @@ contract change; no migration (the table and index already exist); no new settin
   complete. One CI red on the way: `43fe8cb` failed ruff (F821/F401 in the new disconnect
   helper — the local lint before that push covered only `app/`), fixed in `e80db07`. PR CI
   on `0016552` (run 34161153954): success on every job, paid eval skipped on the draft.
-- [ ] One founder-approved Copilot run at ready, merge, deploy verification (`applied=0`,
-  new revision at 100 %, independent detailed health).
+- [x] Founder approved the paid run (chat, 2026-09-07 21:13 UTC) and gave a STANDING
+  authorization: "going forward, i need you to keep making progress and not constantly wait
+  for my approvals." Recorded here as covering one paid Copilot evaluation per backend PR at
+  ready time and the routine merge/deploy sequence; every other founder-held boundary in the
+  handover stays as it was (`lessons/ops-keep-moving-under-standing-authorization.md`).
+  Marked ready at 21:13 UTC: `copilot-eval.yml` run 34162356365 on `9358539` success —
+  `accepted: true`, 18 expected / 18 completed / 18 scored / 18 passed, 0 errors,
+  pass rate 1.0, artifact `copilot-fidelity-34162356365` (id 10033064391, sha256
+  `9f3f2475…fee44`). No Codex review posted (credits exhausted, as recorded on #747). PR CI
+  run 34162155921 on `9358539`: every job green including `eval-baseline` (deterministic
+  scorers, triggered by the pipeline change). Squash-merged as
+  [#754](https://github.com/neilmac91/EarningsNerd/pull/754) = `85c2c23` at 21:31 UTC.
+- [x] Main CI run 34163025781 on `85c2c23`: success on every job. deploy-backend job
+  101869064189: `apply_migrations: applied=0 skipped=38`, Cloud Run revision
+  `earningsnerd-backend-00296-zjt` at 100 % traffic, five job images updated, CI
+  `/health/detailed` healthy (database 8.74 ms) at 21:30:54Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 21:40 UTC. Released.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 
@@ -3031,6 +3086,18 @@ This is not completion of wave 3.
   scope. No backend alert is open and the runtime-lock pip-audit is clean; this does not
   establish repository-wide audit clearance or change the advisory policy. No dependency
   change for this unrelated finding is included in W3-6.
+  Analysis 2026-09-07 (`npm audit --json` on the current lock): `extract-zip` 2.0.1 is the
+  latest release and the advisory (GHSA-jmr9-qjv8-65gv, unvalidated symlink path traversal)
+  covers `<= 2.0.1`, so no patched version exists; the only npm "fix" is a semver-major
+  DOWNGRADE of `@lhci/cli` 0.15.1 → 0.12.0, which would regress the advisory Lighthouse job
+  to an older Chrome pipeline. The chain is `@lhci/cli` → `lighthouse` → `puppeteer-core` →
+  `@puppeteer/browsers` → `extract-zip`: dev-only, used solely by the advisory `lighthouse` CI
+  job to unpack a Chrome build fetched from Google's own bucket; no application bundle,
+  runtime or user input reaches it. Options: (a) dismiss the alert as "vulnerable code not
+  used / tooling only" — a founder console action on the alert page; (b) drop `@lhci/cli`
+  and the advisory job (the job's value is the Lighthouse readout); (c) wait for an upstream
+  patch. Recommendation: (a) now, revisit if the advisory job ever runs untrusted input.
+  Founder-held (security policy); no dependency change made.
 
 W3-3's earlier FMP run 34000192154 failed with HTTP 402 at the S&P 500 route before reaching
 Nasdaq; issue #710 remains open. The founder's public-source replacement request supersedes

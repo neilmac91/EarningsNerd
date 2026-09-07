@@ -14,10 +14,16 @@ Crawler-facing correctness rules:
 - The whole document is served from a per-process cache: the previous implementation ran two
   unbounded full-table scans per request with no cache, which made `GET /sitemap.xml` the
   cheapest way for a crawler to hammer the shared-core Cloud SQL instance.
+- The whole document stays under the protocol's 50,000-URL cap: static pages first, then
+  companies and filings newest-first until ``MAX_SITEMAP_URLS`` is reached, so growth drops
+  the least-recently-changed pages rather than producing a sitemap crawlers reject. A sitemap
+  index (several files) is the next step only once the eligible set approaches the cap
+  (E15b; the served document counted 574 URLs on 2026-09-07).
 """
 
 import threading
 import time
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
@@ -42,10 +48,9 @@ STATIC_PAGES = [
     ("/security", "yearly", "0.3"),
 ]
 
-# Limit filing rows with headroom toward the 50k-URL protocol cap. Company rows are still
-# unbounded, so this is not a whole-document limit; partitioning remains separate E15b work.
-# Newest eligible filings win (the query orders by filing_date DESC).
-MAX_FILING_URLS = 45_000
+# Whole-document bound with headroom under the 50k-URL protocol cap: static pages always,
+# then companies (newest filing first), then filings (newest first) until the budget is spent.
+MAX_SITEMAP_URLS = 45_000
 
 _CACHE_TTL_SECONDS = 3600
 _cache_lock = threading.Lock()
@@ -79,6 +84,11 @@ def _url_entry(loc: str, changefreq: str, priority: str, lastmod: str | None = N
     )
 
 
+def _sort_stamp(value: datetime | None) -> float:
+    """Order key for a nullable date: a missing date sorts last (oldest)."""
+    return value.timestamp() if value is not None else float("-inf")
+
+
 def _build_sitemap(db: Session) -> str:
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>\n',
@@ -87,6 +97,7 @@ def _build_sitemap(db: Session) -> str:
 
     for path, changefreq, priority in STATIC_PAGES:
         parts.append(_url_entry(f"{BASE_URL}{path}", changefreq, priority))
+    budget = max(MAX_SITEMAP_URLS - len(STATIC_PAGES), 0)
 
     # Companies with at least one filing (an empty company page is a stub not worth crawling);
     # lastmod = the newest filing's date, i.e. the last time the page's content actually changed.
@@ -96,17 +107,23 @@ def _build_sitemap(db: Session) -> str:
         .group_by(Company.ticker)
         .all()
     )
-    for ticker, latest_filing_date in company_rows:
-        if not ticker or unsupported_foreign_name(ticker) is not None:
-            continue
+    companies = [
+        (ticker.upper(), latest_filing_date)
+        for ticker, latest_filing_date in company_rows
+        if ticker and unsupported_foreign_name(ticker) is None
+    ]
+    # Newest content first so the bound drops the least-recently-changed pages; the ticker
+    # breaks ties so the document is deterministic across rebuilds.
+    companies.sort(key=lambda row: row[0])
+    companies.sort(key=lambda row: _sort_stamp(row[1]), reverse=True)
+    for ticker, latest_filing_date in companies[:budget]:
         lastmod = latest_filing_date.strftime("%Y-%m-%d") if latest_filing_date else None
-        parts.append(
-            _url_entry(f"{BASE_URL}/company/{ticker.upper()}", "weekly", "0.7", lastmod)
-        )
+        parts.append(_url_entry(f"{BASE_URL}/company/{ticker}", "weekly", "0.7", lastmod))
+    budget -= min(len(companies), budget)
 
     # Only filings with a generated summary: the frontend noindexes summary-less filing pages
     # (they are signup-gate stubs), and advertising noindex'd URLs wastes crawl budget.
-    filing_rows = (
+    filing_rows = [] if budget == 0 else (
         db.query(Filing.id, Filing.filing_date)
         .join(Summary, Summary.filing_id == Filing.id)
         .filter(Summary.business_overview.isnot(None))
@@ -117,8 +134,8 @@ def _build_sitemap(db: Session) -> str:
             func.replace(Summary.business_overview, "Generating summary", "")
             == Summary.business_overview
         )
-        .order_by(Filing.filing_date.desc())
-        .limit(MAX_FILING_URLS)
+        .order_by(Filing.filing_date.desc(), Filing.id.desc())
+        .limit(budget)
         .all()
     )
     for filing_id, filing_date in filing_rows:
