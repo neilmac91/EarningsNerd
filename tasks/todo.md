@@ -34,7 +34,24 @@ if needed (recorded below). No email or production job execution as a test is au
   that summary evaluation also runs on draft updates. Necessary summary/Copilot CI is now
   authorized; finish local verification before triggering it, keep fixes draft-first, preserve
   failed evidence and do not retry simply to chase a pass. No flags, baseline or model change.
-- [ ] After authorized publication and actual CI/eval/Codex acceptance, fresh-head merge and
+- [x] Publication on `9df9140`: PR CI 34066085335 success; paid Copilot run 34066113043 success
+  (consumed under the founder's 2026-09-07 approval); Codex review completed 23:16 UTC with five
+  findings (two P1, three P2), all confirmed against the code and fixed on `9c7297f` (PR back in
+  draft before the push, so the fix round fires no eval): (1) the once-daily digest cadence is
+  longer than the 20 h replay window, so a retryable digest was parked as ambiguous before it
+  could retry → a `retryable` batch past the window is re-keyed (`window_rekeyed`; every attempt
+  so far was a documented non-acceptance, unknown outcomes stay `ambiguous` and are never
+  re-keyed); (2) a digest whose batch lost an ownership race dropped every other filing until it
+  left the window → the unowned remainder is re-rendered into a second batch; (3) a realtime
+  batch whose user still wants the filing but left realtime was suppressed with the filing owned
+  forever → `rerouted_to_digest` releases the items so the digest delivers it; (4) a missing
+  `RESEND_API_KEY` raised the base error and parked the batch → `ResendRetryableError` (nothing
+  sent); (5) an account deleted during the provider call made the finaliser dereference `None`
+  and abort the drain → lost claim, drain continues. Four new unit cases, the window case
+  rewritten, the transport case extended; seven mutations each failed as intended and restored
+  (`e11-evidence/mutation2-*.log`). Focused delivery/anchor suites: 47 passed.
+- [ ] After the fix-round full gate: push `9c7297f`, reply/resolve the five threads, refresh the
+  PR body, then one founder-approved Copilot run on the fix head, Codex, fresh-head merge and
   serial production verification. No release claim from local checks alone.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
