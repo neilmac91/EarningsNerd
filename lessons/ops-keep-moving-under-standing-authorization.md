@@ -18,6 +18,13 @@ execution as a test, live account actions, the AI provider — and state the sin
 a reviewable scope when one is genuinely needed. Never widen a standing authorization silently:
 say what it now covers in the ledger entry that records it.
 
+**Widened 2026-09-07 (evening).** Before going to sleep the founder said: "proceed … please get
+as much done tonight as you can … you have my approval to perform additional paid evaluations
+if you deem them to be necessary." The authorization now covers more than one paid Copilot run
+per backend PR when a re-run is needed (a fix pushed after ready, or a second evaluation that a
+finding makes worthwhile), still one at a time and each recorded with its reason. The held
+boundaries above are unchanged.
+
 **Evidence.** Founder message of 2026-09-07 on PR #754 ("approved. please proceed. going
 forward, i need you to keep making progress and not constantly wait for my approvals");
 `tasks/todo.md` E07b slice 2 record; `lessons/ops-continue-approved-engineering.md` (the

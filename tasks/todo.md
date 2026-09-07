@@ -130,6 +130,43 @@ if needed (recorded below). No email or production job execution as a test is au
   20:15:18Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (database 5.91 ms, EDGAR circuit closed) at 20:24 UTC.
 
+## Overnight authorization — 2026-09-07 23:12 UTC
+
+Founder, before sleeping: "proceed. i'm going to sleep now. please get as much done tonight as
+you can in order to progress this company-defining work thats detailed in the master plan! …
+you have my approval to perform additional paid evaluations if you deem them to be necessary."
+Recorded as a widening of the standing authorization (`lessons/ops-keep-moving-under-standing-
+authorization.md`): more than one paid Copilot run per backend PR when a re-run is needed, each
+recorded with its reason; the queue runs unattended through the engineering items of the
+execution ledger. Founder-held boundaries unchanged (flags, capacity, prices, trial/promo/
+registration, legal, destructive data or history operations, historical replay, locked tests,
+live email/job execution as a test, live account actions, the AI provider, console actions such
+as the retention job and scheduler, Dependabot #270).
+
+## Stripe dunning-policy gates (engineering, 2026-09-07)
+
+Facts (read against `c7510ac`): the E06 row's open item, "event-selection coverage remains
+unverified", names a read-only observation of the production Stripe endpoint's selected events
+and API version (`docs/observed-invoice-payments.md`): whether `invoice_payment.paid` is
+enabled on an API version that emits `invoice_payment` objects. That is a founder console
+observation, not something a PR can prove; it stays on the founder list. The same read found
+`invoice.payment_failed` and `customer.subscription.trial_will_end` untested anywhere and the
+dunning rule ("only subscription status events revoke entitlement") living in a comment.
+
+- [x] Three gates in the unlocked `test_subscription_webhook_sync.py`: a failed invoice keeps
+  Pro through the mirror and the entitlements resolver, emits nothing, is recorded and
+  redelivers idempotently; `trial_will_end` emits exactly one analytics event and changes
+  nothing; an unhandled type (`invoice.paid`, deliberately not payment evidence) is a recorded
+  200 no-op. The locked `test_stripe_webhook.py` is byte-identical to main.
+- [x] Mutations on committed state, restored: payment_failed made to clear `is_pro` and the
+  plan → 1 failed; `trial_will_end` analytics removed → 1 failed; unhandled types left
+  unrecorded → 1 failed. Full gate on `a0d5373`: ruff/bandit clean, 2671 passed.
+- [x] Draft [#759](https://github.com/neilmac91/EarningsNerd/pull/759) on `6902690` (the test
+  commit cherry-picked onto #758's merge, the ledger records and the widened lesson); PR CI run
+  34170088821 green on every job. The #758 release record rides on the draft.
+- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
+  verification (`applied=0`).
+
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
 Facts (read against `0768b86`): `docs/DATA_RETENTION_POLICY.md` promised automated deletion
@@ -158,9 +195,22 @@ counters). Expired OAuth states are swept only on the next login; refresh tokens
   rowcount → 1 failed. Full gate on `462dedf`: ruff clean, bandit clean, 2676 passed
   (four PostgreSQL lanes; an earlier pass showed 39 lane errors that were only the local
   server having died).
-- [ ] PR after #757 merges, one paid Copilot run at ready under the standing authorization,
-  merge, deploy verification (`applied=0`), then the founder creates the job and schedule
-  per DEPLOYMENT.md.
+- [x] Draft [#758](https://github.com/neilmac91/EarningsNerd/pull/758) on `021d0ba` (three
+  worktree commits cherry-picked onto #757, docs-only `OPERATIONS.md` conflict resolved by
+  keeping both sections, plus the ledger records); PR CI run 34168320845 green on every job.
+  `7bbba87` added the #757 release record while still a draft. Marked ready at 23:09 UTC under
+  the standing authorization: `copilot-eval.yml` run 34169078174 success; PR CI run
+  34169076374 green on every job (eval-baseline 23:21:58Z); Codex posted only its quota
+  notice. Squash-merged as `b84240d` at 23:27 UTC.
+- [x] Main CI run 34169903896 on `b84240d`: success on every job. deploy-backend job
+  101888565690: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00300-7nj` at 100 % traffic; five job images updated, the loop now
+  names `earningsnerd-retention-purge` and reports it not found (create once per
+  DEPLOYMENT.md); CI `/health/detailed` healthy (database 8.99 ms) at 23:30:29Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:32 UTC. Released.
+- [ ] Founder console: create `earningsnerd-retention-purge` and the Sunday 03:00 UTC scheduler
+  per DEPLOYMENT.md (a `--dry-run` execution first). Until then job health lists the job as
+  never observed and the weekly data-quality report flags it stale.
 
 ## E11c — Alert-to-return measurement (engineering, 2026-09-07)
 
