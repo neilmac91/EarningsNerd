@@ -112,6 +112,7 @@ class DrainStats:
             "delivery_ambiguous": self.ambiguous,
             "delivery_rejected": self.rejected,
             "delivery_suppressed": self.suppressed,
+            "delivery_rebuilt": self.rebuilt,
         }
 
 
@@ -367,18 +368,20 @@ def _wanted_items(db: Session, batch: DeliveryBatch, user: User) -> list[tuple[D
     return wanted
 
 
-def _ineligible_reason(db: Session, batch: DeliveryBatch, user: Optional[User]) -> Optional[str]:
+def _ineligible_reason(batch: DeliveryBatch, user: Optional[User], wanted: list[tuple[DeliveryItem, bool]]) -> Optional[str]:
     """Why current user, watch, preference and entitlement state forbids this dispatch (None = go).
 
     A frozen envelope is never re-addressed, re-scoped or re-routed. When something is still
     wanted but the envelope no longer fits, the reason is one of ``RELEASE_REASONS``: the batch
-    is suppressed, its items released, and ``_rebuild`` immediately persists a fresh batch for
-    the wanted remainder (new address, digest instead of realtime, or the subset of filings
-    still watched and opted in). When nothing is wanted any more the suppression keeps ownership.
+    is suppressed, its items released, and the drain immediately persists a fresh batch from
+    ``_rebuild_plan`` for the wanted remainder (new address, digest instead of realtime, or the
+    subset of filings still watched and opted in). When nothing is wanted any more the
+    suppression keeps ownership. A rebuilt digest is its own email: a user who leaves realtime
+    while an alert is pending receives that filing as a one-item digest rather than merged into
+    the next scheduled digest. ``wanted`` is ``_wanted_items`` computed once by the caller.
     """
     if user is None or not user.is_active or not batch.items or len(batch.items) != batch.expected_item_count:
         return ERROR_ELIGIBILITY_CHANGED
-    wanted = _wanted_items(db, batch, user)
     if not wanted:
         return ERROR_ELIGIBILITY_CHANGED
     if len(wanted) < len(batch.items):
@@ -398,14 +401,13 @@ class RebuildPlan:
     filing_ids: list[int]
 
 
-def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User) -> Optional[RebuildPlan]:
+def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User, wanted: list[tuple[DeliveryItem, bool]]) -> Optional[RebuildPlan]:
     """What a released batch becomes for what the user still wants: the current address, realtime
     only if its single item may still go realtime, otherwise one digest. Computed BEFORE the
     release (the items are gone afterwards). Selection cannot do this later: released filings
     are usually outside the next run's window."""
     from app.services import email_service
 
-    wanted = _wanted_items(db, batch, user)
     if not wanted:
         return None
     by_id = {d["filing_id"]: d for d in _item_dicts(db, batch)}
@@ -475,15 +477,24 @@ async def drain(
                 stats.lost_claims += 1
             continue
         user = db.get(User, batch.user_id)
-        ineligible = _ineligible_reason(db, batch, user)
+        intact = (user is not None and user.is_active and bool(batch.items)
+                  and len(batch.items) == batch.expected_item_count)
+        wanted = _wanted_items(db, batch, user) if intact else []  # entitlements only for an intact batch
+        ineligible = _ineligible_reason(batch, user, wanted)
         if ineligible is not None:
             if ineligible in RELEASE_REASONS:
-                plan = _rebuild_plan(db, batch, user)  # before the release empties the items
+                plan = _rebuild_plan(db, batch, user, wanted)  # before the release empties the items
                 parked = park_and_release(db, batch_id, token, ineligible, now)
                 if parked and plan is not None:
                     rebuilt = create_batch(db, kind=plan.kind, user_id=user.id, subject=plan.subject,
                                            html=plan.html, filing_ids=plan.filing_ids, now=now)
-                    if rebuilt is not None:
+                    if rebuilt is None:
+                        # Another batch took one of these filings between the release and the
+                        # rebuild; the rest are unowned and left to selection (usually outside its
+                        # window). Near-unreachable, but never silent.
+                        logger.warning("Delivery %s: rebuild collided; %d filing(s) left to selection",
+                                       batch_id, len(plan.filing_ids))
+                    else:
                         stats.rebuilt += 1
                         if rebuilt.kind == kind:
                             pending.append(rebuilt.id)  # dispatched in this same run

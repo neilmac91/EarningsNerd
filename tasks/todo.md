@@ -78,9 +78,50 @@ if needed (recorded below). No email or production job execution as a test is au
   (current address; realtime only if its single item may still go realtime, else one digest)
   and dispatches it in the same run when it is the drained kind. Two new unit cases, two
   rewritten; four mutations each failed as intended and restored (`e11-evidence/mutation4-*`).
-- [ ] After the second-Codex-round full gate: push, reply/resolve the three threads, refresh the
-  PR body, then one more founder-approved Copilot run at ready, Codex, fresh-head merge and
-  serial production verification. No release claim from local checks alone.
+- [x] Second-Codex-round full gate on `d22192b`: 2639 passed, Ruff/Bandit clean; PR CI
+  34153745268 success; threads answered and resolved; PR body refreshed.
+- [x] Founder approved one more paid Copilot run (chat, 2026-09-07 19:25 UTC); marked ready;
+  run 34155563268 success (`accepted: true`, 18/18, pass rate 1.0, artifact 10030888559,
+  sha256 `cd1cf723…4bcf04`). Codex could not review `d22192b`: the account's code-review usage
+  limit is exhausted (topping up is founder-held; not done). Substitute: independent lens on
+  exactly the `eb23bc3..d22192b` delta, two refutations per candidate, fixes re-removed and
+  gates re-run by the reviewer: no must-fix or should-fix; four nits carried to the next
+  backend PR (export `delivery_rebuilt` in job counters; log the near-unreachable rebuild
+  collision; docstring names `_rebuild` instead of `_rebuild_plan` and `_wanted_items` runs
+  twice per release; behaviour note that a reroute yields its own digest email).
+- [x] **#747 released**: squash `4acea759f68f78147d5c0a90e071011e319edf49` (fresh head read,
+  `expectedHeadSha` = `d22192b`), main CI 34156032956 success (all jobs incl. the new delivery
+  PostgreSQL lane), deploy-backend job 101848504445 `apply_migrations: applied=1 skipped=37`
+  (`20260907_earningsnerd_notification_delivery.sql`: two CREATE TABLE + DO), Cloud Run
+  revision `earningsnerd-backend-00294-lbd` at 100 % traffic, image `backend:4acea75`, all
+  five configured jobs updated (notable-filings still not provisioned), `/health/detailed`
+  healthy in CI (19:39:28Z) and independently (19:39:56Z). #746's TTL thread answered and
+  resolved. Paid Copilot runs consumed on #747: three (`9df9140`, `eb23bc3`, `d22192b`).
+- [x] Alert-delivery follow-ups implemented (next PR): `delivery_rebuilt` exported in job
+  counters; rebuild collision logged (count only); `_wanted_items` computed once per batch and
+  only for a structurally intact batch (a batch with a missing filing never touches
+  entitlements, which the PostgreSQL lane's minimal schema pinned); docstring names
+  `_rebuild_plan`; behaviour note on one-item rebuilt digests. Earnings-day D4: the `pending`
+  claim (and any `failed` take-over) is committed before the provider call, items are built
+  before that commit so no transaction spans the await, the outcome lands in a fresh short
+  transaction; a visible `pending` row is now a real lost-outcome state, documented in
+  `docs/OPERATIONS.md` next to the `ambiguous` runbook, still never auto-retried. Gates:
+  `test_claim_is_committed_before_the_send_and_no_transaction_spans_it` (observes the claim
+  from another session during the send and `in_transaction() is False`), counter export
+  asserted in the window and membership cases. Mutations (restored): commit moved after the
+  send → 1 failed; counter export removed → 4 failed. Focused suites: 93 passed.
+- [x] Full gate on `6ec94f5`: 2640 passed, Ruff/Bandit clean; draft PR #753; independent lens
+  (two refutations per candidate): two should-fixes, both fixed: (1) with the claim committed
+  before the send, an account deletion during the provider call cascades the ledger rows away
+  and the outcome write through the expired instances raised, skipping every later user in
+  the run → the outcome is now one conditional `UPDATE … WHERE status = 'pending'` on the
+  claimed ids with a count-only warning on a shortfall (gate:
+  `test_claims_deleted_during_the_send_are_a_lost_claim_not_a_crash_for_later_users`;
+  mutation back to the instance writes → `DetachedInstanceError`, 1 failed); (2) the runbook
+  said a `failed` earnings row is retried by the next run, but the job only takes over rows
+  whose `event_date` is today → same-ET-day re-run wording.
+- [ ] Full gate on the fix, push, PR body, one founder-approved Copilot run at ready, merge,
+  deploy verification. Then E07b slice 2 as its own PR.
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 
