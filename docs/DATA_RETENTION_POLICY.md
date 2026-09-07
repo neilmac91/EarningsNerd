@@ -177,30 +177,28 @@ AND deletion_scheduled_at IS NULL;
 
 ### 3.3 Automated Data Cleanup Jobs
 
-**Schedule**: Daily at 3:00 AM UTC
+**Running job**: `earningsnerd-retention-purge` (Cloud Run job, `backend/scripts/retention_purge.py`),
+scheduled weekly on Sundays at 03:00 UTC; ad hoc through `POST /internal/jobs/retention-purge`
+(`dry_run=true` counts without deleting). It deletes in bounded batches and records counts only
+in the job ledger. Its five targets are the clocked rows of §2:
 
-**Jobs**:
+1. **Search history** — `user_searches` older than 1 year (§2.3)
+2. **Failed-login state** — `login_attempts` untouched for 7 days and not currently locked (§2.2)
+3. **Expired OAuth state** — `oauth_states` past `expires_at` (§2.2)
+4. **Dead refresh tokens** — `refresh_tokens` expired or revoked more than 30 days ago (§2.2;
+   the 30-day grace keeps reuse detection working for the token lifetime)
+5. **Contact-form submissions** — `contact_submissions` older than 1 year (§2.5)
 
-1. **Old Search History Cleanup**
-   ```sql
-   DELETE FROM user_searches
-   WHERE created_at < NOW() - INTERVAL '1 year';
-   ```
+**Planned (not yet automated; applied manually until their jobs exist)**:
 
-2. **Old Contact Submissions Cleanup**
-   ```sql
-   DELETE FROM contact_submissions
-   WHERE created_at < NOW() - INTERVAL '1 year';
-   ```
-
-3. **Old Waitlist Cleanup** (unconverted only)
+1. **Old Waitlist Cleanup** (unconverted only)
    ```sql
    DELETE FROM waitlist_signups
    WHERE created_at < NOW() - INTERVAL '1 year'
    AND email NOT IN (SELECT email FROM users);
    ```
 
-4. **Expired Tokens Cleanup**
+2. **Expired Tokens Cleanup**
    ```sql
    DELETE FROM password_reset_tokens
    WHERE expires_at < NOW();
@@ -209,7 +207,7 @@ AND deletion_scheduled_at IS NULL;
    WHERE expires_at < NOW();
    ```
 
-5. **Old Audit Logs Cleanup**
+3. **Old Audit Logs Cleanup**
    ```sql
    DELETE FROM audit_logs
    WHERE created_at < NOW() - INTERVAL '3 years';

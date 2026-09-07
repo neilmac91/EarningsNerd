@@ -3,13 +3,15 @@ delete on a clock, in bounded batches, and a dry run counts without deleting."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select, update
+from sqlalchemy.sql.dml import Delete
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, User, UserSearch
 from app.services import retention_service as retention
+from app.services.job_run_service import JOB_CADENCES
 
 NOW = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
 NAIVE_NOW = NOW.replace(tzinfo=None)
@@ -114,3 +116,33 @@ def test_second_run_is_a_no_op(db):
     retention.run_retention_purge(db, now=NOW)
     again = retention.run_retention_purge(db, now=NOW)
     assert all(v == 0 for k, v in again.items() if k.endswith("_purged"))
+
+
+def test_a_row_refreshed_between_select_and_delete_survives_and_is_not_counted(db):
+    """A login failure recorded on a stale email_hash after the batch was selected is live again:
+    the delete re-applies the predicate instead of trusting the selected keys."""
+    _seed(db)
+    engine = db.get_bind()
+    refreshed: list[str] = []
+
+    @event.listens_for(engine, "before_execute")
+    def _refresh_the_selected_row(conn, clauseelement, multiparams, params, execution_options):
+        if isinstance(clauseelement, Delete) and clauseelement.table.name == "login_attempts" and not refreshed:
+            refreshed.append("a" * 64)
+            conn.execute(
+                update(LoginAttempt).where(LoginAttempt.email_hash == "a" * 64).values(updated_at=NOW, failed_count=1)
+            )
+
+    try:
+        stats = retention.run_retention_purge(db, now=NOW)
+    finally:
+        event.remove(engine, "before_execute", _refresh_the_selected_row)
+    assert refreshed, "the listener must have fired on the login_attempts delete"
+    assert stats["login_attempts_purged"] == 0
+    assert _remaining(db)["attempts"] == {"a", "b", "c"}
+
+
+def test_retention_purge_is_a_tracked_job_with_a_weekly_cadence():
+    """`job_health` reports only JOB_CADENCES entries: an unlisted job that silently stops never
+    shows as stale."""
+    assert JOB_CADENCES["retention-purge"] == timedelta(days=7)

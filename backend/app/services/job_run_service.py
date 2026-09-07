@@ -32,6 +32,7 @@ JOB_CADENCES = {
     "earnings-day-alerts": timedelta(days=1),
     "notable-filings": timedelta(hours=14),
     "data-quality-report": timedelta(days=7),
+    "retention-purge": timedelta(days=7),
 }
 ERROR_COUNTERS = frozenset({
     "source_errors", "errors", "extract_errors", "alerts_failed", "digests_failed",

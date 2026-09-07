@@ -88,7 +88,7 @@ def test_last_success_is_independent_of_latest_attempt_and_missing_jobs(sessions
         report = {r["job"]: r for r in jobs.job_health(db, now=now)}
     assert set(report) == {"pregenerate", "filing-scan", "filing-digest", "backfill-facts",
                            "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings",
-                           "data-quality-report"}
+                           "data-quality-report", "retention-purge"}
     assert report["filing-scan"]["stale"] and report["filing-scan"]["latest_status"] == "failed"
     assert report["filing-scan"]["last_success"] == jobs.iso_z(now-timedelta(hours=3))
     assert report["notable-filings"]["latest_status"] == "never_observed"

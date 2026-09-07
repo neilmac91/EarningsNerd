@@ -83,9 +83,15 @@ def _purge(db: Session, target: PurgeTarget, *, dry_run: bool, batch_size: int) 
         keys = [row[0] for row in db.execute(select(target.key).where(target.predicate).limit(batch_size)).all()]
         if not keys:
             return total
-        db.execute(delete(target.model).where(target.key.in_(keys)).execution_options(synchronize_session=False))
+        # Re-apply the predicate: a row refreshed between the select and the delete (a login
+        # failure recorded on a stale email_hash) is live again and must survive.
+        result = db.execute(
+            delete(target.model)
+            .where(target.key.in_(keys), target.predicate)
+            .execution_options(synchronize_session=False)
+        )
         db.commit()
-        total += len(keys)
+        total += int(result.rowcount or 0)
         if len(keys) < batch_size:
             return total
 
