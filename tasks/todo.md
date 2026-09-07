@@ -223,8 +223,12 @@ contract change; no migration (the table and index already exist); no new settin
   in `test_usage_reservation_wiring.py` (real pipeline, raw 2.3 scope, disconnect 50 ms into
   the provider call): before `1 failed` (lease still held), after `1 passed`; locked
   `test_summary_stream_contract.py` untouched and green.
-- [ ] Full gate on the final head, PR body, one founder-approved Copilot run at ready, merge,
-  deploy verification (`applied=0`, new revision at 100 %, independent detailed health).
+- [x] Full gate on `c2b4d80` (pinned Ruff/Bandit, four PostgreSQL lanes on the local 16.x
+  cluster): ruff clean, bandit clean, `2660 passed` (performance suite included). PR body
+  complete. One CI red on the way: `43fe8cb` failed ruff (F821/F401 in the new disconnect
+  helper — the local lint before that push covered only `app/`), fixed in `e80db07`.
+- [ ] One founder-approved Copilot run at ready, merge, deploy verification (`applied=0`,
+  new revision at 100 %, independent detailed health).
 
 ## E11b-1 — Durable alert delivery (engineering, 2026-09-06, handed over in draft #747)
 
