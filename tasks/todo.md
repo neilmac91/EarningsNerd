@@ -3086,6 +3086,18 @@ This is not completion of wave 3.
   scope. No backend alert is open and the runtime-lock pip-audit is clean; this does not
   establish repository-wide audit clearance or change the advisory policy. No dependency
   change for this unrelated finding is included in W3-6.
+  Analysis 2026-09-07 (`npm audit --json` on the current lock): `extract-zip` 2.0.1 is the
+  latest release and the advisory (GHSA-jmr9-qjv8-65gv, unvalidated symlink path traversal)
+  covers `<= 2.0.1`, so no patched version exists; the only npm "fix" is a semver-major
+  DOWNGRADE of `@lhci/cli` 0.15.1 → 0.12.0, which would regress the advisory Lighthouse job
+  to an older Chrome pipeline. The chain is `@lhci/cli` → `lighthouse` → `puppeteer-core` →
+  `@puppeteer/browsers` → `extract-zip`: dev-only, used solely by the advisory `lighthouse` CI
+  job to unpack a Chrome build fetched from Google's own bucket; no application bundle,
+  runtime or user input reaches it. Options: (a) dismiss the alert as "vulnerable code not
+  used / tooling only" — a founder console action on the alert page; (b) drop `@lhci/cli`
+  and the advisory job (the job's value is the Lighthouse readout); (c) wait for an upstream
+  patch. Recommendation: (a) now, revisit if the advisory job ever runs untrusted input.
+  Founder-held (security policy); no dependency change made.
 
 W3-3's earlier FMP run 34000192154 failed with HTTP 402 at the S&P 500 route before reaching
 Nasdaq; issue #710 remains open. The founder's public-source replacement request supersedes
