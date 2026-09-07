@@ -191,6 +191,21 @@ evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
   slot; a chat wait is bounded by its own deadline, rejected, wire-free and leak-free; time
   spent waiting is not added to the chat budget; 0 disables), `test_ai_metrics.py` (+1),
   `test_configuration_reference.py` (+2).
+- [x] Mutations on the reworked gate (committed state, restored): chat gate removed → 3
+  failed; chat slot narrowed to `create` → 3 failed; wait made unbounded → 1 failed; summary
+  path gated too → 1 failed; chat timeout from the stale pre-wait `remaining` → 1 failed;
+  metrics keys dropped → 1 failed; `ge=0` dropped → 1 failed. Full gate on `7e1e429`:
+  ruff/bandit clean, 2693 passed.
+- [x] Delta lens on the rework (two refutations per candidate): one survivor, fixed. The
+  deadline test patched the short chat budget before the holder streamed, so a cold SDK first
+  call (about 0.4 s) spent the holder's budget and the test failed deterministically when run
+  alone (`-k`, `--lf`, IDE); it passed in file order only by warm-up. Now the budget is
+  patched once the holder streams, with a 1.0 s budget, a 0.4 s wait and a 1.2 s bound (the
+  bug gives at least 1.4 s); passes cold three times in isolation. Refuted: `gated=False`
+  counter paths, `timeout_at` with a past deadline, the retry loop's slot release before the
+  backoff, multi-round `aclose()` ordering, the semaphore cancel race, docs vs code (the
+  6 + 3 bound is an upper bound; the true summary-path maximum is 8), the stale-name grep,
+  three warm runs of the five AI homes.
 - [ ] Independent lens, draft PR, one paid Copilot run at ready, merge, deploy verification
   (`applied=0`).
 

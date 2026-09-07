@@ -124,12 +124,13 @@ async def test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot(monkey
 async def test_time_spent_waiting_for_a_slot_is_not_added_to_the_chat_budget(monkeypatch):
     """A stream admitted after waiting W seconds is still cut at its original deadline, not at
     deadline + W: otherwise contention would extend slot occupancy, which extends contention.
-    One task consumes the waiter throughout, as one request task does in production."""
-    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.3)
+    One task consumes the waiter throughout, as one request task does in production. The short
+    budget is patched only once the holder streams (the SDK's cold first call can cost 0.4 s)."""
     calls = []
     async with service_for(_handler(calls, [Trickle(), Trickle()])) as service:
         holder = service.stream_chat(MESSAGES)
         assert await _first(holder) == "first"
+        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 1.0)  # the waiter's budget only
 
         async def consume():
             started = asyncio.get_running_loop().time()
@@ -142,12 +143,12 @@ async def test_time_spent_waiting_for_a_slot_is_not_added_to_the_chat_budget(mon
             return first, second, asyncio.get_running_loop().time() - started
 
         task = asyncio.create_task(consume())
-        await asyncio.sleep(0.15)
-        await holder.aclose()  # the slot frees at ~0.15 s; the waiter's deadline is at 0.3 s
-        first, second, elapsed = await asyncio.wait_for(task, timeout=2.0)
+        await asyncio.sleep(0.4)
+        await holder.aclose()  # the slot frees at ~0.4 s; the waiter's deadline is at 1.0 s
+        first, second, elapsed = await asyncio.wait_for(task, timeout=3.0)
         assert first == "first"
         assert second.startswith(copilot_chat.STREAM_ERROR_SENTINEL)
-        assert elapsed < 0.42, f"stream ran past its original deadline: {elapsed:.2f}s"
+        assert elapsed < 1.2, f"stream ran past its original deadline: {elapsed:.2f}s"  # the bug gives >= 1.4
     assert provider_admission.snapshot()["in_flight"] == 0
 
 
