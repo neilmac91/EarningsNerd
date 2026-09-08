@@ -313,6 +313,51 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["write_error", "ownership_collision"])
+async def test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window(engine, monkeypatch, failure):
+    """Release and replacement are one durable transition, including a failed replacement insert.
+
+    Restart after the failure with a fresh session: the original claim must still own the old
+    filing, and expiry/reclaim must rebuild it even though normal digest selection cannot see it.
+    """
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        db.add(Filing(id=99, company_id=1, accession_number="atomic-rebuild", filing_type="10-Q",
+                      filing_date=NOW - timedelta(days=2), sec_url="https://sec.example/atomic-rebuild/",
+                      document_url="https://sec.example/atomic-rebuild/doc.htm"))
+        db.commit()
+        batch = delivery.create_batch(db, kind=KIND_FILING_REALTIME, user_id=1, subject="s", html="h",
+                                      filing_ids=[99], now=NOW)
+        batch_id = batch.id
+        db.query(NotificationPreferences).one().realtime = False
+        db.commit()
+
+        def fail_replacement(*args, **kwargs):
+            if failure == "write_error":
+                raise RuntimeError("simulated replacement write failure")
+            return None  # create_batch's ownership-conflict outcome
+
+        with monkeypatch.context() as fault:
+            fault.setattr(delivery, "create_batch", fail_replacement)
+            with pytest.raises(RuntimeError, match="replacement"):
+                await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=NOW)
+
+    with Session(engine) as db:
+        original = db.get(DeliveryBatch, batch_id)
+        assert original.status == STATUS_CLAIMED
+        assert [i.filing_id for i in original.items] == [99]
+        assert db.query(DeliveryBatch).count() == 1
+        resumed_at = NOW + timedelta(seconds=settings.DELIVERY_CLAIM_TTL_SECONDS + 1)
+        drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_recorder(), now=resumed_at)
+        assert drained.rebuilt == 1
+        sender = AsyncMock()
+        stats = await run_daily_digest(db, send_digest=sender, now=resumed_at)
+        assert stats["digests_sent"] == 1
+        assert [item["filing_id"] for item in sender.await_args.kwargs["items"]] == [99]
+        assert _log_count(db) == 1
+
+
+@pytest.mark.asyncio
 async def test_a_lost_fence_while_parking_is_a_lost_claim_not_a_reported_outcome(engine, monkeypatch):
     """A worker that lost ownership between its claim and the terminal update must not report the
     batch as suppressed or ambiguous: those counters drive the job's failure outcome."""

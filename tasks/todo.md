@@ -1,3 +1,21 @@
+## Astra audit fix — atomic delivery replacement (2026-09-08)
+
+- [x] Confirmed a crash gap in #747: old ownership was committed away before the replacement
+  batch was inserted; a two-day-old filing then disappeared from the next digest's selection.
+- [x] Commit `21365860` makes release and replacement one fenced transaction. An insertion
+  exception or ownership collision restores the original claim/items and fails the drain.
+- [x] One new atomicity invariant, exercised with write-error and collision outcomes; fresh-session
+  restart proves delivery after lease expiry outside the normal selection window. Mutation:
+  early commit after release → 2 failed; restored → 2 passed. Existing delivery suite: 30 passed.
+- [ ] Final full gate on committed code/docs state; three review lenses; draft-first PR and paid evaluation at ready.
+- [ ] Squash merge and serial main CI/deploy/health verification; append release evidence in the audit docs PR.
+
+**Dated correction to E11b-1 — 2026-09-08:** the previous implementation's “immediate rebuild”
+was two commits and did not guarantee crash-safe replacement. The earlier tests covered normal
+rebuild and stale fences, not interruption between release and insertion. This fix preserves
+pending ownership without replaying historical batches, running a live email test or changing
+schema/configuration. The original ledger records below are retained.
+
 ## Overnight handover — 2026-09-08 (for the founder's morning read)
 
 Seven backend PRs released and production-verified between 22:51 and 01:19 UTC (the first
