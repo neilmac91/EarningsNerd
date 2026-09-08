@@ -15,13 +15,17 @@ listing to the filings a given pass touched: the audit logs one
 ``reconciliation_flag_audit ... accession=... inserted=N`` line per filing it changed, and those
 accessions with their ``inserted`` counts are the provenance to compare this listing against.
 
+``--accessions`` takes one or more values, space- or comma-separated: ``gcloud run jobs execute
+--args`` splits its value on commas, so ``--accessions,<acc1>,<acc2>`` reaches the script as
+``--accessions <acc1> <acc2>`` and is accepted as is (no ``^;^`` delimiter trick needed).
+
 Founder commands (the DB is only reachable from Cloud Run — see docs/DEPLOYMENT.md):
   gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \\
-    --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z,--accessions,<from the audit's log lines>" --wait
+    --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z,--accessions,<acc1>,<acc2>" --wait
 
 Local usage:
   python scripts/list_facts_created.py --since 2026-09-08T05:25:00Z --until 2026-09-08T05:40:00Z
-  python scripts/list_facts_created.py --since 2026-09-08 --accessions 0000320193-25-000079 --limit 50
+  python scripts/list_facts_created.py --since 2026-09-08 --accessions 0000320193-25-000079 0000320193-25-000080
 """
 import argparse
 import json
@@ -117,9 +121,11 @@ if __name__ == "__main__":
     parser.add_argument("--until", type=parse_utc, default=None, help="Exclusive ISO 8601 end.")
     parser.add_argument("--limit", type=int, default=None, help="Max rows to print.")
     parser.add_argument(
-        "--accessions", type=str, default=None,
-        help="Comma-separated accession numbers: only rows of those filings (default: all).",
+        "--accessions", nargs="+", default=None, metavar="ACCESSION",
+        help="Accession numbers, space- or comma-separated: only rows of those filings (default: all).",
     )
     args = parser.parse_args()
-    parsed = [a.strip() for a in args.accessions.split(",") if a.strip()] if args.accessions else None
+    parsed = [
+        a.strip() for value in (args.accessions or []) for a in value.split(",") if a.strip()
+    ] or None
     _main(since=args.since, until=args.until, limit=args.limit, accessions=parsed)

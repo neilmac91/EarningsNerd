@@ -418,7 +418,8 @@ lines, which name each changed filing's accession and its `inserted` count:
 # 1. Provenance: the apply execution's per-filing lines (accession + inserted count per filing).
 gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="earningsnerd-backfill-facts-c42cc" AND textPayload:"reconciliation_flag_audit"' \
   --order=asc --format='value(textPayload)'
-# 2. The rows, restricted to those accessions (comma-separated, from step 1).
+# 2. The rows, restricted to those accessions (from step 1). gcloud splits --args on commas, so
+#    they reach the script as `--accessions <acc1> <acc2> ...`, which it accepts (no ^;^ needed).
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z,--accessions,<acc1>,<acc2>,..." --wait
 # 3. Read that execution's output by its name (printed by --wait): every row AND the summary line.

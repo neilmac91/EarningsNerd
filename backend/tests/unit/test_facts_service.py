@@ -1346,7 +1346,11 @@ class TestListFactsCreatedCli:
         assert summary["rows"] == len(rows) and summary["accessions"] is None
         assert summary["since"] == "2026-09-08T05:25:00Z" and summary["until"] == "2026-09-08T05:40:00Z"
 
-        # Attributed to the audited filing: only its row.
+        # Attributed to the audited filings: only their rows. gcloud's --args splits on commas,
+        # so the values arrive space-separated (and a comma-joined value is accepted too).
+        rows, ours, summary = run("--accessions", "ACC-lc", " ACC-absent ,")
+        assert summary["accessions"] == ["ACC-lc", "ACC-absent"]
+        assert [r["concept"] for r in ours] == ["revenue"]
         rows, ours, summary = run("--accessions", " ACC-lc ,")
         assert [r["concept"] for r in ours] == ["revenue"]
         assert ours[0]["created_at"] == "2026-09-08T05:30:00Z" and ours[0]["value"] == 100.0
