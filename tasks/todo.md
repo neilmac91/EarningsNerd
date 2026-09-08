@@ -39,7 +39,17 @@ founder action is released. What remains is founder-held or founder-gated:
   inserted by the same upsert path the weekly job uses. Ledger rows: `reconciliation-flag-audit`
   `dry_run` then `succeeded`. Note for the runbook: the script's JSON line lands in Cloud
   Logging `jsonPayload`, so read it with `jsonPayload.flags_refreshed:*`, not `textPayload`.
-- [ ] **W3-9 reopened (Codex P1 on #765, confirmed against the code):** the wave-3 criterion says
+- [x] **W3-9 closed (2026-09-08 ~06:50 UTC):** the founder ran the three review steps on revision
+  00306: the apply execution's 43 per-filing lines (78 inserted / 19 refreshed / 51 mismatched,
+  matching the ledger) and listing execution `hqj8p` restricted to the 39 accessions with
+  inserts: 78 rows, exactly 2 per accession, ids 16062–16139 contiguous inside a 20 s span of
+  the apply run, every row `total_liabilities` (current and prior period; a standardized metric
+  the extractor gained after those filings were first processed, which the incremental weekly
+  job never revisits), `source=edgar_xbrl`, 18 periods reported by two filings agree on value in
+  all 18, 77 reconciled and 1 gate-flagged (NBIS FY2025, 7.84B vs 0.29B), 16 `is_latest=False`
+  each superseded by a newer filing's row. No writer other than the audit; nothing to repair.
+  Evidence: `tasks/archive/w39-review-2026-09-08.md`. The reopening record follows.
+- [x] **W3-9 reopened (Codex P1 on #765, confirmed against the code):** the wave-3 criterion says
   `--apply` updates flag columns only, no inserts or deletes; the shipped audit reuses the full
   `backfill_facts` path, so the apply pass also inserted the 78 rows above and, per the insert
   branch, demoted any older `is_latest` row a new row superseded. That is exactly the effect of
@@ -136,9 +146,10 @@ path must not insert, and the 78 rows must be validated.
   purge` among them for the first time (notable-filings not found, skipped); CI
   `/health/detailed` healthy (database 7.59 ms) at 06:36:24Z; independent
   `curl https://api.earningsnerd.io/health/detailed` healthy (9.57 ms) at 06:36 UTC. Released.
-- [ ] Then
-  **(founder)** runs the three review steps on the deployed image (expected 78 rows across the
-  audited accessions), records the read, and W3-9 closes.
+- [x] The founder ran the three review steps on revision 00306 (~06:50 UTC): 78 rows across the
+  39 audited accessions, 2 each, all `total_liabilities`, cross-filing values consistent, one
+  gate-flagged row (NBIS FY2025); recorded in the handover bullet at the top of this file and in
+  `tasks/archive/w39-review-2026-09-08.md`. **W3-9 closed.**
 
 ## E11b-1 continuation — 2026-09-07
 
@@ -330,8 +341,9 @@ authority. The founder's execution on the `earningsnerd-backfill-facts` image st
 - [x] **(founder)** executed on the deployed image 2026-09-08: dry run `5dgd4` then `--apply`
   `c42cc`, both successful; `flags_refreshed=19`, `value_mismatch=51`,
   `companyfacts_unavailable=0` over 56 filings (full counts in the overnight handover at the
-  top of this file). Reopened the same morning: the apply pass also inserted 78 fact rows,
-  which the wave-3 criterion (flag columns only) excluded; see the handover bullet.
+  top of this file). Reopened the same morning (the apply pass also inserted 78 fact rows,
+  which the wave-3 criterion excluded), fixed in #766 and closed on the founder's review of
+  those rows; see the handover bullets.
 
 ## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
 
@@ -3871,7 +3883,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
-- [ ] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`; counts retained in the overnight handover); **reopened**: the apply also inserted 78 fact rows against the flag-columns-only criterion → flags-only mode + read-only validation listing (engineering), founder reads the listing, then close
+- [x] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`); reopened on the 78 inserted rows, fixed by #766 (flags-only mode, listing script), and closed on the founder's review of those rows (78 `total_liabilities` rows, consistent, evidence in `tasks/archive/w39-review-2026-09-08.md`)
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 

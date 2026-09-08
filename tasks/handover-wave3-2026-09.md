@@ -381,9 +381,11 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   dry run and `--apply` on the `earningsnerd-backfill-facts` job image on 2026-09-08 and the
   counts are retained in `tasks/todo.md` (56 filings, `flags_refreshed=19`, `value_mismatch=51`,
   `companyfacts_unavailable=0`). No production execution by the agent. **Reopened:** the shipped
-  `--apply` reuses the full backfill path and also inserted 78 fact rows (the documented effect
-  of a full `backfill_facts` re-pass), against the flag-columns-only criterion above. Closes
-  after a flags-only mode lands and the founder reads a read-only listing of those 78 rows.
+  `--apply` reused the full backfill path and also inserted 78 fact rows (the documented effect
+  of a full `backfill_facts` re-pass), against the flag-columns-only criterion above. #766
+  (`1046907d`, revision 00306) confined the audit to flag columns and added the read-only
+  listing; the founder's review of the 78 rows (all `total_liabilities`, consistent across
+  filings; `tasks/archive/w39-review-2026-09-08.md`) found nothing to repair. **Complete.**
 
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** after the founder's job + seed + one full week review with a recorded retain
