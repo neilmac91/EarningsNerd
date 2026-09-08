@@ -748,6 +748,8 @@ def backfill_facts(
     errors = 0
     flags_refreshed = 0
     value_mismatch = 0
+    companyfacts_unavailable = 0
+    unauthorized_companies: set[int] = set()
     for filing in query.all():
         try:
             standardized = extract(filing.xbrl_data)
@@ -758,6 +760,7 @@ def backfill_facts(
 
         # Cross-check headline figures against companyfacts (one fetch per company, cached).
         authoritative: Optional[dict[tuple[str, date], float]] = None
+        refresh_this_filing = refresh_flags
         if cross_check:
             if filing.company_id not in auth_by_company:
                 cik = getattr(filing.company, "cik", None)
@@ -765,14 +768,23 @@ def backfill_facts(
                 auth_by_company[filing.company_id] = (
                     extract_authoritative_values(fetched) if fetched else {}
                 )
+                if not fetched:
+                    companyfacts_unavailable += 1
+                    unauthorized_companies.add(filing.company_id)
             authoritative = auth_by_company[filing.company_id]
+            # The audit's verdicts are only trustworthy under the same authority the stored flags
+            # were computed with: a row confirmed by companyfacts within tolerance keeps its
+            # `edgar_xbrl` source, so without the fetch the local gate would demote it. Count the
+            # miss (it fails the audit run) and leave that company's flags alone.
+            if filing.company_id in unauthorized_companies:
+                refresh_this_filing = False
 
         # Shared processing uses Filing.period_end_date for the local current-period check.
         # Reprocessing skips existing identities; only the opt-in ``refresh_flags`` audit
         # re-evaluates their stored reconciliation flag (value/source-identical rows only).
         result = process_filing_facts(
             db, filing, standardized=standardized, authoritative=authoritative,
-            refresh_flags=refresh_flags, commit=not dry_run,
+            refresh_flags=refresh_this_filing, commit=not dry_run,
         )
         if dry_run:
             db.rollback()  # preview only: discard rows, flag flips and the stamp for this filing
@@ -783,7 +795,7 @@ def backfill_facts(
             skipped += result["skipped"]
             rejected += result.get("rejected", 0)
             processed += 1
-            if refresh_flags:
+            if refresh_this_filing:
                 flags_refreshed += result["flags_refreshed"]
                 value_mismatch += result["value_mismatch"]
                 if result["inserted"] or result["flags_refreshed"] or result["value_mismatch"]:
@@ -804,6 +816,7 @@ def backfill_facts(
     if refresh_flags:
         stats["flags_refreshed"] = flags_refreshed
         stats["value_mismatch"] = value_mismatch
+        stats["companyfacts_unavailable"] = companyfacts_unavailable
     return stats
 
 

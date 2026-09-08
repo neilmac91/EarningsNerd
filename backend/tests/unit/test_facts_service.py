@@ -606,6 +606,45 @@ class TestBackfill:
         assert rev.reconciled is True
         db.close()
 
+    def test_refresh_never_demotes_a_confirmed_flag_when_companyfacts_is_unavailable(self):
+        """A row confirmed by the SEC cross-check within tolerance keeps `source=edgar_xbrl` and
+        `reconciled=True` even when the local gate flags it; if the companyfacts fetch fails in
+        the audit, the local verdict alone would demote it. The miss is counted (it fails the
+        audit run through ERROR_COUNTERS) and that company's flags are left untouched."""
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+        from app.services.job_run_service import ERROR_COUNTERS
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = self._marked_filing(db, cid, "auth")
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        row.reconciled = False  # the local gate says False; pretend the SEC confirmed it below
+        db.commit()
+        db.refresh(filing)
+        filing.processed_facts_at = None
+        db.commit()
+
+        ticker = db.get(Company, cid).ticker
+        # Sanity: with the fetch available (empty authority) the audit would flip the flag.
+        stats_with = svc.backfill_facts(
+            db, extract=_fake_extract, companyfacts_fetcher=lambda cik: {"facts": {}},
+            refresh_flags=True, dry_run=True, tickers=[ticker],
+        )
+        assert stats_with["companyfacts_unavailable"] == 0 and stats_with["flags_refreshed"] == 1
+
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, companyfacts_fetcher=lambda cik: None, refresh_flags=True,
+            tickers=[ticker],
+        )
+        assert stats["companyfacts_unavailable"] == 1
+        assert stats["flags_refreshed"] == 0 and stats["value_mismatch"] == 0
+        assert "companyfacts_unavailable" in ERROR_COUNTERS
+        db.expire_all()
+        assert db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one().reconciled is False
+        db.close()
+
     def test_default_backfill_stats_shape_is_unchanged(self):
         from app.database import SessionLocal
 

@@ -394,7 +394,7 @@ Dry run by default — run it first, read the `flags_refreshed` / `value_mismatc
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
-  --args=scripts/audit_reconciliation_flags.py --wait          # dry run (nothing written)
+  --args=scripts/audit_reconciliation_flags.py --wait          # dry run: no fact or flag written; a dry_run heartbeat is recorded
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/audit_reconciliation_flags.py,--apply --wait  # repair the flags
 ```
