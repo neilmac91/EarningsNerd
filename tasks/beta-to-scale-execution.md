@@ -472,3 +472,19 @@ those additions on 2026-09-08 as a specific exception; future changes remain loc
 file or historical business data was changed by this audit. Other ledger SHAs, deploy counts,
 revisions and CI health in the audited span reconcile with GitHub; narrower handover summary
 errors are corrected in the audit and dated notes without overwriting original records.
+
+
+## Astra continuation release record — 2026-09-08
+
+Audit #773 merged as `ae2fbf0499f4777128571959c42522ad60899d0a`; both must-fix dispositions
+are complete (#772 production fix and founder-approved #759 retention exception).
+PostHog JS #774 merged as `00fa00f3316ddf2c15d0ce0013e81842670e50ac`: full frontend gate,
+PR CI34253360268/main CI34253718657 and Vercel production commit status passed; #748 closed.
+
+Python maintenance #775 merged as `a431020951e1b735f5bf805f0fea3564010470b1`: full backend
+2731 passed with performance/four PostgreSQL lanes. PR CI34253792879 passed; one paid
+Copilot34253839355 accepted18/18 (artifact10067143473). Main CI34254219154/deploy102156947320
+passed, `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00309-5lm`
+at100%, all eight job images updated. CI and independent detailed health at
+1788887058.9895678 /1788887099.061795 were healthy (DB6.99/6.12ms, SEC closed, Redis disabled).
+No second paid run, schema, flag, provider, live job test or account action.
