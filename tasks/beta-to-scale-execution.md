@@ -507,3 +507,14 @@ at 100%, all eight job images updated. CI/independent health at `1788888421.5666
 `1788888494.11535` were healthy (DB 7.58/8.93 ms, SEC closed, Redis disabled). No extra
 paid run or baseline re-pin was needed. EDGAR/lxml #779 now owns the final extraction portion;
 its combined-state gate passed 2731 tests, and actual summary/Copilot evidence is pending.
+
+
+EDGAR/lxml #779 merged as `b918bf3ab9deda4880706cbabf936cf2b748f587` at 17:45:48 UTC.
+Combined-state backend gate: 2731 passed, 29 warnings, 92.51 s, performance/four PostgreSQL
+lanes and exact 99-pin environment. PR CI `34257318350` passed. Actual summary
+`34257358723`, artifact `10068970642`, report `eval_20260908T174315Z.json` matches reviewed
+`a3f3b5d313fc54bad862071eb07e56755e644482`: 52/52, zero errors/retries/hard vetoes, pass rate
+1.0; same full cohort/harness as #777 except source SHA. One existing untraceable-dollar
+warning (2.173); citation fidelity 0.6759 versus prior 0.7250, accepted by the unchanged gate.
+No causal quality-improvement claim or re-pin. One paid Copilot `34257358918` accepted 18/18,
+artifact `10068510732`. Main CI/deploy `34259044155` is pending; release verification follows.

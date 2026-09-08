@@ -43,8 +43,8 @@ future edits remain locked. No locked test was edited by this team.
 Dependency work is isolated into [PostHog JS #774](https://github.com/neilmac91/EarningsNerd/pull/774),
 [greenlet/Python PostHog #775](https://github.com/neilmac91/EarningsNerd/pull/775),
 [OpenAI SDK #777](https://github.com/neilmac91/EarningsNerd/pull/777), and
-[EDGAR/lxml #779](https://github.com/neilmac91/EarningsNerd/pull/779). The first three are
-released; #779's actual regression/deployment checkpoint is pending. Backend candidates pass
+[EDGAR/lxml #779](https://github.com/neilmac91/EarningsNerd/pull/779). All four are merged; #779's production verification is pending. Its actual summary regression
+scored 52/52 with zero errors/retries/vetoes and Copilot accepted 18/18. Backend candidates pass
 2731 local tests; the SDK's actual summary gate scored 52/52 with zero errors/retries/vetoes,
 and its normal paid Copilot gate accepted 18/18. DeepSeek and the baseline remain unchanged.
 
