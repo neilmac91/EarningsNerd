@@ -43,6 +43,12 @@ founder action is released. What remains is founder-held or founder-gated:
   founder decisions recorded in their rows.
 - [ ] Dependabot #270 dismissal; Codex code-review credits; `.github` Actions policy for
   automatic draft publication; the GCP console items under "Remaining founder decisions".
+- [ ] **Decision, then engineering**: the advisory `eval-baseline` job counts a single
+  transient provider execution error as `execution_errors = 1` and fails; `evals/runner.py`
+  has no retry for it (the judge path does, `_judge_with_retry`). One bounded retry of an
+  errored attempt before it is counted would remove tonight's only red without changing any
+  score, but it alters what the gate's error column measures, so it is held for the
+  founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
 
 ## E11b-1 continuation — 2026-09-07
 
