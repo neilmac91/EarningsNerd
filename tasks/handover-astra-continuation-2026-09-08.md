@@ -67,7 +67,15 @@ filename. Resolve all locked anchors, not only the six spot-checked by the previ
 The deferred chat cleanup issue remains real; local admission counters can understate open
 transports during close. Historical mutation claims that lack retained tails remain historical.
 
-## 3. Remaining ordered plan
+## 3. Next-session verification
+
+Read the governing files in AGENTS.md order before editing. Compare actual remote main to the
+release points below; do not assume the saved checkout is current. Resolve the complete locked
+inventory, confirm the last backend deployment and inspect the actual evaluation artifacts
+before continuing dependency or AI work. Reconcile any founder-supplied console output against
+the dated ledger before recording a prerequisite as satisfied.
+
+## 4. Remaining ordered plan
 
 Use the live [remaining-plan checklist](todo.md#remaining-master-plan--astra-checkpoint-2026-09-08)
 and original wave-3 handover §2–§6. W3-10 Notable and Analysis wait on their named founder
@@ -89,7 +97,7 @@ unchanged tests on preparation base `048fbc47`; integrate current main and rerun
 gate before publication, preserving the subsequently merged PostHog update. The approval
 request was sent once in this session; no approval is inferred from silence.
 
-## 4. Operating procedure and local evidence
+## 5. Operating procedure and local evidence
 
 Run gates only on committed clean state, one test process per worktree. Use all four exact
 CI PostgreSQL lane variables and isolated databases for concurrent worktrees. Local socket
@@ -103,6 +111,6 @@ independent curl, then a dated ledger record. No next backend publication/merge 
 previous deployment checkpoint is verified. Do not repeat an irreversible write after a
 mid-command error without reading remote state first.
 
-## 5. Completion and final departure point
+## 6. Completion and final departure point
 
 Pending final reconciliation before publication.
