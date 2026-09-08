@@ -1,7 +1,6 @@
 import html
 import logging
 import hashlib
-from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -11,7 +10,7 @@ from app.models import ContactSubmission
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
-from app.services.rate_limiter import get_client_ip as _trusted_client_ip
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit, get_client_ip as _trusted_client_ip
 from app.config import settings
 
 router = APIRouter()
@@ -41,36 +40,10 @@ def hash_ip_address(ip_address: str) -> str:
     hash_object = hashlib.sha256(salted_ip)
     return hash_object.hexdigest()
 
-# Simple in-memory rate limiting (per IP)
-# In production, consider using Redis for distributed rate limiting
-_rate_limit_store: dict[str, list[datetime]] = {}
-RATE_LIMIT_REQUESTS = 3
-RATE_LIMIT_WINDOW_HOURS = 1
-
-
-def check_rate_limit(ip_address: str) -> bool:
-    """
-    Check if the IP address has exceeded the rate limit.
-    Returns True if rate limit is exceeded, False otherwise.
-    """
-    now = utcnow()
-    cutoff = now - timedelta(hours=RATE_LIMIT_WINDOW_HOURS)
-
-    # Clean up old entries
-    if ip_address in _rate_limit_store:
-        _rate_limit_store[ip_address] = [
-            ts for ts in _rate_limit_store[ip_address] if ts > cutoff
-        ]
-    else:
-        _rate_limit_store[ip_address] = []
-
-    # Check limit
-    if len(_rate_limit_store[ip_address]) >= RATE_LIMIT_REQUESTS:
-        return True
-
-    # Add current request
-    _rate_limit_store[ip_address].append(now)
-    return False
+# Per-IP sliding window (3/hour). State lives ONLY in the shared RateLimiter (bounded key
+# cardinality, lazy idle cleanup, Retry-After) — never in an ad-hoc module dict.
+CONTACT_LIMITER = RateLimiter(limit=3, window_seconds=3600)
+CONTACT_RATE_LIMIT_DETAIL = "Too many requests. Please try again in 1 hour(s)."
 
 
 def get_client_ip(request: Request) -> str:
@@ -93,19 +66,12 @@ async def submit_contact_form(
     - Stores the message in the database
     - Sends email notifications to admin and user
     """
-    # Get client IP for rate limiting (but hash it for privacy)
-    client_ip = get_client_ip(request)
-    hashed_ip = hash_ip_address(client_ip)
-
-    # Check rate limit using hashed IP
-    if check_rate_limit(hashed_ip):
-        logger.warning(f"Rate limit exceeded for IP hash: {hashed_ip[:16]}...")
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many requests. Please try again in {RATE_LIMIT_WINDOW_HOURS} hour(s).",
-        )
-
+    # Limiter first (cheap, local), then Turnstile (network) — same order as the waitlist route.
+    enforce_rate_limit(request, CONTACT_LIMITER, "contact", error_detail=CONTACT_RATE_LIMIT_DETAIL)
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
+
+    # Hash the client IP for the persisted row (privacy) — never store the raw address.
+    hashed_ip = hash_ip_address(get_client_ip(request))
 
     # Create database entry (store hashed IP for privacy)
     db_submission = ContactSubmission(

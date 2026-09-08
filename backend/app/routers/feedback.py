@@ -8,7 +8,6 @@ friction. The submitter's user id is recorded for follow-up; the IP is hashed fo
 import hashlib
 import html
 import logging
-from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -21,7 +20,7 @@ from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
 from app.services.posthog_client import capture_event
-from app.services.rate_limiter import get_client_ip
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit, get_client_ip
 from app.services.resend_service import send_email
 
 router = APIRouter()
@@ -31,11 +30,13 @@ logger = logging.getLogger(__name__)
 # contact pipeline, so no weak public default salt.
 _IP_HASH_SALT = settings.IP_HASH_SALT or settings.SECRET_KEY
 
-# Per-user sliding window. Authenticated, so we key on user id (not IP). Generous — this guards
-# against accidental spam/abuse, not legitimate beta chatter.
-_RATE_LIMIT_REQUESTS = 10
-_RATE_LIMIT_WINDOW = timedelta(hours=1)
-_rate_store: dict[int, list[datetime]] = {}
+# Per-user sliding window (10/hour). Authenticated, so we key on user id (not IP). Generous — this
+# guards against accidental spam/abuse, not legitimate beta chatter. State lives ONLY in the shared
+# RateLimiter (bounded key cardinality, lazy idle cleanup, Retry-After).
+FEEDBACK_LIMITER = RateLimiter(limit=10, window_seconds=3600)
+FEEDBACK_RATE_LIMIT_DETAIL = (
+    "You've sent a lot of feedback in a short window — please try again shortly."
+)
 
 
 def _hash_ip(ip: str) -> str:
@@ -46,18 +47,6 @@ def _client_ip(request: Request) -> str:
     return get_client_ip(request)
 
 
-def _rate_limited(user_id: int) -> bool:
-    now = datetime.now(timezone.utc)
-    cutoff = now - _RATE_LIMIT_WINDOW
-    history = [t for t in _rate_store.get(user_id, []) if t > cutoff]
-    if len(history) >= _RATE_LIMIT_REQUESTS:
-        _rate_store[user_id] = history
-        return True
-    history.append(now)
-    _rate_store[user_id] = history
-    return False
-
-
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 async def submit_feedback(
     payload: FeedbackCreate,
@@ -66,11 +55,13 @@ async def submit_feedback(
     db: Session = Depends(get_db),
 ):
     """Submit beta feedback (bug / feature / general) from the in-dashboard widget."""
-    if _rate_limited(current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="You've sent a lot of feedback in a short window — please try again shortly.",
-        )
+    enforce_rate_limit(
+        request,
+        FEEDBACK_LIMITER,
+        f"feedback:{current_user.id}",
+        include_client_ip=False,  # per-user cap: an IP pool must not multiply it
+        error_detail=FEEDBACK_RATE_LIMIT_DETAIL,
+    )
 
     feedback = Feedback(
         user_id=current_user.id,
