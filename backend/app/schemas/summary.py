@@ -103,36 +103,48 @@ def _parse_numeric(value: Optional[str]) -> Optional[Decimal]:
 _XBRL_CONFIDENCE_NOTE = "Prior period from XBRL"
 
 
+# Only whole, recognized labels may borrow a comparative. Qualifiers such as adjusted,
+# pretax, growth or per-share expenses describe different measures and remain unmatched.
+_PRIOR_METRIC_KEYS = {
+    "net interest income": "net_interest_income",
+    "non-interest income": "noninterest_income",
+    "noninterest income": "noninterest_income",
+    "net investment income": "net_investment_income",
+    "premiums earned": "premiums_earned",
+    "premium earned": "premiums_earned",
+    "premiums earned (net)": "premiums_earned",
+    "revenue": "revenue",
+    "revenues": "revenue",
+    "total revenue": "revenue",
+    "total revenues": "revenue",
+    "net sales": "revenue",
+    "net income": "net_income",
+    "net loss": "net_income",
+    "gross profit": "gross_profit",
+    "operating income": "operating_income",
+    "operating loss": "operating_income",
+    "net margin": "net_margin",
+    "gross margin": "gross_margin",
+    "operating margin": "operating_margin",
+    "basic eps": "earnings_per_share",
+    "basic earnings per share": "earnings_per_share",
+    "earnings per share (basic)": "earnings_per_share",
+    "diluted eps": "eps_diluted",
+    "diluted earnings per share": "eps_diluted",
+    "earnings per share (diluted)": "eps_diluted",
+}
+
+
 def _infer_xbrl_metric(metric_name: str) -> Optional[str]:
     if not metric_name:
         return None
-    lowered = metric_name.lower()
-    # Financial-institution components/totals FIRST — they all contain "income", so they must be
-    # matched before the generic "income → net_income" branch below (else they'd mis-backfill the
-    # prior period from the wrong series).
-    if "net interest income" in lowered:
-        return "net_interest_income"
-    if "non-interest income" in lowered or "noninterest income" in lowered:
-        return "noninterest_income"
-    if "net investment income" in lowered:
-        return "net_investment_income"
-    if "premiums earned" in lowered or "premium earned" in lowered:
-        return "premiums_earned"
-    if "revenue" in lowered or "sales" in lowered or "turnover" in lowered:
-        return "revenue"
-    if "net income" in lowered or ("income" in lowered and "per share" not in lowered) or "profit" in lowered:
-        return "net_income"
-    if "eps" in lowered or "per share" in lowered:
-        return "earnings_per_share"
-    if "margin" in lowered:
-        return "net_margin"
-    return None
+    return _PRIOR_METRIC_KEYS.get(" ".join(metric_name.lower().split()))
 
 
 def _format_xbrl_value(metric_key: str, value: float) -> str:
-    if metric_key == "earnings_per_share":
+    if metric_key in ("earnings_per_share", "eps_diluted"):
         return f"${value:,.2f}"
-    if metric_key == "net_margin":
+    if metric_key in ("net_margin", "gross_margin", "operating_margin"):
         return f"{value:.1f}%"
     return f"${value:,.0f}"
 
@@ -308,7 +320,13 @@ def attach_normalized_facts(
                 # reaches the frontend. Purely additive — a new `per_ads` key; it never alters the
                 # as-filed per-ordinary-share `current_period`, so it can't regress the eval baseline.
                 # Present only on the EPS row of ratio != 1 ADRs (else metric_info has no per_ads).
-                per_ads = metric_info.get("per_ads")
+                # Preserve the existing ADS display metadata policy independently of the
+                # comparative key: diluted prior values must never come from basic EPS.
+                ads_info = (
+                    xbrl_metrics.get("earnings_per_share") or {}
+                    if xbrl_key in ("earnings_per_share", "eps_diluted") else metric_info
+                )
+                per_ads = ads_info.get("per_ads")
                 if isinstance(per_ads, dict):
                     row_dict["per_ads"] = per_ads
                 prior_entry = metric_info.get("prior")
