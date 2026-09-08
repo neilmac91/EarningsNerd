@@ -25,8 +25,10 @@ async def test_planned_manifest_survives_missing_executor_results(monkeypatch, t
     ]}))
     monkeypatch.setattr(runner, 'GOLDEN_PATH', golden)
     emitted = []
+    seen = []
 
     async def missing(*args, **kwargs):
+        seen.append(args)
         return []
 
     def write(summary, results, harness):
@@ -35,22 +37,27 @@ async def test_planned_manifest_survives_missing_executor_results(monkeypatch, t
 
     monkeypatch.setattr(runner, '_process_filing', missing)
     monkeypatch.setattr(runner, '_write_report', write)
-    await runner.main(['baseline'], None, False, runs=2, forms=['20-F'])
+    await runner.main(['baseline'], None, False, runs=2, forms=['20-F'], transient_retries=0)
     summary, results, harness = emitted[0]
     assert results == [] and summary == {}
     assert harness['candidates'] == ['baseline']
     assert harness['runs_per_candidate'] == 2
     assert harness['filings'] == [{'ticker': 'ONE', 'filing_type': '20-F'}]
+    # The requested policy is recorded AND reaches the per-filing executor.
+    assert harness['transient_retries'] == 0 and harness['retry_delay_seconds'] == runner.RETRY_DELAY_SECONDS
+    assert seen == [(seen[0][0], ['baseline'], 2, None, 0)]
 
 
 def test_summary_distinguishes_attempts_from_scored_results():
     score = runner.score_summary({}, {})
     result = {'candidate': 'baseline', 'score': score.__dict__, 'aggregate': score.aggregate(),
-              'passed_gates': score.passed_gates, 'judge': None, 'error': None}
+              'passed_gates': score.passed_gates, 'judge': None, 'error': None,
+              'retried': 1, 'first_error': 'TimeoutError: cold'}
     failed = {'candidate': 'baseline', 'score': None, 'aggregate': 0, 'passed_gates': False,
               'judge': None, 'error': 'TimeoutError: '}
     stats = runner._summarize([result, failed])['baseline']
     assert stats['n'] == 2 and stats['scored'] == 1 and stats['errors'] == 1
+    assert stats['retried'] == 1  # a retried-then-scored attempt stays visible in the summary
     assert stats['mean_aggregate'] == result['aggregate']
 
 
@@ -65,7 +72,10 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
     monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)
     monkeypatch.setattr(settings, 'USE_STRUCTURED_OUTPUT', False)
 
+    seen = []
+
     async def missing(*args, **kwargs):
+        seen.append(args)
         return []
 
     monkeypatch.setattr(runner, '_process_filing', missing)
@@ -74,6 +84,10 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
                 for f in weekly_readout.load_cohort()]
     assert len(expected) == 8
     assert report['harness']['candidates'] == ['baseline']
+    # The readout's harness records the retry policy it measured under, and passes it explicitly.
+    assert report['harness']['transient_retries'] == runner.TRANSIENT_RETRIES
+    assert report['harness']['retry_delay_seconds'] == runner.RETRY_DELAY_SECONDS
+    assert seen and all(call[4] == runner.TRANSIENT_RETRIES for call in seen)
     assert report['harness']['runs_per_candidate'] == 3
     assert report['harness']['filings'] == expected
     assert report['results'] == []
@@ -96,8 +110,10 @@ async def test_timeout_retains_elapsed_and_observed_previews_without_scoring(mon
     monkeypatch.setattr(openai_service, 'summarize_filing', timeout)
     filing = GoldenFiling('BABA', '1', 'accession', '20-F', 'https://example.test', 'Fixture')
     result = await runner._run_one('baseline', filing,
-                                 {'filing_text': 'raw', 'excerpt': 'chosen', 'xbrl_metrics': {}}, run_index=1)
+                                 {'filing_text': 'raw', 'excerpt': 'chosen', 'xbrl_metrics': {}}, run_index=1,
+                                 transient_retries=0)
     assert result['latency_seconds'] == 75.125
+    assert result['retried'] == 0 and result['first_error'] is None
     assert result['stream_requested'] is streaming
     assert result['preview_count'] == (2 if streaming else 0)
     assert result['ticker'] == 'BABA' and result['filing_type'] == '20-F' and result['run'] == 1
@@ -148,3 +164,123 @@ def test_actual_cli_emits_sanitized_ai_records_once_without_enabling_request_log
     assert secret not in text
     assert request_logger.level == original_request_level
     assert logging.getLogger().level == original_root_level
+
+
+class _Score:
+    def __init__(self):
+        self.schema_valid = True
+        self.repaired = False
+        self.passed_gates = True
+
+    def aggregate(self):
+        return 0.9
+
+
+def _stub_scoring(monkeypatch):
+    """Make the baseline path score without a real summary: the generation call is the seam."""
+    monkeypatch.setattr(runner, '_baseline_to_canonical', lambda summary: {'sections': []})
+    monkeypatch.setattr(runner, 'score_summary', lambda *a, **k: _Score())
+    monkeypatch.setattr(runner, 'measure_figures', lambda *a, **k: {})
+
+    async def no_judge(*a, **k):
+        return None
+
+    monkeypatch.setattr(runner, '_maybe_judge', no_judge)
+    slept = []
+
+    async def fake_sleep(seconds):
+        slept.append(seconds)
+
+    monkeypatch.setattr(runner.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', False)
+    return slept
+
+
+def _generator(monkeypatch, outcomes):
+    """summarize_filing raises or returns each outcome in order; records how often it was called."""
+    calls = []
+
+    async def summarize(*args, **kwargs):
+        calls.append(kwargs.get('stream_cb'))
+        outcome = outcomes[min(len(calls) - 1, len(outcomes) - 1)]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(openai_service, 'summarize_filing', summarize)
+    return calls
+
+
+FILING = GoldenFiling('BABA', '1', 'accession', '20-F', 'https://example.test', 'Fixture')
+GROUNDING = {'filing_text': 'raw', 'excerpt': 'chosen', 'xbrl_metrics': {}}
+
+
+@pytest.mark.asyncio
+async def test_transient_failure_is_retried_once_and_the_retry_is_visible(monkeypatch):
+    slept = _stub_scoring(monkeypatch)
+    calls = _generator(monkeypatch, [TimeoutError('provider deadline exhausted'), {'raw_summary': {}}])
+    result = await runner._run_one('baseline', FILING, GROUNDING, run_index=1)
+    assert len(calls) == 2 and slept == [runner.RETRY_DELAY_SECONDS]
+    assert result['error'] is None and isinstance(result['score'], dict)
+    assert result['retried'] == 1 and result['first_error'] == 'TimeoutError: provider deadline exhausted'
+    assert isinstance(result['first_latency_seconds'], float)  # the failed attempt's elapsed time survives
+    assert result['ticker'] == 'BABA' and result['run'] == 1
+
+
+@pytest.mark.asyncio
+async def test_non_transient_failure_is_never_retried(monkeypatch):
+    slept = _stub_scoring(monkeypatch)
+    calls = _generator(monkeypatch, [ValueError('scorer input malformed'), {'raw_summary': {}}])
+    result = await runner._run_one('baseline', FILING, GROUNDING)
+    assert len(calls) == 1 and slept == []
+    assert result['error'] == 'ValueError: scorer input malformed'
+    assert result['retried'] == 0 and result['first_error'] is None and result['score'] is None
+    assert result['first_latency_seconds'] is None
+
+
+@pytest.mark.asyncio
+async def test_second_transient_failure_is_the_error_and_keeps_the_first(monkeypatch):
+    slept = _stub_scoring(monkeypatch)
+    calls = _generator(monkeypatch, [TimeoutError('first'), TimeoutError('second'), {'raw_summary': {}}])
+    result = await runner._run_one('baseline', FILING, GROUNDING)
+    assert len(calls) == 2 and slept == [runner.RETRY_DELAY_SECONDS]  # one retry, never a third call
+    assert result['error'] == 'TimeoutError: second' and result['first_error'] == 'TimeoutError: first'
+    assert result['retried'] == 1 and result['score'] is None and result['passed_gates'] is False
+    assert '_transient' not in result
+
+
+@pytest.mark.asyncio
+async def test_transient_retries_zero_reports_the_first_failure(monkeypatch):
+    slept = _stub_scoring(monkeypatch)
+    calls = _generator(monkeypatch, [TimeoutError('once'), {'raw_summary': {}}])
+    result = await runner._run_one('baseline', FILING, GROUNDING, transient_retries=0)
+    assert len(calls) == 1 and slept == []
+    assert result['error'] == 'TimeoutError: once' and result['retried'] == 0
+
+
+def test_transient_classification_follows_the_production_client():
+    import httpx
+
+    assert runner._is_transient(TimeoutError())
+    assert runner._is_transient(httpx.ConnectError('reset'))
+    assert not runner._is_transient(ValueError('bad json'))
+    assert not runner._is_transient(KeyError('score'))
+
+
+def _anthropic_exc(name, base=Exception, **attrs):
+    """The Anthropic SDK is optional in this environment; shape its exception classes by identity."""
+    return type(name, (base,), {'__module__': 'anthropic._exceptions', **attrs})('fault')
+
+
+def test_transient_classification_recognizes_the_anthropic_sdk_faults():
+    assert runner._is_transient(_anthropic_exc('APITimeoutError'))
+    assert runner._is_transient(_anthropic_exc('APIConnectionError'))
+    assert runner._is_transient(_anthropic_exc('RateLimitError', status_code=429))
+    assert runner._is_transient(_anthropic_exc('APIStatusError', status_code=503))
+    assert runner._is_transient(_anthropic_exc('APIStatusError', status_code=409))
+    assert not runner._is_transient(_anthropic_exc('APIStatusError', status_code=400))
+    assert not runner._is_transient(_anthropic_exc('AuthenticationError', status_code=401))
+    assert not runner._is_transient(_anthropic_exc('BadRequestError', status_code=422))
+    # Same class names from any other package are not the SDK's: never classified by name alone.
+    other = type('APITimeoutError', (Exception,), {'__module__': 'somewhere.else'})('fault')
+    assert not runner._is_transient(other)

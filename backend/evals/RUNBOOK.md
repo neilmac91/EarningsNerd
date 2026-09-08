@@ -254,6 +254,28 @@ scored-output measurements; errors are not fabricated zero-quality scores. Histo
 without a declared plan cannot establish completeness through this CLI; the statistics-only
 `compare_candidate` API remains available for historical metric comparisons.
 
+**Transient provider faults get one retry (2026-09-08).** An attempt whose failure the production
+client itself classifies as transient (`_is_transient` in `runner.py`: a timeout, connection
+loss, HTTP 408/409/429/5xx, a malformed completion) is re-generated once after 5 s
+(`--transient-retries`, default 1; 0 restores first-failure reporting). What that means per path:
+the `baseline` candidate runs the production summary path, which raises only its own
+`TimeoutError` (the 75 s request budget exhausted after up to three internal provider attempts)
+and turns every other provider fault into a degraded, scored `status: error` summary, so for
+`baseline` the retry fires on that timeout alone and stacks one more generation on top of the
+app's internal attempts; the other transient classes are reachable only for REGISTRY candidates,
+and the Claude candidates' Anthropic SDK faults (timeout, connection, 429, 5xx) are classified
+by class identity so the optional SDK need not be installed.
+Scorer, schema, grounding and programming errors are never retried. The retry cannot select on
+quality: a timeout yields no output, so the retried generation is the only one scored. Nothing is
+hidden: the row keeps `retried`, `first_error` and `first_latency_seconds`, the summary carries a
+`retried` count, both the PR harness and the weekly readout's harness record `transient_retries`
+and `retry_delay_seconds`, and the gate's completeness note says `transient provider faults
+retried=N` when any happened. A second transient failure is the attempt's error and blocks the
+gate exactly as before. Rationale: on 2026-09-08 two consecutive advisory runs on PRs touching no
+AI code went red on one such timeout out of 52 attempts each (the other 51 scored at pass rate
+1.0); the retry turns that into scored evidence with the fault on record instead of an execution
+error nobody can re-run.
+
 The runner retains elapsed time, requested streaming and observed preview counts on generation
 errors, and its CLI emits only sanitized `ai_call`/`ai_summary` telemetry. Preview observations do
 not prove a stream completed, and missing usage remains unavailable. Weekly reports also retain

@@ -159,16 +159,83 @@ async def _maybe_judge(
             "input_complete": True, "input_lengths": lengths}
 
 
+TRANSIENT_RETRIES = 1  # re-generate an attempt once when its failure was a transient provider fault
+RETRY_DELAY_SECONDS = 5.0
+
+
+_ANTHROPIC_TRANSIENT_NAMES = {"APITimeoutError", "APIConnectionError", "RateLimitError", "InternalServerError"}
+
+
+def _anthropic_transient(exc: BaseException) -> bool:
+    """The Claude bake-off candidates (`evals/models.py::_call_anthropic`) raise the Anthropic
+    SDK's own exception classes, which the production client's classifier never sees. The SDK is
+    optional here, so classify by class identity rather than import: its timeout, connection,
+    rate-limit and server-error classes, plus any status error whose code is 408/409/429/5xx."""
+    cls = type(exc)
+    if cls.__module__.split(".")[0] != "anthropic":
+        return False
+    if _ANTHROPIC_TRANSIENT_NAMES & {base.__name__ for base in cls.__mro__}:
+        return True
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and (status in (408, 409, 429) or status >= 500)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """A provider fault worth one more attempt: a timeout, what the production client itself
+    classifies as transient (connection loss, 408/409/429/5xx, a malformed completion), or the
+    Anthropic SDK's equivalents for the Claude candidates. Scorer, schema, grounding and
+    programming errors are reported on the first failure."""
+    from app.services.ai import provider_requests
+
+    return isinstance(exc, Exception) and (
+        provider_requests.is_timeout(exc) or provider_requests.transient(exc) or _anthropic_transient(exc)
+    )
+
+
 async def _run_one(
     candidate: str, filing: GoldenFiling, grounding: Dict[str, Any],
-    run_index: int = 0, judge_model: Optional[str] = None,
+    run_index: int = 0, judge_model: Optional[str] = None, *,
+    transient_retries: int = TRANSIENT_RETRIES, retry_delay: float = RETRY_DELAY_SECONDS,
 ) -> Dict[str, Any]:
-    """Returns a serializable result dict for one (candidate, filing, run_index)."""
+    """Returns a serializable result dict for one (candidate, filing, run_index).
+
+    An attempt whose failure is transient (see ``_is_transient``) is re-generated up to
+    ``transient_retries`` times after ``retry_delay`` seconds; the row keeps ``retried`` (count),
+    ``first_error`` (the first failure's text) and ``first_latency_seconds`` (its elapsed time) so
+    a report never hides that a retry happened. A non-transient failure, or a transient one after
+    the last retry, is the attempt's error. On the production summary path only the app's own
+    timeout (its request budget exhausted after its internal attempts) surfaces as an exception;
+    other provider faults come back as a degraded, scored summary and are never retried here."""
+    base = {"candidate": candidate, "ticker": filing.ticker,
+            "filing_type": filing.filing_type, "run": run_index}
+    retried = 0
+    first_error: Optional[str] = None
+    first_latency: Optional[float] = None
+    while True:
+        outcome = await _attempt(candidate, filing, grounding, run_index, judge_model)
+        transient = outcome.pop("_transient", False)
+        if outcome.get("error") and transient and retried < transient_retries:
+            if first_error is None:
+                first_error = outcome["error"]
+                first_latency = outcome.get("latency_seconds")
+            retried += 1
+            print(f"  ~ transient provider fault on {filing.ticker} {filing.filing_type} run {run_index}: "
+                  f"{outcome['error']} — retry {retried}/{transient_retries} in {retry_delay:g}s")
+            await asyncio.sleep(retry_delay)
+            continue
+        return {**base, **outcome, "retried": retried, "first_error": first_error,
+                "first_latency_seconds": first_latency}
+
+
+async def _attempt(
+    candidate: str, filing: GoldenFiling, grounding: Dict[str, Any],
+    run_index: int, judge_model: Optional[str],
+) -> Dict[str, Any]:
+    """One generation + scoring pass. Never raises: a failure comes back as ``error`` text plus
+    ``_transient`` (whether ``_run_one`` may try again) and the retained diagnostics."""
     started = time.monotonic()
     stream_requested = None
     preview_count = 0
-    base = {"candidate": candidate, "ticker": filing.ticker,
-            "filing_type": filing.filing_type, "run": run_index}
     try:
         if candidate == "baseline":
             from app.services.openai_service import openai_service
@@ -200,7 +267,7 @@ async def _run_one(
                 filing_text=grounding["excerpt"] or grounding["filing_text"],
             )
             judge = await _maybe_judge(judge_model, payload, filing, grounding)
-            return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
+            return {"score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
@@ -223,7 +290,7 @@ async def _run_one(
         )
         payload, _ = parse_model_json(raw)
         judge = await _maybe_judge(judge_model, payload, filing, grounding)
-        return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
+        return {"score": score.__dict__, "aggregate": score.aggregate(),
                 "passed_gates": score.passed_gates, "judge": judge,
                 "latency_seconds": latency, "input_tokens": in_tok, "output_tokens": out_tok,
                 "cost_usd": cost_usd(cfg, in_tok, out_tok), "error": None}
@@ -231,8 +298,9 @@ async def _run_one(
         diagnostics = {"latency_seconds": round(time.monotonic() - started, 3)}
         if candidate == "baseline":
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
-        return {**base, **diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
-                "judge": None, "error": f"{type(exc).__name__}: {exc}"}
+        return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
+                "judge": None, "error": f"{type(exc).__name__}: {exc}",
+                "_transient": _is_transient(exc)}
 
 
 def _summarize(
@@ -263,6 +331,7 @@ def _summarize(
             "n": len(rs),
             "scored": n,
             "errors": sum(1 for r in rs if r.get("error")),
+            "retried": sum(int(r.get("retried") or 0) for r in rs),
             "mean_aggregate": round(statistics.mean(aggs), 4) if aggs else 0.0,
             "aggregate_stdev": round(statistics.pstdev(aggs), 4) if len(aggs) > 1 else 0.0,
             "pass_rate": round(sum(passes) / n, 4) if n else 0.0,
@@ -362,6 +431,7 @@ DEFAULT_CONCURRENCY = 5  # headroom under EDGAR_THREAD_POOL_SIZE=4 while still p
 
 async def _process_filing(
     f: GoldenFiling, candidates: List[str], runs: int, judge_model: Optional[str],
+    transient_retries: int = TRANSIENT_RETRIES,
 ) -> List[Dict[str, Any]]:
     """Fetch grounding + run every (candidate, run) for one filing. Runs concurrently with other
     filings (see `main`'s semaphore-bounded gather); sequential *within* a filing since candidates
@@ -382,7 +452,8 @@ async def _process_filing(
         for i in range(runs):
             tag = f" run {i + 1}/{runs}" if runs > 1 else ""
             print(f"  {cand} :: {f.ticker} {f.filing_type}{tag}")
-            out.append(await _run_one(cand, f, grounding, run_index=i, judge_model=judge_model))
+            out.append(await _run_one(cand, f, grounding, run_index=i, judge_model=judge_model,
+                                      transient_retries=transient_retries))
     return out
 
 
@@ -390,7 +461,7 @@ async def main(
     candidates: List[str], limit: Optional[int], allow_unverified: bool,
     runs: int = 1, pass_threshold: float = DEFAULT_PASS_THRESHOLD,
     judge_model: Optional[str] = None, forms: Optional[List[str]] = None,
-    concurrency: int = DEFAULT_CONCURRENCY,
+    concurrency: int = DEFAULT_CONCURRENCY, transient_retries: int = TRANSIENT_RETRIES,
 ) -> None:
     data = json.loads(GOLDEN_PATH.read_text())
     filings = [GoldenFiling.from_dict(e) for e in data["filings"]]
@@ -415,12 +486,13 @@ async def main(
 
     harness = _harness_metadata(judge_model)
     harness.update(candidates=list(candidates), runs_per_candidate=runs,
-                   filings=[{"ticker": f.ticker, "filing_type": f.filing_type} for f in runnable])
+                   filings=[{"ticker": f.ticker, "filing_type": f.filing_type} for f in runnable],
+                   transient_retries=transient_retries, retry_delay_seconds=RETRY_DELAY_SECONDS)
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def _bounded(f: GoldenFiling) -> List[Dict[str, Any]]:
         async with semaphore:
-            return await _process_filing(f, candidates, runs, judge_model)
+            return await _process_filing(f, candidates, runs, judge_model, transient_retries)
 
     per_filing_results = await asyncio.gather(*[_bounded(f) for f in runnable])
     results: List[Dict[str, Any]] = [r for sub in per_filing_results for r in sub]
@@ -469,10 +541,14 @@ if __name__ == "__main__":
                         help="max filings processed in parallel (each filing's candidates/runs stay "
                              "sequential). Bounded by EDGAR_THREAD_POOL_SIZE for the fetch side; the "
                              "AI-call side scales further. Set to 1 for the old fully-sequential behavior.")
+    parser.add_argument("--transient-retries", type=int, default=TRANSIENT_RETRIES,
+                        help="re-generate an attempt this many times when its failure was a transient "
+                             "provider fault (timeout, connection loss, 408/409/429/5xx); the row keeps "
+                             "`retried` and `first_error`. 0 reports the first failure as the error.")
     args = parser.parse_args()
     _configure_eval_telemetry()
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
                      pass_threshold=args.pass_threshold, judge_model=args.judge,
                      forms=[x.strip() for x in args.forms.split(",") if x.strip()] if args.forms else None,
-                     concurrency=args.concurrency))
+                     concurrency=args.concurrency, transient_retries=max(0, args.transient_retries)))
