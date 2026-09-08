@@ -581,7 +581,8 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
         "(prior $94.9B); capital expenditures $12.7B (prior $9.4B)."
     )
     assert vd["returns_on_capital"] == (
-        "Return on equity was 151.3% (prior 164.6%); return on assets 28.4% (prior 25.7%)."
+        "Return on equity was 151.3% (prior 164.6%) (period net income / period-end equity, not annualized); "
+        "return on assets 28.4% (prior 25.7%) (period net income / period-end assets, not annualized)."
     )
     assert "free cash flow" not in vd["shareholder_returns"].lower()
 
@@ -670,13 +671,17 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
                              "prior": {"value": 812.0, "period": "FY2024"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
-    assert sections["value_drivers"]["returns_on_capital"] == "Return on assets 17.9%."
+    assert sections["value_drivers"]["returns_on_capital"] == (
+        "Return on assets 17.9% (period net income / period-end assets, not annualized)."
+    )
 
     honest_loss: dict = {}
     openai_service._apply_structured_fallbacks(honest_loss, {"company_name": "X"}, {
         "return_on_equity": {"current": {"value": -12.3, "period": "FY2025"}},
     })
-    assert honest_loss["value_drivers"]["returns_on_capital"] == "Return on equity was -12.3%."
+    assert honest_loss["value_drivers"]["returns_on_capital"] == (
+        "Return on equity was -12.3% (period net income / period-end equity, not annualized)."
+    )
 
 
 def test_apply_structured_fallbacks_returns_read_authors_for_banks():
@@ -692,7 +697,8 @@ def test_apply_structured_fallbacks_returns_read_authors_for_banks():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Return on equity was 17.2% (prior 15.8%); return on assets 1.4%."
+        "Return on equity was 17.2% (prior 15.8%) (period net income / period-end equity, not annualized); "
+        "return on assets 1.4% (period net income / period-end assets, not annualized)."
     )
 
 

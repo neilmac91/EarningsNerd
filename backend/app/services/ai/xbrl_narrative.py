@@ -23,6 +23,12 @@ RETURNS_RATIO_BAND_PCT = 200.0
 _RETURNS_BAND_KEYS = ("return_on_equity", "return_on_assets")
 
 
+def return_ratio_basis(metric_key: str) -> str:
+    """Describe the existing return formula without inferring a duration or annualizing it."""
+    denominator = {"return_on_equity": "equity", "return_on_assets": "assets"}[metric_key]
+    return f"period net income / period-end {denominator}, not annualized"
+
+
 def returns_ratio_in_band(value: Any) -> bool:
     """True when `value` is a real number inside the ±RETURNS_RATIO_BAND_PCT plausibility band."""
     return (
@@ -145,6 +151,8 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"
+        if key in _RETURNS_BAND_KEYS:
+            line += f"; basis: {return_ratio_basis(key)}"
         rows.append(line)
     if not rows:
         return ""
