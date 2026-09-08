@@ -3710,7 +3710,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
-- [ ] W3-9 Historical reconciliation-flag audit/repair script (dry-run default) → **(founder)** executes
+- [x] W3-9 engineering half released as #763 = `32c28e9` (`scripts/audit_reconciliation_flags.py`, dry-run default) → **(founder)** executes the dry run, then `--apply`, on the `earningsnerd-backfill-facts` image and retains the counts
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 
