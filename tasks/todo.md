@@ -94,6 +94,38 @@ founder action is released. What remains is founder-held or founder-gated:
   changing any score, but it alters what the gate's error column measures, so it is held for the
   founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
 
+## Eval runner — one retry for a transient provider fault (engineering, 2026-09-08)
+
+Facts (read against `692682e`): the advisory `eval-baseline` job went red twice on 2026-09-08
+(#762, #763) on one attempt out of 52 whose failure was the app's own summary timeout (the 75 s
+request budget exhausted after its internal provider attempts) while the other 51 scored at pass
+rate 1.0; the gate hard-fails on any execution error by design and this session cannot re-run a
+CI job. The founder chose the engineer's recommendation ("go with your best recommendation"):
+retry such an attempt once, with the retry on record, without touching what the gate measures.
+
+- [x] `evals/runner.py`: `_run_one` = retry loop over `_attempt` (one generation + scoring pass,
+  never raises, returns `error` + `_transient`); `_is_transient` delegates to the production
+  client's `is_timeout`/`transient`; `TRANSIENT_RETRIES=1`, `RETRY_DELAY_SECONDS=5`,
+  `--transient-retries` (0 = first-failure reporting); rows carry `retried`, `first_error`,
+  `first_latency_seconds`; `_summarize` counts `retried`; the harness records the policy.
+  `regression_gate.py`: completeness note names `transient provider faults retried=N` when any.
+  `weekly_readout.py`: passes and records the policy. `RUNBOOK.md`: what the retry does per path
+  (on the `baseline` path only the app's own timeout surfaces as an exception; other provider
+  faults come back as degraded, scored summaries and are not retried; the retry stacks on the
+  app's internal attempts and cannot select on quality). No workflow change.
+- [x] Tests (+6, two extended) in `test_eval_attempt_diagnostics.py`, `test_eval_completeness.py`,
+  `test_eval_measurement.py`. Mutations on committed state, restored: retry disabled → 2 failed;
+  every failure transient → 1; `first_error` dropped → 2; gate note dropped → 1.
+- [x] Independent lens: no must-fix; two should-fixes fixed (the weekly readout inherited the
+  retry silently with nothing in its harness; the runbook overstated what `baseline` can retry
+  and omitted the stacking), one nit fixed (first attempt's elapsed time kept). A pipe masked a
+  failing test on the first fix commit (the readout stub's signature); caught by re-running with
+  `pipefail`, amended before push. Full gate: 2728 passed on `b96a1b6`; 2728 passed again on the final
+  head `e99ac98` (`b077e89`, `972c408` here are the same commits cherry-picked onto #768's merge).
+- [ ] Draft PR, one paid Copilot run at ready plus this PR's own live `eval-baseline` run (its
+  harness must show `transient_retries: 1`), merge, deploy verification (`applied=0`; the
+  change is CI-side, the image carries it).
+
 ## W3-9b — Flags-only audit mode and the read-only listing of created facts (engineering, 2026-09-08)
 
 Facts (read against `d814a60`): Codex's P1 on #765, confirmed against `upsert_facts`: the shipped
