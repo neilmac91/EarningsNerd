@@ -29,3 +29,17 @@ boundaries above are unchanged.
 forward, i need you to keep making progress and not constantly wait for my approvals");
 `tasks/todo.md` E07b slice 2 record; `lessons/ops-continue-approved-engineering.md` (the
 earlier form of the same rule, scoped to releases).
+
+
+**Updated authority and spend hold — 2026-09-08 (CEO planning request).** The founder delegated
+direct account access and necessary edits, replacing the earlier blanket console/live-account
+restriction for this work. Use existing access to obtain facts directly and carry out reversible,
+evidence-supported corrections; retain normal code gates and document each account change.
+The founder specifically withheld universe-wide pregeneration until they have full confidence
+in world-class filing analysis. That instruction supersedes its earlier D4 spend approval.
+Existing eight-ticker example refreshes are a different workload, verified from the actual job
+command; do not silently broaden either approval. A green regression or completed re-pin is not
+the founder's quality acceptance or permission to release universe spend. See
+[the implementation plan](../tasks/ceo-implementation-plan-2026-09-08.md) for the proposed evidence
+program and the remaining specific decisions. This is an operator authorization record, not a
+claim that a new software budget/quality gate has already been implemented.
