@@ -177,7 +177,7 @@ class ThePrint(_V2Base):
 
 
 class ResultsThatMatter(_V2Base):
-    """§2 — the single P&L table (revenue, operating income, operating margin in ppts, diluted EPS),
+    """§2 — substantiated P&L rows with their reported metric labels and accounting basis,
     each with a one-line driver. Cash lines live in §3, never here."""
 
     table: List[PLMetricRow] = Field(default_factory=list)
