@@ -71,7 +71,16 @@ founder action is released. What remains is founder-held or founder-gated:
   now updates the job image on every backend deploy. Pause with
   `gcloud scheduler jobs pause retention-purge-weekly --location=us-west1` if the first live
   counts look wrong.
-- [ ] **Notable-filings job** creation + seed + one full week of review (W3-10 prerequisite).
+- [x] **Notable-filings job created and seeded by the founder** (Cloud Shell, 2026-09-08 ~09:55
+  UTC): `earningsnerd-notable-filings` created per `docs/DEPLOYMENT.md`; smoke execution
+  `w4wnv` (window 2026-09-06..08, a weekend plus Labor Day: 14 queries, `raw_hits=0`,
+  `source_errors=0`); seed execution `j6l78` (`--days 7`, window 2026-09-01..08): 24 queries,
+  30 pages, `raw_hits=838`, `dropped_duplicate=377`, `dropped_no_ticker=94`,
+  `dropped_low_signal=97`, `upserted_new=270`, `source_errors=0`, `truncated_queries=[]`;
+  Cloud Scheduler `notable-filings-scan` ENABLED, `30 8,18 * * *` America/New_York, first fire
+  2026-09-08T12:30:00Z. CI updates the job image from the next backend deploy. The section
+  stays dark (`NOTABLE_FILINGS_ENABLED=false`); the founder reviews the table through
+  2026-09-15 and records retain-or-kill, which is the input to the W3-10 flag PR.
 - [ ] **E06 event selection**: read-only observation of the production Stripe endpoint's
   selected events and API version (`docs/observed-invoice-payments.md`).
 - [ ] **E09 fleet SEC budget / generation ownership** and **E11 calendar activation**: held on
@@ -3884,7 +3893,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
 - [x] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`); reopened on the 78 inserted rows, fixed by #766 (flags-only mode, listing script), and closed on the founder's review of those rows (78 `total_liabilities` rows, consistent, evidence in `tasks/archive/w39-review-2026-09-08.md`)
-- [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
+- [ ] W3-10 **(founder)** Notable job + seed done 2026-09-08 (270 rows seeded, scheduler live; see the overnight handover) → one full week of review → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 
 ## W3-2 implementation — production parity (verified #709)

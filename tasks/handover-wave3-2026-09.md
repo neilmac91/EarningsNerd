@@ -388,8 +388,9 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   filings; `tasks/archive/w39-review-2026-09-08.md`) found nothing to repair. **Complete.**
 
 ### W3-10 — Dark-surface flips (held on founder evidence)
-- **Notable:** after the founder's job + seed + one full week review with a recorded retain
-  decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` line 510 and updates the W3-2 pin
+- **Notable:** job created, smoke-tested and seeded by the founder on 2026-09-08 (`--days 7`:
+  838 raw hits, 270 upserted; scheduler `notable-filings-scan` live at 08:30/18:30 ET); after
+  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` line 510 and updates the W3-2 pin
   table (that test edit makes the PR deploy). Verify the deploy ran, `GET /api/notable_filings?limit=8`
   is non-empty, and the homepage section renders in both themes after ISR.
 - **Analysis:** after the founder records the effective Vercel value and the warm-up evidence, PR
