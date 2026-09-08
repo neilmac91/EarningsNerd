@@ -30,7 +30,7 @@ def session_factory():
 
 @pytest.fixture
 def client(session_factory):
-    feedback_router._rate_store.clear()
+    feedback_router.FEEDBACK_LIMITER._hits.clear()
 
     def _get_db():
         db = session_factory()
@@ -82,7 +82,9 @@ def test_invalid_type_rejected(client):
 
 
 def test_per_user_rate_limit(client):
-    for _ in range(feedback_router._RATE_LIMIT_REQUESTS):
+    for _ in range(feedback_router.FEEDBACK_LIMITER.limit):
         assert client.post("/api/feedback/", json={"message": "still within the limit"}).status_code == 201
     blocked = client.post("/api/feedback/", json={"message": "one too many requests now"})
     assert blocked.status_code == 429
+    assert blocked.headers["Retry-After"].isdigit()
+    assert blocked.json()["detail"] == feedback_router.FEEDBACK_RATE_LIMIT_DETAIL
