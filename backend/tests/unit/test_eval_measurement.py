@@ -406,3 +406,44 @@ def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatc
             assert not db.in_transaction()
     finally:
         engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("limit", ["none", "frames", "characters", "retry"])
+async def test_preview_artifact_retains_exact_frames_with_truthful_coverage(monkeypatch, limit):
+    frames = [" # First €\n", "## Complete second\n", "tail"]
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
+    monkeypatch.setattr(runner, "_PREVIEW_MAX_FRAMES", 1 if limit == "frames" else 128)
+    monkeypatch.setattr(runner, "_PREVIEW_MAX_CHARS", len(frames[0]) + 1 if limit == "characters" else 4_000_000)
+    calls = 0
+    async def summarize(*args, stream_cb, **kwargs):
+        nonlocal calls
+        calls += 1
+        for frame in frames:
+            await stream_cb(frame)
+        if limit == "retry" and calls <= 2:
+            raise TimeoutError("fixture transient")
+        return {"business_overview": "final only", "raw_summary": {"sections": {}}}
+    monkeypatch.setattr(openai_service, "summarize_filing", summarize)
+    result = await runner._run_one(
+        "baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"),
+        {"filing_text": "raw", "excerpt": "source", "xbrl_metrics": {}},
+        transient_retries=2, retry_delay=0,
+    )
+    expected = frames[:1] if limit in ("frames", "characters") else frames
+    assert result["preview_frames"] == expected
+    assert result["preview_count"] == 3
+    assert result["preview_chars"] == sum(map(len, expected))
+    assert result["previews_truncated"] is (limit in ("frames", "characters"))
+    assert result["payload"]["executive_summary"] == "final only"
+    if limit == "retry":
+        assert calls == 3 and result["retried"] == 2
+        assert result["retry_preview_attempts_omitted"] == 1
+        assert result["retry_preview_evidence"] == [{
+            "attempt": 0, "stream_requested": True, "preview_count": 3,
+            "preview_frames": frames, "preview_chars": sum(map(len, frames)),
+            "previews_truncated": False,
+        }]
+    else:
+        assert calls == 1 and result["retry_preview_evidence"] == []
+        assert result["retry_preview_attempts_omitted"] == 0

@@ -42,6 +42,11 @@ _SYSTEM = (
 )
 
 
+# Artifact-only preview limits; retain complete frames, never clipped strings.
+_PREVIEW_MAX_FRAMES = 128
+_PREVIEW_MAX_CHARS = 4_000_000
+
+
 def _grounding_user_prompt(
     company: str, filing_type: str, excerpt: str, xbrl_text: str
 ) -> str:
@@ -218,6 +223,7 @@ async def _run_one(
     retried = 0
     first_error: Optional[str] = None
     first_latency: Optional[float] = None
+    retry_previews = []
     while True:
         outcome = await _attempt(candidate, filing, grounding, run_index, judge_model)
         transient = outcome.pop("_transient", False)
@@ -225,13 +231,21 @@ async def _run_one(
             if first_error is None:
                 first_error = outcome["error"]
                 first_latency = outcome.get("latency_seconds")
+            if candidate == "baseline" and not retry_previews:
+                record = {key: outcome[key] for key in (
+                    "stream_requested", "preview_count", "preview_frames", "preview_chars",
+                    "previews_truncated",
+                ) if key in outcome}
+                retry_previews.append({"attempt": retried, **record})
             retried += 1
             print(f"  ~ transient provider fault on {filing.ticker} {filing.filing_type} run {run_index}: "
                   f"{outcome['error']} — retry {retried}/{transient_retries} in {retry_delay:g}s")
             await asyncio.sleep(retry_delay)
             continue
         return {**base, **outcome, "retried": retried, "first_error": first_error,
-                "first_latency_seconds": first_latency}
+                "first_latency_seconds": first_latency,
+                "retry_preview_evidence": retry_previews,
+                "retry_preview_attempts_omitted": max(0, retried - len(retry_previews))}
 
 
 async def _attempt(
@@ -243,15 +257,24 @@ async def _attempt(
     started = time.monotonic()
     stream_requested = None
     preview_count = 0
+    preview_frames = []
+    preview_chars = 0
+    previews_truncated = False
     try:
         if candidate == "baseline":
             from app.services.openai_service import openai_service
 
             from app.config import settings
 
-            async def observe_preview(_markdown: str) -> None:
-                nonlocal preview_count
+            async def observe_preview(markdown: str) -> None:
+                nonlocal preview_count, preview_chars, previews_truncated
                 preview_count += 1
+                if (not previews_truncated and len(preview_frames) < _PREVIEW_MAX_FRAMES
+                        and preview_chars + len(markdown) <= _PREVIEW_MAX_CHARS):
+                    preview_frames.append(markdown)
+                    preview_chars += len(markdown)
+                else:
+                    previews_truncated = True
 
             # Match summary_pipeline: the production flag controls whether a callback
             # selects streaming extraction. Preview text is never substituted for final output.
@@ -278,6 +301,8 @@ async def _attempt(
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
+                    "preview_frames": preview_frames, "preview_chars": preview_chars,
+                    "previews_truncated": previews_truncated,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
                     "grounding_excerpt": grounding["excerpt"],
@@ -306,7 +331,9 @@ async def _attempt(
     except Exception as exc:  # noqa: BLE001
         diagnostics = {"latency_seconds": round(time.monotonic() - started, 3)}
         if candidate == "baseline":
-            diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
+            diagnostics.update(stream_requested=stream_requested, preview_count=preview_count,
+                               preview_frames=preview_frames, preview_chars=preview_chars,
+                               previews_truncated=previews_truncated)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
                 "_transient": _is_transient(exc)}
