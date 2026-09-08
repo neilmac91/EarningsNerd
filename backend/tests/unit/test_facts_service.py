@@ -422,6 +422,46 @@ class TestUpsert:
         assert self._snapshot(db, cid) == before
         db.close()
 
+    def test_flags_only_counts_unstored_and_never_inserts_or_demotes(self):
+        """The audit's write mode is flag columns only: an identity that is not stored yet is
+        counted as ``unstored`` (never inserted, never demoting the current ``is_latest`` row),
+        while a stored value/source-identical row still gets its flag re-evaluated."""
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        facts = self._seed_clean(db, cid)
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        rev.reconciled = False  # a stale verdict the audit should repair
+        db.commit()
+        before = self._snapshot(db, cid)
+
+        # A newer accession re-reports the same figures (identity miss on ``accession``) plus a
+        # concept never stored: a default upsert would insert three rows and demote the two
+        # current ones; flags-only counts them and touches nothing.
+        newer = [dict(f, accession="ACC-rf2") for f in facts]
+        newer.append(dict(facts[0], concept="total_assets", value=500.0, accession="ACC-rf2"))
+        res = svc.upsert_facts(db, newer, refresh_flags=True, flags_only=True)
+        assert res == {"inserted": 0, "skipped": 0, "rejected": 0, "flags_refreshed": 0,
+                       "value_mismatch": 0, "unstored": 3}
+        db.expire_all()
+        assert self._snapshot(db, cid) == before  # no insert, no demotion, no flag change
+        assert all(r["is_latest"] for r in before.values())
+
+        # The same batch under the stored accession: the stale flag is repaired, the unstored
+        # concept is still only counted, and the default result shape stays untouched.
+        same = list(facts) + [dict(facts[0], concept="total_assets", value=500.0)]
+        res = svc.upsert_facts(db, same, refresh_flags=True, flags_only=True)
+        assert res["flags_refreshed"] == 1 and res["unstored"] == 1 and res["inserted"] == 0
+        db.expire_all()
+        after = self._snapshot(db, cid)
+        assert len(after) == 2 and after[rev.id]["reconciled"] is True
+        assert {k: v for k, v in after[rev.id].items() if k != "reconciled"} == \
+            {k: v for k, v in before[rev.id].items() if k != "reconciled"}
+        assert "unstored" not in svc.upsert_facts(db, facts)  # default shape unchanged
+        db.close()
+
 
 @pytest.mark.requires_db
 class TestUpsertReconciliation:
@@ -604,6 +644,51 @@ class TestBackfill:
         db.expire_all()
         rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
         assert rev.reconciled is True
+        db.close()
+
+    def test_flags_only_backfill_never_inserts_or_stamps_and_still_repairs_flags(self):
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = self._marked_filing(db, cid, "fo")
+        ticker = db.get(Company, cid).ticker
+
+        # Nothing stored yet: the audit's write mode counts the identities and writes nothing,
+        # not even the ``processed_facts_at`` stamp (flag columns only).
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, flags_only=True,
+            tickers=[ticker],
+        )
+        assert stats["facts_unstored"] == 2 and stats["facts_inserted"] == 0
+        assert stats["flags_refreshed"] == 0 and stats["filings_processed"] == 1
+        assert db.query(FinancialFact).filter_by(company_id=cid).count() == 0
+        db.refresh(filing)
+        assert filing.processed_facts_at is None
+
+        # Once the full re-pass has stored them, a hand-flipped flag is repaired by the same mode
+        # with the stamp left exactly where the re-pass put it.
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
+        db.refresh(filing)
+        stamped_at = filing.processed_facts_at
+        assert stamped_at is not None
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        rev.reconciled = False
+        db.commit()
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, flags_only=True,
+            tickers=[ticker],
+        )
+        assert stats["flags_refreshed"] == 1 and stats["facts_unstored"] == 0
+        assert stats["facts_inserted"] == 0
+        db.expire_all()
+        assert db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one().reconciled is True
+        db.refresh(filing)
+        assert filing.processed_facts_at == stamped_at
+        assert "facts_unstored" not in svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, tickers=[ticker],
+        )
         db.close()
 
     def test_refresh_never_demotes_a_confirmed_flag_when_companyfacts_is_unavailable(self):
@@ -1200,3 +1285,60 @@ class TestCompanyfactsSyncBridge:
         monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _capture)
         svc._fetch_companyfacts_sync("320193")
         assert captured["url"] == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json"
+
+
+@pytest.mark.requires_db
+class TestListFactsCreatedCli:
+    """`scripts/list_facts_created.py` is the read-only review aid for rows a write pass added."""
+
+    def test_prints_only_rows_inside_the_window_and_writes_nothing(self, monkeypatch, capsys):
+        import json
+        import runpy
+        import sys
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        ticker = db.get(Company, cid).ticker
+        base = {"company_id": cid, "filing_id": None, "unit": "USD", "fiscal_period": "FY",
+                "fiscal_year": 2024, "form": "10-K", "source": "edgar_xbrl", "accession": "ACC-lc",
+                "period_end": date(2024, 9, 28), "reconciled": True, "is_latest": True}
+        inside = FinancialFact(**base, concept="revenue", value=100.0,
+                               created_at=datetime(2026, 9, 8, 5, 30, tzinfo=timezone.utc))
+        before = FinancialFact(**base, concept="net_income", value=20.0,
+                               created_at=datetime(2026, 9, 8, 5, 0, tzinfo=timezone.utc))
+        after = FinancialFact(**base, concept="total_assets", value=500.0,
+                              created_at=datetime(2026, 9, 8, 5, 45, tzinfo=timezone.utc))
+        db.add_all([inside, before, after])
+        db.commit()
+        snapshot = {
+            r.id: (r.concept, float(r.value), r.reconciled, r.is_latest)
+            for r in db.query(FinancialFact).filter_by(company_id=cid).all()
+        }
+
+        monkeypatch.setattr(sys, "argv", [
+            "list_facts_created.py", "--since", "2026-09-08T05:25:00Z",
+            "--until", "2026-09-08T05:40:00Z",
+        ])
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts/list_facts_created.py"),
+                       run_name="__main__")
+        lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+        rows, summary = [line for line in lines if "concept" in line], lines[-1]
+        ours = [r for r in rows if r["ticker"] == ticker]
+        assert [r["concept"] for r in ours] == ["revenue"]
+        assert ours[0]["created_at"] == "2026-09-08T05:30:00Z" and ours[0]["value"] == 100.0
+        assert ours[0]["source"] == "edgar_xbrl" and ours[0]["reconciled"] is True
+        assert summary["rows"] == len(rows) and summary["since"] == "2026-09-08T05:25:00Z"
+        assert summary["until"] == "2026-09-08T05:40:00Z"
+
+        db.expire_all()
+        assert {
+            r.id: (r.concept, float(r.value), r.reconciled, r.is_latest)
+            for r in db.query(FinancialFact).filter_by(company_id=cid).all()
+        } == snapshot
+        db.close()

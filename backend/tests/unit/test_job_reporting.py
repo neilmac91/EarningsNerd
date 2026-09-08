@@ -225,8 +225,8 @@ def test_reconciliation_flag_audit_cli_is_dry_run_unless_apply(monkeypatch, caps
 
     factory.assert_called_once_with()
     tracker.assert_called_once_with("reconciliation-flag-audit", dry_run=not apply)
-    audit.assert_called_once_with(db, refresh_flags=True, tickers=["aapl", "msft"], limit=7,
-                                  dry_run=not apply)
+    audit.assert_called_once_with(db, refresh_flags=True, flags_only=True,
+                                  tickers=["aapl", "msft"], limit=7, dry_run=not apply)
     attempt.record.assert_called_once_with(stats)
     db.close.assert_called_once_with()
     import json

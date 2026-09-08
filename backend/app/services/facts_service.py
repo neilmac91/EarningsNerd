@@ -516,6 +516,7 @@ def upsert_facts(
     authoritative: Optional[dict[tuple[str, date], float]] = None,
     commit: bool = True,
     refresh_flags: bool = False,
+    flags_only: bool = False,
 ) -> dict[str, int]:
     """Insert fact rows, maintaining ``is_latest`` and the reconciliation flag.
 
@@ -536,6 +537,11 @@ def upsert_facts(
     ``value_mismatch`` and left untouched, so an authoritative ``True`` is never overwritten by a
     heuristic verdict. ``is_latest`` is restatement state and is never touched. The result then
     also carries ``flags_refreshed`` / ``value_mismatch``; the default result shape is unchanged.
+
+    ``flags_only`` (opt-in; the audit's write mode) confines the batch to flag columns: an identity
+    that is not stored yet is counted as ``unstored`` and never inserted, so no row is added and no
+    current ``is_latest`` row is demoted. Storing those identities is the full backfill re-pass's
+    job (``scripts/backfill_facts.py`` without ``--only-new``), not the audit's.
     """
     _lock_fact_companies(db, facts)
     rejected = 0
@@ -558,6 +564,7 @@ def upsert_facts(
     skipped = 0
     flags_refreshed = 0
     value_mismatch = 0
+    unstored = 0
     filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
         Filing.accession_number.in_({f["accession"] for f in facts})
     ).all()) if facts else {}
@@ -588,6 +595,9 @@ def upsert_facts(
                 elif bool(existing.reconciled) != bool(reconciled):
                     existing.reconciled = reconciled
                     flags_refreshed += 1
+            continue
+        if flags_only:
+            unstored += 1  # flag columns only: never insert, never demote a current row
             continue
 
         # A labelled quarter also replaces its legacy unlabelled twin; otherwise deriving a
@@ -623,6 +633,8 @@ def upsert_facts(
     if refresh_flags:
         result["flags_refreshed"] = flags_refreshed
         result["value_mismatch"] = value_mismatch
+    if flags_only:
+        result["unstored"] = unstored
     return result
 
 
@@ -635,6 +647,7 @@ def process_filing_facts(
     authoritative: Optional[dict[tuple[str, date], float]] = None,
     commit: bool = True,
     refresh_flags: bool = False,
+    flags_only: bool = False,
 ) -> Optional[dict[str, int]]:
     """Normalize ONE filing's stored ``xbrl_data`` into ``financial_fact`` (extract → normalize →
     upsert → stamp ``processed_facts_at``). The per-filing core shared by ``backfill_facts`` (the
@@ -648,7 +661,9 @@ def process_filing_facts(
     current-period check. Existing fact identities are skipped, including their stored flags,
     unless ``refresh_flags`` (the reconciliation-flag audit, which re-evaluates ONLY the flag of a
     value/source-identical row — see ``upsert_facts``). Authoritative cross-checks retain their
-    existing override policy. The ``processed_facts_at`` stamp is unconditional.
+    existing override policy. The ``processed_facts_at`` stamp is unconditional except under
+    ``flags_only`` (the audit's write mode, see ``upsert_facts``): flag columns only, so unstored
+    identities are counted rather than inserted and the stamp is left as it is.
     """
     if standardized is None:
         if getattr(filing, "xbrl_data", None) is None:
@@ -676,8 +691,10 @@ def process_filing_facts(
         authoritative=authoritative,
         commit=False,
         refresh_flags=refresh_flags,
+        flags_only=flags_only,
     )
-    filing.processed_facts_at = datetime.now(timezone.utc)
+    if not flags_only:
+        filing.processed_facts_at = datetime.now(timezone.utc)
     if commit:
         db.commit()
     return result
@@ -692,6 +709,7 @@ def backfill_facts(
     cross_check: bool = True,
     companyfacts_fetcher=None,
     refresh_flags: bool = False,
+    flags_only: bool = False,
     tickers: Optional[list[str]] = None,
     dry_run: bool = False,
 ) -> dict[str, int]:
@@ -702,8 +720,10 @@ def backfill_facts(
     A default pass does not repair historical flags; ``refresh_flags=True`` (the
     ``reconciliation-flag-audit`` script) re-evaluates ONLY the flag of value/source-identical
     existing rows and adds ``flags_refreshed`` / ``value_mismatch`` to the stats, logging one line
-    per filing that would change. ``tickers`` restricts the pass to those companies (uppercased).
-    ``dry_run=True`` rolls back each filing's transaction instead of committing it (fact rows,
+    per filing that would change. ``flags_only=True`` (the audit's write mode) confines the pass to
+    flag columns: identities not stored yet are counted as ``facts_unstored``, never inserted, no
+    current row is demoted and the stamp is not touched. ``tickers`` restricts the pass to those
+    companies (uppercased). ``dry_run=True`` rolls back each filing's transaction instead of committing it (fact rows,
     flag flips AND the ``processed_facts_at`` stamp) — note that the rollback expires the loaded
     objects, so a caller must ``db.refresh()`` before reading them. Filings are processed oldest-first so the
     newest reported value wins ``is_latest``, and each is stamped with ``processed_facts_at`` so we
@@ -748,6 +768,7 @@ def backfill_facts(
     errors = 0
     flags_refreshed = 0
     value_mismatch = 0
+    unstored = 0
     companyfacts_unavailable = 0
     unauthorized_companies: set[int] = set()
     for filing in query.all():
@@ -784,7 +805,7 @@ def backfill_facts(
         # re-evaluates their stored reconciliation flag (value/source-identical rows only).
         result = process_filing_facts(
             db, filing, standardized=standardized, authoritative=authoritative,
-            refresh_flags=refresh_this_filing, commit=not dry_run,
+            refresh_flags=refresh_this_filing, flags_only=flags_only, commit=not dry_run,
         )
         if dry_run:
             db.rollback()  # preview only: discard rows, flag flips and the stamp for this filing
@@ -794,16 +815,19 @@ def backfill_facts(
             inserted += result["inserted"]
             skipped += result["skipped"]
             rejected += result.get("rejected", 0)
+            unstored += result.get("unstored", 0)
             processed += 1
             if refresh_this_filing:
                 flags_refreshed += result["flags_refreshed"]
                 value_mismatch += result["value_mismatch"]
-                if result["inserted"] or result["flags_refreshed"] or result["value_mismatch"]:
+                if (result["inserted"] or result["flags_refreshed"] or result["value_mismatch"]
+                        or result.get("unstored")):
                     logger.info(
                         "reconciliation_flag_audit filing_id=%s accession=%s inserted=%s "
-                        "flags_refreshed=%s value_mismatch=%s dry_run=%s",
+                        "unstored=%s flags_refreshed=%s value_mismatch=%s dry_run=%s",
                         filing.id, filing.accession_number, result["inserted"],
-                        result["flags_refreshed"], result["value_mismatch"], dry_run,
+                        result.get("unstored", 0), result["flags_refreshed"],
+                        result["value_mismatch"], dry_run,
                     )
 
     stats = {
@@ -817,6 +841,8 @@ def backfill_facts(
         stats["flags_refreshed"] = flags_refreshed
         stats["value_mismatch"] = value_mismatch
         stats["companyfacts_unavailable"] = companyfacts_unavailable
+    if flags_only:
+        stats["facts_unstored"] = unstored
     return stats
 
 

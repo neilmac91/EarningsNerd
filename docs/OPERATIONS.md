@@ -291,7 +291,10 @@ Located in `backend/scripts/`:
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
 - `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
-  value-identical rows (dry run by default; `--apply` writes; `--tickers`, `--limit`)
+  value-identical rows, flag columns only (unstored identities are counted, never inserted; dry
+  run by default; `--apply` writes; `--tickers`, `--limit`)
+- `list_facts_created.py` - Read-only: list `financial_fact` rows created in a time window
+  (`--since`, `--until`, `--limit`), one JSON line per row; the review aid for a write pass
 - `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
 - `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)
   - Weekly examples cover the latest domestic 10-K and 10-Q; BABA uses its annual 20-F.

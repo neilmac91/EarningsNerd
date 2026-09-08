@@ -4,11 +4,18 @@
 ``upsert_facts`` is idempotent on the fact identity key and never re-evaluates the stored
 ``reconciled`` flag of a row it skips, so a flag computed by an older local-invariant gate (or a
 prior parse of the same filing) is frozen. This job re-runs the normal backfill with
-``refresh_flags=True``: for every existing identity whose ``source`` AND ``value`` are identical to
-the freshly computed fact, the stored flag is re-evaluated; rows whose value or source differ
-(e.g. a bulk companyfacts row occupying the same identity, or an authoritative override) are only
-COUNTED as ``value_mismatch`` and never touched. ``is_latest`` is never touched. The companyfacts
-cross-check stays on (one limiter-paced fetch per company), exactly as in the scheduled backfill.
+``refresh_flags=True`` and ``flags_only=True``: for every existing identity whose ``source`` AND
+``value`` are identical to the freshly computed fact, the stored flag is re-evaluated; rows whose
+value or source differ (e.g. a bulk companyfacts row occupying the same identity, or an
+authoritative override) are only COUNTED as ``value_mismatch`` and never touched. FLAG COLUMNS
+ONLY: an identity that is not stored yet is counted as ``facts_unstored`` and never inserted, no
+current ``is_latest`` row is demoted, and ``processed_facts_at`` is not touched (storing those
+identities is the full re-pass's job: ``scripts/backfill_facts.py`` without ``--only-new``). The
+companyfacts cross-check stays on (one limiter-paced fetch per company), exactly as in the
+scheduled backfill.
+
+The first production execution (2026-09-08, before this mode existed) also inserted 78 rows;
+``scripts/list_facts_created.py`` lists them for review.
 
 DRY RUN BY DEFAULT: without ``--apply`` every per-filing transaction is rolled back — no rows, no
 flag flips, no ``processed_facts_at`` stamps — and the job attempt is recorded as ``dry_run``
@@ -47,7 +54,8 @@ def _main(*, apply: bool, tickers: list[str] | None, limit: int | None) -> None:
         db = SessionLocal()
         try:
             stats = facts_service.backfill_facts(
-                db, refresh_flags=True, tickers=tickers, limit=limit, dry_run=not apply
+                db, refresh_flags=True, flags_only=True, tickers=tickers, limit=limit,
+                dry_run=not apply,
             )
             attempt.record(stats)
             print(json.dumps(stats, sort_keys=True))
