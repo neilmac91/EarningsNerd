@@ -11,15 +11,25 @@ Fable completion remains pending usage availability. Its snapshot contains 17 JS
 ## Ordered execution
 
 - [x] Freeze independent review, compare available Fable evidence, record severity corrections and unfinished scope.
-- [ ] Trace confirmed accounting/period/segment errors to actual extraction, derivation, prompt and render paths before choosing fixes.
-- [ ] Audit pinned EdgarTools capabilities against current calls: accession identity, statement hierarchy, dimensions, calculation relationships, full document sections/tables and incorporated exhibits.
-- [ ] Compare primary-source alternatives for bounded gaps; adopt no new vendor, credential, licence or recurring spend without concrete evidence and authorization.
+- [x] Trace confirmed accounting/period/segment errors to actual extraction, derivation, prompt and render paths before choosing fixes.
+- [x] Audit pinned EdgarTools capabilities against current calls: accession identity, statement hierarchy, dimensions, calculation relationships, full document sections/tables and incorporated exhibits.
+- [x] Compare primary-source alternatives for bounded gaps; adopt no new vendor, credential, licence or recurring spend without concrete evidence and authorization.
 - [ ] Fix confirmed source-identity or financial-calculation defects in isolated PRs, one reviewable invariant group at a time; validate against retained cases and ordinary tests.
 - [ ] Resolve audit S1: retain chat admission until provider transport cleanup completes.
 - [ ] Improve material source coverage and financial interpretation after root-cause evidence; avoid an unmeasured pile of prompt warnings.
 - [ ] Inspect Stripe endpoint event selection/API version, companyfacts readiness, analytics definitions and recovery/fleet settings using existing access. Record observations before any justified reversible correction.
 - [ ] Reconcile unblocked master-plan items with current GitHub and account evidence; retain named holds below.
 - [ ] Publish EdgarTools findings and updated priorities, verified release evidence and a morning handover.
+
+## Engineering priorities after source tracing
+
+The [EdgarTools investigation](edgartools-quality-plan-2026-09-09.md) verifies the needed APIs in the installed 5.56.0 version. First fix selected-accession fallback identity, the unconditional working-capital “year earlier” label and chat cleanup admission. Then remove unverified segment-share denominators, declare return-ratio period/balance bases and preserve full table cells. These are concrete code defects; prompt tuning does not resolve them.
+
+Next build a canonical inventory of complete sections, tables and same-accession incorporated exhibits through the existing extraction owner. Retain metric concept, label, unit, duration and statement/member relationships. Replace prefix-only selection with budgeted complete passages only after offline coverage comparisons on the retained filings. The operating-versus-pretax collision needs semantic identity checks across all representations, with positive evidence before relabeling a metric; missing standardized XBRL alone is insufficient.
+
+Older persisted XBRL snapshots may contain falsely stamped provenance. The narrow fallback fix addresses new fetches and transient caches; it does not establish historical incidence or repair old summaries. A read-only provenance/incidence assessment is a follow-up. Broad invalidation or replay remains held.
+
+Arelle may help isolated offline validation; Docling may help a demonstrated PDF/exhibit gap. Neither is proposed for the serving dependency set now. Commercial extraction requires a measured gap and suitable product redistribution rights before a vendor decision.
 
 ## Verification and spending
 
