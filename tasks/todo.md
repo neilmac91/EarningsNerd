@@ -50,8 +50,8 @@ founder action is released. What remains is founder-held or founder-gated:
   (identity misses counted, never inserted; no stamp), the script on it by default, with tests
   and a mutation proof; (b) a read-only listing of the 78 rows (ticker, concept, period, value,
   source, flags) the founder runs on the job image to validate them. W3-9 closes only after (b)
-  is read and recorded. Both landed in draft [#766](https://github.com/neilmac91/EarningsNerd/pull/766)
-  (section below).
+  is read and recorded. Both released as [#766](https://github.com/neilmac91/EarningsNerd/pull/766)
+  = `1046907d`, revision 00306-2b9 (section below); the founder's three-step read closes W3-9.
 - [x] **Retention job created by the founder** (Cloud Shell, 2026-09-08 05:33 UTC):
   `earningsnerd-retention-purge` created per `docs/DEPLOYMENT.md`; dry-run execution
   `earningsnerd-retention-purge-6pgdm` reported `search_history_purged=0`,
@@ -124,8 +124,19 @@ path must not insert, and the 78 rows must be validated.
   runbook's `--accessions,<acc1>,<acc2>` reached argparse as separate arguments → `--accessions`
   is `nargs="+"` (space- or comma-separated, flattened) instead of the `^;^` delimiter trick;
   test passes two separate values and a comma-joined one; mutation dropping `nargs` → 1 failed.
-- [ ] Full gate on that head, push, ready again (third paid run, same reason), merge, deploy
-  verification (`applied=0`); then
+- [x] Full gate on that head (`656c099`, 2721 passed), pushed, ready again at 06:25 UTC (third
+  paid run, same reason): `copilot-eval.yml` run 34194582199 success (`accepted: true`, 18/18,
+  pass rate 1.0, artifact 10043482322); PR CI green on every required job (eval-baseline
+  advisory, still running at merge time); Codex re-reviewed `5e75096` with no new finding.
+  Squash-merged as `1046907d` at 06:30 UTC.
+- [x] Main CI run 34194937694 on `1046907d`: success on every job (eval-baseline skipped by
+  path filter). deploy-backend job 101961157398: `apply_migrations: applied=0 skipped=39`;
+  Cloud Run revision `earningsnerd-backend-00306-2b9` at 100 % traffic (the flags-only audit
+  and the listing script are on the image); six job images updated, `earningsnerd-retention-
+  purge` among them for the first time (notable-filings not found, skipped); CI
+  `/health/detailed` healthy (database 7.59 ms) at 06:36:24Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy (9.57 ms) at 06:36 UTC. Released.
+- [ ] Then
   **(founder)** runs the three review steps on the deployed image (expected 78 rows across the
   audited accessions), records the read, and W3-9 closes.
 

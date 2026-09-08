@@ -37,7 +37,9 @@ same morning on the `earningsnerd-backfill-facts` image (dry run then `--apply`:
 `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`), then reopened the same
 morning on a confirmed Codex finding: the apply pass also inserted 78 fact rows, which the
 handover's flag-columns-only criterion excluded (the flags-only mode and the read-only validation
-listing are in #766; the founder's read of that listing closes W3-9). The
+listing were released as #766 = `1046907d`, paid eval accepted 18/18, production 34194937694
+verified, `applied=0 skipped=39`, revision 00306-2b9 at 100 %, detailed health CI + independent;
+the founder's read of that listing closes W3-9). The
 retention-purge job and its Sunday scheduler were created the same morning (dry run
 `refresh_tokens_purged=167`, other targets 0–1).
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
