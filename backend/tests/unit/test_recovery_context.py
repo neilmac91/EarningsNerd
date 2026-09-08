@@ -236,3 +236,30 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
             assert await asyncio.to_thread(finished.wait, 1), 'source worker was not released'
         await asyncio.sleep(0)
         assert wire == []
+
+
+@pytest.mark.asyncio
+async def test_reported_metric_label_contract_reaches_primary_recovery_and_schema():
+    from app.services.summary_schema import PLMetricRow, REPORTED_METRIC_LABEL
+
+    requests = []
+    def handler(req):
+        requests.append(json.loads(req.content))
+        return response({'metadata': {}, 'sections': {}})
+    async with native_service(handler) as service:
+        service._assemble_structured_summary = AsyncMock(return_value={'assembled': True})
+        await service.generate_structured_summary(
+            'Income before income taxes 100 80', 'Fixture', '10-Q',
+            filing_excerpt='Income before income taxes 100 80',
+        )
+        recovery = service._get_section_schema_snippet('results_that_matter')
+    prompt = requests[0]['messages'][1]['content']
+    # Both causal sites (the row slot and ONE HOME) must share the recovery/schema policy.
+    assert prompt.count(REPORTED_METRIC_LABEL) == 2
+    assert json.loads(recovery)['results_that_matter']['table'][0]['metric'] == REPORTED_METRIC_LABEL
+    assert PLMetricRow.model_json_schema()['properties']['metric']['description'] == REPORTED_METRIC_LABEL
+    assert 'Revenue | Operating income | Operating margin | Diluted EPS' not in prompt
+    assert 'headline P&L figures (revenue, operating income' not in prompt
+    assert 'omit unsupported metrics' in REPORTED_METRIC_LABEL
+    assert 'Income before income taxes 100/80, not Operating income' in REPORTED_METRIC_LABEL
+    assert PLMetricRow(metric='Income before income taxes').metric == 'Income before income taxes'
