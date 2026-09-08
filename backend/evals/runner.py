@@ -85,7 +85,9 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     from app.config import settings
 
     form = filing.filing_type.upper()
-    text = await sec_edgar_service.get_filing_document(filing.document_url, timeout=30.0)
+    text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
+        filing.document_url, timeout=30.0
+    )
 
     excerpt = None
     source = "regex"
@@ -108,7 +110,8 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         metrics = xbrl_service.extract_standardized_metrics(xbrl) if xbrl else None
     except Exception:  # noqa: BLE001
         metrics = None
-    return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics}
+    return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
+            "source_provenance": source_provenance}
 
 
 def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
@@ -274,6 +277,7 @@ async def _attempt(
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
                     "grounding_excerpt": grounding["excerpt"],
+                    "source_provenance": grounding.get("source_provenance"),
                     "figure_trace": measure_figures(summary, grounding["xbrl_metrics"], grounding["excerpt"])}
 
         cfg: ModelConfig = REGISTRY[candidate]
@@ -293,7 +297,8 @@ async def _attempt(
         return {"score": score.__dict__, "aggregate": score.aggregate(),
                 "passed_gates": score.passed_gates, "judge": judge,
                 "latency_seconds": latency, "input_tokens": in_tok, "output_tokens": out_tok,
-                "cost_usd": cost_usd(cfg, in_tok, out_tok), "error": None}
+                "cost_usd": cost_usd(cfg, in_tok, out_tok), "error": None,
+                "source_provenance": grounding.get("source_provenance")}
     except Exception as exc:  # noqa: BLE001
         diagnostics = {"latency_seconds": round(time.monotonic() - started, 3)}
         if candidate == "baseline":

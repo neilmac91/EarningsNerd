@@ -24,12 +24,15 @@ async def test_runner_measures_actual_raw_prose_and_retains_replay_input(monkeyp
     raw = {"sections": {"value_drivers": {"capital_allocation": "A fabricated $9.7B return."}}}
     summary = {"business_overview": "Overview without that field.", "raw_summary": raw}
     monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
-    grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {}}
+    grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {},
+                 "source_provenance": {"representation": "httpx_decoded_response_text_utf8"}}
     result = await runner._run_one("baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"), grounding)
     assert result["error"] is None
     assert result["figure_trace"] == {"status": "measured", "reason": "", "count": 1, "figures": ["9.7b"]}
     assert result["raw_sections"] == raw["sections"] and result["grounding_excerpt"] == grounding["excerpt"]
     assert "9.7" not in result["payload"]["executive_summary"]
+    assert result["source_provenance"] == grounding["source_provenance"]
+    assert "source_provenance" not in openai_service.summarize_filing.call_args.kwargs
 
 
 def test_figure_measurement_preserves_production_rounding_and_machine_exclusions():
@@ -329,3 +332,21 @@ async def test_validation_failure_preserves_actual_attempt_evidence(monkeypatch,
     assert readout["status"] == "unavailable" and "validation failed" in readout["reason"]
     assert len(report["results"]) == 24 and report["results"][0]["ticker"] == "WRONG"
     assert report["harness"] == harness
+
+
+@pytest.mark.asyncio
+async def test_grounding_retains_optional_source_observation_outside_model_input(monkeypatch):
+    from app.services.edgar.compat import sec_edgar_service, xbrl_service
+    observed = {"representation": "httpx_decoded_response_text_utf8", "sha256": "observed"}
+    fetch = AsyncMock(return_value=("owned HTML", observed))
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", False)
+    monkeypatch.setattr(openai_service, "extract_critical_sections", lambda *args: "unchanged excerpt")
+    filing = GoldenFiling("FIX", "1", "a", "10-K", "https://sec.example/filing", "Fixture")
+    grounding = await runner._get_grounding(filing)
+    fetch.assert_awaited_once_with(filing.document_url, timeout=30.0)
+    assert grounding == {"filing_text": "owned HTML", "excerpt": "unchanged excerpt",
+                         "xbrl_metrics": None, "source_provenance": observed}
+    prompt = runner._grounding_user_prompt(filing.company_name, filing.filing_type, grounding["excerpt"], "")
+    assert "unchanged excerpt" in prompt and "httpx_decoded" not in prompt
