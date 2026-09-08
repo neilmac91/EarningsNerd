@@ -37,6 +37,8 @@ required; local tests and historical workflow success do not establish productio
 
 **Queue update — 2026-09-08:** Dependabot closed #752 at 17:01:24 UTC and opened #776. Its added Anthropic 1.4.0 and newer PostHog 7.47.0 were not in the assigned #752 versions and are not validated by these split PRs; leave that fresh queue visible for subsequent triage.
 
+**Replacement queue reconciliation — 2026-09-08:** after #777 and #779, Dependabot closed its intermediate #776/#778 groups. The current fresh queue is #780 (Anthropic 1.3.0→1.4.0 and PostHog 7.45.4→7.47.0); these versions were outside the original #752 assignment. They remain unmerged and are not validated by the completed split PRs.
+
 Dependabot alert #270, Codex credits, production flags/capacity/prices/trial/promo/registration,
 legal decisions, live accounts/email/job tests, historical replay and console actions retain
 their existing founder boundaries. DeepSeek remains the provider.

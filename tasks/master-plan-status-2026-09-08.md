@@ -62,7 +62,7 @@ also passed full local gates with unchanged tests; they remain unmerged pending 
 | Fleet scaling (E09) | Cross-instance generation ownership and shared SEC admission are **not implemented** | Effective fleet/egress/provider/database budgets and bounded founder design decision; proposal is complete, build is held |
 | Billing/product | E06 event-selection reconciliation if production differs; calendar licence/activation and price/trial/promo/registration decisions | Founder Stripe selected-events/API-version observation and product/legal decisions |
 | Data and operations | Seed/SIC/warm-up/pregeneration/drain and anomaly coverage; automatic changed-membership PR publication; backups/alerts/restore acceptance | Existing founder console/data prerequisites in wave-3 §2 and wave-2 §6; do not rerun completed W3-9 or restore the removed FMP prerequisite |
-| Dependency/hygiene | Vitest 5, jest-dom 7 and jsdom/types 30 majors; D8 stale-branch deletion; alert #270 | Founder approval. Prepared majors need current-main integration and full gates before publication. Fresh Dependabot versions beyond original #752 are a subsequent queue |
+| Dependency/hygiene | Vitest 5, jest-dom 7 and jsdom/types 30 majors; D8 stale-branch deletion; alert #270 | Founder approval. Prepared majors need current-main integration and full gates before publication. Fresh [#780](https://github.com/neilmac91/EarningsNerd/pull/780) contains newer Anthropic/PostHog versions beyond original #752 and is a subsequent queue |
 
 Notable provisioning and W3-9 repair are already complete; their later acceptance steps must
 not be confused with repeating those operations. Retention's first scheduled live run is
