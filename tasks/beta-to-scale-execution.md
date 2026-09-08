@@ -499,3 +499,11 @@ Actual summary dispatch `34255025494`, artifact `10067996189`, report
 untraceable-dollar warning (2.154). Baseline unchanged. One paid Copilot `34255030471`
 accepted 18/18, artifact `10067581566`. Main CI/deploy `34256518896` is pending; no release
 verification is claimed until its completion record below.
+
+
+**SDK release completion — 2026-09-08:** main CI `34256518896`, deploy job `102164639647`
+passed; `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00310-2pq`
+at 100%, all eight job images updated. CI/independent health at `1788888421.5666306` /
+`1788888494.11535` were healthy (DB 7.58/8.93 ms, SEC closed, Redis disabled). No extra
+paid run or baseline re-pin was needed. EDGAR/lxml #779 now owns the final extraction portion;
+its combined-state gate passed 2731 tests, and actual summary/Copilot evidence is pending.
