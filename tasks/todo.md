@@ -50,7 +50,8 @@ founder action is released. What remains is founder-held or founder-gated:
   (identity misses counted, never inserted; no stamp), the script on it by default, with tests
   and a mutation proof; (b) a read-only listing of the 78 rows (ticker, concept, period, value,
   source, flags) the founder runs on the job image to validate them. W3-9 closes only after (b)
-  is read and recorded.
+  is read and recorded. Both landed in draft [#766](https://github.com/neilmac91/EarningsNerd/pull/766)
+  (section below).
 - [x] **Retention job created by the founder** (Cloud Shell, 2026-09-08 05:33 UTC):
   `earningsnerd-retention-purge` created per `docs/DEPLOYMENT.md`; dry-run execution
   `earningsnerd-retention-purge-6pgdm` reported `search_history_purged=0`,
@@ -73,6 +74,39 @@ founder action is released. What remains is founder-held or founder-gated:
   errored attempt before it is counted would have removed both of tonight's reds without
   changing any score, but it alters what the gate's error column measures, so it is held for the
   founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
+
+## W3-9b — Flags-only audit mode and the read-only listing of created facts (engineering, 2026-09-08)
+
+Facts (read against `d814a60`): Codex's P1 on #765, confirmed against `upsert_facts`: the shipped
+audit reused the full `backfill_facts` path, so the founder's `--apply` run inserted 78 fact rows
+and demoted the current `is_latest` rows they superseded, against the wave-3 criterion (flag
+columns only). The wave-3 handover asks for exactly two things before W3-9 closes: the audit
+path must not insert, and the 78 rows must be validated.
+
+- [x] `flags_only` on `upsert_facts` / `process_filing_facts` / `backfill_facts`: identity misses
+  counted (`unstored` / `facts_unstored`), never inserted, no `is_latest` demotion, no
+  `processed_facts_at` stamp; the audit script on it by default; storing unstored identities
+  stays the full re-pass's job (`backfill_facts.py` without `--only-new`). Default result shapes
+  and all four callers unchanged.
+- [x] `scripts/list_facts_created.py` (read-only, no heartbeat, no PII): rows created in a
+  `--since`/`--until` window as JSON lines plus a count; the founder command and its
+  `jsonPayload` query in DEPLOYMENT.md; OPERATIONS scripts list.
+- [x] Test hygiene: the unscoped idempotency test failed deterministically on every second run in
+  a worktree because `test_tickers_filter_scopes_the_pass` leaves an unstamped marked filing in
+  the SQLite file that outlives the process; last night's gate failure was this, triggered but
+  not caused by the parallel run. Scoped to its own company; the lesson corrected.
+- [x] Tests (+3, CLI assertion pins `flags_only=True`). Mutations on committed state, restored:
+  insert guard dropped → 3 failed; stamp unconditional → 2; script without `flags_only` → 3;
+  listing `--until` dropped → 2. Three consecutive fresh-file runs: 102 passed each.
+- [x] Independent lens: no must-fix; one should-fix fixed (aware non-UTC `created_at` printed
+  with an offset → normalised to `Z`), one docs nit fixed (`--order=asc`), one nit left (the
+  per-filing log line is silent for an unauthorized company's `unstored`; the total is right).
+  Full gate: 2721 passed on `5e5e3a7`; 2721 passed on the final head `5c993f6`, ruff/bandit clean
+  (`4a22f36`, `3247814`, `ec3c9b4` here are the same commits cherry-picked onto #765's merge).
+- [ ] Draft [#766](https://github.com/neilmac91/EarningsNerd/pull/766); one paid Copilot run at
+  ready, merge, deploy verification (`applied=0`); then **(founder)** runs the listing on the
+  deployed image (`--since 2026-09-08T05:25:00Z --until 2026-09-08T05:40:00Z`, expected 78 rows),
+  records the read, and W3-9 closes.
 
 ## E11b-1 continuation — 2026-09-07
 
