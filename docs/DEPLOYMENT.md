@@ -397,7 +397,14 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/audit_reconciliation_flags.py --wait          # dry run: no fact or flag written; a dry_run heartbeat is recorded
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args=scripts/audit_reconciliation_flags.py,--apply --wait  # repair the flags
+
+# The counts are one JSON line on stdout, which Cloud Logging stores as jsonPayload (not textPayload):
+gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="earningsnerd-backfill-facts" AND jsonPayload.flags_refreshed:*' \
+  --freshness=3h --format='value(labels."run.googleapis.com/execution_name",jsonPayload)'
 ```
+
+First execution 2026-09-08 (founder, Cloud Shell): dry run then apply over 56 filings,
+`flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`.
 
 **Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
 `CALENDAR_INDEX_FILTER_ENABLED` (Settings default false) and reads the committed

@@ -32,8 +32,11 @@ W3-7 readout review, W3-8a breadth, W3-8b 6-K classification and W3-10 activatio
 prerequisites in [the wave-3 handover](handover-wave3-2026-09.md); W3-9's engineering half
 (reconciliation-flag audit/repair, dry-run by default) was released 2026-09-08 as #763 =
 `32c28e9` (paid eval accepted 18/18; production 34175879213 verified, `applied=0 skipped=39`,
-revision 00305-hdv at 100 %, detailed health CI + independent); the founder's execution on the `earningsnerd-backfill-facts`
-image (dry run, then `--apply`) stays held.
+revision 00305-hdv at 100 %, detailed health CI + independent) and executed by the founder the
+same morning on the `earningsnerd-backfill-facts` image (dry run then `--apply`: 56 filings,
+`flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`); W3-9 is complete. The
+retention-purge job and its Sunday scheduler were created the same morning (dry run
+`refresh_tokens_purged=167`, other targets 0–1).
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
 
 ## Release checkpoint — 2026-09-06

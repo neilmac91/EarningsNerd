@@ -377,8 +377,10 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   deletes; optional `--tickers`, `--limit`.
 - **Gate:** unit test proving the default path still skips existing identities and that
   `refresh_flags=True` changes only flag columns on a persisted ORM fixture.
-- **Done:** merged and deployed; founder executes on the `earningsnerd-backfill-facts` job image and
-  retains counts. No production execution by the agent.
+- **Done:** merged and deployed as #763 (`32c28e9`, revision 00305); the founder executed the dry
+  run and `--apply` on the `earningsnerd-backfill-facts` job image on 2026-09-08 and the counts
+  are retained in `tasks/todo.md` (56 filings, `flags_refreshed=19`, `value_mismatch=51`,
+  `companyfacts_unavailable=0`). No production execution by the agent. **Complete.**
 
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** after the founder's job + seed + one full week review with a recorded retain

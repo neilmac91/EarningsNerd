@@ -27,15 +27,27 @@ the merge proceeded on the advisory check's design. Nothing else was red.
 Engineering queue state: every item of the execution ledger that a PR can complete without a
 founder action is released. What remains is founder-held or founder-gated:
 
-- [ ] **W3-9 execution** (this morning, on the deployed image): dry run
-  `gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 --args=scripts/audit_reconciliation_flags.py --wait`,
-  read the counts (`flags_refreshed`, `value_mismatch`, `companyfacts_unavailable`); if they
-  look right, the same command with `,--apply`; retain both count sets. A nonzero
-  `companyfacts_unavailable` fails the run by design and leaves that company untouched.
-- [ ] **Retention job**: create the `earningsnerd-retention-purge` Cloud Run job from the
-  backend image and its Sunday 03:00 UTC scheduler per `docs/DEPLOYMENT.md`; the first run
-  should be `--dry-run` and its counts read before the live schedule is enabled. CI updates the
-  image once the job exists.
+- [x] **W3-9 executed by the founder** (Cloud Shell, 2026-09-08 ~05:30 UTC, revision 00305):
+  dry run execution `earningsnerd-backfill-facts-5dgd4`, then `--apply` execution
+  `earningsnerd-backfill-facts-c42cc`, both successful. Identical counts on both passes (the
+  dry run rolled back, so the apply saw the same state): `filings_processed=56` (every filing
+  carrying XBRL; the script leaves `only_unprocessed` false), `facts_skipped=2758`,
+  `facts_inserted=78`, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`,
+  `extract_errors=0`, `facts_rejected=0`. 19 stored `reconciled` flags now match the current
+  gate; 51 identities are occupied by a differently-sourced or differently-valued row (bulk
+  companyfacts) and were left alone by design; 78 facts the earlier passes had not stored were
+  inserted by the same upsert path the weekly job uses. Ledger rows: `reconciliation-flag-audit`
+  `dry_run` then `succeeded`. Note for the runbook: the script's JSON line lands in Cloud
+  Logging `jsonPayload`, so read it with `jsonPayload.flags_refreshed:*`, not `textPayload`.
+- [x] **Retention job created by the founder** (Cloud Shell, 2026-09-08 05:33 UTC):
+  `earningsnerd-retention-purge` created per `docs/DEPLOYMENT.md`; dry-run execution
+  `earningsnerd-retention-purge-6pgdm` reported `search_history_purged=0`,
+  `login_attempts_purged=1`, `oauth_states_purged=1`, `refresh_tokens_purged=167`,
+  `contact_submissions_purged=0` (ledger row `retention-purge` / `dry_run`); Cloud Scheduler
+  `retention-purge-weekly` ENABLED, `0 3 * * 0` Etc/UTC, first fire 2026-09-13T03:00:00Z. CI
+  now updates the job image on every backend deploy. Pause with
+  `gcloud scheduler jobs pause retention-purge-weekly --location=us-west1` if the first live
+  counts look wrong.
 - [ ] **Notable-filings job** creation + seed + one full week of review (W3-10 prerequisite).
 - [ ] **E06 event selection**: read-only observation of the production Stripe endpoint's
   selected events and API version (`docs/observed-invoice-payments.md`).
@@ -237,9 +249,10 @@ authority. The founder's execution on the `earningsnerd-backfill-facts` image st
   skipped); CI `/health/detailed` healthy (database 7.07 ms) at 01:18:52Z; independent
   `curl https://api.earningsnerd.io/health/detailed` healthy (6.43 ms, EDGAR circuit closed)
   at 01:19 UTC. Released.
-- [ ] **(founder)** on the deployed image: dry run
-  `gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 --args=scripts/audit_reconciliation_flags.py --wait`,
-  read the counts; if they look right, the same with `,--apply`; retain both count sets.
+- [x] **(founder)** executed on the deployed image 2026-09-08: dry run `5dgd4` then `--apply`
+  `c42cc`, both successful; `flags_refreshed=19`, `value_mismatch=51`,
+  `companyfacts_unavailable=0` over 56 filings (full counts in the overnight handover at the
+  top of this file). W3-9 complete.
 
 ## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
 
@@ -3779,7 +3792,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
-- [x] W3-9 engineering half released as #763 = `32c28e9` (`scripts/audit_reconciliation_flags.py`, dry-run default) → **(founder)** executes the dry run, then `--apply`, on the `earningsnerd-backfill-facts` image and retains the counts
+- [x] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`; counts retained in the overnight handover)
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 
