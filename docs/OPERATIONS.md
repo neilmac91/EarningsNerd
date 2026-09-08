@@ -205,6 +205,12 @@ again, because a resend could duplicate an accepted email, and its filings stay 
 are never re-selected. Every parked batch is counted once in the job's `delivery_ambiguous`
 counter (`earningsnerd_job_runs`); a non-zero count needs a human decision.
 
+When a pending envelope needs a new address, digest routing or a smaller wanted membership,
+the old batch's suppression and the replacement batch's ownership commit together. A replacement
+write failure rolls back both changes and fails the drain; after the original claim expires,
+the next run can rebuild it even when its filings are outside the ordinary selection window.
+This protects pending work only; it does not recover historical lost or ambiguous batches.
+
 Triage (read-only):
 
 ```sql

@@ -1,10 +1,10 @@
 ## Astra audit and remaining plan — 2026-09-08
 
-Taking over the requested code span `d7b01779..3336d513`; current main is `1fe1f156`
+Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe1f156`
 (#771, docs-only handover). Prior records below remain historical evidence.
 
 - [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
-- [ ] Run full backend gate including performance and all four PostgreSQL lanes; full frontend gate.
+- [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
 - [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
 - [ ] Fix confirmed delivery replacement crash gap under normal code-PR gates and serial deployment verification.
 - [ ] Obtain founder disposition for #759's additions to actual locked T4 file; leave the file untouched meanwhile.
@@ -13,8 +13,31 @@ Taking over the requested code span `d7b01779..3336d513`; current main is `1fe1f
 
 Local verification correction: the first frontend Vitest run overlapped pytest in the same
 worktree. It was stopped, its log retained, and frontend verification moved to a separate
-worktree. The complete backend gate will be rerun without same-worktree overlap. No live
+worktree. The complete backend gate then passed without same-worktree overlap. No live
 job, account action, production configuration change or locked-test edit occurred.
+
+## Astra audit fix — atomic delivery replacement (2026-09-08)
+
+- [x] Confirmed a crash gap in #747: old ownership was committed away before the replacement
+  batch was inserted; a two-day-old filing then disappeared from the next digest's selection.
+- [x] Commit `21365860` makes release and replacement one fenced transaction. An insertion
+  exception or ownership collision restores the original claim/items and fails the drain.
+- [x] One new atomicity invariant, exercised with write-error and collision outcomes; fresh-session
+  restart proves delivery after lease expiry outside the normal selection window. Mutation:
+  early commit after release → 2 failed; restored → 2 passed. Existing delivery suite: 30 passed.
+- [x] Final full gate on committed `e9c6d65d`: 2731 passed; three review lenses; draft-first #772, one paid evaluation at ready (34250122330, 18/18 accepted, artifact 10065738610).
+- [ ] Squash merge and serial main CI/deploy/health verification; append release evidence in the audit docs PR.
+
+**Dated correction to E11b-1 — 2026-09-08:** the previous implementation's “immediate rebuild”
+was two commits and did not guarantee crash-safe replacement. The earlier tests covered normal
+rebuild and stale fences, not interruption between release and insertion. This fix preserves
+pending ownership without replaying historical batches, running a live email test or changing
+schema/configuration. The original ledger records below are retained.
+
+#772 squash-merged as `048fbc47c903d520280dbb917f6454cd19102059` at 16:28:59 UTC.
+Required CI and the paid evaluation passed; Codex completed review on `e9c6d65` without findings.
+The advisory eval in PR run `34250095075` was still running at merge and remains tracked;
+no pass is claimed yet. Main run `34251319216` is in progress; deployment is not verified yet.
 
 ## Overnight handover — 2026-09-08 (for the founder's morning read)
 
@@ -2066,7 +2089,7 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ===============
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
 ```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.

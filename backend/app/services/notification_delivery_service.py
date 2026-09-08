@@ -144,11 +144,13 @@ def create_batch(
     filing_ids: list[int],
     channel: str = CHANNEL_EMAIL,
     now: Optional[datetime] = None,
+    commit: bool = True,
 ) -> Optional[DeliveryBatch]:
     """Commit the frozen payload, its idempotency key and the ordered owned filings, or nothing.
 
     Returns ``None`` when another batch already owns one of the filings for this user (the
     unique constraint fires inside a SAVEPOINT, so the caller's pending work survives).
+    ``commit=False`` lets a replacement keep its release and new ownership in one transaction.
     """
     now = now or utcnow()
     user = db.get(User, user_id)
@@ -171,7 +173,8 @@ def create_batch(
             db.flush()
     except IntegrityError:
         return None
-    db.commit()
+    if commit:
+        db.commit()
     return batch
 
 
@@ -303,7 +306,9 @@ def _rekey(db: Session, batch_id: int, token: Optional[str], from_status: str, n
     )
 
 
-def park_and_release(db: Session, batch_id: int, owner_token: str, reason: str, now: datetime) -> bool:
+def park_and_release(
+    db: Session, batch_id: int, owner_token: str, reason: str, now: datetime, *, commit: bool = True,
+) -> bool:
     """claimed → suppressed AND give the filings back to selection, in one transaction, so a crash
     can never leave a suppressed batch that still owns what the digest should now deliver."""
     db.query(DeliveryItem).filter(DeliveryItem.batch_id == batch_id).delete(synchronize_session=False)
@@ -313,7 +318,8 @@ def park_and_release(db: Session, batch_id: int, owner_token: str, reason: str, 
     if db.execute(stmt.execution_options(synchronize_session=False)).rowcount != 1:
         db.rollback()  # lost ownership: the items stay with whoever owns the batch now
         return False
-    db.commit()
+    if commit:
+        db.commit()
     return True
 
 
@@ -421,6 +427,31 @@ def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User, wanted: list[tu
     return RebuildPlan(kind=kind, subject=subject, html=html, filing_ids=[d["filing_id"] for d in items])
 
 
+def replace_batch(
+    db: Session, batch_id: int, owner_token: str, reason: str, plan: RebuildPlan, user_id: int, now: datetime,
+) -> Optional[DeliveryBatch]:
+    """Atomically suppress the owned envelope and persist its still-wanted replacement.
+
+    A crash or insertion failure must leave the original claim and items recoverable: selection
+    cannot recover older filings outside its time window. A lost fence returns None; a collision
+    or write failure rolls back and fails this drain so the job does not report successful loss.
+    """
+    try:
+        if not park_and_release(db, batch_id, owner_token, reason, now, commit=False):
+            return None
+        rebuilt = create_batch(
+            db, kind=plan.kind, user_id=user_id, subject=plan.subject, html=plan.html,
+            filing_ids=plan.filing_ids, now=now, commit=False,
+        )
+        if rebuilt is None:
+            raise RuntimeError(f"Delivery {batch_id}: replacement ownership collision")
+        db.commit()
+        return rebuilt
+    except Exception:
+        db.rollback()
+        raise
+
+
 async def send_prepared(prepared: PreparedSend) -> Optional[str]:
     """Default transport: the frozen payload under its persisted idempotency key."""
     result = await resend_service.send_email(
@@ -482,20 +513,14 @@ async def drain(
         if ineligible is not None:
             if ineligible in RELEASE_REASONS:
                 plan = _rebuild_plan(db, batch, user, wanted)  # before the release empties the items
-                parked = park_and_release(db, batch_id, token, ineligible, now)
-                if parked and plan is not None:
-                    rebuilt = create_batch(db, kind=plan.kind, user_id=user.id, subject=plan.subject,
-                                           html=plan.html, filing_ids=plan.filing_ids, now=now)
-                    if rebuilt is None:
-                        # Another batch took one of these filings between the release and the
-                        # rebuild; the rest are unowned and left to selection (usually outside its
-                        # window). Near-unreachable, but never silent.
-                        logger.warning("Delivery %s: rebuild collided; %d filing(s) left to selection",
-                                       batch_id, len(plan.filing_ids))
-                    else:
-                        stats.rebuilt += 1
-                        if rebuilt.kind == kind:
-                            pending.append(rebuilt.id)  # dispatched in this same run
+                if plan is None:
+                    raise RuntimeError(f"Delivery {batch_id}: wanted items have no replacement plan")
+                rebuilt = replace_batch(db, batch_id, token, ineligible, plan, user.id, now)
+                parked = rebuilt is not None
+                if rebuilt is not None:
+                    stats.rebuilt += 1
+                    if rebuilt.kind == kind:
+                        pending.append(rebuilt.id)  # dispatched in this same run
             else:
                 parked = park(db, batch_id, token, STATUS_CLAIMED, STATUS_SUPPRESSED, ineligible, now)
             if parked:
