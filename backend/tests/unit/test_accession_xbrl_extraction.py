@@ -403,9 +403,10 @@ async def test_fallback_rejects_facts_outside_selected_filing(source_accession):
     fallback = service._parse_company_facts(raw, "selected-filing")
     with patch.object(service, "_fetch_from_filing_instance", AsyncMock(return_value=None)), \
          patch.object(service, "_fallback_to_company_facts", AsyncMock(return_value=fallback)), \
-         patch("edgar.Company.get_financials", side_effect=AssertionError("latest filing forbidden")):
+         patch("edgar.Company.get_financials", side_effect=AssertionError("latest filing forbidden")) as latest:
         result = await service._fetch_xbrl_data("320193", "selected-filing")
     assert result is None
+    latest.assert_not_called()
     assert not any(fallback.values())
 
 
