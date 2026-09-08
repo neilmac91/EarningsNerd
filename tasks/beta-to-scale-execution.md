@@ -44,6 +44,10 @@ the 39 audited accessions, consistent across filings, evidence in
 `tasks/archive/w39-review-2026-09-08.md`). The
 retention-purge job and its Sunday scheduler were created the same morning (dry run
 `refresh_tokens_purged=167`, other targets 0–1).
+The advisory `eval-baseline` job retries a transient provider fault once per attempt since #769 =
+`7b6a32e` (2026-09-08; production 34216384213 verified, `applied=0 skipped=39`, revision 00307-pzl
+at 100 %, detailed health CI + independent; the PR's own live eval scored 52/52 with `retried: 0`
+on record), so a single provider timeout no longer reads as an execution error nobody can re-run.
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
 
 ## Release checkpoint — 2026-09-06
