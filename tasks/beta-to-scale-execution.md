@@ -28,8 +28,10 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 | E14 | Reuse grounded example on waitlist and share canonical filings | E01; preserve citation/quality state | E14a #734 (`ee3ac988`) and E14b #738 (`d048e215`) released. E14b main CI 34046538868 passed with backend deployment skipped; Vercel 6295470419 succeeded. Clipboard denial remains automated-test evidence only |
 | E15 | Partition sitemap and align eligible content | Independent | E15a #737 released (`93e30b0`): production 34045534643, revision 00289-jnn at 100%, DB 9.16 ms. E15b: served document measured 574 URLs (6 static + 522 company + 46 filing) on 2026-09-07, i.e. the complete eligible set; whole-document bound (`MAX_SITEMAP_URLS`, newest-first across companies and filings) merged as #755 = `757a8f1` (paid eval accepted 18/18), production 34164749968 verified (`applied=0 skipped=38`, revision 00297 at 100 %, detailed health CI + independent); a sitemap index is deferred until the eligible set approaches the cap |
 
-W3-7 readout review, W3-8a breadth, W3-8b 6-K classification, W3-9 flag-repair preparation
-and W3-10 activation retain the prerequisites in [the wave-3 handover](handover-wave3-2026-09.md).
+W3-7 readout review, W3-8a breadth, W3-8b 6-K classification and W3-10 activation retain the
+prerequisites in [the wave-3 handover](handover-wave3-2026-09.md); W3-9's engineering half
+(reconciliation-flag audit/repair, dry-run by default) was prepared 2026-09-08 with the
+founder's execution held; PR in flight.
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
 
 ## Release checkpoint — 2026-09-06

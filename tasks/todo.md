@@ -143,6 +143,35 @@ registration, legal, destructive data or history operations, historical replay, 
 live email/job execution as a test, live account actions, the AI provider, console actions such
 as the retention job and scheduler, Dependabot #270).
 
+## W3-9 — Reconciliation-flag audit/repair, dry-run by default (engineering, 2026-09-08)
+
+Facts (read against `fb26dbd`): `upsert_facts` skipped an existing fact identity outright, so a
+stored `reconciled` flag was never re-evaluated; `backfill_facts` had no company filter and no
+dry run. A bulk companyfacts row can occupy the same identity as the per-filing row with an
+authoritative `True`, and a row the SEC confirmed within tolerance keeps `source=edgar_xbrl`
+with `True`, so a refresh must guard on source and value and must not run without the same
+authority. The founder's execution on the `earningsnerd-backfill-facts` image stays held.
+
+- [x] `refresh_flags` on `upsert_facts` / `process_filing_facts` / `backfill_facts` (flag only,
+  value/source-identical rows only, `value_mismatch` otherwise, `is_latest` untouched, default
+  return shape unchanged); `backfill_facts` keyword-only `tickers` and `dry_run` (per-filing
+  rollback); `companyfacts_unavailable` counted, in `ERROR_COUNTERS`, and refresh disabled for
+  that company; `scripts/audit_reconciliation_flags.py` under `track_job("reconciliation-flag-
+  audit", dry_run=not apply)` (not in `JOB_CADENCES`: ad hoc); docs in OPERATIONS and
+  DEPLOYMENT (the two founder commands). Implemented by a delegated agent from a verified plan.
+- [x] Tests (+7 in `test_facts_service.py`, +2 CLI in `test_job_reporting.py`). Mutations on
+  committed state, restored: default `refresh_flags=True` → 4 failed; flag assignment dropped
+  → 2; dry-run rollback removed → 1; value/source guard dropped → 1; `tickers` ignored → 1;
+  script forcing `dry_run=False` → 1; refresh despite an unavailable fetch → 1.
+- [x] Independent lens: two survivors fixed in `70fca64` (demotion of a confirmed flag when the
+  companyfacts fetch silently fails; the DEPLOYMENT dry-run comment). Full gate on `70fca64`:
+  ruff/bandit clean, 2705 passed. An earlier gate's single failure was self-inflicted (a
+  parallel pytest run in the same worktree rewrote the SQLite file):
+  `lessons/ops-one-test-process-per-worktree.md`.
+- [ ] Draft PR, one paid Copilot run at ready, merge, deploy verification (`applied=0`); then
+  the founder executes the dry run and, if the counts look right, `--apply`, and retains the
+  counts.
+
 ## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
 
 Facts (read against `bc973b2`): `routers/contact.py` kept `_rate_limit_store: dict[str,
