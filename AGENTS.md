@@ -21,7 +21,8 @@ skill files, or in agent files.
 Apply this order, note the conflict in the PR body, fix the losing document in the same PR, and
 do not pause to ask:
 
-code > `CLAUDE.md` > `lessons/` > `tasks/handover-wave3-2026-09.md` > `tasks/todo.md` > `docs/`
+code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-08.md` >
+`tasks/handover-wave3-2026-09.md` > `tasks/todo.md` > `docs/`
 > `tasks/handover-wave2-2026-09.md` and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
 

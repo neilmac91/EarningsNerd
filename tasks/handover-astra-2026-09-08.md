@@ -25,10 +25,12 @@ morning read), root `AGENTS.md` (how to operate; read it first), `CLAUDE.md` (ru
   2026-09-08 12:30 UTC). The homepage Notable section stays dark (`NOTABLE_FILINGS_ENABLED=false`).
 - **Branch state:** `claude/earningsnerd-handover-na6rnk` is restarted from main and clean; no PR
   of this session is open. Six local worktrees of this session are not part of the repo.
-- **Locked tests (rule 6)** are byte-identical across the whole span: `git diff --stat d7b01779
-  origin/main -- backend/tests/unit/test_summary_stream_contract.py
-  test_background_generation_characterization.py test_auth_flow.py test_stripe_webhook.py
-  test_filing_scan.py test_expired_trial_gating.py` is empty.
+- **Locked tests (rule 6)** are byte-identical across the whole span. Proven 2026-09-08 with the
+  six complete paths (bare filenames match nothing and return an empty diff regardless):
+  `git diff --stat d7b01779 origin/main -- backend/tests/integration/test_summary_stream_contract.py
+  backend/tests/unit/test_background_generation_characterization.py backend/tests/unit/test_auth_flow.py
+  backend/tests/unit/test_stripe_webhook.py backend/tests/unit/test_filing_scan.py
+  backend/tests/unit/test_expired_trial_gating.py` is empty.
 
 ## 1. Mandate this session worked under (recorded, verbatim where it matters)
 
@@ -165,6 +167,8 @@ prerequisite lands, in this order (wave-3 handover §3 governs the details):
    report harness; `pin_baseline.py` will copy the summary's `retried` count into the pin, which
    is harmless.
 4. **W3-8a golden breadth, then W3-8b 6-K classifier** — each a re-pin; never two re-pin PRs open.
+   Wave-3 handover §3's exception stands: if the strong-judge readout slips more than a week,
+   do W3-8a before W3-7 and re-pin again at W3-7.
 5. **E09 remainder** — cross-instance generation ownership and a fleet-wide SEC budget need schema
    and capacity/egress evidence: propose, do not build unattended.
 6. **E06** — after the founder's read-only observation of the production Stripe endpoint's event
@@ -209,6 +213,8 @@ Founder answers, 2026-09-08 11:50 UTC, applied to the prompt: (1) the standing a
 carries over unchanged; (2) the audit fixes confirmed must-fix defects as it goes; (3) the
 environment is the wave-3 one (repo push and CI rights, no console or gcloud); (4) Astra owns the
 W3-10 Notable flag PR after the review week and the Dependabot #748–#752 triage, majors needing
-the founder's word. Prompt structure also follows the founder's chosen guide
+the founder's word. Codex's review of the first ready head (three P2s: priority order, precedence
+slot and the W3-8a slip clause, locked-test pathspecs) is applied. Prompt structure also follows
+the founder's chosen guide
 (promptessor.com, "GPT-6 Astra prompting guide"): labeled sections with clarification, tool,
 delegation and failure-handling policies and an output contract.
