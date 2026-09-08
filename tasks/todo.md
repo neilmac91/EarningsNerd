@@ -1,3 +1,21 @@
+## Astra audit and remaining plan — 2026-09-08
+
+Taking over the requested code span `d7b01779..3336d513`; current main is `1fe1f156`
+(#771, docs-only handover). Prior records below remain historical evidence.
+
+- [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
+- [ ] Run full backend gate including performance and all four PostgreSQL lanes; full frontend gate.
+- [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
+- [ ] Fix confirmed delivery replacement crash gap under normal code-PR gates and serial deployment verification.
+- [ ] Obtain founder disposition for #759's additions to actual locked T4 file; leave the file untouched meanwhile.
+- [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
+- [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
+
+Local verification correction: the first frontend Vitest run overlapped pytest in the same
+worktree. It was stopped, its log retained, and frontend verification moved to a separate
+worktree. The complete backend gate will be rerun without same-worktree overlap. No live
+job, account action, production configuration change or locked-test edit occurred.
+
 ## Overnight handover — 2026-09-08 (for the founder's morning read)
 
 Seven backend PRs released and production-verified between 22:51 and 01:19 UTC (the first
@@ -608,6 +626,16 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
   and retention-purge not found, skipped); CI `/health/detailed` healthy (database 11.83 ms)
   at 23:41:07Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (6.42 ms) at 23:41 UTC. Released.
+
+**Dated correction — 2026-09-08, Astra audit:** the “unlocked” classification above is
+incorrect. The actual T4 completion record in
+[the architecture plan](architecture-refactor-plan.md) identifies
+`backend/tests/unit/test_subscription_webhook_sync.py`; #759 added 95 lines to that file.
+The original file remains an exact byte prefix and its existing assertions are unchanged,
+but file-level byte identity fails. #759's body also calls it unlocked and records no
+contract exception. Retaining the added gates requires a founder decision; no automatic
+reversion or further edit of this locked file is authorized. The complete actual inventory,
+including T3's successor and T10, is part of this audit.
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
