@@ -314,6 +314,8 @@ async def _attempt(
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
+                "source_provenance": grounding.get("source_provenance"),
+                "coverage_inventory": grounding.get("coverage_inventory"),
                 "_transient": _is_transient(exc)}
 
 

@@ -428,3 +428,34 @@ def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatc
             assert not db.in_transaction()
     finally:
         engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["generation", "scoring", "judging"])
+@pytest.mark.parametrize("observed", [False, True])
+async def test_failed_eval_retains_optional_grounding_metadata(monkeypatch, tmp_path, stage, observed):
+    grounding = {"filing_text": "owned", "excerpt": "selected", "xbrl_metrics": {}}
+    if observed:
+        grounding.update(source_provenance={"sha256": "selected-source"},
+                         coverage_inventory={"excerpt_sha256": "selected-excerpt"})
+    summary = {"business_overview": "fixture", "raw_summary": {"sections": {}}}
+    monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
+    def fail(*args, **kwargs):
+        raise ValueError("fixture failure")
+    if stage == "generation":
+        monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(side_effect=ValueError("fixture failure")))
+    elif stage == "scoring":
+        monkeypatch.setattr(runner, "score_summary", fail)
+    else:
+        monkeypatch.setattr(runner, "_maybe_judge", AsyncMock(side_effect=ValueError("fixture failure")))
+    result = await runner._run_one(
+        "baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"), grounding,
+    )
+    assert result["error"] == "ValueError: fixture failure" and result["score"] is None
+    assert result["retried"] == 0
+    # Actual report serialization must retain observed identity or honest legacy unknown.
+    monkeypatch.setattr(runner, "REPORTS_DIR", tmp_path)
+    runner._write_report({}, [result], {})
+    recorded = json.loads(next(tmp_path.glob("*.json")).read_text())["results"][0]
+    for key in ("source_provenance", "coverage_inventory"):
+        assert key in recorded and recorded[key] == grounding.get(key)
