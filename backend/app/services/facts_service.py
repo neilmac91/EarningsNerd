@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
@@ -514,6 +515,7 @@ def upsert_facts(
     reconcile: bool = True,
     authoritative: Optional[dict[tuple[str, date], float]] = None,
     commit: bool = True,
+    refresh_flags: bool = False,
 ) -> dict[str, int]:
     """Insert fact rows, maintaining ``is_latest`` and the reconciliation flag.
 
@@ -526,6 +528,14 @@ def upsert_facts(
     row for the same (company, concept, period_end, fiscal_period, unit) is demoted unless its
     accession is known to be newer. Untied companyfacts rows are preserved conservatively because
     their filing dates are not stored here. Older own-filing facts remain queryable by filing ID.
+
+    ``refresh_flags`` (opt-in; the reconciliation-flag audit) re-evaluates the stored ``reconciled``
+    flag of a skipped identity against the freshly computed verdict — and ONLY the flag: a row
+    whose ``source`` or ``value`` differs from the incoming fact (a bulk companyfacts row occupying
+    the same identity, an authoritative override, a changed extraction) is counted as a
+    ``value_mismatch`` and left untouched, so an authoritative ``True`` is never overwritten by a
+    heuristic verdict. ``is_latest`` is restatement state and is never touched. The result then
+    also carries ``flags_refreshed`` / ``value_mismatch``; the default result shape is unchanged.
     """
     _lock_fact_companies(db, facts)
     rejected = 0
@@ -546,13 +556,15 @@ def upsert_facts(
 
     inserted = 0
     skipped = 0
+    flags_refreshed = 0
+    value_mismatch = 0
     filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
         Filing.accession_number.in_({f["accession"] for f in facts})
     ).all()) if facts else {}
     for fact in facts:
         fact = dict(fact)
         reconciled = fact.pop("reconciled", False)
-        if (
+        hit = (
             db.query(FinancialFact.id)
             .filter_by(
                 company_id=fact["company_id"],
@@ -563,8 +575,19 @@ def upsert_facts(
                 accession=fact["accession"],
             )
             .first()
-        ):
+        )
+        if hit:
             skipped += 1
+            if refresh_flags:
+                existing = db.get(FinancialFact, hit[0])
+                same = existing.source == fact.get("source") and math.isclose(
+                    float(existing.value), float(fact["value"]), rel_tol=1e-9, abs_tol=0.0
+                )
+                if not same:
+                    value_mismatch += 1
+                elif bool(existing.reconciled) != bool(reconciled):
+                    existing.reconciled = reconciled
+                    flags_refreshed += 1
             continue
 
         # A labelled quarter also replaces its legacy unlabelled twin; otherwise deriving a
@@ -596,7 +619,11 @@ def upsert_facts(
 
     if commit:  # commit=False lets a caller fold this into one per-filing transaction (remediation)
         db.commit()
-    return {"inserted": inserted, "skipped": skipped, "rejected": rejected}
+    result = {"inserted": inserted, "skipped": skipped, "rejected": rejected}
+    if refresh_flags:
+        result["flags_refreshed"] = flags_refreshed
+        result["value_mismatch"] = value_mismatch
+    return result
 
 
 def process_filing_facts(
@@ -607,6 +634,7 @@ def process_filing_facts(
     standardized: Optional[dict] = None,
     authoritative: Optional[dict[tuple[str, date], float]] = None,
     commit: bool = True,
+    refresh_flags: bool = False,
 ) -> Optional[dict[str, int]]:
     """Normalize ONE filing's stored ``xbrl_data`` into ``financial_fact`` (extract → normalize →
     upsert → stamp ``processed_facts_at``). The per-filing core shared by ``backfill_facts`` (the
@@ -617,8 +645,10 @@ def process_filing_facts(
     cross-check; the backfill caller owns that fetch. The local-invariant gate runs regardless. Pass ``standardized`` to reuse metrics the caller already
     extracted (the SSE path) and skip re-extraction. Returns the upsert result, or ``None`` when the
     filing has no ``xbrl_data`` to process. The persisted ``period_end_date`` supplies the local
-    current-period check. Existing fact identities are skipped, including their stored flags;
-    this is not a historical repair. Authoritative cross-checks retain their existing override policy.
+    current-period check. Existing fact identities are skipped, including their stored flags,
+    unless ``refresh_flags`` (the reconciliation-flag audit, which re-evaluates ONLY the flag of a
+    value/source-identical row — see ``upsert_facts``). Authoritative cross-checks retain their
+    existing override policy. The ``processed_facts_at`` stamp is unconditional.
     """
     if standardized is None:
         if getattr(filing, "xbrl_data", None) is None:
@@ -645,6 +675,7 @@ def process_filing_facts(
         period_of_report=report_date,
         authoritative=authoritative,
         commit=False,
+        refresh_flags=refresh_flags,
     )
     filing.processed_facts_at = datetime.now(timezone.utc)
     if commit:
@@ -660,12 +691,21 @@ def backfill_facts(
     only_unprocessed: bool = False,
     cross_check: bool = True,
     companyfacts_fetcher=None,
+    refresh_flags: bool = False,
+    tickers: Optional[list[str]] = None,
+    dry_run: bool = False,
 ) -> dict[str, int]:
     """Populate ``financial_fact`` from filings that already carry ``xbrl_data``.
 
     Reuses the standardized-metrics extractor + the pure normalizer + the writer. Idempotent
     (``upsert_facts`` skips rows that already exist, including their stored reconciliation flags).
-    A full pass does not repair historical flags. Filings are processed oldest-first so the
+    A default pass does not repair historical flags; ``refresh_flags=True`` (the
+    ``reconciliation-flag-audit`` script) re-evaluates ONLY the flag of value/source-identical
+    existing rows and adds ``flags_refreshed`` / ``value_mismatch`` to the stats, logging one line
+    per filing that would change. ``tickers`` restricts the pass to those companies (uppercased).
+    ``dry_run=True`` rolls back each filing's transaction instead of committing it (fact rows,
+    flag flips AND the ``processed_facts_at`` stamp) — note that the rollback expires the loaded
+    objects, so a caller must ``db.refresh()`` before reading them. Filings are processed oldest-first so the
     newest reported value wins ``is_latest``, and each is stamped with ``processed_facts_at`` so we
     can tell which filings have been normalized. ``extract`` is injectable for tests.
 
@@ -693,6 +733,10 @@ def backfill_facts(
     )
     if only_unprocessed:
         query = query.filter(Filing.processed_facts_at.is_(None))
+    if tickers:
+        query = query.filter(Filing.company_id.in_(
+            db.query(Company.id).filter(Company.ticker.in_([t.upper() for t in tickers]))
+        ))
     query = query.order_by(Filing.filing_date.asc())
     if limit:
         query = query.limit(limit)
@@ -702,6 +746,10 @@ def backfill_facts(
     skipped = 0
     rejected = 0
     errors = 0
+    flags_refreshed = 0
+    value_mismatch = 0
+    companyfacts_unavailable = 0
+    unauthorized_companies: set[int] = set()
     for filing in query.all():
         try:
             standardized = extract(filing.xbrl_data)
@@ -712,6 +760,7 @@ def backfill_facts(
 
         # Cross-check headline figures against companyfacts (one fetch per company, cached).
         authoritative: Optional[dict[tuple[str, date], float]] = None
+        refresh_this_filing = refresh_flags
         if cross_check:
             if filing.company_id not in auth_by_company:
                 cik = getattr(filing.company, "cik", None)
@@ -719,13 +768,26 @@ def backfill_facts(
                 auth_by_company[filing.company_id] = (
                     extract_authoritative_values(fetched) if fetched else {}
                 )
+                if not fetched:
+                    companyfacts_unavailable += 1
+                    unauthorized_companies.add(filing.company_id)
             authoritative = auth_by_company[filing.company_id]
+            # The audit's verdicts are only trustworthy under the same authority the stored flags
+            # were computed with: a row confirmed by companyfacts within tolerance keeps its
+            # `edgar_xbrl` source, so without the fetch the local gate would demote it. Count the
+            # miss (it fails the audit run) and leave that company's flags alone.
+            if filing.company_id in unauthorized_companies:
+                refresh_this_filing = False
 
         # Shared processing uses Filing.period_end_date for the local current-period check.
-        # Reprocessing still skips existing identities; it does not refresh their flags.
+        # Reprocessing skips existing identities; only the opt-in ``refresh_flags`` audit
+        # re-evaluates their stored reconciliation flag (value/source-identical rows only).
         result = process_filing_facts(
-            db, filing, standardized=standardized, authoritative=authoritative
+            db, filing, standardized=standardized, authoritative=authoritative,
+            refresh_flags=refresh_this_filing, commit=not dry_run,
         )
+        if dry_run:
+            db.rollback()  # preview only: discard rows, flag flips and the stamp for this filing
         # result is None only when there's nothing to process (no xbrl_data) — can't happen here
         # since the query filters `xbrl_data IS NOT NULL`, but guard it (the return type is Optional).
         if result is not None:
@@ -733,14 +795,29 @@ def backfill_facts(
             skipped += result["skipped"]
             rejected += result.get("rejected", 0)
             processed += 1
+            if refresh_this_filing:
+                flags_refreshed += result["flags_refreshed"]
+                value_mismatch += result["value_mismatch"]
+                if result["inserted"] or result["flags_refreshed"] or result["value_mismatch"]:
+                    logger.info(
+                        "reconciliation_flag_audit filing_id=%s accession=%s inserted=%s "
+                        "flags_refreshed=%s value_mismatch=%s dry_run=%s",
+                        filing.id, filing.accession_number, result["inserted"],
+                        result["flags_refreshed"], result["value_mismatch"], dry_run,
+                    )
 
-    return {
+    stats = {
         "filings_processed": processed,
         "facts_inserted": inserted,
         "facts_skipped": skipped,
         "facts_rejected": rejected,
         "extract_errors": errors,
     }
+    if refresh_flags:
+        stats["flags_refreshed"] = flags_refreshed
+        stats["value_mismatch"] = value_mismatch
+        stats["companyfacts_unavailable"] = companyfacts_unavailable
+    return stats
 
 
 def remediate_industry_facts(

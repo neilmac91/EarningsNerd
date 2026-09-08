@@ -37,7 +37,7 @@ JOB_CADENCES = {
 ERROR_COUNTERS = frozenset({
     "source_errors", "errors", "extract_errors", "alerts_failed", "digests_failed",
     "failed", "commit_failed", "generation_failed", "missing_urls", "unsupported_form",
-    "company_not_found",
+    "company_not_found", "companyfacts_unavailable",
 })
 
 

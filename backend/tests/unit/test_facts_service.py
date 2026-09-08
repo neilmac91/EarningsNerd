@@ -309,6 +309,119 @@ class TestUpsert:
         assert float(rows["ACC2"].value) == 110.0
         db.close()
 
+    # --- W3-9 reconciliation-flag audit: `refresh_flags` ---------------------------------
+
+    @staticmethod
+    def _seed_clean(db, cid):
+        facts = svc.normalize_standardized_to_facts(
+            cid, None, "ACC-rf", "10-K",
+            {
+                "revenue": {"current": {"period": "2024-09-28", "value": 100.0}},
+                "net_income": {"current": {"period": "2024-09-28", "value": 20.0}},
+            },
+        )
+        assert svc.upsert_facts(db, facts) == {"inserted": 2, "skipped": 0, "rejected": 0}
+        return facts
+
+    @staticmethod
+    def _snapshot(db, cid):
+        from app.models import FinancialFact
+
+        cols = [c.name for c in FinancialFact.__table__.columns]
+        return {
+            r.id: {c: getattr(r, c) for c in cols}
+            for r in db.query(FinancialFact).filter_by(company_id=cid).all()
+        }
+
+    def test_default_upsert_never_touches_stored_flag(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        facts = self._seed_clean(db, cid)
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        row.reconciled = False  # a stale verdict from an older gate
+        db.commit()
+
+        assert svc.upsert_facts(db, facts) == {"inserted": 0, "skipped": 2, "rejected": 0}
+        db.expire_all()
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        assert row.reconciled is False  # default path leaves history frozen
+        db.close()
+
+    def test_refresh_flags_touches_only_the_flag_in_both_directions(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        facts = self._seed_clean(db, cid)
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        row.reconciled = False
+        db.commit()
+        before = self._snapshot(db, cid)
+
+        res = svc.upsert_facts(db, facts, refresh_flags=True)
+        assert res == {"inserted": 0, "skipped": 2, "rejected": 0,
+                       "flags_refreshed": 1, "value_mismatch": 0}
+        db.expire_all()
+        after = self._snapshot(db, cid)
+        assert set(after) == set(before)  # no rows added or removed
+        for rid, cols in before.items():
+            changed = {c for c in cols if after[rid][c] != cols[c]}
+            assert changed == ({"reconciled"} if cols["concept"] == "revenue" else set())
+        assert after[row.id]["reconciled"] is True
+
+        # Reverse direction: a stored True whose local gate now says False flips to False. Seed a
+        # clean prior so revenue=0 for 2024 is flagged as a parse miss by the gate.
+        svc.upsert_facts(db, [{
+            **facts[0],
+            "period_end": date(2023, 9, 30), "fiscal_year": 2023, "value": 100.0,
+            "accession": "ACC-rf-prior",
+        }])
+        flagged = [{**facts[0], "value": 0.0, "accession": "ACC-rf-zero"}]
+        svc.upsert_facts(db, flagged, reconcile=False)  # store it unflagged (reconciled=True)
+        zero = db.query(FinancialFact).filter_by(company_id=cid, accession="ACC-rf-zero").one()
+        zero.reconciled = True
+        db.commit()
+        res = svc.upsert_facts(db, flagged, refresh_flags=True)
+        assert res["flags_refreshed"] == 1 and res["value_mismatch"] == 0
+        db.expire_all()
+        zero = db.query(FinancialFact).filter_by(company_id=cid, accession="ACC-rf-zero").one()
+        assert zero.reconciled is False
+        db.close()
+
+    def test_refresh_flags_counts_mismatch_and_never_flips_it(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        facts = self._seed_clean(db, cid)
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        rev.reconciled = False
+        db.commit()
+        before = self._snapshot(db, cid)
+
+        # Same identity, different value (e.g. the extraction changed) → mismatch, no flip.
+        changed = [dict(f, value=f["value"] + 1.0) if f["concept"] == "revenue" else f for f in facts]
+        res = svc.upsert_facts(db, changed, refresh_flags=True)
+        assert res["value_mismatch"] == 1 and res["flags_refreshed"] == 0 and res["inserted"] == 0
+        db.expire_all()
+        assert self._snapshot(db, cid) == before
+
+        # Same value but the stored row is an authoritative companyfacts row → also a mismatch.
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        rev.source = "companyfacts"
+        db.commit()
+        before = self._snapshot(db, cid)
+        res = svc.upsert_facts(db, facts, refresh_flags=True)
+        assert res["value_mismatch"] == 1 and res["flags_refreshed"] == 0
+        db.expire_all()
+        assert self._snapshot(db, cid) == before
+        db.close()
+
 
 @pytest.mark.requires_db
 class TestUpsertReconciliation:
@@ -427,6 +540,140 @@ class TestBackfill:
         svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False)
         db.refresh(filing)
         assert filing.processed_facts_at == stamped_at
+        db.close()
+
+    @staticmethod
+    def _marked_filing(db, cid, tag="bf"):
+        from datetime import datetime
+
+        from app.models import Filing
+
+        filing = Filing(
+            company_id=cid,
+            accession_number=f"ACC-{tag}-{uuid.uuid4().hex[:8]}",
+            filing_type="10-K",
+            filing_date=datetime(2024, 11, 1),
+            document_url="https://sec.example/x.htm",
+            sec_url="https://sec.example/",
+            xbrl_data={"mark": "X"},
+        )
+        db.add(filing)
+        db.commit()
+        return filing
+
+    def test_refresh_flags_dry_run_writes_nothing(self):
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = self._marked_filing(db, cid, "dry")
+        ticker = db.get(Company, cid).ticker
+
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, dry_run=True,
+            tickers=[ticker],
+        )
+        assert stats["facts_inserted"] == 2 and stats["flags_refreshed"] == 0
+        assert stats["value_mismatch"] == 0
+        assert db.query(FinancialFact).filter_by(company_id=cid).count() == 0
+        db.refresh(filing)
+        assert filing.processed_facts_at is None  # the stamp was rolled back too
+
+        # A real run, then a hand-flipped flag, then a dry run: the flip is reported, not written.
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
+        db.refresh(filing)
+        assert filing.processed_facts_at is not None
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        rev.reconciled = False
+        db.commit()
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, dry_run=True,
+            tickers=[ticker],
+        )
+        assert stats["flags_refreshed"] == 1 and stats["facts_inserted"] == 0
+        db.expire_all()
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        assert rev.reconciled is False  # DB unchanged by the dry run
+
+        # The apply run writes it.
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, refresh_flags=True, tickers=[ticker],
+        )
+        assert stats["flags_refreshed"] == 1
+        db.expire_all()
+        rev = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        assert rev.reconciled is True
+        db.close()
+
+    def test_refresh_never_demotes_a_confirmed_flag_when_companyfacts_is_unavailable(self):
+        """A row confirmed by the SEC cross-check within tolerance keeps `source=edgar_xbrl` and
+        `reconciled=True` even when the local gate flags it; if the companyfacts fetch fails in
+        the audit, the local verdict alone would demote it. The miss is counted (it fails the
+        audit run through ERROR_COUNTERS) and that company's flags are left untouched."""
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+        from app.services.job_run_service import ERROR_COUNTERS
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = self._marked_filing(db, cid, "auth")
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
+        row.reconciled = False  # the local gate says False; pretend the SEC confirmed it below
+        db.commit()
+        db.refresh(filing)
+        filing.processed_facts_at = None
+        db.commit()
+
+        ticker = db.get(Company, cid).ticker
+        # Sanity: with the fetch available (empty authority) the audit would flip the flag.
+        stats_with = svc.backfill_facts(
+            db, extract=_fake_extract, companyfacts_fetcher=lambda cik: {"facts": {}},
+            refresh_flags=True, dry_run=True, tickers=[ticker],
+        )
+        assert stats_with["companyfacts_unavailable"] == 0 and stats_with["flags_refreshed"] == 1
+
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, companyfacts_fetcher=lambda cik: None, refresh_flags=True,
+            tickers=[ticker],
+        )
+        assert stats["companyfacts_unavailable"] == 1
+        assert stats["flags_refreshed"] == 0 and stats["value_mismatch"] == 0
+        assert "companyfacts_unavailable" in ERROR_COUNTERS
+        db.expire_all()
+        assert db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one().reconciled is False
+        db.close()
+
+    def test_default_backfill_stats_shape_is_unchanged(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        self._marked_filing(db, cid, "shape")
+        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        assert set(stats) == {"filings_processed", "facts_inserted", "facts_skipped",
+                              "facts_rejected", "extract_errors"}
+        db.close()
+
+    def test_tickers_filter_scopes_the_pass(self):
+        from app.database import SessionLocal
+        from app.models import Company, FinancialFact
+
+        db = SessionLocal()
+        cid_a, cid_b = _new_company(db), _new_company(db)
+        self._marked_filing(db, cid_a, "ta")
+        filing_b = self._marked_filing(db, cid_b, "tb")
+        ticker_a = db.get(Company, cid_a).ticker
+
+        stats = svc.backfill_facts(
+            db, extract=_fake_extract, cross_check=False, tickers=[ticker_a.lower()],
+        )
+        assert stats["filings_processed"] == 1 and stats["facts_inserted"] == 2
+        assert db.query(FinancialFact).filter_by(company_id=cid_a).count() == 2
+        assert db.query(FinancialFact).filter_by(company_id=cid_b).count() == 0
+        db.refresh(filing_b)
+        assert filing_b.processed_facts_at is None
         db.close()
 
 

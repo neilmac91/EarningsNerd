@@ -201,6 +201,38 @@ def test_filing_cli_rejects_dry_run_before_application_work(monkeypatch, digest,
         db.close.assert_called_once_with()
 
 
+@pytest.mark.parametrize("apply", [False, True], ids=["dry-run", "apply"])
+def test_reconciliation_flag_audit_cli_is_dry_run_unless_apply(monkeypatch, capsys, apply):
+    from app.services import facts_service
+
+    db = MagicMock()
+    factory = MagicMock(return_value=db)
+    tracker = MagicMock()
+    attempt = tracker.return_value.__enter__.return_value
+    stats = {"filings_processed": 1, "facts_inserted": 0, "facts_skipped": 2, "facts_rejected": 0,
+             "extract_errors": 0, "flags_refreshed": 1, "value_mismatch": 0}
+    audit = MagicMock(return_value=stats)
+    monkeypatch.setattr(database, "SessionLocal", factory)
+    monkeypatch.setattr(jobs, "track_job", tracker)
+    monkeypatch.setattr(facts_service, "backfill_facts", audit)
+    argv = ["audit_reconciliation_flags.py", "--tickers", "aapl, msft", "--limit", "7"]
+    if apply:
+        argv.append("--apply")
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts/audit_reconciliation_flags.py"),
+                   run_name="__main__")
+
+    factory.assert_called_once_with()
+    tracker.assert_called_once_with("reconciliation-flag-audit", dry_run=not apply)
+    audit.assert_called_once_with(db, refresh_flags=True, tickers=["aapl", "msft"], limit=7,
+                                  dry_run=not apply)
+    attempt.record.assert_called_once_with(stats)
+    db.close.assert_called_once_with()
+    import json
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1]) == stats
+
+
 def test_provider_exceptions_are_counted_by_services(sessions, monkeypatch):
     from app.services import earnings_calendar_service as calendar, notable_filings_service as notable
     from app.services import filing_scan_service as scan
