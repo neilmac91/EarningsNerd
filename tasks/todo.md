@@ -87,12 +87,12 @@ founder action is released. What remains is founder-held or founder-gated:
   founder decisions recorded in their rows.
 - [ ] Dependabot #270 dismissal; Codex code-review credits; `.github` Actions policy for
   automatic draft publication; the GCP console items under "Remaining founder decisions".
-- [ ] **Decision, then engineering**: the advisory `eval-baseline` job counts a single
-  transient provider execution error as `execution_errors = 1` and fails; `evals/runner.py`
-  has no retry for it (the judge path does, `_judge_with_retry`). One bounded retry of an
-  errored attempt before it is counted would have removed both of tonight's reds without
-  changing any score, but it alters what the gate's error column measures, so it is held for the
-  founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
+- [x] **Decided and released**: the founder chose the engineer's recommendation on the morning
+  of 2026-09-08 ("go with your best recommendation"); `evals/runner.py` now retries an
+  attempt once when its failure is a transient provider fault, with the retry on record
+  (row, summary, both harnesses, gate note). Released as
+  [#769](https://github.com/neilmac91/EarningsNerd/pull/769) = `7b6a32e`, revision 00307;
+  section "Eval runner — one retry for a transient provider fault" below.
 
 ## Eval runner — one retry for a transient provider fault (engineering, 2026-09-08)
 
