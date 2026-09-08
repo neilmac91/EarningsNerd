@@ -235,5 +235,6 @@ The [Astra audit](audit-astra-2026-09-08.md) found three migrations in the state
 them. The six-file lock check above remains a valid narrow check but cannot establish full
 inventory compliance: #759 appended tests to the actual T4 file,
 `backend/tests/unit/test_subscription_webhook_sync.py`, while calling it unlocked. Existing
-assertions were preserved; founder disposition on retaining the additions is pending.
+assertions were preserved; the founder approved retaining the additions on 2026-09-08 as a
+specific exception. Future edits remain locked.
 The original statements are retained as historical records, with this dated correction beneath.

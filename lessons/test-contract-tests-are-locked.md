@@ -36,7 +36,8 @@ Actual named anchors remained byte-identical. Use the cited inventory when resol
 `tasks/architecture-refactor-plan.md` lines 78–83 and original commit `2b41718d` establish.
 The earlier planned name `test_stripe_downgrade.py` never became its home. #759 appended
 three tests while incorrectly classifying the actual file as unlocked; all prior assertions
-are unchanged, but the file differs. Founder disposition on retaining those additions is
-pending in `tasks/audit-astra-2026-09-08.md`. T6 remained deferred; T3's current successor is
+are unchanged, but the file differs. The founder approved retaining those additions on
+2026-09-08 as a specific exception, recorded in `tasks/audit-astra-2026-09-08.md`. Future edits
+remain locked; this retention decision does not retroactively make the original edit pre-approved. T6 remained deferred; T3's current successor is
 `backend/tests/unit/test_generation_requires_account.py`. These clarify existing rule-6
 coverage rather than create a new lock or authorize editing an existing one.

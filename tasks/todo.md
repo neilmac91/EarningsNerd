@@ -7,7 +7,7 @@ Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe
 - [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
 - [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
 - [ ] Fix confirmed delivery replacement crash gap under normal code-PR gates and serial deployment verification.
-- [ ] Obtain founder disposition for #759's additions to actual locked T4 file; leave the file untouched meanwhile.
+- [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
 - [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
 - [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
 
@@ -662,6 +662,11 @@ but file-level byte identity fails. #759's body also calls it unlocked and recor
 contract exception. Retaining the added gates requires a founder decision; no automatic
 reversion or further edit of this locked file is authorized. The complete actual inventory,
 including T3's successor and T10, is part of this audit.
+
+**Founder disposition — 2026-09-08:** “Approve retaining the additions.” The three #759
+additions are retained as a specific exception. No locked-file bytes changed in this audit,
+and the existing file lock continues to govern any future edit. This resolves the audit's
+historical boundary finding without claiming the original edit had prior approval.
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 

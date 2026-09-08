@@ -11,8 +11,8 @@ refutation attempts. This report distinguishes observed evidence from prior-sess
 The recorded releases and production checkpoints are supported by GitHub evidence, but the
 session is not a clean pass. One runtime must-fix loses pending alerts across a crash during
 envelope replacement. One historical boundary finding misclassified the actual locked T4 file.
-The runtime fix is being verified separately; the founder's decision on retaining #759's
-additions is pending. A smaller provider-admission cleanup gap and documentation inaccuracies
+The runtime fix is being verified separately. The founder approved retaining #759's
+additions on 2026-09-08 as a specific lock exception; this resolves the historical boundary disposition. A smaller provider-admission cleanup gap and documentation inaccuracies
 are recorded below. No live email, job test, replay, account action or console operation was
 performed by this audit.
 
@@ -44,7 +44,9 @@ completion record and original commit `2b41718d`; both identify T4's real home. 
 compared the full diff and fetched #759's body/comments/reviews: no deleted symbol or documented
 contract approval. The old file is an exact byte prefix, so no existing assertion was weakened
 and no runtime regression is attributed to these additions. The file remains untouched by this
-audit. A dated ledger correction is appended; founder disposition is pending.
+audit. A dated ledger correction is appended. On 2026-09-08 the founder explicitly approved retaining
+the additions. This is a retention decision, not a claim that the original edit was pre-approved;
+future edits remain subject to the existing lock.
 
 ## Should-fix findings
 
