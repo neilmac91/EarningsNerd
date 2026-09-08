@@ -16,3 +16,14 @@ before any test is called flaky or "fixed" by scoping.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
 `70fca647` (2705 passed) with the worktree left alone; `tasks/todo.md` W3-9 section.
+
+**Correction (2026-09-08, later the same day).** The parallel run was the trigger, not the whole
+cause. The SQLite file outlives the test process, and `test_tickers_filter_scopes_the_pass`
+(added in #763) deliberately leaves an unstamped marked filing behind; the unscoped idempotency
+test then counts it on ANY later run in the same worktree — deterministic on the second run of
+`test_facts_service.py`, fresh file or not. CI never saw it because CI runs one process on a
+fresh file. Fixed by scoping the idempotency test to its own company (`tickers=[ticker]`), the
+same seam the other backfill tests use. The rule above stands; the added rule: a test that
+leaves state behind on purpose must not share an unscoped assertion with another test, and a
+"passes alone, fails on re-run" result is checked by running the file twice on a fresh file
+before any parallel-run explanation is accepted.

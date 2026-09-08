@@ -89,6 +89,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`ops-keep-moving-under-standing-authorization.md`](./ops-keep-moving-under-standing-authorization.md) — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - `ops-one-test-process-per-worktree.md` — one test process per worktree; never run pytest beside a running gate.
+- `ops-mutate-only-committed-state.md` — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit.
 
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 

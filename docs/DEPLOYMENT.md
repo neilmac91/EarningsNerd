@@ -390,7 +390,10 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
 
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.
-Dry run by default — run it first, read the `flags_refreshed` / `value_mismatch` counts, then apply:
+Flag columns only: identities not stored yet are counted as `facts_unstored`, never inserted, no
+current row is demoted and `processed_facts_at` is not touched (storing them is the full re-pass
+above, `scripts/backfill_facts.py` without `--only-new`). Dry run by default — run it first, read
+the `flags_refreshed` / `value_mismatch` / `facts_unstored` counts, then apply:
 
 ```bash
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
@@ -403,8 +406,29 @@ gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name=
   --freshness=3h --format='value(labels."run.googleapis.com/execution_name",jsonPayload)'
 ```
 
-First execution 2026-09-08 (founder, Cloud Shell): dry run then apply over 56 filings,
-`flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`.
+First execution 2026-09-08 (founder, Cloud Shell), before the flags-only mode existed: dry run
+then apply over 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`,
+and `facts_inserted=78` through the normal backfill path. Those 78 rows are reviewed with the
+read-only aid (one JSON line per row, then a summary line with the count; nothing written). A
+`created_at` window alone cannot attribute a row to the audit (a summary finishing inside the
+window populates the same table), so the review is anchored on the audit's own per-filing log
+lines, which name each changed filing's accession and its `inserted` count:
+
+```bash
+# 1. Provenance: the apply execution's per-filing lines (accession + inserted count per filing).
+gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="earningsnerd-backfill-facts-c42cc" AND textPayload:"reconciliation_flag_audit"' \
+  --order=asc --format='value(textPayload)'
+# 2. The rows, restricted to those accessions (from step 1). gcloud splits --args on commas, so
+#    they reach the script as `--accessions <acc1> <acc2> ...`, which it accepts (no ^;^ needed).
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z,--accessions,<acc1>,<acc2>,..." --wait
+# 3. Read that execution's output by its name (printed by --wait): every row AND the summary line.
+gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="<execution name>" AND jsonPayload:*' \
+  --order=asc --format='value(jsonPayload)'
+```
+
+The per-accession row counts in step 3 should equal the `inserted` counts in step 1 (78 in
+total); a surplus on an accession means another writer touched that filing in the window.
 
 **Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
 `CALENDAR_INDEX_FILTER_ENABLED` (Settings default false) and reads the committed
