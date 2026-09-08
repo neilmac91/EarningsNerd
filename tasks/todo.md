@@ -25,6 +25,9 @@ invariant, one paid Copilot run at ready (all accepted 18/18), squash merge with
 and serial deploy verification (`apply_migrations: applied=0`, Cloud Run revision at 100 %,
 CI `/health/detailed`, independent curl). Details in each section below.
 
+**Dated correction — 2026-09-08, Astra audit:** the introductory `applied=0` shorthand above
+omits #757's `applied=1 skipped=38`. Its detailed release record and deploy log were correct.
+
 Handover to the next GPT-6 Astra session (2026-09-08,
 [#771](https://github.com/neilmac91/EarningsNerd/pull/771)): `tasks/handover-astra-2026-09-08.md`
 (span #742–#770, scepticism items, audit brief, remaining plan) and the launch prompt

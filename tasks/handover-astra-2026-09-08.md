@@ -226,3 +226,14 @@ the frontend gate too) is applied without a fifth review pass, on the founder's 
 the founder's chosen guide
 (promptessor.com, "GPT-6 Astra prompting guide"): labeled sections with clarification, tool,
 delegation and failure-handling policies and an output contract.
+
+## Dated audit corrections — 2026-09-08
+
+The [Astra audit](audit-astra-2026-09-08.md) found three migrations in the stated span, not two:
+#746 adds `20260906_earningsnerd_usage_reservations.sql` in addition to the #747 and #757 files.
+#746 consumed two paid Copilot runs, not one; its detailed ledger and #747 body already recorded
+them. The six-file lock check above remains a valid narrow check but cannot establish full
+inventory compliance: #759 appended tests to the actual T4 file,
+`backend/tests/unit/test_subscription_webhook_sync.py`, while calling it unlocked. Existing
+assertions were preserved; founder disposition on retaining the additions is pending.
+The original statements are retained as historical records, with this dated correction beneath.
