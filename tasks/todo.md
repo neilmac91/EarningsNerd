@@ -1,3 +1,9 @@
+## September 9 filing-list copy release
+
+- [x] Report-year labeling: [#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged, main CI 34290442746 and Vercel production succeeded; full frontend gate and four local theme/viewport checks passed.
+- [ ] Excerpt provenance [#789](https://github.com/neilmac91/EarningsNerd/pull/789) merged at 93716388d14e9cdc2f13fef3f09e9feaf343ec25; main CI 34291185532 is pending production verification.
+- [ ] Confirmed production-only comparative backfill: replace broad income/profit/margin label matching with exact supported identities; independently review EPS basis and ADS projection before release.
+
 ## September 9 audit S1 completion
 
 - [x] Audit S1: [#786](https://github.com/neilmac91/EarningsNerd/pull/786) production-verified at `earningsnerd-backend-00314-jsf`, main CI 34289364726, migrations 0/39, healthy CI and independent detailed health. Earlier pending/deferred rows below remain historical.

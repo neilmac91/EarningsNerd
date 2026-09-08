@@ -72,3 +72,13 @@ Process correction: an agent inadvertently repeated the excerpt-provenance mutat
 [#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`. Full local backend gate passed 2,732 tests; actual summary CI 34286724767 scored 52/52 without errors/retries/vetoes, one paid Copilot run 34287603552 accepted 18/18. Cleanup occupies admission until transport close completes, and explicit closer failure retains no-retry behavior.
 
 Main CI [34289364726](https://github.com/neilmac91/EarningsNerd/actions/runs/34289364726) and deploy job 102272981615 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00314-jsf` serves 100% traffic. CI health 1788909386.3740237 and fresh independent health 1788909436.2419784 are healthy, database 6.73/6.79 ms, SEC closed. This supersedes September 8's deferred audit S1 status without changing the historical record.
+
+## September 9 frontend release — report-year label
+
+[#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged as `7ebfa4a3475980636a1d6fcf7d6de9652fa706ce`. Full frontend lint/tsc/103 files and 569 tests/build passed; isolated desktop/mobile light/dark visual checks found legible labels and no horizontal overflow. No production account test was run. Main CI [34290442746](https://github.com/neilmac91/EarningsNerd/actions/runs/34290442746) and exact-commit Vercel production status succeeded. No backend deployment occurred. The UI now labels its unchanged calendar-date grouping “Report year” rather than claiming issuer fiscal-year identity.
+
+## Revised remaining quality sequence
+
+Finish the independently reviewed segment and return releases, then the production comparative/ADS identity correction. Preserve truthful optional source metadata for the next source audit. Correct the causal fixed P&L metric menu only after that normalization prerequisite, sharing the source-reported-label contract across main generation and recovery. Its actual regression must inspect retained PFE labels, amounts, comparatives and preview/final representations, plus the full cohort for redistributed errors. A source-identity parser is not presumed complete and no amount-only automatic relabeling is proposed.
+
+Keep complete-section expansion, legal inventory and incorporated-report acquisition as separately bounded work. The retained experiments now show a concrete quality/cost trade-off, section-key ambiguity and missing transport size/redirect controls; these are implementation prerequisites, not reasons to upgrade EdgarTools blindly. The immediate fixes do not certify all saved production analyses or authorize historical refresh. Fable comparison and unseen human-reviewed acceptance remain outstanding.
