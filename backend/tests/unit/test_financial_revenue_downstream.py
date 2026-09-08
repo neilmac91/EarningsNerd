@@ -180,6 +180,8 @@ def test_provenance_net_drops_conflated_bank_revenue_at_read_time():
     ("Adjusted net income", None, None),
     ("Adjusted operating margin", None, None),
     ("Profit", None, None),
+    ("Net loss", None, None),
+    ("Operating loss", None, None),
     ("Revenue growth", None, None),
     ("Sales expense", None, None),
     ("Inventory turnover", None, None),
@@ -196,6 +198,10 @@ def test_prior_backfill_requires_the_same_metric_identity(label, key, expected):
         "earnings_per_share": 1.25, "eps_diluted": 1.10,
     }
     metrics = {k: {"prior": {"value": v}} for k, v in values.items()}
+    if label in ("Net loss", "Operating loss"):
+        # Displayed loss magnitudes are positive; the signed XBRL income is negative.
+        metrics["net_income"]["prior"]["value"] = -80
+        metrics["operating_income"]["prior"]["value"] = -80
     original = {"table": [{"metric": label, "current_period": "$100", "prior_period": ""}]}
     out = attach_normalized_facts(original, metrics)
     row = out["table"][0]
