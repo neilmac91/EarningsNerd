@@ -1,3 +1,8 @@
+## September 9 selected-filing release update
+
+- [x] Selected-filing fallback identity: [#785](https://github.com/neilmac91/EarningsNerd/pull/785) production-verified on `earningsnerd-backend-00313-pqs`, main CI 34288013954, migrations 0/39, healthy CI and independent detailed health. Historical persisted provenance remains unverified.
+- [ ] Chat cleanup [#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`; main CI 34289364726 is pending. Do not yet mark audit S1 production-complete.
+
 ## September 9 verified quality release
 
 - [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.

@@ -54,3 +54,15 @@ The next quality decision follows code fixes and unseen acceptance with human re
 [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged as `e5a0af80fa4bd4b8dc3f6ba852bbf89e8c572203`. Full local backend gate passed 2,739 tests including performance/four PostgreSQL lanes. PR CI34285574398 retained52/52 summary scores, zero errors/retries/vetoes, and one paid Copilot run34285718209 accepted18/18. The prior absolute figure-trace advisory remains; no quality-acceptance or free-cost claim.
 
 Main CI [34286869418](https://github.com/neilmac91/EarningsNerd/actions/runs/34286869418), deploy job102265321200 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00312-7jp` serves100%, all eight configured job images updated. CI detailed health timestamp1788907485.0101225 and independent curl1788907535.300697 were healthy (database5.77/5.0ms, SECclosed, Redisdisabled). The six new PFE/NVDA/COST outputs show their actual prior balance dates. Existing persisted summaries were not refreshed. Next backend release may proceed.
+
+## September 9 release checkpoint — selected-filing fallback identity
+
+[#785](https://github.com/neilmac91/EarningsNerd/pull/785) merged as `fc2bf2f7eb640c47d282a24c35e4d4b3dd07aea4`. The exact-accession fallback replaces the latest-company surrogate; transient cache version changes, while persisted rows remain untouched. Full local backend gate passed 2,735 tests; PR CI 34285695007 scored all 52 attempts without errors, retries or vetoes, and one paid Copilot run 34285769316 accepted 18/18.
+
+Main CI [34288013954](https://github.com/neilmac91/EarningsNerd/actions/runs/34288013954) is green. Deploy job 102269365731 reports `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00313-pqs` serves 100% traffic. CI detailed health at 1788908498.976069 and independent curl at 1788908906.3239162 are healthy, with database latency 7.01/7.18 ms and SEC circuit closed. This verifies new behavior deployment, not historical snapshot provenance or refreshed saved analyses.
+
+## September 9 review correction — persisted summary stamps
+
+Automated review correctly identified that generation-time segment/return fixes leave old stored summaries unchanged. Two independent checks confirmed read paths copy stored content and a version bump only changes stale eligibility: the explicit admin refresh defaults to dry-run, and ordinary cached reads/example generation do not automatically drain stale rows. The segment and return PRs will receive ordered content stamps and another full committed gate. A second paid Copilot evaluation per changed PR is the authorized confirmed-finding fix round; original evaluation evidence remains recorded. No historical replay or automatic repair is claimed.
+
+Process correction: an agent inadvertently repeated the excerpt-provenance mutation proof after a distinct ORM fix. Original proof tails remain retained; the duplicate is not an additional invariant and incurred no paid evaluation or production action. Further duplicate proofs were stopped, and the deviation was reported to the founder.

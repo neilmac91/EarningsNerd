@@ -42,3 +42,11 @@ All 26 satisfy body plus reserved formatting space ≤ the respective 120,000/17
 An inventory-only PR can be justified once the data shape and cache-hit semantics are reviewed. A complete assembly PR needs source-order and association fixtures before wiring. A general-ranking PR is **not yet justified** by these results; it needs an eviction-free actual-baseline comparison and independent review of the preserved core evidence. Universe-wide pregeneration remains held.
 
 Across all 26 filings, the fixed-reserve variant displaced **129,294 characters across 674 units**. The unused-capacity variant displaced **0 characters from its own reconstructed baseline**, but its conservative structural exclusions changed that baseline and therefore do not establish zero loss versus production. Both variants are negative integration evidence, saved for review.
+
+## Whole-section expansion using remaining capacity
+
+A simpler offline comparison preserves every existing prefix and dense-recovery component, then expands a supplied canonical section only when its entire text fits. Across all 26 retained sources, canonical-order expansion adds 1,255,835 characters (+30.79% over the assembled baseline). Cheapest-complete-expansion first adds 1,144,065 (+28.05%); both complete 30 sections across 21 inputs and remain within the current 320,000-character ceiling. The latter restores XOM's capex range and market-dependent buyback condition. Its different choices for XOM and Boeing demonstrate a general allocation trade-off, not universally superior selection.
+
+A per-filing 10% growth ceiling adds 80,649 characters overall (+1.98%), completing eight sections, but does not recover the confirmed XOM omissions. XOM's full MD&A requires 75,464 additional characters, a 46.9% increase over its 160,904-character baseline. Character growth is not a token or dollar estimate. The larger variant would materially change serving input and attention; the smaller variant does not solve the motivating omission. Neither is adopted as a production fix in this checkpoint.
+
+KO legal exposure remains outside the selected canonical section set, NVO's incorporated exhibit remains unacquired, and Intel's conditional 14A passage was already present. These need distinct source-acquisition or synthesis fixes. This comparison incurred no model calls, new SEC fetches or pregeneration.

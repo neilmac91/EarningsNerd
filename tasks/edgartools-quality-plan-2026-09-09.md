@@ -115,3 +115,9 @@ The priority is to use the already-installed library more carefully, validate ex
 ## Selection follow-up decision — September 9
 
 The [general-selector experiments](evidence-selection-experiments-2026-09-09.md) did not justify production integration. They recovered some confirmed missing inputs while displacing other material passages or excluding unresolved source structure. The next safe stage is truthful observed excerpt provenance, followed by complete source assembly and explicit association/budget rules. Intel 14A was present in the actual retained generator context and remains a synthesis issue. These results narrow the earlier capability opportunities; they do not justify a larger prompt or an SDK replacement.
+
+## Source identity follow-up
+
+The current document owner already returns decoded HTTP response text, including inline XBRL for HTML filings. Offline PFE and XOM probes preserve that exact string with one mocked HTTP request, exposing namespace URI, original fact IDs, context/entity/dates, unit and scale directly from retained HTML. SDK fact tables alone lose namespace bindings and cannot prove expanded identity from a us-gaap prefix. Preserve optional source representation metadata through the existing owner; label its hash decoded-response-text UTF-8, never original wire bytes.
+
+This supports a later conservative offline concept audit without another SEC request. It does not yet prove a complete parser or justify automatic operating-income relabeling: malformed namespaces, duplicate IDs, continuations, ambiguous context, currencies and independently valid calculations require unknown outcomes or source adjudication. Serving classification waits for positive identity evidence and shared-surface coverage.
