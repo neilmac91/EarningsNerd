@@ -166,7 +166,7 @@ class _SectionRecoveryMixin:
 Filing type: {filing_type_label}
 Reporting period: {reporting_period}
 
-Populate only the `{section_key}` portion of the structured summary schema shown below. Use concrete facts from the excerpt. If figures are missing, supply concise qualitative statements rather than placeholders.
+Populate only the `{section_key}` portion of the structured summary schema shown below. Use concrete facts from the excerpt. For non-table narrative fields, if figures are missing, supply concise qualitative statements rather than placeholders.
 
 SCHEMA:
 {schema_snippet}
