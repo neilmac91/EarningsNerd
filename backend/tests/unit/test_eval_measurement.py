@@ -392,7 +392,7 @@ def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatc
             db.add(Company(id=1, cik="1", ticker="FIX", name="Fixture"))
             db.add(Filing(id=1, company_id=1, accession_number="0000000001-26-000001",
                           filing_type="10-K", filing_date=datetime.now(timezone.utc),
-                          document_url="fixture", sec_url="fixture"))
+                          document_url="https://example.test/filing", sec_url="https://example.test/filing"))
             db.commit()
             committed = []
             post_commit_sql = []
