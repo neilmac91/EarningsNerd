@@ -235,23 +235,18 @@ def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
 def _unread_count(db: Session, user: User) -> int:
     """Count of successfully-sent alerts logged since the user last opened the bell.
 
-    The seen/created_at comparison is done in Python (via ``_as_utc``), not SQL, to stay tz-safe
-    across Postgres (aware) and SQLite (naive) — matching the convention in ``filing_scan_service``.
+    One aggregate statement (E10c): the bell polls this every minute per open session and the
+    log is never purged, so the count must not grow with account age. ``created_at`` is a
+    timezone-aware column; an aware-UTC bound value compares correctly on PostgreSQL
+    (timestamptz) and on SQLite (both sides are rendered as naive UTC text).
     """
-    seen = _as_utc(user.notifications_seen_at)
-    if seen is None:
-        return (
-            db.query(func.count(NotificationLog.id))
-            .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
-            .scalar()
-            or 0
-        )
-    rows = (
-        db.query(NotificationLog.created_at)
-        .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
-        .all()
+    query = db.query(func.count(NotificationLog.id)).filter(
+        NotificationLog.user_id == user.id, NotificationLog.status == "sent"
     )
-    return sum(1 for (created_at,) in rows if (c := _as_utc(created_at)) and c > seen)
+    seen = _as_utc(user.notifications_seen_at)
+    if seen is not None:
+        query = query.filter(NotificationLog.created_at > seen)
+    return query.scalar() or 0
 
 
 def _notifications_payload(db: Session, user: User, limit: int) -> NotificationListResponse:
