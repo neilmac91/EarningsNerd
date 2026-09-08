@@ -454,3 +454,21 @@ evaluation ran, and production Vercel served the new session-transition code by 
 (verified from the served `/pricing` chunk). Browser Set-Cookie ordering, cross-tab transitions
 and other account caches are outside this bounded claim. Pricing's unknown subscription state
 and same-account cached Billing retention are the next separate slice (billing-state honesty).
+
+## Dated Astra audit correction and release — 2026-09-08
+
+The original E11 completion records above remain historical. The takeover audit found that
+pending-envelope replacement committed release before replacement creation, losing old wanted
+filings on interruption. #772 (`048fbc47`) makes that transition atomic and preserves ownership
+on insertion failure/collision. Main CI `34251319216` and deploy job `102147135898` succeeded:
+`apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00308-khx` at 100%,
+all eight job images updated; CI and independent detailed health are healthy. The full gate
+passed 2731 tests; one paid evaluation accepted 18/18; the advisory eval passed 52/52, zero
+errors/retries. See [the audit](audit-astra-2026-09-08.md) for exact tails and refutations.
+
+#759's dunning tests were appended to the actual T4 locked file while it was incorrectly called
+unlocked. Original assertions remained unchanged. The founder explicitly approved retaining
+those additions on 2026-09-08 as a specific exception; future changes remain locked. No locked
+file or historical business data was changed by this audit. Other ledger SHAs, deploy counts,
+revisions and CI health in the audited span reconcile with GitHub; narrower handover summary
+errors are corrected in the audit and dated notes without overwriting original records.
