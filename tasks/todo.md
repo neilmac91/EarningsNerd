@@ -143,6 +143,35 @@ registration, legal, destructive data or history operations, historical replay, 
 live email/job execution as a test, live account actions, the AI provider, console actions such
 as the retention job and scheduler, Dependabot #270).
 
+## E10c — Bell unread count as one SQL aggregate (engineering, 2026-09-08)
+
+Facts (read against `bc973b2`): `routers/users.py::_unread_count`, with `notifications_seen_at`
+set, loaded every `sent` `notification_log` row for the user and counted in Python; the bell
+polls it every minute per open session and the log is never purged (the retention job excludes
+it), so the hottest authenticated read grew with account age. The comment justifying the Python
+count described a Python aware/naive hazard that does not apply in SQL. An audit of every other
+unbounded `.all()` in the routers found them bounded by a watchlist, a cohort, a week window,
+the E15b sitemap cap, or an admin/GDPR one-off: the bell was the only hot, unbounded one.
+
+- [x] One `COUNT … WHERE created_at > :seen` with `seen` normalised to aware UTC; the never-seen
+  branch, the response shape, the per-item `read` flag and the mark-seen path are unchanged.
+- [x] Tests (+3 in `test_notifications_api.py`): exactly one aggregate statement carrying
+  `created_at >` and a `load` trip-wire proving no row is materialised; the boundary is strict
+  at microsecond precision for a naive and an aware `seen`. The whole bell home also passes
+  against a local PostgreSQL 16 database (`DATABASE_URL` override, 7 passed). Mutations on
+  committed state, restored: Python summation restored → 1 failed; `>=` for `>` → 3 failed;
+  rows loaded through the ORM → 1 failed. Full gate on `0cd097d`: ruff/bandit clean, 2684
+  passed.
+- [x] Independent lens (two refutations per candidate, both dialects run): no survivors.
+  Refuted: SQLite's aware-datetime bind rendering, `CURRENT_TIMESTAMP`'s fraction-less text
+  against a fractional bound value at the boundary, a non-UTC aware `seen` (unreachable),
+  PostgreSQL column types (both timestamptz), production rows with naive stamps (every writer
+  uses the server default), consistency with the per-item `read` flag, `.scalar() or 0`, the
+  capture's engine, the trip-wire's scope, the boundary parametrisation on a UTC server, the
+  docstring claims.
+- [ ] Draft PR after #760 merges, one paid Copilot run at ready, merge, deploy verification
+  (`applied=0`).
+
 ## E09b — Process-wide provider admission gate (engineering, 2026-09-07)
 
 Facts (read against `c7510ac`): per process the summary path was bounded (generation semaphore
@@ -206,8 +235,15 @@ evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
   backoff, multi-round `aclose()` ordering, the semaphore cancel race, docs vs code (the
   6 + 3 bound is an upper bound; the true summary-path maximum is 8), the stale-name grep,
   three warm runs of the five AI homes.
-- [ ] Independent lens, draft PR, one paid Copilot run at ready, merge, deploy verification
-  (`applied=0`).
+- [x] Draft [#760](https://github.com/neilmac91/EarningsNerd/pull/760) on `7e1e429`; the delta
+  lens fix landed as `17ecd1f` while still a draft (PR CI run 34171264658 green on every job).
+  Marked ready at 23:55 UTC under the standing authorization (one paid Copilot run).
+  `copilot-eval.yml` run 34171579110 success; PR CI run 34171264658 green on every job
+  (eval-baseline 00:01:28Z); Codex posted only its quota notice. Squash-merged as `11db06d`
+  at 00:04 UTC.
+- [ ] Main CI on `11db06d`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
+  independent detailed health).
+
 
 ## Stripe dunning-policy gates (engineering, 2026-09-07)
 
