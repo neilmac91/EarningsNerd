@@ -163,14 +163,32 @@ TRANSIENT_RETRIES = 1  # re-generate an attempt once when its failure was a tran
 RETRY_DELAY_SECONDS = 5.0
 
 
+_ANTHROPIC_TRANSIENT_NAMES = {"APITimeoutError", "APIConnectionError", "RateLimitError", "InternalServerError"}
+
+
+def _anthropic_transient(exc: BaseException) -> bool:
+    """The Claude bake-off candidates (`evals/models.py::_call_anthropic`) raise the Anthropic
+    SDK's own exception classes, which the production client's classifier never sees. The SDK is
+    optional here, so classify by class identity rather than import: its timeout, connection,
+    rate-limit and server-error classes, plus any status error whose code is 408/409/429/5xx."""
+    cls = type(exc)
+    if cls.__module__.split(".")[0] != "anthropic":
+        return False
+    if _ANTHROPIC_TRANSIENT_NAMES & {base.__name__ for base in cls.__mro__}:
+        return True
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and (status in (408, 409, 429) or status >= 500)
+
+
 def _is_transient(exc: BaseException) -> bool:
-    """A provider fault worth one more attempt: a timeout, or what the production client itself
-    classifies as transient (connection loss, 408/409/429/5xx, a malformed completion). Scorer,
-    schema, grounding and programming errors are reported on the first failure."""
+    """A provider fault worth one more attempt: a timeout, what the production client itself
+    classifies as transient (connection loss, 408/409/429/5xx, a malformed completion), or the
+    Anthropic SDK's equivalents for the Claude candidates. Scorer, schema, grounding and
+    programming errors are reported on the first failure."""
     from app.services.ai import provider_requests
 
     return isinstance(exc, Exception) and (
-        provider_requests.is_timeout(exc) or provider_requests.transient(exc)
+        provider_requests.is_timeout(exc) or provider_requests.transient(exc) or _anthropic_transient(exc)
     )
 
 

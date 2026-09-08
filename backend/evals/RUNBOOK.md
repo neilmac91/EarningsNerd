@@ -262,7 +262,9 @@ the `baseline` candidate runs the production summary path, which raises only its
 `TimeoutError` (the 75 s request budget exhausted after up to three internal provider attempts)
 and turns every other provider fault into a degraded, scored `status: error` summary, so for
 `baseline` the retry fires on that timeout alone and stacks one more generation on top of the
-app's internal attempts; the other transient classes are reachable only for REGISTRY candidates.
+app's internal attempts; the other transient classes are reachable only for REGISTRY candidates,
+and the Claude candidates' Anthropic SDK faults (timeout, connection, 429, 5xx) are classified
+by class identity so the optional SDK need not be installed.
 Scorer, schema, grounding and programming errors are never retried. The retry cannot select on
 quality: a timeout yields no output, so the retried generation is the only one scored. Nothing is
 hidden: the row keeps `retried`, `first_error` and `first_latency_seconds`, the summary carries a

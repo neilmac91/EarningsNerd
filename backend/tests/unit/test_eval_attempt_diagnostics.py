@@ -265,3 +265,22 @@ def test_transient_classification_follows_the_production_client():
     assert runner._is_transient(httpx.ConnectError('reset'))
     assert not runner._is_transient(ValueError('bad json'))
     assert not runner._is_transient(KeyError('score'))
+
+
+def _anthropic_exc(name, base=Exception, **attrs):
+    """The Anthropic SDK is optional in this environment; shape its exception classes by identity."""
+    return type(name, (base,), {'__module__': 'anthropic._exceptions', **attrs})('fault')
+
+
+def test_transient_classification_recognizes_the_anthropic_sdk_faults():
+    assert runner._is_transient(_anthropic_exc('APITimeoutError'))
+    assert runner._is_transient(_anthropic_exc('APIConnectionError'))
+    assert runner._is_transient(_anthropic_exc('RateLimitError', status_code=429))
+    assert runner._is_transient(_anthropic_exc('APIStatusError', status_code=503))
+    assert runner._is_transient(_anthropic_exc('APIStatusError', status_code=409))
+    assert not runner._is_transient(_anthropic_exc('APIStatusError', status_code=400))
+    assert not runner._is_transient(_anthropic_exc('AuthenticationError', status_code=401))
+    assert not runner._is_transient(_anthropic_exc('BadRequestError', status_code=422))
+    # Same class names from any other package are not the SDK's: never classified by name alone.
+    other = type('APITimeoutError', (Exception,), {'__module__': 'somewhere.else'})('fault')
+    assert not runner._is_transient(other)
