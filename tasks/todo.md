@@ -1,3 +1,9 @@
+## September 9 verified quality release
+
+- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.
+- [ ] Complete source-identity fallback, chat cleanup, segment-share and return-basis releases; each has its own gate/review and serial deploy verification.
+- [ ] Account observations remain access-blocked: controllable in-app browser has no Stripe/Google session; existing Chrome PostHog session is readable but Chrome browser automation is unavailable in this task. No account setting changed. Resume with an authenticated controllable session; continue engineering meanwhile.
+
 ## Quality execution continuation — 2026-09-09
 
 The founder authorized work on confirmed corpus findings while Fable completes later, plus an

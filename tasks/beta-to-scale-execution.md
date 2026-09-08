@@ -531,3 +531,9 @@ subsequent queue. Major #749/#750/#751 approvals and all named founder prerequis
 The continuation's code departure point is `b918bf3ab9deda4880706cbabf936cf2b748f587` (#779).
 E09 remains proposal-only; the final master-plan report and handover publish the remaining
 engineering/activation boundaries without claiming the full business or scale plan is complete.
+
+## September 9 release checkpoint — working-capital dates
+
+[#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged as `e5a0af80fa4bd4b8dc3f6ba852bbf89e8c572203`. Full local backend gate passed 2,739 tests including performance/four PostgreSQL lanes. PR CI34285574398 retained52/52 summary scores, zero errors/retries/vetoes, and one paid Copilot run34285718209 accepted18/18. The prior absolute figure-trace advisory remains; no quality-acceptance or free-cost claim.
+
+Main CI [34286869418](https://github.com/neilmac91/EarningsNerd/actions/runs/34286869418), deploy job102265321200 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00312-7jp` serves100%, all eight configured job images updated. CI detailed health timestamp1788907485.0101225 and independent curl1788907535.300697 were healthy (database5.77/5.0ms, SECclosed, Redisdisabled). The six new PFE/NVDA/COST outputs show their actual prior balance dates. Existing persisted summaries were not refreshed. Next backend release may proceed.
