@@ -177,8 +177,16 @@ list[datetime]]` keyed by hashed IP on a public route, pruned only when the same
 - [x] Draft [#762](https://github.com/neilmac91/EarningsNerd/pull/762) on `d34b92a` (the two
   worktree commits cherry-picked onto #761's merge plus the ledger records); the #761 release
   record rides on the draft.
-- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
-  verification (`applied=0`).
+- [x] Marked ready at 00:28 UTC under the standing authorization: `copilot-eval.yml` run
+  34173406430 success; PR CI run 34173403146 green on every job except the advisory
+  `eval-baseline` (`continue-on-error`), which reported `execution_errors = 1` /
+  `missing_scores = 1`: one of 52 live provider evaluations failed at the provider on a PR
+  that touches no AI code, and the identical code had passed that job on the previous head
+  `d34b92a` (run 34173062605). A re-run was not available to the session (failed-job re-run
+  and workflow dispatch both 403); recorded on the PR in two comments and merged on the
+  advisory check's design. Squash-merged as `fc00ea1` at 00:49 UTC.
+- [ ] Main CI on `fc00ea1`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
+  independent detailed health).
 
 ## E10c — Bell unread count as one SQL aggregate (engineering, 2026-09-08)
 
