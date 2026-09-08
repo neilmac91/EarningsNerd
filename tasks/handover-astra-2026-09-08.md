@@ -214,7 +214,8 @@ carries over unchanged; (2) the audit fixes confirmed must-fix defects as it goe
 environment is the wave-3 one (repo push and CI rights, no console or gcloud); (4) Astra owns the
 W3-10 Notable flag PR after the review week and the Dependabot #748–#752 triage, majors needing
 the founder's word. Codex's review of the first ready head (three P2s: priority order, precedence
-slot and the W3-8a slip clause, locked-test pathspecs) is applied. Prompt structure also follows
+slot and the W3-8a slip clause, locked-test pathspecs) is applied, as is its second round (read
+order per `AGENTS.md` §1, branch prefix `codex/wave3-<slug>`). Prompt structure also follows
 the founder's chosen guide
 (promptessor.com, "GPT-6 Astra prompting guide"): labeled sections with clarification, tool,
 delegation and failure-handling policies and an output contract.

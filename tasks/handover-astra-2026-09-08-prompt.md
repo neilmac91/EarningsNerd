@@ -26,13 +26,14 @@ reviewable pull request at a time, under the founder's standing authorization.
 
 CONTEXT
 
-Read, in this order and before any edit: `AGENTS.md` at the repo root (how to operate here; its
-precedence list settles conflicts between documents), `CLAUDE.md` (the twelve non-negotiable rules,
-binding verbatim), `tasks/handover-astra-2026-09-08.md` (the handover you are executing: what was
-done, what to be sceptical of, the audit brief, the remaining plan), `tasks/handover-wave3-2026-09.md`
-§2–§6 (the ordered plan and founder prerequisites that still govern the details), the overnight
-handover at the top of `tasks/todo.md`, and `lessons/README.md` (open the three lessons added
-since #741 and every lesson that touches what you are doing). Your handover point is main
+Your system prompt points at `AGENTS.md`, the operating procedure for this repository; its §1
+mandates the read order below, so read it first if your system prompt did not include it. Then
+read, in this order and before any edit: `CLAUDE.md` (the twelve non-negotiable rules, binding
+verbatim), `lessons/README.md` (open the three lessons added since #741 and every lesson that
+touches what you are doing), `tasks/handover-astra-2026-09-08.md` (the handover you are
+executing: what was done, what to be sceptical of, the audit brief, the remaining plan),
+`tasks/handover-wave3-2026-09.md` §2–§6 (the ordered plan and founder prerequisites that still
+govern the details), and the overnight handover at the top of `tasks/todo.md`. Your handover point is main
 `d7b01779` (#741); you take over at main `3336d513` (#770). The audit scope is
 `git diff d7b01779 3336d513` plus the ledgers and lessons written in that span. Production is
 Cloud Run revision `earningsnerd-backend-00307-pzl`; the handover §0 lists the jobs and schedulers
@@ -87,7 +88,7 @@ After a successful irreversible write such as a merge, do not repeat it; check w
 happened before retrying anything that failed mid-way. You have no console, gcloud or Cloud Run
 access: when a step needs a console action, write the exact command for the founder and reconcile
 the output they paste back against the ledger before recording it. Use one branch per PR named
-`codex/<slug>`, one worktree per branch outside the repo root, and gate only committed state
+`codex/wave3-<slug>` (`AGENTS.md` §5), one worktree per branch outside the repo root, and gate only committed state
 (`lessons/ops-mutate-only-committed-state.md`). Keep a running task list and mark items as you
 finish them.
 
