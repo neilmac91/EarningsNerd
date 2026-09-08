@@ -1,3 +1,30 @@
+## CEO execution direction — 2026-09-08
+
+The founder requested a prioritized implementation plan and delegated direct account access and
+necessary edits. The [quality-first implementation plan](ceo-implementation-plan-2026-09-08.md)
+now governs priority and updates the earlier blanket console/account restriction for this work.
+Earlier ledgers below remain historical records; existing code gates and specific sensitive
+boundaries continue. Routine account observations and reversible, evidence-supported corrections
+are agent-owned. No new production setting, live job or paid evaluation was changed/run in this
+planning pass; read-only Ops inspection and account sign-in were performed.
+
+**Founder spend correction:** universe-wide pregeneration is held until the founder has full
+confidence in the filing-analysis quality and explicitly releases the hold. This supersedes
+D4's earlier universe-run spend approval and any implication that W3-7 or a re-pin alone permits
+that run. Broad stale-summary drain is deferred in the new plan too. The existing weekly eight-
+company example job is separate: its actual command has no universe arguments and was left alone.
+
+- [x] Develop the prioritized plan, quality acceptance proposal, owner/dependency map and bounded-beta sequence.
+- [x] Directly inspect Cloud Run: [Ops 34264501243](https://github.com/neilmac91/EarningsNerd/actions/runs/34264501243), revision 00311-pm8 at 100%, invite-only, DeepSeek unchanged, AI guards/Notable false.
+- [x] Observe Vercel: Analysis is already `true` in Production and Preview (added Jul 6); current production Ready on c1bc866b. The earlier request for the founder to supply the flag value is resolved; warm-up and behavior acceptance remain open.
+- [x] Sign into PostHog EU; confirm EarningsNerd organization / Default project 117863. Measurement definitions and actual cohort outcomes remain to be assessed.
+- [x] Observe GitHub's current `can_approve_pull_request_reviews=true`; the old policy uncertainty is resolved, actual changed-membership publication evidence remains open.
+- [ ] Quality next: resolve strong-judge credential access and bounded evaluation budget; prepare source-grounded rubric/manifests offline and a measurement-only path without live report email.
+- [ ] Verify Stripe selected events/API version, companyfacts cohort readiness, PostHog funnel definitions and Cloud SQL recovery/fleet evidence directly where access permits.
+- [ ] Continue W3-7 → W3-8a → W3-8b and the parallel S1 reliability fix; follow the existing re-pin sequence and the new plan's acceptance conditions.
+- [ ] Complete Analysis acceptance and Notable review through Sep 15 before any corresponding new activation.
+- [ ] Present human-reviewed quality and controlled-beta evidence; universe-wide pregeneration remains held on the founder's explicit quality/spend release.
+
 ## Astra audit and remaining plan — 2026-09-08
 
 Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe1f156`
