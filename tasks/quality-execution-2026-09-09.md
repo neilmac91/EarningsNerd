@@ -23,7 +23,7 @@ Fable completion remains pending usage availability. Its snapshot contains 17 JS
 
 ## Engineering priorities after source tracing
 
-The [EdgarTools investigation](edgartools-quality-plan-2026-09-09.md) verifies the needed APIs in the installed 5.56.0 version. First fix selected-accession fallback identity, the unconditional working-capital “year earlier” label and chat cleanup admission. Then remove unverified segment-share denominators, declare return-ratio period/balance bases and preserve full table cells. These are concrete code defects; prompt tuning does not resolve them.
+The [EdgarTools investigation](edgartools-quality-plan-2026-09-09.md) verifies the needed APIs in the installed 5.56.0 version. First fix selected-accession fallback identity, the unconditional working-capital “year earlier” label and chat cleanup admission. Then remove unverified segment-share denominators, declare return-ratio period/balance bases and verify full-cell preservation in the actual source paths. The calculation defects are confirmed; the standalone SDK cell-shortening probe has not yet established loss in production TOC sections. Prompt tuning does not resolve deterministic calculation errors.
 
 Next build a canonical inventory of complete sections, tables and same-accession incorporated exhibits through the existing extraction owner. Retain metric concept, label, unit, duration and statement/member relationships. Replace prefix-only selection with budgeted complete passages only after offline coverage comparisons on the retained filings. The operating-versus-pretax collision needs semantic identity checks across all representations, with positive evidence before relabeling a metric; missing standardized XBRL alone is insufficient.
 

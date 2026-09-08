@@ -2,7 +2,7 @@
 
 EarningsNerd should retain EdgarTools and use more of its existing structured-document capabilities before considering a replacement. The current pin, **5.56.0**, already supports the most useful building blocks: filing-specific facts, statement presentation, role-scoped dimensions, calculation relationships, structured tables, document sections/chunks/search and attachment access. The principal quality gap is the application’s selection and interpretation of evidence after extraction. A newer SDK cannot itself correct a wrongly named operating-income metric, a double-counted segment denominator, or an omitted cash-flow explanation.
 
-This research examined repository checkout `c1bc866bfd61ba04b3f5f69ab629f5c8de8571b7`, its exact installed 5.56.0 distribution, public upstream documentation and retained filing evidence. It found one confirmed application boundary defect and one reproducible SDK rendering trap that should precede broader retrieval improvements. No production query, new SEC download, model call, dependency installation or repository edit was performed.
+This research examined repository checkout `c1bc866bfd61ba04b3f5f69ab629f5c8de8571b7`, its exact installed 5.56.0 distribution, public upstream documentation and retained filing evidence. It found one confirmed application boundary defect to fix first and a separate SDK rendering trap to account for when designing evidence packages; the latter was not reproduced in the retained production sections. No production query, new SEC download, model call, dependency installation or repository edit was performed.
 
 ## Version and evidence boundary
 
@@ -44,7 +44,11 @@ Installed `TableStyle.simple()` sets `max_col_width=500` (`documents/renderers/f
 
 A network-disabled local smoke used a 919-character table cell ending `END_SENTINEL`. Default `text()` and explicit `table_max_col_width=None` both lost that marker. Explicit width 10,000 and `to_markdown()` preserved it. This demonstrates the exact default behavior in 5.56.0; it does not establish Markdown’s fidelity on every complex filing. Evidence: `work/edgartools-table-smoke.json` and script. The full review already needed recovery supplements for this class of loss, including Intel narrative cells and Walmart auditor evidence.
 
-**Recommended fix:** distinguish canonical source storage from presentation rendering. Retain full table-cell content and headers; when producing text, size the rendering to actual cell contents or emit structured/Markdown tables with explicit completeness checks. Do not use a fixed 10,000-character value as a universal guarantee. Check original labels, signs, currency, period headings, colspan/rowspan and long narrative cells against the retained HTML. Keep source offsets/locators stable or version the transformation so citations do not point at a different text representation.
+**Recommended evidence-package design:** distinguish canonical source storage from presentation rendering. Retain full table-cell content and headers; when producing text, size the rendering to actual cell contents or emit structured/Markdown tables with explicit completeness checks. Do not use a fixed 10,000-character value as a universal guarantee. Check original labels, signs, currency, period headings, colspan/rowspan and long narrative cells against the retained HTML. Keep source offsets/locators stable or version the transformation so citations do not point at a different text representation.
+
+### Production-path refutation (September 9 follow-up)
+
+The full-document renderer result above must not be generalized to every production section. The installed table-of-contents section callback traverses HTML text directly and ignores table-width kwargs; it does not use the bounded table renderer. A subsequent offline comparison of all 26 retained filings found identical text across 526 sections (499 TOC, 27 pattern) with default and source-length-derived widths. No production long-cell loss is established; no real heading-method section was present. A real 646-character KO cell survives the current TOC path. Fix only a demonstrated affected path; do not introduce a fragile parser workaround merely because the standalone renderer probe fails. The source/evidence package must still preserve full cells and explicitly verify its own transformation.
 
 ## Where evidence is lost today
 
@@ -70,7 +74,7 @@ These mappings identify plausible engineering causes and remedies, not promises 
 
 ## Prioritized implementation sequence
 
-**1. Provenance and completeness boundary.** Fix the cross-accession fallbacks and record source coverage/renderer version before introducing more data. Offline acceptance: exact chosen-accession rejection, no mislabeled fallback values, no silent long-cell loss, and deliberate missing-input status. This is a compact correctness slice with no new vendor or model cost.
+**1. Provenance boundary and measured completeness.** Fix the cross-accession fallback: exact chosen-accession rejection, no mislabeled fallback values and deliberate missing-input status. Separately record source coverage/renderer version before introducing more data. The full-cell preservation invariant belongs to the canonical evidence-package transformation; no production parser patch is justified by the currently refuted long-cell generalization. Neither step requires a new vendor.
 
 **2. Canonical filing evidence package.** Parse owned retained HTML once; preserve sections, full tables, headings and source identity; inventory same-accession attachments. Add explicit extraction statuses for unsupported, missing, timed out and complete. Acceptance must include KO, Intel, WMT and NVO exhibit evidence. The package should feed the existing summary orchestrator and judge consistently; it must not become a second generation pipeline.
 
