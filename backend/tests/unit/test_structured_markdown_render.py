@@ -6,6 +6,8 @@ tests lock in that the financials bullets bold the metric label + current value 
 WITHOUT bolding "Not disclosed" placeholders, and that the bold markup stays substring-matchable
 so the eval numeric scorers are unaffected.
 """
+import pytest
+
 from app.services.openai_service import openai_service
 
 
@@ -172,22 +174,39 @@ def test_apply_structured_fallbacks_uses_reporting_currency_for_foreign_filers()
     assert "$" not in (bsl["working_capital"] + bsl["cash_flow"])
 
 
-def test_apply_structured_fallbacks_working_capital_shows_yoy_when_priors_exist():
-    """The schema promises working-capital YoY direction; when standardized metrics carry a prior
-    period, the filler appends the prior current assets/liabilities + ratio (two more recallable
-    facts) rather than a current-only line."""
+@pytest.mark.parametrize(
+    ("current_date", "prior_assets_date", "prior_liabilities_date", "expected_label", "has_prior_ratio"),
+    [
+        ("2026-03-29", "2025-12-31", "2025-12-31", "as of 2025-12-31", True),
+        ("2026-04-26", "2026-01-25", "2026-01-25", "as of 2026-01-25", True),
+        ("2026-05-10", "2025-08-31", "2025-08-31", "as of 2025-08-31", True),
+        ("2025-12-31", "2024-12-31", "2024-12-31", "as of 2024-12-31", True),
+        ("FY25", "FY24", "FY24", "", True),
+        ("2026-03-29", None, None, "", True),
+        ("2026-03-29", "2025-12-31", None, "", True),
+        ("2026-03-29", "2025-12-31", "2025-09-30", "", False),
+        ("2026-03-29", "2025-02-30", "2025-02-30", "", True),
+    ],
+)
+def test_apply_structured_fallbacks_working_capital_dates_prior_balances(
+    current_date, prior_assets_date, prior_liabilities_date, expected_label, has_prior_ratio,
+):
+    """Instant comparatives identify their actual common date, never an assumed YoY interval."""
     sections: dict = {}
     xbrl = {
-        "current_assets": {"current": {"value": 30_600_000_000, "period": "FY25"},
-                           "prior": {"value": 28_100_000_000, "period": "FY24"}},
-        "current_liabilities": {"current": {"value": 24_300_000_000, "period": "FY25"},
-                                "prior": {"value": 23_800_000_000, "period": "FY24"}},
+        "current_assets": {"current": {"value": 30_600_000_000, "period": current_date},
+                           "prior": {"value": 28_100_000_000, "period": prior_assets_date}},
+        "current_liabilities": {"current": {"value": 24_300_000_000, "period": current_date},
+                                "prior": {"value": 23_800_000_000, "period": prior_liabilities_date}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     wc = sections["balance_sheet_liquidity"]["working_capital"]
     assert "current ratio 1.26x" in wc
-    assert "A year earlier" in wc and "$28.1B" in wc and "$23.8B" in wc and "1.18x" in wc
+    label = "Prior reported balance sheet" + (f" {expected_label}" if expected_label else "")
+    ratio = " (1.18x)" if has_prior_ratio else ""
+    assert f"{label}: $28.1B vs. $23.8B{ratio}." in wc
+    assert "A year earlier" not in wc
 
 
 def test_apply_structured_fallbacks_current_ratio_edge_cases():
