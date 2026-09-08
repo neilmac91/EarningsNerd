@@ -7,6 +7,14 @@ invariant, one paid Copilot run at ready (all accepted 18/18), squash merge with
 and serial deploy verification (`apply_migrations: applied=0`, Cloud Run revision at 100 %,
 CI `/health/detailed`, independent curl). Details in each section below.
 
+Handover to the next GPT-6 Astra session (2026-09-08,
+[#771](https://github.com/neilmac91/EarningsNerd/pull/771)): `tasks/handover-astra-2026-09-08.md`
+(span #742–#770, scepticism items, audit brief, remaining plan) and the launch prompt
+`tasks/handover-astra-2026-09-08-prompt.md`. Founder answers recorded there: the standing
+authorization carries over, the audit fixes must-fix defects as it goes, the environment is the
+wave-3 one (repo and CI, no console), and Astra owns the W3-10 Notable flag PR and the Dependabot
+#748–#752 triage (majors still need the founder's word).
+
 | PR | Slice | Squash | Revision |
 | --- | --- | --- | --- |
 | [#757](https://github.com/neilmac91/EarningsNerd/pull/757) | E11c alert-to-return measurement | `c7510ac` | 00299-vxc |

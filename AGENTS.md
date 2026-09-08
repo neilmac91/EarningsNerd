@@ -9,7 +9,9 @@ skill files, or in agent files.
 
 1. `CLAUDE.md` — rules, commands, where things live.
 2. `lessons/README.md` — scan the index; open every lesson that applies to the task.
-3. `tasks/handover-wave3-2026-09.md` — the current ordered work plan and founder boundaries.
+3. `tasks/handover-astra-2026-09-08.md` — the latest handover (what changed since #741, the
+   audit brief, the remaining plan); then `tasks/handover-wave3-2026-09.md` for the ordered
+   work plan and founder boundaries it still relies on.
 4. `tasks/todo.md` — live checklist (top section is wave 3).
 5. Area docs when the task touches them: `backend/evals/RUNBOOK.md` (any prompt, model, eval or
    AI flag change), `frontend/DESIGN_SYSTEM.md` (any UI change), `docs/DEPLOYMENT.md` (deploys).
@@ -19,7 +21,8 @@ skill files, or in agent files.
 Apply this order, note the conflict in the PR body, fix the losing document in the same PR, and
 do not pause to ask:
 
-code > `CLAUDE.md` > `lessons/` > `tasks/handover-wave3-2026-09.md` > `tasks/todo.md` > `docs/`
+code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-08.md` >
+`tasks/handover-wave3-2026-09.md` > `tasks/todo.md` > `docs/`
 > `tasks/handover-wave2-2026-09.md` and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
 
