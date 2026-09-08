@@ -518,3 +518,16 @@ lanes and exact 99-pin environment. PR CI `34257318350` passed. Actual summary
 warning (2.173); citation fidelity 0.6759 versus prior 0.7250, accepted by the unchanged gate.
 No causal quality-improvement claim or re-pin. One paid Copilot `34257358918` accepted 18/18,
 artifact `10068510732`. Main CI/deploy `34259044155` is pending; release verification follows.
+
+
+**Extraction release completion — 2026-09-08:** main CI `34259044155` and deploy job
+`102173400597` passed, `apply_migrations: applied=0 skipped=39`, revision
+`earningsnerd-backend-00311-pm8` at 100%, all eight job images updated. CI detailed health at
+`1788890000.177071` and independent curl at `1788890036.2455256` were healthy (DB 7.16/6.56 ms,
+SEC closed, Redis disabled). This completes every original #752 version through #775/#777/#779;
+no second paid run or re-pin was needed. The fresh #780 Anthropic/PostHog versions remain a
+subsequent queue. Major #749/#750/#751 approvals and all named founder prerequisites remain held.
+
+The continuation's code departure point is `b918bf3ab9deda4880706cbabf936cf2b748f587` (#779).
+E09 remains proposal-only; the final master-plan report and handover publish the remaining
+engineering/activation boundaries without claiming the full business or scale plan is complete.

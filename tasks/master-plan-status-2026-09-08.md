@@ -1,7 +1,6 @@
 # Master-plan checkpoint — 2026-09-08
 
-Draft pending #779's production verification. The audit and remediation are complete, and the
-assigned dependency closeout is in its final evaluation. The overall beta-to-scale plan still
+The audit, remediation and original assigned dependency closeout are complete and released. The overall beta-to-scale plan still
 has substantive activation, quality, fleet-coordination and operational acceptance work. Green
 engineering gates do not establish launch readiness, paying conversion or scale economics.
 
@@ -43,7 +42,8 @@ future edits remain locked. No locked test was edited by this team.
 Dependency work is isolated into [PostHog JS #774](https://github.com/neilmac91/EarningsNerd/pull/774),
 [greenlet/Python PostHog #775](https://github.com/neilmac91/EarningsNerd/pull/775),
 [OpenAI SDK #777](https://github.com/neilmac91/EarningsNerd/pull/777), and
-[EDGAR/lxml #779](https://github.com/neilmac91/EarningsNerd/pull/779). All four are merged; #779's production verification is pending. Its actual summary regression
+[EDGAR/lxml #779](https://github.com/neilmac91/EarningsNerd/pull/779). All four are released and verified. The final backend revision is `earningsnerd-backend-00311-pm8`
+at 100%, with migrations 0/39 and healthy CI/independent detailed health. #779's actual summary regression
 scored 52/52 with zero errors/retries/vetoes and Copilot accepted 18/18. Backend candidates pass
 2731 local tests; the SDK's actual summary gate scored 52/52 with zero errors/retries/vetoes,
 and its normal paid Copilot gate accepted 18/18. DeepSeek and the baseline remain unchanged.

@@ -1,14 +1,14 @@
 # Astra continuation handover — 2026-09-08
 
-Working draft: release entries and the final handover point will be reconciled before this
-file is published. The original session ledgers remain intact; corrections are dated additions.
+The original session ledgers remain intact; corrections and release completions are dated additions.
 
 ## 0. Takeover and departure
 
 The requested prior handover point was main `d7b01779` (#741), and the audited takeover
 endpoint was `3336d513` (#770). Actual remote main at entry was `1fe1f156` (#771), a docs-only
 handover addition. Audit #773 merged as `ae2fbf0499f4777128571959c42522ad60899d0a`.
-The final code and documentation departure points are recorded in the completion section below.
+The code departure point is main `b918bf3ab9deda4880706cbabf936cf2b748f587` (#779).
+The final docs-only handover PR is identified in the completion section below.
 
 The saved founder checkout was left untouched. Work used an isolated clone and one external
 worktree per `codex/wave3-*` branch, exact pinned runtimes and separate dependency environments.
@@ -87,7 +87,7 @@ PRs open. The exception had not elapsed on September 8.
 proposal. Build waits on effective fleet/egress/provider/database-budget evidence and the
 bounded founder design decision. E06 waits on read-only Stripe endpoint selection/API version.
 Calendar, price/trial copy and stale-branch deletion remain held. Dependency dispositions and
-release evidence are appended in the completion section before publication.
+release evidence are recorded in the completion section.
 
 The three major frontend candidates remain unpublished and require the founder's merge word:
 Vitest 5 (`3a1260dc2728133a512e5536d3c6b1d97b29e409`), jest-dom 7
@@ -118,4 +118,35 @@ mid-command error without reading remote state first.
 
 ## 6. Completion and final departure point
 
-Pending final reconciliation before publication.
+The audit and every must-fix disposition are complete. The original unblocked dependency
+scope is fully released. E09 is delivered as a proposal, and the remaining ordered items are
+held on the named founder prerequisites in todo. The larger master plan is not fully activated
+or scale-verified; see [the consolidated status](master-plan-status-2026-09-08.md).
+
+| PR | Squash / release | Verification |
+| --- | --- | --- |
+| #772 atomic delivery fix | `048fbc47c903d520280dbb917f6454cd19102059`; revision `00308-khx` | Main `34251319216`, migration 0/39, 100% traffic, CI/independent health; full gate 2731; paid Copilot `34250122330` 18/18 |
+| #773 audit | `ae2fbf0499f4777128571959c42522ad60899d0a` | Docs links/anchors 6/0; PR/main CI passed; deploy skipped |
+| #774 browser PostHog | `00fa00f3316ddf2c15d0ce0013e81842670e50ac` | Full frontend 103 files/569 tests, lint/tsc/build; PR `34253360268`, main `34253718657`, Vercel production status passed |
+| #775 Python patches | `a431020951e1b735f5bf805f0fea3564010470b1`; revision `00309-5lm` | Main `34254219154`, deploy `102156947320`, migration 0/39, 100%, healthy CI/curl; paid `34253839355` 18/18 |
+| #777 OpenAI SDK | `7a9a6d6b47898390200fdf3f080fc433f4a141fd`; revision `00310-2pq` | Main `34256518896`, deploy `102164639647`, migration 0/39, 100%, healthy CI/curl; summary `34255025494` 52/52; paid `34255030471` 18/18 |
+| #779 EDGAR/lxml | `b918bf3ab9deda4880706cbabf936cf2b748f587`; revision `00311-pm8` | Main `34259044155`, deploy `102173400597`, migration 0/39, 100%, healthy CI/curl; summary `34257358723` 52/52; paid `34257358918` 18/18 |
+
+Latest CI/independent health timestamps are `1788890000.177071` / `1788890036.2455256`,
+database 7.16/6.56 ms, SEC closed and Redis disabled. All eight job images updated at each
+backend release. The SDK/extraction reports had zero execution errors, retries or hard vetoes;
+one existing absolute untraceable-dollar warning remains. Citation fidelity in the extraction
+measurement was 0.6759 versus 0.7250 in its predecessor, accepted by the unchanged regression
+gate; this is not a claim of quality improvement or judged acceptance. No baseline was re-pinned.
+
+Four agent-triggered paid Copilot evaluations were consumed, one per backend PR, all 18/18.
+No second paid run was needed. The fix's normal summary evaluation and the two full-set
+SDK/extraction dispatches are retained separately. No Codex reset credit was consumed.
+
+Original #748 is superseded/closed; Dependabot closed #752 and intermediate #776/#778.
+Fresh #780 contains only new Anthropic 1.4.0 and PostHog 7.47.0 versions outside the original
+assignment. It remains visible for subsequent triage. The three major frontend upgrades and
+D8 still require founder approval. The specific #759 retention exception is resolved.
+
+The final docs-only publication identifier is recorded after draft creation; it carries no
+runtime change beyond the verified code departure point above.
