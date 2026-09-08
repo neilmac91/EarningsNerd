@@ -8,6 +8,7 @@ Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe
 - [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
 - [x] Fix confirmed delivery replacement crash gap: #772 merged and verified on revision 00308-khx.
 - [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
+- [ ] Deferred audit S1: keep chat admission held through provider transport cleanup; early consumer closure currently admits a second transport before the first `aclose` completes. See [audit S1](audit-astra-2026-09-08.md#should-fix-findings); recorded for a later code PR.
 - [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
 - [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
 
