@@ -6,7 +6,7 @@ so a 10-Q page could show annual figures. These tests pin the new behavior:
 
 - the requested filing's own XBRL instance is the primary source, with
   explicit undimensioned/period-end/duration filters per form,
-- the accession-aware companyfacts fallback outranks get_financials(),
+- fallback facts belong to the selected accession, never the latest filing,
 - cache keys are versioned so stale wrong-period entries cannot be served.
 """
 
@@ -370,48 +370,63 @@ async def test_fetch_prefers_filing_instance():
                                   "form": "10-Q", "accn": "a"}]}
     with patch.object(service, "_fetch_from_filing_instance",
                       AsyncMock(return_value=instance_data)) as primary, \
-         patch.object(service, "_fallback_to_company_facts", AsyncMock()) as facts, \
-         patch.object(service, "_fetch_from_latest_financials", AsyncMock()) as latest:
+         patch.object(service, "_fallback_to_company_facts", AsyncMock()) as facts:
         result = await service._fetch_xbrl_data("320193", "a")
     assert result == instance_data
     primary.assert_awaited_once_with("0000320193", "a")
     facts.assert_not_awaited()
-    latest.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_fetch_falls_back_to_company_facts_before_latest_financials():
+async def test_fetch_falls_back_to_company_facts():
     service = EdgarXBRLService()
     facts_data = {"revenue": [{"period": "2026-03-31", "value": 2.0,
                                "form": "10-Q", "accn": "a"}], "net_income": []}
     with patch.object(service, "_fetch_from_filing_instance",
                       AsyncMock(return_value=None)), \
          patch.object(service, "_fallback_to_company_facts",
-                      AsyncMock(return_value=facts_data)) as facts, \
-         patch.object(service, "_fetch_from_latest_financials", AsyncMock()) as latest:
+                      AsyncMock(return_value=facts_data)) as facts:
         result = await service._fetch_xbrl_data("320193", "a")
     assert result == facts_data
     facts.assert_awaited_once_with("0000320193", "a")
-    latest.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_fetch_uses_latest_financials_as_last_resort():
+@pytest.mark.parametrize("source_accession", ["another-filing", None, ""])
+async def test_fallback_rejects_facts_outside_selected_filing(source_accession):
     service = EdgarXBRLService()
-    empty_facts = {key: [] for key in (
-        "revenue", "net_income", "total_assets", "total_liabilities",
-        "cash_and_equivalents", "earnings_per_share")}
-    latest_data = {"revenue": [{"period": "2025-12-31", "value": 3.0,
-                                "form": None, "accn": "a"}]}
-    with patch.object(service, "_fetch_from_filing_instance",
-                      AsyncMock(return_value=None)), \
-         patch.object(service, "_fallback_to_company_facts",
-                      AsyncMock(return_value=empty_facts)), \
-         patch.object(service, "_fetch_from_latest_financials",
-                      AsyncMock(return_value=latest_data)) as latest:
-        result = await service._fetch_xbrl_data("320193", "a")
-    assert result == latest_data
-    latest.assert_awaited_once_with("0000320193", "a")
+    raw = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
+        {"end": "2025-12-31", "start": "2025-01-01", "val": 999,
+         "form": "10-K", "accn": source_accession},
+    ]}}}}}
+    # Exercise the real fallback parser through the production fetch sequence.
+    fallback = service._parse_company_facts(raw, "selected-filing")
+    with patch.object(service, "_fetch_from_filing_instance", AsyncMock(return_value=None)), \
+         patch.object(service, "_fallback_to_company_facts", AsyncMock(return_value=fallback)), \
+         patch("edgar.Company.get_financials", side_effect=AssertionError("latest filing forbidden")):
+        result = await service._fetch_xbrl_data("320193", "selected-filing")
+    assert result is None
+    assert not any(fallback.values())
+
+
+@pytest.mark.parametrize("requested", ["0000000001-26-000001", "000000000126000001"])
+def test_fallback_retains_only_selected_filing_comparatives(requested):
+    accession = "0000000001-26-000001"
+    def fact(end, value, accn):
+        return {"end": end, "val": value, "accn": accn, "form": "10-K"}
+    raw = {"facts": {"us-gaap": {
+        "Revenues": {"units": {"USD": [fact("2026-12-31", 999, "other")]}},
+        "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [
+            fact("2025-12-31", 120, accession), fact("2024-12-31", 100, accession),
+            fact("2024-12-31", 888, "other"),
+        ]}},
+        "Assets": {"units": {"USD": [fact("2025-12-31", 777, "other")]}},
+    }}}
+    result = EdgarXBRLService()._parse_company_facts(raw, requested)
+    assert [(p["period"], p["value"], p["accn"]) for p in result["revenue"]] == [
+        ("2025-12-31", 120, accession), ("2024-12-31", 100, accession),
+    ]
+    assert result["total_assets"] == []
 
 
 # ---------------------------------------------------------------------------
