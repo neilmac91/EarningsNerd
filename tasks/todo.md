@@ -87,12 +87,12 @@ founder action is released. What remains is founder-held or founder-gated:
   founder decisions recorded in their rows.
 - [ ] Dependabot #270 dismissal; Codex code-review credits; `.github` Actions policy for
   automatic draft publication; the GCP console items under "Remaining founder decisions".
-- [ ] **Decision, then engineering**: the advisory `eval-baseline` job counts a single
-  transient provider execution error as `execution_errors = 1` and fails; `evals/runner.py`
-  has no retry for it (the judge path does, `_judge_with_retry`). One bounded retry of an
-  errored attempt before it is counted would have removed both of tonight's reds without
-  changing any score, but it alters what the gate's error column measures, so it is held for the
-  founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
+- [x] **Decided and released**: the founder chose the engineer's recommendation on the morning
+  of 2026-09-08 ("go with your best recommendation"); `evals/runner.py` now retries an
+  attempt once when its failure is a transient provider fault, with the retry on record
+  (row, summary, both harnesses, gate note). Released as
+  [#769](https://github.com/neilmac91/EarningsNerd/pull/769) = `7b6a32e`, revision 00307;
+  section "Eval runner — one retry for a transient provider fault" below.
 
 ## Eval runner — one retry for a transient provider fault (engineering, 2026-09-08)
 
@@ -130,9 +130,19 @@ retry such an attempt once, with the retry on record, without touching what the 
   reported unretried → `_anthropic_transient` classifies by class identity (the SDK is optional
   here), tests shape the classes without the package, mutation dropping the branch → 1 failed;
   thread answered.
-- [ ] Full gate on the fix head, push, ready again (second paid run: a confirmed-finding fix
-  round), the PR's own live `eval-baseline` run (its harness must show `transient_retries: 1`),
-  merge, deploy verification (`applied=0`; the change is CI-side, the image carries it).
+- [x] Full gate on the fix head `2391782`: 2729 passed; pushed, ready again at 10:23 UTC on
+  `5db7bf1` (second paid run: a confirmed-finding fix round): `copilot-eval.yml` run
+  34215169785 success (`accepted: true`, 18/18, pass rate 1.0, artifact 10051550319); PR CI
+  green on every job including this PR's own live `eval-baseline` run (job 102024200975):
+  52 attempted / 52 scored / errors 0 / `retried: 0` in the summary, gate PASS with the one
+  standing advisory warning (untraceable dollar figures), i.e. the retry path was armed and
+  recorded and had nothing to do on this run; Codex re-reviewed `5db7bf1` with no new finding.
+  Squash-merged as `7b6a32e` at 10:37 UTC.
+- [x] Main CI run 34216384213 on `7b6a32e`: success on every job. deploy-backend job 102029849295:
+  `apply_migrations: applied=0 skipped=39`; Cloud Run revision `earningsnerd-backend-00307-pzl` at 100 % traffic (the
+  change is CI-side; the image carries it); all eight configured job images updated, notable-filings
+  among them for the first time now that it exists; CI `/health/detailed` healthy at 10:43:29Z (database 7.56 ms); independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 10:44 UTC (7.46 ms). Released.
 
 ## W3-9b — Flags-only audit mode and the read-only listing of created facts (engineering, 2026-09-08)
 
