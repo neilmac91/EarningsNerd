@@ -105,6 +105,11 @@ and native Next build access required sandbox escalation; full reruns followed e
 restoration. macOS PDF imports require the available native library search path. Partial
 runs and the initial same-worktree overlap were retained and never counted as full passes.
 
+Reinstall the current committed lock before reusing a local environment. The initial audit
+`backend-venv` predates the dependency upgrades; the final extraction environment verified all
+99 current pins. Historical gate helpers/environments are evidence, not an implicit current-main
+verification. Preserve failed logs and use a fresh local SQLite fixture when restoring a run.
+
 PR bodies retain exact gate tails, review refutations, actual evaluation and release evidence.
 Backend release order remains main CI, deploy migration tail/revision at 100%, CI detailed health,
 independent curl, then a dated ledger record. No next backend publication/merge before the
