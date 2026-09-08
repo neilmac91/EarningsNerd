@@ -87,7 +87,9 @@ async def measure() -> tuple[dict, dict]:
     filings = load_cohort()
     harness = runner._harness_metadata(JUDGE_MODEL)
     harness.update(candidates=["baseline"], runs_per_candidate=3,
-                   filings=[{"ticker": f["ticker"], "filing_type": f["filing_type"]} for f in filings])
+                   filings=[{"ticker": f["ticker"], "filing_type": f["filing_type"]} for f in filings],
+                   transient_retries=runner.TRANSIENT_RETRIES,
+                   retry_delay_seconds=runner.RETRY_DELAY_SECONDS)
     if (not re.fullmatch(r"[0-9a-f]{40}", harness.get("source_sha", ""))
             or harness.get("use_statement_financials") is not True
             or harness.get("stream_section_reveal") is not True
@@ -98,7 +100,8 @@ async def measure() -> tuple[dict, dict]:
     async def one(filing: dict) -> list[dict]:
         async with semaphore:
             try:
-                rows = await runner._process_filing(GoldenFiling.from_dict(filing), ["baseline"], 3, JUDGE_MODEL)
+                rows = await runner._process_filing(GoldenFiling.from_dict(filing), ["baseline"], 3, JUDGE_MODEL,
+                                                    runner.TRANSIENT_RETRIES)
             except Exception as exc:
                 rows = [{"candidate": "baseline", "ticker": filing["ticker"], "filing_type": filing["filing_type"],
                          "run": run, "error": f"Filing measurement failed ({type(exc).__name__})", "score": None}

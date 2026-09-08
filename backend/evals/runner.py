@@ -182,25 +182,31 @@ async def _run_one(
     """Returns a serializable result dict for one (candidate, filing, run_index).
 
     An attempt whose failure is transient (see ``_is_transient``) is re-generated up to
-    ``transient_retries`` times after ``retry_delay`` seconds; the row keeps ``retried`` (count)
-    and ``first_error`` (the first failure's text) so a report never hides that a retry happened.
-    A non-transient failure, or a transient one after the last retry, is the attempt's error."""
+    ``transient_retries`` times after ``retry_delay`` seconds; the row keeps ``retried`` (count),
+    ``first_error`` (the first failure's text) and ``first_latency_seconds`` (its elapsed time) so
+    a report never hides that a retry happened. A non-transient failure, or a transient one after
+    the last retry, is the attempt's error. On the production summary path only the app's own
+    timeout (its request budget exhausted after its internal attempts) surfaces as an exception;
+    other provider faults come back as a degraded, scored summary and are never retried here."""
     base = {"candidate": candidate, "ticker": filing.ticker,
             "filing_type": filing.filing_type, "run": run_index}
     retried = 0
     first_error: Optional[str] = None
+    first_latency: Optional[float] = None
     while True:
         outcome = await _attempt(candidate, filing, grounding, run_index, judge_model)
         transient = outcome.pop("_transient", False)
         if outcome.get("error") and transient and retried < transient_retries:
             if first_error is None:
                 first_error = outcome["error"]
+                first_latency = outcome.get("latency_seconds")
             retried += 1
             print(f"  ~ transient provider fault on {filing.ticker} {filing.filing_type} run {run_index}: "
                   f"{outcome['error']} — retry {retried}/{transient_retries} in {retry_delay:g}s")
             await asyncio.sleep(retry_delay)
             continue
-        return {**base, **outcome, "retried": retried, "first_error": first_error}
+        return {**base, **outcome, "retried": retried, "first_error": first_error,
+                "first_latency_seconds": first_latency}
 
 
 async def _attempt(

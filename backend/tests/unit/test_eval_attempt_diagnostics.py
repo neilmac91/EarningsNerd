@@ -25,8 +25,10 @@ async def test_planned_manifest_survives_missing_executor_results(monkeypatch, t
     ]}))
     monkeypatch.setattr(runner, 'GOLDEN_PATH', golden)
     emitted = []
+    seen = []
 
     async def missing(*args, **kwargs):
+        seen.append(args)
         return []
 
     def write(summary, results, harness):
@@ -35,13 +37,15 @@ async def test_planned_manifest_survives_missing_executor_results(monkeypatch, t
 
     monkeypatch.setattr(runner, '_process_filing', missing)
     monkeypatch.setattr(runner, '_write_report', write)
-    await runner.main(['baseline'], None, False, runs=2, forms=['20-F'])
+    await runner.main(['baseline'], None, False, runs=2, forms=['20-F'], transient_retries=0)
     summary, results, harness = emitted[0]
     assert results == [] and summary == {}
     assert harness['candidates'] == ['baseline']
     assert harness['runs_per_candidate'] == 2
     assert harness['filings'] == [{'ticker': 'ONE', 'filing_type': '20-F'}]
-    assert harness['transient_retries'] == 1 and harness['retry_delay_seconds'] == runner.RETRY_DELAY_SECONDS
+    # The requested policy is recorded AND reaches the per-filing executor.
+    assert harness['transient_retries'] == 0 and harness['retry_delay_seconds'] == runner.RETRY_DELAY_SECONDS
+    assert seen == [(seen[0][0], ['baseline'], 2, None, 0)]
 
 
 def test_summary_distinguishes_attempts_from_scored_results():
@@ -68,7 +72,10 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
     monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)
     monkeypatch.setattr(settings, 'USE_STRUCTURED_OUTPUT', False)
 
+    seen = []
+
     async def missing(*args, **kwargs):
+        seen.append(args)
         return []
 
     monkeypatch.setattr(runner, '_process_filing', missing)
@@ -77,6 +84,10 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
                 for f in weekly_readout.load_cohort()]
     assert len(expected) == 8
     assert report['harness']['candidates'] == ['baseline']
+    # The readout's harness records the retry policy it measured under, and passes it explicitly.
+    assert report['harness']['transient_retries'] == runner.TRANSIENT_RETRIES
+    assert report['harness']['retry_delay_seconds'] == runner.RETRY_DELAY_SECONDS
+    assert seen and all(call[4] == runner.TRANSIENT_RETRIES for call in seen)
     assert report['harness']['runs_per_candidate'] == 3
     assert report['harness']['filings'] == expected
     assert report['results'] == []
@@ -212,6 +223,7 @@ async def test_transient_failure_is_retried_once_and_the_retry_is_visible(monkey
     assert len(calls) == 2 and slept == [runner.RETRY_DELAY_SECONDS]
     assert result['error'] is None and isinstance(result['score'], dict)
     assert result['retried'] == 1 and result['first_error'] == 'TimeoutError: provider deadline exhausted'
+    assert isinstance(result['first_latency_seconds'], float)  # the failed attempt's elapsed time survives
     assert result['ticker'] == 'BABA' and result['run'] == 1
 
 
@@ -223,6 +235,7 @@ async def test_non_transient_failure_is_never_retried(monkeypatch):
     assert len(calls) == 1 and slept == []
     assert result['error'] == 'ValueError: scorer input malformed'
     assert result['retried'] == 0 and result['first_error'] is None and result['score'] is None
+    assert result['first_latency_seconds'] is None
 
 
 @pytest.mark.asyncio

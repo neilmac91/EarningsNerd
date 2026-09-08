@@ -313,8 +313,9 @@ async def test_validation_failure_preserves_actual_attempt_evidence(monkeypatch,
     harness.update(use_statement_financials=True, stream_section_reveal=True, use_structured_output=False)
     monkeypatch.setattr(runner, "_harness_metadata", lambda _: harness)
 
-    async def process(filing, candidates, runs, judge_model):
+    async def process(filing, candidates, runs, judge_model, transient_retries):
         assert candidates == ["baseline"] and runs == 3 and judge_model == JUDGE_MODEL
+        assert transient_retries == runner.TRANSIENT_RETRIES  # the readout passes its recorded policy
         selected = deepcopy([r for r in rows if r["ticker"] == filing.ticker])
         for r in selected:
             r["score"]["repaired"] = False
