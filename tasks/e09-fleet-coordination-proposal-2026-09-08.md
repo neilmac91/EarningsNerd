@@ -47,3 +47,90 @@ For ownership, use independent PostgreSQL connections/processes to prove one cla
 For SEC admission, test aggregate mock wire traffic across multiple API/job processes, cold start, retries, cancellation, clock skew, process pause and coordinator outage. Trace every actual network attempt through the supported SDK and raw-HTTP paths; assert deadline/fallback/job-failure behavior and bounded database overhead. Before activation, reconcile the caller inventory against the founder's effective configuration. No live SEC, email, account or job run is an engineering test under this proposal.
 
 Each code slice gets the full backend gate including performance and the four PostgreSQL lanes, three review lenses, exactly one mutation proof for each new invariant, and byte-identical locked tests. Migrations are new, project-specific, additive and idempotent files applied through the existing ledger; fresh-model schema must agree and the triple-pass migration CI must pass. Do not edit applied migrations, perform historical cleanup or add startup DDL. Expand with enforcement inactive, verify deployment and every configured job image, then obtain the founder's activation decision once mixed-version writers are understood. Rollback disables new enforcement under founder authorization and leaves additive tables intact; no destructive rollback is required. Serialize backend releases with CI, migration tail, revision/traffic and independent health verification.
+
+## Optional founder appendix: read-only E09 inventory
+
+The proposal requests console evidence, so the following makes that prerequisite concrete. Run in the founder's existing Cloud Shell and paste the printed JSON. These are `describe`/`list` operations only: no job execution, deployment, configuration change or secret access. Project `earnings-nerd`, region `us-west1`, service and all eight job names are taken from the checked-in CI deploy steps and the handover. The Python wrapper prints only allowlisted metadata; it does not print environment values, commands/arguments, secret references, full annotations or raw resource documents. No agent has executed these commands.
+
+```bash
+python3 - <<'PY'
+import datetime
+import json
+import subprocess
+
+PROJECT, REGION = "earnings-nerd", "us-west1"
+JOBS = (
+    "earningsnerd-pregenerate", "earningsnerd-filing-scan",
+    "earningsnerd-filing-digest", "earningsnerd-backfill-facts",
+    "earningsnerd-earnings-calendar-refresh", "earningsnerd-earnings-day-alerts",
+    "earningsnerd-notable-filings", "earningsnerd-retention-purge",
+)
+ANNOTATIONS = (
+    "autoscaling.knative.dev/minScale", "autoscaling.knative.dev/maxScale",
+    "run.googleapis.com/minScale", "run.googleapis.com/maxScale",
+    "run.googleapis.com/scalingMode", "run.googleapis.com/manualInstanceCount",
+    "run.googleapis.com/vpc-access-connector", "run.googleapis.com/vpc-access-egress",
+    "run.googleapis.com/network-interfaces", "run.googleapis.com/execution-environment",
+)
+
+def read(*args):
+    return json.loads(subprocess.check_output(
+        ["gcloud", *args, "--project=" + PROJECT, "--format=json"], text=True))
+
+def emit(kind, name, value):
+    print(json.dumps({"kind": kind, "name": name, "metadata": value}, sort_keys=True))
+
+def metadata(resource):
+    annotations = resource.get("metadata", {}).get("annotations", {})
+    return {key: annotations[key] for key in ANNOTATIONS if key in annotations}
+
+def capacity(template):
+    spec = template.get("spec", {})
+    return {"annotations": metadata(template),
+            "concurrency": spec.get("containerConcurrency"),
+            "timeoutSeconds": spec.get("timeoutSeconds"),
+            "maxRetries": spec.get("maxRetries"),
+            "containers": [{"name": c.get("name"),
+                            "resources": c.get("resources", {})}
+                           for c in spec.get("containers", [])]}
+
+emit("observed_at", PROJECT, datetime.datetime.now(datetime.timezone.utc).isoformat())
+service = read("run", "services", "describe", "earningsnerd-backend", "--region=" + REGION)
+traffic = [{k: t[k] for k in ("revisionName", "percent", "tag", "latestRevision") if k in t}
+           for t in service.get("status", {}).get("traffic", [])]
+emit("service", "earningsnerd-backend", {
+    "annotations": metadata(service), "traffic": traffic,
+    "latest_template": capacity(service.get("spec", {}).get("template", {}))})
+for revision in sorted({t["revisionName"] for t in traffic if t.get("revisionName")}):
+    emit("traffic_revision", revision, capacity(read(
+        "run", "revisions", "describe", revision, "--region=" + REGION)))
+
+for job in JOBS:
+    data = read("run", "jobs", "describe", job, "--region=" + REGION)
+    execution = data.get("spec", {}).get("template", {}).get("spec", {})
+    emit("job", job, {"taskCount": execution.get("taskCount"),
+                      "parallelism": execution.get("parallelism"),
+                      "task": capacity(execution.get("template", {}))})
+    history = read("run", "jobs", "executions", "list", "--job=" + job,
+                   "--region=" + REGION, "--limit=20", "--sort-by=~metadata.creationTimestamp")
+    emit("recent_executions", job, [
+        {"name": e.get("metadata", {}).get("name"),
+         "createdAt": e.get("metadata", {}).get("creationTimestamp"),
+         **{k: e.get("status", {}).get(k) for k in
+            ("startTime", "completionTime", "runningCount", "succeededCount", "failedCount", "cancelledCount")}}
+        for e in history])
+
+schedulers = read("scheduler", "jobs", "list", "--location=" + REGION)
+emit("schedulers", REGION, [
+    {k: s.get(k) for k in ("name", "schedule", "timeZone", "state", "retryConfig", "attemptDeadline")}
+    for s in schedulers])
+PY
+```
+
+A missing field is unknown/unset, not zero or the source default. A missing resource or permission stops the script with its error; retain the completed output and the error, and do not provision anything to make it pass. The twenty-execution history per job is a bounded sample, not proof of worst-case fleet overlap. Job configuration describes the current template, which can differ from older executions. The scheduler listing deliberately omits targets and request bodies; match its safe job names against the schedules in the repository and identify any custom scheduler by name for a narrower follow-up.
+
+These metadata cannot establish actual public egress addresses, unrelated workloads sharing an address, Cloud SQL headroom or provider-key limits. If connector/direct-VPC metadata appears, return its exact names first; engineering can then supply the narrowly scoped connector/router/NAT read commands without inventing resource names. If no network metadata appears, do not infer a dedicated or stable egress IP.
+
+For the remaining inputs, the founder should separately record effective **numeric** `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, process/worker count and Cloud SQL connection headroom from the serving revisions/jobs and existing monitoring. Do not paste the whole environment page or connection string. The checked-in service pool pins are 12+8 and job pins 3+2; they are comparison values, not observed runtime evidence. Record only the provider account's documented request/token/concurrency quotas and the approved spending/duplicate-work tolerance, never a key. The SEC rate/burst headroom and acceptable wait/error budget remain founder decisions; no console command can determine the approved policy.
+
+Command syntax was checked against Google's [Cloud Run job describe](https://docs.cloud.google.com/sdk/gcloud/reference/run/jobs/describe) and [execution list](https://docs.cloud.google.com/sdk/gcloud/reference/run/jobs/executions/list) references. Cloud Run [VPC connector](https://docs.cloud.google.com/run/docs/configuring/vpc-connectors) and [Direct VPC](https://docs.cloud.google.com/run/docs/configuring/vpc-direct-vpc) references identify the metadata being collected; the commands do not perform those configuration procedures.
