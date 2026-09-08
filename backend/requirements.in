@@ -25,7 +25,7 @@ beautifulsoup4==4.15.0
 # >=6.1.0 to fix CVE-2026-41066 / PYSEC-2026-87 (XXE local-file disclosure via the
 # default resolve_entities=True; fixed in 6.1.0) — it parses externally-authored SEC
 # XBRL/XML. Neither edgartools (lxml>=4.4) nor pandas (lxml>=4.9.2) caps the major.
-lxml>=6.1.2,<7.0.0
+lxml>=6.1.3,<7.0.0
 pandas>=3.0.5,<4.0.0
 PyJWT[crypto]>=2.10,<3
 passlib[bcrypt]==1.7.4
@@ -37,7 +37,7 @@ weasyprint==69.0
 openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.55.0
+edgartools>=5.56.0
 posthog==7.45.4
 json-repair>=0.63.4
 sentry-sdk[fastapi]>=2.68.1
