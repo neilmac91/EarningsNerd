@@ -15,6 +15,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.services.summary_schema import REPORTED_METRIC_LABEL
+
 from app.services.ai.normalize import _normalize_simple_string
 from app.services.ai.recovery_context import RecoveryBlock, build_recovery_context
 
@@ -97,7 +99,7 @@ class _SectionRecoveryMixin:
         # deliberately out of scope (snippet size vs the recovery token cap).
         schema_snippets = {
             "the_print": '{"the_print": {"headline": "<string>", "key_takeaways": ["<string>"], "what_changed": "<string>", "tone": "<positive|neutral|cautious>"}}',
-            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}}',
+            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<reported_metric_label>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}}',
             "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<string>", "red_flags": ["<string>"]}}',
             "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "highlights": ["<string>"]}}',
             "forward_signals": '{"forward_signals": {"guidance": "<guidance exactly as the filing states it; if none, say so>", "known_trends": ["<an Item 303 known trend or uncertainty>"], "subsequent_events": ["<a material event after period end>"], "quotes": [{"speaker": "<string>", "quote": "<copied CHARACTER-FOR-CHARACTER from the excerpt — never reword or re-tense; omit the quote if you cannot copy it exactly>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
@@ -105,7 +107,8 @@ class _SectionRecoveryMixin:
             "balance_sheet_liquidity": '{"balance_sheet_liquidity": {"leverage": "<string>", "liquidity": "<string>", "working_capital": "<string>", "maturities_covenants": ["<string>"]}}',
             "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}',
         }
-        return schema_snippets.get(section_key)
+        snippet = schema_snippets.get(section_key)
+        return snippet.replace("<reported_metric_label>", REPORTED_METRIC_LABEL) if snippet else None
 
     async def _run_secondary_completion(
         self,

@@ -68,7 +68,8 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   both schema fields, preambles x4, recovery message), scoped to supporting_evidence only —
 #   commentary/impact stay the model's own analysis by design. Quote-mechanics text untouched
 #   (boundary-sentence lesson). Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-k"
+# summary-2026-09-d: preserve reported P&L labels and accounting basis across primary/recovery.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-d"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
