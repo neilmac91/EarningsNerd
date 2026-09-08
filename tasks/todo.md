@@ -122,9 +122,17 @@ retry such an attempt once, with the retry on record, without touching what the 
   failing test on the first fix commit (the readout stub's signature); caught by re-running with
   `pipefail`, amended before push. Full gate: 2728 passed on `b96a1b6`; 2728 passed again on the final
   head `e99ac98` (`b077e89`, `972c408` here are the same commits cherry-picked onto #768's merge).
-- [ ] Draft PR, one paid Copilot run at ready plus this PR's own live `eval-baseline` run (its
-  harness must show `transient_retries: 1`), merge, deploy verification (`applied=0`; the
-  change is CI-side, the image carries it).
+- [x] Draft [#769](https://github.com/neilmac91/EarningsNerd/pull/769) on `972c408`; ledger
+  record pushed; marked ready at 10:11 UTC on `bb0d1c1` (paid Copilot run, the PR's own live
+  `eval-baseline` run and CI started). Codex posted one P2 at 10:18, confirmed and fixed with the
+  PR back in draft: the Claude bake-off candidates raise the Anthropic SDK's own exception
+  classes, which the production client's classifier never sees, so their transient faults were
+  reported unretried → `_anthropic_transient` classifies by class identity (the SDK is optional
+  here), tests shape the classes without the package, mutation dropping the branch → 1 failed;
+  thread answered.
+- [ ] Full gate on the fix head, push, ready again (second paid run: a confirmed-finding fix
+  round), the PR's own live `eval-baseline` run (its harness must show `transient_retries: 1`),
+  merge, deploy verification (`applied=0`; the change is CI-side, the image carries it).
 
 ## W3-9b — Flags-only audit mode and the read-only listing of created facts (engineering, 2026-09-08)
 
