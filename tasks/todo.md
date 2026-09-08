@@ -19,10 +19,10 @@ CI `/health/detailed`, independent curl). Details in each section below.
 
 Paid evaluations consumed overnight: one Copilot run per PR (seven). Codex posted only its
 usage-limit notice on every PR (credits are founder-held). The advisory `eval-baseline` job
-went red once (#762: one of 52 live provider evaluations errored at the provider on a PR that
-touches no AI code; the same code had passed on the previous head); this session cannot re-run
-a job (403), so it was recorded on the PR and in the ledger and the merge proceeded on the
-advisory check's design. Nothing else was red.
+went red twice (#762 and #763: in each, one of 52 live provider evaluations errored or timed
+out at the provider on a PR that touches no AI code, the other 51 scored at pass rate 1.0);
+this session cannot re-run a job (403), so each was recorded on the PR and in the ledger and
+the merge proceeded on the advisory check's design. Nothing else was red.
 
 Engineering queue state: every item of the execution ledger that a PR can complete without a
 founder action is released. What remains is founder-held or founder-gated:
@@ -46,8 +46,8 @@ founder action is released. What remains is founder-held or founder-gated:
 - [ ] **Decision, then engineering**: the advisory `eval-baseline` job counts a single
   transient provider execution error as `execution_errors = 1` and fails; `evals/runner.py`
   has no retry for it (the judge path does, `_judge_with_retry`). One bounded retry of an
-  errored attempt before it is counted would remove tonight's only red without changing any
-  score, but it alters what the gate's error column measures, so it is held for the
+  errored attempt before it is counted would have removed both of tonight's reds without
+  changing any score, but it alters what the gate's error column measures, so it is held for the
   founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
 
 ## E11b-1 continuation — 2026-09-07
@@ -224,8 +224,12 @@ authority. The founder's execution on the `earningsnerd-backfill-facts` image st
   worktree commits cherry-picked onto #762's merge plus the ledger records); marked ready at
   01:03 UTC on `4519b03` under the standing authorization: `copilot-eval.yml` run 34175378259
   success (`accepted: true`, 18/18, pass rate 1.0, artifact 10037112149); PR CI run
-  34175375203 green on every required job (eval-baseline advisory, still running at merge
-  time); Codex posted only its quota notice. Squash-merged as `32c28e9` at 01:12 UTC.
+  34175375203 green on every required job; Codex posted only its quota notice. Squash-merged
+  as `32c28e9` at 01:12 UTC with the advisory `eval-baseline` still running; it finished red
+  at 01:19 UTC with `execution_errors = 1` / `missing_scores = 1`: one of 52 live evaluations
+  timed out at the provider (`ai_summary outcome=timeout`, both calls), the other 51 scored
+  with pass rate 1.0, on a PR that touches no AI code. Same shape as #762; no re-run
+  available (403); recorded on the PR in one comment.
 - [x] Main CI run 34175879213 on `32c28e9`: success on every job (eval-baseline skipped by
   path filter). deploy-backend job 101905538285: `apply_migrations: applied=0 skipped=39`;
   Cloud Run revision `earningsnerd-backend-00305-hdv` at 100 % traffic (the audit script is
