@@ -65,7 +65,8 @@ PR body. Complete all reversible, already-authorized work before asking for anyt
 need the founder, present a concrete result they can approve or reject, never an open-ended
 choice. The founder-held items have not moved and are the only reasons to stop: production flags,
 capacity, prices, trial, promo and registration settings, legal decisions, destructive data or
-history operations, historical replay, the six locked tests named in rule 6 and the handover, live
+history operations, historical replay, every locked contract anchor in the inventory of
+`lessons/test-contract-tests-are-locked.md` (rule 6; the six the handover checked are a subset), live
 email or job execution as a test, live account actions, the AI provider (DeepSeek stays), console
 actions (jobs, schedulers, secrets), Dependabot #270, and Codex credits. Never rewrite the previous
 session's ledger records; append a dated correction beneath them.
@@ -109,8 +110,9 @@ Work the seven scepticism items in handover §2a and the checks in §3. For ever
 attempt two independent refutations (read the code path, run the relevant test, check the PR
 body's evidence) before keeping it; report only survivors, ranked must-fix, should-fix, nit, each
 with file and line, a concrete failure scenario, and the refutations you tried; then list what you
-refuted and why. Run the full gate on main with the four PostgreSQL lanes configured as
-`.github/workflows/ci.yml` names them. Spot-check #747, #766 and #769 deeply and the remaining
+refuted and why. Run the full backend gate on main with the four PostgreSQL lanes configured as
+`.github/workflows/ci.yml` names them, and the full frontend gate (lint, tsc, vitest, build) for
+the 38 frontend files in the span (#742–#745). Spot-check #747, #766 and #769 deeply and the remaining
 backend PRs for the existence of the tests and deploys their bodies claim. Reconcile
 `tasks/todo.md` and `tasks/beta-to-scale-execution.md` against GitHub and the recorded Cloud Run
 revisions; anything a ledger claims that the evidence does not show is a finding. Deliver the

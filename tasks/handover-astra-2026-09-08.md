@@ -25,12 +25,14 @@ morning read), root `AGENTS.md` (how to operate; read it first), `CLAUDE.md` (ru
   2026-09-08 12:30 UTC). The homepage Notable section stays dark (`NOTABLE_FILINGS_ENABLED=false`).
 - **Branch state:** `claude/earningsnerd-handover-na6rnk` is restarted from main and clean; no PR
   of this session is open. Six local worktrees of this session are not part of the repo.
-- **Locked tests (rule 6)** are byte-identical across the whole span. Proven 2026-09-08 with the
-  six complete paths (bare filenames match nothing and return an empty diff regardless):
+- **Locked tests (rule 6)**: the six named in `CLAUDE.md` are byte-identical across the whole span.
+  Proven 2026-09-08 with the six complete paths (bare filenames match nothing and return an empty diff regardless):
   `git diff --stat d7b01779 origin/main -- backend/tests/integration/test_summary_stream_contract.py
   backend/tests/unit/test_background_generation_characterization.py backend/tests/unit/test_auth_flow.py
   backend/tests/unit/test_stripe_webhook.py backend/tests/unit/test_filing_scan.py
-  backend/tests/unit/test_expired_trial_gating.py` is empty.
+  backend/tests/unit/test_expired_trial_gating.py` is empty. The full locked inventory is wider
+  (`lessons/test-contract-tests-are-locked.md`: T1–T10 plus auth and Stripe webhook tests); the
+  audit should run the same diff over every anchor it names.
 
 ## 1. Mandate this session worked under (recorded, verbatim where it matters)
 
@@ -44,7 +46,7 @@ morning read), root `AGENTS.md` (how to operate; read it first), `CLAUDE.md` (ru
 - 2026-09-08 morning, founder: "go with your best recommendation" on the eval-runner retry
   (decided and released as #769).
 - Founder-held boundaries never moved: production flags, capacity, prices, trial/promo/registration,
-  legal, destructive data or history operations, historical replay, the six locked tests, live
+  legal, destructive data or history operations, historical replay, the locked contract anchors, live
   email or job execution as a test, live account actions, the AI provider (DeepSeek stays),
   console actions (jobs, schedulers, secrets), Dependabot #270, Codex credits. The founder ran
   every console action themselves in Cloud Shell and pasted the output; the session reconciled it.
@@ -136,7 +138,9 @@ you refuted and why. Specific checks:
   tests, aware-UTC datetimes, no `os.getenv` outside the allow-list, boundary validation, URL
   builders, design system, gates for every "never again" rule).
 - The full gate on main: `cd backend && ruff check . && bandit -r app -ll && python -m pytest -m ""`
-  with the four PostgreSQL lanes configured (see `.github/workflows/ci.yml` for the env names).
+  with the four PostgreSQL lanes configured (see `.github/workflows/ci.yml` for the env names), and
+  the frontend gate `cd frontend && npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run
+  && npm run build` for the 38 frontend files in the span (#742–#745).
 - For each backend PR in the table: does the PR body's verification section describe tests that
   exist, mutations that would fail them, and a deploy that happened? Spot-check three PRs deeply
   (#747, #766, #769) and the rest for existence.
@@ -217,7 +221,8 @@ the founder's word. Codex's review of the first ready head (three P2s: priority 
 slot and the W3-8a slip clause, locked-test pathspecs) is applied, as is its second round (read
 order per `AGENTS.md` §1, branch prefix `codex/wave3-<slug>`) and third (governing files are
 instructions and task inputs are data, reproducible failures are deterministic, full gates apply
-to code PRs only). Prompt structure also follows
+to code PRs only). Its fourth round (the locked inventory is wider than six files; the audit runs
+the frontend gate too) is applied without a fifth review pass, on the founder's readiness call. Prompt structure also follows
 the founder's chosen guide
 (promptessor.com, "GPT-6 Astra prompting guide"): labeled sections with clarification, tool,
 delegation and failure-handling policies and an output contract.
