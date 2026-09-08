@@ -199,14 +199,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
     })
 
-    // Distinct fiscal years present (newest first) — drives the year-filter chips. Computed from
+    // Distinct report years present (newest first) — drives the year-filter chips. Computed from
     // the FULL list so the year options don't change as the user filters by type.
     const availableYears = Array.from(
       new Set((filings ?? []).map((f) => fiscalYear(f)).filter(Boolean)),
     ).sort((a, b) => parseInt(b) - parseInt(a))
 
-    // Group filings by FISCAL year (period-of-report, filing-date fallback) — P1-6 fix: a FY2025
-    // 10-K filed 2026-02 buckets under 2025, not 2026.
+    // Group filings by report year (calendar year of report end, filing-date fallback).
     const grouped = groupByFiscalYear(filtered)
 
     // Sort years in descending order (newest first)
@@ -493,7 +492,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                   </div>
                 )}
                 {availableYears.length > 1 && (
-                  <label className="sr-only" htmlFor="filing-year-filter">Filter filings by fiscal year</label>
+                  <label className="sr-only" htmlFor="filing-year-filter">Filter filings by report year</label>
                 )}
                 {availableYears.length > 1 && (
                   <select
@@ -502,9 +501,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                     onChange={(e) => setFilterYear(e.target.value || null)}
                     className="px-3 py-1.5 text-xs sm:py-2 sm:text-sm font-medium rounded-lg bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-brand"
                   >
-                    <option value="">All Years</option>
+                    <option value="">All report years</option>
                     {availableYears.map((y) => (
-                      <option key={y} value={y}>{y}</option>
+                      <option key={y} value={y}>Report year {y}</option>
                     ))}
                   </select>
                 )}
@@ -583,7 +582,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                         ) : (
                           <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
-                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">{year}</span>
+                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">Report year {year}</span>
                         <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
                       </div>
                     </button>
