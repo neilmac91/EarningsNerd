@@ -143,6 +143,40 @@ registration, legal, destructive data or history operations, historical replay, 
 live email/job execution as a test, live account actions, the AI provider, console actions such
 as the retention job and scheduler, Dependabot #270).
 
+## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
+
+Facts (read against `bc973b2`): `routers/contact.py` kept `_rate_limit_store: dict[str,
+list[datetime]]` keyed by hashed IP on a public route, pruned only when the same key returned
+(unbounded key cardinality, the class E13b bounded in the shared limiter) and sent no
+`Retry-After`; `routers/feedback.py` kept the same pattern keyed by user id. Neither
+`POST /api/contact/` nor `POST /api/waitlist/join` had a test.
+
+- [x] Both routes use the shared `RateLimiter` through `enforce_rate_limit` with their existing
+  numbers and detail strings (contact 3/3600 s per client IP, limiter before Turnstile, hashed
+  IP still persisted; feedback 10/3600 s keyed by user id with `include_client_ip=False`).
+- [x] Rule-12 gate `test_router_limiter_state.py`: an allow-list over every module-level empty
+  dict display, mapping constructor or mapping-annotated assignment in `app/routers/*.py`
+  (`ALLOWED`: the two scalar-valued caches with their reasons; non-empty literals are
+  constants; a stale entry fails; the self-check trips on the removed shape, an unannotated
+  `{}`, a fixed-window counter, a string annotation, `defaultdict(list)` and `dict()`).
+- [x] Route tests: `test_contact_route.py` (5) and `test_waitlist_join_route.py` (5) on the real
+  app with per-test in-memory databases and mocked email; `test_feedback.py` resets the shared
+  limiter and asserts `Retry-After`. Implemented by a delegated agent, reviewed here.
+- [x] Mutations on committed state, restored: annotated store re-added → 1 failed;
+  `enforce_rate_limit` removed → 2 failed; Turnstile after the commit → 1 failed; referrer
+  priority increment removed → 1 failed; `welcome_email_sent` set and committed before the
+  send → 1 failed (setting it uncommitted is an equivalent mutant: the rollback expires it);
+  unannotated `_store = {}` re-added → 1 failed; stale allow-list entry → 1 failed. Full gate:
+  2693 passed on `86491b3`, 2694 on the final `5519490`.
+- [x] Independent lens (two refutations per candidate): one survivor, fixed. The first gate
+  keyed on type annotations, so an unannotated store or a fixed-window counter would have
+  passed; rewritten as the allow-list above. Refuted: fourth-request parity, Turnstile-rejected
+  requests counting (as before), proxy-header handling, the hashed IP, feedback parity and the
+  `include_client_ip` keyword, the inherited E13b bounds and import-time safety, gate coverage
+  and CI placement, the tests' isolation and seams, every waitlist assertion, rules 7 and 8.
+- [ ] Draft PR after #761 merges, one paid Copilot run at ready, merge, deploy verification
+  (`applied=0`).
+
 ## E10c — Bell unread count as one SQL aggregate (engineering, 2026-09-08)
 
 Facts (read against `bc973b2`): `routers/users.py::_unread_count`, with `notifications_seen_at`
@@ -169,8 +203,13 @@ the E15b sitemap cap, or an admin/GDPR one-off: the bell was the only hot, unbou
   uses the server default), consistency with the per-item `read` flag, `.scalar() or 0`, the
   capture's engine, the trip-wire's scope, the boundary parametrisation on a UTC server, the
   docstring claims.
-- [ ] Draft PR after #760 merges, one paid Copilot run at ready, merge, deploy verification
-  (`applied=0`).
+- [x] Draft [#761](https://github.com/neilmac91/EarningsNerd/pull/761) on `891b834` (the change
+  cherry-picked onto #760's merge plus the ledger records).
+  PR CI run 34172152580 green on every job; marked ready at 00:10 UTC under the standing
+  authorization: `copilot-eval.yml` run 34172483520 success (eval-baseline 00:19:02Z); Codex
+  posted only its quota notice. Squash-merged as `fb26dbd` at 00:20 UTC.
+- [ ] Main CI on `fb26dbd`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
+  independent detailed health).
 
 ## E09b — Process-wide provider admission gate (engineering, 2026-09-07)
 
@@ -241,8 +280,12 @@ evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
   `copilot-eval.yml` run 34171579110 success; PR CI run 34171264658 green on every job
   (eval-baseline 00:01:28Z); Codex posted only its quota notice. Squash-merged as `11db06d`
   at 00:04 UTC.
-- [ ] Main CI on `11db06d`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34172096044 on `11db06d`: success on every job. deploy-backend job
+  101894737694: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00302-fgl` at 100 % traffic (the chat admission gate is live at its
+  default of 8); five job images updated (notable-filings and retention-purge not found,
+  skipped); CI `/health/detailed` healthy (database 7.49 ms) at 00:10:38Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy (9.72 ms) at 00:11 UTC. Released.
 
 
 ## Stripe dunning-policy gates (engineering, 2026-09-07)
