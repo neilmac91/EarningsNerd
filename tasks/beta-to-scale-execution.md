@@ -543,3 +543,9 @@ Main CI [34286869418](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 [#785](https://github.com/neilmac91/EarningsNerd/pull/785) merged as `fc2bf2f7eb640c47d282a24c35e4d4b3dd07aea4`. The exact-accession fallback replaces the latest-company surrogate; transient cache version changes, while persisted rows remain untouched. Full local backend gate passed 2,735 tests; PR CI 34285695007 scored all 52 attempts without errors, retries or vetoes, and one paid Copilot run 34285769316 accepted 18/18.
 
 Main CI [34288013954](https://github.com/neilmac91/EarningsNerd/actions/runs/34288013954) is green. Deploy job 102269365731 reports `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00313-pqs` serves 100% traffic. CI detailed health at 1788908498.976069 and independent curl at 1788908906.3239162 are healthy, with database latency 7.01/7.18 ms and SEC circuit closed. This verifies new behavior deployment, not historical snapshot provenance or refreshed saved analyses.
+
+## September 9 release checkpoint — audit S1 complete
+
+[#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`. Full local backend gate passed 2,732 tests; actual summary CI 34286724767 scored 52/52 without errors/retries/vetoes, one paid Copilot run 34287603552 accepted 18/18. Cleanup occupies admission until transport close completes, and explicit closer failure retains no-retry behavior.
+
+Main CI [34289364726](https://github.com/neilmac91/EarningsNerd/actions/runs/34289364726) and deploy job 102272981615 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00314-jsf` serves 100% traffic. CI health 1788909386.3740237 and fresh independent health 1788909436.2419784 are healthy, database 6.73/6.79 ms, SEC closed. This supersedes September 8's deferred audit S1 status without changing the historical record.

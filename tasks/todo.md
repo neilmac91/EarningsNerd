@@ -1,3 +1,8 @@
+## September 9 audit S1 completion
+
+- [x] Audit S1: [#786](https://github.com/neilmac91/EarningsNerd/pull/786) production-verified at `earningsnerd-backend-00314-jsf`, main CI 34289364726, migrations 0/39, healthy CI and independent detailed health. Earlier pending/deferred rows below remain historical.
+- [ ] Segment/return review correction: ordered content stamps make old summaries identifiable without invoking refresh. Each changed PR needs a second paid Copilot run for the confirmed version finding; broad replay remains held.
+
 ## September 9 selected-filing release update
 
 - [x] Selected-filing fallback identity: [#785](https://github.com/neilmac91/EarningsNerd/pull/785) production-verified on `earningsnerd-backend-00313-pqs`, main CI 34288013954, migrations 0/39, healthy CI and independent detailed health. Historical persisted provenance remains unverified.

@@ -15,7 +15,7 @@ Fable completion remains pending usage availability. Its snapshot contains 17 JS
 - [x] Audit pinned EdgarTools capabilities against current calls: accession identity, statement hierarchy, dimensions, calculation relationships, full document sections/tables and incorporated exhibits.
 - [x] Compare primary-source alternatives for bounded gaps; adopt no new vendor, credential, licence or recurring spend without concrete evidence and authorization.
 - [ ] Fix confirmed source-identity or financial-calculation defects in isolated PRs, one reviewable invariant group at a time; validate against retained cases and ordinary tests.
-- [ ] Resolve audit S1: retain chat admission until provider transport cleanup completes.
+- [x] Resolve audit S1: #786 retains chat admission through cleanup and is production-verified.
 - [ ] Improve material source coverage and financial interpretation after root-cause evidence; avoid an unmeasured pile of prompt warnings.
 - [ ] Inspect Stripe endpoint event selection/API version, companyfacts readiness, analytics definitions and recovery/fleet settings using existing access. Record observations before any justified reversible correction.
 - [ ] Reconcile unblocked master-plan items with current GitHub and account evidence; retain named holds below.
@@ -66,3 +66,9 @@ Main CI [34288013954](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 Automated review correctly identified that generation-time segment/return fixes leave old stored summaries unchanged. Two independent checks confirmed read paths copy stored content and a version bump only changes stale eligibility: the explicit admin refresh defaults to dry-run, and ordinary cached reads/example generation do not automatically drain stale rows. The segment and return PRs will receive ordered content stamps and another full committed gate. A second paid Copilot evaluation per changed PR is the authorized confirmed-finding fix round; original evaluation evidence remains recorded. No historical replay or automatic repair is claimed.
 
 Process correction: an agent inadvertently repeated the excerpt-provenance mutation proof after a distinct ORM fix. Original proof tails remain retained; the duplicate is not an additional invariant and incurred no paid evaluation or production action. Further duplicate proofs were stopped, and the deviation was reported to the founder.
+
+## September 9 release checkpoint — audit S1 complete
+
+[#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`. Full local backend gate passed 2,732 tests; actual summary CI 34286724767 scored 52/52 without errors/retries/vetoes, one paid Copilot run 34287603552 accepted 18/18. Cleanup occupies admission until transport close completes, and explicit closer failure retains no-retry behavior.
+
+Main CI [34289364726](https://github.com/neilmac91/EarningsNerd/actions/runs/34289364726) and deploy job 102272981615 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00314-jsf` serves 100% traffic. CI health 1788909386.3740237 and fresh independent health 1788909436.2419784 are healthy, database 6.73/6.79 ms, SEC closed. This supersedes September 8's deferred audit S1 status without changing the historical record.
