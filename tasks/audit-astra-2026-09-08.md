@@ -19,7 +19,7 @@ performed by this audit.
 ## Must-fix findings
 
 **M1 — Pending alert replacement can lose durable work.**
-`backend/app/services/notification_delivery_service.py:488` at the audit endpoint calls
+`backend/app/services/notification_delivery_service.py:485` at the audit endpoint calls
 `park_and_release` (which commits at line 316), then separately calls `create_batch`.
 A user switches from realtime to digest while a two-day-old filing is pending; a process death
 or insertion exception after the first commit leaves a terminal suppressed batch with no items
@@ -93,11 +93,10 @@ we do not claim to have replayed historical curls, Vercel serving observations o
 On committed main `1fe1f156`, Python 3.11.16, pinned Ruff 0.16.6/Bandit 1.9.4 and disposable
 PostgreSQL 15, all four CI-named lanes were configured: `STRIPE_CONCURRENCY_TEST_DATABASE_URL`,
 `USAGE_CONCURRENCY_TEST_DATABASE_URL`, `LOGIN_CONCURRENCY_TEST_DATABASE_URL`, and
-`DELIVERY_CONCURRENCY_TEST_DATABASE_URL`. Full gate, including performance:
+`DELIVERY_CONCURRENCY_TEST_DATABASE_URL`. Full gate, including performance: Ruff, Bandit and pytest exited 0. Exact Ruff/pytest tails:
 
 ```text
 All checks passed!
-Bandit: Medium 0; High 0; Files skipped (0)
 ================= 2729 passed, 27 warnings in 90.09s (0:01:30) =================
 ```
 
@@ -108,12 +107,10 @@ pytest in the same worktree; it was not counted. Frontend then ran in a separate
 on the same committed main, using CI-pinned Node 22.23.2:
 
 ```text
-eslint . --max-warnings 0                         exit 0
-npx tsc -p tsconfig.ci.json                       exit 0
-Test Files  103 passed (103)
-     Tests  569 passed (569)
-Duration  43.26s
-next build: Compiled successfully in 8.6s         exit 0
+ Test Files  103 passed (103)
+      Tests  569 passed (569)
+   Duration  43.26s (transform 4.59s, setup 9.63s, import 168.79s, tests 14.00s, environment 85.77s)
+✓ Compiled successfully in 8.6s
 ```
 
 Independent `curl -fsS https://api.earningsnerd.io/health/detailed` returned healthy at timestamp
