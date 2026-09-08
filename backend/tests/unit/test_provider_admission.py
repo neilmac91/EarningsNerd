@@ -62,7 +62,18 @@ async def _first(chat):
 
 @pytest.mark.asyncio
 async def test_chat_limit_holds_the_second_stream_off_the_wire_until_the_first_closes():
-    calls, holder, follower = [], Trickle(), Trickle()
+    class SlowClose(Trickle):
+        def __init__(self):
+            super().__init__()
+            self.closing = asyncio.Event()
+            self.finish_close = asyncio.Event()
+
+        async def aclose(self):
+            self.closing.set()
+            await self.finish_close.wait()
+            await super().aclose()
+
+    calls, holder, follower = [], SlowClose(), Trickle()
     async with service_for(_handler(calls, [holder, follower])) as service:
         first = service.stream_chat(MESSAGES)
         assert await _first(first) == "first"
@@ -72,7 +83,21 @@ async def test_chat_limit_holds_the_second_stream_off_the_wire_until_the_first_c
         assert len(calls) == 1, "the second chat must not reach the wire while the slot is held"
         snap = provider_admission.snapshot()
         assert (snap["chat_in_flight"], snap["waiting"], snap["admitted"], snap["rejected"]) == (1, 1, 1, 0)
-        await first.aclose()  # the consumer walks away mid-stream
+        closing = asyncio.create_task(first.aclose())  # consumer walks away mid-stream
+        try:
+            await asyncio.wait_for(holder.closing.wait(), timeout=2.0)
+            assert not holder.closed
+            snap = provider_admission.snapshot()
+            assert (snap["chat_in_flight"], snap["waiting"], snap["admitted"]) == (1, 1, 1), (
+                "chat admission must remain held until provider transport cleanup completes"
+            )
+            assert len(calls) == 1
+            assert not task.done()
+        finally:
+            holder.finish_close.set()
+            await closing
+            await task
+            await second.aclose()
         assert holder.closed
         assert await task == "first"
         assert len(calls) == 2

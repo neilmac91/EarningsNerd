@@ -59,18 +59,22 @@ class _CopilotChatMixin:
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     raise TimeoutError("Chat deadline exhausted")
-                # The chat slot spans the stream's whole life (E09b); it is released through this
-                # generator's finally, which both consumers reach via aclose(). The wire timeout is
-                # anchored to the original deadline, so time spent waiting for a slot is not added.
-                async with provider_admission.admit(remaining), asyncio.timeout_at(deadline):
-                    stream = await self.client.chat.completions.create(**kwargs)
-                    async for chunk in stream:
-                        if getattr(chunk, "model", None):
-                            actual_model = chunk.model
-                        if getattr(chunk, "usage", None) is not None:
-                            usage = chunk.usage
-                        emitted = True
-                        yield chunk
+                # Keep admission through transport cleanup, outside the request timeout so
+                # an expired streaming deadline cannot interrupt closing the provider response.
+                async with provider_admission.admit(remaining):
+                    try:
+                        async with asyncio.timeout_at(deadline):
+                            stream = await self.client.chat.completions.create(**kwargs)
+                            async for chunk in stream:
+                                if getattr(chunk, "model", None):
+                                    actual_model = chunk.model
+                                if getattr(chunk, "usage", None) is not None:
+                                    usage = chunk.usage
+                                emitted = True
+                                yield chunk
+                    finally:
+                        if stream is not None:
+                            await close_stream(stream)
                 outcome = "success"
                 return
             except (asyncio.CancelledError, GeneratorExit):
@@ -82,16 +86,12 @@ class _CopilotChatMixin:
                 if emitted or attempt == 1 or not transient(exc):
                     raise
             finally:
-                try:
-                    if stream is not None:
-                        await close_stream(stream)
-                finally:
-                    record = record_ai_call(operation="chat_stream", provider="primary",
-                                            actual_model=actual_model, usage=usage, outcome=outcome)
-                    if usage_sink is not None:
-                        for key, value in record["usage"].items():
-                            if value is not None:
-                                usage_sink[key] = usage_sink.get(key, 0) + value
+                record = record_ai_call(operation="chat_stream", provider="primary",
+                                        actual_model=actual_model, usage=usage, outcome=outcome)
+                if usage_sink is not None:
+                    for key, value in record["usage"].items():
+                        if value is not None:
+                            usage_sink[key] = usage_sink.get(key, 0) + value
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 raise TimeoutError("Chat deadline exhausted")
