@@ -81,8 +81,20 @@ instant; the snapshot provides no duration, historical peak or alert threshold.
 `GET /metrics` uses the existing authenticated admin check (normal session/bearer authentication);
 it is not `/api/metrics`. Its database-backed authentication and synchronous dependency can
 themselves wait under saturation, so this is not an outage-independent diagnostic. Counts are
-local to that event loop, not fleet totals, CPU utilization, EDGAR/default-asyncio executor state,
-or provider/generation queues. This addition changes no capacity or startup/probe deadlines.
+local to that event loop, not fleet totals, CPU utilization or EDGAR/default-asyncio executor
+state. Since E09b the snapshot also carries `provider_admission` (every provider stream in the
+process: `in_flight`, `admitted`, `peak_in_flight`; and the chat-only slot gate
+`AI_CHAT_MAX_INFLIGHT`: `limit`, `chat_in_flight`, `waiting`, `rejected`; the summary path is
+counted but bounded by its own semaphores and never waits here) and
+`sec_rate_limiter` (the process-local SEC token bucket: `total_requests`, `rate_limit_hits`,
+`current_tokens`, `requests_per_second`). Both are per process: the load on the shared provider
+key or the SEC IP is the sum over the API instances and every job that ran in the window
+(pregenerate, filing-scan and backfill-facts each carry their own bucket, and their Monday
+06:00–07:00 UTC schedules overlap each other and the service). A rising `rejected` count means
+chat callers are timing out in the queue rather than at the provider; `rate_limit_hits` climbing on
+the service while a job runs is the aggregate SEC budget being exceeded, which only lower
+per-process budgets on the service and jobs can fix. This addition changes no capacity or
+startup/probe deadlines.
 
 **Status codes:**
 - `200` with `status: healthy` - All dependencies operational

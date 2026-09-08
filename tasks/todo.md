@@ -143,6 +143,72 @@ registration, legal, destructive data or history operations, historical replay, 
 live email/job execution as a test, live account actions, the AI provider, console actions such
 as the retention job and scheduler, Dependabot #270).
 
+## E09b — Process-wide provider admission gate (engineering, 2026-09-07)
+
+Facts (read against `c7510ac`): per process the summary path was bounded (generation semaphore
+`MAX_CONCURRENT_GENERATIONS` 6, recovery semaphore 3) but the chat paths (`_chat_chunks`, used by
+Copilot and Analysis) were bounded only by per-user quotas, so one instance could hold up to its
+request concurrency (40) in provider streams and the fleet about a hundred on one key; provider
+429/5xx replies fed the retry loop. Nothing exposed the SEC bucket, so the aggregate against the
+per-IP cap (two instances plus overlapping Monday jobs, each with its own bucket) was
+unobservable. Cross-instance generation ownership and a fleet-wide SEC budget need schema or
+production capacity values and stay separate (the latter also needs the founder's egress
+evidence: Cloud Run without a VPC connector does not guarantee one egress IP).
+
+- [x] `services/ai/provider_admission.py`: loop- and limit-keyed semaphore behind
+  `admit(deadline_seconds, gated=)`. The chat paths are gated: a wait past the caller's own
+  budget (or cancelled) counts as `rejected` and releases nothing; the summary path is
+  counted but never waits (its own two semaphores bound it). Counters `limit`, `in_flight`,
+  `chat_in_flight`, `waiting`, `admitted`, `rejected`, `peak_in_flight`. Wrapped at the two
+  wire sites: `_request_content` (counted; the backoff sleep holds nothing) and
+  `_chat_chunks` (slot spans the stream's life, released through the generator's finally via
+  `aclose()`; the wire timeout is `asyncio.timeout_at(deadline)`, so waiting for a slot is
+  not added to the chat budget). Lock order is always generation/recovery semaphore first,
+  admission second; no deadlock.
+- [x] `AI_CHAT_MAX_INFLIGHT` (default 8, 0 through 512, 0 disables): a process holds at most
+  8 chat streams plus the summary path's own maximum (6 + 3); fleet worst case 2 × 17 + the
+  pregenerate job's 4 on the key. The one capacity-flavoured number in the slice, env-tunable,
+  left at the default (founder-held).
+- [x] `/metrics`: `provider_admission` and `sec_rate_limiter` snapshots, both `scope: process`
+  (E12's "connect E09 counters"). Docs: CONFIGURATION row, OPERATIONS paragraph (what the
+  snapshots mean, the Monday job overlap, that only lower per-process budgets fix an
+  aggregate SEC overrun), ARCHITECTURE resilience line.
+- [x] First cut (`0502c2d`, full gate 2680 passed) gated every stream through one shared FIFO
+  semaphore (`AI_PROVIDER_MAX_INFLIGHT` 16). Independent lens, two survivors, both fixed:
+  (1) the chat wire timeout was built from a `remaining` computed before the admission wait,
+  so a stream that waited W seconds could run to `deadline + W` while holding its slot, and
+  contention would extend contention; now anchored to the original deadline. (2) "summaries
+  never queue here" was false: sixteen chat streams on one instance would put every summary
+  attempt FIFO behind them, a new failure mode for the core product; the gate now bounds chat
+  only and the summary path is counted, never blocked. Refuted: slot leaks on disconnect /
+  `aclose()` / same-tick outer timeout, double release, lock order, the semaphore rebuild on
+  a limit change (transient over-admission, monkeypatch-only), counter paths, the backoff
+  sleep, rejected waits recorded as timeout calls (deliberate, `rejected` disambiguates), the
+  `get_stats()` fields, docs defaults, job processes (≤ 4 streams), the ungated
+  `_stream_collect` (only reached inside the gated attempt).
+- [x] Tests: `test_provider_admission.py` (5: the chat limit holds a second stream off the
+  wire until the first closes; the summary path reaches the wire while chat holds the only
+  slot; a chat wait is bounded by its own deadline, rejected, wire-free and leak-free; time
+  spent waiting is not added to the chat budget; 0 disables), `test_ai_metrics.py` (+1),
+  `test_configuration_reference.py` (+2).
+- [x] Mutations on the reworked gate (committed state, restored): chat gate removed → 3
+  failed; chat slot narrowed to `create` → 3 failed; wait made unbounded → 1 failed; summary
+  path gated too → 1 failed; chat timeout from the stale pre-wait `remaining` → 1 failed;
+  metrics keys dropped → 1 failed; `ge=0` dropped → 1 failed. Full gate on `7e1e429`:
+  ruff/bandit clean, 2693 passed.
+- [x] Delta lens on the rework (two refutations per candidate): one survivor, fixed. The
+  deadline test patched the short chat budget before the holder streamed, so a cold SDK first
+  call (about 0.4 s) spent the holder's budget and the test failed deterministically when run
+  alone (`-k`, `--lf`, IDE); it passed in file order only by warm-up. Now the budget is
+  patched once the holder streams, with a 1.0 s budget, a 0.4 s wait and a 1.2 s bound (the
+  bug gives at least 1.4 s); passes cold three times in isolation. Refuted: `gated=False`
+  counter paths, `timeout_at` with a past deadline, the retry loop's slot release before the
+  backoff, multi-round `aclose()` ordering, the semaphore cancel race, docs vs code (the
+  6 + 3 bound is an upper bound; the true summary-path maximum is 8), the stale-name grep,
+  three warm runs of the five AI homes.
+- [ ] Independent lens, draft PR, one paid Copilot run at ready, merge, deploy verification
+  (`applied=0`).
+
 ## Stripe dunning-policy gates (engineering, 2026-09-07)
 
 Facts (read against `c7510ac`): the E06 row's open item, "event-selection coverage remains
@@ -164,8 +230,16 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
 - [x] Draft [#759](https://github.com/neilmac91/EarningsNerd/pull/759) on `6902690` (the test
   commit cherry-picked onto #758's merge, the ledger records and the widened lesson); PR CI run
   34170088821 green on every job. The #758 release record rides on the draft.
-- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
-  verification (`applied=0`).
+- [x] `27bcb27` added the #758 release record while still a draft. Marked ready at 23:31 UTC
+  under the standing authorization: `copilot-eval.yml` run 34170331950 success; PR CI run
+  34170327527 green on every job; Codex posted only its quota notice. Squash-merged as
+  `bc973b2` at 23:35 UTC.
+- [x] Main CI run 34170515351 on `bc973b2`: success on every job. deploy-backend job
+  101890252557: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00301-9xm` at 100 % traffic; five job images updated (notable-filings
+  and retention-purge not found, skipped); CI `/health/detailed` healthy (database 11.83 ms)
+  at 23:41:07Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
+  (6.42 ms) at 23:41 UTC. Released.
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
@@ -207,7 +281,7 @@ counters). Expired OAuth states are swept only on the next login; refresh tokens
   `earningsnerd-backend-00300-7nj` at 100 % traffic; five job images updated, the loop now
   names `earningsnerd-retention-purge` and reports it not found (create once per
   DEPLOYMENT.md); CI `/health/detailed` healthy (database 8.99 ms) at 23:30:29Z; independent
-  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:32 UTC. Released.
+  `curl https://api.earningsnerd.io/health/detailed` healthy at 23:31 UTC. Released.
 - [ ] Founder console: create `earningsnerd-retention-purge` and the Sunday 03:00 UTC scheduler
   per DEPLOYMENT.md (a `--dry-run` execution first). Until then job health lists the job as
   never observed and the weekly data-quality report flags it stale.

@@ -51,6 +51,12 @@ async def get_all_metrics() -> Dict[str, Any]:
     # AI counters are process-local, separately from durable per-summary logs.
     from app.services.ai_metrics import get_ai_metrics
     metrics["ai"] = get_ai_metrics()
+    # E09b: provider admission and SEC pacing, both process-local slots/buckets; fleet load on the
+    # shared key and IP is the sum over instances and job logs.
+    from app.services.ai import provider_admission
+    from app.services.sec_rate_limiter import sec_rate_limiter
+    metrics["provider_admission"] = provider_admission.snapshot()
+    metrics["sec_rate_limiter"] = {"scope": "process", **sec_rate_limiter.get_stats()}
 
     # Circuit breaker metrics
     try:

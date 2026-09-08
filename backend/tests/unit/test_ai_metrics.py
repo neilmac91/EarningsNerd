@@ -6,6 +6,8 @@ import json
 import threading
 
 import pytest
+
+from app.config import settings
 from anyio.to_thread import current_default_thread_limiter
 from fastapi.concurrency import run_in_threadpool
 from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
@@ -134,6 +136,26 @@ async def test_admin_metrics_exposes_independent_process_snapshot(monkeypatch):
     assert result["ai"]["scope"] == "process" and result["ai"]["calls"][0]["count"] == 1
     result["ai"]["calls"][0]["usage"]["total_tokens"]["known_total"] = 999
     assert ai_metrics.get_ai_metrics()["calls"][0]["usage"]["total_tokens"]["known_total"] == 12
+
+
+@pytest.mark.asyncio
+async def test_admin_metrics_carries_provider_admission_and_sec_pacing_without_taking_a_slot(monkeypatch):
+    """E09b: the provider slot gate and the SEC bucket are observable per process, as JSON, and
+    reading them acquires nothing."""
+    import json
+
+    from app.services import redis_service
+    from app.services.ai import provider_admission
+
+    monkeypatch.setattr(redis_service, "check_redis_health", AsyncMock(return_value={"healthy": True}))
+    provider_admission.reset()
+    result = await metrics_service.get_all_metrics()
+    admission, pacing = result["provider_admission"], result["sec_rate_limiter"]
+    assert admission["scope"] == "process" and admission["limit"] == settings.AI_CHAT_MAX_INFLIGHT
+    assert (admission["in_flight"], admission["waiting"], admission["admitted"], admission["rejected"]) == (0, 0, 0, 0)
+    assert pacing["scope"] == "process" and pacing["requests_per_second"] == settings.SEC_RATE_LIMIT_PER_SECOND
+    assert {"total_requests", "rate_limit_hits", "current_tokens"} <= set(pacing)
+    json.dumps({"provider_admission": admission, "sec_rate_limiter": pacing})
 
 
 @pytest.mark.asyncio
