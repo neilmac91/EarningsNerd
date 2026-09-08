@@ -148,5 +148,7 @@ Fresh #780 contains only new Anthropic 1.4.0 and PostHog 7.47.0 versions outside
 assignment. It remains visible for subsequent triage. The three major frontend upgrades and
 D8 still require founder approval. The specific #759 retention exception is resolved.
 
-The final docs-only publication identifier is recorded after draft creation; it carries no
-runtime change beyond the verified code departure point above.
+The documentation departure point is [docs-only PR #781](https://github.com/neilmac91/EarningsNerd/pull/781).
+Its merged commit records the final main SHA on top of the verified code departure point above.
+The full master plan remains bounded by the named founder prerequisites; this authorized
+engineering pass stops after the handover publication.
