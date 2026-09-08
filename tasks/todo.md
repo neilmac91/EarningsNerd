@@ -5,7 +5,7 @@ Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe
 
 - [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
 - [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
-- [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
+- [x] Seven scepticism items, PR bodies and release evidence audited; docs-only #773 merged as `ae2fbf0499f4777128571959c42522ad60899d0a` on 2026-09-08 at 16:48:28 UTC. All checks passed; local link/anchor check: 6 checked, zero failures.
 - [x] Fix confirmed delivery replacement crash gap: #772 merged and verified on revision 00308-khx.
 - [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
 - [ ] Deferred audit S1: keep chat admission held through provider transport cleanup; early consumer closure currently admits a second transport before the first `aclose` completes. See [audit S1](audit-astra-2026-09-08.md#should-fix-findings); recorded for a later code PR.
@@ -16,6 +16,28 @@ Local verification correction: the first frontend Vitest run overlapped pytest i
 worktree. It was stopped, its log retained, and frontend verification moved to a separate
 worktree. The complete backend gate then passed without same-worktree overlap. No live
 job, account action, production configuration change or locked-test edit occurred.
+
+## Remaining master plan — Astra checkpoint, 2026-09-08
+
+The audit is complete. Work below preserves the ordered plan and names the evidence still
+required; local tests and historical workflow success do not establish production prerequisites.
+
+- [ ] **W3-10 Notable:** founder reviews seeded rows through **2026-09-15** and records retain/kill. The owned flag PR waits on retain; no production flag changed.
+- [ ] **W3-10 Analysis:** founder records effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS` and companyfacts warm-up cohort/results. Then engineering prepares the flag PR, full frontend gate, Playwright and both-theme preview; live Pro-account smoke remains founder-held.
+- [ ] **W3-7:** founder credential/execution must produce the first actual strong-judge readout. Latest retrieved artifact `10029049893`, run `34150116352`, is unavailable with 0/24 scored, not acceptance. Engineering then reports wrong-snap rate; the founder's arm decision precedes flags/re-pin.
+- [ ] **W3-8a then W3-8b:** wait on W3-7 or the existing more-than-one-week slip exception, which has not elapsed on September 8. Never two re-pin PRs open.
+- [x] **E09 engineering proposal:** [fleet coordination proposal](e09-fleet-coordination-proposal-2026-09-08.md) describes PostgreSQL filing leases and separate SEC admission, fail-closed behavior, alternatives and acceptance. Independent code/brief review found no surviving defect.
+- [ ] **E09 build:** founder supplies effective fleet/egress/provider/database-budget evidence and the bounded design decision in the proposal. No schema, capacity, proxy or enforcement build is authorized by this proposal alone.
+- [ ] **E06:** founder's read-only Stripe endpoint event selection and API-version observation is still absent. Reconcile dunning gates after that observation; the #759 retention exception does not prove event delivery coverage.
+- [ ] **E11 Calendar / E08 price and trial copy:** founder product/licensing decisions remain prerequisites. No activation/copy change.
+- [ ] **Dependabot #748:** exact PostHog JS minor candidate is in #774, full frontend gate passed; CI/review/merge pending.
+- [ ] **Dependabot #749/#750/#751:** Vitest5, jest-dom7, jsdom/types30 each prepared separately; full local lint/tsc/103 files/569 tests/build passed with unchanged tests. One consolidated founder merge decision was requested on 2026-09-08; majors remain held until answered.
+- [ ] **Dependabot #752:** separate greenlet/PostHog patch candidate passed 2731 tests including performance/four PostgreSQL lanes. OpenAI SDK and EDGAR/lxml portions are prepared independently; actual summary evaluation is required because requirements-only PRs skip that measurement. The original failed Copilot run had unavailable generator credentials and no scored results; it is not quality acceptance.
+- [ ] **D8:** founder approval remains required before deleting `claude/earnings-nerd-audit-plan-8iikp3` and `claude/earningsnerd-sections-review-prompt-aw2u7c`. Neither branch was deleted.
+
+Dependabot alert #270, Codex credits, production flags/capacity/prices/trial/promo/registration,
+legal decisions, live accounts/email/job tests, historical replay and console actions retain
+their existing founder boundaries. DeepSeek remains the provider.
 
 ## Astra audit fix — atomic delivery replacement (2026-09-08)
 
