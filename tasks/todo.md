@@ -103,10 +103,25 @@ path must not insert, and the 78 rows must be validated.
   per-filing log line is silent for an unauthorized company's `unstored`; the total is right).
   Full gate: 2721 passed on `5e5e3a7`; 2721 passed on the final head `5c993f6`, ruff/bandit clean
   (`4a22f36`, `3247814`, `ec3c9b4` here are the same commits cherry-picked onto #765's merge).
-- [ ] Draft [#766](https://github.com/neilmac91/EarningsNerd/pull/766); one paid Copilot run at
-  ready, merge, deploy verification (`applied=0`); then **(founder)** runs the listing on the
-  deployed image (`--since 2026-09-08T05:25:00Z --until 2026-09-08T05:40:00Z`, expected 78 rows),
-  records the read, and W3-9 closes.
+- [x] Draft [#766](https://github.com/neilmac91/EarningsNerd/pull/766) on `80bbdd1`; marked ready
+  at 06:01 UTC (paid Copilot run and CI started). Codex (credits restored by the founder this
+  morning) posted two P2s at 06:08, both confirmed and fixed with the PR back in draft: (1) a
+  `created_at` window cannot attribute a row to the audit, since a summary finishing inside it
+  populates `financial_fact` through `process_filing_facts` too → `list_facts_created.py
+  --accessions`, provenance from the apply execution's own per-filing
+  `reconciliation_flag_audit … accession=… inserted=N` lines, and DEPLOYMENT.md's three-step
+  review (provenance lines by execution name, the restricted listing, that execution's full
+  `jsonPayload` output) with the per-accession reconciliation stated; (2) the documented log
+  query's `concept:*` predicate dropped the summary line → the read selects the execution by name
+  with `jsonPayload:*`. Test extended (an in-window row under another accession is excluded);
+  mutation dropping the filter → 1 failed. Both threads answered. A restore-with-`git checkout`
+  during that mutation discarded the uncommitted script edit and the first commit shipped without
+  it; caught by the post-restore suite run, re-applied and amended before push:
+  `lessons/ops-mutate-only-committed-state.md`.
+- [ ] Full gate on the fix head, push, ready again (second paid run under the overnight
+  authorization: a confirmed-finding fix round), merge, deploy verification (`applied=0`); then
+  **(founder)** runs the three review steps on the deployed image (expected 78 rows across the
+  audited accessions), records the read, and W3-9 closes.
 
 ## E11b-1 continuation — 2026-09-07
 
