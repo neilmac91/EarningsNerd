@@ -81,6 +81,14 @@ bounded founder design decision. E06 waits on read-only Stripe endpoint selectio
 Calendar, price/trial copy and stale-branch deletion remain held. Dependency dispositions and
 release evidence are appended in the completion section before publication.
 
+The three major frontend candidates remain unpublished and require the founder's merge word:
+Vitest 5 (`3a1260dc2728133a512e5536d3c6b1d97b29e409`), jest-dom 7
+(`5a7ac3541600620d4be3f53b636f08d99994ed56`) and jsdom/types 30
+(`ed63afbd22f52f5a50eafddaf630e5810e8db07b`). Each passed the complete frontend gate with
+unchanged tests on preparation base `048fbc47`; integrate current main and rerun its complete
+gate before publication, preserving the subsequently merged PostHog update. The approval
+request was sent once in this session; no approval is inferred from silence.
+
 ## 4. Operating procedure and local evidence
 
 Run gates only on committed clean state, one test process per worktree. Use all four exact
