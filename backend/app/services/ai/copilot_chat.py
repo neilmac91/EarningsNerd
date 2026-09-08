@@ -52,6 +52,7 @@ class _CopilotChatMixin:
         for attempt in range(2):
             stream = None
             emitted = False
+            cleanup_failed = False
             actual_model = usage = None
             outcome = "error"
             error = None
@@ -74,7 +75,11 @@ class _CopilotChatMixin:
                                 yield chunk
                     finally:
                         if stream is not None:
-                            await close_stream(stream)
+                            try:
+                                await close_stream(stream)
+                            except Exception:
+                                cleanup_failed = True
+                                raise
                 outcome = "success"
                 return
             except (asyncio.CancelledError, GeneratorExit):
@@ -83,7 +88,7 @@ class _CopilotChatMixin:
             except Exception as exc:
                 error = exc
                 outcome = "timeout" if is_timeout(exc) else "error"
-                if emitted or attempt == 1 or not transient(exc):
+                if cleanup_failed or emitted or attempt == 1 or not transient(exc):
                     raise
             finally:
                 record = record_ai_call(operation="chat_stream", provider="primary",

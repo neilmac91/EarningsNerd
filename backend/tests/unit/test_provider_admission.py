@@ -180,3 +180,35 @@ async def test_time_spent_waiting_for_a_slot_is_not_added_to_the_chat_budget(mon
 def test_zero_disables_the_ceiling(monkeypatch):
     monkeypatch.setattr(settings, "AI_CHAT_MAX_INFLIGHT", 0)
     assert provider_admission.limit() == 2**31
+
+
+@pytest.mark.asyncio
+async def test_explicit_chat_cleanup_failure_is_not_retried(monkeypatch):
+    """An explicit closer failing after empty iteration is terminal, even when transient.
+
+    The native SDK also closes during iteration; failures there keep the existing retry
+    policy. This fake stream isolates the wrapper-owned explicit cleanup boundary.
+    """
+    calls = []
+
+    class EmptyStream:
+        async def __aiter__(self):
+            if False:
+                yield
+
+        async def close(self):
+            raise httpx2.ReadError("offline explicit cleanup failed")
+
+    async def create(**kwargs):
+        calls.append(kwargs)
+        return EmptyStream()
+
+    async with service_for(lambda req: pytest.fail("unexpected wire request")) as service:
+        monkeypatch.setattr(service.client.chat.completions, "create", create)
+        monkeypatch.setattr(copilot_chat, "retry_delay", lambda *args: 0)
+        deadline = asyncio.get_running_loop().time() + 2.0
+        with pytest.raises(httpx2.ReadError, match="offline explicit cleanup failed"):
+            async for _ in service._chat_chunks({}, None, deadline):
+                pytest.fail("empty stream yielded a chunk")
+    assert len(calls) == 1, "explicit cleanup failure must not start another provider attempt"
+    assert provider_admission.snapshot()["in_flight"] == 0
