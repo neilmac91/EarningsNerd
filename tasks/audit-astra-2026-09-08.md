@@ -154,6 +154,9 @@ the completion record; no imaginary file was counted as a passing comparison.
    rows and retention dry-run counts, with W3-9's scope deviation and subsequent review. There is
    no evidence in the available records of another production data operation; lack of console
    access prevents independently proving a universal absence claim.
+   Parsing the supplied archive independently reproduced 78 rows/39 accessions/two each,
+   ids 16062–16139, 77 reconciled/one flagged, 16 non-latest rows and 18 repeated-period groups
+   with agreeing values; per-filing apply totals sum to 78 inserted/19 refreshed/51 mismatches.
 
 All twelve rules were checked across touched application files. No new orchestrator, cross-filing
 summary input, entitlement authority, SEC transport bypass, env-access bypass or filing URL builder
