@@ -174,8 +174,11 @@ list[datetime]]` keyed by hashed IP on a public route, pruned only when the same
   requests counting (as before), proxy-header handling, the hashed IP, feedback parity and the
   `include_client_ip` keyword, the inherited E13b bounds and import-time safety, gate coverage
   and CI placement, the tests' isolation and seams, every waitlist assertion, rules 7 and 8.
-- [ ] Draft PR after #761 merges, one paid Copilot run at ready, merge, deploy verification
-  (`applied=0`).
+- [x] Draft [#762](https://github.com/neilmac91/EarningsNerd/pull/762) on `d34b92a` (the two
+  worktree commits cherry-picked onto #761's merge plus the ledger records); the #761 release
+  record rides on the draft.
+- [ ] Ready under the standing authorization (one paid Copilot run), merge, deploy
+  verification (`applied=0`).
 
 ## E10c — Bell unread count as one SQL aggregate (engineering, 2026-09-08)
 
@@ -208,8 +211,12 @@ the E15b sitemap cap, or an admin/GDPR one-off: the bell was the only hot, unbou
   PR CI run 34172152580 green on every job; marked ready at 00:10 UTC under the standing
   authorization: `copilot-eval.yml` run 34172483520 success (eval-baseline 00:19:02Z); Codex
   posted only its quota notice. Squash-merged as `fb26dbd` at 00:20 UTC.
-- [ ] Main CI on `fb26dbd`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34173005187 on `fb26dbd`: success on every job. deploy-backend job
+  101897275114: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00303-h6r` at 100 % traffic; five job images updated (notable-filings
+  and retention-purge not found, skipped); CI `/health/detailed` healthy (database 9.79 ms)
+  at 00:27:12Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
+  (6.37 ms) at 00:27 UTC. Released.
 
 ## E09b — Process-wide provider admission gate (engineering, 2026-09-07)
 
