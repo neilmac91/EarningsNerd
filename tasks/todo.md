@@ -6,7 +6,7 @@ Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe
 - [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
 - [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
 - [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
-- [ ] Fix confirmed delivery replacement crash gap under normal code-PR gates and serial deployment verification.
+- [x] Fix confirmed delivery replacement crash gap: #772 merged and verified on revision 00308-khx.
 - [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
 - [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
 - [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
@@ -26,7 +26,7 @@ job, account action, production configuration change or locked-test edit occurre
   restart proves delivery after lease expiry outside the normal selection window. Mutation:
   early commit after release → 2 failed; restored → 2 passed. Existing delivery suite: 30 passed.
 - [x] Final full gate on committed `e9c6d65d`: 2731 passed; three review lenses; draft-first #772, one paid evaluation at ready (34250122330, 18/18 accepted, artifact 10065738610).
-- [ ] Squash merge and serial main CI/deploy/health verification; append release evidence in the audit docs PR.
+- [x] #772 squash merge and serial main CI/deploy/health verification complete; evidence follows.
 
 **Dated correction to E11b-1 — 2026-09-08:** the previous implementation's “immediate rebuild”
 was two commits and did not guarantee crash-safe replacement. The earlier tests covered normal
@@ -38,6 +38,13 @@ schema/configuration. The original ledger records below are retained.
 Required CI and the paid evaluation passed; Codex completed review on `e9c6d65` without findings.
 The advisory eval in PR run `34250095075` was still running at merge and remains tracked;
 no pass is claimed yet. Main run `34251319216` is in progress; deployment is not verified yet.
+
+**Completion — 2026-09-08:** advisory eval `34250095075` passed 52/52 with zero errors/retries,
+artifact `10066151786`; one existing untraceable-dollar warning. Main run `34251319216`
+succeeded; deploy job `102147135898` logged `apply_migrations: applied=0 skipped=39`, revision
+`earningsnerd-backend-00308-khx` at 100%, all eight job images updated. CI health at
+`1788885332.6801815` and independent curl at `1788885378.3253903` were healthy (database
+8.06/6.73 ms respectively, SEC closed, Redis disabled). No second paid run was needed.
 
 ## Overnight handover — 2026-09-08 (for the founder's morning read)
 

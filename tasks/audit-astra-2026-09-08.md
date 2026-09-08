@@ -11,7 +11,7 @@ refutation attempts. This report distinguishes observed evidence from prior-sess
 The recorded releases and production checkpoints are supported by GitHub evidence, but the
 session is not a clean pass. One runtime must-fix loses pending alerts across a crash during
 envelope replacement. One historical boundary finding misclassified the actual locked T4 file.
-The runtime fix is being verified separately. The founder approved retaining #759's
+The runtime fix is merged and production-verified in #772. The founder approved retaining #759's
 additions on 2026-09-08 as a specific lock exception; this resolves the historical boundary disposition. A smaller provider-admission cleanup gap and documentation inaccuracies
 are recorded below. No live email, job test, replay, account action or console operation was
 performed by this audit.
@@ -30,7 +30,7 @@ failure through the real ORM/drain, reopened a fresh session, and ran the next d
 suppressed, zero owned items, zero sent logs and zero sends. This is not recovered by the scheduler.
 Fix: `codex/wave3-delivery-atomic-rebuild` commits the fenced release and replacement together;
 failed insertion/collision retains the old claim and items for retry after lease expiry.
-Release evidence will be appended after deployment.
+Release evidence appears below.
 
 **M2 — #759 crossed the actual T4 file lock without a recorded exception.**
 `backend/tests/unit/test_subscription_webhook_sync.py:289` adds 95 lines, while
@@ -193,3 +193,31 @@ also succeeded. The table records observed GitHub evidence, not guessed identifi
 | #766 | `1046907d` | 34194937694 | 101961157398 | `apply_migrations: applied=0 skipped=39` | `earningsnerd-backend-00306-2b9` |
 | #769 | `7b6a32e6` | 34216384213 | 102029849295 | `apply_migrations: applied=0 skipped=39` | `earningsnerd-backend-00307-pzl` |
 
+
+## Audit fix release — #772, 2026-09-08
+
+[PR #772](https://github.com/neilmac91/EarningsNerd/pull/772) squash-merged as
+`048fbc47c903d520280dbb917f6454cd19102059` at 16:28:59 UTC. Full local gate on final reviewed
+head `e9c6d65d`: 2731 passed including performance and four PostgreSQL lanes; all eleven actual
+locked files byte-identical to current main. Exactly one mutation proof caught an early commit
+(two parameter cases failed, then passed after restoration). Independent three-lens review and
+Codex's completed exact-head review had no surviving finding.
+
+One paid Copilot run, [34250122330](https://github.com/neilmac91/EarningsNerd/actions/runs/34250122330),
+accepted 18/18 with zero errors (artifact `10065738610`). Required PR CI was green at merge.
+The still-running advisory eval subsequently completed in run `34250095075`, job `102141995983`:
+52/52 scored, zero errors, `retried:0`, PASS with the existing untraceable-dollar warning
+(artifact `10066151786`). No re-run or second paid evaluation was consumed.
+
+[Main CI 34251319216](https://github.com/neilmac91/EarningsNerd/actions/runs/34251319216) succeeded.
+Deploy job `102147135898` recorded:
+
+```text
+apply_migrations: applied=0 skipped=39
+Service [earningsnerd-backend] revision [earningsnerd-backend-00308-khx] has been deployed and is serving 100 percent of traffic.
+```
+
+All eight configured job images updated. CI detailed health was healthy at `1788885332.6801815`
+(database 8.06 ms); independent `curl -fsS` returned healthy at `1788885378.3253903`
+(database 6.73 ms, Redis disabled/healthy, SEC closed/healthy). M1 is fixed and production-verified.
+M2 is resolved by the founder's specific retention decision. No historical delivery replay was run.
