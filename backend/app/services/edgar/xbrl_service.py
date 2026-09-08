@@ -25,7 +25,7 @@ from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from edgar import Company as EdgarCompany, set_identity
+from edgar import set_identity
 
 # The XBRL primary-path calls use a plain timeout, NOT run_with_circuit_breaker: large filings
 # legitimately parse for 20-40s (BAC/JPM/BABA 20-F), so their dominant failure mode is local parse
@@ -54,7 +54,6 @@ from .instance_extractor import (
     segment_series_by_member,
 )
 from .models import MetricChange
-from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,8 @@ set_identity(EDGAR_IDENTITY)
 # v4: T5.3 shareholder-returns concepts (dividends_paid, share_repurchases) — v3 entries lack the
 # new keys and must age out so the §4 deterministic feed sees them without a manual refresh.
 # v5: retain fiscal-quarter metadata in newly extracted snapshots.
-_XBRL_CACHE_VERSION = "v5"
+# v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
+_XBRL_CACHE_VERSION = "v6"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
@@ -716,11 +716,9 @@ class EdgarXBRLService:
         Order matters (issue #240):
         1. The requested filing's own XBRL instance — the only source whose
            periods and durations are guaranteed to belong to this accession.
-        2. The companyfacts API — accession-aware since PR #239 (prefers facts
-           the target filing reported, dedupes by standard duration).
-        3. Company.get_financials() — built from the company's LATEST 10-K,
-           so for any other filing it can return another filing's numbers;
-           last resort only.
+        2. The companyfacts API, restricted to facts the target accession reported,
+           including its own comparative periods. If neither source is usable,
+           return no data; the company's latest filing is not a substitute.
         """
         cik_padded = cik.zfill(10)
 
@@ -733,7 +731,7 @@ class EdgarXBRLService:
         if result is not None and any(result.values()):
             return result
 
-        return await self._fetch_from_latest_financials(cik_padded, accession_number)
+        return None
 
     async def _fetch_from_filing_instance(
         self,
@@ -782,166 +780,6 @@ class EdgarXBRLService:
         except Exception as e:  # noqa: BLE001 — never let section parsing break generation
             logger.warning(f"Section extraction failed for {accession_number}: {e}")
             return None
-
-    async def _fetch_from_latest_financials(
-        self,
-        cik_padded: str,
-        accession_number: str,
-    ) -> Optional[Dict[str, Any]]:
-        """LAST RESORT: Company.get_financials() builds from the company's
-        latest 10-K, so for any other filing these can be a different filing's
-        numbers (issue #240). Reached only when the filing's own instance and
-        the companyfacts API both produced nothing.
-        """
-        try:
-            # Get company via EdgarTools
-            edgar_company = await run_in_executor_with_timeout(
-                lambda: EdgarCompany(cik_padded),
-                timeout=self.timeout,
-            )
-
-            # Get financials. EdgarTools 5.x exposes Company.get_financials()
-            # (there is no `financials` property; attribute access raises and
-            # silently forced every request onto the company-facts fallback).
-            financials = await run_in_executor_with_timeout(
-                edgar_company.get_financials,
-                timeout=self.timeout,
-            )
-
-            if not financials:
-                logger.warning(f"No financials available for CIK {cik_padded}")
-                return None
-
-            # Extract data from financials
-            result = {
-                "revenue": [],
-                "net_income": [],
-                "total_assets": [],
-                "total_liabilities": [],
-                "cash_and_equivalents": [],
-                "earnings_per_share": [],
-                "eps_diluted": [],
-                # P1.1 depth additions
-                "gross_profit": [],
-                "operating_income": [],
-                "operating_cash_flow": [],
-                "capital_expenditures": [],
-                "shareholders_equity": [],
-                "long_term_debt": [],
-            }
-
-            # Try to get income statement
-            try:
-                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "income_statement"), timeout=self.timeout)
-                if df is not None and not df.empty:
-                    result["revenue"] = self._extract_from_dataframe(
-                        df,
-                        ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
-                         "Revenue", "TotalRevenue", "TotalRevenues", "NetSales", "SalesRevenueNet"],
-                        accession_number
-                    )
-                    result["net_income"] = self._extract_from_dataframe(
-                        df,
-                        ["NetIncomeLoss", "ProfitLoss", "NetIncome",
-                         "NetIncomeLossAvailableToCommonStockholdersBasic"],
-                        accession_number
-                    )
-                    result["earnings_per_share"] = self._extract_from_dataframe(
-                        df,
-                        ["EarningsPerShareBasic", "EarningsPerShareDiluted",
-                         "BasicEarningsPerShare", "EarningsPerShareBasicAndDiluted"],
-                        accession_number
-                    )
-                    result["eps_diluted"] = self._extract_from_dataframe(
-                        df, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"], accession_number
-                    )
-                    result["gross_profit"] = self._extract_from_dataframe(
-                        df, ["GrossProfit"], accession_number
-                    )
-                    result["operating_income"] = self._extract_from_dataframe(
-                        df, ["OperatingIncomeLoss"], accession_number
-                    )
-            except Exception as e:
-                logger.warning(f"Error extracting income statement: {e}")
-
-            # Try to get balance sheet
-            try:
-                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "balance_sheet"), timeout=self.timeout)
-                if df is not None and not df.empty:
-                    result["total_assets"] = self._extract_from_dataframe(
-                        df,
-                        ["Assets", "TotalAssets"],
-                        accession_number
-                    )
-                    result["total_liabilities"] = self._extract_from_dataframe(
-                        df,
-                        ["Liabilities", "TotalLiabilities", "LiabilitiesAndStockholdersEquity"],
-                        accession_number
-                    )
-                    result["cash_and_equivalents"] = self._extract_from_dataframe(
-                        df,
-                        CASH_TAG_CANDIDATES,
-                        accession_number
-                    )
-                    result["shareholders_equity"] = self._extract_from_dataframe(
-                        df,
-                        ["StockholdersEquity",
-                         "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
-                        accession_number
-                    )
-                    result["long_term_debt"] = self._extract_from_dataframe(
-                        df, ["LongTermDebtNoncurrent", "LongTermDebt"], accession_number
-                    )
-            except Exception as e:
-                logger.warning(f"Error extracting balance sheet: {e}")
-
-            # Try to get cash-flow statement (P1.1 depth: operating CF + capex -> free cash flow)
-            try:
-                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "cash_flow_statement"), timeout=self.timeout)
-                if df is not None and not df.empty:
-                    result["operating_cash_flow"] = self._extract_from_dataframe(
-                        df,
-                        ["NetCashProvidedByUsedInOperatingActivities",
-                         "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
-                        accession_number
-                    )
-                    result["capital_expenditures"] = self._extract_from_dataframe(
-                        df,
-                        ["PaymentsToAcquirePropertyPlantAndEquipment",
-                         "PaymentsToAcquireProductiveAssets"],
-                        accession_number
-                    )
-            except Exception as e:
-                logger.warning(f"Error extracting cash-flow statement: {e}")
-
-            # If we got any data, return it (companyfacts already ran earlier
-            # in the chain — see _fetch_xbrl_data — so there is nothing left
-            # to fall back to from here).
-            if any(result.values()):
-                return result
-            return None
-
-        except Exception as e:
-            logger.error(f"Error fetching XBRL data: {e}", exc_info=True)
-            return None
-
-    def _extract_from_dataframe(
-        self,
-        df,
-        candidates: List[str],
-        accession_number: str,
-    ) -> List[Dict[str, Any]]:
-        """Extract metric values from an EdgarTools statement DataFrame."""
-        _, values = extract_metric_values(df, candidates)
-        return [
-            {
-                "period": period,
-                "value": value,
-                "form": None,
-                "accn": accession_number,
-            }
-            for period, value in values[:5]
-        ]
 
     async def _fallback_to_company_facts(
         self,
@@ -1004,7 +842,8 @@ class EdgarXBRLService:
         def _is_target(item: Dict) -> bool:
             return bool(
                 normalized_accession
-                and item.get("accn", "").replace("-", "") == normalized_accession
+                and isinstance(item.get("accn"), str)
+                and item["accn"].replace("-", "") == normalized_accession
             )
 
         def _duration_penalty(item: Dict) -> int:
@@ -1035,12 +874,6 @@ class EdgarXBRLService:
                 if isinstance(item, dict) and item.get("end")
             ]
 
-            # When the target filing reported this concept, use its facts only
-            # (current value + the comparatives restated in that same filing).
-            matching = [item for item in valid_items if _is_target(item)]
-            if matching:
-                valid_items = matching
-
             # Dedupe by period end: prefer the standard duration for the form,
             # then the most recently filed restatement.
             best_by_end: Dict[str, Dict] = {}
@@ -1070,9 +903,9 @@ class EdgarXBRLService:
             `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a
             stale concept would shadow the live one and surface years-old
             values as "current". Prefer a concept with facts from the target
-            filing; otherwise the one with the most recent period end.
+            filing; concepts absent from that accession are unavailable.
             """
-            best_key: Optional[Tuple[int, str]] = None
+            best_end: Optional[str] = None
             best_data: list = []
             for field in fields:
                 fact = us_gaap.get(field)
@@ -1080,18 +913,13 @@ class EdgarXBRLService:
                     continue
                 for unit_key in unit_keys:
                     data = fact["units"].get(unit_key) or []
-                    valid = [i for i in data if isinstance(i, dict) and i.get("end")]
+                    # No match means unavailable, not permission to use another filing.
+                    valid = [i for i in data if isinstance(i, dict) and i.get("end") and _is_target(i)]
                     if not valid:
                         continue
-                    has_target = any(_is_target(i) for i in valid)
                     latest_end = max(i["end"] for i in valid)
-                    key = (0 if has_target else 1, latest_end)
-                    if (
-                        best_key is None
-                        or key[0] < best_key[0]
-                        or (key[0] == best_key[0] and key[1] > best_key[1])
-                    ):
-                        best_key, best_data = key, valid
+                    if best_end is None or latest_end > best_end:
+                        best_end, best_data = latest_end, valid
                     break  # first unit key with data for this concept
             return best_data
 

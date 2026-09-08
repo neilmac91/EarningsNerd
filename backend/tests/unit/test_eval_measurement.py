@@ -24,12 +24,15 @@ async def test_runner_measures_actual_raw_prose_and_retains_replay_input(monkeyp
     raw = {"sections": {"value_drivers": {"capital_allocation": "A fabricated $9.7B return."}}}
     summary = {"business_overview": "Overview without that field.", "raw_summary": raw}
     monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
-    grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {}}
+    grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {},
+                 "coverage_inventory": {"schema_version": 1, "source": "edgartools"}}
     result = await runner._run_one("baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"), grounding)
     assert result["error"] is None
     assert result["figure_trace"] == {"status": "measured", "reason": "", "count": 1, "figures": ["9.7b"]}
     assert result["raw_sections"] == raw["sections"] and result["grounding_excerpt"] == grounding["excerpt"]
     assert "9.7" not in result["payload"]["executive_summary"]
+    assert result["coverage_inventory"] == grounding["coverage_inventory"]
+    assert "coverage_inventory" not in openai_service.summarize_filing.call_args.kwargs
 
 
 def test_figure_measurement_preserves_production_rounding_and_machine_exclusions():
@@ -329,3 +332,77 @@ async def test_validation_failure_preserves_actual_attempt_evidence(monkeypatch,
     assert readout["status"] == "unavailable" and "validation failed" in readout["reason"]
     assert len(report["results"]) == 24 and report["results"][0]["ticker"] == "WRONG"
     assert report["harness"] == harness
+
+
+@pytest.mark.parametrize("path", ["legacy_cached_excerpt", "edgartools", "regex_fallback"])
+def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(path, monkeypatch, caplog):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from app.services import summary_generation_service as service
+
+    returned = " Exact € excerpt\n" * 600
+    sections = {"financials": "supplied financials", "mda": " supplied MD&A ",
+                "risk": "risk", "unrecognized": "never logged"}
+    cache = SimpleNamespace(critical_excerpt=returned if path == "legacy_cached_excerpt" else None)
+    filing = SimpleNamespace(id=7, accession_number="0000000001-26-000001", filing_type="10-K", content_cache=cache)
+    db = MagicMock()
+    db.query.return_value.options.return_value.filter.return_value.first.return_value = filing
+    native = MagicMock(return_value=returned if path == "edgartools" else "thin")
+    fallback = MagicMock(return_value=returned)
+    monkeypatch.setattr(service.openai_service, "assemble_excerpt_from_sections", native)
+    monkeypatch.setattr(service.openai_service, "extract_critical_sections", fallback)
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", True)
+    with caplog.at_level("INFO", logger=service.__name__):
+        actual = service.get_or_cache_excerpt(db, filing, "already supplied HTML", sections=sections)
+    assert actual == returned and cache.critical_excerpt == returned
+    records = [r for r in caplog.records if r.message.startswith("Excerpt provenance: ")]
+    assert len(records) == 1
+    observed = json.loads(records[0].message.removeprefix("Excerpt provenance: "))
+    assert observed["source"] == path
+    assert observed["excerpt_sha256"] == hashlib.sha256(returned.encode("utf-8")).hexdigest()
+    assert observed["excerpt_chars"] == len(returned)
+    if path == "legacy_cached_excerpt":
+        assert observed["coverage_status"] == "unknown" and observed["supplied_sections"] == []
+        native.assert_not_called()
+        fallback.assert_not_called()
+        db.commit.assert_not_called()
+    else:
+        assert observed["supplied_sections"] == [
+            {"key": key, "supplied_chars": len(sections[key])} for key in ("financials", "mda", "risk")
+        ]
+        native.assert_called_once()
+        assert fallback.call_count == (path == "regex_fallback")
+    assert returned not in records[0].message and "never logged" not in records[0].message
+
+
+def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from app.database import SessionLocal
+    from app.models import Company, Filing, FilingContentCache
+    from app.services import summary_generation_service as service
+
+    engine = create_engine("sqlite://")
+    for model in (Company, Filing, FilingContentCache):
+        model.__table__.create(engine)
+    try:
+        with sessionmaker(bind=engine, expire_on_commit=SessionLocal.kw["expire_on_commit"])() as db:
+            db.add(Company(id=1, cik="1", ticker="FIX", name="Fixture"))
+            db.add(Filing(id=1, company_id=1, accession_number="0000000001-26-000001",
+                          filing_type="10-K", filing_date=datetime.now(timezone.utc),
+                          document_url="https://example.test/filing", sec_url="https://example.test/filing"))
+            db.commit()
+            committed = []
+            post_commit_sql = []
+            event.listen(db, "after_commit", lambda session: committed.append(True))
+            event.listen(engine, "before_cursor_execute", lambda conn, cursor, statement, *args:
+                         post_commit_sql.append(statement) if committed else None)
+            monkeypatch.setattr(service.openai_service, "extract_critical_sections", lambda *args: "exact excerpt")
+            actual = service.get_or_cache_excerpt(db, SimpleNamespace(id=1), "owned HTML")
+            assert actual == "exact excerpt" and committed
+            assert post_commit_sql == []
+            assert not db.in_transaction()
+    finally:
+        engine.dispose()
