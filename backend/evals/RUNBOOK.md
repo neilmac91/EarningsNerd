@@ -254,6 +254,18 @@ scored-output measurements; errors are not fabricated zero-quality scores. Histo
 without a declared plan cannot establish completeness through this CLI; the statistics-only
 `compare_candidate` API remains available for historical metric comparisons.
 
+**Transient provider faults get one retry (2026-09-08).** An attempt whose failure the production
+client itself classifies as transient (a timeout, connection loss, HTTP 408/409/429/5xx, a
+malformed completion; `_is_transient` in `runner.py`) is re-generated once after 5 s
+(`--transient-retries`, default 1; 0 restores first-failure reporting). Scorer, schema, grounding
+and programming errors are never retried. Nothing is hidden: the row keeps `retried` and
+`first_error`, the summary carries a `retried` count, the harness records `transient_retries`,
+and the gate's completeness note says `transient provider faults retried=N` when any happened. A
+second transient failure is the attempt's error and blocks the gate exactly as before. Rationale:
+on 2026-09-08 two consecutive advisory runs on PRs touching no AI code went red on one provider
+timeout out of 52 attempts each (the other 51 scored at pass rate 1.0); the retry turns that into
+scored evidence with the fault on record instead of an execution error nobody can re-run.
+
 The runner retains elapsed time, requested streaming and observed preview counts on generation
 errors, and its CLI emits only sanitized `ai_call`/`ai_summary` telemetry. Preview observations do
 not prove a stream completed, and missing usage remains unavailable. Weekly reports also retain

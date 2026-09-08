@@ -29,6 +29,17 @@ def _hard(report, only=None):
     return {f.metric for f in findings if f.severity == "HARD"}
 
 
+@pytest.mark.parametrize("retried", [0, 2])
+def test_note_surfaces_transient_retries_only_when_they_happened(report, retried):
+    for row in report["results"][:retried]:
+        row.update(retried=1, first_error="TimeoutError: provider deadline exhausted")
+    assert _hard(report) == set()
+    _, notes = regression_gate.evaluate_report(report, BASELINE, None)
+    note = next(n for n in notes if n.startswith("baseline: expected="))
+    assert note.startswith("baseline: expected=4 attempted=4 scored=4 errors=0; quality means use scored outputs only")
+    assert ("transient provider faults retried=2" in note) is (retried == 2)
+
+
 def test_complete_population_passes_without_mutating_scored_quality(report, tmp_path, capsys):
     before = copy.deepcopy(report)
     path, baseline = tmp_path / "report.json", tmp_path / "baseline.json"

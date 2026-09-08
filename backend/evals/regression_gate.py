@@ -234,8 +234,10 @@ def _check_completeness(report: Dict[str, Any], only: Optional[str]) -> tuple[Li
             if type(stats.get(key)) is not int or stats[key] != actual:
                 fail(candidate, "attempt_counts", 1, f"summary {key} does not match observed attempts")
         expected = len(cohort) * runs if valid_manifest else None
+        retried = sum(int(r.get("retried") or 0) for r in rows)
         notes.append(f"{candidate}: expected={expected if expected is not None else 'unverified'} "
-                     f"attempted={len(rows)} scored={scored} errors={errors}; quality means use scored outputs only")
+                     f"attempted={len(rows)} scored={scored} errors={errors}; quality means use scored outputs only"
+                     + (f"; transient provider faults retried={retried} (see first_error on those rows)" if retried else ""))
         if valid_manifest:
             identities = []
             for row in rows:
