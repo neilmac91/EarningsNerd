@@ -214,8 +214,13 @@ list[datetime]]` keyed by hashed IP on a public route, pruned only when the same
   `d34b92a` (run 34173062605). A re-run was not available to the session (failed-job re-run
   and workflow dispatch both 403); recorded on the PR in two comments and merged on the
   advisory check's design. Squash-merged as `fc00ea1` at 00:49 UTC.
-- [ ] Main CI on `fc00ea1`, deploy verification (`applied=0 skipped=39`, new revision at 100 %,
-  independent detailed health).
+- [x] Main CI run 34174484398 on `fc00ea1`: success on every job. deploy-backend job
+  101901577645: `apply_migrations: applied=0 skipped=39`; Cloud Run revision
+  `earningsnerd-backend-00304-g6r` at 100 % traffic (the shared contact and feedback
+  limiters are live); five job images updated (notable-filings and retention-purge not
+  found, skipped); CI `/health/detailed` healthy (database 6.38 ms) at 00:54:16Z;
+  independent `curl https://api.earningsnerd.io/health/detailed` healthy (6.5 ms) at
+  01:02 UTC. Released.
 
 ## E10c — Bell unread count as one SQL aggregate (engineering, 2026-09-08)
 
