@@ -9,6 +9,7 @@ Extracted verbatim.
 from __future__ import annotations
 
 import re
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
@@ -366,14 +367,31 @@ class _MarkdownRenderMixin:
                 f"Current assets {current_assets or 'Not disclosed'} vs. current liabilities "
                 f"{current_liabilities or 'Not disclosed'}{ratio}."
             )
-            # Restore the schema's YoY-direction promise (and surface the prior-period facts) when the
-            # standardized metrics carry a prior period — the current-only line otherwise drops it.
+            # Instant comparatives are often the preceding year-end, not a year earlier.
+            # Date the paired prior balances only when both carry the same usable date.
             prior_ca = format_currency(raw_prior("current_assets"))
             prior_cl = format_currency(raw_prior("current_liabilities"))
             if prior_ca and prior_cl:
                 pca_v, pcl_v = raw_prior("current_assets"), raw_prior("current_liabilities")
-                prior_ratio = f" ({pca_v / pcl_v:.2f}x)" if (pca_v is not None and pcl_v) else ""
-                wc += f" A year earlier: {prior_ca} vs. {prior_cl}{prior_ratio}."
+                ca_metric = (xbrl_metrics or {}).get("current_assets")
+                cl_metric = (xbrl_metrics or {}).get("current_liabilities")
+                ca_prior = ca_metric.get("prior") if isinstance(ca_metric, dict) else None
+                cl_prior = cl_metric.get("prior") if isinstance(cl_metric, dict) else None
+                ca_date = ca_prior.get("period") if isinstance(ca_prior, dict) else None
+                cl_date = cl_prior.get("period") if isinstance(cl_prior, dict) else None
+                prior_label = "Prior reported balance sheet"
+                if isinstance(ca_date, str) and ca_date == cl_date:
+                    try:
+                        prior_label += f" as of {date.fromisoformat(ca_date).isoformat()}"
+                    except ValueError:
+                        pass  # Legacy labels (e.g. FY25) do not establish an actual balance date.
+                # Do not combine explicitly different balance dates into one prior current ratio.
+                same_or_unknown_date = not (ca_date and cl_date) or ca_date == cl_date
+                prior_ratio = (
+                    f" ({pca_v / pcl_v:.2f}x)"
+                    if pca_v is not None and pcl_v and same_or_unknown_date else ""
+                )
+                wc += f" {prior_label}: {prior_ca} vs. {prior_cl}{prior_ratio}."
             bsl["working_capital"] = wc
         cash_legs = [
             (label, format_currency(raw_current(key)))
