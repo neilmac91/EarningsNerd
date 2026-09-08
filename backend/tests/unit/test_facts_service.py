@@ -525,7 +525,7 @@ class TestBackfill:
         from datetime import datetime
 
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import Company, Filing, FinancialFact
 
         db = SessionLocal()
         cid = _new_company(db)
@@ -540,13 +540,17 @@ class TestBackfill:
         )
         db.add(filing)
         db.commit()
+        # Scoped to this company: the shared SQLite file outlives the process, and another test
+        # (`test_tickers_filter_scopes_the_pass`) deliberately leaves an unstamped marked filing
+        # behind, which an unscoped pass would count on the next run.
+        ticker = db.get(Company, cid).ticker
 
-        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         assert stats["facts_inserted"] == 2  # revenue + net_income from our filing
         assert db.query(FinancialFact).filter_by(company_id=cid).count() == 2
 
         # Re-running is a no-op (idempotent on the identity key).
-        stats2 = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        stats2 = svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         assert stats2["facts_inserted"] == 0
         assert stats2["facts_skipped"] >= 2
         db.close()
