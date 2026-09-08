@@ -68,7 +68,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   both schema fields, preambles x4, recovery message), scoped to supporting_evidence only —
 #   commentary/impact stay the model's own analysis by design. Quote-mechanics text untouched
 #   (boundary-sentence lesson). Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-k"
+# summary-2026-09-c: Production comparative backfill and ADS display require a matching
+#   metric identity; unknown or differently qualified measures cannot borrow values. Taxonomy unchanged.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-c"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
