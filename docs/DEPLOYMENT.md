@@ -388,6 +388,17 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
   --args="scripts/earnings_calendar_job.py,--sweep-from,2026-06-28,--sweep-to,2026-07-04" --wait
 ```
 
+Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
+value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.
+Dry run by default — run it first, read the `flags_refreshed` / `value_mismatch` counts, then apply:
+
+```bash
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args=scripts/audit_reconciliation_flags.py --wait          # dry run (nothing written)
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args=scripts/audit_reconciliation_flags.py,--apply --wait  # repair the flags
+```
+
 **Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
 `CALENDAR_INDEX_FILTER_ENABLED` (Settings default false) and reads the committed
 `backend/app/data/index_membership.json` (~515 tickers, S&P 500 ∪ Nasdaq 100). It fails **open** —

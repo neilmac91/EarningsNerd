@@ -290,6 +290,8 @@ Located in `backend/scripts/`:
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
+- `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
+  value-identical rows (dry run by default; `--apply` writes; `--tickers`, `--limit`)
 - `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
 - `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)
   - Weekly examples cover the latest domestic 10-K and 10-Q; BABA uses its annual 20-F.
@@ -339,8 +341,9 @@ Every scheduled job script records an attempt in `earningsnerd_job_runs`, using 
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
 `notable-filings`. The weekly report records `data-quality-report` separately, even though it
-runs on the filing-digest Cloud Run job. SIC backfill and financial remediation similarly use
-`backfill-company-sic` and `remediate-financials`; they cannot satisfy the scheduled facts heartbeat.
+runs on the filing-digest Cloud Run job. SIC backfill, financial remediation and the reconciliation-flag audit similarly use
+`backfill-company-sic`, `remediate-financials` and `reconciliation-flag-audit`; these ad hoc
+identities cannot satisfy the scheduled facts heartbeat.
 
 Each attempt records start, completion, status and numeric counters. Returned provider/send/
 extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;
