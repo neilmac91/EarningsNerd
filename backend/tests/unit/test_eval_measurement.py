@@ -344,15 +344,8 @@ def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(p
     sections = {"financials": "supplied financials", "mda": " supplied MD&A ",
                 "risk": "risk", "unrecognized": "never logged"}
     cache = SimpleNamespace(critical_excerpt=returned if path == "legacy_cached_excerpt" else None)
-    class ExpiringFiling(SimpleNamespace):
-        def __getattribute__(self, name):
-            if name == "accession_number" and self.__dict__.get("expired", False):
-                raise AssertionError("Observation must not reload expired ORM attributes after commit")
-            return super().__getattribute__(name)
-
-    filing = ExpiringFiling(id=7, accession_number="0000000001-26-000001", filing_type="10-K", content_cache=cache)
+    filing = SimpleNamespace(id=7, accession_number="0000000001-26-000001", filing_type="10-K", content_cache=cache)
     db = MagicMock()
-    db.commit.side_effect = lambda: setattr(filing, "expired", True)
     db.query.return_value.options.return_value.filter.return_value.first.return_value = filing
     native = MagicMock(return_value=returned if path == "edgartools" else "thin")
     fallback = MagicMock(return_value=returned)
@@ -380,3 +373,36 @@ def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(p
         native.assert_called_once()
         assert fallback.call_count == (path == "regex_fallback")
     assert returned not in records[0].message and "never logged" not in records[0].message
+
+
+def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from app.database import SessionLocal
+    from app.models import Company, Filing, FilingContentCache
+    from app.services import summary_generation_service as service
+
+    engine = create_engine("sqlite://")
+    for model in (Company, Filing, FilingContentCache):
+        model.__table__.create(engine)
+    try:
+        with sessionmaker(bind=engine, expire_on_commit=SessionLocal.kw["expire_on_commit"])() as db:
+            db.add(Company(id=1, cik="1", ticker="FIX", name="Fixture"))
+            db.add(Filing(id=1, company_id=1, accession_number="0000000001-26-000001",
+                          filing_type="10-K", filing_date=datetime.now(timezone.utc),
+                          document_url="fixture", sec_url="fixture"))
+            db.commit()
+            committed = []
+            post_commit_sql = []
+            event.listen(db, "after_commit", lambda session: committed.append(True))
+            event.listen(engine, "before_cursor_execute", lambda conn, cursor, statement, *args:
+                         post_commit_sql.append(statement) if committed else None)
+            monkeypatch.setattr(service.openai_service, "extract_critical_sections", lambda *args: "exact excerpt")
+            actual = service.get_or_cache_excerpt(db, SimpleNamespace(id=1), "owned HTML")
+            assert actual == "exact excerpt" and committed
+            assert post_commit_sql == []
+            assert not db.in_transaction()
+    finally:
+        engine.dispose()
