@@ -118,7 +118,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.7.0
+openai==3.8.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
