@@ -1,3 +1,55 @@
+## Overnight handover — 2026-09-08 (for the founder's morning read)
+
+Seven backend PRs released and production-verified between 22:51 and 01:19 UTC (the first
+under the standing authorization, the rest under its 23:12 widening), each draft-first with a full local gate, an independent lens (two
+refutations per candidate, every survivor fixed before ready), one mutation proof per new
+invariant, one paid Copilot run at ready (all accepted 18/18), squash merge with the exact head,
+and serial deploy verification (`apply_migrations: applied=0`, Cloud Run revision at 100 %,
+CI `/health/detailed`, independent curl). Details in each section below.
+
+| PR | Slice | Squash | Revision |
+| --- | --- | --- | --- |
+| [#757](https://github.com/neilmac91/EarningsNerd/pull/757) | E11c alert-to-return measurement | `c7510ac` | 00299-vxc |
+| [#758](https://github.com/neilmac91/EarningsNerd/pull/758) | Retention purge job (the policy's clocked deletions) | `b84240d` | 00300-7nj |
+| [#759](https://github.com/neilmac91/EarningsNerd/pull/759) | Stripe dunning-policy gates (tests only) | `bc973b2` | 00301-9xm |
+| [#760](https://github.com/neilmac91/EarningsNerd/pull/760) | E09b process-wide chat admission gate (`AI_CHAT_MAX_INFLIGHT`, default 8) | `11db06d` | 00302-fgl |
+| [#761](https://github.com/neilmac91/EarningsNerd/pull/761) | E10c bell unread count as one SQL aggregate | `fb26dbd` | 00303-h6r |
+| [#762](https://github.com/neilmac91/EarningsNerd/pull/762) | E13c contact/feedback on the shared limiter + router-state gate | `fc00ea1` | 00304-g6r |
+| [#763](https://github.com/neilmac91/EarningsNerd/pull/763) | W3-9 reconciliation-flag audit/repair, dry-run by default | `32c28e9` | 00305-hdv |
+
+Paid evaluations consumed overnight: one Copilot run per PR (seven). Codex posted only its
+usage-limit notice on every PR (credits are founder-held). The advisory `eval-baseline` job
+went red twice (#762 and #763: in each, one of 52 live provider evaluations errored or timed
+out at the provider on a PR that touches no AI code, the other 51 scored at pass rate 1.0);
+this session cannot re-run a job (403), so each was recorded on the PR and in the ledger and
+the merge proceeded on the advisory check's design. Nothing else was red.
+
+Engineering queue state: every item of the execution ledger that a PR can complete without a
+founder action is released. What remains is founder-held or founder-gated:
+
+- [ ] **W3-9 execution** (this morning, on the deployed image): dry run
+  `gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 --args=scripts/audit_reconciliation_flags.py --wait`,
+  read the counts (`flags_refreshed`, `value_mismatch`, `companyfacts_unavailable`); if they
+  look right, the same command with `,--apply`; retain both count sets. A nonzero
+  `companyfacts_unavailable` fails the run by design and leaves that company untouched.
+- [ ] **Retention job**: create the `earningsnerd-retention-purge` Cloud Run job from the
+  backend image and its Sunday 03:00 UTC scheduler per `docs/DEPLOYMENT.md`; the first run
+  should be `--dry-run` and its counts read before the live schedule is enabled. CI updates the
+  image once the job exists.
+- [ ] **Notable-filings job** creation + seed + one full week of review (W3-10 prerequisite).
+- [ ] **E06 event selection**: read-only observation of the production Stripe endpoint's
+  selected events and API version (`docs/observed-invoice-payments.md`).
+- [ ] **E09 fleet SEC budget / generation ownership** and **E11 calendar activation**: held on
+  founder decisions recorded in their rows.
+- [ ] Dependabot #270 dismissal; Codex code-review credits; `.github` Actions policy for
+  automatic draft publication; the GCP console items under "Remaining founder decisions".
+- [ ] **Decision, then engineering**: the advisory `eval-baseline` job counts a single
+  transient provider execution error as `execution_errors = 1` and fails; `evals/runner.py`
+  has no retry for it (the judge path does, `_judge_with_retry`). One bounded retry of an
+  errored attempt before it is counted would have removed both of tonight's reds without
+  changing any score, but it alters what the gate's error column measures, so it is held for the
+  founder's yes/no rather than done unattended (`backend/evals/RUNBOOK.md` governs).
+
 ## E11b-1 continuation — 2026-09-07
 
 Verified remote main `c09a4d222e2038a07081c389caf384bb84400a49`, draft #747 head
@@ -168,9 +220,26 @@ authority. The founder's execution on the `earningsnerd-backfill-facts` image st
   ruff/bandit clean, 2705 passed. An earlier gate's single failure was self-inflicted (a
   parallel pytest run in the same worktree rewrote the SQLite file):
   `lessons/ops-one-test-process-per-worktree.md`.
-- [ ] Draft PR, one paid Copilot run at ready, merge, deploy verification (`applied=0`); then
-  the founder executes the dry run and, if the counts look right, `--apply`, and retains the
-  counts.
+- [x] Draft [#763](https://github.com/neilmac91/EarningsNerd/pull/763) on `3317a3c` (the two
+  worktree commits cherry-picked onto #762's merge plus the ledger records); marked ready at
+  01:03 UTC on `4519b03` under the standing authorization: `copilot-eval.yml` run 34175378259
+  success (`accepted: true`, 18/18, pass rate 1.0, artifact 10037112149); PR CI run
+  34175375203 green on every required job; Codex posted only its quota notice. Squash-merged
+  as `32c28e9` at 01:12 UTC with the advisory `eval-baseline` still running; it finished red
+  at 01:19 UTC with `execution_errors = 1` / `missing_scores = 1`: one of 52 live evaluations
+  timed out at the provider (`ai_summary outcome=timeout`, both calls), the other 51 scored
+  with pass rate 1.0, on a PR that touches no AI code. Same shape as #762; no re-run
+  available (403); recorded on the PR in one comment.
+- [x] Main CI run 34175879213 on `32c28e9`: success on every job (eval-baseline skipped by
+  path filter). deploy-backend job 101905538285: `apply_migrations: applied=0 skipped=39`;
+  Cloud Run revision `earningsnerd-backend-00305-hdv` at 100 % traffic (the audit script is
+  on the image); five job images updated (notable-filings and retention-purge not found,
+  skipped); CI `/health/detailed` healthy (database 7.07 ms) at 01:18:52Z; independent
+  `curl https://api.earningsnerd.io/health/detailed` healthy (6.43 ms, EDGAR circuit closed)
+  at 01:19 UTC. Released.
+- [ ] **(founder)** on the deployed image: dry run
+  `gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 --args=scripts/audit_reconciliation_flags.py --wait`,
+  read the counts; if they look right, the same with `,--apply`; retain both count sets.
 
 ## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
 
@@ -3710,7 +3779,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
-- [ ] W3-9 Historical reconciliation-flag audit/repair script (dry-run default) → **(founder)** executes
+- [x] W3-9 engineering half released as #763 = `32c28e9` (`scripts/audit_reconciliation_flags.py`, dry-run default) → **(founder)** executes the dry run, then `--apply`, on the `earningsnerd-backfill-facts` image and retains the counts
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 

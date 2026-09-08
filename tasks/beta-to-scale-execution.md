@@ -30,8 +30,10 @@ re-pin in flight at most. New schema uses guarded, idempotent SQL through the mi
 
 W3-7 readout review, W3-8a breadth, W3-8b 6-K classification and W3-10 activation retain the
 prerequisites in [the wave-3 handover](handover-wave3-2026-09.md); W3-9's engineering half
-(reconciliation-flag audit/repair, dry-run by default) was prepared 2026-09-08 with the
-founder's execution held; PR in flight.
+(reconciliation-flag audit/repair, dry-run by default) was released 2026-09-08 as #763 =
+`32c28e9` (paid eval accepted 18/18; production 34175879213 verified, `applied=0 skipped=39`,
+revision 00305-hdv at 100 %, detailed health CI + independent); the founder's execution on the `earningsnerd-backfill-facts`
+image (dry run, then `--apply`) stays held.
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
 
 ## Release checkpoint — 2026-09-06
