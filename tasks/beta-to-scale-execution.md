@@ -488,3 +488,14 @@ passed, `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend
 at 100%, all eight job images updated. CI and independent detailed health at
 1788887058.9895678 / 1788887099.061795 were healthy (DB 6.99/6.12 ms, SEC closed, Redis disabled).
 No second paid run, schema, flag, provider, live job test or account action.
+
+
+OpenAI SDK #777 merged as `7a9a6d6b47898390200fdf3f080fc433f4a141fd` at 17:20:39 UTC.
+Full combined-state gate: 2731 passed, 29 warnings, 94.66 s; all four PostgreSQL lanes and
+performance included, all 99 installed pins match the lock. PR CI `34254992834` passed.
+Actual summary dispatch `34255025494`, artifact `10067996189`, report
+`eval_20260908T171848Z.json` matches reviewed `ad3bee6ba1d1cd27452f8183a96ba3d79345f446`:
+52/52 scored, zero errors/retries/hard vetoes, pass rate 1.0; one existing absolute
+untraceable-dollar warning (2.154). Baseline unchanged. One paid Copilot `34255030471`
+accepted 18/18, artifact `10067581566`. Main CI/deploy `34256518896` is pending; no release
+verification is claimed until its completion record below.
