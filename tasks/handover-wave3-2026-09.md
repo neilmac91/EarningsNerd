@@ -377,10 +377,13 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   deletes; optional `--tickers`, `--limit`.
 - **Gate:** unit test proving the default path still skips existing identities and that
   `refresh_flags=True` changes only flag columns on a persisted ORM fixture.
-- **Done:** merged and deployed as #763 (`32c28e9`, revision 00305); the founder executed the dry
-  run and `--apply` on the `earningsnerd-backfill-facts` job image on 2026-09-08 and the counts
-  are retained in `tasks/todo.md` (56 filings, `flags_refreshed=19`, `value_mismatch=51`,
-  `companyfacts_unavailable=0`). No production execution by the agent. **Complete.**
+- **Status:** merged and deployed as #763 (`32c28e9`, revision 00305); the founder executed the
+  dry run and `--apply` on the `earningsnerd-backfill-facts` job image on 2026-09-08 and the
+  counts are retained in `tasks/todo.md` (56 filings, `flags_refreshed=19`, `value_mismatch=51`,
+  `companyfacts_unavailable=0`). No production execution by the agent. **Reopened:** the shipped
+  `--apply` reuses the full backfill path and also inserted 78 fact rows (the documented effect
+  of a full `backfill_facts` re-pass), against the flag-columns-only criterion above. Closes
+  after a flags-only mode lands and the founder reads a read-only listing of those 78 rows.
 
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** after the founder's job + seed + one full week review with a recorded retain

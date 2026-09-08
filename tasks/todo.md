@@ -39,6 +39,18 @@ founder action is released. What remains is founder-held or founder-gated:
   inserted by the same upsert path the weekly job uses. Ledger rows: `reconciliation-flag-audit`
   `dry_run` then `succeeded`. Note for the runbook: the script's JSON line lands in Cloud
   Logging `jsonPayload`, so read it with `jsonPayload.flags_refreshed:*`, not `textPayload`.
+- [ ] **W3-9 reopened (Codex P1 on #765, confirmed against the code):** the wave-3 criterion says
+  `--apply` updates flag columns only, no inserts or deletes; the shipped audit reuses the full
+  `backfill_facts` path, so the apply pass also inserted the 78 rows above and, per the insert
+  branch, demoted any older `is_latest` row a new row superseded. That is exactly the effect of
+  the full `backfill_facts` re-pass `docs/DEPLOYMENT.md` documents (same extractor, normalizer,
+  local gate and companyfacts cross-check; `facts_rejected=0`), not corrupt data, but it is wider
+  than the founder-held operation's approved scope and #763 did not call the deviation out
+  against the handover. Follow-ups, engineering: (a) a flags-only mode for the audit path
+  (identity misses counted, never inserted; no stamp), the script on it by default, with tests
+  and a mutation proof; (b) a read-only listing of the 78 rows (ticker, concept, period, value,
+  source, flags) the founder runs on the job image to validate them. W3-9 closes only after (b)
+  is read and recorded.
 - [x] **Retention job created by the founder** (Cloud Shell, 2026-09-08 05:33 UTC):
   `earningsnerd-retention-purge` created per `docs/DEPLOYMENT.md`; dry-run execution
   `earningsnerd-retention-purge-6pgdm` reported `search_history_purged=0`,
@@ -252,7 +264,8 @@ authority. The founder's execution on the `earningsnerd-backfill-facts` image st
 - [x] **(founder)** executed on the deployed image 2026-09-08: dry run `5dgd4` then `--apply`
   `c42cc`, both successful; `flags_refreshed=19`, `value_mismatch=51`,
   `companyfacts_unavailable=0` over 56 filings (full counts in the overnight handover at the
-  top of this file). W3-9 complete.
+  top of this file). Reopened the same morning: the apply pass also inserted 78 fact rows,
+  which the wave-3 criterion (flag columns only) excluded; see the handover bullet.
 
 ## E13c — Router limiter state lives only in RateLimiter; contact and waitlist route gates (engineering, 2026-09-08)
 
@@ -3792,7 +3805,7 @@ operating directives live in the root `AGENTS.md`. Work items (engineering unles
 - [x] W3-6 PyJWT #716 merged with verified source/CI, unchanged locked auth contract and verified production deployment (current checkpoint above).
 - [ ] W3-7 **(founder)** first strong-judge readout → engineering reports the wrong-snap rate, pauses for the arm decision → arm `AI_EVIDENCE_SNAP` + listed re-pin → **(founder)** drain
 - [ ] W3-8 Golden breadth (REIT/utility/insurer/small-cap, BRK.B) with its own re-pin; then the 6-K pre-classifier + 6-K scorer + goldens
-- [x] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`; counts retained in the overnight handover)
+- [ ] W3-9 released as #763 = `32c28e9` and executed by the founder 2026-09-08 (dry run `5dgd4`, apply `c42cc`: 56 filings, `flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`; counts retained in the overnight handover); **reopened**: the apply also inserted 78 fact rows against the flag-columns-only criterion → flags-only mode + read-only validation listing (engineering), founder reads the listing, then close
 - [ ] W3-10 **(founder)** Notable job + seed + one full week → flag PR; **(founder)** Analysis Vercel value + warm-up → `vercel.json` PR
 - [ ] D8 **(founder OK)** delete the two stale remote branches with no PR
 

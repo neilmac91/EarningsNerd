@@ -34,7 +34,10 @@ prerequisites in [the wave-3 handover](handover-wave3-2026-09.md); W3-9's engine
 `32c28e9` (paid eval accepted 18/18; production 34175879213 verified, `applied=0 skipped=39`,
 revision 00305-hdv at 100 %, detailed health CI + independent) and executed by the founder the
 same morning on the `earningsnerd-backfill-facts` image (dry run then `--apply`: 56 filings,
-`flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`); W3-9 is complete. The
+`flags_refreshed=19`, `value_mismatch=51`, `companyfacts_unavailable=0`), then reopened the same
+morning on a confirmed Codex finding: the apply pass also inserted 78 fact rows, which the
+handover's flag-columns-only criterion excluded (a flags-only mode and a read-only validation
+listing follow; the founder's read of that listing closes W3-9). The
 retention-purge job and its Sunday scheduler were created the same morning (dry run
 `refresh_tokens_purged=167`, other targets 0–1).
 The public-source membership change is merged; do not reopen its removed FMP prerequisite.
