@@ -1,3 +1,11 @@
+## September 9 source observation and segment releases
+
+- [x] Excerpt provenance #789: production-verified at `earningsnerd-backend-00315-qlb`, main CI 34291185532, migrations 0/39, CI and independent detailed health healthy.
+- [x] Segment shares #787: production-verified at `earningsnerd-backend-00316-tfj`, main CI 34291811124, migrations 0/39, CI and independent detailed health healthy. Old saved summaries remain unchanged.
+- [ ] Return-basis #788: corrected version/integrated head 804b90cb73dfba6fd9d6713ebc010a2b189fee4b passed 2,755 local tests; second paid evaluation is the recorded confirmed-finding fix round.
+- [ ] Source-provenance #792 and minor SDK #791: draft-first publication/ready review underway; no production release claimed.
+- [ ] Comparative identity and source-reported metric prompts: independent review caught and corrected EPS/sign ambiguities; ordered integration, full gates and actual output review precede release.
+
 ## September 9 filing-list copy release
 
 - [x] Report-year labeling: [#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged, main CI 34290442746 and Vercel production succeeded; full frontend gate and four local theme/viewport checks passed.

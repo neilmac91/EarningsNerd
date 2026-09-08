@@ -553,3 +553,15 @@ Main CI [34289364726](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 ## September 9 frontend release — report-year label
 
 [#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged as `7ebfa4a3475980636a1d6fcf7d6de9652fa706ce`. Full frontend lint/tsc/103 files and 569 tests/build passed; isolated desktop/mobile light/dark visual checks found legible labels and no horizontal overflow. No production account test was run. Main CI [34290442746](https://github.com/neilmac91/EarningsNerd/actions/runs/34290442746) and exact-commit Vercel production status succeeded. No backend deployment occurred. The UI now labels its unchanged calendar-date grouping “Report year” rather than claiming issuer fiscal-year identity.
+
+## September 9 release checkpoint — excerpt provenance
+
+[#789](https://github.com/neilmac91/EarningsNerd/pull/789) merged as `93716388d14e9cdc2f13fef3f09e9feaf343ec25`. Final local backend gate passed 2,743 tests including performance/four PostgreSQL lanes. Actual summary run 34290008070 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290062796 accepted 18/18. All 52 observed excerpt hashes/lengths match the exact retained generator strings. 
+
+Main CI [34291185532](https://github.com/neilmac91/EarningsNerd/actions/runs/34291185532) and deploy job 102278563064 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00315-qlb` serves 100% traffic. CI detailed health 1788910790.7347288 and independent curl 1788910851.5732074 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
+
+## September 9 release checkpoint — segment-share correction
+
+[#787](https://github.com/neilmac91/EarningsNerd/pull/787) merged as `e6b76a3ca11dbb91c3f09ae38d00e0be267e8bd4`. Final local backend gate passed 2,740 tests including performance/four PostgreSQL lanes. Actual summary run 34290248962 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290248951 accepted 18/18. The segment second paid run was the authorized confirmed version-finding fix round; original evidence is retained. 
+
+Main CI [34291811124](https://github.com/neilmac91/EarningsNerd/actions/runs/34291811124) and deploy job 102280456832 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00316-tfj` serves 100% traffic. CI detailed health 1788911324.6704717 and independent curl 1788911457.3238676 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
