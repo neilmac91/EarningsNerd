@@ -204,3 +204,11 @@ Same as wave-3 handover §1 unless the founder says otherwise: `gpt-6-astra` on 
 `reasoning.effort` `high` for review and merge decisions and `medium` for doc edits, no
 `temperature`/`top_p`/`logprobs`, `prompt_cache_options.ttl: "30m"`, effort changes via
 `configuration_update` items. The launch prompt is in `tasks/handover-astra-2026-09-08-prompt.md`.
+
+Founder answers, 2026-09-08 11:50 UTC, applied to the prompt: (1) the standing authorization
+carries over unchanged; (2) the audit fixes confirmed must-fix defects as it goes; (3) the
+environment is the wave-3 one (repo push and CI rights, no console or gcloud); (4) Astra owns the
+W3-10 Notable flag PR after the review week and the Dependabot #748–#752 triage, majors needing
+the founder's word. Prompt structure also follows the founder's chosen guide
+(promptessor.com, "GPT-6 Astra prompting guide"): labeled sections with clarification, tool,
+delegation and failure-handling policies and an output contract.
