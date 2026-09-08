@@ -63,7 +63,7 @@ filelock==3.29.4
     # via httpxthrottlecache
 fonttools==4.63.0
     # via weasyprint
-greenlet==3.5.1
+greenlet==3.5.5
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -118,7 +118,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.7.0
+openai==3.8.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -136,7 +136,7 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.45.3
+posthog==7.45.4
     # via -r requirements.in
 psycopg2-binary==2.9.12
     # via -r requirements.in

@@ -1,3 +1,22 @@
+## Astra audit and remaining plan — 2026-09-08
+
+Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe1f156`
+(#771, docs-only handover). Prior records below remain historical evidence.
+
+- [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
+- [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
+- [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
+- [x] Fix confirmed delivery replacement crash gap: #772 merged and verified on revision 00308-khx.
+- [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
+- [ ] Deferred audit S1: keep chat admission held through provider transport cleanup; early consumer closure currently admits a second transport before the first `aclose` completes. See [audit S1](audit-astra-2026-09-08.md#should-fix-findings); recorded for a later code PR.
+- [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
+- [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
+
+Local verification correction: the first frontend Vitest run overlapped pytest in the same
+worktree. It was stopped, its log retained, and frontend verification moved to a separate
+worktree. The complete backend gate then passed without same-worktree overlap. No live
+job, account action, production configuration change or locked-test edit occurred.
+
 ## Astra audit fix — atomic delivery replacement (2026-09-08)
 
 - [x] Confirmed a crash gap in #747: old ownership was committed away before the replacement
@@ -7,14 +26,26 @@
 - [x] One new atomicity invariant, exercised with write-error and collision outcomes; fresh-session
   restart proves delivery after lease expiry outside the normal selection window. Mutation:
   early commit after release → 2 failed; restored → 2 passed. Existing delivery suite: 30 passed.
-- [ ] Final full gate on committed code/docs state; three review lenses; draft-first PR and paid evaluation at ready.
-- [ ] Squash merge and serial main CI/deploy/health verification; append release evidence in the audit docs PR.
+- [x] Final full gate on committed `e9c6d65d`: 2731 passed; three review lenses; draft-first #772, one paid evaluation at ready (34250122330, 18/18 accepted, artifact 10065738610).
+- [x] #772 squash merge and serial main CI/deploy/health verification complete; evidence follows.
 
 **Dated correction to E11b-1 — 2026-09-08:** the previous implementation's “immediate rebuild”
 was two commits and did not guarantee crash-safe replacement. The earlier tests covered normal
 rebuild and stale fences, not interruption between release and insertion. This fix preserves
 pending ownership without replaying historical batches, running a live email test or changing
 schema/configuration. The original ledger records below are retained.
+
+#772 squash-merged as `048fbc47c903d520280dbb917f6454cd19102059` at 16:28:59 UTC.
+Required CI and the paid evaluation passed; Codex completed review on `e9c6d65` without findings.
+The advisory eval in PR run `34250095075` was still running at merge and remains tracked;
+no pass is claimed yet. Main run `34251319216` is in progress; deployment is not verified yet.
+
+**Completion — 2026-09-08:** advisory eval `34250095075` passed 52/52 with zero errors/retries,
+artifact `10066151786`; one existing untraceable-dollar warning. Main run `34251319216`
+succeeded; deploy job `102147135898` logged `apply_migrations: applied=0 skipped=39`, revision
+`earningsnerd-backend-00308-khx` at 100%, all eight job images updated. CI health at
+`1788885332.6801815` and independent curl at `1788885378.3253903` were healthy (database
+8.06/6.73 ms respectively, SEC closed, Redis disabled). No second paid run was needed.
 
 ## Overnight handover — 2026-09-08 (for the founder's morning read)
 
@@ -24,6 +55,9 @@ refutations per candidate, every survivor fixed before ready), one mutation proo
 invariant, one paid Copilot run at ready (all accepted 18/18), squash merge with the exact head,
 and serial deploy verification (`apply_migrations: applied=0`, Cloud Run revision at 100 %,
 CI `/health/detailed`, independent curl). Details in each section below.
+
+**Dated correction — 2026-09-08, Astra audit:** the introductory `applied=0` shorthand above
+omits #757's `applied=1 skipped=38`. Its detailed release record and deploy log were correct.
 
 Handover to the next GPT-6 Astra session (2026-09-08,
 [#771](https://github.com/neilmac91/EarningsNerd/pull/771)): `tasks/handover-astra-2026-09-08.md`
@@ -626,6 +660,21 @@ dunning rule ("only subscription status events revoke entitlement") living in a 
   and retention-purge not found, skipped); CI `/health/detailed` healthy (database 11.83 ms)
   at 23:41:07Z; independent `curl https://api.earningsnerd.io/health/detailed` healthy
   (6.42 ms) at 23:41 UTC. Released.
+
+**Dated correction — 2026-09-08, Astra audit:** the “unlocked” classification above is
+incorrect. The actual T4 completion record in
+[the architecture plan](architecture-refactor-plan.md) identifies
+`backend/tests/unit/test_subscription_webhook_sync.py`; #759 added 95 lines to that file.
+The original file remains an exact byte prefix and its existing assertions are unchanged,
+but file-level byte identity fails. #759's body also calls it unlocked and records no
+contract exception. Retaining the added gates requires a founder decision; no automatic
+reversion or further edit of this locked file is authorized. The complete actual inventory,
+including T3's successor and T10, is part of this audit.
+
+**Founder disposition — 2026-09-08:** “Approve retaining the additions.” The three #759
+additions are retained as a specific exception. No locked-file bytes changed in this audit,
+and the existing file lock continues to govern any future edit. This resolves the audit's
+historical boundary finding without claiming the original edit had prior approval.
 
 ## Retention purge job — the policy's clocked deletions (engineering, 2026-09-07)
 
@@ -2053,7 +2102,7 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ===============
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
 ```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
