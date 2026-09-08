@@ -344,8 +344,15 @@ def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(p
     sections = {"financials": "supplied financials", "mda": " supplied MD&A ",
                 "risk": "risk", "unrecognized": "never logged"}
     cache = SimpleNamespace(critical_excerpt=returned if path == "legacy_cached_excerpt" else None)
-    filing = SimpleNamespace(id=7, accession_number="0000000001-26-000001", filing_type="10-K", content_cache=cache)
+    class ExpiringFiling(SimpleNamespace):
+        def __getattribute__(self, name):
+            if name == "accession_number" and self.__dict__.get("expired", False):
+                raise AssertionError("Observation must not reload expired ORM attributes after commit")
+            return super().__getattribute__(name)
+
+    filing = ExpiringFiling(id=7, accession_number="0000000001-26-000001", filing_type="10-K", content_cache=cache)
     db = MagicMock()
+    db.commit.side_effect = lambda: setattr(filing, "expired", True)
     db.query.return_value.options.return_value.filter.return_value.first.return_value = filing
     native = MagicMock(return_value=returned if path == "edgartools" else "thin")
     fallback = MagicMock(return_value=returned)

@@ -486,10 +486,11 @@ def get_or_cache_excerpt(
 
     cache = filing_reattached.content_cache
     filing_type = filing_reattached.filing_type
+    accession = filing_reattached.accession_number
 
     def observe(excerpt: str, source: str) -> None:
         metadata = excerpt_provenance(
-            excerpt, accession=filing_reattached.accession_number,
+            excerpt, accession=accession,
             source=source, sections=sections,
         )
         logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
