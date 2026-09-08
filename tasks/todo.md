@@ -118,8 +118,14 @@ path must not insert, and the 78 rows must be validated.
   during that mutation discarded the uncommitted script edit and the first commit shipped without
   it; caught by the post-restore suite run, re-applied and amended before push:
   `lessons/ops-mutate-only-committed-state.md`.
-- [ ] Full gate on the fix head, push, ready again (second paid run under the overnight
-  authorization: a confirmed-finding fix round), merge, deploy verification (`applied=0`); then
+- [x] Full gate on the fix head (`d6f51a8`, 2721 passed), pushed, ready again at 06:15 UTC
+  (second paid run: a confirmed-finding fix round). Codex's third P2 at 06:20, confirmed and
+  fixed with the PR back in draft: `gcloud run jobs execute --args` splits on commas, so the
+  runbook's `--accessions,<acc1>,<acc2>` reached argparse as separate arguments → `--accessions`
+  is `nargs="+"` (space- or comma-separated, flattened) instead of the `^;^` delimiter trick;
+  test passes two separate values and a comma-joined one; mutation dropping `nargs` → 1 failed.
+- [ ] Full gate on that head, push, ready again (third paid run, same reason), merge, deploy
+  verification (`applied=0`); then
   **(founder)** runs the three review steps on the deployed image (expected 78 rows across the
   audited accessions), records the read, and W3-9 closes.
 
