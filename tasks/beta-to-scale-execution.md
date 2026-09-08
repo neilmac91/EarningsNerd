@@ -472,3 +472,62 @@ those additions on 2026-09-08 as a specific exception; future changes remain loc
 file or historical business data was changed by this audit. Other ledger SHAs, deploy counts,
 revisions and CI health in the audited span reconcile with GitHub; narrower handover summary
 errors are corrected in the audit and dated notes without overwriting original records.
+
+
+## Astra continuation release record — 2026-09-08
+
+Audit #773 merged as `ae2fbf0499f4777128571959c42522ad60899d0a`; both must-fix dispositions
+are complete (#772 production fix and founder-approved #759 retention exception).
+PostHog JS #774 merged as `00fa00f3316ddf2c15d0ce0013e81842670e50ac`: full frontend gate,
+PR CI `34253360268` / main CI `34253718657` and Vercel production commit status passed; #748 closed.
+
+Python maintenance #775 merged as `a431020951e1b735f5bf805f0fea3564010470b1`: full backend
+2731 passed with performance/four PostgreSQL lanes. PR CI `34253792879` passed; one paid
+Copilot `34253839355` accepted 18/18 (artifact `10067143473`). Main CI `34254219154` / deploy `102156947320`
+passed, `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00309-5lm`
+at 100%, all eight job images updated. CI and independent detailed health at
+1788887058.9895678 / 1788887099.061795 were healthy (DB 6.99/6.12 ms, SEC closed, Redis disabled).
+No second paid run, schema, flag, provider, live job test or account action.
+
+
+OpenAI SDK #777 merged as `7a9a6d6b47898390200fdf3f080fc433f4a141fd` at 17:20:39 UTC.
+Full combined-state gate: 2731 passed, 29 warnings, 94.66 s; all four PostgreSQL lanes and
+performance included, all 99 installed pins match the lock. PR CI `34254992834` passed.
+Actual summary dispatch `34255025494`, artifact `10067996189`, report
+`eval_20260908T171848Z.json` matches reviewed `ad3bee6ba1d1cd27452f8183a96ba3d79345f446`:
+52/52 scored, zero errors/retries/hard vetoes, pass rate 1.0; one existing absolute
+untraceable-dollar warning (2.154). Baseline unchanged. One paid Copilot `34255030471`
+accepted 18/18, artifact `10067581566`. Main CI/deploy `34256518896` is pending; no release
+verification is claimed until its completion record below.
+
+
+**SDK release completion — 2026-09-08:** main CI `34256518896`, deploy job `102164639647`
+passed; `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00310-2pq`
+at 100%, all eight job images updated. CI/independent health at `1788888421.5666306` /
+`1788888494.11535` were healthy (DB 7.58/8.93 ms, SEC closed, Redis disabled). No extra
+paid run or baseline re-pin was needed. EDGAR/lxml #779 now owns the final extraction portion;
+its combined-state gate passed 2731 tests, and actual summary/Copilot evidence is pending.
+
+
+EDGAR/lxml #779 merged as `b918bf3ab9deda4880706cbabf936cf2b748f587` at 17:45:48 UTC.
+Combined-state backend gate: 2731 passed, 29 warnings, 92.51 s, performance/four PostgreSQL
+lanes and exact 99-pin environment. PR CI `34257318350` passed. Actual summary
+`34257358723`, artifact `10068970642`, report `eval_20260908T174315Z.json` matches reviewed
+`a3f3b5d313fc54bad862071eb07e56755e644482`: 52/52, zero errors/retries/hard vetoes, pass rate
+1.0; same full cohort/harness as #777 except source SHA. One existing untraceable-dollar
+warning (2.173); citation fidelity 0.6759 versus prior 0.7250, accepted by the unchanged gate.
+No causal quality-improvement claim or re-pin. One paid Copilot `34257358918` accepted 18/18,
+artifact `10068510732`. Main CI/deploy `34259044155` is pending; release verification follows.
+
+
+**Extraction release completion — 2026-09-08:** main CI `34259044155` and deploy job
+`102173400597` passed, `apply_migrations: applied=0 skipped=39`, revision
+`earningsnerd-backend-00311-pm8` at 100%, all eight job images updated. CI detailed health at
+`1788890000.177071` and independent curl at `1788890036.2455256` were healthy (DB 7.16/6.56 ms,
+SEC closed, Redis disabled). This completes every original #752 version through #775/#777/#779;
+no second paid run or re-pin was needed. The fresh #780 Anthropic/PostHog versions remain a
+subsequent queue. Major #749/#750/#751 approvals and all named founder prerequisites remain held.
+
+The continuation's code departure point is `b918bf3ab9deda4880706cbabf936cf2b748f587` (#779).
+E09 remains proposal-only; the final master-plan report and handover publish the remaining
+engineering/activation boundaries without claiming the full business or scale plan is complete.

@@ -5,17 +5,43 @@ Taking over the requested code span `d7b01779..3336d513`; main at entry was `1fe
 
 - [x] Read governing files and the three new lessons; isolate checkout and delegate the three audit lenses.
 - [x] Full main backend gate: 2729 passed including performance and four PostgreSQL lanes; frontend lint/tsc/569 tests/build passed.
-- [ ] Verify seven scepticism items, PR bodies and release evidence; publish the audit in its own docs PR.
+- [x] Seven scepticism items, PR bodies and release evidence audited; docs-only #773 merged as `ae2fbf0499f4777128571959c42522ad60899d0a` on 2026-09-08 at 16:48:28 UTC. All checks passed; local link/anchor check: 6 checked, zero failures.
 - [x] Fix confirmed delivery replacement crash gap: #772 merged and verified on revision 00308-khx.
 - [x] Founder approved retaining #759's additions on 2026-09-08 as a specific T4 file-lock exception; future changes remain locked.
 - [ ] Deferred audit S1: keep chat admission held through provider transport cleanup; early consumer closure currently admits a second transport before the first `aclose` completes. See [audit S1](audit-astra-2026-09-08.md#should-fix-findings); recorded for a later code PR.
-- [ ] Complete ordered remaining-plan triage, engineering proposals and unblocked dependency work.
-- [ ] Record named founder prerequisites and final handover once the audit/fixes are resolved.
+- [x] Complete ordered remaining-plan triage, reviewed E09 proposal and original unblocked dependency versions; all code releases are production-verified. Named founder prerequisites remain below.
+- [x] Record named founder prerequisites, [master-plan status](master-plan-status-2026-09-08.md) and [continuation handover](handover-astra-continuation-2026-09-08.md); this docs PR publishes the closeout.
 
 Local verification correction: the first frontend Vitest run overlapped pytest in the same
 worktree. It was stopped, its log retained, and frontend verification moved to a separate
 worktree. The complete backend gate then passed without same-worktree overlap. No live
 job, account action, production configuration change or locked-test edit occurred.
+
+## Remaining master plan — Astra checkpoint, 2026-09-08
+
+The audit is complete. Work below preserves the ordered plan and names the evidence still
+required; local tests and historical workflow success do not establish production prerequisites.
+
+- [ ] **W3-10 Notable:** founder reviews seeded rows through **2026-09-15** and records retain/kill. The owned flag PR waits on retain; no production flag changed.
+- [ ] **W3-10 Analysis:** founder records effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS` and companyfacts warm-up cohort/results. Then engineering prepares the flag PR, full frontend gate, Playwright and both-theme preview; live Pro-account smoke remains founder-held.
+- [ ] **W3-7:** founder credential/execution must produce the first actual strong-judge readout (`status != unavailable`, 24/24 scored). Latest retrieved artifact `10029049893`, run `34150116352`, is unavailable with 0/24 scored, not acceptance. Engineering then reports wrong-snap rate; the founder's arm decision precedes flags/re-pin.
+- [ ] **W3-8a then W3-8b:** wait on W3-7 or the existing more-than-one-week slip exception, which has not elapsed on September 8. Never two re-pin PRs open.
+- [x] **E09 engineering proposal:** [fleet coordination proposal](e09-fleet-coordination-proposal-2026-09-08.md) describes PostgreSQL filing leases and separate SEC admission, fail-closed behavior, alternatives and acceptance. Independent code/brief review found no surviving defect.
+- [ ] **E09 build:** founder supplies effective fleet/egress/provider/database-budget evidence and the bounded design decision in the proposal. No schema, capacity, proxy or enforcement build is authorized by this proposal alone.
+- [ ] **E06:** founder's read-only Stripe endpoint event selection and API-version observation is still absent. Reconcile dunning gates after that observation; the #759 retention exception does not prove event delivery coverage.
+- [ ] **E11 Calendar / E08 price and trial copy:** founder product/licensing decisions remain prerequisites. No activation/copy change.
+- [x] **Dependabot #748:** superseded by #774, squash `00fa00f3316ddf2c15d0ce0013e81842670e50ac` at 16:52:36 UTC. Full frontend gate: 103 files/569 tests, lint/tsc/build; PR CI `34253360268` and main CI `34253718657` passed. Vercel production commit status succeeded. #748 closed with the replacement evidence.
+- [ ] **Dependabot #749/#750/#751:** Vitest5, jest-dom7, jsdom/types30 each prepared separately; full local lint/tsc/103 files/569 tests/build passed with unchanged tests. One consolidated founder merge decision was requested on 2026-09-08; majors remain held until answered.
+- [x] **Original Dependabot #752 versions:** greenlet/PostHog #775, OpenAI #777 and EDGAR/lxml #779 are merged and production-verified. Final code `b918bf3ab9deda4880706cbabf936cf2b748f587`; revision `earningsnerd-backend-00311-pm8` at 100%, migrations 0/39, healthy CI and independent health. The release ledger and handover retain each exact gate, evaluation and deployment checkpoint.
+- [ ] **D8:** founder approval remains required before deleting `claude/earnings-nerd-audit-plan-8iikp3` and `claude/earningsnerd-sections-review-prompt-aw2u7c`. Neither branch was deleted. Both refs were verified; historical #653 is merged and #570 closed, so the older “no PR” shorthand means no open PR.
+
+**Queue update — 2026-09-08:** Dependabot closed #752 at 17:01:24 UTC and opened #776. Its added Anthropic 1.4.0 and newer PostHog 7.47.0 were not in the assigned #752 versions and are not validated by these split PRs; leave that fresh queue visible for subsequent triage.
+
+**Replacement queue reconciliation — 2026-09-08:** after #777 and #779, Dependabot closed its intermediate #776/#778 groups. The current fresh queue is #780 (Anthropic 1.3.0→1.4.0 and PostHog 7.45.4→7.47.0); these versions were outside the original #752 assignment. They remain unmerged and are not validated by the completed split PRs.
+
+Dependabot alert #270, Codex credits, production flags/capacity/prices/trial/promo/registration,
+legal decisions, live accounts/email/job tests, historical replay and console actions retain
+their existing founder boundaries. DeepSeek remains the provider.
 
 ## Astra audit fix — atomic delivery replacement (2026-09-08)
 

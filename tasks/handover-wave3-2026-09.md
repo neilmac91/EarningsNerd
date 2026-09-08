@@ -426,3 +426,11 @@ flat, and never with a configured fallback provider. At most one open PR carries
 Calendar activation (Alpha Vantage licence), Insiders, the deferred appendix-06 items listed at
 the bottom of `tasks/todo.md`, every founder console/secret/spend/legal row, and any change to
 the locked contract tests beyond the pre-approved W3-6 edits.
+
+
+## Dated D8 clarification — 2026-09-08, Astra continuation
+
+The §2 shorthand “no PR” means no open PR: `claude/earnings-nerd-audit-plan-8iikp3`
+has merged #653, and `claude/earningsnerd-sections-review-prompt-aw2u7c` has closed,
+unmerged #570. A branch-filtered PR search and independent retrieval of both PRs agree.
+Both remote refs still exist; deletion remains founder-held and was not attempted.
