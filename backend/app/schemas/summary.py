@@ -126,9 +126,6 @@ _PRIOR_METRIC_KEYS = {
     "net margin": "net_margin",
     "gross margin": "gross_margin",
     "operating margin": "operating_margin",
-    "basic eps": "earnings_per_share",
-    "basic earnings per share": "earnings_per_share",
-    "earnings per share (basic)": "earnings_per_share",
     "diluted eps": "eps_diluted",
     "diluted earnings per share": "eps_diluted",
     "earnings per share (diluted)": "eps_diluted",
@@ -320,13 +317,7 @@ def attach_normalized_facts(
                 # reaches the frontend. Purely additive — a new `per_ads` key; it never alters the
                 # as-filed per-ordinary-share `current_period`, so it can't regress the eval baseline.
                 # Present only on the EPS row of ratio != 1 ADRs (else metric_info has no per_ads).
-                # Preserve the existing ADS display metadata policy independently of the
-                # comparative key: diluted prior values must never come from basic EPS.
-                ads_info = (
-                    xbrl_metrics.get("earnings_per_share") or {}
-                    if xbrl_key in ("earnings_per_share", "eps_diluted") else metric_info
-                )
-                per_ads = ads_info.get("per_ads")
+                per_ads = metric_info.get("per_ads")
                 if isinstance(per_ads, dict):
                     row_dict["per_ads"] = per_ads
                 prior_entry = metric_info.get("prior")
