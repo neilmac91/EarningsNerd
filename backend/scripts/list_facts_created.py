@@ -9,14 +9,19 @@ created_at), oldest first, then one summary line with the row count. Nothing is 
 commit, no job-ledger heartbeat.
 
 Timestamps are ISO 8601; a trailing ``Z`` or an offset is accepted, a naive value is read as UTC.
+``created_at`` alone cannot attribute a row to one writer (a summary finishing inside the window
+populates the same table through ``process_filing_facts``), so ``--accessions`` restricts the
+listing to the filings a given pass touched: the audit logs one
+``reconciliation_flag_audit ... accession=... inserted=N`` line per filing it changed, and those
+accessions with their ``inserted`` counts are the provenance to compare this listing against.
 
-Founder command (the DB is only reachable from Cloud Run — see docs/DEPLOYMENT.md):
+Founder commands (the DB is only reachable from Cloud Run — see docs/DEPLOYMENT.md):
   gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \\
-    --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z" --wait
+    --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z,--accessions,<from the audit's log lines>" --wait
 
 Local usage:
   python scripts/list_facts_created.py --since 2026-09-08T05:25:00Z --until 2026-09-08T05:40:00Z
-  python scripts/list_facts_created.py --since 2026-09-08 --limit 50
+  python scripts/list_facts_created.py --since 2026-09-08 --accessions 0000320193-25-000079 --limit 50
 """
 import argparse
 import json
@@ -39,7 +44,13 @@ def parse_utc(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _main(*, since: datetime, until: datetime | None, limit: int | None) -> int:
+def _main(
+    *,
+    since: datetime,
+    until: datetime | None,
+    limit: int | None,
+    accessions: list[str] | None = None,
+) -> int:
     from app.database import SessionLocal
     from app.models import Company, FinancialFact
     from app.utils.datetimes import ensure_utc, iso_z
@@ -53,6 +64,8 @@ def _main(*, since: datetime, until: datetime | None, limit: int | None) -> int:
         )
         if until is not None:
             query = query.filter(FinancialFact.created_at < until)
+        if accessions:
+            query = query.filter(FinancialFact.accession.in_(accessions))
         query = query.order_by(FinancialFact.created_at.asc(), FinancialFact.id.asc())
         if limit:
             query = query.limit(limit)
@@ -85,6 +98,7 @@ def _main(*, since: datetime, until: datetime | None, limit: int | None) -> int:
             "rows": count,
             "since": iso_z(since),
             "until": iso_z(until) if until else None,
+            "accessions": accessions,
             "limit": limit,
         }, sort_keys=True))
         return count
@@ -102,5 +116,10 @@ if __name__ == "__main__":
     parser.add_argument("--since", required=True, type=parse_utc, help="Inclusive ISO 8601 start.")
     parser.add_argument("--until", type=parse_utc, default=None, help="Exclusive ISO 8601 end.")
     parser.add_argument("--limit", type=int, default=None, help="Max rows to print.")
+    parser.add_argument(
+        "--accessions", type=str, default=None,
+        help="Comma-separated accession numbers: only rows of those filings (default: all).",
+    )
     args = parser.parse_args()
-    _main(since=args.since, until=args.until, limit=args.limit)
+    parsed = [a.strip() for a in args.accessions.split(",") if a.strip()] if args.accessions else None
+    _main(since=args.since, until=args.until, limit=args.limit, accessions=parsed)

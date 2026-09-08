@@ -1317,28 +1317,42 @@ class TestListFactsCreatedCli:
                                created_at=datetime(2026, 9, 8, 5, 0, tzinfo=timezone.utc))
         after = FinancialFact(**base, concept="total_assets", value=500.0,
                               created_at=datetime(2026, 9, 8, 5, 45, tzinfo=timezone.utc))
-        db.add_all([inside, before, after])
+        # Inside the window but written by another pass (e.g. a summary finishing then).
+        other = FinancialFact(**{**base, "accession": "ACC-other"}, concept="eps", value=1.5,
+                              created_at=datetime(2026, 9, 8, 5, 31, tzinfo=timezone.utc))
+        db.add_all([inside, before, after, other])
         db.commit()
         snapshot = {
             r.id: (r.concept, float(r.value), r.reconciled, r.is_latest)
             for r in db.query(FinancialFact).filter_by(company_id=cid).all()
         }
 
-        monkeypatch.setattr(sys, "argv", [
-            "list_facts_created.py", "--since", "2026-09-08T05:25:00Z",
-            "--until", "2026-09-08T05:40:00Z",
-        ])
+        script = str(Path(__file__).resolve().parents[2] / "scripts/list_facts_created.py")
         monkeypatch.setattr(sys, "path", list(sys.path))
-        runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts/list_facts_created.py"),
-                       run_name="__main__")
-        lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
-        rows, summary = [line for line in lines if "concept" in line], lines[-1]
-        ours = [r for r in rows if r["ticker"] == ticker]
+
+        def run(*extra):
+            monkeypatch.setattr(sys, "argv", [
+                "list_facts_created.py", "--since", "2026-09-08T05:25:00Z",
+                "--until", "2026-09-08T05:40:00Z", *extra,
+            ])
+            runpy.run_path(script, run_name="__main__")
+            lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+            rows = [line for line in lines if "concept" in line]
+            return rows, [r for r in rows if r["ticker"] == ticker], lines[-1]
+
+        # The window alone: both inside rows, whoever wrote them.
+        rows, ours, summary = run()
+        assert sorted(r["concept"] for r in ours) == ["eps", "revenue"]
+        assert summary["rows"] == len(rows) and summary["accessions"] is None
+        assert summary["since"] == "2026-09-08T05:25:00Z" and summary["until"] == "2026-09-08T05:40:00Z"
+
+        # Attributed to the audited filing: only its row.
+        rows, ours, summary = run("--accessions", " ACC-lc ,")
         assert [r["concept"] for r in ours] == ["revenue"]
         assert ours[0]["created_at"] == "2026-09-08T05:30:00Z" and ours[0]["value"] == 100.0
         assert ours[0]["source"] == "edgar_xbrl" and ours[0]["reconciled"] is True
-        assert summary["rows"] == len(rows) and summary["since"] == "2026-09-08T05:25:00Z"
-        assert summary["until"] == "2026-09-08T05:40:00Z"
+        assert ours[0]["accession"] == "ACC-lc"
+        assert summary["rows"] == len(rows) and summary["accessions"] == ["ACC-lc"]
 
         db.expire_all()
         assert {
