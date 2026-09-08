@@ -42,7 +42,7 @@ def parse_utc(value: str) -> datetime:
 def _main(*, since: datetime, until: datetime | None, limit: int | None) -> int:
     from app.database import SessionLocal
     from app.models import Company, FinancialFact
-    from app.utils.datetimes import iso_z
+    from app.utils.datetimes import ensure_utc, iso_z
 
     db = SessionLocal()
     try:
@@ -58,9 +58,12 @@ def _main(*, since: datetime, until: datetime | None, limit: int | None) -> int:
             query = query.limit(limit)
         count = 0
         for fact, ticker in query.all():
-            created = fact.created_at
-            if created is not None and created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
+            # SQLite hands back a naive UTC value, PostgreSQL an aware one in the session's zone;
+            # both print as the ``Z`` form the docstring promises.
+            created = (
+                ensure_utc(fact.created_at).astimezone(timezone.utc)
+                if fact.created_at is not None else None
+            )
             print(json.dumps({
                 "id": fact.id,
                 "ticker": ticker,

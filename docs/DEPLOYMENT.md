@@ -415,7 +415,7 @@ the read-only aid (one JSON line per row, then a count; nothing written):
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args="scripts/list_facts_created.py,--since,2026-09-08T05:25:00Z,--until,2026-09-08T05:40:00Z" --wait
 gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="earningsnerd-backfill-facts" AND jsonPayload.concept:*' \
-  --freshness=3h --limit=200 --format='value(jsonPayload)'
+  --freshness=3h --limit=200 --order=asc --format='value(jsonPayload)'
 ```
 
 **Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
