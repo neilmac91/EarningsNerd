@@ -41,9 +41,9 @@ files/569 tests and build. Historical mutation/curl/console evidence limits are 
 
 One runtime must-fix was confirmed: release-before-replacement could permanently lose an old
 pending filing after a crash. #772 makes the replacement atomic and proves fresh-session
-recovery for write failure and collision. Full gate:2731 passed; one invariant's mutation
-failed2/restored2; paid Copilot18/18. Merge `048fbc47c903d520280dbb917f6454cd19102059`, main
-CI34251319216, migration0/39, revision00308-khx at100%, CI and independent detailed health
+recovery for write failure and collision. Full gate: 2731 passed; one invariant's mutation
+failed 2/restored 2; paid Copilot 18/18. Merge `048fbc47c903d520280dbb917f6454cd19102059`, main
+CI `34251319216`, migrations 0/39, revision `earningsnerd-backend-00308-khx` at 100%, CI and independent detailed health
 healthy. All eight configured job images were updated by CI.
 
 The smaller chat cleanup/admission overlap is an explicit unchecked follow-up in todo.
@@ -53,9 +53,9 @@ corrections. D8's “no PR” means no open PR; historical #653 is merged and #5
 ## 2a. What the next session should doubt first
 
 Do not infer an actual judged readout from a green workflow or unavailable artifact. Require
-status other than unavailable and24/24 scored before W3-7's engineering report/arm decision.
+status other than unavailable and 24/24 scored before W3-7's engineering report/arm decision.
 Do not infer effective Vercel flags or companyfacts warm-up from repository defaults.
-Do not infer Notable retention before the review week through2026-09-15 and a founder decision.
+Do not infer Notable retention before the review week through 2026-09-15 and a founder decision.
 
 Requirements-only PR CI scope-skips actual summary evaluation. Inspect the retained full-set
 report and source SHA for the SDK/extraction candidates; no fresh baseline pin is justified
@@ -73,7 +73,7 @@ Use the live [remaining-plan checklist](todo.md#remaining-master-plan--astra-che
 and original wave-3 handover §2–§6. W3-10 Notable and Analysis wait on their named founder
 observations; W3-7 waits on the actual strong-judge artifact and then arm decision; W3-8a then
 W3-8b wait on that order or the existing more-than-one-week slip exception. Never two re-pin
-PRs open. The exception had not elapsed on September8.
+PRs open. The exception had not elapsed on September 8.
 
 [E09's proposal](e09-fleet-coordination-proposal-2026-09-08.md) is engineering-complete as a
 proposal. Build waits on effective fleet/egress/provider/database-budget evidence and the
@@ -90,7 +90,7 @@ restoration. macOS PDF imports require the available native library search path.
 runs and the initial same-worktree overlap were retained and never counted as full passes.
 
 PR bodies retain exact gate tails, review refutations, actual evaluation and release evidence.
-Backend release order remains main CI, deploy migration tail/revision100%, CI detailed health,
+Backend release order remains main CI, deploy migration tail/revision at 100%, CI detailed health,
 independent curl, then a dated ledger record. No next backend publication/merge before the
 previous deployment checkpoint is verified. Do not repeat an irreversible write after a
 mid-command error without reading remote state first.
