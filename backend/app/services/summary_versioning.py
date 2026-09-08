@@ -70,7 +70,8 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   commentary/impact stay the model's own analysis by design. Quote-mechanics text untouched
 #   (boundary-sentence lesson). Taxonomy shape unchanged (still v2).
 # summary-2026-09-a: Deterministic rendering: remove segment revenue shares derived from overlapping flat
-#   members; include the prior working-capital report-date labeling correction. Taxonomy unchanged.
+#   members; align the figure-table description with retained operating margins; include the prior
+#   working-capital report-date labeling correction. Taxonomy unchanged.
 SUMMARY_PROMPT_VERSION: str = "summary-2026-09-a"
 
 
