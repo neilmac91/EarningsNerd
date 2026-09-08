@@ -111,3 +111,7 @@ Docling merits a retained-document experiment only for PDF or complex incorporat
 SEC-API could provide a commercial extraction comparison if a measured gap remains. Its advertised startup plan is for internal use; redistribution or a paywalled product requires the appropriate enterprise licence, so the low advertised plan is not an established EarningsNerd option. No purchase, contact or integration is proposed now. [SEC-API pricing and usage rights](https://sec-api.io/pricing).
 
 The priority is to use the already-installed library more carefully, validate exact accounting semantics and preserve source completeness. Reconsider an alternative only against an explicit failing fixture and measured operating cost; none changes the selected-filing provenance requirement.
+
+## Selection follow-up decision — September 9
+
+The [general-selector experiments](evidence-selection-experiments-2026-09-09.md) did not justify production integration. They recovered some confirmed missing inputs while displacing other material passages or excluding unresolved source structure. The next safe stage is truthful observed excerpt provenance, followed by complete source assembly and explicit association/budget rules. Intel 14A was present in the actual retained generator context and remains a synthesis issue. These results narrow the earlier capability opportunities; they do not justify a larger prompt or an SDK replacement.

@@ -31,6 +31,12 @@ Older persisted XBRL snapshots may contain falsely stamped provenance. The narro
 
 Arelle may help isolated offline validation; Docling may help a demonstrated PDF/exhibit gap. Neither is proposed for the serving dependency set now. Commercial extraction requires a measured gap and suitable product redistribution rights before a vendor decision.
 
+## Source-selection experiment decision
+
+The [offline experiments](evidence-selection-experiments-2026-09-09.md) recovered KO tax exposure and XOM guidance with general ranking, but displaced 129,294 characters of other evidence across the corpus. A second variant's zero eviction was measured against a changed baseline that omitted unresolved inline-XBRL/context units, so it did not establish preservation of production evidence. Neither selector will ship in that form.
+
+Proceed with truthful excerpt provenance observations, then complete assembly and source associations, then ranking with explicit displacement evidence. Preserve legacy cached excerpts with unknown provenance; do not regenerate them to populate metadata. Intel's 14A conditional risk was already in its actual generator input, so that omission belongs to synthesis/attention work. NVO's incorporated exhibit remains a separately bounded same-accession acquisition task.
+
 ## Verification and spending
 
 Every backend code PR gets the full committed-state Ruff/Bandit/pytest gate including performance and the four CI-named PostgreSQL lanes, exactly one mutation proof per new invariant, three independent review lenses, and byte-identical locked anchors. Draft-first, routine paid review at ready, exact reviewed head merge, then serial main CI/migration/revision/health verification remain required. AI/extraction changes also need the actual full regression report; a green advisory workflow badge is insufficient. Re-pin only under an applicable runbook trigger, with one re-pin PR open. No new paid judge program, subscription change or broad generation is authorized by this checkpoint.
