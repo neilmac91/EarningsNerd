@@ -1,3 +1,10 @@
+## September 9 preview ownership correction — confirmed actual #803 finding
+
+- [x] Preserve the first #803 actual52-output artifact: integrity passed, but previews exposed model segment figures that final numeric ownership removes.
+- [x] Reuse existing final numeric owners on completed sections only; conditionally defer attributed quotes while verification is required. No final policy or flag change.
+- [ ] Complete independent review, one distinct ownership proof and full committed gates; the prior completion proof is retained without repetition.
+- [ ] Inspect corrected actual preview evidence before release. First-run integrity and prior generic-absence repair are not ownership clearance.
+
 ## September 9 truthful current-schema previews — local preparation
 
 - [ ] Render strictly complete original-byte sections through the current shared projection; unfinished sections stay pending, without legacy absence claims.

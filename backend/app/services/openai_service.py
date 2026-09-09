@@ -498,6 +498,20 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
+            completed_keys = tuple(sections)
+            # Parsed sections are a fresh local copy. Reuse final numeric ownership, then
+            # keep unreceived sections pending instead of revealing synthesized fallbacks.
+            self._apply_structured_fallbacks(sections, {}, xbrl_metrics)
+            sections = {key: sections[key] for key in completed_keys if key in sections}
+            if "results_that_matter" in sections:
+                sections["results_that_matter"] = _sanitize_bank_financial_highlights(
+                    sections["results_that_matter"], xbrl_metrics,
+                )
+            # This callback has no excerpt to verify against. When verification is required,
+            # attributed quotes wait for the authoritative final gate (other prose can show).
+            forward = sections.get("forward_signals")
+            if settings.AI_FORWARD_QUOTE_GATE and isinstance(forward, dict):
+                forward.pop("quotes", None)
             rendered = render_sections({"schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections})
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation

@@ -33,3 +33,12 @@ completed sections may remain visible when a later member is unfinished; this is
 JSON validation or source/final-provider identity certification. The ordinary
 `test_stream_section_reveal.py::test_previews_render_only_originally_complete_current_sections`
 checks character truncations and actual callback progress while preserving collected final bytes.
+
+
+**Same-day actual-output correction.** A shared renderer alone does not apply final ownership.
+The first #803 run emitted model segment figures that final processing intentionally discarded.
+Run the existing numeric owner and bank sanitizer on the fresh parsed preview copy, then retain
+only originally complete section keys; do not copy financial formulas or synthesize an unreceived
+section. When an armed quote guard cannot verify at the preview seam, wait for final verification
+rather than exposing an unverified attributed quotation. This is a distinct ownership invariant,
+covered in the same unlocked home; retain the original completion proof without repeating it.

@@ -797,3 +797,16 @@ produce no new preview. Final generation, repair, normalization and rendering re
 Observed callbacks are still optional and may be coalesced before browser delivery. Their retained
 scope includes internal provider retries and does not certify association with the final provider
 attempt; complete section syntax does not establish factual/source correctness.
+
+
+**Preview ownership correction (September 9, first #803 actual readout).** Complete section
+syntax alone did not prevent model-authored segment figures from appearing before final processing
+removed them. Previews now reuse `_apply_structured_fallbacks` and the bank-row sanitizer on the
+freshly parsed copy, then retain only section keys already complete in the stream. Thus code-owned
+fields are derived or suppressed by their existing final owner; missing sections remain pending.
+Working-capital/cash-flow fields still follow that owner's conditional overwrite behavior when
+facts are available, rather than a new unconditional removal policy. If `AI_FORWARD_QUOTE_GATE`
+is armed, attributed quotes wait for final verification because the preview callback has no source
+excerpt. This conservatively delays even valid, short or no-excerpt quotes; final quote policy and
+all flag defaults remain unchanged. The initial #803 artifact remains retained as a failed preview
+ownership readout; corrected actual acceptance is a separate requirement.
