@@ -8,7 +8,8 @@
 
 - [x] Receive all final Fable reports and complete the [independent reconciliation](fable-quality-reconciliation-2026-09-09.md). Seven cases still have partial source coverage; Amazon has a range ambiguity. No consensus defect rate or unseen acceptance is claimed. Earlier “Fable completion pending” rows are superseded for final delivery only.
 - [x] Scope safeguard #794 merged as `47865758`; hosted PR scope skipped generation correctly.
-- [ ] Verify #794 main CI34315351755 deployment, then retry only #792's failed summary job and inspect actual evidence before release.
+- [x] Verify #794 main CI `34315351755` deployment.
+- [ ] Inspect #792's funded summary retry, attempt 2/job `102352498206`, before release; no third Copilot round.
 - [ ] Release eval-error and comparative identity c, then evaluate integrated prompt d; separately scope FCF-basis e. #788 already covers ROE/ROA labels. Further traceability/narrative/source acquisition needs bounded implementation, not a claim d resolves it.
 - [ ] Unseen human quality acceptance and the original master-plan prerequisites remain open. Missing relevant source is a product coverage defect; no new universe spend, vendor or historical replay is authorized.
 
@@ -17,7 +18,7 @@
 The founder reports that DeepSeek has been topped up and explicitly authorizes proceeding with the ordered quality work. This supersedes the temporary insufficient-balance execution hold; it does not erase the [unintended evaluation incident](incident-docs-eval-scope-2026-09-09.md), certify quality or release broader spending. DeepSeek remains the provider.
 
 - [x] Confirm hosted scope behavior for safeguard [#794](https://github.com/neilmac91/EarningsNerd/pull/794), head `979f0890487d7ec7e05eaf16cea38f576cd3f381`: CI [34314951399](https://github.com/neilmac91/EarningsNerd/actions/runs/34314951399), job `102349116004`, explicitly reported “No AI-relevant backend changes — skipping eval-baseline.” Checkout merged this head into `edd9935b7fd17ea0ca286dae1f2e0d309e67f9a8`; no summary generation is claimed for that job.
-- [ ] Finish #794's one paid Copilot run [34314969232](https://github.com/neilmac91/EarningsNerd/actions/runs/34314969232), inspect required checks, merge the exact reviewed head, then verify its backend deployment. Merge SHA, main run, migration tail, revision/traffic and independent health are **pending**. Release this safeguard before synchronizing older quality branches.
+- [x] #794's single paid Copilot run [34314969232](https://github.com/neilmac91/EarningsNerd/actions/runs/34314969232) accepted 18/18; exact-head merge and serial production verification are complete. Revision `earningsnerd-backend-00319-kz4`, main CI `34315351755`, migrations 0/39 and both health checks passed; see the dated release record.
 - [ ] After the safeguard is verified, inspect #792's latest head and rerun only its failed summary job. Preserve original failed reports and already accepted second Copilot evidence; do not start a third Copilot merely to retry summary evaluation. The funded regression artifact, gate outcome, merge and production evidence remain **pending**.
 - [ ] Continue application-error evaluation reporting and comparative identity c as separate slices, then integrate their verified main into source-reported prompt d and review the actual full output cohort, preview coverage and offline normalized/rendered projections. Measurement-only dispatch remains a separate prepared workflow change; its local gate is not a paid weekly-readout or no-email live test.
 

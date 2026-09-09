@@ -28,8 +28,8 @@ Bounded narrative adjudication retains Boeing's core/ex-gain basis error, Intel 
 
 ## Ordered implementation and remaining acceptance
 
-1. Scope safeguard #794 merged as `47865758`; main CI [34315351755](https://github.com/neilmac91/EarningsNerd/actions/runs/34315351755) is pending production verification at this checkpoint. Its hosted PR check skipped evaluation correctly. Verify deployment before synchronizing older branches.
-2. Inspect #792's exact current head and rerun only its failed summary job after the safeguard is verified. Preserve failed artifacts and the already accepted second Copilot review; the retry alone does not justify a third Copilot run. Inspect actual output and regression evidence before merge/deployment.
+1. Scope safeguard #794 merged as `47865758`; main CI [34315351755](https://github.com/neilmac91/EarningsNerd/actions/runs/34315351755) passed, and revision `earningsnerd-backend-00319-kz4` is verified at 100% traffic with migrations 0/39 and healthy CI/independent detailed health. Its hosted PR check skipped evaluation correctly.
+2. Inspect the running funded retry of #792's unchanged head: only its failed summary job was rerun after the safeguard was verified (attempt 2, job `102352498206`). Preserve failed artifacts and the already accepted second Copilot review; the retry alone does not justify a third Copilot run. Inspect actual output and regression evidence before merge/deployment.
 3. Release application-error evaluation accounting and comparative identity c as separate slices, then integrate verified prerequisites into reported-label prompt d and assess actual complete outputs, previews, normalized facts and projections. Local gates do not establish improved model behavior.
 4. Prepare the separate bounded FCF-basis correction e. Shipped #788 already labels ROE/ROA basis; do not duplicate it. JD/MELI cash-flow concept and discretionary-cash interpretation are distinct from d's P&L labels. No ticker-specific definition or mechanical replacement of company metrics is justified.
 5. Traceability, adjustment narratives, complete evidence units and incorporated-attachment acquisition require their own bounded findings and implementation. Source/coverage metadata is diagnostic, not recovered content. Prompt d does not resolve all omissions, fabricated evidence or earnings-quality mistakes. Preserve alternative valid accounting bases and qualifying language.
@@ -40,4 +40,4 @@ Funding restoration authorizes the ordered work, not universe-wide generation, n
 
 ## Release correction after the comparison checkpoint
 
-Scope safeguard #794 is now verified on `earningsnerd-backend-00319-kz4` at 100% traffic, main CI `34315351755`, migrations 0/39 and healthy CI/independent detailed health. The earlier pending entry above is historical. Only #792's failed summary CI job has been requested for the funded retry; no third Copilot round. See the dated release record in [the execution ledger](beta-to-scale-execution.md).
+Scope safeguard #794 is now verified on `earningsnerd-backend-00319-kz4` at 100% traffic, main CI `34315351755`, migrations 0/39 and healthy CI/independent detailed health. Only #792's failed summary CI job has been requested for the funded retry; no third Copilot round. See the dated release record in [the execution ledger](beta-to-scale-execution.md).
