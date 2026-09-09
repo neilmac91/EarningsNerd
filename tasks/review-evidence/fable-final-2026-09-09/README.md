@@ -31,3 +31,7 @@ These are packet line labels, not HTML line numbers or web anchors. Full packet 
 All JSON parses, and copied-file hashes were verified against the retained originals. Hash integrity does not prove a reviewer's reading, source completeness, quote relevance or analysis correctness. Seven Fable cases remain partial, Amazon retains its S14 range ambiguity, and AAPL A is excluded from blind comparisons. Neither original reviewer count is an adjudicated global defect rate. No unseen acceptance, retrospective refresh or release authorization is implied.
 
 The [top-level reconciliation](../../fable-quality-reconciliation-2026-09-09.md) and [execution ledger](../../beta-to-scale-execution.md) retain implementation ordering and subsequent release evidence.
+
+## Subsequent coverage map
+
+The [material coverage map](material-coverage-map.md) links original material IDs to remaining intervention and the [acceptance checklist](../../quality-residual-acceptance-2026-09-09.md). Final AAPL tax severity is material but mitigated; the earlier minor narrowing remains historical. This adapted later map is not one of the unchanged COPY-HASHES.json artifacts.

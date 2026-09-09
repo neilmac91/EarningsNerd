@@ -6,6 +6,8 @@ This checklist records what remains after the shipped safeguards and staged c/d/
 
 Docs #795 is published at `d11a5c31968250c3e9048e7d330248f6544d9673`; main CI34319126416/job102362286528 explicitly skipped backend deployment. #796 is open, with its summary regression pending. Its one Copilot evaluation passed the pinned 18-question-attempt gate, but six answers lack citations (11 uncited figures); 30 successful provider calls include tool continuations. See the [execution ledger](beta-to-scale-execution.md) for exact source and telemetry limits. No #796 deployment is claimed.
 
+The [case-by-case coverage map](review-evidence/fable-final-2026-09-09/material-coverage-map.md) accounts for original Fable and Codex material IDs, preserving dated severity changes and unresolved scope.
+
 ## Closure checklist
 
 - [ ] **Operational acceptance:** #796 must supply its actual summary artifact/gate, exact executed source, source/excerpt identities, usable cohort and telemetry before release; then verify production serially. Passing Copilot alone does not close summary acceptance.
