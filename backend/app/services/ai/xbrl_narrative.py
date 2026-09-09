@@ -29,11 +29,13 @@ def return_ratio_basis(metric_key: str) -> str:
     return f"period net income / period-end {denominator}, not annualized"
 
 
-def cash_flow_basis(metric_key: str, capex_metric: Optional[dict] = None) -> str:
+def cash_flow_basis(
+    metric_key: str, capex_metric: Optional[dict] = None, *, include_source_concepts: bool = False
+) -> str:
     """Name the selected-input basis; no issuer-wide capex or distributable-cash inference."""
     if metric_key == "capital_expenditures":
         basis = "selected cash-flow amount, not necessarily total capital investment"
-        for period in ("current", "prior"):
+        for period in ("current", "prior") if include_source_concepts else ():
             point = (capex_metric or {}).get(period)
             tag = point.get("raw_tag") if isinstance(point, dict) else None
             if isinstance(tag, str) and tag:
@@ -170,7 +172,7 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         if key in _RETURNS_BAND_KEYS:
             line += f"; basis: {return_ratio_basis(key)}"
         if key in ("capital_expenditures", "free_cash_flow"):
-            line += f"; basis: {cash_flow_basis(key, entry)}"
+            line += f"; basis: {cash_flow_basis(key, entry, include_source_concepts=True)}"
         rows.append(line)
     if not rows:
         return ""

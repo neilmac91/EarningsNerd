@@ -500,7 +500,7 @@ class _MarkdownRenderMixin:
                                 _flow_clause("share repurchases", "share_repurchases")) if c]
         capex_clause = _flow_clause("capital expenditures", "capital_expenditures")
         if capex_clause:
-            capex_clause += f" ({cash_flow_basis('capital_expenditures', (xbrl_metrics or {}).get('capital_expenditures'))})"
+            capex_clause += f" ({cash_flow_basis('capital_expenditures')})"
         if returned:
             line = "Capital returned — " + ", ".join(returned)
             if capex_clause:

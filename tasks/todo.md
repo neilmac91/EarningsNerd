@@ -1,6 +1,7 @@
 ## September 9 standalone selected cash-flow basis — local candidate
 
 - [x] Reuse only the reviewed cash-basis helper, grounding/render calls and existing unlocked consumer tests from local `b8de2057`, on actual main `a811faf6`; retain the original ten-case mutation proof without repetition.
+- [x] Refine the same shared basis helper so exact source concepts appear only in grounding; customer web/Markdown/export text retains readable basis/formula. Existing surface invariant assertions are aligned; the original basis-removal proof is retained without repeat.
 - [x] Keep released d explanation behavior. Rejected/unreleased #805 e code is absent; f retains its locally reserved cash identifier and advances directly from released d. No historical note implies e shipped.
 - [ ] Complete full committed Ruff/Bandit/pytest gate with performance, four dedicated PostgreSQL lanes and eleven unchanged locked anchors; independent review remains before publication.
 - [ ] Inspect authorized actual summary/Copilot and all-surface cash-basis outcomes before release. Existing formula, source selection, provider and held replay/universe workloads remain unchanged. This is basis disclosure, not full financial quality acceptance.

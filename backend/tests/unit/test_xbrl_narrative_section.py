@@ -347,7 +347,9 @@ def test_selected_cash_flow_basis_survives_consumers(surface, tag):
     assert "derived as operating cash flow minus the absolute selected capex cash-flow amount" in text
     assert "not an issuer-defined or discretionary-cash measure" in text
     assert "selected cash-flow amount, not necessarily total capital investment" in text
-    assert ("current source concept: issuer:PurchaseOfEquipmentAndSoftware" in text) == bool(tag)
+    assert ("current source concept: issuer:PurchaseOfEquipmentAndSoftware" in text) == (bool(tag) and surface == "grounding")
+    if surface != "grounding":
+        assert "issuer:PurchaseOfEquipmentAndSoftware" not in text
     assert "prior source concept:" not in text
     assert ("11,000,000,000" in text and "8,000,000,000" in text) if surface == "grounding" else ("11.0B" in text and "8.0B" in text)
     assert metrics == original
