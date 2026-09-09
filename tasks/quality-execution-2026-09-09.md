@@ -1,3 +1,7 @@
+## September 9 application-error release — verified
+
+#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This completes evaluation, merge and serial production verification, not the residual quality checklist or broad replay holds.
+
 ## September 9 source-provenance release — funded and verified
 
 - [x] [#792](https://github.com/neilmac91/EarningsNerd/pull/792) merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. The funded retry produced 52 usable outputs with matching source/excerpt hashes; actual regression passed. No third Copilot run.
@@ -128,3 +132,7 @@ Main CI [34291811124](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 The final Fable reports are received and independently reconciled in the [final reconciliation](fable-quality-reconciliation-2026-09-09.md). This supersedes the missing-final-report prerequisite only: seven cases retain partial coverage, Amazon has a source-range ambiguity, and unseen human-reviewed acceptance remains open. Original reviewer counts are preserved separately; no global consensus defect rate is asserted.
 
 Funding is restored for the ordered queue. Scope safeguard #794 merged as `47865758` with main CI `34315351755` and production revision `earningsnerd-backend-00319-kz4` verified. Only #792's failed summary job is now running as attempt 2, job `102352498206`; inspect its actual evidence before release, then release eval-error/identity c and assess integrated prompt d. FCF-basis e is a separate bounded candidate; #788 already addresses ROE/ROA labels. Missing source is a product coverage defect, and d does not resolve all traceability/narrative/acquisition failures. Existing master-plan, account, legal/product, vendor, universe-spend and historical-replay boundaries remain.
+
+## September 9 residual material acceptance
+
+The [explicit acceptance checklist](quality-residual-acceptance-2026-09-09.md) separates implemented mechanisms from outstanding cases. In particular, verify supplied-evidence narrative period/comparator identity and causal direction (Codex NVDA-02, PLTR-01, TSM-01, KO-03, PFE-02/04); c/d/e and acquisition do not close these authored claims. Source/legal/earnings interventions remain bounded proposals until justified and measured. Original partial coverage, unseen acceptance and founder boundaries remain.

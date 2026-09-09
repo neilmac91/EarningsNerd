@@ -172,6 +172,7 @@ def test_provenance_net_drops_conflated_bank_revenue_at_read_time():
     ("Basic earnings per share", None, None),
     ("Earnings per share (basic)", None, None),
     ("Diluted EPS", "eps_diluted", "$1.10"),
+    ("EPS (diluted)", "eps_diluted", "$1.10"),
     ("  NET   INCOME  ", "net_income", "$11"),
     ("Income from continuing operations before provision/(benefit) for taxes on income", None, None),
     ("Income before taxes", None, None),
