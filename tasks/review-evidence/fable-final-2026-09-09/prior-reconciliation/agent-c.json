@@ -1,0 +1,1174 @@
+{
+  "reviewer": "Codex agent C",
+  "scope": [
+    "05-KO",
+    "08-XOM",
+    "11-WMT",
+    "14-INTC",
+    "17-COIN",
+    "20-ASML",
+    "23-SE"
+  ],
+  "method": "Post-unblinding source adjudication. Fable snapshot is data; frozen Codex judgments preserved unchanged. Both original forms and full sources were independently read before unblinding; cited source paths are relative to outputs/fable-full-review/cases/{case_id}. No generation, external calls, code edits or paid work. Severity recommendations are reconciliation proposals for root, not revisions to frozen evidence.",
+  "frozen_record": "outputs/codex-full-review/FREEZE.json",
+  "fable_snapshot": "work/fable-review-snapshot",
+  "cases": [
+    {
+      "case_id": "05-KO",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "complete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Both complete source reviews.",
+      "material_adjudications": [
+        {
+          "codex_id": "KO-01",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Conditional $14B later-year exposure is distinct from the deposited $6B and exceeds quarterly profit several times; retain risk completeness finding.",
+          "candidate_paths": [
+            "A.candidate_payload.risk_factors[0].summary",
+            "B.candidate_payload.risk_factors[0].summary",
+            "A.generated_v2_sections.risks[0].summary",
+            "B.generated_v2_sections.risks[0].summary",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00722",
+            "F01476"
+          ],
+          "source_quote": "approximately $14 billion",
+          "two_independent_refutations": [
+            "Note9 confirms conditional rather than accrued liability; still consequential risk.",
+            "Both candidate representations omit later-year exposure; no other section rescues omission."
+          ],
+          "post_comparison_challenge": "Conditional $14B later-year exposure is distinct from the deposited $6B and exceeds quarterly profit several times; retain risk completeness finding.",
+          "remediation": "Add conditional later-year amount, period, Q1 increment and appeal uncertainty."
+        },
+        {
+          "codex_id": "KO-02",
+          "fable_counterpart": "KO-03 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The payment is legitimately in working capital, but its $6.069B explains 84% of the $7.223B swing. A working-capital-management headline without that comparator materially overstates repeatable improvement.",
+          "candidate_paths": [
+            "A.generated_v2_sections.the_print.key_takeaways[2]",
+            "B.generated_v2_sections.the_print.key_takeaways[2]",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01358",
+            "F01360",
+            "G01059"
+          ],
+          "source_quote": "$6,069 million of the $6,173 million final milestone payment for fairlife",
+          "two_independent_refutations": [
+            "Source supports real operating improvement but explicitly separately identifies prior-year payment.",
+            "6069/7223=84%; neither earnings-quality nor footnotes supplies this cash explanation."
+          ],
+          "post_comparison_challenge": "The payment is legitimately in working capital, but its $6.069B explains 84% of the $7.223B swing. A working-capital-management headline without that comparator materially overstates repeatable improvement.",
+          "remediation": "Separate fairlife comparator from operating cash improvement."
+        },
+        {
+          "codex_id": "KO-03",
+          "fable_counterpart": "KO-01 material",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Both judges identify a genuine calendar-comparability omission; 8% remains accurate but requires six extra days and the 3% daily-volume comparator.",
+          "candidate_paths": [
+            "A.generated_v2_sections.the_print",
+            "B.generated_v2_sections.the_print",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01157",
+            "G00963"
+          ],
+          "source_quote": "six additional days",
+          "two_independent_refutations": [
+            "8% is correct; source says daily-unit growth3% uses different denominator.",
+            "Both representations mention segment daily growth but omit extra reporting days and full-year convergence."
+          ],
+          "post_comparison_challenge": "Both judges identify a genuine calendar-comparability omission; 8% remains accurate but requires six extra days and the 3% daily-volume comparator.",
+          "remediation": "Add six-day effect and3% daily volume comparator."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: prior-balance-sheet date, A diluted-share claim, rounding and quote/metric mismatch. Fable adds unsupported acceleration, EMEA/AP margin denominator labels and unannualized returns: accept narrow labeling corrections. Fable capex pace concern is inconclusive because annual capex is seasonal; do not replace \u201cconsistent\u201d with an unsupported linear run-rate conclusion.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable KO-02",
+          "adjudication": "minor",
+          "source_and_candidate_locators": "F01161; A/B.the_print.what_changed",
+          "two_independent_refutations": [
+            "The source 12% compares current revenue with prior revenue, not the prior growth rate.",
+            "The candidate may mean growth versus prior revenue rather than accelerating rate; retain wording correction, not a material inversion claim."
+          ],
+          "remediation": "Use \u201crevenue grew 12%\u201d."
+        },
+        {
+          "finding": "Fable KO-07/09",
+          "adjudication": "minor",
+          "source_and_candidate_locators": "F01036\u2013F01038; F01271\u2013F01274; X01010/X01028",
+          "two_independent_refutations": [
+            "Intersegment-inclusive denominators reproduce candidate margins, so no arithmetic error survives.",
+            "Company margins use third-party sales and return metrics use one quarter/end balances; differing valid definitions still need labels."
+          ],
+          "remediation": "Label denominator and quarterly unannualized returns."
+        },
+        {
+          "finding": "Fable KO-10",
+          "adjudication": "not established as a substantive error",
+          "source_and_candidate_locators": "F01348; F01380",
+          "two_independent_refutations": [
+            "266M quarter capex and 2.2B annual budget are both correct; no source promises even spending.",
+            "A low Q1 run rate does not refute consistency with an annual plan because remaining-quarter spend can differ."
+          ],
+          "remediation": "Remove unnecessary pace inference if editing; never substitute a linear spending forecast."
+        }
+      ]
+    },
+    {
+      "case_id": "08-XOM",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "complete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Both complete source reviews.",
+      "material_adjudications": [
+        {
+          "codex_id": "XOM-01",
+          "fable_counterpart": "XOM-02 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The difference is not only $603M interest: pretax includes $5.064B affiliate income and other income. Without a reconciliation, a headline operating margin is a materially different accounting construct.",
+          "candidate_paths": [
+            "A.generated_v2_sections.results_that_matter.table[1].metric",
+            "B.generated_v2_sections.results_that_matter.table[1].metric",
+            "A.generated_v2_sections.results_that_matter.table[1].current_period",
+            "B.generated_v2_sections.results_that_matter.table[1].current_period",
+            "A.generated_v2_sections.results_that_matter.table[2].metric",
+            "B.generated_v2_sections.results_that_matter.table[2].metric",
+            "A.generated_v2_sections.results_that_matter.table[2].current_period",
+            "B.generated_v2_sections.results_that_matter.table[2].current_period",
+            "A.candidate_payload.financial_highlights.table[1].metric",
+            "B.candidate_payload.financial_highlights.table[1].metric",
+            "A.candidate_payload.financial_highlights.table[2].metric",
+            "B.candidate_payload.financial_highlights.table[2].metric",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F02403\u2013F02410",
+            "G00050\u2013G00060"
+          ],
+          "source_quote": "Income (loss) before income taxes 41,268 48,873 52,783",
+          "two_independent_refutations": [
+            "Read the income statement: 41,268 is explicitly before-tax income; no operating-income subtotal labels it as such.",
+            "Matched both years exactly to pretax totals and divided 41,268/332,238 = 12.42%; X has no operating-income metric to justify the relabeling."
+          ],
+          "post_comparison_challenge": "The difference is not only $603M interest: pretax includes $5.064B affiliate income and other income. Without a reconciliation, a headline operating margin is a materially different accounting construct.",
+          "remediation": "Label income before taxes and pretax margin, or provide a separately reconciled operating measure; retain exact-source percentage (-15.6%)."
+        },
+        {
+          "codex_id": "XOM-02",
+          "fable_counterpart": "XOM-01 material",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The sentence denies any quantitative 2026 guidance; the $27\u201329B investment range and conditional $20B repurchase pace directly refute it.",
+          "candidate_paths": [
+            "B.generated_v2_sections.forward_signals.guidance",
+            "B.candidate_payload.outlook",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F02056",
+            "F02090"
+          ],
+          "source_quote": "The Corporation plans to invest in the range of $27 billion to $29 billion in 2026.",
+          "two_independent_refutations": [
+            "Read full liquidity/capital section: $27\u201329B is expressly 2026, not 2030.",
+            "Checked all B output sections: neither range nor $20B 2026 repurchase pace appears. The exact retained G lacks these passages, so this is also an input-coverage limitation; absence from G is not absence from the filing."
+          ],
+          "post_comparison_challenge": "The sentence denies any quantitative 2026 guidance; the $27\u201329B investment range and conditional $20B repurchase pace directly refute it.",
+          "remediation": "Include $27\u201329B 2026 investment plan and $20B annual buyback pace subject to reasonable market conditions; A should also add these, though its narrower no-earnings-guidance statement is not false."
+        },
+        {
+          "codex_id": "XOM-03",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The $3.39B Energy improvement and $1.78B Chemical decline are opposing, central drivers relative to a $4.84B group decline. Isolated adjusted Energy values do not communicate those trends.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "A.candidate_payload.management_discussion",
+            "B.candidate_payload.management_discussion",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01119\u2013F01128",
+            "F02776",
+            "F02826",
+            "G00658",
+            "G02059"
+          ],
+          "source_quote": "Energy Products: 7,423 4,033; Chemical Products: 800 2,577",
+          "two_independent_refutations": [
+            "Checked both complete outputs: Energy appears only in identified-item/adjusted figures; Chemical has no performance discussion.",
+            "Reconciled regional net earnings to totals in both-year Note 3 tables: Energy +84.1%, Chemical -69.0%. These are after-tax segment earnings, not operating income, and source G contains sufficient regional data."
+          ],
+          "post_comparison_challenge": "The $3.39B Energy improvement and $1.78B Chemical decline are opposing, central drivers relative to a $4.84B group decline. Isolated adjusted Energy values do not communicate those trends.",
+          "remediation": "Add segment net-earnings comparison and drivers: stronger refining margins, chemical oversupply/margin pressure and project costs. Use after-tax labels."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: ROE basis. Codex alone formally flags consolidated identified-item bridge and working-capital drag (minor). Fable adds reorganized wording, net-debt rounding and total-revenue label: use \u201creports four segments\u201d, exact rounding and \u201ctotal revenues and other income\u201d; no evidence of a dated reorganization is needed or claimed in the repaired wording.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable XOM-04",
+          "adjudication": "minor wording",
+          "source_and_candidate_locators": "F01430; F02737; B.notable_footnotes[1]",
+          "two_independent_refutations": [
+            "The filing says organized and reports four segments, not that a new reorganization occurred.",
+            "Candidate supplies no date; a historical organization reading is possible, so do not treat as a fabricated current event."
+          ],
+          "remediation": "Say \u201creports four segments\u201d."
+        },
+        {
+          "finding": "Fable XOM-05/06",
+          "adjudication": "presentation",
+          "source_and_candidate_locators": "F01182/F01190/F02449; F02392/F02395",
+          "two_independent_refutations": [
+            "Exact debt minus cash is 32,856M; rounded 32.8B is explained by subtracting rounded inputs, not an economically different debt level.",
+            "Total revenue 332,238M is tagged Revenues and correctly changes -5%; inclusion of other income calls for a precise label, not rejection of the number."
+          ],
+          "remediation": "Calculate before rounding; label total revenues and other income; define FCF."
+        }
+      ]
+    },
+    {
+      "case_id": "11-WMT",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "complete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Complete: Fable Markdown explicitly records S00001\u2013S00024 and END TEXT RECOVERY; JSON ranges stale. Report hygiene discrepancy, no scope gap.",
+      "material_adjudications": [
+        {
+          "codex_id": "WMT-01",
+          "fable_counterpart": "WMT-01 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "minor",
+          "rationale": "Literal acceleration is wrong on both income bases. Narrow severity: the surrounding text supplies current growth and the investment-gain explanation, and can be read as earnings outpacing sales. Correct the phrase without making it a stand-alone material blocker.",
+          "candidate_paths": [
+            "A.generated_v2_sections.the_print.what_changed",
+            "B.generated_v2_sections.the_print.what_changed",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01389\u2013F01391",
+            "G00154\u2013G00158"
+          ],
+          "source_quote": "Consolidated net income attributable to Walmart $ 21,893 $ 19,436 $ 15,511",
+          "two_independent_refutations": [
+            "Source three-year table confirms fiscal 2024/2025/2026 and separates parent earnings from consolidated earnings.",
+            "Parent income growth slowed from 25.30% to 12.64%; consolidated growth also slowed from 23.89% to 10.48%. Both representations repeat acceleration."
+          ],
+          "post_comparison_challenge": "Literal acceleration is wrong on both income bases. Narrow severity: the surrounding text supplies current growth and the investment-gain explanation, and can be read as earnings outpacing sales. Correct the phrase without making it a stand-alone material blocker.",
+          "remediation": "Say growth slowed; retain that the investment-gain swing supported current earnings."
+        },
+        {
+          "codex_id": "WMT-02",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Conditional $3B subsidiary compensation is over four times the current $0.7B charge and roughly 10% of annual operating profit. It changes the possible expense outlook; preserve IPO/performance conditions and do not assign the whole amount to PhonePe.",
+          "candidate_paths": [
+            "A.generated_v2_sections.notable_footnotes[0].impact",
+            "B.generated_v2_sections.notable_footnotes[2].impact",
+            "A.candidate_payload.notable_footnotes[0].impact",
+            "B.candidate_payload.notable_footnotes[2].impact",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01859",
+            "G00862"
+          ],
+          "source_quote": "approximately $ 3 billion in unrecognized compensation cost ... including vesting upon an initial public offering",
+          "two_independent_refutations": [
+            "Read award note: the $3B is unrecognized subsidiary compensation subject to conditions, not the already recorded $0.7B charge.",
+            "Checked both footnotes and forward sections: no disclosure of pool or trigger; do not assume all belongs to PhonePe or that an IPO is certain."
+          ],
+          "post_comparison_challenge": "Conditional $3B subsidiary compensation is over four times the current $0.7B charge and roughly 10% of annual operating profit. It changes the possible expense outlook; preserve IPO/performance conditions and do not assign the whole amount to PhonePe.",
+          "remediation": "Disclose approximately $3B subsidiary compensation conditional on performance/other triggers including IPO vesting, without forecasting recognition."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: ROA denominator and operating-income rounding. Codex alone: ROI decline and tax cash timing (minor). Fable adds total-revenue/net-sales operating-margin basis, International profit decline, CAM quote locator and PhonePe causality; accept narrow corrections. International sales commentary disambiguates +7%, so its profit omission remains minor.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable WMT-03/05",
+          "adjudication": "minor",
+          "source_and_candidate_locators": "F00860; F01037\u2013F01051; candidate segments[1]",
+          "two_independent_refutations": [
+            "Operating margin on total revenue reproduces candidate values; source uses net sales, so basis mismatch is not invalid arithmetic.",
+            "International +7% is explicitly net-sales growth in commentary and current profit appears, mitigating the blank profit-change comparison; source still confirms a 7.2% decline."
+          ],
+          "remediation": "Label margins and show sales and profit changes separately."
+        },
+        {
+          "finding": "Fable WMT-06/07",
+          "adjudication": "presentation",
+          "source_and_candidate_locators": "S00013; F02251; F01803; B.notable_footnotes[0]/[2]",
+          "two_independent_refutations": [
+            "CAM recovery contains the exact management-determines sentence; Note9 states the same policy with different wording, so substance is accurate but locator wrong.",
+            "PhonePe note explicitly links ownership change to option exercise after modification; charge and ownership change share an event but the expense did not mechanically dilute shares."
+          ],
+          "remediation": "Correct quote locator and causal wording."
+        }
+      ]
+    },
+    {
+      "case_id": "14-INTC",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "complete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Coverage-equivalent complete: Fable MD explicitly read shortened passages via G. Independently checked S00003/4/8/9/10/14/19/20 in G after alphanumeric normalization: all true; S8/14/19/20 also whitespace-normalized exact matches. Remaining S cells are headings/separators. S metadata absent, no substantive missing cell found.",
+      "material_adjudications": [
+        {
+          "codex_id": "INTC-01",
+          "fable_counterpart": "INTC-01 material",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Both judges reproduce positive adjusted operating income. Rounded $3.9B versus roll-forward estimates changes tens of millions, never the sign.",
+          "candidate_paths": [
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "B.candidate_payload.management_discussion",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00221",
+            "F00767"
+          ],
+          "source_quote": "Operating income (loss) (3,136)",
+          "two_independent_refutations": [
+            "-3136+3900+74=+838million.",
+            "Impairment and severance are operating expenses; remaining charges already deducted."
+          ],
+          "post_comparison_challenge": "Both judges reproduce positive adjusted operating income. Rounded $3.9B versus roll-forward estimates changes tens of millions, never the sign.",
+          "remediation": "State approximate positive result with explicit reconciliation."
+        },
+        {
+          "codex_id": "INTC-02",
+          "fable_counterpart": "INTC-03 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The hierarchy doubles the denominator and approximately halves CCG/DCAI economic weights. Valid individual revenue numbers do not rescue false additive shares.",
+          "candidate_paths": [
+            "A.generated_v2_sections.segments[0].commentary",
+            "A.generated_v2_sections.segments[1].commentary",
+            "A.generated_v2_sections.segments[2].commentary",
+            "A.generated_v2_sections.segments[3].commentary",
+            "B.generated_v2_sections.segments[0].commentary",
+            "B.generated_v2_sections.segments[1].commentary",
+            "B.generated_v2_sections.segments[2].commentary",
+            "B.generated_v2_sections.segments[3].commentary",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00475",
+            "F01193"
+          ],
+          "source_quote": "CCG7,727 DCAI5,052 Total Intel Products12,779",
+          "two_independent_refutations": [
+            "7727+5052=12779; adding parent and children reproduces26186denominator.",
+            "Missing Foundry revenue does not justify double-count; source differentiates5421total and174external."
+          ],
+          "post_comparison_challenge": "The hierarchy doubles the denominator and approximately halves CCG/DCAI economic weights. Valid individual revenue numbers do not rescue false additive shares.",
+          "remediation": "Show hierarchy, remove invalid shares, distinguish external/intersegment Foundry revenue."
+        },
+        {
+          "codex_id": "INTC-03",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Possible discontinuation of 14A and successor nodes concerns the core foundry strategy, not ordinary execution risk. Supply constraints do not substitute for the commitment hurdle.",
+          "candidate_paths": [
+            "A.generated_v2_sections.risks",
+            "B.generated_v2_sections.risks",
+            "A.generated_v2_sections.forward_signals",
+            "B.generated_v2_sections.forward_signals",
+            "A.candidate_payload.risk_factors",
+            "B.candidate_payload.risk_factors",
+            "A.candidate_payload.outlook",
+            "B.candidate_payload.outlook"
+          ],
+          "source_references": [
+            "F01081\u2013F01085"
+          ],
+          "source_quote": "may pause or discontinue our pursuit of Intel 14A",
+          "two_independent_refutations": [
+            "Conditional risk, not committed cancellation; wording must preserve condition.",
+            "Neither representation covers demand/return hurdle; supply constraint is different."
+          ],
+          "post_comparison_challenge": "Possible discontinuation of 14A and successor nodes concerns the core foundry strategy, not ordinary execution risk. Supply constraints do not substitute for the commitment hurdle.",
+          "remediation": "Add conditional14A commitment hurdle and implications."
+        },
+        {
+          "codex_id": "INTC-04",
+          "fable_counterpart": "INTC-05 minor",
+          "attempts": [
+            "A"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The forward risk names up to $1.1B damages despite the disclosed April transaction extinguishing the derivative liability. Quarter-end truth does not rescue an unqualified prospective exposure in a report that incorporates that transaction.",
+          "candidate_paths": [
+            "A.generated_v2_sections.risks[1].summary",
+            "A.candidate_payload.risk_factors[1].summary",
+            "A.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00538",
+            "F00542",
+            "F01110"
+          ],
+          "source_quote": "extinguishment of our derivative liability",
+          "two_independent_refutations": [
+            "Quarter-end liability was real, so historical statement valid.",
+            "Apriltransaction disclosed but A omits extinguishment; B notes elimination."
+          ],
+          "post_comparison_challenge": "The forward risk names up to $1.1B damages despite the disclosed April transaction extinguishing the derivative liability. Quarter-end truth does not rescue an unqualified prospective exposure in a report that incorporates that transaction.",
+          "remediation": "Date historical exposure and explain subsequent resolution."
+        },
+        {
+          "codex_id": "INTC-05",
+          "fable_counterpart": "INTC-04 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "The conventional investing-only FCF is valid, but missing $1.327B financing-classified capital payments understates actual capital cash burden by 37%; a definition alone is insufficient without this separate payment.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.cash_conversion",
+            "B.generated_v2_sections.earnings_quality.cash_conversion",
+            "A.generated_v2_sections.value_drivers.shareholder_returns",
+            "B.generated_v2_sections.value_drivers.shareholder_returns",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00328",
+            "F00340",
+            "F01462\u2013F01464"
+          ],
+          "source_quote": "financing payments for capital expenditures with extended payment terms",
+          "two_independent_refutations": [
+            "CFO1096-investingcapex3636=-2540is valid narrow formula.",
+            "Source separately reports1327cashfinancingcapex; neither capital discussion discloses it."
+          ],
+          "post_comparison_challenge": "The conventional investing-only FCF is valid, but missing $1.327B financing-classified capital payments understates actual capital cash burden by 37%; a definition alone is insufficient without this separate payment.",
+          "remediation": "DefineFCFformula and disclose totalcapitalcash4963/CFOlessboth-3867 beforeincentives/partners."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: balance-sheet comparative date, loss-change signs, nonverbatim B evidence. Fable adds quarterly return labels and capex misplaced under shareholder returns: accept presentation fixes, distinguish capex from distributions.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable INTC-08",
+          "adjudication": "presentation",
+          "source_and_candidate_locators": "F00228/F00292/F00277/F01495; X00947/X00965",
+          "two_independent_refutations": [
+            "Quarterly loss divided by end balances reproduces returns; absent annualization label does not invalidate the arithmetic.",
+            "Capex is real cash investment but not shareholder distribution, and source says no shares repurchased."
+          ],
+          "remediation": "Label quarterly basis and put capex under investment, with no repurchases separately."
+        }
+      ]
+    },
+    {
+      "case_id": "17-COIN",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "complete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 3
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Both complete source reviews.",
+      "material_adjudications": [
+        {
+          "codex_id": "COIN-01",
+          "fable_counterpart": "COIN-04 minor",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Wrong exclusion changes the asserted bridge by $35.151M (11.6% of $303.250M EBITDA); omitted $248.055M SBC also matters to interpretation of underlying profit. Keep exact EBITDA, repair its composition.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "A.candidate_payload.management_discussion",
+            "B.candidate_payload.management_discussion",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01625\u2013F01634",
+            "F00232\u2013F00237",
+            "G non-GAAP reconciliation"
+          ],
+          "source_quote": "Adjusted to exclude the following: ... Stock-based compensation expense 248,055 ... Losses on crypto assets held for investment, net 482,356",
+          "two_independent_refutations": [
+            "Read complete company reconciliation: only investment crypto is added back, not operations crypto.",
+            "Recalculated listed adjustments to $303.250M; adding operations crypto instead raises it to $338.401M. Other representation repeats the error."
+          ],
+          "post_comparison_challenge": "Wrong exclusion changes the asserted bridge by $35.151M (11.6% of $303.250M EBITDA); omitted $248.055M SBC also matters to interpretation of underlying profit. Keep exact EBITDA, repair its composition.",
+          "remediation": "Correct the listed exclusions and identify the $248.1M SBC adjustment explicitly."
+        },
+        {
+          "codex_id": "COIN-02",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "CFO fell 79%, primarily on lower revenue. Positive-only cash quality hides deterioration while $1.06B repurchases exceed quarterly CFO almost sixfold; liquidity remains ample but repeatability differs.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.cash_conversion",
+            "B.generated_v2_sections.earnings_quality.cash_conversion",
+            "A.generated_v2_sections.balance_sheet_liquidity.cash_flow",
+            "B.generated_v2_sections.balance_sheet_liquidity.cash_flow",
+            "A.candidate_payload.management_discussion",
+            "B.candidate_payload.management_discussion",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F00340",
+            "F01687\u2013F01697",
+            "X operating_cash_flow"
+          ],
+          "source_quote": "Net cash provided by operating activities 182,744 852,694",
+          "two_independent_refutations": [
+            "Checked restated 2025 comparative and stablecoin accounting note; both periods remain comparable as presented.",
+            "182.744/852.694\u22121 = \u221278.57%; MD&A independently attributes the $670M fall primarily to lower revenue. Neither representation gives the comparator."
+          ],
+          "post_comparison_challenge": "CFO fell 79%, primarily on lower revenue. Positive-only cash quality hides deterioration while $1.06B repurchases exceed quarterly CFO almost sixfold; liquidity remains ample but repeatability differs.",
+          "remediation": "State CFO $182.7M versus $852.7M, down 79%, and contrast buybacks funded from reserves."
+        },
+        {
+          "codex_id": "COIN-03",
+          "fable_counterpart": "omission list",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "minor",
+          "rationale": "Downgrade after considering both candidates already disclose the restructuring and $10.4B cash/investments. $50\u201360M is 27\u201333% of one weak quarter CFO but only about 0.5% of liquid resources; omission deserves correction, not a stand-alone material liquidity conclusion.",
+          "candidate_paths": [
+            "A.generated_v2_sections.forward_signals.subsequent_events",
+            "B.generated_v2_sections.forward_signals.subsequent_events",
+            "A.generated_v2_sections.forward_signals.guidance",
+            "B.generated_v2_sections.forward_signals.guidance",
+            "A.candidate_payload.outlook",
+            "B.candidate_payload.outlook",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F01232",
+            "G Note 21"
+          ],
+          "source_quote": "approximately $ 50 million to $ 60 million in total restructuring expenses, substantially all of which are cash charges",
+          "two_independent_refutations": [
+            "Read subsequent-event timing: substantially all charges and execution expected Q2, not an old charge already included in Q1.",
+            "Checked both guidance/outlook representations; neither includes the cost or approximately 700 employees."
+          ],
+          "post_comparison_challenge": "Downgrade after considering both candidates already disclose the restructuring and $10.4B cash/investments. $50\u201360M is 27\u201333% of one weak quarter CFO but only about 0.5% of liquid resources; omission deserves correction, not a stand-alone material liquidity conclusion.",
+          "remediation": "Add approximately 700 reductions and $50\u201360M largely cash charges expected Q2."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: comparative date, EPS sign/rounding. Fable adds diluted-share commentary, management attribution, quarterly return labels and B synthetic evidence: accept minor corrections. Basic shares grew but diluted shares fell through antidilution, so state both bases. Codex COIN-04 broad operating-change attribution should narrow to B: Fable independently notes A operating percentage is correct. Codex spot-volume scope remains a minor labeling issue; the filing itself calls the spot metric trading volume.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable COIN-05",
+          "adjudication": "minor",
+          "source_and_candidate_locators": "F00249\u2013F00252; F00296\u2013F00297; F01142\u2013F01149; results_that_matter.table[3].commentary",
+          "two_independent_refutations": [
+            "Basic weighted shares increased 4.3%, which rescues a generic higher-share-count statement.",
+            "The actual row is diluted EPS; diluted shares fell 2.4% through antidilution, and award issuance alone is not the annual share-count bridge."
+          ],
+          "remediation": "Explain basic/diluted bases and antidilution, avoiding an unsupported awards attribution."
+        },
+        {
+          "finding": "Fable COIN-06/07/08",
+          "adjudication": "minor/presentation",
+          "source_and_candidate_locators": "F00972; F01717; F00236; F01335; X00900/X00907/X00937",
+          "two_independent_refutations": [
+            "Discretionary repurchase terms and cash-flow outflow support flexibility/cash funding, but do not prove attributed management rhetoric; remove attribution only.",
+            "Derived opex +8% and quarterly returns reproduce correctly; quote-like presentation and missing basis labels are traceability issues, not false numbers."
+          ],
+          "remediation": "Label calculations, quote actual text, state quarterly return basis."
+        },
+        {
+          "finding": "Codex COIN-04 scope correction",
+          "adjudication": "minor B operating percentage; AB EPS",
+          "source_and_candidate_locators": "A/B.candidate_payload.executive_summary; F00237/F00249",
+          "two_independent_refutations": [
+            "A actual markdown has -103.0% operating-income change, matching the raw table; the frozen generic AB description is too broad for that component.",
+            "B markdown has -97.0%; both A and B still have +520.8% EPS, so retain that shared defect."
+          ],
+          "remediation": "Narrow operating-change attribution to B without removing AB EPS fix."
+        }
+      ]
+    },
+    {
+      "case_id": "20-ASML",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "incomplete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "INCOMPLETE",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "INCOMPLETE",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "coverage_note": "Fable explicitly incomplete; majority of strategic/governance/sustainability F ranges unread. Adjudication of cited facts is possible; absence of findings cannot be treated as a negative full review.",
+      "material_adjudications": [
+        {
+          "codex_id": "ASML-01",
+          "fable_counterpart": "omission list; incomplete review",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Factored receipts rose $4.170B while CFO rose $1.492B, including $3.508B future-delivery down payments. Proper operating classification does not remove material timing context; do not subtract factoring mechanically to invent normalized CFO.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.cash_conversion",
+            "B.generated_v2_sections.earnings_quality.cash_conversion",
+            "A.candidate_payload.management_discussion",
+            "B.candidate_payload.management_discussion",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F68651\u2013F68667",
+            "F66953\u2013F66977"
+          ],
+          "source_quote": "In 2025, \u20ac 6,212.5 million of receivables were sold through factoring arrangements (2024: \u20ac 2,042.7 million).",
+          "two_independent_refutations": [
+            "Checked Note 5: true-sale derecognition is supported and proceeds are properly operating cash flow; this is a quality/context omission, not improper accounting.",
+            "Recalculated factoring-volume increase \u20ac4,169.8M versus CFO increase \u20ac1,492.3M; checked both complete representations and no factoring qualification appears. This comparison does not prove CFO would decline by that amount without factoring."
+          ],
+          "post_comparison_challenge": "Factored receipts rose $4.170B while CFO rose $1.492B, including $3.508B future-delivery down payments. Proper operating classification does not remove material timing context; do not subtract factoring mechanically to invent normalized CFO.",
+          "remediation": "Add factoring amounts, future-delivery down-payment component, and the cash-timing caveat without inventing normalized CFO."
+        },
+        {
+          "codex_id": "ASML-02",
+          "fable_counterpart": "omission list; incomplete review",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Actual \u20ac1.302B investment exceeds the \u20ac1.169B increase in investing outflow and establishes an 11.1% strategic AI stake. It is a major missing capital-allocation action, not routine capex.",
+          "candidate_paths": [
+            "A.generated_v2_sections.value_drivers.capital_allocation",
+            "B.generated_v2_sections.value_drivers.capital_allocation",
+            "A.generated_v2_sections.balance_sheet_liquidity.cash_flow",
+            "B.generated_v2_sections.balance_sheet_liquidity.cash_flow",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "F68936\u2013F68940",
+            "F66995",
+            "G01529\u2013G01553"
+          ],
+          "source_quote": "ASML invested \u20ac 1.3 billion in Mistral AI\u2019s Series C funding round as lead investor.",
+          "two_independent_refutations": [
+            "Checked Note 9 and cash-flow statement: \u20ac1,302.2M is an actual 2025 cash investment, not a proposal or noncash valuation change.",
+            "Checked both candidates including footnotes: neither mentions Mistral; G01538\u2013G01553 supplies the investment and explains the investing-outflow increase, exceeding that increase in amount."
+          ],
+          "post_comparison_challenge": "Actual \u20ac1.302B investment exceeds the \u20ac1.169B increase in investing outflow and establishes an 11.1% strategic AI stake. It is a major missing capital-allocation action, not routine capex.",
+          "remediation": "Add the investment, ownership and investing-cash-flow explanation; distinguish it from recurring capex."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: commercial paper/net cash, FCF definition, product-category labeling, A immaterial impairment. Fable adds derived-evidence labeling, CFO-message locator and B capex causality. Accept locator/derived labels; remove unsupported capex causal clause without asserting no projects completed. Higher SG&A alone does not disprove cost discipline when sales grew faster. Codex ending-balance return basis remains a minor label, not bad arithmetic.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable ASML-04",
+          "adjudication": "minor unsupported causality",
+          "source_and_candidate_locators": "F12064\u2013F12068; F12134\u2013F12138; F68512\u2013F68518; B.value_drivers.capital_allocation",
+          "two_independent_refutations": [
+            "Continued planning and expanding construction do not rule out individual project completions, so Fable cannot prove no completion occurred.",
+            "Cash-flow explanation confirms spending decline but does not connect it causally to completion. A plausible inference should not be stated as sourced fact."
+          ],
+          "remediation": "Delete causal clause; do not assert projects were unfinished."
+        },
+        {
+          "finding": "Fable ASML-06/07",
+          "adjudication": "presentation",
+          "source_and_candidate_locators": "F11695\u2013F11697; F11949\u2013F11955; F11487\u2013F11495; F74713\u2013F74786; F75171\u2013F75189",
+          "two_independent_refutations": [
+            "Calculated operating results and CFO guidance are substantively supported; nonverbatim strings/loose Item5 locator do not invalidate those numbers.",
+            "SG&A rose 7.9% while revenue rose faster: growth in expense alone does not disprove cost discipline; reference table still favors precise CFO-message locator."
+          ],
+          "remediation": "Mark derived evidence and cite actual section; avoid unsourced causal embellishment."
+        }
+      ]
+    },
+    {
+      "case_id": "23-SE",
+      "codex_original_status": "complete",
+      "codex_original_attempts": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original_status": "MD-only provisional/incomplete",
+      "fable_original_attempts": {
+        "A": {
+          "verdict": "INCOMPLETE (no material confirmed in reviewed scope)"
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND (partial scope)"
+        }
+      },
+      "coverage_note": "Fable has no JSON and expressly partial F coverage. MD findings remain provisional; no paired complete verdict or global agreement statistic.",
+      "material_adjudications": [
+        {
+          "codex_id": "SE-01",
+          "fable_counterpart": "SE-01 material; MD-only",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Both agree debt is disclosed and significant even with net cash. Keep B false-absence finding separate from A accurate excerpt caveat/minor maturity omission.",
+          "candidate_paths": [
+            "B.generated_v2_sections.balance_sheet_liquidity.leverage",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "03-FULL-FILING.txt F04658\u2013F04680; F06789\u2013F06828; F08752\u2013F08754; F08793"
+          ],
+          "source_quote": "As of March 31, 2026, approximately US$996.7 million aggregate of principal amount of our 2026 convertible notes remained outstanding.",
+          "two_independent_refutations": [
+            "Checked cash $4.159B exceeds these borrowings: A net-cash conclusion is defensible, but no maturity is mentioned anywhere in either candidate.",
+            "Checked exact G/X: debt discussion is absent and total-debt tag unavailable, so A excerpt caveat is fair. Full source explicitly supplies the missing schedule; B improperly elevates input absence into company absence."
+          ],
+          "post_comparison_challenge": "Both agree debt is disclosed and significant even with net cash. Keep B false-absence finding separate from A accurate excerpt caveat/minor maturity omission.",
+          "remediation": "Show year-end debt components, September 2026 maturity and subsequent principal reduction; distinguish incomplete extraction from no debt."
+        },
+        {
+          "codex_id": "SE-02",
+          "fable_counterpart": "not identified in provisional MD",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Loan-book funding of $4.707B exceeds $4.5B CFO-minus-capex FCF. Displaying aggregate investing cash does not explain why the headline is not cash remaining after core lending growth.",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.cash_conversion",
+            "B.generated_v2_sections.earnings_quality.cash_conversion",
+            "A.generated_v2_sections.value_drivers.capital_allocation",
+            "B.generated_v2_sections.value_drivers.capital_allocation",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "03-FULL-FILING.txt F04627\u2013F04629; F06984\u2013F07004; F07020\u2013F07045"
+          ],
+          "source_quote": "Change in loans receivable (999,850) (2,532,291) (4,707,248)",
+          "two_independent_refutations": [
+            "Recomputed CFO less PPE: $5.024523B\u2212$0.513809B=$4.510714B, so the narrow arithmetic is correct. Including software gives $4.500024B, still $4.5B rounded.",
+            "Read full payloads: investing total is displayed, but neither identifies loan funding or explains why financial-services CFO-minus-capex is not cash available after lending growth."
+          ],
+          "post_comparison_challenge": "Loan-book funding of $4.707B exceeds $4.5B CFO-minus-capex FCF. Displaying aggregate investing cash does not explain why the headline is not cash remaining after core lending growth.",
+          "remediation": "Retain a clearly defined CFO-minus-capex measure, then disclose $4.707B loan funding and explain provision addbacks and deposit funding separately."
+        },
+        {
+          "codex_id": "SE-03",
+          "fable_counterpart": "omission list; MD-only",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "adjudicated_severity": "material",
+          "rationale": "Source G already contains segment profit. Shopee loss-to-profit and Garena profit concentration are central to the group turnaround; revenue shares and generic improved-profit wording do not supply them.",
+          "candidate_paths": [
+            "A.generated_v2_sections.segments[0].operating_income",
+            "A.generated_v2_sections.segments[1].operating_income",
+            "A.generated_v2_sections.segments[2].operating_income",
+            "A.generated_v2_sections.segments[3].operating_income",
+            "B.generated_v2_sections.segments[0].operating_income",
+            "B.generated_v2_sections.segments[1].operating_income",
+            "B.generated_v2_sections.segments[2].operating_income",
+            "B.generated_v2_sections.segments[3].operating_income",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "source_references": [
+            "03-FULL-FILING.txt F04450\u2013F04459; F09472\u2013F09529",
+            "02-GENERATOR-EVIDENCE.txt G01829 and surrounding segment table"
+          ],
+          "source_quote": "Operating segment income (loss) 581,052 972,682 1,184,071 (90,537) 2,647,268",
+          "two_independent_refutations": [
+            "Checked X segment operating-income fields: null, but G explicitly includes the numbers, so they are not absent from supplied evidence.",
+            "Compared separate Note 22 and MD&A tables and checked unallocated $662.0M costs: the segment metric is usable when labeled and reconciled, not a reason to leave all rows blank."
+          ],
+          "post_comparison_challenge": "Source G already contains segment profit. Shopee loss-to-profit and Garena profit concentration are central to the group turnaround; revenue shares and generic improved-profit wording do not supply them.",
+          "remediation": "Fill segment operating profit with prior comparators and label the unallocated-cost exclusion; explain Shopee turnaround and profit mix."
+        }
+      ],
+      "minor_overlap_and_one_sided_findings": "Shared: A debt caveat/minor maturity gap and B rounding. Codex alone formally flags buyback authorization (also in Fable omission list). Fable adds nonverbatim evidence, forward GMV inference and ratio bases: accept labels/source precision, no material claim. Preserve provisional status; no findings from the MD become evidence of complete coverage.",
+      "additional_disagreement_checks": [
+        {
+          "finding": "Fable SE-03/04/05/06 (provisional MD)",
+          "adjudication": "minor/presentation",
+          "source_and_candidate_locators": "F04241\u2013F04244/F04755; F06984\u2013F07045; G01829; candidate executive_summary/forward_signals",
+          "two_independent_refutations": [
+            "Historical GMV growth does not establish an explicit future forecast; candidate inferred continuation may be reasonable if labeled as inference.",
+            "Parent versus consolidated earnings and PPE versus all capex produce defensible alternative ratios, with no material rounded FCF difference; supporting strings should still be quotes or labeled calculations."
+          ],
+          "remediation": "Label inference and metric bases, repair evidence fields. Scope remains provisional, not a completed Fable review."
+        }
+      ]
+    }
+  ],
+  "priority_remediation": [
+    "P0: exact statement basis, adjusted-profit reconciliation, hierarchy, date-aware debt/risk and negative absence assertions.",
+    "P1: cash quality comparator and funding disclosures; segment profit drivers; conditional exposures and material capital allocation.",
+    "P2: one canonical representation for derived numbers; denominator labels; verbatim evidence versus calculated statements and exact section locators."
+  ],
+  "decision_changes": [
+    "WMT-01: material to minor after contextual challenge.",
+    "COIN-03: material to minor after considering disclosed restructuring and ample liquidity.",
+    "COIN-04 operating percentage component: narrow to B; shared EPS issue remains."
+  ],
+  "comparison_limits": "Five complete/equivalent-complete pairs here; ASML incomplete, SE MD-only provisional. Do not compute a global agreement rate or mistake lower Fable severity for absence of a source-supported issue."
+}
