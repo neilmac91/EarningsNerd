@@ -264,19 +264,47 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - name: Detect AI-relevant changes
         id: scope
-        # Only spend tokens when backend AI code/prompts/evals change (or on manual dispatch).
+        # Classify this checked PR merge, not upstream changes since a stale event base.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          BASE="${{ github.event.pull_request.base.sha }}"
-          git fetch --depth=1 origin "$BASE" 2>/dev/null || true
-          if git diff --name-only "$BASE" HEAD 2>/dev/null | grep -qE '^backend/(app|evals|prompts)/'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "::error::Cannot determine evaluation scope for this event."
+            exit 1
+          fi
+          CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
+          if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::Checked source does not match the workflow commit."
+            exit 1
+          fi
+          read -r -a PARENTS <<< "$(git show -s --format=%P HEAD)"
+          if [ "${#PARENTS[@]}" -ne 2 ] || [ "${PARENTS[1]}" != "$PR_HEAD_SHA" ]; then
+            echo "::error::Expected the checked PR merge and its exact head parent."
+            exit 1
+          fi
+          for PARENT in "${PARENTS[@]}"; do
+            git cat-file -e "$PARENT^{commit}"
+          done
+          BASE_PARENT=${PARENTS[0]}
+          CHANGED_PATHS="$RUNNER_TEMP/eval-changed-paths"
+          git diff --no-renames --name-only -z "$BASE_PARENT" HEAD > "$CHANGED_PATHS"
+          RUN=false
+          while IFS= read -r -d '' CHANGED_PATH; do
+            case "$CHANGED_PATH" in
+              backend/app/*|backend/evals/*|backend/prompts/*) RUN=true ;;
+            esac
+          done < "$CHANGED_PATHS"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          if [ "$RUN" = "false" ]; then
             echo "No AI-relevant backend changes — skipping eval-baseline."
           fi
       - name: Check for eval API key
