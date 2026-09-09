@@ -6,9 +6,11 @@ part of ``OpenAIService``'s tested surface and resolve through ``self``. Extract
 """
 from __future__ import annotations
 
+import json
 import logging
+import math
 import re
-from typing import Optional
+from typing import Any, NoReturn, Optional
 
 # Import json_repair for robust LLM JSON handling
 try:
@@ -36,6 +38,98 @@ class _JsonRepairMixin:
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
         return cleaned.strip()
+
+    def _complete_preview_sections(self, content: str) -> dict:
+        """Read complete section containers from original stream text, without JSON repair.
+
+        Only the root and its ``sections`` object may remain open. A section's entire
+        dict/list (including nested strings and numbers) must already decode strictly.
+        Work is bounded to 256,000 characters; oversized input yields no preview rather
+        than a sliced scalar. This is optional presentation, not final JSON validation.
+        """
+        if not content or len(content) > 256_000:
+            return {}
+        text = self._clean_json_payload(content)
+        sections: dict = {}
+
+        def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("Duplicate JSON key")
+                result[key] = value
+            return result
+
+        def reject_constant(value: str) -> NoReturn:
+            raise ValueError("Non-finite JSON constant")
+
+        def finite_float(value: str) -> float:
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError("Overflowed JSON number")
+            return number
+
+        decoder = json.JSONDecoder(
+            object_pairs_hook=unique_object, parse_constant=reject_constant, parse_float=finite_float,
+        )
+
+        def whitespace(index: int) -> int:
+            while index < len(text) and text[index] in " \t\r\n":
+                index += 1
+            return index
+
+        def members(index: int, *, is_sections: bool = False) -> int:
+            # The opening brace is already checked by the caller.
+            index = whitespace(index + 1)
+            seen = set()
+            if index < len(text) and text[index] == "}":
+                return index + 1
+            while index < len(text):
+                key, index = decoder.raw_decode(text, index)
+                if not isinstance(key, str) or key in seen:
+                    raise ValueError("Invalid or duplicate member key")
+                seen.add(key)
+                index = whitespace(index)
+                if index == len(text):
+                    return index
+                if text[index] != ":":
+                    raise ValueError("Missing member colon")
+                index = whitespace(index + 1)
+                if index == len(text):
+                    return index
+                if not is_sections and key == "sections":
+                    if text[index] != "{":
+                        raise ValueError("Sections must be an object")
+                    index = members(index, is_sections=True)
+                else:
+                    value, index = decoder.raw_decode(text, index)
+                    # A scalar section is not a safe incremental section boundary.
+                    if is_sections and isinstance(value, (dict, list)):
+                        sections[key] = value
+                index = whitespace(index)
+                if index == len(text):
+                    return index
+                if text[index] == "}":
+                    return index + 1
+                if text[index] != ",":
+                    raise ValueError("Missing member delimiter")
+                index = whitespace(index + 1)
+                if index < len(text) and text[index] == "}":
+                    raise ValueError("Trailing member comma")
+            return index
+
+        try:
+            if not text.startswith("{"):
+                return {}
+            end = members(0)
+            if whitespace(end) != len(text):
+                return {}
+        except json.JSONDecodeError:
+            # Earlier containers were complete; the in-flight member contributes nothing.
+            return sections
+        except (ValueError, RecursionError):
+            return {}
+        return sections
 
     def _repair_json(self, json_str: Optional[str]) -> str:
         """Attempt to repair common JSON syntax errors from LLMs.

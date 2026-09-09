@@ -45,8 +45,8 @@ class _MarkdownRenderMixin:
     ) -> str:
         """Render the web summary Markdown directly from structured data.
 
-        This is the PRIMARY web serializer (called unconditionally since the editorial-writer LLM was
-        removed), not a fallback — ``business_overview`` is this output, stored and rendered as-is.
+        Legacy v1 renderer and degraded-summary fallback. Current-schema summaries and
+        complete-section previews use summary_sections' shared projection.
         ``failure_reason`` is only set on the rare validation-failure path and prepends a notice.
         """
         metadata = structured_summary.get("metadata", {}) or {}
