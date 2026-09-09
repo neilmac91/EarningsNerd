@@ -1,3 +1,41 @@
+## September 9 preview correction — ledger integration
+
+- [x] Complete both distinct preview proofs once, independently review corrected code, and pass the corrected 2,843-test backend / 569-test frontend gates before publication.
+- [x] Preserve both ledger histories while integrating merged #802/#804 documentation. The first corrected push could not start PR workflows because of this ledger conflict; no second paid assessment had started.
+- [ ] Gate this committed integration state, then push and inspect the ordinary second assessment. Previous backend release remains verified; no duplicate dispatch or repeated proof.
+
+## September 9 preview ownership correction — confirmed actual #803 finding
+
+- [x] Preserve the first #803 actual52-output artifact: integrity passed, but previews exposed model segment figures that final numeric ownership removes.
+- [x] Reuse existing final numeric owners on completed sections only; conditionally defer attributed quotes while verification is required. No final policy or flag change.
+- [ ] Complete independent review, one distinct ownership proof and full committed gates; the prior completion proof is retained without repetition.
+- [ ] Inspect corrected actual preview evidence before release. First-run integrity and prior generic-absence repair are not ownership clearance.
+
+## September 9 truthful current-schema previews — local preparation
+
+- [ ] Render strictly complete original-byte sections through the current shared projection; unfinished sections stay pending, without legacy absence claims.
+- [ ] Prove progressive callbacks before root closure and preservation of final stream content in the existing unlocked section-reveal test home; one invariant mutation is held for independent review.
+- [ ] Complete the committed backend gate with performance/four PostgreSQL lanes and unchanged locked anchors before publication. No prompt, provider, final-content version or production flag change.
+
+## September 9 preview ownership assessment — correction required
+
+- [ ] Founder decision pending: permit the exact selected cash `raw_tag` on the two locked T9 companyfacts fixture rows, with full equality and all prior values retained. Candidate `5521f00b` has 2,843 passing tests and one T9 failure; locked files remain unchanged. The exact two-row/docstring proposal was presented on September 9. If declined, defer companyfacts metadata and gate an instance-only split. Other quality work continues.
+
+- [x] Inspect first #803 artifacts:52 summaries and18 pinned Copilot answers pass existing mechanical gates; preserve the [rejected preview readout and evidence](quality-preview-ownership-readout-2026-09-09.md). Preview release is **blocked** by confirmed model-segment ownership leakage; no semantic clearance follows from green gates.
+- [x] Record docs-only #802 main CI34333563322 and deploy job102408491015 explicit no-backend-change skip at09:17:23.4978518Z. Last verified serving revision remains00323-w4b; #803 is not merged in this checkpoint.
+- [ ] Complete shared-owner correction including withholding preview quotes when the existing quote gate is armed, retain the original completion proof, add exactly one new ownership proof, run final committed gates and independently review actual corrected previews.
+- [ ] Proceed with the standing-authorized **second #803 paid assessment** because the first actual artifact exposed the confirmed ownership defect; preserve first-run evidence. This is not a third round or permission for broad generation/replay.
+- [ ] After verified preview release, integrate and assess the local supported-explanation candidate, then separately scoped cash-basis/provenance/source/measurement work. Unseen quality and original founder prerequisites remain unsatisfied.
+
+## September 9 final corrected reported-metric readout
+
+- [x] Review all 52 final #799 raw outputs and exact retained preview chronology; archive the [final readout and independent evidence](quality-final-reported-metrics-readout-2026-09-09.md). Final 272-row numeric projections pass their bounded helper checks. Preview semantics **FAIL** through the inherited legacy renderer; retention is not display-quality acceptance.
+- [x] Accept the authorized second summary and Copilot artifacts under their unchanged gates, preserving citation/delta advisories and all first-round evidence. #799 merged as `3917cce5dbb58934a18b463c3cc7ab457ab0dde1` at 08:53:29 UTC.
+- [x] Verify main CI `34331622543` and deploy `102402200626`: migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00323-w4b` at 100%, CI and independent detailed health healthy (database 6.91 / 7.28 ms; SEC closed, Redis disabled). Exact timestamps and evidence are in the final readout.
+- [ ] Repair current-schema preview semantics first, then continue bounded earnings/cause, prepared cash-basis e, debt/cash provenance, guarded source coverage and measurement-only work. e's 2,851-test local gate does not establish actual-output acceptance. No third #799 paid round, universe-wide pregeneration or historical replay is authorized by this record.
+
+This dated addition supersedes older pending-assessment entries only for the completed review and merge. Historical ledgers, seven partial Fable cases, unseen acceptance and the original founder prerequisites remain intact.
+
 ## September 9 reported-metric correction checkpoint
 
 - [x] Reconcile Fable's final review and review all 52 actual first-#799 raw outputs; preserve original evidence and source-coverage limits. [Readout and next implementation order](quality-reported-metrics-readout-2026-09-09.md).
