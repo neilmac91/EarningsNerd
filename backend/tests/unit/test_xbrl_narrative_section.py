@@ -300,3 +300,54 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
     assert "period net income / period-end assets, not annualized" in text
     assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
     assert "quarter" not in text.lower() and "average" not in text.lower()
+
+
+@pytest.mark.parametrize("surface", ["grounding", "web", "markdown", "pdf", "csv"])
+@pytest.mark.parametrize("tag", [None, "issuer:PurchaseOfEquipmentAndSoftware"])
+def test_selected_cash_flow_basis_survives_consumers(surface, tag):
+    """A narrow cash-flow purchase amount cannot silently become issuer/discretionary FCF."""
+    import csv
+    import io
+    import json
+    from copy import deepcopy
+    from app.services.ai import markdown_render, xbrl_narrative
+    from app.services.export_service import ExportService
+    from app.services.openai_service import openai_service
+    from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
+
+    assert markdown_render.cash_flow_basis is xbrl_narrative.cash_flow_basis
+    metrics = {
+        "reporting_currency": "CNY",
+        "operating_cash_flow": {"current": {"value": 19_000_000_000, "period": "2025-12-31"}},
+        "capital_expenditures": {
+            "current": {"value": -8_000_000_000, "raw_tag": tag},
+            "prior": {"value": -5_000_000_000, "raw_tag": None},
+        },
+        "free_cash_flow": {"current": {"value": 11_000_000_000}},
+    }
+    original = deepcopy(metrics)
+    if surface == "grounding":
+        text = build_xbrl_narrative_section(metrics)
+    else:
+        sections = {}
+        openai_service._apply_structured_fallbacks(sections, {}, metrics)
+        raw = {"schema_version": 2, "sections": sections}
+        rendered = render_sections(raw)
+        if surface == "web":
+            text = json.dumps(render_sections_json(raw))
+        elif surface == "markdown":
+            text = sections_to_markdown(rendered)
+        elif surface == "pdf":
+            text = "".join(ExportService()._render_section_html(section) for section in rendered)
+        else:
+            output = io.StringIO()
+            for section in rendered:
+                ExportService._write_section_csv(csv.writer(output), section)
+            text = output.getvalue()
+    assert "derived as operating cash flow minus the absolute selected capex cash-flow amount" in text
+    assert "not an issuer-defined or discretionary-cash measure" in text
+    assert "selected cash-flow amount, not necessarily total capital investment" in text
+    assert ("current source concept: issuer:PurchaseOfEquipmentAndSoftware" in text) == bool(tag)
+    assert "prior source concept:" not in text
+    assert ("11,000,000,000" in text and "8,000,000,000" in text) if surface == "grounding" else ("11.0B" in text and "8.0B" in text)
+    assert metrics == original

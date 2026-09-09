@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
-from app.services.ai.xbrl_narrative import return_ratio_basis, returns_ratio_in_band
+from app.services.ai.xbrl_narrative import cash_flow_basis, return_ratio_basis, returns_ratio_in_band
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -452,7 +452,7 @@ class _MarkdownRenderMixin:
                 # qualitatively; a "conversion" multiple against a negative denominator is meaningless.
                 parts.append("operating cash flow was positive despite a net loss")
             if fcf:
-                parts.append(f"free cash flow of {fcf}")
+                parts.append(f"free cash flow of {fcf} ({cash_flow_basis('free_cash_flow')})")
             if parts:
                 if not isinstance(eq, dict):
                     eq = {}
@@ -499,6 +499,8 @@ class _MarkdownRenderMixin:
         returned = [c for c in (_flow_clause("dividends paid", "dividends_paid"),
                                 _flow_clause("share repurchases", "share_repurchases")) if c]
         capex_clause = _flow_clause("capital expenditures", "capital_expenditures")
+        if capex_clause:
+            capex_clause += f" ({cash_flow_basis('capital_expenditures', (xbrl_metrics or {}).get('capital_expenditures'))})"
         if returned:
             line = "Capital returned — " + ", ".join(returned)
             if capex_clause:
