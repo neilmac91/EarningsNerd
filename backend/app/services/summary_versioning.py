@@ -74,7 +74,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   working-capital report-date labeling correction. Taxonomy unchanged.
 # summary-2026-09-b: Return-ratio basis is explicit in model grounding and deterministic rendering:
 #   period net income / period-end equity or assets, not annualized. Taxonomy unchanged.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-b"
+# summary-2026-09-c: Production comparative backfill and ADS display require a matching
+#   metric identity; unknown or differently qualified measures cannot borrow values. Taxonomy unchanged.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-c"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
