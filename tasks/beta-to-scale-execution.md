@@ -1,3 +1,11 @@
+## September 9 application-error regression accepted and merged — production pending
+
+#796 merged as `295daaaa1e67ef8cc89358819646d32a9edddf94` at 06:42:55 UTC. Main CI `34320328223` is in progress; no production verification is claimed. This dated update supersedes the pending regression and merge status below while preserving the earlier checkpoint.
+
+Summary run `34318894308`, job `102360950990`, artifact `10091489595`, report `eval_20260909T063859Z.json`, executed `08000ac31acac7457e441552aef1facf6dc335e1` (the same verified parents and tree recorded below for Copilot). All 52 planned identities produced usable, schema-valid outputs, with zero errors, outer retries or vetoes. All 52 retained raw-source and excerpt hashes/lengths match; provider telemetry records 52 successful calls and 2,282,268 known tokens. The actual gate passed, retaining the absolute untraceable-dollar advisory of 2.212; this is not universal evidence fidelity or a billing total.
+
+Executed content version is `summary-2026-09-b`, versus funded #792's `summary-2026-09-a`. Matching excerpts/XBRL establish source observation stability, not identical rendered prompts or an error-observer-only quality experiment. Exact preview frames were not retained at this version. c/d/e, actual post-d comparison and unseen acceptance remain outstanding; the Copilot citation advisory below remains applicable.
+
 ## September 9 durable review publication and open application-error release
 
 Docs #795 merged as `d11a5c31968250c3e9048e7d330248f6544d9673`. Main CI [34319126416](https://github.com/neilmac91/EarningsNerd/actions/runs/34319126416), deploy job `102362286528`, explicitly emitted “No backend changes - skipping deploy.” The durable final review bundle is now in the repository; this documentation publication did not deploy a backend revision. Source #792 remains the latest verified backend checkpoint recorded below.

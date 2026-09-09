@@ -2,6 +2,10 @@
 
 This checklist records what remains after the shipped safeguards and staged c/d/e mechanisms. It is not a new prompt implementation, a global consensus count or permission for broad regeneration. The [final reconciliation](fable-quality-reconciliation-2026-09-09.md) and [durable review evidence](review-evidence/fable-final-2026-09-09/README.md) remain the source-backed decision record. A completed mechanism does not close a case without fresh output evidence.
 
+## September 9 subsequent acceptance update
+
+#796's summary regression and Copilot gate are now accepted; merge `295daaaa1e67ef8cc89358819646d32a9edddf94` is complete. Main CI `34320328223` and production verification remain pending. The operational artifact/merge requirements below are satisfied; serial production verification remains unchecked. See the [execution ledger](beta-to-scale-execution.md) for exact evidence and retained advisories. The prior checkpoint below remains historical.
+
 ## Current release boundary
 
 Docs #795 is published at `d11a5c31968250c3e9048e7d330248f6544d9673`; main CI34319126416/job102362286528 explicitly skipped backend deployment. #796 is open, with its summary regression pending. Its one Copilot evaluation passed the pinned 18-question-attempt gate, but six answers lack citations (11 uncited figures); 30 successful provider calls include tool continuations. See the [execution ledger](beta-to-scale-execution.md) for exact source and telemetry limits. No #796 deployment is claimed.

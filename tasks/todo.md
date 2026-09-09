@@ -1,3 +1,7 @@
+## September 9 application-error acceptance update — production pending
+
+#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` and production verification are pending. See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This supersedes earlier pending evaluation/merge rows, not the residual quality checklist or broad replay holds.
+
 ## September 9 residual material acceptance
 
 The [explicit acceptance checklist](quality-residual-acceptance-2026-09-09.md) separates implemented mechanisms from outstanding cases. In particular, verify supplied-evidence narrative period/comparator identity and causal direction (Codex NVDA-02, PLTR-01, TSM-01, KO-03, PFE-02/04); c/d/e and acquisition do not close these authored claims. Source/legal/earnings interventions remain bounded proposals until justified and measured. Original partial coverage, unseen acceptance and founder boundaries remain.

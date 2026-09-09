@@ -1,3 +1,7 @@
+## September 9 application-error acceptance update — production pending
+
+#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` and production verification are pending. See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This supersedes earlier pending evaluation/merge rows, not the residual quality checklist or broad replay holds.
+
 ## September 9 source-provenance release — funded and verified
 
 - [x] [#792](https://github.com/neilmac91/EarningsNerd/pull/792) merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. The funded retry produced 52 usable outputs with matching source/excerpt hashes; actual regression passed. No third Copilot run.
