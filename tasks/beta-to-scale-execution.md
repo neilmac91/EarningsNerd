@@ -1,3 +1,11 @@
+## September 9 source-provenance completion
+
+[#792](https://github.com/neilmac91/EarningsNerd/pull/792) squash-merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. Funded CI `34293573625` attempt 2/job `102352498206` produced artifact `10090466822`, report `eval_20260909T060000Z.json`. Root and independent review verified all 52 identities, usable/schema-valid outputs, source hashes/lengths and retained excerpt hashes/lengths; source/coverage metadata is unchanged. Actual regression and explicit offline replay pass with one existing absolute figure-trace advisory (mean 2.135 untraceable dollar figures). No broad analytical-quality acceptance is inferred.
+
+Actual checkout/harness/CI invocation agree on `c8f68b33685dde29aac4d3653d2e2e66a3ac601a`, parents `becf5950ff21740b61d798279dc8caf49e519180` and exact reviewed `396b01b5a43261e787678d4dc322386a82e9ef7e`, tree `4ae4a9b7f7ec7c6579e8db49f8979fd77973ed0a`, content version `summary-2026-09-a`. This funded rerun kept its original source; it is not a post-d readout. Evaluator retries/errors are zero, but provider telemetry records 52 successes and one timeout recovered within an existing two-call summary. Known usage is 2,282,066 tokens; timeout usage and exact billing are unknown. A local checklist incorrectly said the report omitted exact excerpts; direct inspection and all 52 hash/length recomputations corrected it before acceptance. The accepted second Copilot run was not repeated.
+
+Main CI [34317771322](https://github.com/neilmac91/EarningsNerd/actions/runs/34317771322) passed; deploy job `102358307990` logged `apply_migrations: applied=0 skipped=39`. Revision `earningsnerd-backend-00320-tnt` serves 100%. CI detailed health at `1788934534.8527546` and independent curl at `1788934593.6799386` are healthy (database 6.78/9.62 ms, SEC closed, Redis disabled). Subsequent backend release waits on this completed verification. Earlier pending records remain historical; production provider, settings, universe generation and broad replay are unchanged.
+
 
 ## September 9 funded resumption — verified scope release
 

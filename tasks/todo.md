@@ -1,3 +1,9 @@
+## September 9 source-provenance release — funded and verified
+
+- [x] [#792](https://github.com/neilmac91/EarningsNerd/pull/792) merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. The funded retry produced 52 usable outputs with matching source/excerpt hashes; actual regression passed. No third Copilot run.
+- [x] Main CI `34317771322`, deploy `102358307990`, migrations 0/39, `earningsnerd-backend-00320-tnt` at 100%, and CI/independent health verified. Detailed evidence follows in [the execution ledger](beta-to-scale-execution.md).
+- [ ] Continue application-error reporting, comparative identity c, measured prompt d and derived cash-flow basis e; their local gates are not actual-output acceptance. Earlier pending source/funding rows below are historical.
+
 
 ## September 9 funded resumption — verified scope release
 

@@ -45,3 +45,7 @@ Scope safeguard #794 is now verified on `earningsnerd-backend-00319-kz4` at 100%
 ## Evidence durability correction
 
 The initial report linked substantive details only by local workspace identifiers, which were unavailable in a fresh checkout. The repository now carries the detailed adjudications, original counts/coverage inventory, public source manifest and hash records in the linked evidence bundle. Full filing text is not copied. F/G/X/S/E references identify the retained packet representation; hashes establish identity, not completeness or correctness. Historical reviews remain unchanged, and this documentation correction does not alter quality judgments or release acceptance.
+
+## Source-provenance release after reconciliation
+
+#792 is now merged and verified on `earningsnerd-backend-00320-tnt`, main CI `34317771322`, migrations 0/39 and healthy CI/independent detailed health. Its funded retry supplied 52 usable outputs and matching source/excerpt evidence with a passing regression; one recovered provider timeout is recorded, not described as zero transport retries. No third Copilot run. The earlier pending source entries above are historical. See [the dated execution ledger](beta-to-scale-execution.md) for exact IDs and measurement limits.
