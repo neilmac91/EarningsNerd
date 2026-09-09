@@ -1,0 +1,1117 @@
+{
+  "reviewer": "Codex corpus_review_a",
+  "scope": "Seven development cases; frozen Codex versus fixed Fable snapshot only",
+  "freeze_manifest": "outputs/codex-full-review/FREEZE.json",
+  "fable_snapshot": "work/fable-review-snapshot",
+  "method": "Original full-source review retained; bounded source rechecks and both candidate representations used for material disagreements. No live Fable folder, paid generation, external browsing, or frozen-file edits. Refutation checks accompany every material comparison. Original scores and counts are not recomputed.",
+  "cases": [
+    {
+      "case_id": "03-NVDA",
+      "codex_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 2,
+      "original_fable_material_finding_count": 0,
+      "fable_completeness": {
+        "status": "complete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 1-468 (full; A and B, candidate_payload and generated_v2_sections; END at line 467)",
+            "02-GENERATOR-EVIDENCE.txt G00001-G01668 (full G) and X00001-X01175 (full X); END at line 2849",
+            "F00001-F01516 (full); END at line 1525"
+          ],
+          "limitations": [
+            "No coverage limitation; all three files read in full.",
+            "Source-format: G excerpt ends mid-word at G01668 ('Incr'); risk-factor text after F01368 (F01372 China antitrust preliminary finding, F01382 H20 charge origin, F01390 'effectively foreclosed' from China data-center compute, F01394-F01396 AI Diffusion IFR/GAIN AI Act) and Part I Items 3-4 and Part II Items 1, 2, 5 were not in G.",
+            "G contains non-breaking spaces (e.g. '$27 billion'); F renders '$ 27 billion'. Verbatim checks were whitespace-normalised. F table layouts are flattened but all figures used were legible."
+          ]
+        }
+      },
+      "comparison_status": "complete",
+      "input_sha256": {
+        "codex_json": "22cc3b5dc757e5f533764433c6f44e4883dbbbeaf1288780b9f767456eb63e0a",
+        "fable_snapshot_json": "99be7c2cb9929ac02188aa1e86c165abd429e2930dbadad30a3df61babfab4a6"
+      },
+      "adjudications": [
+        {
+          "codex_id": "NVDA-01",
+          "fable_id": "NVDA-04",
+          "relationship": "severity difference",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "minor",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "B.candidate_payload.executive_summary",
+            "B.generated_v2_sections.balance_sheet_liquidity.leverage",
+            "B.generated_v2_sections.balance_sheet_liquidity.liquidity"
+          ],
+          "candidate_quotes": [
+            "net cash position of approximately $72B.",
+            "plus $30.2B of marketable equity securities."
+          ],
+          "source_references": [
+            "F00469-F00479",
+            "F01188",
+            "G00562-G00568"
+          ],
+          "source_quote": "$27.4 billion of investments, which are subject to short-term lock-up restrictions on the ability to sell.",
+          "two_refutation_checks": [
+            "The broad securities-minus-debt calculation is arithmetically valid: 50.335+30.237-8.470=72.102B. It is not a cash-equivalent balance.",
+            "Other representation separates equity from debt securities but never gives lock-ups. A uses the narrower 50.335-8.470=41.865B cash/debt-securities basis."
+          ],
+          "conclusion": "Retain material: the broad $72.102B calculation is valid but the net-cash label omits lock-ups on $27.4B of equity. Management including equity among liquidity resources and B separating the asset classes do not disclose sale restrictions. Show $41.865B excluding equity separately.",
+          "remediation": "Call $72.1B net cash and marketable investments, disclose $27.4B short-term lock-ups and equity risk, and separately show $41.9B excluding equities."
+        },
+        {
+          "codex_id": "NVDA-02",
+          "fable_id": "NVDA-07",
+          "relationship": "severity difference",
+          "attempts": [
+            "A"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "presentation",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.generated_v2_sections.the_print.what_changed"
+          ],
+          "candidate_quotes": [
+            "Revenue growth accelerated to 85% YoY from 20% sequential"
+          ],
+          "source_references": [
+            "F00985-F00994",
+            "G01247-G01263"
+          ],
+          "source_quote": "Quarter-over-Quarter Change ... Year-over-Year Change",
+          "two_refutation_checks": [
+            "Source headers show 20% compares April with January, while 85% compares April with April; 20% is not previous YoY growth.",
+            "81615/68127-1=19.8%; 81615/44062-1=85.23%. B avoids this specific invalid comparison."
+          ],
+          "conclusion": "Retain material: both rates are correct, but same-quarter YoY and sequential changes cannot establish acceleration. This appears in the lead performance interpretation, so presentation-only understates its consequence.",
+          "remediation": "State revenue grew 85% YoY and 20% sequentially; remove accelerated from this comparison."
+        }
+      ],
+      "additional_comparison_notes": "Shared smaller issues: working-capital date, diluted-share direction, return-ratio basis, and growth rounding. Fable identifies synthetic/weak evidence phrasing. Its coverage lists no S ranges; that is unrecorded supplement coverage, not proof it was unread. Annualizing a quarter mechanically does not establish a real annual return."
+    },
+    {
+      "case_id": "09-PFE",
+      "codex_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 2,
+            "readability": 3
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 4,
+      "original_fable_material_finding_count": 2,
+      "fable_completeness": {
+        "status": "complete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 1-428 (full; attempts A and B, candidate_payload and generated_v2_sections)",
+            "02-GENERATOR-EVIDENCE.txt lines 1-7549 (full): G00001-G06636, X00001-X00907",
+            "F00001-F02115 (full)",
+            "04-TEXT-RECOVERY.txt lines 1-9 (full): S00001-S00004, one block, original range F01910-F01912 (revision 2 supplement); END TEXT RECOVERY 09-PFE verified"
+          ],
+          "limitations": [
+            "G excerpt truncates mid-sentence at G06636 (SI&A discussion); R&D/tax MD&A, non-GAAP reconciliation, cash-flow analysis and liquidity/capital allocation (F01680-F01901) were not generator inputs.",
+            "F table flattening drops some 2026 cells (F00630, F00640, F00810, F00812, F01008, F01015); values recovered from the G copies. The revision 2 S supplement covers only F01910-F01912 and does not restore these cells.",
+            "Neither attempt contains a generated_v2_sections.segments key.",
+            "Revision 2 supplement: S00002-S00003 restore the Recently Issued Accounting Standards table (F01905-F01912; the shortened cell was F01911 'retrospecti...'). Passage absent from G; neither attempt refers to it. No existing finding changed; no new finding."
+          ]
+        }
+      },
+      "comparison_status": "complete",
+      "input_sha256": {
+        "codex_json": "06f058c5d0574fa76f163ddde5ead5cdf3e18d03211bcffad62065517071afc3",
+        "fable_snapshot_json": "cb3ea0ef3228384a63d9f954a3f0be3876e8757aa17e5a5d3b097116859ec076"
+      },
+      "adjudications": [
+        {
+          "codex_id": "PFE-01",
+          "fable_id": "PFE-05",
+          "relationship": "severity difference",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "minor",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.candidate_payload.financial_highlights.table[1]",
+            "A.candidate_payload.financial_highlights.table[2]",
+            "A.generated_v2_sections.results_that_matter.table[1]",
+            "A.generated_v2_sections.results_that_matter.table[2]",
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.financial_highlights.table[1]",
+            "B.candidate_payload.financial_highlights.table[2]",
+            "B.generated_v2_sections.results_that_matter.table[1]",
+            "B.generated_v2_sections.results_that_matter.table[2]"
+          ],
+          "candidate_quotes": [
+            "Operating income",
+            "Operating margin",
+            "21.9%",
+            "20.3%"
+          ],
+          "source_references": [
+            "F220–229",
+            "F573–590",
+            "G52",
+            "G608–640"
+          ],
+          "source_quote": "Income from continuing operations before provision/(benefit) for taxes on income ...3,170...2,785",
+          "two_refutation_checks": [
+            "Source statement explicitly labels3170/2785 pretax, not operating income; supporting quote in both candidates even preserves the correct label.",
+            "Other deductions861/953 include net interest554/511, equity losses9/370, and pension credits; a company-specific operating convention is neither stated nor reconciled."
+          ],
+          "conclusion": "Retain material: correct pretax labels in supporting evidence do not repair operating labels in headline and tables. Other deductions include net interest; do not add interest a second time. Rename the measures rather than inventing an operating convention.",
+          "remediation": "Rename these rows pretax income from continuing operations and pretax margin; retain amounts and growth."
+        },
+        {
+          "codex_id": "PFE-02",
+          "fable_id": "PFE-01",
+          "relationship": "agreement",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.management_discussion",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time"
+          ],
+          "candidate_quotes": [
+            "the quarter also benefited from a lower effective tax rate of 14.6% versus -6.8% in the prior year."
+          ],
+          "source_references": [
+            "F602",
+            "F229–235",
+            "G652",
+            "G52–64"
+          ],
+          "source_quote": "The increase in the effective tax rate ... unfavorable change in the jurisdictional mix ... non-recurrence of favorable global income tax resolutions.",
+          "two_refutation_checks": [
+            "14.6 minus(-6.8)=+21.4 percentage points; tax461 vsbenefit189 corroborates direction.",
+            "B top what_changed correctly says higher tax, proving internal contradiction; neither GAAP nor adjusted tax basis produces the claimed benefit."
+          ],
+          "conclusion": "Both identify the reversed tax direction; B’s correct higher-tax statement elsewhere creates an internal contradiction rather than curing it.",
+          "remediation": "Replace with tax headwind from higher rate, jurisdiction mix and absence of prior favorable resolutions."
+        },
+        {
+          "codex_id": "PFE-03",
+          "fable_id": null,
+          "relationship": "Codex-only material",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": null,
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.candidate_payload.management_discussion",
+            "A.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.management_discussion",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time"
+          ],
+          "candidate_quotes": [
+            "Excluding these items, operating results improved, driven by revenue growth and lower restructuring costs.",
+            "Excluding these items, core operating performance improved"
+          ],
+          "source_references": [
+            "F1799–1827",
+            "F1662",
+            "F1325",
+            "G6625",
+            "G5478–5480"
+          ],
+          "source_quote": "Non-GAAP Adjusted ...4,290...$0.75 ...5,237...$0.92",
+          "two_refutation_checks": [
+            "Adding only listed100/137/295 vs678/9/8 to pretax produces3702 vs3480, so a narrow bespoke pretax measure can increase; do not call this arithmetic false.",
+            "But company Adjusted income falls18.1%, EPS18.5%; prior accrued-royalty credit remains in operating comparison, and restructuring cannot drive growth once excluded. Neither candidate labels its narrow measure or reports adjusted decline."
+          ],
+          "conclusion": "Retain material with a narrow qualification: the three-item bespoke pretax adjustment can improve, so this is not false arithmetic. Its unqualified core-performance conclusion omits company Adjusted income/EPS declines and A attributes improvement to restructuring after excluding it. Identify the chosen basis and show the company bridge.",
+          "remediation": "Specify exact bespoke pretax basis if retained; include company adjusted income/EPS decline and prior royalty-credit comparator. Avoid unqualified core-improved claim."
+        },
+        {
+          "codex_id": "PFE-04",
+          "fable_id": "PFE-02",
+          "relationship": "agreement",
+          "attempts": [
+            "A"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.generated_v2_sections.the_print.what_changed"
+          ],
+          "candidate_quotes": [
+            "net income declined 9% due to higher cost of sales and R&D expenses, partially offset by lower restructuring charges."
+          ],
+          "source_references": [
+            "F229–235",
+            "F602",
+            "G52–64",
+            "G652"
+          ],
+          "source_quote": "Income ...before...taxes ...3,170...2,785; taxes461...(189)",
+          "two_refutation_checks": [
+            "Costs did increase and are real headwinds, but pretax income rose385m on displayed numbers.",
+            "Tax provision rose650m; discontinued loss13m and NCI changes reconcile remaining decline. No tax explanation elsewhere in A offsets this omission."
+          ],
+          "conclusion": "Both identify the missing tax explanation in A. Real operating cost increases do not explain why net income fell while pretax income rose.",
+          "remediation": "Explain pretax improvement but higher effective tax due to jurisdiction mix and nonrecurrence of prior resolutions drove net-income decline."
+        }
+      ],
+      "additional_comparison_notes": "Shared smaller issues: disclosed credit facilities, share-count EPS direction, working-capital date, and return ratios. Codex also flags capex/shareholder-return wording and Sciwind payment scope. Fable’s patent-expiry and historical-growth questions remain unverified with supplied periods; do not turn them into factual contradictions."
+    },
+    {
+      "case_id": "12-COST",
+      "codex_original": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 0,
+      "original_fable_material_finding_count": 0,
+      "fable_completeness": {
+        "status": "complete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 1-430 (full; Identity, attempts A and B, both representations)",
+            "02-GENERATOR-EVIDENCE.txt G00001-G01140 and X00001-X00771 (full; file lines 1-1917)",
+            "F00001-F01060 (full; file lines 1-1069, read in chunks 1-300, 301-600, 601-850, 851-1069)"
+          ],
+          "limitations": [
+            "Filing tables are flattened (balance sheet, equity, Note 4 debt, Note 9 segments); figures were cross-checked across F, G and X.",
+            "Filing contains no May 2025 balance sheet; prior-period balance-sheet comparisons are to August 31, 2025 only."
+          ]
+        }
+      },
+      "comparison_status": "complete",
+      "input_sha256": {
+        "codex_json": "5b4cfee0bb85c8941b7ce165b104d03ddfaa4f70a13db2548d24c332623df781",
+        "fable_snapshot_json": "7614ab3b366fcb6013d5dd2bd9a89a13535af407dc9f3a0c62a4dc11919a08d9"
+      },
+      "adjudications": [],
+      "additional_comparison_notes": "Same verdicts and all dimension scores. Shared minor issues concern working-capital date, margin drivers, growth rounding, return-ratio basis and debt scope. Fable additionally prioritizes omitted adjusted comparable-sales slowdown. Its objection to EPS slightly outpacing net income is overbroad: the diluted share count falls slightly and the arithmetic supports a tiny difference; avoid claiming a meaningful EPS advantage. No new material defect. S coverage is unrecorded in Fable."
+    },
+    {
+      "case_id": "15-PLTR",
+      "codex_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 1,
+      "original_fable_material_finding_count": 0,
+      "fable_completeness": {
+        "status": "complete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 00001-00428 (full; attempts A and B, candidate_payload and generated_v2_sections)",
+            "02-GENERATOR-EVIDENCE.txt lines 00001-02558 (full): G00001-G01540 (full), X00001-X01012 (full)",
+            "F00001-F02465 (full; 03-FULL-FILING.txt file lines 1-2474 read in chunks 1-300, 301-600, 601-900, 901-1200, 1201-1500, 1501-1700, 1701-1900, 1901-2100, 2101-2300, 2301-2474)",
+            "S00001-S00004 (full; 04-TEXT-RECOVERY.txt lines 1-9 incl. END TEXT RECOVERY 15-PLTR; one block, original range F00142-F00144, re-read with F00136-F00150 context)"
+          ],
+          "limitations": [
+            "No unread F ranges.",
+            "Source-format: F narrative inserts a space after '$' (e.g. '$ 5.6 billion' at F00464), so exact-substring dollar-quote checks were run against G lines; equity-statement columns (F00224-F00241) are visually misaligned but legible.",
+            "The G risk-factor excerpt is truncated mid-list at G01540; seasonality, public-sector risk factors and all Part II items (Items 1-6) were absent generator context.",
+            "Revision 2 supplement: S00003 restores the balance-sheet common-stock cell truncated at F00143 (adds 'and December 31, 2025' and par-value amounts 2,397/2,391); S00004 repeats the APIC line legible at F00144. The generator saw the complete cell (G00062); the same share counts are untruncated at F00500-F00502 and F02191. Neither attempt cites share classes, par value, APIC or balance-sheet share counts, and no finding (PLTR-01 to PLTR-07) or human_verification item relies on F00142-F00144. Outcome: no finding changed, no new finding, no verdict or score change."
+          ]
+        }
+      },
+      "comparison_status": "complete",
+      "input_sha256": {
+        "codex_json": "41be5a19b15ad307fcc8ecdc729185a5f946f3d5cee30b15f27acebe042f853f",
+        "fable_snapshot_json": "9bf3a3c5f726c6e7f541fad855de91e1d19423dd63db1fb204dbc331fde838fa"
+      },
+      "adjudications": [
+        {
+          "codex_id": "PLTR-01",
+          "fable_id": "PLTR-02",
+          "relationship": "severity difference",
+          "attempts": [
+            "A"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "minor",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.generated_v2_sections.the_print.what_changed"
+          ],
+          "candidate_quotes": [
+            "Revenue growth accelerated to 85% YoY from 71% in the prior-year quarter, with both segments posting higher growth rates."
+          ],
+          "source_references": [
+            "F664–672",
+            "G786–794",
+            "F778",
+            "F1029–1035",
+            "X1–45"
+          ],
+          "source_quote": "United States ... 1,282,066 79% ... 628,494 71%",
+          "two_refutation_checks": [
+            "The relevant 71% source statistic is the prior-year United States share of total revenue; recalculation 628494/883855=71.1% confirms mix, not growth.",
+            "Income tables and retained X series contain Q1 2026 and Q1 2025 sales, establishing 84.7% current growth but not Q1 2025 growth versus Q1 2024. No independent historical rate is supplied; do not invent the true earlier rate or assert the general direction is false."
+          ],
+          "conclusion": "Retain material for A’s precise unsupported 71% historical benchmark and segment acceleration. The supplied 71% is geographic mix; current growth arithmetic is correct but supplies no prior growth rate. General acceleration in B remains unverified, not proven false.",
+          "remediation": "Remove the unsupported 71% comparison and segment acceleration, retaining current consolidated and segment YoY growth."
+        }
+      ],
+      "additional_comparison_notes": "Shared minor issues: working-capital date, return basis and capex misclassified as shareholder returns. Fable adds accurate metric values paired with gross-margin rather than operating-margin evidence. Increased diluted shares are real, but they offset rather than drive positive EPS growth; Fable’s refutation of the count itself does not refute Codex’s causal criticism. Net income attributable to shareholders versus consolidated income is a legitimate basis difference. The whole $68.2M other-income line is not established as realized gains alone."
+    },
+    {
+      "case_id": "18-BYND",
+      "codex_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 4,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 4,
+      "original_fable_material_finding_count": 2,
+      "fable_completeness": {
+        "status": "complete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 1-438 (full; attempts A and B, candidate_payload and generated_v2_sections)",
+            "02-GENERATOR-EVIDENCE.txt G00001-G01999 (full) and X00001-X00981 (full)",
+            "03-FULL-FILING.txt F00001-F02448 (full)",
+            "04-TEXT-RECOVERY.txt S00001-S00004 (full; exhibit-index cells only)"
+          ],
+          "limitations": [
+            "Neither attempt contains a generated_v2_sections.segments block; channel-mix coverage judged as an omission.",
+            "G excerpt section labels are misassigned (an 'ITEM 2' header precedes the Item 1 statements; 'ITEM 1A - RISK FACTORS' precedes Note 6). G omits Notes 5 and 7-9, most of Note 10 (litigation), Part II Item 1A, and truncates Item 4 mid-sentence at G01999.",
+            "Exact-substring greps against F sometimes miss only because of curly apostrophes; such quotes were confirmed by their remaining text."
+          ]
+        }
+      },
+      "comparison_status": "complete",
+      "input_sha256": {
+        "codex_json": "eeaf64ae10964cff6b694303c87c3601540b51a6e5b5c068b1182fdc95915d40",
+        "fable_snapshot_json": "07a3a7b2511da0bce988b20a3d1e7f2715ad9029c08b725e865157672f210ecd"
+      },
+      "adjudications": [
+        {
+          "codex_id": "18-BYND-01",
+          "fable_id": "BYND-03",
+          "relationship": "severity difference",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "minor",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "B.generated_v2_sections.balance_sheet_liquidity.leverage",
+            "B.candidate_payload.executive_summary"
+          ],
+          "candidate_quotes": [
+            "Total debt of $382.2M (including current portion)"
+          ],
+          "source_references": [
+            "F865–884; F968–989; G56–74; X552–595"
+          ],
+          "source_quote": "2027 Notes $29,459",
+          "two_refutation_checks": [
+            "Tested legitimate carrying versus principal bases: $382.178M exactly equals long-term net 2030 Notes plus term loans; neither gross principal nor current-inclusive carrying debt.",
+            "Checked current classification and B’s risk/maturity sections: both identify $29.5M current 2027 Notes, so the omission is not a scope choice."
+          ],
+          "conclusion": "Retain material: the expressly current-inclusive total omits $29.459M current debt. Correct components elsewhere do not cure the liquidity headline. Carrying versus principal differences are legitimate and are not this defect.",
+          "remediation": "Use $411.6M carrying debt excluding leases, or label $382.2M long-term debt and disclose current debt separately."
+        },
+        {
+          "codex_id": "18-BYND-02",
+          "fable_id": "BYND-09",
+          "relationship": "severity difference",
+          "attempts": [
+            "A"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "presentation",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "A.candidate_payload.management_discussion",
+            "A.candidate_payload.executive_summary"
+          ],
+          "candidate_quotes": [
+            "Excluding these one-time items, the operating loss would be larger."
+          ],
+          "source_references": [
+            "F339–356; F1887–1897; G154–176; G1572–1574"
+          ],
+          "source_quote": "Loss from operations (41,104)",
+          "two_refutation_checks": [
+            "Checked statement order: derivative, warrant and debt-extinguishment gains all appear in Other income after operating loss.",
+            "Checked independent MD&A and adjusted EBITDA reconciliation F1942–1952/G1618–1657: these gains are removed alongside other nonoperating items, not added to GAAP operating loss."
+          ],
+          "conclusion": "Retain material for A only: below-operating gains cannot change GAAP operating loss. B’s statement that operating loss remains significant is not the same false counterfactual. Recurring remeasurement labelled one-time remains a separate minor qualification.",
+          "remediation": "Say net loss excluding the three gains is about $47.7M; operating loss remains $41.1M."
+        },
+        {
+          "codex_id": "BYND-09",
+          "fable_id": "BYND-02",
+          "relationship": "agreement",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.generated_v2_sections.notable_footnotes[0].impact",
+            "B.generated_v2_sections.notable_footnotes[0].impact",
+            "A.candidate_payload.notable_footnotes[0].impact",
+            "B.candidate_payload.notable_footnotes[0].impact",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary"
+          ],
+          "candidate_quotes": [
+            "A: Prior-year figures for Q1 2025 were restated to correct errors in inventory valuation and debt issuance costs",
+            "B: Prior-year figures restated for inventory valuation and debt issuance cost errors, increasing net loss by $8.2M."
+          ],
+          "source_references": [
+            "F02216–F02250",
+            "F02020",
+            "G01997–G01999"
+          ],
+          "source_quote": "were not effective as of March 28, 2026",
+          "two_refutation_checks": [
+            "F02218 says management believes current statements fairly presented and expects no adjustments. This prevents alleging current misstatement but does not negate the control weaknesses.",
+            "Both complete representations omit current weakness status; B’s cured default concerns late financial-statement delivery, not accounting controls. G ends before the control conclusion."
+          ],
+          "conclusion": "Both retain material current-control omission. Management’s fair-presentation assurance mitigates any allegation of actual current misstatement, and curing filing-delivery default does not remediate inventory and complex-transaction controls.",
+          "remediation": "Disclose ineffective controls and unremediated inventory/complex-transaction weaknesses, alongside management’s fair-presentation assurance."
+        },
+        {
+          "codex_id": "BYND-10",
+          "fable_id": null,
+          "relationship": "Codex material; Fable omission-only",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": null,
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.generated_v2_sections.balance_sheet_liquidity.liquidity",
+            "B.generated_v2_sections.balance_sheet_liquidity.liquidity",
+            "A.candidate_payload.executive_summary",
+            "B.candidate_payload.executive_summary",
+            "B.generated_v2_sections.forward_signals.guidance",
+            "B.candidate_payload.outlook"
+          ],
+          "candidate_quotes": [
+            "A: though this depends on achieving revenue and cost targets.",
+            "B: management believes sufficient to fund operations for next twelve months."
+          ],
+          "source_references": [
+            "F01968",
+            "F02016",
+            "F02030–F02050",
+            "G01681",
+            "G01770",
+            "G01803–G01804"
+          ],
+          "source_quote": "unable to access our ATM Program",
+          "two_refutation_checks": [
+            "191M unrestricted cash and management’s conditional twelve-month assessment are supported. This is not an imminent-insolvency finding or a claim that all equity financing is prohibited.",
+            "Source permits other potential financing but warns availability is uncertain; neither representation communicates lost ATM access. Fully drawn 100M principal and 81.7M net carrying value legitimately differ, so no separate unused-capacity error is alleged."
+          ],
+          "conclusion": "Retain material unavailable ATM access in the conditional liquidity discussion. Existing cash and possible alternative funding do not restore ATM eligibility; zero remaining facility availability is context, not a prediction of funding failure.",
+          "remediation": "State that Form S-3 ineligibility prevents ATM access and the facility has zero remaining availability; preserve conditional sufficiency and other possible financing options."
+        },
+        {
+          "codex_id": null,
+          "fable_id": "BYND-01",
+          "relationship": "Fable-only material; newly accepted",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "omission-only",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "confirmed",
+          "candidate_paths": [
+            "A.candidate_payload.risk_factors",
+            "A.candidate_payload.notable_footnotes",
+            "A.generated_v2_sections.risks",
+            "A.generated_v2_sections.balance_sheet_liquidity",
+            "B.candidate_payload.risk_factors",
+            "B.candidate_payload.notable_footnotes",
+            "B.generated_v2_sections.risks",
+            "B.generated_v2_sections.balance_sheet_liquidity"
+          ],
+          "candidate_quotes": [
+            "Neither complete risk list nor notable-footnote list identifies Sonate or its accrual."
+          ],
+          "source_references": [
+            "F00296",
+            "G00062",
+            "F01474–F01476"
+          ],
+          "source_quote": "the Company recorded a $ 38.9 million litigation-related accrual ... during the year ended December 31, 2025",
+          "two_refutation_checks": [
+            "Checked both representations: risk lists cover recurring losses/Nasdaq/debt or covenants, and footnotes cover historical errors, derivative remeasurement and conversions. Lower legal expenses in supporting evidence does not surface Sonate. This is the Sonate trademark jury verdict, not a class-action accrual or the separate settlement receivable.",
+            "The $38.9M is already accrued in2025 and remains a current liability; do not expense it again inQ12026, add it again to total liabilities, or assume immediate payment. Competing post-trial motions may reduce/eliminate or increase the award. Nevertheless it equals about20.4% of $191M unrestricted cash amid losses, so the omission is material despite conditional twelve-month liquidity sufficiency."
+          ],
+          "conclusion": "Accept material omission with uncertainty preserved. This is a disclosure addition, not a finding of unrecorded loss or imminent cash failure.",
+          "remediation": "Add Sonate’s November2025 verdict and $38.9M outstanding accrual, pending competing motions/appeal and uncertain ultimate cash timing. Do not net the separate $11M settlement receivable against it."
+        }
+      ],
+      "additional_comparison_notes": "Shared smaller issues: working-capital date, weak evidence, and historical first-positive-margin claim lacking prior quarters. “Restated” overstates the source’s immaterial corrections terminology. Carrying debt differs legitimately from principal. Fable over-credits B’s explanation of share growth solely through2030 conversions; the dominant prior2027 exchange remains omitted (F00926 vsF01022). Sonate is the sole newly elevated material finding in this comparison; original frozen counts remain intact."
+    },
+    {
+      "case_id": "21-TSM",
+      "codex_original": {
+        "A": {
+          "verdict": "NO MATERIAL DEFECT FOUND IN THIS REVIEW",
+          "scores": {
+            "accuracy": 4,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 4,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 3,
+            "completeness": 3,
+            "usefulness": 3,
+            "readability": 4
+          }
+        }
+      },
+      "fable_original": null,
+      "original_codex_material_finding_count": 1,
+      "original_fable_material_finding_count": null,
+      "fable_completeness": {
+        "status": "missing",
+        "reported_coverage": null
+      },
+      "comparison_status": "pending",
+      "input_sha256": {
+        "codex_json": "eadb15243ee58c4252e0ea7184b9fd8b42d6b1c8bfb5ac5a616960c97f1a151f",
+        "fable_snapshot_json": null
+      },
+      "adjudications": [
+        {
+          "codex_id": "TSM-01",
+          "fable_id": null,
+          "relationship": "pending",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": null,
+          "adjudicated_severity": null,
+          "status": "pending",
+          "candidate_paths": [
+            "B.candidate_payload.executive_summary",
+            "B.generated_v2_sections.the_print.what_changed"
+          ],
+          "candidate_quotes": [
+            "Revenue and profitability accelerated significantly in 2025"
+          ],
+          "source_references": [
+            "G739–751",
+            "X1–43",
+            "F3376–3412"
+          ],
+          "source_quote": "Net revenue ... 33.9% ... 31.6%",
+          "two_refutation_checks": [
+            "The source comparison consistently uses annual TWD consolidated revenue for 2023–2025; this is not a quarter/YTD or USD-convenience comparison.",
+            "Recalculation gives 2024 growth 33.89% and 2025 growth 31.61%. Operating-income growth did accelerate from 43.5% to 46.4%; that does not validate the distinct revenue claim. Both representations repeat it, despite correct current growth elsewhere."
+          ],
+          "conclusion": "Fable report absent; no comparative adjudication or agreement inferred.",
+          "remediation": "Say revenue grew 31.6%, below 33.9% in 2024, while operating-profit growth accelerated and margins expanded."
+        }
+      ],
+      "additional_comparison_notes": "Fable absent. Codex’s B revenue-acceleration finding and minor maturity-bucket/return-basis/note-reference findings are carried forward as original findings only; no comparison verdict is issued."
+    },
+    {
+      "case_id": "24-NVO",
+      "codex_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 3,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 2,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 3
+          }
+        }
+      },
+      "fable_original": {
+        "A": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 3,
+            "traceability": 4,
+            "completeness": 2,
+            "usefulness": 3,
+            "readability": 4
+          }
+        },
+        "B": {
+          "verdict": "MATERIAL DEFECT FOUND",
+          "scores": {
+            "accuracy": 2,
+            "traceability": 4,
+            "completeness": 2,
+            "usefulness": 2,
+            "readability": 4
+          }
+        }
+      },
+      "original_codex_material_finding_count": 4,
+      "original_fable_material_finding_count": 3,
+      "fable_completeness": {
+        "status": "incomplete",
+        "reported_coverage": {
+          "source_identity_verified": true,
+          "end_markers_verified": true,
+          "read_ranges": [
+            "01-CANDIDATES.md lines 1-413 (full; both attempts, both representations)",
+            "G00001-G00390 (full)",
+            "X00001-X00960 (full)",
+            "F00001-F01863 (full)",
+            "S00001-S00090 (full)",
+            "E00690-E00850 (five-year overview)",
+            "E01284-E01339 (2025 at a glance)",
+            "E01477-E02130 (Financial performance pp.14-19 incl. 2026 outlook)",
+            "E05443-E05476 (Risk management p.41)",
+            "E11515-E11600 (income statement)",
+            "E11654-E11740 (cash flow statement)",
+            "E11754-E11885 (balance sheet)",
+            "E12194-E12294 (note 2.1 net sales and rebates / 340B)",
+            "E12300-E12420 (note 2.2 segment information)",
+            "E13790-E13960 (note 3.6 provisions and contingent liabilities)",
+            "E14695-E14854 (note 4.6 borrowings)",
+            "E17049-E17095 and E17264-E17330 (non-IFRS measures)"
+          ],
+          "limitations": [
+            "No unread F ranges: 03-FULL-FILING.txt read in full (F00001-F01863). Status is 'incomplete' only because the judge instructions require the incorporated Annual Report exhibit (05, E00001-E19731, 1.3 MB with every line triplicated) to be read and it was read only in the targeted sections listed; unread E ranges: E00029-E00689, E00851-E01283, E01340-E01476, E02131-E05442, E05477-E11514, E11601-E11653, E11741-E11753, E11886-E12193, E12421-E13789, E13961-E14694, E14855-E17048, E17096-E17263, E17331-E19725.",
+            "The 20-F is a wrapper with no primary financial statements; Items 5, 8 and 18 incorporate Annual Report pages 3-11, 14-19 and 83-118 by reference (F00539, F01148, F01769-F01789).",
+            "Generator context (G) was 390 lines of auditor report, Item 5 and Item 3.D text with no income statement, cost lines, segment data, debt, outlook ranges or legal notes; X supplied only headline XBRL-derived values (raw_tag null for most items).",
+            "Exhibit conversion interleaves two-column page text (e.g., E01559-E01576) and triplicates lines; product-region table F00373-F00383 is flattened."
+          ]
+        }
+      },
+      "comparison_status": "provisional",
+      "input_sha256": {
+        "codex_json": "680696483e198c5fed46947d17478a444e304a7d2433d645f597374a79bbea42",
+        "fable_snapshot_json": "9143f16a9c19022af313491d9d42b4edb1dc151d9cefa1bd9028137bf87e279b"
+      },
+      "adjudications": [
+        {
+          "codex_id": "NVO-04",
+          "fable_id": "NVO-03",
+          "relationship": "agreement",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "provisional",
+          "candidate_paths": [
+            "B.candidate_payload.executive_summary",
+            "B.generated_v2_sections.balance_sheet_liquidity.leverage"
+          ],
+          "candidate_quotes": [
+            "The company has a net cash position, with cash and equivalents of DKK 26.5B and no significant debt disclosed."
+          ],
+          "source_references": [
+            "E14726–14744",
+            "E17055–17088",
+            "F592/G175"
+          ],
+          "source_quote": "Net debt (95,424) (69,713) 8,950",
+          "two_refutation_checks": [
+            "Borrowings total DKK 130.958 billion, including DKK 8.572 billion leases. Even excluding leases and subtracting cash DKK 26.464 billion plus securities DKK 0.498 billion gives net debt DKK 95.424 billion.",
+            "Including leases gives DKK 103.996 billion net debt; neither legitimate basis supports net cash. Management liquidity sufficiency is distinct from absence of debt."
+          ],
+          "conclusion": "Provisionally agree material. Company net debt excludes DKK8.572B leases: 130.958-8.572-26.464-0.498=95.424B. Including leases gives103.996B. Neither supports net cash; correct the incomplete arithmetic in Fable’s verification prose.",
+          "remediation": "Report company-defined net debt DKK 95.4 billion, excluding leases, and net debt/EBITDA 0.64x; distinguish liquidity resources."
+        },
+        {
+          "codex_id": "NVO-06",
+          "fable_id": "NVO-02",
+          "relationship": "agreement",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "provisional",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.candidate_payload.management_discussion",
+            "A.generated_v2_sections.earnings_quality.operating_vs_one_time",
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.management_discussion",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time"
+          ],
+          "candidate_quotes": [
+            "Reported operating income of DKK 127.7B includes no disclosed material one-time items",
+            "No material one-time gains or impairments were disclosed."
+          ],
+          "source_references": [
+            "E1299–1302",
+            "E16837–16955",
+            "E13208–13216",
+            "E13374–13392"
+          ],
+          "source_quote": "Major restructuring costs 8,014 — —",
+          "two_refutation_checks": [
+            "Exhibit explicitly calls approximately DKK 8 billion restructuring one-off and says operating profit would grow 13% CER without it, versus 6% reported CER. Adjustment table separately lists DKK 8.014 billion and DKK 1.352 billion restructuring IP impairments; do not double count these.",
+            "Note 3.1 says no individually material IP impairment in 2025; that narrow statement does not establish no material aggregate or PP&E impairments. Restructuring PP&E impairment alone is DKK 2.370 billion, total PP&E impairment DKK 4.556 billion, and all impairment losses DKK 7.316 billion. The 2024 ocedurenone DKK 5.650 billion charge belongs to the comparator."
+          ],
+          "conclusion": "Provisionally agree material. DKK8B restructuring and DKK7.316B total impairments overlap and must not be added. No individually material IP impairment does not establish absence of aggregate or PP&E impairments.",
+          "remediation": "Describe the DKK 8 billion headline restructuring charge, relevant impairments, prior-year impairment comparison, and adjusted earnings; retain the separate 2026 340B event."
+        },
+        {
+          "codex_id": "NVO-07",
+          "fable_id": "NVO-01",
+          "relationship": "agreement",
+          "attempts": [
+            "A",
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "material",
+          "adjudicated_severity": "material",
+          "status": "provisional",
+          "candidate_paths": [
+            "A.candidate_payload.executive_summary",
+            "A.candidate_payload.outlook",
+            "A.generated_v2_sections.forward_signals.guidance",
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.outlook",
+            "B.generated_v2_sections.forward_signals.guidance"
+          ],
+          "candidate_quotes": [
+            "For 2026, continued pricing pressure within Obesity and Diabetes Care is expected."
+          ],
+          "source_references": [
+            "E1825–1862",
+            "E1944–1970",
+            "E1867–1930"
+          ],
+          "source_quote": "at CER -5% to -13%1",
+          "two_refutation_checks": [
+            "This is annual 2026 guidance, not a historical rate: outlook table labels adjusted sales and adjusted operating profit separately, each with -5% to -13%.",
+            "Non-adjusted midpoint guidance is -1% sales and +11% operating profit CER; USD 4.2 billion 340B recognition explains why reported and adjusted trajectories differ. Quantitative guidance is in the incorporated exhibit, not contradicted by limited generator excerpts."
+          ],
+          "conclusion": "Provisionally agree material. Adjusted sales and operating profit guidance is a decline of5%–13% CER, not an entirely double-digit range. Preserve the reported/adjusted distinction and340B special item.",
+          "remediation": "State both adjusted ranges and basis, DKK FX headwinds, plus capex around DKK 55 billion and FCF DKK 35–45 billion under the new OCF-minus-PP&E definition."
+        },
+        {
+          "codex_id": "NVO-01",
+          "fable_id": "NVO-04",
+          "relationship": "severity difference",
+          "attempts": [
+            "B"
+          ],
+          "original_codex_severity": "material",
+          "original_fable_severity": "minor",
+          "adjudicated_severity": "material",
+          "status": "provisional",
+          "candidate_paths": [
+            "B.candidate_payload.executive_summary",
+            "B.candidate_payload.management_discussion",
+            "B.generated_v2_sections.earnings_quality.operating_vs_one_time"
+          ],
+          "candidate_quotes": [
+            "including DKK 4.2B (USD) related to the 340B Drug Pricing Program"
+          ],
+          "source_references": [
+            "F731",
+            "G317"
+          ],
+          "source_quote": "provisions for 340B statutory discounts ... amounted to USD 4.2 billion.",
+          "two_refutation_checks": [
+            "Both full20-F and retained generator explicitly say USD4.2b, with no DKK4.2b conversion.",
+            "Other B sections correctly say USD4.2b, demonstrating local inconsistency rather than alternative accounting basis; parenthetical USD does not make DKK correct."
+          ],
+          "conclusion": "Retain material currency ambiguity provisionally: DKK4.2B(USD) conflicts with USD4.2B source and other B sections. Parenthetical USD and correct repetitions elsewhere do not make DKK correct. The revenue-recognition direction issue remains a separate minor defect.",
+          "remediation": "Replace DKK4.2B(USD) with USD4.2B."
+        }
+      ],
+      "additional_comparison_notes": "Fable explicitly incomplete: targeted E exhibit reads leave extensive ranges unreviewed. All comparative conclusions remain provisional. Do not assume that unread exhibit financial statements are absent or unsupported. Conventional OCF-minus-PP&E FCF differs legitimately from company-defined historical FCF. Reported diabetes-care sales flat and CER growth can coexist."
+    }
+  ],
+  "newly_accepted_material_findings": [
+    {
+      "case_id": "18-BYND",
+      "fable_id": "BYND-01",
+      "attempts": [
+        "A",
+        "B"
+      ],
+      "topic": "Sonate accrued litigation exposure omitted"
+    }
+  ],
+  "pending": [
+    "21-TSM: no Fable report"
+  ],
+  "provisional": [
+    "24-NVO: Fable incomplete exhibit coverage"
+  ],
+  "limitations": [
+    "Fable self-reported complete coverage is not an independent certification of its reading. NVDA and COST do not record S supplement ranges.",
+    "Minor comparisons are synthesized rather than a second exhaustive rescoring. NVO incomplete and TSM absent results cannot support final all-case agreement statistics."
+  ]
+}

@@ -1,0 +1,166 @@
+{
+  "status": "partial Fable comparison",
+  "cases": [
+    "01-AAPL",
+    "02-MSFT",
+    "06-TSLA",
+    "22-JD",
+    "26-MELI"
+  ],
+  "adjudications": [
+    {
+      "case_id": "01-AAPL",
+      "codex_findings": [
+        "AAPL-01"
+      ],
+      "fable_findings": [
+        "AAPL-07"
+      ],
+      "adjudication": "Same omission; retain material for both attempts, versus Fable minor. Current restrictions on monetization matter separately from accrual probability.",
+      "source_references": [
+        "F429\u2013435",
+        "F515\u2013523",
+        "F1628"
+      ],
+      "refutation_checks": [
+        "Note 12 states no reasonably possible material loss on asserted claims; this does not negate injunctions/business-model effects expressly disclosed in Item 1A and Item 3.",
+        "Both attempts mention generic patent/legal risk; State Aid is a separate tax issue and does not explain current App Store/search restrictions."
+      ],
+      "remediation": "Add dated current orders, appeals and conditional consequences; do not record proposed penalties as incurred losses."
+    },
+    {
+      "case_id": "01-AAPL",
+      "codex_findings": [
+        "AAPL-03"
+      ],
+      "fable_findings": [
+        "AAPL-01"
+      ],
+      "adjudication": "Shared tax ambiguity; retain minor for A rather than Fable material. Do not infer a false numerical adjusted profit the candidate never computes.",
+      "source_references": [
+        "F777",
+        "F1369",
+        "F1403"
+      ],
+      "refutation_checks": [
+        "The candidate explicitly calls $10.7B a year-over-year decrease and separately identifies the 2024 charge; this materially mitigates the suggested current-year interpretation.",
+        "The actual FY2025 benefit is $486M, against $10,246M FY2024 expense; the phrase excluding this benefit still needs clarification even though the direction of comparative growth is correct."
+      ],
+      "remediation": "Show each year separately and label the normalization basis."
+    },
+    {
+      "case_id": "02-MSFT",
+      "codex_findings": [
+        "MSFT-01"
+      ],
+      "fable_findings": [
+        "MSFT-02"
+      ],
+      "adjudication": "Shared classification error; retain material for A/B rather than Fable minor. It directly corrupts the earnings-quality explanation.",
+      "source_references": [
+        "F1471\u20131473",
+        "F1791\u20131803"
+      ],
+      "refutation_checks": [
+        "128,528 minus 4,901 equals pretax 123,627; the loss cannot already be included in operating income.",
+        "Correct reported tables and the subsequent reference to pretax earnings mitigate arithmetic confusion but do not repair the repeated explicit includes statement."
+      ],
+      "remediation": "Use a statement-hierarchy-aware earnings bridge; never add below-operating items to operating profit."
+    },
+    {
+      "case_id": "02-MSFT",
+      "codex_findings": [
+        "MSFT-02"
+      ],
+      "fable_findings": [
+        "omissions: finance leases and commitments"
+      ],
+      "adjudication": "Same source facts, different treatment: retain material completeness weakness for A/B; Fable records it outside ranked findings.",
+      "source_references": [
+        "F2389",
+        "F2409",
+        "F2432"
+      ],
+      "refutation_checks": [
+        "$51.4B conventional net cash is valid; this is not a fabricated number or authority to net all leases indiscriminately.",
+        "The $32.1B construction commitment is a different obligation, and neither attempt discloses $46.172B finance lease liabilities or $20.511B noncash additions; $92.7B uncommenced leases further informs capacity commitments."
+      ],
+      "remediation": "Disclose cash capex, financed additions, existing lease liabilities and future commitments separately without double counting."
+    },
+    {
+      "case_id": "06-TSLA",
+      "codex_findings": [
+        "TSLA-01"
+      ],
+      "fable_findings": [
+        "TSLA-02"
+      ],
+      "adjudication": "Shared adjustment reversal; retain material for A rather than Fable minor.",
+      "source_references": [
+        "F1250\u20131257"
+      ],
+      "refutation_checks": [
+        "Removing $494M restructuring increases operating income from $4.355B to $4.849B, not weaker than reported.",
+        "A true decline versus prior year and correct tables do not validate the explicit versus reported comparator. Other expense and taxes already sit below operating income."
+      ],
+      "remediation": "Name starting measure, adjustment sign, inclusion and comparator before drafting the conclusion."
+    },
+    {
+      "case_id": "06-TSLA",
+      "codex_findings": [
+        "TSLA-02"
+      ],
+      "fable_findings": [
+        "omissions: xAI amount and related-party revenue"
+      ],
+      "adjudication": "Shared missing disclosure; retain material for A/B, while Fable lists an unranked omission.",
+      "source_references": [
+        "F2579\u20132581",
+        "F2682"
+      ],
+      "refutation_checks": [
+        "Both attempts identify a minority investment, so existence is not omitted; its roughly $2B size and related-party context remain absent.",
+        "It is an agreement with closing conditions rather than a completed FY2025 outflow; roughly one-third of FY2025 FCF is still a decision-relevant commitment."
+      ],
+      "remediation": "Disclose amount, preferred security, related-party context and closing conditions separately from capex."
+    },
+    {
+      "case_id": "26-MELI",
+      "codex_findings": [
+        "MELI-01"
+      ],
+      "fable_findings": [
+        "MELI-01"
+      ],
+      "adjudication": "Agreement: material cash-generation framing in A/B. Fable is MD-only, so comparison is provisional.",
+      "source_references": [
+        "F2110\u20132116",
+        "G1000\u20131045"
+      ],
+      "refutation_checks": [
+        "CFO minus the broad $1.343B spending line validly equals $10.773B; do not ban that derived metric.",
+        "Company adjusted FCF $1.481B reflects restricted-fund growth, net loan funding and fintech financing omitted from the inference. A configurable definition does not make discretionary-cash language reliable."
+      ],
+      "remediation": "Present both clearly defined measures and bridge restrictions, lending and financing."
+    },
+    {
+      "case_id": "26-MELI",
+      "codex_findings": [
+        "MELI-02"
+      ],
+      "fable_findings": [
+        "MELI-03"
+      ],
+      "adjudication": "Shared restriction omission; retain material in A/B versus Fable minor, provisional until final Fable JSON.",
+      "source_references": [
+        "F1805",
+        "F3417\u20133455"
+      ],
+      "refutation_checks": [
+        "Readily convertible wording in G does not make mandatory guarantee investments available; the full source expressly excludes $1.015B.",
+        "The separately reported $9.867B restricted cash is not the same restriction; 3.670+2.629\u22121.015=5.284B. The unqualified pool is overstated 19.2%."
+      ],
+      "remediation": "Separate available liquidity from restricted balances, with reconciled arithmetic."
+    }
+  ]
+}

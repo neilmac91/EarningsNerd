@@ -166,3 +166,9 @@ background work or notification schedules without a request.
 ## September 9 execution correction
 
 The previously fresh Dependabot #780 group is closed; its compatible minor SDK updates shipped and were verified through #791. Original major dependency decisions remain held. The EdgarTools study is complete and quality fixes #784–#791 have shipped as recorded in the September 9 handover. The first-checkpoint measurement-only workflow mode is prepared locally; no report/email job or paid weekly measurement was dispatched as a test. DeepSeek balance restoration now blocks further actual evaluation, independently of Fable's subscription limit and the founder's universe-wide pregeneration hold.
+
+## September 9 final-review delivery correction
+
+The final Fable reports are received and independently reconciled in the [final reconciliation](fable-quality-reconciliation-2026-09-09.md). This supersedes the missing-final-report prerequisite only: seven cases retain partial coverage, Amazon has a source-range ambiguity, and unseen human-reviewed acceptance remains open. Original reviewer counts are preserved separately; no global consensus defect rate is asserted.
+
+Funding is restored for the ordered queue. Scope safeguard #794 merged as `47865758` with main CI `34315351755` and production revision `earningsnerd-backend-00319-kz4` verified. Only #792's failed summary job is now running as attempt 2, job `102352498206`; inspect its actual evidence before release, then release eval-error/identity c and assess integrated prompt d. FCF-basis e is a separate bounded candidate; #788 already addresses ROE/ROA labels. Missing source is a product coverage defect, and d does not resolve all traceability/narrative/acquisition failures. Existing master-plan, account, legal/product, vendor, universe-spend and historical-replay boundaries remain.
