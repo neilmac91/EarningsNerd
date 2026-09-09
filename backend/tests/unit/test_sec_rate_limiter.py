@@ -160,3 +160,74 @@ async def test_elapsed_refill_is_spent_once(monkeypatch, scenario):
         await limiter.execute(request)
     assert admitted[-5:-1] == [idle_end] * 4
     assert admitted[-1] == pytest.approx(idle_end + interval)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["direct", "retry", "redirect", "observation_failure", "cancel_observation"])
+async def test_document_source_observation_preserves_transport_and_decoded_text(monkeypatch, mode):
+    import hashlib
+    from app.services.edgar import compat
+
+    url = "https://sec.example/selected.htm"
+    final_url = "https://sec.example/final.htm" if mode == "redirect" else url
+    raw = b" <html><body>caf\xe9</body></html>\n"
+    expected = raw.decode("iso-8859-1")
+    calls = []
+    waits = []
+
+    def respond(request):
+        calls.append(str(request.url))
+        if mode == "retry" and len(calls) == 1:
+            return httpx.Response(503)
+        if mode == "redirect" and str(request.url) == url:
+            return httpx.Response(302, headers={"location": final_url})
+        return httpx.Response(200, content=raw, headers={"content-type": "text/html; charset=iso-8859-1"})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(compat.httpx, "AsyncClient", lambda: real_client(transport=httpx.MockTransport(respond)))
+
+    class Breaker:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    async def execute(fn):
+        return await fn()
+
+    async def sleep(delay):
+        waits.append(delay)
+
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", Breaker())
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    old = await compat.sec_edgar_service.get_filing_document(url)
+    old_calls, old_waits = list(calls), list(waits)
+    calls.clear()
+    waits.clear()
+    if mode in {"observation_failure", "cancel_observation"}:
+        def broken_observer(*args):
+            if mode == "cancel_observation":
+                raise asyncio.CancelledError()
+            raise ValueError("optional metadata failed")
+        monkeypatch.setattr(compat, "_decoded_source_provenance", broken_observer)
+    if mode == "cancel_observation":
+        with pytest.raises(asyncio.CancelledError):
+            await compat.sec_edgar_service.get_filing_document_with_source(url)
+    else:
+        text, source = await compat.sec_edgar_service.get_filing_document_with_source(url)
+        assert text == old == expected
+        if mode == "observation_failure":
+            assert source is None
+        else:
+            assert source == {
+                "schema_version": 1, "representation": "httpx_decoded_response_text_utf8",
+                "sha256": hashlib.sha256(expected.encode("utf-8")).hexdigest(),
+                "characters": len(expected), "requested_url": url, "final_url": final_url,
+                "content_type": "text/html; charset=iso-8859-1",
+            }
+            assert source["sha256"] != hashlib.sha256(raw).hexdigest()
+    assert calls == old_calls
+    assert len(calls) == (2 if mode in {"retry", "redirect"} else 1)
+    assert waits == old_waits == ([1] if mode == "retry" else [])
