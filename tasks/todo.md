@@ -1,3 +1,8 @@
+## September 9 evaluation-scope incident correction
+
+- [ ] Docs #783 unexpectedly triggered CI evaluation 34295464681 after the funding hold; 52 attempts returned 402. Unsafe pushes stopped; founder informed. The earlier “no subsequent evaluation” statement is superseded by this dated correction.
+- [ ] Prepare and independently review the workflow scope fix; audit prior #783 evaluation runs and retain unknown billing impact explicitly. No additional model calls for this investigation.
+
 ## September 9 morning handover — current master-plan checkpoint
 
 See [the handover](handover-astra-2026-09-09.md) for verified releases, exact prepared heads, remaining prerequisites and what to doubt first.
