@@ -424,7 +424,7 @@ def _segment_xbrl(currency=None):
 
 def test_apply_structured_fallbacks_segments_authored_from_xbrl():
     """§7 is machine-authored from XBRL segment dimensions: per-segment revenue + operating income +
-    YoY revenue change + a deterministic mix (share of segment revenue) and operating-margin read."""
+    YoY revenue change and a same-row operating-margin read."""
     sections: dict = {}
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
 
@@ -433,8 +433,44 @@ def test_apply_structured_fallbacks_segments_authored_from_xbrl():
     a = seg[0]
     assert a["revenue"] == "$178.4B" and a["operating_income"] == "$72.5B"
     assert a["change"] == "+6.8%"                                   # (178.353-167.045)/167.045
-    assert "62% of segment revenue" in a["commentary"] and "41% operating margin" in a["commentary"]
+    assert a["commentary"] == "41% operating margin"
     assert seg[1]["change"] == "+9.6%"
+
+
+def test_segments_do_not_derive_revenue_shares_from_overlapping_members():
+    """Intel Q1 2026: Products = CCG + DCAI; flat row shares double-count that revenue.
+
+    Retained filing 0000050863-26-000079 segment table reports these amounts in millions.
+    Foundry revenue is absent from extracted X; its operating loss and commentary still survive.
+    """
+    xbrl = {"segments": [
+        {"name": "Intel Products", "revenue": 12_779_000_000, "revenue_prior": 11_755_000_000,
+         "operating_income": 4_058_000_000},
+        {"name": "Client Computing", "revenue": 7_727_000_000, "revenue_prior": 7_629_000_000,
+         "operating_income": 2_516_000_000},
+        {"name": "Datacenter and AI", "revenue": 5_052_000_000, "revenue_prior": 4_126_000_000,
+         "operating_income": 1_542_000_000},
+        {"name": "Other", "revenue": 628_000_000, "revenue_prior": 943_000_000,
+         "operating_income": 102_000_000},
+        {"name": "Intel Foundry", "revenue": None, "operating_income": -2_437_000_000},
+    ]}
+    sections = {"segments": [
+        {"segment": "Intel Products", "commentary": "Management discussed product demand."},
+        {"segment": "Intel Foundry", "commentary": "Management discussed foundry execution."},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {}, xbrl)
+    rows = sections["segments"]
+    assert [row["segment"] for row in rows] == [row["name"] for row in xbrl["segments"]]
+    assert [(row["revenue"], row["operating_income"], row["change"]) for row in rows] == [
+        ("$12.8B", "$4.1B", "+8.7%"), ("$7.7B", "$2.5B", "+1.3%"),
+        ("$5.1B", "$1.5B", "+22.4%"), ("$628.0M", "$102.0M", "-33.4%"),
+        ("", "$-2.4B", ""),
+    ]
+    assert [row["commentary"] for row in rows] == [
+        "32% operating margin — Management discussed product demand.",
+        "33% operating margin", "31% operating margin", "16% operating margin",
+        "Management discussed foundry execution.",
+    ]
 
 
 def test_apply_structured_fallbacks_segments_strip_stray_model_rows():
@@ -462,7 +498,7 @@ def test_apply_structured_fallbacks_segments_stripped_when_no_xbrl():
 
 def test_apply_structured_fallbacks_segments_merge_model_commentary():
     """T5.2b hybrid: the model's qualitative driver (a commentary-only row keyed by the grounding's
-    label list) is merged onto the CODE row — machine mix/margin first, model words appended. A label
+    label list) is merged onto the CODE row — machine margin first, model words appended. A label
     the code did not author is dropped (the model can never create a row); a code row the model said
     nothing about keeps the deterministic read alone."""
     sections = {"segments": [
@@ -477,7 +513,7 @@ def test_apply_structured_fallbacks_segments_merge_model_commentary():
     seg = sections["segments"]
     assert [r["segment"] for r in seg] == ["Americas", "Europe"]   # phantom dropped, order = code's
     assert seg[0]["commentary"] == (
-        "62% of segment revenue, 41% operating margin — Growth was led by data center demand."
+        "41% operating margin — Growth was led by data center demand."
     )
     assert " — " not in seg[1]["commentary"]                        # Europe: deterministic-only
     # Figures stay code-authored regardless of what the model wrote on the matching row.
@@ -600,7 +636,8 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
         "(prior $94.9B); capital expenditures $12.7B (prior $9.4B)."
     )
     assert vd["returns_on_capital"] == (
-        "Return on equity was 151.3% (prior 164.6%); return on assets 28.4% (prior 25.7%)."
+        "Return on equity was 151.3% (prior 164.6%) (period net income / period-end equity, not annualized); "
+        "return on assets 28.4% (prior 25.7%) (period net income / period-end assets, not annualized)."
     )
     assert "free cash flow" not in vd["shareholder_returns"].lower()
 
@@ -689,13 +726,17 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
                              "prior": {"value": 812.0, "period": "FY2024"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
-    assert sections["value_drivers"]["returns_on_capital"] == "Return on assets 17.9%."
+    assert sections["value_drivers"]["returns_on_capital"] == (
+        "Return on assets 17.9% (period net income / period-end assets, not annualized)."
+    )
 
     honest_loss: dict = {}
     openai_service._apply_structured_fallbacks(honest_loss, {"company_name": "X"}, {
         "return_on_equity": {"current": {"value": -12.3, "period": "FY2025"}},
     })
-    assert honest_loss["value_drivers"]["returns_on_capital"] == "Return on equity was -12.3%."
+    assert honest_loss["value_drivers"]["returns_on_capital"] == (
+        "Return on equity was -12.3% (period net income / period-end equity, not annualized)."
+    )
 
 
 def test_apply_structured_fallbacks_returns_read_authors_for_banks():
@@ -711,7 +752,8 @@ def test_apply_structured_fallbacks_returns_read_authors_for_banks():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Return on equity was 17.2% (prior 15.8%); return on assets 1.4%."
+        "Return on equity was 17.2% (prior 15.8%) (period net income / period-end equity, not annualized); "
+        "return on assets 1.4% (period net income / period-end assets, not annualized)."
     )
 
 
