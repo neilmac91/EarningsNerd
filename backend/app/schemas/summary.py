@@ -125,6 +125,7 @@ _PRIOR_METRIC_KEYS = {
     "gross margin": "gross_margin",
     "operating margin": "operating_margin",
     "diluted eps": "eps_diluted",
+    "eps (diluted)": "eps_diluted",
     "diluted earnings per share": "eps_diluted",
     "earnings per share (diluted)": "eps_diluted",
 }

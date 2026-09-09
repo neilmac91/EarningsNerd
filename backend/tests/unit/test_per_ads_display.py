@@ -6,6 +6,8 @@ financial-highlights ``table`` (which is what the API serializes to the frontend
 the as-filed per-ordinary-share value is never altered, and only for ratio != 1 ADRs.
 """
 
+import pytest
+
 from app.schemas.summary import attach_normalized_facts
 
 
@@ -24,10 +26,11 @@ def _rows_by_metric(section):
     return {row["metric"]: row for row in section["table"]}
 
 
-def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value():
+@pytest.mark.parametrize("label", ["Diluted EPS", "EPS (diluted)"])
+def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value(label):
     section = {
         "table": [
-            {"metric": "Diluted EPS", "current_period": "CN¥5.70", "prior_period": "CN¥5.50"},
+            {"metric": label, "current_period": "CN¥5.70", "prior_period": "CN¥5.50"},
             {"metric": "Revenue", "current_period": "CN¥1,023.7B", "prior_period": "CN¥941.2B"},
         ],
         "notes": "n",
@@ -39,7 +42,7 @@ def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value():
     })
     rows = _rows_by_metric(out)
 
-    eps = rows["Diluted EPS"]
+    eps = rows[label]
     assert eps["per_ads"] == PER_ADS  # surfaced onto the row the frontend reads
     assert eps["current_period"] == "CN¥5.70"  # as-filed per-ordinary-share value UNCHANGED
     assert "per_ads" not in rows["Revenue"]  # only the EPS row carries it
