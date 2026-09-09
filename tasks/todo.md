@@ -1,3 +1,13 @@
+## September 9 corrected preview assessment — production verified
+
+- [x] Read the second #803 summary artifact: 52 usable final outcomes; one timeout-triggered outer retry, 54 provider calls and unknown usage for two unsuccessful calls. Successful-call ownership and 265-row numeric projections pass; preserve the [dated second readout](quality-preview-final-readout-2026-09-09.md) alongside the rejected first assessment.
+- [x] Complete independent timeout-preview and Copilot acceptance: the bounded preview correction is accepted; 18 Copilot answers pass with eight answers / 13 uncited figures advisory. Retain the separate BABA entity/basis issue.
+- [x] Record #803 squash `5e6b673476b684ac681a7c46f890e38ca2c3ce70` at 10:14:45 UTC.
+- [x] Verify main CI34339180475 and deploy102427774938: migrations 0/39, revision00324-fcq at 100%, CI/independent detailed health healthy (database 5.87/6.38 ms, SEC closed, Redis disabled). Exact timestamps and links are in the dated readout.
+- [x] Publish/ready supported explanations e as #805 (integrated gate 2,851 passed / 93.46s, independent review clear); first actual assessment is pending. Cash basis f remains local (2,861 passed), awaiting final prerequisite integration/review and actual assessment. Earlier cash-e references remain historical.
+- [x] Locally integrate/gate legal source-boundary observation at `15262e18` (2,846 passed / 96.27s), with independent review clear; no hosted acceptance or release is claimed.
+- [ ] Continue the ordered residual/source/measurement work and original founder prerequisites; see the linked readout for the single pending T9 decision. Broad replay and universe-wide pregeneration remain held.
+
 ## September 9 preview correction — ledger integration
 
 - [x] Complete both distinct preview proofs once, independently review corrected code, and pass the corrected 2,843-test backend / 569-test frontend gates before publication.

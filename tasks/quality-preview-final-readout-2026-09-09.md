@@ -1,0 +1,39 @@
+# Corrected #803 preview assessment — September 9, 2026
+
+The second assessment passes mechanical integrity, bounded preview completion/ownership and final numeric projection checks. Independent review accepts the retained timeout-attempt frames, and Copilot passes its existing gate with citation advisories. Production is verified at revision `earningsnerd-backend-00324-fcq`; this is bounded preview acceptance, not full filing-analysis quality clearance. The [three exact assessment snapshots](review-evidence/preview-final-2026-09-09/README.md) retain execution identities, counts, source checks and refutations. The [first rejected readout](quality-preview-ownership-readout-2026-09-09.md) and its evidence remain unchanged.
+
+## Second summary assessment
+
+Run **34336781813**, job **102417927645**, artifact **10098637104** executed merge `1d8f247d814659751de5c3396a93632fca098475`, with parents main `fdf8bd02f85f9046dd10f15c6c8274a53a5a69f3` and reviewed candidate `cb006f8bd5a6f69c80cafe08323f7a980879b432`. Its full tree matches the reviewed candidate. All 52 planned unique final outcomes are usable, with no final errors or application failures; source, excerpts and XBRL match the retained final #799 inputs.
+
+One outer retry followed a BABA 20-F run 1 timeout. This means 53 summary attempts (52 completed, one timeout) and 54 provider calls (52 successful, one timed out, one cancelled), not 52 error-free attempts. Known usage from the successful calls is 2,309,408 tokens; usage for the two unsuccessful calls is unknown. The recorded zero cost is not billing evidence. The existing regression passes with advisories of 2.192 untraceable prose dollar figures and 0.8875 delta consistency against 0.9466 pinned; those scores alone neither prove nor refute a financial finding.
+
+All 372 successful-call callbacks / 1,243,380 characters agree with subsets of shared final rendering and independent invocation of the existing numeric owners. The timeout attempt retains another 10 callbacks / 43,543 characters, separately labeled. Independent review read all distinct substantive lines across their five progressive content states; no changed-preview blocker survived. Its frame text differs from the successful generation, as expected for a separately retained failed outer attempt. Total retention is 382 callbacks / 1,286,923 characters. Retained callback counts do not equal browser SSE events. Original provider wire is absent, and final-response association is not observed; shared-owner agreement does not prove original-byte completion or final-provider identity.
+
+All 265 supplied final financial rows pass bounded normalization and web/CSV/PDF-body projection checks, with zero prior fills, three ADS augmentations and four dated JPM rows remaining numerically unknown. These are offline projections, not live browser or PDF-layout acceptance, and do not certify all authored financial explanations or source completeness.
+
+The failed BABA attempt also contains an existing entity/basis mismatch: a Net Income row uses CNY 103,592M / 130,109M, while its explanation discusses consolidated 102,127M / 125,976M; the successful generation uses ordinary-shareholder 105,904M / 129,470M. All are genuine distinct source bases. The unchanged populated-table owner does not reconcile that narrative. This remains supplied-evidence explanation/provenance follow-up, not a newly introduced preview ownership defect.
+
+## Second Copilot assessment
+
+Run **34336781856**, job **102417928021**, artifact **10098119705** passes all 18 exact planned terminal answers with no gate failures. It executes the same merge/tree as the summary assessment. All 24 source artifacts and the prepared database verify against the pinned inputs. Telemetry records 28 successful chat-stream calls and 866,386 known tokens, with no logged failure, timeout or cancellation; this is not billing or exhaustive evidence of hidden provider retries. Eight answers retain 13 uncited figures, compared with six answers / 11 figures in the first round. Actual answer strings confirm the missing markers, while the unchanged gate permits zero citation coverage. This advisory change is not evidence of causation by preview code.
+
+
+
+## Production
+
+#803 merged once from reviewed head `cb006f8bd5a6f69c80cafe08323f7a980879b432`, as squash `5e6b673476b684ac681a7c46f890e38ca2c3ce70` at 10:14:45 UTC. Main CI [34339180475](https://github.com/neilmac91/EarningsNerd/actions/runs/34339180475) succeeded. Deploy job [102427774938](https://github.com/neilmac91/EarningsNerd/actions/runs/34339180475/job/102427774938) records `apply_migrations: applied=0 skipped=39` at **2026-09-09T10:24:04.9698334Z**. Revision **earningsnerd-backend-00324-fcq** serves **100%** of traffic.
+
+The deployment health response at **10:25:48.3963838Z** has timestamp **1788949548.3594809** and database latency **5.87 ms**. The independent detailed health response has timestamp **1788949606.135957** and database latency **6.38 ms**. Both report healthy status, SEC circuit closed and Redis disabled/healthy. The deployment log and independent response were read directly before recording this result. This completes the serial production verification for #803; the earlier [#799 record](quality-final-reported-metrics-readout-2026-09-09.md) remains historical.
+
+## Local next candidates and remaining boundaries
+
+Supported explanations **e** is published and ready as [#805](https://github.com/neilmac91/EarningsNerd/pull/805), head `b6a3272e03ea397e3b434bfeba1e764ff91b099e`, with its first assessment pending. The integrated gate passed 2,851 tests in 93.46 seconds, Ruff/Bandit clear, four PostgreSQL lanes and performance; independent integration review cleared the candidate. This is not actual-output or production acceptance.
+
+Cash basis **f** remains local at `b8de2057806ed8848dcfd8ab618167b884586b9f`: Ruff/Bandit clear, 2,861 tests passed in 88.22 seconds, four dedicated PostgreSQL lanes and performance, eleven locks unchanged. It retains the earlier reviewed preview/explanation preparation; final prerequisite integration and independent review remain before publication. The cash stamp preserves a–e history; earlier local cash-e references are historical. Existing proofs were retained without repetition. After the verified preview release, supported explanations and then cash basis each require actual assessment and serial production verification.
+
+The legal source-boundary observation candidate is locally integrated at `15262e183da4d772759950ac9437d951e0e636da`, with 2,846 tests passed in 96.27 seconds and independent review clear. It remains local only; this does not claim source acquisition, hosted acceptance or release.
+
+The separate cash-concept provenance candidate `5521f00bb38d0d9f71db90f6bebe14f88434b9e4` remains blocked on the founder's narrow T9 exception decision: 2,843 tests pass and one locked cash-row equality fails because the selected `raw_tag` was added. All eleven locked files are unchanged. The proposal adds only the exact concept to two expected cash rows plus a minimal docstring clarification; it does not relax equality or alter values. If declined, fallback provenance remains deferred while an instance-only split is reviewed and gated. No T9 approval or change is implied here.
+
+Bounded source inclusion, legal/cash scope, supplied-evidence narrative reconciliation and measurement work retain separate acceptance criteria. This checkpoint does not clear seven partial Fable source reviews, unseen quality acceptance, W3-7, or original rollout/account/legal/major-dependency prerequisites. Universe-wide pregeneration and historical replay remain held. The [residual checklist](quality-residual-acceptance-2026-09-09.md), [quality execution plan](quality-execution-2026-09-09.md) and [CEO plan](ceo-implementation-plan-2026-09-08.md) remain governing.
