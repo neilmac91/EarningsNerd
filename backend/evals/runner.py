@@ -215,7 +215,8 @@ async def _run_one(
     a report never hides that a retry happened. A non-transient failure, or a transient one after
     the last retry, is the attempt's error. On the production summary path only the app's own
     timeout (its request budget exhausted after its internal attempts) surfaces as an exception;
-    other provider faults come back as a degraded, scored summary and are never retried here."""
+    other provider faults come back as application status:error fallbacks, which are retained as
+    unscored, non-transient failed attempts and are never retried here."""
     base = {"candidate": candidate, "ticker": filing.ticker,
             "filing_type": filing.filing_type, "run": run_index}
     retried = 0
