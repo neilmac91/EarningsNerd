@@ -1,3 +1,11 @@
+## September 9 preview ownership assessment — correction required
+
+- [x] Inspect first #803 artifacts:52 summaries and18 pinned Copilot answers pass existing mechanical gates; preserve the [rejected preview readout and evidence](quality-preview-ownership-readout-2026-09-09.md). Preview release is **blocked** by confirmed model-segment ownership leakage; no semantic clearance follows from green gates.
+- [x] Record docs-only #802 main CI34333563322 and deploy job102408491015 explicit no-backend-change skip at09:17:23.4978518Z. Last verified serving revision remains00323-w4b; #803 is not merged in this checkpoint.
+- [ ] Complete shared-owner correction including withholding preview quotes when the existing quote gate is armed, retain the original completion proof, add exactly one new ownership proof, run final committed gates and independently review actual corrected previews.
+- [ ] Proceed with the standing-authorized **second #803 paid assessment** because the first actual artifact exposed the confirmed ownership defect; preserve first-run evidence. This is not a third round or permission for broad generation/replay.
+- [ ] After verified preview release, integrate and assess the local supported-explanation candidate, then separately scoped cash-basis/provenance/source/measurement work. Unseen quality and original founder prerequisites remain unsatisfied.
+
 ## September 9 final corrected reported-metric readout
 
 - [x] Review all 52 final #799 raw outputs and exact retained preview chronology; archive the [final readout and independent evidence](quality-final-reported-metrics-readout-2026-09-09.md). Final 272-row numeric projections pass their bounded helper checks. Preview semantics **FAIL** through the inherited legacy renderer; retention is not display-quality acceptance.
