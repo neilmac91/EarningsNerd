@@ -1,0 +1,25 @@
+# First #799 output review — COIN, BYND, MELI — 2026-09-09
+
+All six raw section objects read in full from `pr799-summary/eval_20260909T075719Z.json`; paired #797 earnings and balance-sheet narratives inspected. Retained generator excerpts are identical across the two reports. These are observed changed instances, not proof the prompt caused them. Offline scorer rerun used the actual saved payload. This is not unseen human acceptance or complete source-file coverage.
+
+## Material survivors
+
+**COIN run 0 — debt scope.** `balance_sheet_liquidity.leverage` calls $5.94B long-term debt inclusive of $1.27B current portion and derives $4.27B net cash. Refutation 1: excerpt lines 62 and 72 separately report current $1,271,056 thousand and noncurrent $5,940,628 thousand; note 10 line 1269 reports aggregate carrying amount $7.2B. Refutation 2: the maturity paragraph gives $7.3B principal but cannot reconcile or remove the false inclusive carrying-value/net-cash calculation. Against long-term carrying debt alone, net cash is about $3.0B; other short-term borrowings must be considered before a total-debt claim. C run 0 explicitly added the current amount and C run 1 reported $7.2B, so this instance is newly observed. D run 1's 'with' wording is less definite; do not count it as the same explicit inclusive error.
+
+**BYND run 0 — debt total.** Listed $300.5M notes + $81.7M loans + $29.5M current notes total $411.7M, not $382.2M. Refutation 1: excerpt lines 56, 72–74 separately retain the three balance-sheet entries. Refutation 2: $382.2M is the noncurrent subtotal, but output explicitly says total including current notes; the later maturity disclosure does not correct it. Both C runs contain the same error; D run 1 now states the correct total and $220.7M cash-only net debt.
+
+**BYND run 0 — adjustment basis.** Earnings quality says removing non-operating gains would widen operating loss. Refutation 1: income statement and MD&A identify the derivative, extinguishment and warrant gains inside other income below operating loss. Refutation 2: listing the actual gains does not put them into the operating subtotal; removing them affects net/pretax earnings. C also blurred this basis; D run 1's removal of total other income to arrive at operating loss is materially better, though it should make the tax/complete bridge explicit.
+
+**MELI both — cash availability coverage persists.** OCF $12.116B and OCF less selected capex $10.8B remain unqualified, although the excerpt contains issuer adjusted FCF $1.481B and the restrictions/customer-fund adjustments (definition around lines 1000 onward; customer-fund cash flow $5.341B near 2787). Refutation 1: $10.8B arithmetic is valid for the narrow convention, so this is not fabricated arithmetic. Refutation 2: the rest of the output does not retain the supplied customer-fund/discretionary-cash distinction. This is the existing Fable material family. The prepared derived-basis change addresses the deterministic label; supplied-but-unused issuer reconciliation still needs narrative work.
+
+## Narrower survivors and refutations
+
+- **BYND run 0:** '$12.6M swing in other income' uses current level; $12.638M minus prior $3.294M is $9.344M. Source statement and MD&A both retain the prior (refutation 1); net-loss context does not relabel a level as a swing (refutation 2). Run 1 describes the current other-income amount without this exact swing claim.
+- **COIN run 0:** operating-loss commentary lists the 35% decrease in transaction expense as a driver of the loss. Source expenses $195.859M vs $303.026M confirm that this cost reduction mitigates the decline (refutation 1); the true technology-cost increase does not change its sign (refutation 2). Run 1 removes the mistaken clause.
+- **MELI run 1:** OCF is said to fund a $2.904B financing inflow. The cash-flow statement separately identifies that amount as a source of cash (refutation 1); correct amount and sign elsewhere do not make an inflow a use funded by OCF (refutation 2). Retain as causal wording, not a fabricated dollar amount.
+
+## Refuted candidates / observed improvements
+
+MELI revenue acceleration 39.1% vs 37.5% is source-supported (MD&A comparison table); do not group with PLTR's wrong comparator. Its cash-only $5.523B net-debt calculation explicitly identifies $3.670B cash and separately lists $2.629B investments, so no new arithmetic defect is established. Genuine operating amounts remain in all six outputs; BYND combined basic/diluted loss-per-share label is source-reported. COIN no longer equates adjusted EBITDA with positive core operating earnings as explicitly as C did.
+
+Three scorer flags are nearby-metric false matches, independently checked against table math and narrative/source subjects: COIN0 Diluted EPS ~30.5% versus720.8% picks up revenue; COIN1 Net income ~67% versus700.7% picks up EBITDA; BYND0 Net loss ~15.3% versus53.4% picks up revenue. BYND1 and both MELI score1.0. No baseline/scorer change is justified merely to erase the warning. Evidence-near-match and omitted-source issues remain separately recorded; a located quote alone is not an entailment guarantee.
