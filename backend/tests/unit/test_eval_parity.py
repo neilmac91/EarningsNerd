@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import shlex
+import shutil
 import subprocess
 from copy import deepcopy
 from pathlib import Path
@@ -285,3 +286,105 @@ def test_pin_cli_refuses_hard_veto_evidence_without_overwriting(tmp_path, pin_re
     with pytest.raises(ValueError, match='Cannot pin'):
         pin_baseline.main([str(report), '--out', str(output)])
     assert output.read_bytes() == previous
+
+
+def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_path):
+    """Execute the real scope shell over Git histories; never invoke the evaluator."""
+    workflow = yaml.load((ROOT / '.github/workflows/ci.yml').read_text(), Loader=yaml.BaseLoader)
+    steps = workflow['jobs']['eval-baseline']['steps']
+    checkout = next(s for s in steps if s.get('uses', '').startswith('actions/checkout'))
+    assert checkout['with']['fetch-depth'] == '2'
+    scope = next(s for s in steps if s.get('id') == 'scope')
+    assert scope['env'] == {'EVENT_NAME': '${{ github.event_name }}',
+                            'PR_HEAD_SHA': '${{ github.event.pull_request.head.sha }}'}
+    key = next(s for s in steps if s.get('id') == 'key')
+    assert key['if'] == "steps.scope.outputs.run == 'true'"
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    git_bin = shutil.which('git')
+    assert git_bin
+
+    def git(*args, cwd=repo):
+        return subprocess.check_output(
+            [git_bin, '-c', 'core.hooksPath=/dev/null', *args], cwd=cwd,
+            stderr=subprocess.STDOUT, text=True,
+        ).strip()
+
+    git('init', '-b', 'main')
+    git('config', 'user.name', 'Offline scope fixture')
+    git('config', 'user.email', 'scope@example.invalid')
+    (repo / 'backend/app').mkdir(parents=True)
+    (repo / 'backend/app/service.py').write_text('old AI code\n')
+    git('add', '.')
+    git('commit', '-m', 'shared base')
+    old_base = git('rev-parse', 'HEAD')
+    git('switch', '-c', 'docs')
+    (repo / 'notes.md').write_text('docs only\n')
+    git('add', '.')
+    git('commit', '-m', 'docs PR')
+    docs_head = git('rev-parse', 'HEAD')
+    git('switch', 'main')
+    (repo / 'backend/app/service.py').write_text('new upstream AI code\n')
+    git('add', '.')
+    git('commit', '-m', 'upstream AI change')
+    git('merge', '--no-ff', 'docs', '-m', 'checked docs merge')
+    docs_merge = git('rev-parse', 'HEAD')
+    git('branch', 'docs-merge', docs_merge)
+    # This is exactly the false positive: old event base includes newer main's AI change.
+    assert 'backend/app/service.py' in git('diff', '--name-only', old_base, docs_merge).splitlines()
+
+    def run_scope(cwd, head, pr_head, *, event='pull_request', extra_env=None):
+        output = tmp_path / 'scope-output'
+        output.unlink(missing_ok=True)
+        env = {**os.environ, 'EVENT_NAME': event, 'GITHUB_SHA': head, 'PR_HEAD_SHA': pr_head,
+               'EVENT_BASE_SHA': old_base, 'GITHUB_OUTPUT': str(output), 'RUNNER_TEMP': str(tmp_path),
+               **(extra_env or {})}
+        result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', scope['run']],
+                                cwd=cwd, env=env, capture_output=True, text=True, check=False)
+        return result, output.read_text() if output.exists() else ''
+
+    result, output = run_scope(repo, docs_merge, docs_head)
+    assert result.returncode == 0, result.stderr
+    assert output == 'run=false\n'
+    shallow = tmp_path / 'depth-two'
+    git('clone', '--depth=2', '--branch=docs-merge', repo.as_uri(), str(shallow))
+    result, output = run_scope(shallow, docs_merge, docs_head)
+    assert result.returncode == 0, result.stderr
+    assert output == 'run=false\n'
+
+    git('switch', '-c', 'ai-pr', old_base)
+    # Embedded quotes/newlines must not turn Git's display quoting into a missed AI path.
+    (repo / 'backend/app/"quoted\nname.py').write_text('actual PR AI change\n')
+    git('add', '.')
+    git('commit', '-m', 'AI PR')
+    ai_head = git('rev-parse', 'HEAD')
+    git('switch', 'main')
+    git('merge', '--no-ff', 'ai-pr', '-m', 'checked AI merge')
+    ai_merge = git('rev-parse', 'HEAD')
+    result, output = run_scope(repo, ai_merge, ai_head)
+    assert result.returncode == 0, result.stderr
+    assert output == 'run=true\n'
+    result, output = run_scope(tmp_path, '', '', event='workflow_dispatch')
+    assert result.returncode == 0 and output == 'run=true\n'
+
+    depth_one = tmp_path / 'depth-one'
+    git('clone', '--depth=1', '--branch=docs-merge', repo.as_uri(), str(depth_one))
+    # Loose-object copy gives a merge whose second parent is declared but unavailable.
+    broken = tmp_path / 'broken-parent'
+    shutil.copytree(repo, broken)
+    (broken / '.git/objects' / ai_head[:2] / ai_head[2:]).unlink()
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    stub = bin_dir / 'git'
+    stub.write_text('#!/bin/sh\nif [ "$1" = diff ]; then exit 73; fi\nexec "$REAL_GIT" "$@"\n')
+    stub.chmod(0o755)
+    for cwd, head, pr_head, extra in [
+        (depth_one, docs_merge, docs_head, {}),
+        (repo, old_base, ai_head, {}),
+        (repo, ai_merge, docs_head, {}),
+        (broken, ai_merge, ai_head, {}),
+        (repo, ai_merge, ai_head, {'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'REAL_GIT': git_bin}),
+    ]:
+        result, output = run_scope(cwd, head, pr_head, extra_env=extra)
+        assert result.returncode != 0, result.stdout
+        assert output == '', 'Unknown scope must neither authorize spending nor claim no AI changes'
