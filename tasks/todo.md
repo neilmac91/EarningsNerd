@@ -1,3 +1,12 @@
+## September 9 comparative release and next quality readout
+
+- [x] Complete [#797](https://github.com/neilmac91/EarningsNerd/pull/797): final 52-summary and 18-answer artifacts accepted; exact-head merge and revision `earningsnerd-backend-00322-6zw` verified at 100%, migrations 0/39 and both detailed health checks healthy. The [execution ledger](beta-to-scale-execution.md) retains exact identities, timeout recovery and traceability limits.
+- [ ] Accept [#799](https://github.com/neilmac91/EarningsNerd/pull/799)'s actual 52 outputs and exact previews. Local gate passes 2,821 tests; verify reported P&L basis, honest-empty evidence, normalized values and export projections before merging. Inspect the full cohort for redistributed errors, not only PFE.
+- [ ] Release the prepared cash-flow-basis and source-boundary diagnostics serially after their actual prerequisite integration/gates; then address surviving narrative and bounded source-inclusion findings. The measurement-only dispatch is locally integrated/gated but neither published nor executed.
+- [ ] Complete source-scope serialization and actual-output acceptance following the independently verified NVO page feasibility. No whole-exhibit insertion or new production inventory-only PR is implied. See the [residual acceptance checklist](quality-residual-acceptance-2026-09-09.md).
+
+Final Fable reconciliation and the original engineering audit are complete. Partial coverage, unseen human acceptance, original named rollout/account/major-dependency prerequisites and the universe-wide pregeneration hold remain. Passing regression gates does not clear them.
+
 ## September 9 comparative identity in review
 
 - [x] Verify #796 production on `earningsnerd-backend-00321-2v4` before publishing another backend change.
