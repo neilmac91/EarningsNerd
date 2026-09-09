@@ -1,3 +1,9 @@
+## September 9 comparative identity — authorized finding-fix round
+
+Hosted review of #797 identified the documented `EPS (diluted)` spelling missing from the exact identity map. Two refutations checked the actual structured preambles/XBRL label and production normalization against competing generic/diluted values: this unambiguous spelling lost its own prior and per-ADS projection. Local correction `2268fcb8ef3da73caa0318cbfd2d2b4e19fcae26` adds only that alias and existing positive test cases; Ruff/Bandit and all 2,801 tests passed with four PostgreSQL lanes/performance and eleven locked anchors unchanged. Existing mutation proofs were not repeated.
+
+This confirmed-finding correction is the reason for the founder-authorized second paid Copilot evaluation when the corrected head is pushed. No third round is authorized here. Preserve first-round Copilot run `34320997028`, artifact `10091927170`, and summary run `34320938324`, artifact `10092298516`; the latter completed before the fix push. Its 52 planned outputs are usable with matching retained sources/excerpts and actual regression passing with the existing 2.135 figure-trace advisory. First-round Copilot passed 18/18 with seven uncited answers retained as an advisory. Neither first-round result clears the corrected head or establishes world-class analysis. Final hosted acceptance, exact-head merge and serial production verification remain pending.
+
 ## September 9 application-error release — verified
 
 #796 merged as `295daaaa1e67ef8cc89358819646d32a9edddf94` at 06:42:55 UTC. Main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). This records the completed release without changing prior published ledgers.
