@@ -72,7 +72,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-09-a: Deterministic rendering: remove segment revenue shares derived from overlapping flat
 #   members; align the figure-table description with retained operating margins; include the prior
 #   working-capital report-date labeling correction. Taxonomy unchanged.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-a"
+# summary-2026-09-b: Return-ratio basis is explicit in model grounding and deterministic rendering:
+#   period net income / period-end equity or assets, not annualized. Taxonomy unchanged.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-b"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

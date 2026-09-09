@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
-from app.services.ai.xbrl_narrative import returns_ratio_in_band
+from app.services.ai.xbrl_narrative import return_ratio_basis, returns_ratio_in_band
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -511,7 +511,7 @@ class _MarkdownRenderMixin:
         roe = (xbrl_metrics or {}).get("return_on_equity")
         roa = (xbrl_metrics or {}).get("return_on_assets")
 
-        def _ratio_clause(label: str, metric: Any) -> Optional[str]:
+        def _ratio_clause(key: str, label: str, metric: Any) -> Optional[str]:
             # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
             # RETURNS_RATIO_BAND_PCT almost always means a near-zero denominator (HD's ~$1B equity
             # → "1644.4%") — arithmetically true, analytically noise. Honest negatives inside the
@@ -530,10 +530,10 @@ class _MarkdownRenderMixin:
             prior_value = prior.get("value")
             if returns_ratio_in_band(prior_value):
                 clause += f" (prior {prior_value:.1f}%)"
-            return clause
+            return f"{clause} ({return_ratio_basis(key)})"
 
-        ratio_clauses = [c for c in (_ratio_clause("return on equity was", roe),
-                                     _ratio_clause("return on assets", roa)) if c]
+        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", "return on equity was", roe),
+                                     _ratio_clause("return_on_assets", "return on assets", roa)) if c]
         if ratio_clauses:
             line = "; ".join(ratio_clauses)
             vd["returns_on_capital"] = line[0].upper() + line[1:] + "."
