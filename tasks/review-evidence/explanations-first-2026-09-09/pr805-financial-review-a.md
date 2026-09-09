@@ -1,0 +1,82 @@
+# #805 first actual e readout — independent review A
+
+**Disposition: hold e for the confirmed explanation failures below.** This review covers all raw sections of all 16 assigned new outputs and their 16 fixed pre-e counterparts. It finds two material new explanation instances, several smaller direction/basis defects, and inherited source/cash limitations. This is a bounded development-cohort assessment, not unseen or fleet quality acceptance.
+
+## Evidence and coverage
+
+New artifact: `work/pr805-summary/eval_20260909T104301Z.json`, SHA-256 `0519f738ddde92be15bedd7f4c827bb6cf015deb7331ba3c5ce3928d6b8f8b29`; fixed pre-e: `work/pr803-summary-round2/eval_20260909T100535Z.json`, SHA-256 `713ff3f98293881b9934b5ff24c474259f1043780fc1876ed4578ce80b92`. “E0/E1” mean zero-based repeat values 0/1, not chronological provider attempts. The new harness execution source is `2063473d2ab9387207dfa38a00855c2547b9a899`; B owns the independent execution/usage acceptance.
+
+All raw fields, including evidence, segments, footnotes, risks, liquidity and forward signals, were read for both sides. B's offline production normalization/web/Markdown/PDF-body/CSV projections are under `work/pr805-normalization-projection/`; projection code is reviewed head `b6a3272e03ea397e3b434bfeba1e764ff91b099e`. I compared all assigned web-projection strings with the already-read raw strings: the only additional long strings are liquidity section prefixes. Thus the findings below reach the shared projected narrative. These are offline helper outputs, not observed browser, persisted pipeline or rendered PDF sessions. Numeric normalization changes are not assumed to mean numeric corrections: B's separate numeric audit governs that claim.
+
+The exact assigned preview inventory contains **115 retained callbacks, all 115 exact final-section subsets**, as recorded in `work/pr805-preview-review/preview-frame-comparison.json`. The independent owner checks report their derived values match the current owners. There is no new preview-only narrative to adjudicate in these 16 outputs. This does not establish original wire completeness or association with a particular final internal provider response.
+
+`work/pr805-financial-review-a/coverage.json` preserves each identity, source URL/hash, observed coverage, evidence checks and preview retention. All 16 paired excerpts and XBRL metrics match their fixed pre-e counterparts. Source adjudication below uses bounded windows of those actual supplied excerpts and previously retained public filing packets; it does not claim a new full-source reread. G offsets are zero-based character offsets in the relevant result's `grounding_excerpt`. F labels refer to retained `outputs/fable-full-review/cases/.../03-*` full-source text. Integrity is not coverage.
+
+| Company | New result indices | Both repeats: controls and residual status |
+|---|---:|---|
+| MSFT | 2, 3 | Revenue, dollar gross margin, genuine operating income, net income and EPS retained. Prior blanket “accelerated across all segments” is gone. OpenAI losses, IRS exposure and segment recast retained; no material new instance established. |
+| NVDA | 4, 5 | Genuine operating income retained; prior “all more than doubled” revenue error removed. E1 has the material dollar-versus-rate cause error; E0 retains current-versus-change confusion. |
+| JPM | 6, 7 | Bank revenue/provision basis retained; E1 explicitly reports pretax income rather than inventing operating income. E0 has the material reverse-sign bridge. E1 lists effects without that bridge. |
+| KO | 8, 9 | Genuine operating income and earnings values retained. E0 correctly says excluding lower charges reduces growth; E1 correctly says adding charges back increases income. Inherited fairlife cash and missing forward-tax coverage remain. |
+| TSLA | 10, 11 | Revenue/NI/EPS retained. E0 supplies a correct same-period operating-charge bridge; E1 retains an operating-income row. E0 retains the opposite EPS denominator direction. |
+| AMZN | 12, 13 | Genuine operating income retained, with operating charges separated from Anthropic other income. The prior unrelated operating-cash-flow explanation in the NI row is removed. EPS direction and cash-definition problems remain. |
+| XOM | 14, 15 | Sales versus total revenues distinguished where both are shown; no pretax-as-operating relapse. Signed segment identified-items reconciliation retained. E0 repeats a false cash-use comparison. |
+| TSM | 40, 41 | Revenue/GP/genuine OI/NI retained, with valid basic versus diluted EPS choices. Unsupported acceleration removed: source growth is 31.6% versus prior 33.9% (G20349). E0 distinguishes declared and paid dividends; E1 has a smaller subsequent-event placement error. |
+
+## Confirmed material new explanation instances
+
+### E-A01 — JPM E0 reverses the prior-year Visa adjustment
+
+Locator: new `results[6].raw_sections.earnings_quality.operating_vs_one_time`; present in the corresponding `after/offline-web-projection.json` and Markdown. Quote: **“Excluding these items, net income would have been lower in 2025 and higher in 2024”** after naming the prior $7.9B Visa gain and $1.0B foundation contribution. Actual supplied G74043–74350 identifies both as second-quarter 2024 items, gain in net revenue and contribution in expense; G84014–85000 independently explains the absence of the gain as a negative current comparison and absence of the contribution as a positive current comparison. Excluding the net positive prior effect reduces prior earnings, not increases them. This materially distorts the interpretation of reported NI falling from about $58.5B to $57.0B.
+
+Refutation 1: removing the charitable expense alone would raise prior income, but the sentence expressly removes both items; the much larger gain has the opposite direction. Refutation 2: neither the missing adjusted-NI reconciliation nor an unknown tax conversion licenses the asserted sign. I do not calculate a precise after-tax adjusted NI from pretax inputs. The honest response is the separately identified effects or a supported signed bridge. Pre-e listed prior items but did not make this explicit higher-2024 assertion; E1 avoids it. Classification: **new material instance, supplied evidence unused/misapplied**.
+
+### E-A02 — NVDA E1 turns a rate explanation into the primary cause of dollar profit growth
+
+Locator: `results[5].raw_sections.results_that_matter.table[1].commentary`: **“Gross profit increased 129% YoY, primarily due to the prior year's $4.5B H20 excess inventory charge.”** Its evidence is a passage about gross **margin** rising from 60.5% to 74.9%. G59950–60330 says the rate increased on lower inventory provisions, primarily the prior H20 charge. The actual income statement at G210–420 separately reports revenue 81,615/44,062 and gross profit 61,157/26,668, all $M.
+
+Refutation 1: the H20 charge genuinely affects both gross profit and margin; it is relevant, so the finding is the unsupported **primary explanation for dollar growth**, not the mention itself. Refutation 2: even treating all $4.5B as absent current-period expense explains only about 13% of the $34.489B dollar increase. Revenue rose $37.553B; holding the old approximately 60.5% rate explains roughly $22.7B of gross-profit growth before the rate change. A located quote does not transfer its explanatory scope from percentage margin to dollar profit. Pre-e attached the rate explanation with rate wording. E0 likewise discusses margin explicitly. Classification: **new material measure-basis instance**, visible in the projected table.
+
+## Smaller confirmed defects and scoped omissions
+
+### E-A03 — denominator direction is still wrong (TSLA E0; AMZN both)
+
+TSLA `results[10]...table[2].commentary` says the EPS decrease was **“partially offset by higher weighted average diluted shares.”** Supplied G17268 and G61330 give diluted shares 3,528 versus 3,498. AMZN `results[12]` and `[13]...table[3].commentary` attribute the EPS increase partly to a **“modest increase in diluted shares outstanding”**; G10350 gives 10,827 versus 10,721. Both have positive NI.
+
+Refutation 1: higher shares are factually correct but reduce EPS holding positive income constant; they amplify TSLA's decline and temper AMZN's increase. Refutation 2: these are not loss-period anti-dilution cases or merely neutral “with” descriptions: the causal words assign the wrong direction. Amounts themselves remain correct and share effects are modest, so retain as **minor but direct failures of e's signed explanation control**. TSLA repeats an existing pre-e defect; AMZN makes the prior neutral/ambiguous denominator description explicitly causal. Honest empty evidence in these rows does not repair wrong commentary.
+
+### E-A04 — NVDA E0 labels the change as current other income
+
+`results[4].raw_sections.the_print.key_takeaways[1]` and its NI commentary use approximately $16.1B of other income, whereas the earnings-quality field correctly gives $15.9B. Supplied G67600–68800 separates **15,929 current**, **(180) prior**, **16,109 change**, and **16,367 total other income** ($M).
+
+Refutation 1: rounding current 15.929 to one decimal billion gives 15.9, not 16.1. Refutation 2: using the broader total cannot support 16.1 either (16.367 rounds 16.4). Small relative to NI $58.321B; classify **minor basis error**, inherited family previously present in pre-e E1, now in E0. The accurate later paragraph mitigates severity but leaves an inconsistent lead/table.
+
+### E-A05 — XOM E0 repeats an arithmetically false cash explanation
+
+`results[14].raw_sections.balance_sheet_liquidity.liquidity` says repurchases and capex exceeded OCF. Actual G5700–6900: OCF 51,970, PP&E cash additions 28,358, common stock acquired 20,273, and shareholder dividends 17,231 ($M). Repurchases plus capex are 48,631, **below** OCF by 3,339; adding dividends creates the cash deficit.
+
+Refutation 1: dividends and other financing uses can explain the cash decline, but the sentence names only repurchases and capex. Refutation 2: broader capital-spending definitions do not rescue this summary's own 28.4B selected-capex comparison. The actual lower cash balance and all cash-flow values remain visible, so this is a **minor inherited causal arithmetic error**, present in both pre-e outputs and retained only in E0. E1's “funding” lead does not say OCF alone fully covered all uses; its “primarily” financing description is compatible with partial cash-balance funding and is not charged as a second instance.
+
+### E-A06 — KO's cash rebound remains materially under-explained; forward-tax scope remains absent
+
+Both `results[8/9].raw_sections.the_print.key_takeaways[2]` attribute the $7.223B OCF rebound to working-capital normalization/improvement without explaining the prior acquisition milestone. Actual G4558 gives operating assets/liabilities -2,263/-8,521; G77056 identifies the $6,173M fairlife payment in March 2025. Retained full source **05-KO F01358–F01360** identifies **$6,069M** of that payment in operating activities, about 84% of the OCF rebound. Both pre-e outputs already omitted the payment. E mentions only the $47M remeasurement expense, which is a different amount and role.
+
+Refutation 1: “working capital” is compatible with the cash-flow bucket's mechanical improvement; the finding is materially incomplete cash-quality explanation, not a fabricated total. Refutation 2: the small income-statement remeasurement does not explain the payment. However, the decisive $6,069M cash allocation and dedicated cash-flow MD&A are outside the actual supplied G excerpt, so complete remediation includes **product source coverage**, not blaming e for absent text. The supplied payment evidence was also unused, so this is a mixed coverage/selection residual, not a newly created e failure.
+
+The older future-tax omission also remains: full **F01350** estimates approximately $14B additional 2010–2025 liability plus about $450M for Q1 2026, distinct from the $6B already paid. Refutation 1: the risks correctly describe the paid case but do not cover those later years. Refutation 2: searches of the actual supplied excerpt do not find either amount, so retain this as an inherited **coverage defect requiring source acquisition**, not an e compliance verdict. No implication that the possible tax amounts are accrued or immediately payable.
+
+## Additional boundaries and refuted candidates
+
+AMZN both now carry selected-capex-derived FCF $7.7B into broader narrative, whereas supplied G112017–113100 defines issuer FCF as OCF 139,514 minus purchases **net of proceeds/incentives** 128,320 = 11,194 ($M). The cash equation 139.5 minus gross selected 131.8 = 7.7 is legitimate on its explicit basis (refutation 1); deterministic cash conversion already owned that result pre-e (refutation 2). Thus the new lead's amplification needs the prepared **f shared cash-basis remedy**, not a false arithmetic allegation or an assertion that e repaired issuer FCF. The server-life change's $1.4B depreciation/$1.0B NI effect (G17578) disappears from both e footnote sets despite being present pre-e. Larger Anthropic/operating-charge disclosures remain (refutation 1), and this is roughly 1.3% of NI rather than the dominant annual cause (refutation 2): **minor completeness loss**, not an invented material bridge.
+
+TSM E1 places the February 2025 Marlin transaction in `forward_signals.subsequent_events` for the year ended December 2025. The event itself is real (refutation 1), but “subsequent” cannot mean simply after acquisition planning when the reporting period is expressly full-year 2025 (refutation 2). **Minor temporal placement**, not a false dollar value. TSM's explicit long-term-debt basis and NVDA's inclusion of both marketable debt and equity securities are not rejected merely because an alternative net-cash definition differs. Likewise TSM basic 65.47/44.68 versus diluted 65.47/44.67 are legitimate labeled bases.
+
+MSFT E0's wording may overassign the whole “Other, net” loss to equity-method losses: source G42884 says **primarily** reflects those losses. E1 preserves that qualifier. I do not claim a material new OpenAI-loss error without a quantified unsupported allocation. KO E1's omitted favorable currency in its revenue commentary is incomplete but the 12% reported total and FX discussion remain elsewhere; no new material bridge is inferred. Genuine gross-margin dollars at MSFT are not percentage mislabels.
+
+Evidence location remains advisory. XOM uses a genuinely located Upstream **earnings** driver quote for a revenue explanation; location alone does not entail the revenue attribution. TSM's revenue quote contains the right supplied explanation but spans an embedded page number, so an exact-string miss is not automatically fabricated content. Unmatched raw evidence and visible prose are separate contracts: raw supporting-evidence defects must not be described as visible fabricated quotations without checking the shared renderer. The two material narratives above remain visible irrespective of evidence suppression.
+
+## Existing-owner remediation tradeoff
+
+The intended shared predicate improved several descriptions but did not reliably govern its own signed and measure-basis controls. A second layer of issuer warnings would repeat the failed mechanism. At the existing primary/recovery explanation boundary, the next bounded design should make adjustments carry **reported measure, entity, current/prior period, signed pretax/after-tax effect, currency/unit and evidence role** before allowing an adjusted comparison; a driver explanation should retain the target measure of its support. Deterministic checking can reject a wrong subtraction or a rate-to-dollar transfer only when that provenance exists. It must leave an unsupported bridge unasserted while preserving reported values and separately supported items.
+
+This adds structured provenance complexity and requires real measurement; a blanket removal of all explanations would also discard correct TSLA charge bridges, XOM segment adjustments and useful causes. Prefer a bounded typed adjustment/support contract with explicit unknowns, not amount-equality/ticker classifiers or more warnings. Existing debt/cash completeness and absent legal/source evidence stay with their separate owners. No code, test, source fetch or model call was performed for this review; no second paid round is authorized by this report.

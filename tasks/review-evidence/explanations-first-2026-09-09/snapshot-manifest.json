@@ -1,0 +1,54 @@
+{
+  "scope": "Six exact independent first-e reports plus one exact offline feasibility research snapshot. F/G/E locators refer to retained public filing packets, not source text shipped in this snapshot. Integrity does not prove coverage. Work paths inside unchanged reports identify local analysis artifacts, not fresh-checkout links; the reports retain the substantive findings and refutations.",
+  "files": [
+    {
+      "file": "pr805-financial-review-a.md",
+      "sha256": "23ae3a5883c26c38fb788610af27b96287164cdd80c59f3f77e6fa773ab864be",
+      "bytes": 16514,
+      "source": "work/pr805-financial-review-a.md",
+      "copied_unchanged": true
+    },
+    {
+      "file": "pr805-financial-review-c.md",
+      "sha256": "771ed7ac02c6f982e3c7bd693395ea3959b652c70ec7204e00f3932a574aca72",
+      "bytes": 13400,
+      "source": "work/pr805-financial-review-c.md",
+      "copied_unchanged": true
+    },
+    {
+      "file": "pr805-root-financial-review.md",
+      "sha256": "afbd66a7d56ec1a32791ce8f6f4a0e5133d6521f90504d13009c1c0805242e88",
+      "bytes": 5042,
+      "source": "work/pr805-root-financial-review.md",
+      "copied_unchanged": true
+    },
+    {
+      "file": "pr805-copilot-acceptance.md",
+      "sha256": "7f39c17b5372815b5c740e57f0245865d0f814742756ee4e06909d1dc2fbe76a",
+      "bytes": 3597,
+      "source": "work/pr805-copilot-acceptance.md",
+      "copied_unchanged": true
+    },
+    {
+      "file": "pr805-summary-acceptance.md",
+      "source": "work/pr805-summary-acceptance.md",
+      "sha256": "a2389d2647301ce61d7c61acedeaa0a3b335dd2191ec5c9923b67c498d6f2184",
+      "bytes": 6091,
+      "copied_unchanged": true
+    },
+    {
+      "file": "pr805-financial-review-b.md",
+      "source": "work/pr805-financial-review-b.md",
+      "sha256": "94a3955c18483f93ffc33e3a718d1d01d26642877096ae0049fb52281f1c16c1",
+      "bytes": 21372,
+      "copied_unchanged": true
+    },
+    {
+      "file": "typed-financial-explanation-feasibility.md",
+      "source": "work/typed-financial-explanation-feasibility.md",
+      "sha256": "4ec6307d3a47f4fa3151745358d1186cab1927a24d967fc729da6fa0d58e6935",
+      "bytes": 16344,
+      "copied_unchanged": true
+    }
+  ]
+}
