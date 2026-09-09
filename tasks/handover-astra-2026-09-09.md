@@ -2,6 +2,12 @@
 
 Read root AGENTS.md, CLAUDE.md, applicable lessons, the original [September 8 handover](handover-astra-2026-09-08.md), [wave-3 plan](handover-wave3-2026-09.md), [CEO implementation plan](ceo-implementation-plan-2026-09-08.md), then this checkpoint and [todo](todo.md). Earlier ledger entries are historical; dated corrections supersede them without rewriting them.
 
+## Subsequent incident correction — read first
+
+The [documentation-evaluation incident](incident-docs-eval-scope-2026-09-09.md) supersedes the earlier “no subsequent paid measurement” statement below. A stale-base workflow comparison counted upstream main changes as part of docs #783 and launched seven unintended evaluations: 196 successful summary generations, 147 HTTP 402 errors, 8,378,456 provider-reported tokens. Exact billing and canceled in-flight usage remain unknown. One launch occurred after the explicit funding hold; the agent stopped unsafe pushes and reported the deviation. Original records remain intact.
+
+#783 merged as `395027a6a6c2f8a7c6edad8d3ee1bae1f602353e`; backend remains #788 / revision00318-q79. A separate local scope safeguard is prepared at `979f0890487d7ec7e05eaf16cea38f576cd3f381`, with full gate passed: 2,756 tests, Ruff/Bandit, YAML/consumer gates and 3 Node-lockstep tests. It validates the checked PR merge and compares its first parent, failing without authorizing generation if provenance/history/diff is unavailable. After funding restoration, release this safeguard first, then resume the held source/error/identity/prompt sequence. Do not repeat paid Copilot merely to rerun a failed summary job.
+
 ## 0. Handover point and checkpoint
 
 The original takeover was main `3336d513` (#770), auditing the prior session's `d7b01779..3336d513` span. The initial audit and dependency follow-up were completed through #781; #782 records the founder's quality-first direction. This continuation leaves the backend at main `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1` (#788). The handover/research publication is docs-only #783; resolve its final squash SHA from GitHub when resuming rather than treating the backend SHA as the later documentation commit.

@@ -1,3 +1,9 @@
+## September 9 final incident checkpoint — supersedes no-evaluation claims
+
+- [x] Complete the [docs-evaluation retrospective](incident-docs-eval-scope-2026-09-09.md): 196 successful generations and 147 402 errors across seven unintended runs; 8,378,456 reported tokens, exact billing unknown. Root independently verified the log totals.
+- [ ] Workflow scope correction prepared at `979f0890487d7ec7e05eaf16cea38f576cd3f381`; final local gate passed: 2,756 tests, Ruff/Bandit, YAML/consumer gates and 3 Node-lockstep tests. Release this safeguard before resuming older-branch synchronizations.
+- [ ] DeepSeek funding and ordered hosted acceptance still block code releases. Five local candidates now include scope protection; no additional intentional evaluation or top-up.
+
 ## September 9 evaluation-scope incident correction
 
 - [ ] Docs #783 unexpectedly triggered CI evaluation 34295464681 after the funding hold; 52 attempts returned 402. Unsafe pushes stopped; founder informed. The earlier “no subsequent evaluation” statement is superseded by this dated correction.
