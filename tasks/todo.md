@@ -1,3 +1,13 @@
+## September 9 supported-explanation assessment — semantic acceptance failed
+
+- [x] Review the first actual #805 cohort against the fixed pre-e reference; retain the [rejected assessment and exact independent reports](quality-explanations-first-readout-2026-09-09.md). Green code/regression gates and usable outputs do not clear the surviving signed, measure-basis and debt-scope defects.
+- [x] Record docs-only #806 main CI34341005430 and deploy job102432339156: explicit `No backend changes - skipping deploy.` at 10:38:13.1854728 UTC. Last verified backend remains `earningsnerd-backend-00324-fcq` from #803.
+- [ ] Keep #805 open and held, not merged. Only its first paid assessment round has run; no second assessment has been launched. A coherent correction and review decision remain required.
+- [ ] Prioritize source-qualified debt/cash components and bounded typed source/measure/period/signed-explanation feasibility at existing owners. Keep independent cash-basis/source-coverage preparations separate; their local gates do not establish actual acceptance. Optional DeepSeek thinking-mode research is unproven feasibility, with no activation or additional experiment.
+- [ ] Preserve the existing founder boundaries, seven partial Fable cases and unseen acceptance. The readout states the pending T9 decision once; broad replay and universe-wide pregeneration remain held.
+
+This dated addition supersedes earlier pending-first-assessment status only. Earlier published records remain unchanged.
+
 ## September 9 corrected preview assessment — production verified
 
 - [x] Read the second #803 summary artifact: 52 usable final outcomes; one timeout-triggered outer retry, 54 provider calls and unknown usage for two unsuccessful calls. Successful-call ownership and 265-row numeric projections pass; preserve the [dated second readout](quality-preview-final-readout-2026-09-09.md) alongside the rejected first assessment.
