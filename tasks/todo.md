@@ -1,3 +1,8 @@
+## September 9 maintenance verification and diagnostic correction
+
+- [x] Minor SDK #791: verified revision `earningsnerd-backend-00317-88l`, main CI 34292889980, migrations 0/39, healthy CI and independent detailed health. Dependabot #780 is closed.
+- [ ] Source #792: confirmed failure-report metadata omission fixed and locally gated; second paid review is the authorized confirmed-finding round.
+
 ## September 9 source observation and segment releases
 
 - [x] Excerpt provenance #789: production-verified at `earningsnerd-backend-00315-qlb`, main CI 34291185532, migrations 0/39, CI and independent detailed health healthy.

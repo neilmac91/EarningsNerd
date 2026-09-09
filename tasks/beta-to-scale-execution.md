@@ -565,3 +565,13 @@ Main CI [34291185532](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 [#787](https://github.com/neilmac91/EarningsNerd/pull/787) merged as `e6b76a3ca11dbb91c3f09ae38d00e0be267e8bd4`. Final local backend gate passed 2,740 tests including performance/four PostgreSQL lanes. Actual summary run 34290248962 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290248951 accepted 18/18. The segment second paid run was the authorized confirmed version-finding fix round; original evidence is retained. 
 
 Main CI [34291811124](https://github.com/neilmac91/EarningsNerd/actions/runs/34291811124) and deploy job 102280456832 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00316-tfj` serves 100% traffic. CI detailed health 1788911324.6704717 and independent curl 1788911457.3238676 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
+
+## September 9 release checkpoint — minor SDK maintenance
+
+[#791](https://github.com/neilmac91/EarningsNerd/pull/791) merged as `becf5950ff21740b61d798279dc8caf49e519180`. The full local backend gate passed 2,744 tests; PR CI 34290785310 was green and explicitly skipped summary generation for this requirements-only change. Copilot 34290875807 accepted 18/18. No 52-output regression is claimed for this PR. Dependabot #780 is already closed.
+
+Main CI [34292889980](https://github.com/neilmac91/EarningsNerd/actions/runs/34292889980) and deploy job 102283809271 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00317-88l` serves 100% traffic. CI detailed health 1788912237.9538262 and independent curl 1788912343.3765547 are healthy, database 6.97/6.67 ms, SEC circuit closed. DeepSeek and production settings remain unchanged.
+
+## September 9 confirmed source-provenance review correction
+
+PR #792's common evaluation exception outcome discarded source and excerpt metadata after generation, scoring or judging failure. Two refutations traced the exception return and downstream retry/report serialization; neither could recover discarded observations. Head `396b01b5a43261e787678d4dc322386a82e9ef7e` retains both optional fields, passed 2,760 tests, and has one new failure-retention mutation proof (6 failed → 6 passed). The second paid Copilot run is authorized specifically for this confirmed-finding fix round. Earlier proofs and first-round evidence remain preserved. All 52 first-round source hashes and lengths match the retained documents across 26 accessions; this does not certify accounting interpretation.
