@@ -246,6 +246,7 @@ async def _attempt(
     started = time.monotonic()
     stream_requested = None
     preview_count = 0
+    application_failure = None
     try:
         if candidate == "baseline":
             from app.services.openai_service import openai_service
@@ -265,6 +266,16 @@ async def _attempt(
                 xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                 stream_cb=stream_cb,
             )
+            if summary.get("status") == "error":
+                raw_error = summary.get("raw_summary") or {}
+                application_failure = {
+                    "status": "error",
+                    "code": raw_error.get("error") if isinstance(raw_error, dict) else None,
+                    "detail": str(raw_error.get("detail", ""))[:500] if isinstance(raw_error, dict) else "",
+                }
+                # The application already handled the provider failure. Its returned fallback
+                # is not a successful model output, nor evidence of a retryable exception.
+                raise ValueError("Application summary returned status:error")
             latency = round(time.monotonic() - started, 3)
             payload = _baseline_to_canonical(summary)
             # Fidelity referent = the text the model GENERATED FROM (excerpt-first) — the same
@@ -314,6 +325,7 @@ async def _attempt(
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
+                "application_failure": application_failure,
                 "source_provenance": grounding.get("source_provenance"),
                 "coverage_inventory": grounding.get("coverage_inventory"),
                 "_transient": _is_transient(exc)}
