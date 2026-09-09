@@ -1,4 +1,6 @@
 import time
+import json
+from app.services.excerpt_provenance import excerpt_provenance
 from app.utils.datetimes import utcnow
 from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple
@@ -484,8 +486,17 @@ def get_or_cache_excerpt(
 
     cache = filing_reattached.content_cache
     filing_type = filing_reattached.filing_type
+    accession = filing_reattached.accession_number
+
+    def observe(excerpt: str, source: str) -> None:
+        metadata = excerpt_provenance(
+            excerpt, accession=accession,
+            source=source, sections=sections,
+        )
+        logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
 
     if cache and cache.critical_excerpt:
+        observe(cache.critical_excerpt, "legacy_cached_excerpt")
         return cache.critical_excerpt
 
     filing_type_key = (filing_type or "10-K").upper()
@@ -493,6 +504,7 @@ def get_or_cache_excerpt(
     # Prefer edgartools' native section parser (precise, robust to fragmented HTML); fall back
     # to the legacy regex + dense-window extractor when sections are unavailable or too thin.
     excerpt = None
+    source = "edgartools"
     if sections and settings.USE_EDGARTOOLS_SECTIONS:
         excerpt = openai_service.assemble_excerpt_from_sections(
             sections, filing_type_key, filing_text=filing_text
@@ -500,6 +512,7 @@ def get_or_cache_excerpt(
         if excerpt and len(excerpt) < _EDGARTOOLS_EXCERPT_MIN:
             excerpt = None
     if not excerpt:
+        source = "regex_fallback"
         excerpt = openai_service.extract_critical_sections(filing_text or "", filing_type_key)
     if excerpt:
         if cache is None:
@@ -509,6 +522,7 @@ def get_or_cache_excerpt(
             cache.critical_excerpt = excerpt
         db.flush()
         db.commit()
+        observe(excerpt, source)
     return excerpt
 
 def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, force_regenerate: bool) -> bool:

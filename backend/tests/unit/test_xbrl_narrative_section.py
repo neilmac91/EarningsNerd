@@ -8,6 +8,8 @@ format renders a dimensionless multiple, and (c) the block is byte-for-byte unch
 that carry only the legacy metrics (so the eval baseline / flag-off behaviour can't regress).
 """
 
+import pytest
+
 from app.services.openai_service import (
     _XBRL_NARRATIVE_SPEC,
     _format_xbrl_metric_value,
@@ -271,3 +273,30 @@ class TestReturnsBand:
         from app.services.ai.xbrl_narrative import returns_ratio_in_band
 
         assert markdown_render.returns_ratio_in_band is returns_ratio_in_band
+
+
+@pytest.mark.parametrize("surface", ["grounding", "render"])
+@pytest.mark.parametrize("period", ["2026-04-26", "2025-12-31", None])
+def test_return_basis_is_explicit_on_both_surfaces(surface, period):
+    """Known end dates and missing dates never imply annualization or average balances."""
+    from app.services.ai import markdown_render, xbrl_narrative
+    from app.services.openai_service import openai_service
+
+    assert markdown_render.return_ratio_basis is xbrl_narrative.return_ratio_basis
+    metrics = {
+        "return_on_equity": {
+            "current": {"value": 29.8, "period": period},
+            "prior": {"value": 22.4, "period": "2025-04-27"},
+        },
+        "return_on_assets": {"current": {"value": 22.5, "period": period}},
+    }
+    if surface == "grounding":
+        text = build_xbrl_narrative_section(metrics)
+    else:
+        sections = {}
+        openai_service._apply_structured_fallbacks(sections, {}, metrics)
+        text = sections["value_drivers"]["returns_on_capital"]
+    assert "period net income / period-end equity, not annualized" in text
+    assert "period net income / period-end assets, not annualized" in text
+    assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
+    assert "quarter" not in text.lower() and "average" not in text.lower()

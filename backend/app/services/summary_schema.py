@@ -122,7 +122,7 @@ class RiskItem(_V2Base):
 
 
 class SegmentRow(_V2Base):
-    """§7 segment row: revenue + operating income + YoY change + a mix/margin read.
+    """§7 segment row: revenue + operating income + YoY change + an operating-margin read.
 
     Machine-authored from the filing's own XBRL segment dimensions by the pipeline's deterministic
     filler (T5.2) — the model can never author a row, a figure, or the section key. T5.2b hybrid: the
