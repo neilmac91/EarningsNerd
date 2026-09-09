@@ -23,14 +23,16 @@ This split had real costs:
 
 Standardize on **[`edgartools`](https://pypi.org/project/edgartools/)** as the single SEC
 integration library, covering both filing retrieval and XBRL extraction. (The floor at decision
-time was `>=5.12.0`; it has since advanced to `>=5.40.1` in `requirements.in`, with the lockfile
-`requirements.txt` pinning `edgartools==5.40.1`.)
+time was `>=5.12.0`; it has since advanced to `>=5.56.0` in `requirements.in`, with the lockfile
+`requirements.txt` pinning `edgartools==5.56.0`.)
 
-- All SEC access goes through `backend/app/services/edgar/` (client, XBRL service, circuit
-  breaker, async executor, compat layer).
-- `edgartools` calls are wrapped by a dedicated thread-pool async executor
-  (`edgar/async_executor.py`), a token-bucket rate limiter for SEC's ~10 req/s limit, and a
-  circuit breaker so SEC outages fail fast without cascading.
+- SEC access preserves the existing owners in `backend/app/services/edgar/`,
+  `app/integrations/sec_api.py` and `app/services/facts_service.py`, with the shared limiter.
+- Network-bearing synchronous `edgartools` calls use the dedicated thread-pool executor
+  (`edgar/async_executor.py`). Fetch paths include circuit-breaker protection, while local
+  parsing is deliberately exempt; the existing companyfacts and full-text HTTP owners use
+  shared limiting/backoff without the breaker. Limiter state is per process, not a fleet-wide
+  guarantee of SEC's 10 requests/second per-IP cap. CLAUDE rule 5 governs these boundaries.
 - `arelle-release` and `sec-edgar-downloader` were **removed** from `requirements.in` after
   verifying zero remaining imports (issue #244).
 
@@ -44,7 +46,7 @@ time was `>=5.12.0`; it has since advanced to `>=5.40.1` in `requirements.in`, w
 
 **Negative / costs**
 - A hard dependency on `edgartools` tracking SEC EDGAR's format and endpoint changes; we
-  pin a tested floor (currently `>=5.40.1`, resolved to `==5.40.1` in the lockfile) rather than
+  pin a tested floor (currently `>=5.56.0`, resolved to `==5.56.0` in the lockfile) rather than
   chasing latest.
 - `edgartools` is synchronous, so it must run inside the dedicated thread pool
   (`edgar/config.py: EDGAR_THREAD_POOL_SIZE`) to avoid blocking the event loop — a pattern

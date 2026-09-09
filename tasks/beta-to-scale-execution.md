@@ -531,3 +531,67 @@ subsequent queue. Major #749/#750/#751 approvals and all named founder prerequis
 The continuation's code departure point is `b918bf3ab9deda4880706cbabf936cf2b748f587` (#779).
 E09 remains proposal-only; the final master-plan report and handover publish the remaining
 engineering/activation boundaries without claiming the full business or scale plan is complete.
+
+## September 9 release checkpoint — working-capital dates
+
+[#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged as `e5a0af80fa4bd4b8dc3f6ba852bbf89e8c572203`. Full local backend gate passed 2,739 tests including performance/four PostgreSQL lanes. PR CI34285574398 retained52/52 summary scores, zero errors/retries/vetoes, and one paid Copilot run34285718209 accepted18/18. The prior absolute figure-trace advisory remains; no quality-acceptance or free-cost claim.
+
+Main CI [34286869418](https://github.com/neilmac91/EarningsNerd/actions/runs/34286869418), deploy job102265321200 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00312-7jp` serves100%, all eight configured job images updated. CI detailed health timestamp1788907485.0101225 and independent curl1788907535.300697 were healthy (database5.77/5.0ms, SECclosed, Redisdisabled). The six new PFE/NVDA/COST outputs show their actual prior balance dates. Existing persisted summaries were not refreshed. Next backend release may proceed.
+
+## September 9 release checkpoint — selected-filing fallback identity
+
+[#785](https://github.com/neilmac91/EarningsNerd/pull/785) merged as `fc2bf2f7eb640c47d282a24c35e4d4b3dd07aea4`. The exact-accession fallback replaces the latest-company surrogate; transient cache version changes, while persisted rows remain untouched. Full local backend gate passed 2,735 tests; PR CI 34285695007 scored all 52 attempts without errors, retries or vetoes, and one paid Copilot run 34285769316 accepted 18/18.
+
+Main CI [34288013954](https://github.com/neilmac91/EarningsNerd/actions/runs/34288013954) is green. Deploy job 102269365731 reports `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00313-pqs` serves 100% traffic. CI detailed health at 1788908498.976069 and independent curl at 1788908906.3239162 are healthy, with database latency 7.01/7.18 ms and SEC circuit closed. This verifies new behavior deployment, not historical snapshot provenance or refreshed saved analyses.
+
+## September 9 release checkpoint — audit S1 complete
+
+[#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`. Full local backend gate passed 2,732 tests; actual summary CI 34286724767 scored 52/52 without errors/retries/vetoes, one paid Copilot run 34287603552 accepted 18/18. Cleanup occupies admission until transport close completes, and explicit closer failure retains no-retry behavior.
+
+Main CI [34289364726](https://github.com/neilmac91/EarningsNerd/actions/runs/34289364726) and deploy job 102272981615 passed. `apply_migrations: applied=0 skipped=39`; revision `earningsnerd-backend-00314-jsf` serves 100% traffic. CI health 1788909386.3740237 and fresh independent health 1788909436.2419784 are healthy, database 6.73/6.79 ms, SEC closed. This supersedes September 8's deferred audit S1 status without changing the historical record.
+
+## September 9 frontend release — report-year label
+
+[#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged as `7ebfa4a3475980636a1d6fcf7d6de9652fa706ce`. Full frontend lint/tsc/103 files and 569 tests/build passed; isolated desktop/mobile light/dark visual checks found legible labels and no horizontal overflow. No production account test was run. Main CI [34290442746](https://github.com/neilmac91/EarningsNerd/actions/runs/34290442746) and exact-commit Vercel production status succeeded. No backend deployment occurred. The UI now labels its unchanged calendar-date grouping “Report year” rather than claiming issuer fiscal-year identity.
+
+## September 9 release checkpoint — excerpt provenance
+
+[#789](https://github.com/neilmac91/EarningsNerd/pull/789) merged as `93716388d14e9cdc2f13fef3f09e9feaf343ec25`. Final local backend gate passed 2,743 tests including performance/four PostgreSQL lanes. Actual summary run 34290008070 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290062796 accepted 18/18. All 52 observed excerpt hashes/lengths match the exact retained generator strings. 
+
+Main CI [34291185532](https://github.com/neilmac91/EarningsNerd/actions/runs/34291185532) and deploy job 102278563064 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00315-qlb` serves 100% traffic. CI detailed health 1788910790.7347288 and independent curl 1788910851.5732074 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
+
+## September 9 release checkpoint — segment-share correction
+
+[#787](https://github.com/neilmac91/EarningsNerd/pull/787) merged as `e6b76a3ca11dbb91c3f09ae38d00e0be267e8bd4`. Final local backend gate passed 2,740 tests including performance/four PostgreSQL lanes. Actual summary run 34290248962 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290248951 accepted 18/18. The segment second paid run was the authorized confirmed version-finding fix round; original evidence is retained. 
+
+Main CI [34291811124](https://github.com/neilmac91/EarningsNerd/actions/runs/34291811124) and deploy job 102280456832 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00316-tfj` serves 100% traffic. CI detailed health 1788911324.6704717 and independent curl 1788911457.3238676 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
+
+## September 9 release checkpoint — minor SDK maintenance
+
+[#791](https://github.com/neilmac91/EarningsNerd/pull/791) merged as `becf5950ff21740b61d798279dc8caf49e519180`. The full local backend gate passed 2,744 tests; PR CI 34290785310 was green and explicitly skipped summary generation for this requirements-only change. Copilot 34290875807 accepted 18/18. No 52-output regression is claimed for this PR. Dependabot #780 is already closed.
+
+Main CI [34292889980](https://github.com/neilmac91/EarningsNerd/actions/runs/34292889980) and deploy job 102283809271 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00317-88l` serves 100% traffic. CI detailed health 1788912237.9538262 and independent curl 1788912343.3765547 are healthy, database 6.97/6.67 ms, SEC circuit closed. DeepSeek and production settings remain unchanged.
+
+## September 9 confirmed source-provenance review correction
+
+PR #792's common evaluation exception outcome discarded source and excerpt metadata after generation, scoring or judging failure. Two refutations traced the exception return and downstream retry/report serialization; neither could recover discarded observations. Head `396b01b5a43261e787678d4dc322386a82e9ef7e` retains both optional fields, passed 2,760 tests, and has one new failure-retention mutation proof (6 failed → 6 passed). The second paid Copilot run is authorized specifically for this confirmed-finding fix round. Earlier proofs and first-round evidence remain preserved. All 52 first-round source hashes and lengths match the retained documents across 26 accessions; this does not certify accounting interpretation.
+
+## September 9 return-basis production verification
+
+[#788](https://github.com/neilmac91/EarningsNerd/pull/788) merged as `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1`. Final local gate passed 2,755 tests; actual final summary CI 34292517143 retained 52 unique attempts with zero errors/retries/vetoes (artifact 10082229264). Authorized second paid Copilot 34292517100 accepted 18/18 (artifact 10081948967). All retained return fields were inspected for contradictory quarterly/annual basis; this is not global quality acceptance.
+
+Main CI [34293928853](https://github.com/neilmac91/EarningsNerd/actions/runs/34293928853) and deploy job 102286975731 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00318-q79` serves 100% traffic. CI detailed health 1788913070.8209805 and independent curl 1788913197.024444 are healthy, database 6.64/5.43 ms, SEC circuit closed. These health checks do not exercise the paid AI provider.
+
+## September 9 external provider block and evaluation reporting finding
+
+PR #792 final CI 34293573625 retained artifact 10082475808 / eval_20260909T001448Z.json on source c8f68b33685dde29aac4d3653d2e2e66a3ac601a. DeepSeek returned HTTP 402 “Insufficient Balance” 26 times between 00:13:22.5179604Z and 00:14:48.9626130Z. All 26 affected outputs are the application's failure placeholder with no raw sections or previews. Source hashes still match all 52 retained inputs.
+
+The actual regression step failed with two HARD regressions (coverage and numeric recall), exit 1; an offline replay of that retained report against the gate also exits 1. Overall workflow green is advisory continue-on-error, not acceptance. Copilot 34293573627 had already completed 18/18 (artifact 10082320786). The source change does not cause an external balance rejection: exact provider logs and unchanged application fallback independently refute that attribution. No further evaluation is launched, no balance is purchased, and #792 remains unmerged pending successful funded measurement. The founder was asked once to replenish DeepSeek balance.
+
+A separate confirmed instrumentation defect is being fixed locally: the runner scores application status:error payloads and records error:null. This misstates execution counts even though the regression gate detected degraded output. Preserve the original report, do not relabel the run passed or rerun paid Copilot a third time. A failed-summary-only CI rerun after balance restoration can recover required summary evidence without another Copilot run. Metric identity c and prompt d remain locally prepared, with release/actual-output acceptance held on provider balance and ordered prerequisites.
+
+## September 9 local prepared queue — no further paid launch
+
+Metric identity `2f094ec13afe0113d13ddefc83895db08cfadaa4` passed 2,784 tests; reported metric labels/preview retention `7fd71bdcfc451fc280a3d2960cb4676a7b02b869` passed 2,801; application-error outcome `c9f2e30800b8cf798b45d638d192d220fbbad1db` passed 2,769; measurement-only dispatch `b37099bdd19151c750b50c8c7cc934236154ff63` passed 2,755 plus YAML/required workflow consumers and 3 Node-lockstep tests. Each has complete committed Ruff/Bandit/performance/four-lane gates, meaningful existing unlocked tests, one proof per new invariant and unchanged eleven locked anchors. Independent reviews cleared final local code/integration. None is published or production-verified; #792/funding and ordered integration remain prerequisites.
+
+Measurement-only mode preserves scheduled/manual defaults and skips the whole live report job only for explicit manual true. It was not dispatched. Local preparation does not authorize a paid strong-judge program or establish observed absence of email. Scratch comparison controls now retain complete normalized facts, expected cohorts and honest preview coverage; they are preparation, not quality acceptance.

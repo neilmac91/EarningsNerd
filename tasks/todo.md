@@ -1,3 +1,73 @@
+## September 9 morning handover — current master-plan checkpoint
+
+See [the handover](handover-astra-2026-09-09.md) for verified releases, exact prepared heads, remaining prerequisites and what to doubt first.
+
+- [x] Publish the completed EdgarTools capability investigation and source-selection experiments in this docs checkpoint. No replacement SDK/vendor/selector adopted.
+- [x] Quality/reliability/maintenance releases #784–#791 are merged and deployment-verified; #792 remains open. Latest production is `earningsnerd-backend-00318-q79`.
+- [ ] Restore funded DeepSeek measurement, then complete #792 and the locally gated comparative identity / application-error / shared-label / measurement-only candidates in reviewable slices. No further paid launch while balance is exhausted.
+- [ ] Fable completion, unseen human-reviewed acceptance and named original plan prerequisites remain outstanding; universe-wide pregeneration and broad replay stay held.
+
+## September 9 provider block — current release status
+
+- [x] Return-basis #788 production-verified: main CI 34293928853, revision `earningsnerd-backend-00318-q79` at 100%, migrations 0/39, healthy CI and independent detailed health.
+- [ ] Founder prerequisite: replenish DeepSeek API balance; HTTP 402 stopped #792's required regression. Asked once. No further paid evaluation launches or purchases; universe-wide pregeneration remains held separately.
+- [ ] Source #792: local/full unit gates and Copilot pass, actual final summary regression failed from external insufficient balance; hold merge until funded summary evidence. Do not repeat paid Copilot.
+- [ ] Metric identity c / source-reported prompt d / application-error evaluation reporting: complete local preparation; ordered publication and actual model evidence wait balance and preceding releases.
+
+## September 9 return-basis release in progress
+
+- [ ] Return-basis #788 merged as `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1`; main CI 34293928853 is pending production verification. Final PR regression scored 52 unique attempts without errors/retries/vetoes; the recorded second paid review accepted 18/18.
+- [ ] Comparative identity candidate `2f094ec13afe0113d13ddefc83895db08cfadaa4` passed 2,784 tests and independent review; publication waits for the preceding backend deployment.
+
+## September 9 maintenance verification and diagnostic correction
+
+- [x] Minor SDK #791: verified revision `earningsnerd-backend-00317-88l`, main CI 34292889980, migrations 0/39, healthy CI and independent detailed health. Dependabot #780 is closed.
+- [ ] Source #792: confirmed failure-report metadata omission fixed and locally gated; second paid review is the authorized confirmed-finding round.
+
+## September 9 source observation and segment releases
+
+- [x] Excerpt provenance #789: production-verified at `earningsnerd-backend-00315-qlb`, main CI 34291185532, migrations 0/39, CI and independent detailed health healthy.
+- [x] Segment shares #787: production-verified at `earningsnerd-backend-00316-tfj`, main CI 34291811124, migrations 0/39, CI and independent detailed health healthy. Old saved summaries remain unchanged.
+- [ ] Return-basis #788: corrected version/integrated head 804b90cb73dfba6fd9d6713ebc010a2b189fee4b passed 2,755 local tests; second paid evaluation is the recorded confirmed-finding fix round.
+- [ ] Source-provenance #792 and minor SDK #791: draft-first publication/ready review underway; no production release claimed.
+- [ ] Comparative identity and source-reported metric prompts: independent review caught and corrected EPS/sign ambiguities; ordered integration, full gates and actual output review precede release.
+
+## September 9 filing-list copy release
+
+- [x] Report-year labeling: [#790](https://github.com/neilmac91/EarningsNerd/pull/790) merged, main CI 34290442746 and Vercel production succeeded; full frontend gate and four local theme/viewport checks passed.
+- [ ] Excerpt provenance [#789](https://github.com/neilmac91/EarningsNerd/pull/789) merged at 93716388d14e9cdc2f13fef3f09e9feaf343ec25; main CI 34291185532 is pending production verification.
+- [ ] Confirmed production-only comparative backfill: replace broad income/profit/margin label matching with exact supported identities; independently review EPS basis and ADS projection before release.
+
+## September 9 audit S1 completion
+
+- [x] Audit S1: [#786](https://github.com/neilmac91/EarningsNerd/pull/786) production-verified at `earningsnerd-backend-00314-jsf`, main CI 34289364726, migrations 0/39, healthy CI and independent detailed health. Earlier pending/deferred rows below remain historical.
+- [ ] Segment/return review correction: ordered content stamps make old summaries identifiable without invoking refresh. Each changed PR needs a second paid Copilot run for the confirmed version finding; broad replay remains held.
+
+## September 9 selected-filing release update
+
+- [x] Selected-filing fallback identity: [#785](https://github.com/neilmac91/EarningsNerd/pull/785) production-verified on `earningsnerd-backend-00313-pqs`, main CI 34288013954, migrations 0/39, healthy CI and independent detailed health. Historical persisted provenance remains unverified.
+- [ ] Chat cleanup [#786](https://github.com/neilmac91/EarningsNerd/pull/786) merged as `a3168c50d1b1c4d86a959a4a0af060d40ef247b8`; main CI 34289364726 is pending. Do not yet mark audit S1 production-complete.
+
+## September 9 verified quality release
+
+- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.
+- [ ] Complete source-identity fallback, chat cleanup, segment-share and return-basis releases; each has its own gate/review and serial deploy verification.
+- [ ] Account observations remain access-blocked: controllable in-app browser has no Stripe/Google session; existing Chrome PostHog session is readable but Chrome browser automation is unavailable in this task. No account setting changed. Resume with an authenticated controllable session; continue engineering meanwhile.
+
+## Quality execution continuation — 2026-09-09
+
+The founder authorized work on confirmed corpus findings while Fable completes later, plus an
+EdgarTools capability investigation and continued master-plan execution. The
+[execution checklist](quality-execution-2026-09-09.md) records the parallel diagnosis, reliability,
+account-evidence and release work. Existing direct-account authority continues; specific product,
+spend, destructive and locked-contract boundaries remain. Universe-wide pregeneration stays held.
+
+- [x] Complete independent 26-filing / 52-analysis review and available Fable comparison; original 42 material-attempt verdicts are not a final consensus count.
+- [ ] Deliver EdgarTools capability/usage audit and evidence-based tool recommendations.
+- [ ] Fix confirmed source/financial invariants and audit S1 through reviewed, verified PRs.
+- [ ] Reconcile Stripe, companyfacts, analytics and recovery/fleet observations with the master plan.
+- [ ] Report releases, remaining quality defects and named prerequisites in a dated handover.
+
 ## CEO execution direction — 2026-09-08
 
 The founder requested a prioritized implementation plan and delegated direct account access and
