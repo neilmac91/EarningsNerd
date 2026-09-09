@@ -431,6 +431,49 @@ def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("limit", ["none", "frames", "characters", "retry"])
+async def test_preview_artifact_retains_exact_frames_with_truthful_coverage(monkeypatch, limit):
+    frames = [" # First €\n", "## Complete second\n", "tail"]
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
+    monkeypatch.setattr(runner, "_PREVIEW_MAX_FRAMES", 1 if limit == "frames" else 128)
+    monkeypatch.setattr(runner, "_PREVIEW_MAX_CHARS", len(frames[0]) + 1 if limit == "characters" else 4_000_000)
+    calls = 0
+    async def summarize(*args, stream_cb, **kwargs):
+        nonlocal calls
+        calls += 1
+        for frame in frames:
+            await stream_cb(frame)
+        if limit == "retry" and calls <= 2:
+            raise TimeoutError("fixture transient")
+        return {"business_overview": "final only", "raw_summary": {"sections": {}}}
+    monkeypatch.setattr(openai_service, "summarize_filing", summarize)
+    result = await runner._run_one(
+        "baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"),
+        {"filing_text": "raw", "excerpt": "source", "xbrl_metrics": {}},
+        transient_retries=2, retry_delay=0,
+    )
+    expected = frames[:1] if limit in ("frames", "characters") else frames
+    assert result["preview_frames"] == expected
+    assert result["preview_count"] == 3
+    assert result["preview_chars"] == sum(map(len, expected))
+    assert result["previews_truncated"] is (limit in ("frames", "characters"))
+    assert result["payload"]["executive_summary"] == "final only"
+    if limit == "retry":
+        assert calls == 3 and result["retried"] == 2
+        assert result["retry_preview_attempts_omitted"] == 1
+        assert result["retry_preview_evidence"] == [{
+            "attempt": 0, "stream_requested": True, "preview_count": 3,
+            "preview_frames": frames, "preview_chars": sum(map(len, frames)),
+            "previews_truncated": False,
+            "preview_observation_scope": "summary_call_including_internal_retries",
+            "preview_final_response_association": "not_observed",
+        }]
+    else:
+        assert calls == 1 and result["retry_preview_evidence"] == []
+        assert result["retry_preview_attempts_omitted"] == 0
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stage", ["generation", "scoring", "judging"])
 @pytest.mark.parametrize("observed", [False, True])
 async def test_failed_eval_retains_optional_grounding_metadata(monkeypatch, tmp_path, stage, observed):
@@ -459,3 +502,86 @@ async def test_failed_eval_retains_optional_grounding_metadata(monkeypatch, tmp_
     recorded = json.loads(next(tmp_path.glob("*.json")).read_text())["results"][0]
     for key in ("source_provenance", "coverage_inventory"):
         assert key in recorded and recorded[key] == grounding.get(key)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["success", "failure", "outer_retry"])
+async def test_preview_scope_survives_actual_internal_nonstream_retry(monkeypatch, outcome):
+    """Displayed stream frames survive a different successful provider response without attribution."""
+    import httpx2
+    from openai import AsyncOpenAI
+    from app.services.openai_service import OpenAIService
+    from app.services.ai import provider_requests
+
+    old_frame, final_text = "# Old streamed preview\n", "Different final response"
+    wire, closed = [], []
+    class BrokenStream(httpx2.AsyncByteStream):
+        async def __aiter__(self):
+            chunk = {"id": "offline", "object": "chat.completion.chunk", "created": 1,
+                     "model": "deepseek-v4-pro", "choices": [{"index": 0,
+                     "delta": {"content": "old partial " * 150}, "finish_reason": None}]}
+            yield ("data: " + json.dumps(chunk) + "\n\n").encode()
+            raise httpx2.ReadError("offline stream drop after displayed preview")
+
+        async def aclose(self):
+            closed.append(True)
+
+    def transport(request):
+        body = json.loads(request.content)
+        wire.append(body)
+        if body.get("stream"):
+            return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=BrokenStream())
+        return httpx2.Response(200, json={
+            "id": "offline", "object": "chat.completion", "created": 1, "model": "deepseek-v4-pro",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": final_text},
+                         "finish_reason": "stop"}],
+        })
+
+    service = object.__new__(OpenAIService)
+    service.fallback_client = None
+    monkeypatch.setattr(service, "_partial_markdown_preview", lambda *args: old_frame)
+    monkeypatch.setattr(provider_requests, "retry_delay", lambda *args: 0)
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
+    summaries = 0
+    async def summarize(*args, stream_cb, **kwargs):
+        nonlocal summaries
+        summaries += 1
+        # Exercise real provider policy/stream collection; only final assembly is a fixture.
+        text = await service._request_content(
+            {"model": "deepseek-v4-pro", "messages": [{"role": "user", "content": "owned filing"}]},
+            stream_cb=stream_cb,
+        )
+        assert text == final_text
+        if outcome == "failure":
+            raise ValueError("fixture failure after successful internal retry")
+        if outcome == "outer_retry" and summaries == 1:
+            raise TimeoutError("fixture outer failure after successful internal retry")
+        return {"business_overview": text, "raw_summary": {"sections": {}}}
+
+    monkeypatch.setattr(openai_service, "summarize_filing", summarize)
+    async with AsyncOpenAI(api_key="offline", base_url="https://api.deepseek.com/v1", max_retries=0,
+                           http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(transport))) as client:
+        service.client = client
+        result = await runner._run_one(
+            "baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"),
+            {"filing_text": "owned", "excerpt": "owned", "xbrl_metrics": {}},
+            transient_retries=1, retry_delay=0,
+        )
+    assert summaries == (2 if outcome == "outer_retry" else 1)
+    assert len(wire) == 2 * summaries and closed
+    assert all(wire[i].get("stream") is True and "stream" not in wire[i + 1]
+               for i in range(0, len(wire), 2))
+    assert result["retried"] == (1 if outcome == "outer_retry" else 0)
+    assert result["preview_frames"] == [old_frame] and result["preview_count"] == 1
+    assert result["previews_truncated"] is False
+    assert result["preview_observation_scope"] == "summary_call_including_internal_retries"
+    assert result["preview_final_response_association"] == "not_observed"
+    if outcome == "failure":
+        assert result["error"] and result["score"] is None
+    else:
+        assert result["error"] is None and result["payload"]["executive_summary"] == final_text
+    if outcome == "outer_retry":
+        previous = result["retry_preview_evidence"][0]
+        assert previous["preview_frames"] == [old_frame]
+        assert previous["preview_observation_scope"] == "summary_call_including_internal_retries"
+        assert previous["preview_final_response_association"] == "not_observed"

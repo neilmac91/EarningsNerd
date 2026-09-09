@@ -76,7 +76,8 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   period net income / period-end equity or assets, not annualized. Taxonomy unchanged.
 # summary-2026-09-c: Production comparative backfill and ADS display require a matching
 #   metric identity; unknown or differently qualified measures cannot borrow values. Taxonomy unchanged.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-c"
+# summary-2026-09-d: preserve reported P&L labels and accounting basis across primary/recovery.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-d"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

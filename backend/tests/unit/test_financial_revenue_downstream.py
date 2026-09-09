@@ -203,11 +203,12 @@ def test_prior_backfill_requires_the_same_metric_identity(label, key, expected):
         # Displayed loss magnitudes are positive; the signed XBRL income is negative.
         metrics["net_income"]["prior"]["value"] = -80
         metrics["operating_income"]["prior"]["value"] = -80
-    original = {"table": [{"metric": label, "current_period": "$100", "prior_period": ""}]}
+    current = "10.0%" if key in {"net_margin", "operating_margin", "gross_margin"} else "$100"
+    original = {"table": [{"metric": label, "current_period": current, "prior_period": ""}]}
     out = attach_normalized_facts(original, metrics)
     row = out["table"][0]
     fact = out["normalized"]["metrics"][0]
-    assert row["metric"] == label and row["current_period"] == "$100"
+    assert row["metric"] == label and row["current_period"] == current
     assert row["prior_period"] == (expected or "")
     assert fact["priorValue"] == (values[key] if key else None)
     assert original["table"][0]["prior_period"] == ""
@@ -224,3 +225,42 @@ def test_prior_backfill_requires_the_same_metric_identity(label, key, expected):
     preserved = attach_normalized_facts(original, metrics)
     assert preserved["table"][0]["prior_period"] == "$9"
     assert preserved["normalized"]["metrics"][0]["priorValue"] == 9
+
+
+@pytest.mark.parametrize("label,key", [
+    ("Gross margin", "gross_margin"),
+    ("Operating margin", "operating_margin"),
+    ("Net margin", "net_margin"),
+])
+@pytest.mark.parametrize("current,eligible", [
+    ("$195,201M", False),  # Actual AAPL source-reported dollar Gross margin.
+    ("195201", False),  # A margin label alone cannot establish percentage units.
+    ("Not disclosed", False),
+    ("%", False),  # A unit without a parsed value is insufficient.
+    ("46.9%", True),
+])
+def test_margin_prior_backfill_requires_explicit_percentage_units(label, key, current, eligible):
+    metrics = {
+        key: {"prior": {"value": 46.2}},
+        "gross_profit": {"prior": {"value": 180683000000}},
+    }
+    original = {"table": [{"metric": label, "current_period": current, "prior_period": ""}]}
+    out = attach_normalized_facts(original, metrics)
+    row = out["table"][0]
+    fact = out["normalized"]["metrics"][0]
+    assert row["metric"] == label and row["current_period"] == current
+    assert row["prior_period"] == ("46.2%" if eligible else "")
+    assert fact["priorValue"] == (46.2 if eligible else None)
+    if not eligible:
+        assert fact["deltaValue"] is None and fact["deltaPercent"] is None
+        assert "Prior period from XBRL" not in (row.get("commentary") or "")
+    assert original["table"][0]["prior_period"] == ""
+
+    # Source-supplied comparisons remain authoritative, including the AAPL dollar row.
+    supplied = "46.2%" if eligible else "$180,683M"
+    original["table"][0]["prior_period"] = supplied
+    preserved = attach_normalized_facts(original, metrics)
+    assert preserved["table"][0]["prior_period"] == supplied
+    assert preserved["normalized"]["metrics"][0]["priorValue"] == (
+        46.2 if eligible else 180683000000
+    )

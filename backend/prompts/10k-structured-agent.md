@@ -31,10 +31,10 @@ context when present.
 ## Content quality
 - Monetary values human-readable (e.g., "$17.7B", "$425M"); percentage changes to one decimal
   ("up 8.3% YoY") when available.
-- Array fields: 1–4 high-signal, evidence-backed bullets ordered by materiality. If nothing
+- Non-table array fields: 1–4 high-signal, evidence-backed bullets ordered by materiality. If nothing
   qualifies, return a single-element array `["Not disclosed — <concise reason>"]`; never an
   empty array.
-- Every string field must carry substantive content — no blank strings or bare placeholders.
+- Every string field must carry substantive content — no blank strings or bare placeholders, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists.
 - For risk factors, attach supporting evidence (a short direct quote or the XBRL/section
   reference) and the most relevant source section (e.g., "Item 1A. Risk Factors", "Item 7. MD&A").
 - For each P&L-table Investor-Takeaway, each notable footnote, and every `forward_signals` quote, copy

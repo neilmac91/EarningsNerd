@@ -236,3 +236,48 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
             assert await asyncio.to_thread(finished.wait, 1), 'source worker was not released'
         await asyncio.sleep(0)
         assert wire == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("structured", [False, True])
+@pytest.mark.parametrize("form", ["10-K", "10-Q", "20-F", "6-K"])
+async def test_reported_metric_label_contract_reaches_primary_recovery_and_schema(monkeypatch, structured, form):
+    from app.services.summary_schema import PLMetricRow, REPORTED_METRIC_LABEL
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "USE_STRUCTURED_OUTPUT", structured)
+
+    requests = []
+    def handler(req):
+        requests.append(json.loads(req.content))
+        return response({'metadata': {}, 'sections': {}})
+    async with native_service(handler) as service:
+        service._assemble_structured_summary = AsyncMock(return_value={'assembled': True})
+        await service.generate_structured_summary(
+            'Income before income taxes 100 80', 'Fixture', form,
+            filing_excerpt='Income before income taxes 100 80',
+        )
+        recovery = service._get_section_schema_snippet('results_that_matter')
+    prompt = requests[0]['messages'][1]['content']
+    # Both causal sites (the row slot and ONE HOME) must share the recovery/schema policy.
+    assert prompt.count(REPORTED_METRIC_LABEL) == 2
+    assert '`results_that_matter.table` is empty when no reported metric is substantiated' in prompt
+    if structured:
+        # The prepended content-quality rule must not contradict the empty-table escape.
+        assert 'Array fields:' not in prompt
+        assert 'For an array field with' not in prompt
+        assert ('Non-table array fields:' in prompt or 'For a non-table array field with' in prompt)
+        if form == '6-K':
+            governance = prompt.split('**Governance/administrative**', 1)[1].split('## Grounding discipline', 1)[0]
+            assert '`results_that_matter.table` must be empty when no financial metric is substantiated' in governance
+            assert 'leave financial metric fields' not in governance
+            flat_prompt = ' '.join(prompt.split())
+            assert 'For a supported metric with a missing comparative' in flat_prompt
+            assert 'Omit unsupported metric rows instead of populating financial placeholders' in flat_prompt
+    assert json.loads(recovery)['results_that_matter']['table'][0]['metric'] == REPORTED_METRIC_LABEL
+    assert PLMetricRow.model_json_schema()['properties']['metric']['description'] == REPORTED_METRIC_LABEL
+    assert 'Revenue | Operating income | Operating margin | Diluted EPS' not in prompt
+    assert 'headline P&L figures (revenue, operating income' not in prompt
+    assert 'omit unsupported metrics' in REPORTED_METRIC_LABEL
+    assert 'Income before income taxes 100/80, not Operating income' in REPORTED_METRIC_LABEL
+    assert PLMetricRow(metric='Income before income taxes').metric == 'Income before income taxes'

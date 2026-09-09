@@ -42,6 +42,7 @@ from app.services.summary_sections import render_sections, sections_to_markdown
 # V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
 # moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
 # for the v2 names lives in summary_schema.
+from app.services.summary_schema import REPORTED_METRIC_LABEL
 from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTURED_SECTIONS
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
@@ -226,7 +227,7 @@ EXTRACTED FINANCIAL SIGNALS:
     "results_that_matter": {
       "table": [
         {
-          "metric": "<Revenue | Operating income | Operating margin | Diluted EPS>",
+          "metric": "<reported_metric_label>",
           "current_period": "<non-empty string>",
           "prior_period": "<non-empty string>",
           "change": "<non-empty string; state margin changes in percentage points>",
@@ -292,6 +293,8 @@ EXTRACTED FINANCIAL SIGNALS:
   }
 }"""
 
+        schema_template = schema_template.replace("<reported_metric_label>", REPORTED_METRIC_LABEL)
+
         output_reference = ""
         if prompt_template.user:
             output_reference = (
@@ -328,17 +331,17 @@ CRITICAL FILING EXCERPTS:
 
 {output_reference}
 
-Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty (exceptions: `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
+Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists. Arrays must never be empty (exceptions: `results_that_matter.table` is empty when no reported metric is substantiated; `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
 {schema_template}
 
 Rules:
 - OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
 - Populate ONLY the nine sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). Do not invent additional section keys. `segments` is COMMENTARY-ONLY: its figure table (revenue, operating income, operating margin) is filled deterministically from XBRL — emit one row per segment listed under REPORTABLE SEGMENTS in the data summary (name copied EXACTLY; a row whose name is not on that list is discarded), and omit the section entirely when no segments are listed.
-- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline P&L figures (revenue, operating income, operating margin, diluted EPS) in results_that_matter; earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
+- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: reported P&L figures in results_that_matter ({REPORTED_METRIC_LABEL}); earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
-- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).
-- Empty sections are unacceptable (except `segments`, omitted entirely when none are listed). Do not fabricate data; explain the absence using the Not disclosed pattern when required.
+- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `results_that_matter.table` when no reported metric is substantiated, and `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).
+- Empty sections are unacceptable (except `segments`, omitted entirely when none are listed, and `results_that_matter.table` when no reported metric is substantiated). Do not fabricate data; explain the absence using the Not disclosed pattern when required.
 - VERBATIM COPYING — applies to every `quotes[].quote` and to `supporting_evidence` in `results_that_matter` and `notable_footnotes` (risks `supporting_evidence` keeps its own contract: a verbatim excerpt OR a citation/XBRL reference — never empty): copy the span CHARACTER-FOR-CHARACTER from the filing text so it can be located by exact search. Never substitute, add, drop, or re-tense a word; shorten ONLY by choosing a shorter contiguous span. Example (illustrative only — NOT from the filing you are summarizing): a filing says "We anticipate the Meridian platform will enter volume production in fiscal 2028." RIGHT: "We anticipate the Meridian platform will enter volume production" (a shorter contiguous span). WRONG: "We expect the Meridian platform to enter volume production" (words substituted). WRONG: "We anticipate the Meridian platform will enter production" (a word removed inside the span). If no exactly-copyable line exists, leave `quotes` empty and set that `supporting_evidence` to "".
 - EVIDENCE IS PROSE — `supporting_evidence` in `results_that_matter` and `notable_footnotes` must be NARRATIVE PROSE: a sentence or a contiguous sentence fragment, never a transcription of table rows or cells (a bare metric label followed only by its figures). A table has no single linear text form, so a row transcription can never be located by exact search and is discarded downstream; the table columns already carry those figures. A prose sentence that contains figures is fine — that is exactly the desired evidence. COPY, don't COMPOSE: the `supporting_evidence` span must EXIST in the filing text — never write a sentence of your own that restates figures, however accurate; a composed sentence cannot be located by exact search, making it fabricated evidence — worse than the honest "". Example (illustrative only — NOT from the filing you are summarizing): a filing says "Demand for the Meridian platform exceeded our production capacity during the period." RIGHT: "Demand for the Meridian platform exceeded our production capacity" (an existing span, shortened only to a contiguous span). WRONG: "Meridian demand exceeded capacity" (a sentence you composed — it does not exist in the filing and cannot be located by exact search).
 - Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
@@ -351,7 +354,10 @@ Rules:
                     "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
                     "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
                     "Adhere strictly to the requested schema. "
-                    "Fill in 'Not disclosed' when data is missing. "
+                    "Fill in 'Not disclosed' when data is missing, except "
+                    "results_that_matter.table[].supporting_evidence and "
+                    "notable_footnotes[].supporting_evidence: use an empty string "
+                    "when no exactly-copyable prose span exists. "
                     "Never invent prior-period figures."
                 )},
                 {"role": "user", "content": prompt},

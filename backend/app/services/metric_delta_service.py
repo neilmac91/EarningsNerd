@@ -14,15 +14,14 @@ ppts on another. Numbers come from code, never the model (lesson
 """
 from __future__ import annotations
 
-import re
+import math
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from app.services.edgar.models import MetricChange
+from app.utils.numbers import parse_display_number
 
 _MINUS = "−"  # U+2212 MINUS SIGN — byte-identical to the existing chip rendering
-_MULTIPLIERS = {"t": 1e12, "b": 1e9, "m": 1e6, "k": 1e3}
-_NUM_RE = re.compile(r"[-+]?\d[\d,]*\.?\d*")
 
 
 @dataclass(frozen=True)
@@ -74,32 +73,12 @@ def compute(current: Optional[float], prior: Optional[float], *, is_ratio: bool)
 
 
 def _parse_number(text: Any) -> tuple[Optional[float], bool]:
-    """Parse a displayed metric value → (value, is_percent). Handles $, %, B/M/K/T, commas, parens."""
-    if isinstance(text, bool):
-        return None, False
-    if isinstance(text, (int, float)):
-        return float(text), False
-    if not isinstance(text, str):
-        return None, False
-    s = text.strip()
-    if not s:
-        return None, False
-    is_percent = "%" in s
-    negative = s.startswith("(") and s.endswith(")")  # accounting-style negatives
-    m = _NUM_RE.search(s.replace(",", ""))
-    if not m:
+    """Adapt the shared displayed-scalar parser to the float-based delta policy."""
+    number, is_percent = parse_display_number(text)
+    if number is None:
         return None, is_percent
-    try:
-        val = float(m.group())
-    except ValueError:
-        return None, is_percent
-    if not is_percent:
-        suffix = re.search(r"([tbmk])", s.lower())
-        if suffix:
-            val *= _MULTIPLIERS[suffix.group(1)]
-    if negative:
-        val = -abs(val)
-    return val, is_percent
+    value = float(number)
+    return (value, is_percent) if math.isfinite(value) else (None, is_percent)
 
 
 def delta_for_row(row: dict) -> Optional[MetricDelta]:

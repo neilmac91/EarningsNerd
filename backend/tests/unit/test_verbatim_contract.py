@@ -7,6 +7,9 @@ instructions + a worked example (lessons/arch-edit-causal-directive-add-example.
 pins keep them from silently regressing out of the prompt."""
 import inspect
 from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
 
 from app.services.openai_service import openai_service
 from app.services.prompt_loader import get_structured_prompt
@@ -159,3 +162,32 @@ class TestRecoveryParity:
         # and can turn a recoverable section into a hard miss. 350 → 500 with the fields.
         sig = inspect.signature(type(openai_service)._run_secondary_completion)
         assert sig.parameters["max_tokens"].default == 500
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("structured", [False, True])
+@pytest.mark.parametrize("form", ["10-K", "10-Q", "20-F", "6-K"])
+async def test_empty_evidence_exception_qualifies_primary_directives(monkeypatch, structured, form):
+    """Capture the actual primary request; every nonempty directive must allow honest evidence absence."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "USE_STRUCTURED_OUTPUT", structured)
+    request = AsyncMock(return_value='{}')
+    monkeypatch.setattr(openai_service, "_request_content", request)
+    monkeypatch.setattr(openai_service, "_assemble_structured_summary", AsyncMock(return_value={}))
+    await openai_service.generate_structured_summary(
+        "Revenue 100 80", "Fixture", form, filing_excerpt="Revenue 100 80",
+    )
+    messages = request.call_args.args[0]["messages"]
+    system, prompt = messages[0]["content"], messages[1]["content"]
+    directives = [line for line in prompt.splitlines() if "Every string" in line]
+    assert len(directives) == (2 if structured else 1)
+    directives.append(system.split("Fill in ")[1])
+    for directive in directives:
+        assert "except" in directive
+        assert "results_that_matter.table[].supporting_evidence" in directive
+        assert "notable_footnotes[].supporting_evidence" in directive
+        assert "no exactly-copyable prose span exists" in directive
+    # The exception must not permit blank risk evidence or erase the existing omission instruction.
+    assert "risks `supporting_evidence` keeps its own contract" in prompt
+    assert 'set that `supporting_evidence` to ""' in prompt
