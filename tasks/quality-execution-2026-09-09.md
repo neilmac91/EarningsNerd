@@ -1,3 +1,11 @@
+## September 9 corrected preview assessment — production pending
+
+- [x] Read the second #803 summary artifact: 52 usable final outcomes; one timeout-triggered outer retry, 54 provider calls and unknown usage for two unsuccessful calls. Successful-call ownership and 265-row numeric projections pass; preserve the [dated second readout](quality-preview-final-readout-2026-09-09.md) alongside the rejected first assessment.
+- [x] Complete independent timeout-preview and Copilot acceptance: the bounded preview correction is accepted; 18 Copilot answers pass with eight answers / 13 uncited figures advisory. Retain the separate BABA entity/basis issue.
+- [ ] Record actual #803 merge/deploy verification. No production result is inferred from hosted or local gates.
+- [x] Locally integrate/gate supported explanations e (2,851 passed) and cash basis f (2,861 passed), preserving prior proofs and eleven locks. Both await prerequisite releases, independent integration review and actual-output assessment. Earlier local cash-e references remain historical.
+- [ ] Continue the ordered residual/source/measurement work and original founder prerequisites; see the linked readout for the single pending T9 decision. Broad replay and universe-wide pregeneration remain held.
+
 ## September 9 preview ownership assessment — correction required
 
 - [x] Inspect first #803 artifacts:52 summaries and18 pinned Copilot answers pass existing mechanical gates; preserve the [rejected preview readout and evidence](quality-preview-ownership-readout-2026-09-09.md). Preview release is **blocked** by confirmed model-segment ownership leakage; no semantic clearance follows from green gates.
