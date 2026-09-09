@@ -45,6 +45,12 @@ _SYSTEM = (
 # Artifact-only preview limits; retain complete frames, never clipped strings.
 _PREVIEW_MAX_FRAMES = 128
 _PREVIEW_MAX_CHARS = 4_000_000
+# Callbacks preserve what was displayed across the logical summary call. Internal
+# provider retries can return different final content; counts do not establish attribution.
+_PREVIEW_OBSERVATION = {
+    "preview_observation_scope": "summary_call_including_internal_retries",
+    "preview_final_response_association": "not_observed",
+}
 
 
 def _grounding_user_prompt(
@@ -238,7 +244,7 @@ async def _run_one(
             if candidate == "baseline" and not retry_previews:
                 record = {key: outcome[key] for key in (
                     "stream_requested", "preview_count", "preview_frames", "preview_chars",
-                    "previews_truncated",
+                    "previews_truncated", *_PREVIEW_OBSERVATION,
                 ) if key in outcome}
                 retry_previews.append({"attempt": retried, **record})
             retried += 1
@@ -317,7 +323,7 @@ async def _attempt(
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
                     "preview_frames": preview_frames, "preview_chars": preview_chars,
-                    "previews_truncated": previews_truncated,
+                    "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
                     "grounding_excerpt": grounding["excerpt"],
@@ -350,7 +356,7 @@ async def _attempt(
         if candidate == "baseline":
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count,
                                preview_frames=preview_frames, preview_chars=preview_chars,
-                               previews_truncated=previews_truncated)
+                               previews_truncated=previews_truncated, **_PREVIEW_OBSERVATION)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
                 "application_failure": application_failure,

@@ -267,6 +267,12 @@ async def test_reported_metric_label_contract_reaches_primary_recovery_and_schem
         assert 'Array fields:' not in prompt
         assert 'For an array field with' not in prompt
         assert ('Non-table array fields:' in prompt or 'For a non-table array field with' in prompt)
+        if form == '6-K':
+            governance = prompt.split('**Governance/administrative**', 1)[1].split('## Grounding discipline', 1)[0]
+            assert '`results_that_matter.table` must be empty when no financial metric is substantiated' in governance
+            assert 'leave financial metric fields' not in governance
+            assert 'For a supported\n  metric with a missing comparative' in prompt
+            assert 'Omit unsupported\n  metric rows instead of populating financial placeholders' in prompt
     assert json.loads(recovery)['results_that_matter']['table'][0]['metric'] == REPORTED_METRIC_LABEL
     assert PLMetricRow.model_json_schema()['properties']['metric']['description'] == REPORTED_METRIC_LABEL
     assert 'Revenue | Operating income | Operating margin | Diluted EPS' not in prompt

@@ -25,14 +25,16 @@ rename, omit, or reorder fields.
 - **Earnings/results release:** populate the financial metric fields from the release (revenue, net
   income, EPS/per-ADS, margins) with prior-period comparatives only when the filing states them.
 - **Governance/administrative** (board change, AGM, dividend, buyback, no statements): populate only
-  the narrative/overview fields describing the announcement; leave financial metric fields as "Not
-  disclosed" / null per the schema. Do NOT fabricate financials to fill the schema.
+  the narrative/overview fields describing the announcement. Omit unsupported financial metric rows;
+  `results_that_matter.table` must be empty when no financial metric is substantiated.
+  Do NOT fabricate financials to fill the schema.
 
 ## Grounding discipline (non-negotiable)
 - Use ONLY values present in the provided 6-K content. Never estimate, extrapolate, or invent a
-  number, period, or comparison. Quote provided values verbatim with their currency. If a value is
-  genuinely absent, write "Not disclosed" (and set `has_prior_period` to false when no comparative is
-  given) rather than guessing.
+  number, period, or comparison. Quote provided values verbatim with their currency. For a supported
+  metric with a missing comparative, write "Not disclosed" rather than guessing; set
+  `metadata.has_prior_period` to false when the filing provides no comparatives. Omit unsupported
+  metric rows instead of populating financial placeholders.
 
 ## Per-ADS vs per-share
 If the filing states an ADS-to-ordinary-share ratio and reports per-ADS figures, prefer the per-ADS
