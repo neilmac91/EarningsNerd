@@ -1,5 +1,7 @@
 ## September 9 preview ownership assessment — correction required
 
+- [ ] Founder decision pending: permit the exact selected cash `raw_tag` on the two locked T9 companyfacts fixture rows, with full equality and all prior values retained. Candidate `5521f00b` has 2,843 passing tests and one T9 failure; locked files remain unchanged. The exact two-row/docstring proposal was presented on September 9. If declined, defer companyfacts metadata and gate an instance-only split. Other quality work continues.
+
 - [x] Inspect first #803 artifacts:52 summaries and18 pinned Copilot answers pass existing mechanical gates; preserve the [rejected preview readout and evidence](quality-preview-ownership-readout-2026-09-09.md). Preview release is **blocked** by confirmed model-segment ownership leakage; no semantic clearance follows from green gates.
 - [x] Record docs-only #802 main CI34333563322 and deploy job102408491015 explicit no-backend-change skip at09:17:23.4978518Z. Last verified serving revision remains00323-w4b; #803 is not merged in this checkpoint.
 - [ ] Complete shared-owner correction including withholding preview quotes when the existing quote gate is armed, retain the original completion proof, add exactly one new ownership proof, run final committed gates and independently review actual corrected previews.
