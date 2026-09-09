@@ -6,7 +6,7 @@ import pytest
 from app.services.facts_service import normalize_standardized_to_facts
 from app.services.dashboard_feed_service import compute_what_changed
 from app.services.provenance_service import map_metric_to_xbrl_key, enrich_financial_highlights
-from app.schemas.summary import _infer_xbrl_metric
+from app.schemas.summary import _infer_xbrl_metric, attach_normalized_facts
 from app.services.openai_service import _sanitize_bank_financial_highlights, _is_no_total_bank
 
 pytestmark = pytest.mark.unit
@@ -157,3 +157,70 @@ def test_provenance_net_drops_conflated_bank_revenue_at_read_time():
     # A bank WITH a reported total keeps its (verifiable) revenue row.
     out2 = enrich_financial_highlights(_highlights(), _Filing(), _TOTAL_BANK)
     assert "Revenue" in {r["metric"] for r in out2["table"]}
+
+
+@pytest.mark.parametrize("label,key,expected", [
+    ("Net income", "net_income", "$11"),
+    ("Operating income", "operating_income", "$22"),
+    ("Gross profit", "gross_profit", "$33"),
+    ("Total Revenue", "revenue", "$44"),
+    ("Net Interest Income", "net_interest_income", "$55"),
+    ("Net margin", "net_margin", "6.0%"),
+    ("Operating margin", "operating_margin", "7.0%"),
+    ("Gross margin", "gross_margin", "8.0%"),
+    ("Basic EPS", None, None),
+    ("Basic earnings per share", None, None),
+    ("Earnings per share (basic)", None, None),
+    ("Diluted EPS", "eps_diluted", "$1.10"),
+    ("EPS (diluted)", "eps_diluted", "$1.10"),
+    ("  NET   INCOME  ", "net_income", "$11"),
+    ("Income from continuing operations before provision/(benefit) for taxes on income", None, None),
+    ("Income before taxes", None, None),
+    ("Pretax margin", None, None),
+    ("Income tax expense", None, None),
+    ("Adjusted net income", None, None),
+    ("Adjusted operating margin", None, None),
+    ("Profit", None, None),
+    ("Net loss", None, None),
+    ("Operating loss", None, None),
+    ("Revenue growth", None, None),
+    ("Sales expense", None, None),
+    ("Inventory turnover", None, None),
+    ("Dividend per share", None, None),
+    ("Adjusted diluted EPS", None, None),
+    ("EPS", None, None),
+    ("Current ratio", None, None),
+])
+def test_prior_backfill_requires_the_same_metric_identity(label, key, expected):
+    values = {
+        "net_income": 11, "operating_income": 22, "gross_profit": 33,
+        "revenue": 44, "net_interest_income": 55, "net_margin": 6,
+        "operating_margin": 7, "gross_margin": 8,
+        "earnings_per_share": 1.25, "eps_diluted": 1.10,
+    }
+    metrics = {k: {"prior": {"value": v}} for k, v in values.items()}
+    if label in ("Net loss", "Operating loss"):
+        # Displayed loss magnitudes are positive; the signed XBRL income is negative.
+        metrics["net_income"]["prior"]["value"] = -80
+        metrics["operating_income"]["prior"]["value"] = -80
+    original = {"table": [{"metric": label, "current_period": "$100", "prior_period": ""}]}
+    out = attach_normalized_facts(original, metrics)
+    row = out["table"][0]
+    fact = out["normalized"]["metrics"][0]
+    assert row["metric"] == label and row["current_period"] == "$100"
+    assert row["prior_period"] == (expected or "")
+    assert fact["priorValue"] == (values[key] if key else None)
+    assert original["table"][0]["prior_period"] == ""
+
+    # Missing own-key data cannot borrow a competing measure.
+    if key:
+        metrics.pop(key)
+    absent = attach_normalized_facts(original, metrics)
+    assert absent["table"][0]["prior_period"] == ""
+    assert absent["normalized"]["metrics"][0]["priorValue"] is None
+
+    # Already-reported comparisons remain authoritative, including unknown labels.
+    original["table"][0]["prior_period"] = "$9"
+    preserved = attach_normalized_facts(original, metrics)
+    assert preserved["table"][0]["prior_period"] == "$9"
+    assert preserved["normalized"]["metrics"][0]["priorValue"] == 9

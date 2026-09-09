@@ -6,6 +6,8 @@ financial-highlights ``table`` (which is what the API serializes to the frontend
 the as-filed per-ordinary-share value is never altered, and only for ratio != 1 ADRs.
 """
 
+import pytest
+
 from app.schemas.summary import attach_normalized_facts
 
 
@@ -24,19 +26,23 @@ def _rows_by_metric(section):
     return {row["metric"]: row for row in section["table"]}
 
 
-def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value():
+@pytest.mark.parametrize("label", ["Diluted EPS", "EPS (diluted)"])
+def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value(label):
     section = {
         "table": [
-            {"metric": "Diluted EPS", "current_period": "CN¥5.70", "prior_period": "CN¥5.50"},
+            {"metric": label, "current_period": "CN¥5.70", "prior_period": "CN¥5.50"},
             {"metric": "Revenue", "current_period": "CN¥1,023.7B", "prior_period": "CN¥941.2B"},
         ],
         "notes": "n",
     }
-    # "Diluted EPS" infers the xbrl key earnings_per_share, which carries per_ads for ADRs.
-    out = attach_normalized_facts(section, {"earnings_per_share": {"per_ads": PER_ADS}})
+    # Diluted EPS must use its own converted value, not the generic EPS block.
+    out = attach_normalized_facts(section, {
+        "eps_diluted": {"per_ads": PER_ADS},
+        "earnings_per_share": {"per_ads": {**PER_ADS, "value": 99.2}},
+    })
     rows = _rows_by_metric(out)
 
-    eps = rows["Diluted EPS"]
+    eps = rows[label]
     assert eps["per_ads"] == PER_ADS  # surfaced onto the row the frontend reads
     assert eps["current_period"] == "CN¥5.70"  # as-filed per-ordinary-share value UNCHANGED
     assert "per_ads" not in rows["Revenue"]  # only the EPS row carries it
@@ -44,8 +50,11 @@ def test_per_ads_merged_onto_eps_row_without_touching_as_filed_value():
 
 def test_no_per_ads_for_domestic_filer():
     section = {"table": [{"metric": "Diluted EPS", "current_period": "$7.46", "prior_period": "$6.11"}]}
-    # Domestic issuer: the standardized EPS metric has no per_ads block.
-    out = attach_normalized_facts(section, {"earnings_per_share": {}})
+    # Its own EPS metric has no per_ads block; a generic block cannot substitute.
+    out = attach_normalized_facts(section, {
+        "eps_diluted": {},
+        "earnings_per_share": {"per_ads": PER_ADS},
+    })
     assert "per_ads" not in out["table"][0]
 
 
@@ -58,5 +67,5 @@ def test_no_per_ads_when_no_xbrl_metrics():
 def test_non_dict_per_ads_is_ignored_fail_safe():
     section = {"table": [{"metric": "Diluted EPS", "current_period": "CN¥5.70"}]}
     # A corrupted/deserialized cache could carry a non-dict; it must be ignored, not propagated.
-    out = attach_normalized_facts(section, {"earnings_per_share": {"per_ads": "not-a-dict"}})
+    out = attach_normalized_facts(section, {"eps_diluted": {"per_ads": "not-a-dict"}})
     assert "per_ads" not in out["table"][0]
