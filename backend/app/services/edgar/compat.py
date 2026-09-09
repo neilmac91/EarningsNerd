@@ -10,6 +10,7 @@ Usage:
 """
 
 import logging
+import hashlib
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,21 @@ from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
 
 logger = logging.getLogger(__name__)
+
+
+def _decoded_source_provenance(
+    text: str, requested_url: str, final_url: str, content_type: Optional[str],
+) -> Dict[str, Any]:
+    """Describe the decoded response representation, not verified filing identity."""
+    return {
+        "schema_version": 1,
+        "representation": "httpx_decoded_response_text_utf8",
+        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "characters": len(text),
+        "requested_url": requested_url,
+        "final_url": final_url,
+        "content_type": content_type,
+    }
 
 
 class SECEdgarServiceCompat:
@@ -292,6 +308,35 @@ class SECEdgarServiceCompat:
         timeout: Optional[float] = None,
         max_retries: int = 3,
     ) -> str:
+        """Return the unchanged decoded response text through the existing transport."""
+        text, _, _ = await self._fetch_filing_document(document_url, timeout, max_retries)
+        return text
+
+    async def get_filing_document_with_source(
+        self,
+        document_url: str,
+        timeout: Optional[float] = None,
+        max_retries: int = 3,
+    ) -> tuple[str, Optional[Dict[str, Any]]]:
+        """Optional eval observation; no extra request and no claim about raw wire bytes.
+
+        Build metadata after the transport retry scope. Observation failure leaves
+        the successfully fetched string intact; cancellation is never swallowed.
+        """
+        text, final_url, content_type = await self._fetch_filing_document(document_url, timeout, max_retries)
+        try:
+            source = _decoded_source_provenance(text, document_url, final_url, content_type)
+        except Exception as exc:  # noqa: BLE001 — optional observation, never a fetch retry
+            logger.warning("Filing source observation unavailable: %s", type(exc).__name__)
+            source = None
+        return text, source
+
+    async def _fetch_filing_document(
+        self,
+        document_url: str,
+        timeout: Optional[float] = None,
+        max_retries: int = 3,
+    ) -> tuple[str, str, Optional[str]]:
         """
         Get filing document content by URL.
 
@@ -319,7 +364,7 @@ class SECEdgarServiceCompat:
                     for attempt in range(max_retries):
                         try:
                             response = await sec_rate_limiter.execute(_do_get)
-                            return response.text
+                            return response.text, str(response.url), response.headers.get("content-type")
                         except Exception:
                             if attempt == max_retries - 1:
                                 raise

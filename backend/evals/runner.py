@@ -91,7 +91,9 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     from app.services.excerpt_provenance import excerpt_provenance
 
     form = filing.filing_type.upper()
-    text = await sec_edgar_service.get_filing_document(filing.document_url, timeout=30.0)
+    text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
+        filing.document_url, timeout=30.0
+    )
 
     excerpt = None
     source = "regex_fallback"
@@ -118,6 +120,7 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         metrics = None
     return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
+            "source_provenance": source_provenance,
             "coverage_inventory": excerpt_provenance(
                 excerpt, accession=filing.accession_number, source=source, sections=sections,
             )}
@@ -306,6 +309,7 @@ async def _attempt(
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
                     "grounding_excerpt": grounding["excerpt"],
+                    "source_provenance": grounding.get("source_provenance"),
                     "coverage_inventory": grounding.get("coverage_inventory"),
                     "figure_trace": measure_figures(summary, grounding["xbrl_metrics"], grounding["excerpt"])}
 
@@ -327,6 +331,7 @@ async def _attempt(
                 "passed_gates": score.passed_gates, "judge": judge,
                 "latency_seconds": latency, "input_tokens": in_tok, "output_tokens": out_tok,
                 "cost_usd": cost_usd(cfg, in_tok, out_tok), "error": None,
+                "source_provenance": grounding.get("source_provenance"),
                 "coverage_inventory": grounding.get("coverage_inventory")}
     except Exception as exc:  # noqa: BLE001
         diagnostics = {"latency_seconds": round(time.monotonic() - started, 3)}
@@ -336,6 +341,8 @@ async def _attempt(
                                previews_truncated=previews_truncated)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
+                "source_provenance": grounding.get("source_provenance"),
+                "coverage_inventory": grounding.get("coverage_inventory"),
                 "_transient": _is_transient(exc)}
 
 
