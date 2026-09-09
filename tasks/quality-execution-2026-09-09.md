@@ -1,6 +1,28 @@
+## September 9 source-provenance release — funded and verified
+
+- [x] [#792](https://github.com/neilmac91/EarningsNerd/pull/792) merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. The funded retry produced 52 usable outputs with matching source/excerpt hashes; actual regression passed. No third Copilot run.
+- [x] Main CI `34317771322`, deploy `102358307990`, migrations 0/39, `earningsnerd-backend-00320-tnt` at 100%, and CI/independent health verified. Detailed evidence follows in [the execution ledger](beta-to-scale-execution.md).
+- [ ] Continue application-error reporting, comparative identity c, measured prompt d and derived cash-flow basis e; their local gates are not actual-output acceptance. Earlier pending source/funding rows below are historical.
+
 # Quality execution and master-plan continuation — 2026-09-09
 
 The founder authorized proceeding with confirmed review findings while Fable finishes later, requested a deep investigation of EdgarTools and useful alternatives, and renewed direct account access for necessary work. Continue the [CEO plan](ceo-implementation-plan-2026-09-08.md) under the existing committed-state gates, locked-test boundaries and serial deployment procedure. Universe-wide pregeneration and broad stale-summary regeneration remain held until explicit quality acceptance and spend release. DeepSeek remains the production provider.
+
+## September 9 funded resumption — verified scope release
+
+- [x] Funding restored; scope safeguard [#794](https://github.com/neilmac91/EarningsNerd/pull/794) verified on `earningsnerd-backend-00319-kz4` at 100%, main CI `34315351755`, migrations 0/39 and healthy CI/independent health. Full evidence is in [the dated execution ledger](beta-to-scale-execution.md).
+- [ ] Only #792's failed summary job was requested for funded retry; actual output and regression acceptance remain pending. No third Copilot round. Universe-wide pregeneration and broad replay remain held.
+
+## September 9 funded resumption — scope safeguard first
+
+The founder reports that DeepSeek has been topped up and explicitly authorizes proceeding with the ordered quality work. This supersedes the temporary insufficient-balance execution hold; it does not erase the [unintended evaluation incident](incident-docs-eval-scope-2026-09-09.md), certify quality or release broader spending. DeepSeek remains the provider.
+
+- [x] Confirm hosted scope behavior for safeguard [#794](https://github.com/neilmac91/EarningsNerd/pull/794), head `979f0890487d7ec7e05eaf16cea38f576cd3f381`: CI [34314951399](https://github.com/neilmac91/EarningsNerd/actions/runs/34314951399), job `102349116004`, explicitly reported “No AI-relevant backend changes — skipping eval-baseline.” Checkout merged this head into `edd9935b7fd17ea0ca286dae1f2e0d309e67f9a8`; no summary generation is claimed for that job.
+- [x] #794's single paid Copilot run [34314969232](https://github.com/neilmac91/EarningsNerd/actions/runs/34314969232) accepted 18/18; exact-head merge and serial production verification are complete. Revision `earningsnerd-backend-00319-kz4`, main CI `34315351755`, migrations 0/39 and both health checks passed; see the dated release record.
+- [ ] Inspect #792's running funded summary retry (attempt 2, job `102352498206`) on its unchanged reviewed head. Preserve original failed reports and already accepted second Copilot evidence; do not start a third Copilot merely to retry summary evaluation. The funded regression artifact, gate outcome, merge and production evidence remain **pending**.
+- [ ] Continue application-error evaluation reporting and comparative identity c as separate slices, then integrate their verified main into source-reported prompt d and review the actual full output cohort, preview coverage and offline normalized/rendered projections. Measurement-only dispatch remains a separate prepared workflow change; its local gate is not a paid weekly-readout or no-email live test.
+
+Every new committed integration still needs its full applicable gates and independent review; retain completed mutation proofs without repeating them. Keep serial backend deployment verification and one justified re-pin at a time. Final Fable delivery and comparison are complete; partial source coverage and unseen human-reviewed acceptance remain open. Universe-wide pregeneration, broad stale-summary replay, major dependency decisions, account-access prerequisites, legal/product/price/trial/registration decisions, E09's evidence/design prerequisite, D8 and alert #270 retain their existing holds. Notable still waits through September 15 and a retain decision; Analysis and W3-7/W3-8 retain their data/readout/ordering requirements. Funding restoration does not satisfy those conditions.
 
 ## Current implementation checkpoint — September 9
 
@@ -100,3 +122,9 @@ Main CI [34291185532](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 [#787](https://github.com/neilmac91/EarningsNerd/pull/787) merged as `e6b76a3ca11dbb91c3f09ae38d00e0be267e8bd4`. Final local backend gate passed 2,740 tests including performance/four PostgreSQL lanes. Actual summary run 34290248962 retained all 52 unique attempts with zero errors/retries/vetoes; Copilot 34290248951 accepted 18/18. The segment second paid run was the authorized confirmed version-finding fix round; original evidence is retained. 
 
 Main CI [34291811124](https://github.com/neilmac91/EarningsNerd/actions/runs/34291811124) and deploy job 102280456832 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00316-tfj` serves 100% traffic. CI detailed health 1788911324.6704717 and independent curl 1788911457.3238676 are healthy, SEC circuit closed. New behavior is deployed; existing saved summaries were not regenerated, and no final quality acceptance is inferred.
+
+## September 9 final-review delivery correction
+
+The final Fable reports are received and independently reconciled in the [final reconciliation](fable-quality-reconciliation-2026-09-09.md). This supersedes the missing-final-report prerequisite only: seven cases retain partial coverage, Amazon has a source-range ambiguity, and unseen human-reviewed acceptance remains open. Original reviewer counts are preserved separately; no global consensus defect rate is asserted.
+
+Funding is restored for the ordered queue. Scope safeguard #794 merged as `47865758` with main CI `34315351755` and production revision `earningsnerd-backend-00319-kz4` verified. Only #792's failed summary job is now running as attempt 2, job `102352498206`; inspect its actual evidence before release, then release eval-error/identity c and assess integrated prompt d. FCF-basis e is a separate bounded candidate; #788 already addresses ROE/ROA labels. Missing source is a product coverage defect, and d does not resolve all traceability/narrative/acquisition failures. Existing master-plan, account, legal/product, vendor, universe-spend and historical-replay boundaries remain.
