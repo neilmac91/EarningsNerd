@@ -1,3 +1,12 @@
+
+## September 9 funded resumption — verified scope release
+
+The founder replenished DeepSeek and explicitly approved continuation. Scope safeguard [#794](https://github.com/neilmac91/EarningsNerd/pull/794) squash-merged as `47865758cd22ede5a3bdb9669a3583dcf8bbcd85` at 05:33:22 UTC. PR CI `34314951399` passed and scope job `102349116004` explicitly skipped summary generation. The single ready-time Copilot run `34314969232` accepted 18/18, zero errors, artifact `10089786065`; both hosted checks used source `8e9e38c699e37cf8d2b02238c9ef0112b94ad5dd`. Full committed local gate: 2,756 tests, Ruff/Bandit, four PostgreSQL lanes/performance, workflow consumers and three Node-lockstep tests.
+
+Main CI [34315351755](https://github.com/neilmac91/EarningsNerd/actions/runs/34315351755) passed. Deploy job `102351541127` logged `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00319-kz4` serves 100% of traffic. CI detailed health at `1788932574.5119522` and independent curl at `1788932629.6896129` are healthy (database 8.46/6.28 ms, SEC closed, Redis disabled). No serving-code or production-setting change was added by this workflow/test safeguard.
+
+The unchanged #792 head `396b01b5a43261e787678d4dc322386a82e9ef7e` remains open. After verifying the previous deploy and preserving failed artifacts, only failed summary job `102285187391` in CI `34293573625` was requested for rerun. This is intentional funded measurement, not another Copilot round; the accepted second Copilot evidence remains unchanged. Fresh output, actual gate and source identity are pending. The prior funding hold is resolved; no broader quality acceptance, universe generation or historical replay is authorized by that funding decision.
+
 ## September 9 final Fable delivery and funded queue — current correction
 
 - [x] Receive all final Fable reports and complete the [independent reconciliation](fable-quality-reconciliation-2026-09-09.md). Seven cases still have partial source coverage; Amazon has a range ambiguity. No consensus defect rate or unseen acceptance is claimed. Earlier “Fable completion pending” rows are superseded for final delivery only.
