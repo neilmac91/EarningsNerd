@@ -127,6 +127,7 @@ async def test_previews_render_only_originally_complete_current_sections(monkeyp
         '{"sections":{"the_print":{"headline":"one","headline":"two"}}}',
         '{"sections":{"the_print":{"headline":"one"},"the_print":{}}}',
         '{"sections":{"the_print":{"headline":"one","bad":NaN}}}',
+        '{"sections":{"results_that_matter":{"table":[{"metric":"Revenue","current_period":1e999}]}}}',
         '{"sections":{"the_print":"scalar"}}',
         '{"nested":{"sections":{"the_print":{"headline":"not root"}}}}',
         '{"sections":{"executive_snapshot":{"headline":"legacy"}}}',

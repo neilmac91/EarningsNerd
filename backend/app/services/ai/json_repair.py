@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from typing import Any, NoReturn, Optional
 
@@ -62,7 +63,15 @@ class _JsonRepairMixin:
         def reject_constant(value: str) -> NoReturn:
             raise ValueError("Non-finite JSON constant")
 
-        decoder = json.JSONDecoder(object_pairs_hook=unique_object, parse_constant=reject_constant)
+        def finite_float(value: str) -> float:
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError("Overflowed JSON number")
+            return number
+
+        decoder = json.JSONDecoder(
+            object_pairs_hook=unique_object, parse_constant=reject_constant, parse_float=finite_float,
+        )
 
         def whitespace(index: int) -> int:
             while index < len(text) and text[index] in " \t\r\n":
