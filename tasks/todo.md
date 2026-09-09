@@ -1,4 +1,9 @@
-<<<<<<< HEAD
+## September 9 preview correction — ledger integration
+
+- [x] Complete both distinct preview proofs once, independently review corrected code, and pass the corrected 2,843-test backend / 569-test frontend gates before publication.
+- [x] Preserve both ledger histories while integrating merged #802/#804 documentation. The first corrected push could not start PR workflows because of this ledger conflict; no second paid assessment had started.
+- [ ] Gate this committed integration state, then push and inspect the ordinary second assessment. Previous backend release remains verified; no duplicate dispatch or repeated proof.
+
 ## September 9 preview ownership correction — confirmed actual #803 finding
 
 - [x] Preserve the first #803 actual52-output artifact: integrity passed, but previews exposed model segment figures that final numeric ownership removes.
@@ -11,7 +16,7 @@
 - [ ] Render strictly complete original-byte sections through the current shared projection; unfinished sections stay pending, without legacy absence claims.
 - [ ] Prove progressive callbacks before root closure and preservation of final stream content in the existing unlocked section-reveal test home; one invariant mutation is held for independent review.
 - [ ] Complete the committed backend gate with performance/four PostgreSQL lanes and unchanged locked anchors before publication. No prompt, provider, final-content version or production flag change.
-=======
+
 ## September 9 preview ownership assessment — correction required
 
 - [ ] Founder decision pending: permit the exact selected cash `raw_tag` on the two locked T9 companyfacts fixture rows, with full equality and all prior values retained. Candidate `5521f00b` has 2,843 passing tests and one T9 failure; locked files remain unchanged. The exact two-row/docstring proposal was presented on September 9. If declined, defer companyfacts metadata and gate an instance-only split. Other quality work continues.
@@ -30,7 +35,6 @@
 - [ ] Repair current-schema preview semantics first, then continue bounded earnings/cause, prepared cash-basis e, debt/cash provenance, guarded source coverage and measurement-only work. e's 2,851-test local gate does not establish actual-output acceptance. No third #799 paid round, universe-wide pregeneration or historical replay is authorized by this record.
 
 This dated addition supersedes older pending-assessment entries only for the completed review and merge. Historical ledgers, seven partial Fable cases, unseen acceptance and the original founder prerequisites remain intact.
->>>>>>> origin/main
 
 ## September 9 reported-metric correction checkpoint
 
