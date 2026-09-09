@@ -2,7 +2,7 @@
 
 - [x] Review all 52 final #799 raw outputs and exact retained preview chronology; archive the [final readout and independent evidence](quality-final-reported-metrics-readout-2026-09-09.md). Final 272-row numeric projections pass their bounded helper checks. Preview semantics **FAIL** through the inherited legacy renderer; retention is not display-quality acceptance.
 - [x] Accept the authorized second summary and Copilot artifacts under their unchanged gates, preserving citation/delta advisories and all first-round evidence. #799 merged as `3917cce5dbb58934a18b463c3cc7ab457ab0dde1` at 08:53:29 UTC.
-- [ ] Verify main CI `34331622543`, deployment, migrations, revision and independent health. These remain pending; no new production revision is claimed here.
+- [x] Verify main CI `34331622543` and deploy `102402200626`: migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00323-w4b` at 100%, CI and independent detailed health healthy (database 6.91 / 7.28 ms; SEC closed, Redis disabled). Exact timestamps and evidence are in the final readout.
 - [ ] Repair current-schema preview semantics first, then continue bounded earnings/cause, prepared cash-basis e, debt/cash provenance, guarded source coverage and measurement-only work. e's 2,851-test local gate does not establish actual-output acceptance. No third #799 paid round, universe-wide pregeneration or historical replay is authorized by this record.
 
 This dated addition supersedes older pending-assessment entries only for the completed review and merge. Historical ledgers, seven partial Fable cases, unseen acceptance and the original founder prerequisites remain intact.
