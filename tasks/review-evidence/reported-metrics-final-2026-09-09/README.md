@@ -10,7 +10,7 @@ The four financial reports cover all 26 filings and 52 outputs: A covers eight U
 | [pr799-round2-financial-review-b.md](pr799-round2-financial-review-b.md) | `cfc761089783938cd26e64de848145f8958e469abdef78c568dce25381ad29de` |
 | [pr799-round2-financial-review-c.md](pr799-round2-financial-review-c.md) | `dfb37c0b9b4acf2bdf56bca404dfbbcec1eeb42c557e127f6143b8979e0da038` |
 | [pr799-round2-financial-review-root.md](pr799-round2-financial-review-root.md) | `6fa2eb64572a4ed9d509687a06214d22874b87c9283fe86e02136c33532bb1b2` |
-| [pr799-round2-projection-preview-review.md](pr799-round2-projection-preview-review.md) | `952b6a619312d2c00a7f61c409e9d6930b0aa6f1c0f658ea6bd0d74ced2eb55d` |
+| [pr799-round2-projection-preview-review.md](pr799-round2-projection-preview-review.md) | `302117136d31f7bf9793ec91cc7f838b8a25b08f7da05d94ad403746b9eec76d` |
 | [pr799-summary-round2-acceptance.md](pr799-summary-round2-acceptance.md) | `a83f70632c309bc091ff24522535a1dd734d4e6c8bb7beebe9613ad498e8a974` |
 | [pr799-copilot-round2-acceptance.md](pr799-copilot-round2-acceptance.md) | `b99052841f1b1149283b5884d9a9cd76b8dc236f555499daf473b9efb2bf20f8` |
 | [stream-preview-schema-brief.md](stream-preview-schema-brief.md) | `d5b2cc49edbf654da9ba7b57c7effd55ceeaa6f4a21ad4eff9d57ba6a3b6b8bd` |

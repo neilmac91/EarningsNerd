@@ -40,3 +40,6 @@ Smallest future repair seam: current-schema partial rendering at the existing pr
 ## Limits
 
 No fabricated or subsequently revised numerical preview claim exists in these retained frames: there are no numerical business claims beyond company/form/period headers, and no within-outcome revisions. Only the unsupported absence/default claims above are established. Exact callback text and ordering do not identify internal provider attempts or prove final-generation association; metadata correctly retains not_observed. Full-frame semantic inspection here was achievable through exact deduplication, not a random sample. Final financial/source correctness beyond numeric preservation remains assigned to root/A/B financial reviews; no all52 full-filing reread or universal quality clearance is implied.
+
+
+Count clarification, 2026-09-09: each of the 52 outcomes has one distinct retained full frame within that outcome. There are 29 distinct full strings globally across all 380 callbacks, owing to metadata headers; all share the same Financials-to-end body. The earlier per-outcome statement is not a claim of 52 globally unique strings.
