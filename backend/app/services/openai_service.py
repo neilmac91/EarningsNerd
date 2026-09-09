@@ -42,7 +42,9 @@ from app.services.summary_sections import render_sections, sections_to_markdown
 # V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
 # moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
 # for the v2 names lives in summary_schema.
-from app.services.summary_schema import REPORTED_METRIC_LABEL
+from app.services.summary_schema import (
+    REPORTED_METRIC_LABEL, FINANCIAL_EXPLANATION_SUPPORT, FINANCIAL_DRIVER, EARNINGS_RECONCILIATION,
+)
 from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTURED_SECTIONS
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
@@ -215,12 +217,12 @@ EXTRACTED FINANCIAL SIGNALS:
   },
   "sections": {
     "the_print": {
-      "headline": "<one sentence: the single most important takeaway, leading with the headline figure>",
+      "headline": "<one sentence: the single most important takeaway, leading with the headline figure; apply the supported financial-driver condition below>",
       "key_takeaways": [
-        "<2-4 high-signal takeaways; echo AT MOST the 2-3 headline figures (revenue, net income, EPS)>",
+        "<2-4 high-signal takeaways; echo AT MOST the 2-3 headline figures (revenue, net income, EPS); apply the supported financial-driver condition below>",
         "... (use ['Not disclosed—explain why'] if no validated bullets)"
       ],
-      "what_changed": "<what this filing changes vs the prior period, in one line>",
+      "what_changed": "<financial_driver>",
       "tone": "<positive|neutral|cautious>",
       "source_section_ref": "<e.g., 'Cover page' or 'Item 2. MD&A'>"
     },
@@ -231,14 +233,14 @@ EXTRACTED FINANCIAL SIGNALS:
           "current_period": "<non-empty string>",
           "prior_period": "<non-empty string>",
           "change": "<non-empty string; state margin changes in percentage points>",
-          "commentary": "<the one-line driver for this line, as management states it>",
+          "commentary": "<financial_driver>",
           "supporting_evidence": "<a SHORT VERBATIM quote of NARRATIVE PROSE from the filing that backs this driver — a sentence or contiguous sentence fragment, copied CHARACTER-FOR-CHARACTER so it can be located in the text; NEVER a transcription of table rows or cells (the columns above already carry the figures), and NEVER a sentence you compose yourself to restate figures — the span must exist in the filing; use '' if the filing has no prose line to quote>"
         }
       ],
       "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
     },
     "earnings_quality": {
-      "operating_vs_one_time": "<separate operating results from one-time items (unrealized gains, impairments, settlements) — adjusted vs reported>",
+      "operating_vs_one_time": "<earnings_reconciliation>",
       "red_flags": ["<a specific quality flag, e.g. receivables growing faster than sales; leave empty if none>"],
       "source_section_ref": "<e.g., 'Item 8' or 'Statements of Cash Flows'>"
     },
@@ -272,7 +274,7 @@ EXTRACTED FINANCIAL SIGNALS:
     "segments": [
       {
         "segment": "<copy a segment name EXACTLY as listed under REPORTABLE SEGMENTS in the data summary>",
-        "commentary": "<one-line driver for that segment as management states it — NEVER restate this segment's own revenue, operating income, or YoY change (the deterministic figure table carries them); finer-grained product/sub-segment facts are welcome as the filing discloses them>"
+        "commentary": "<supported one-line interpretation for that segment, or the supported movement alone when its cause is unknown — NEVER restate this segment's own revenue, operating income, or YoY change (the deterministic figure table carries them); finer-grained product/sub-segment facts are welcome as the filing discloses them>"
       }
     ],
     "balance_sheet_liquidity": {
@@ -293,7 +295,9 @@ EXTRACTED FINANCIAL SIGNALS:
   }
 }"""
 
-        schema_template = schema_template.replace("<reported_metric_label>", REPORTED_METRIC_LABEL)
+        schema_template = (schema_template.replace("<reported_metric_label>", REPORTED_METRIC_LABEL)
+                           .replace("<financial_driver>", FINANCIAL_DRIVER)
+                           .replace("<earnings_reconciliation>", EARNINGS_RECONCILIATION))
 
         output_reference = ""
         if prompt_template.user:
@@ -321,7 +325,7 @@ Use the extracted context below to populate quantitative and qualitative data. F
 
 Guidance for emphasis:
 - {" ".join(analysis_focus_lines)}
-- Only cite figures present in the excerpts or XBRL data.
+- {FINANCIAL_EXPLANATION_SUPPORT}
 - If prior-period data is unavailable, set related fields to "Not disclosed" and mark "has_prior_period": false.
 
 {data_summary}
@@ -337,7 +341,7 @@ Return ONLY valid JSON (no markdown fences) that matches this schema (replace pl
 Rules:
 - OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
 - Populate ONLY the nine sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). Do not invent additional section keys. `segments` is COMMENTARY-ONLY: its figure table (revenue, operating income, operating margin) is filled deterministically from XBRL — emit one row per segment listed under REPORTABLE SEGMENTS in the data summary (name copied EXACTLY; a row whose name is not on that list is discarded), and omit the section entirely when no segments are listed.
-- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: reported P&L figures in results_that_matter ({REPORTED_METRIC_LABEL}); earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
+- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: reported P&L figures in results_that_matter ({REPORTED_METRIC_LABEL}); earnings-quality figures (supported reported/adjusted earnings reconciliation) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section may add a driver, significance or inflection only when supported on the same basis; otherwise retain the supported movement without an invented explanation. Reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `results_that_matter.table` when no reported metric is substantiated, and `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).

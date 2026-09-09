@@ -281,3 +281,73 @@ async def test_reported_metric_label_contract_reaches_primary_recovery_and_schem
     assert 'omit unsupported metrics' in REPORTED_METRIC_LABEL
     assert 'Income before income taxes 100/80, not Operating income' in REPORTED_METRIC_LABEL
     assert PLMetricRow(metric='Income before income taxes').metric == 'Income before income taxes'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("structured", [False, True])
+@pytest.mark.parametrize("form", ["10-K", "10-Q", "20-F", "6-K"])
+async def test_supported_explanations_reach_actual_primary_recovery_and_schema(monkeypatch, structured, form):
+    """One wire invariant: supported identity/omission governs both explanation forms."""
+    from app.config import settings
+    from app.services.summary_schema import (
+        FINANCIAL_EXPLANATION_SUPPORT, FINANCIAL_DRIVER, EARNINGS_RECONCILIATION,
+        PLMetricRow, ThePrint, EarningsQuality,
+    )
+
+    monkeypatch.setattr(settings, "USE_STRUCTURED_OUTPUT", structured)
+    requests = []
+
+    def handler(req):
+        requests.append(json.loads(req.content))
+        return response({'metadata': {}, 'sections': {}})
+
+    sections = ('the_print', 'results_that_matter', 'earnings_quality', 'value_drivers')
+    async with native_service(handler) as service:
+        service._assemble_structured_summary = AsyncMock(return_value={'assembled': True})
+        await service.generate_structured_summary(
+            'Reported earnings and investment notes.', 'Fixture', form,
+            filing_excerpt='Reported earnings and investment notes.',
+        )
+        for section in sections:
+            await service._recover_single_section(
+                section, form, (), 'Reported earnings and investment notes.', {},
+            )
+    assert len(requests) == 5  # Actual SDK transport, including non-earnings recovery.
+    for request in requests:
+        wire = request['messages'][1]['content']
+        assert wire.count(FINANCIAL_EXPLANATION_SUPPORT) == 1
+        # Independent semantic anchors make an unconditional shared-constant mutation fail.
+        assert "entity/component scope, period, accounting/tax basis, currency/unit" in wire
+        assert "A balance, change, ratio/rate and component are not interchangeable" in wire
+        assert "otherwise retain the supported facts without the unsupported conclusion" in wire
+        assert "Only cite figures present" not in wire
+        assert "separate operating results from one-time items" not in wire
+        assert "Every OTHER section must ADD" not in wire
+        assert "supply concise qualitative statements rather than placeholders" not in wire
+
+    primary = requests[0]['messages'][1]['content']
+    assert primary.count(FINANCIAL_DRIVER) == 2  # print interpretation + P&L commentary
+    assert primary.count(EARNINGS_RECONCILIATION) == 1
+    for section, request in zip(sections, requests[1:]):
+        wire = request['messages'][1]['content']
+        assert 'ONE HOME PER NUMBER' not in wire  # recovery cannot see the other sections
+        snippet = json.loads(wire.split('SCHEMA:\n', 1)[1].split('\n\nFILING EXCERPT:', 1)[0])
+        if section == 'the_print':
+            assert snippet[section]['what_changed'] == FINANCIAL_DRIVER
+        elif section == 'results_that_matter':
+            assert snippet[section]['table'][0]['commentary'] == FINANCIAL_DRIVER
+        elif section == 'earnings_quality':
+            assert snippet[section]['operating_vs_one_time'] == EARNINGS_RECONCILIATION
+        else:
+            assert FINANCIAL_DRIVER not in wire and EARNINGS_RECONCILIATION not in wire
+    assert 'report the 25% movement without an acceleration or causal claim' in FINANCIAL_DRIVER
+    assert 'Remove only items included in the named subtotal' in EARNINGS_RECONCILIATION
+    assert 'report the item without an ex-item total' in EARNINGS_RECONCILIATION
+    for model, fields, form_description in (
+        (PLMetricRow, ('commentary',), FINANCIAL_DRIVER),
+        (ThePrint, ('headline', 'key_takeaways', 'what_changed'), FINANCIAL_DRIVER),
+        (EarningsQuality, ('operating_vs_one_time',), EARNINGS_RECONCILIATION),
+    ):
+        properties = model.model_json_schema()['properties']
+        for field in fields:
+            assert properties[field]['description'] == FINANCIAL_EXPLANATION_SUPPORT + ' ' + form_description
