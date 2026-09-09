@@ -11,8 +11,9 @@ Bump ``SUMMARY_SCHEMA_VERSION`` when the ``sections`` shape changes (v2 = the co
 re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any content-affecting change to the
 generation prompt — whether the per-form ``backend/prompts/*-agent.md`` preambles OR the shared
 inline Rules/schema block assembled in ``app/services/openai_service.py`` (both feed the same
-prompt). Bumping either makes prior rows version-stale; the admin ``refresh-stale`` endpoint and
-the background drain regenerate them in place (preserving ``summaries.id`` so saved-summary
+prompt). Bumping either makes prior rows version-stale but does not regenerate them on read or
+schedule a drain. The admin ``refresh-stale`` endpoint defaults to dry-run; an explicit non-dry-run
+call invokes background generation in place (preserving ``summaries.id`` so saved-summary
 bookmarks survive).
 
 NULL columns on a row (legacy / pre-stamp) are always treated as stale.
@@ -68,7 +69,12 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   both schema fields, preambles x4, recovery message), scoped to supporting_evidence only —
 #   commentary/impact stay the model's own analysis by design. Quote-mechanics text untouched
 #   (boundary-sentence lesson). Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-k"
+# summary-2026-09-a: Deterministic rendering: remove segment revenue shares derived from overlapping flat
+#   members; align the figure-table description with retained operating margins; include the prior
+#   working-capital report-date labeling correction. Taxonomy unchanged.
+# summary-2026-09-b: Return-ratio basis is explicit in model grounding and deterministic rendering:
+#   period net income / period-end equity or assets, not annualized. Taxonomy unchanged.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-b"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
