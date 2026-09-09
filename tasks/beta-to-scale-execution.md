@@ -1,3 +1,12 @@
+## September 9 reported-metric correction checkpoint
+
+- [x] Reconcile Fable's final review and review all 52 actual first-#799 raw outputs; preserve original evidence and source-coverage limits. [Readout and next implementation order](quality-reported-metrics-readout-2026-09-09.md).
+- [x] Confirm numeric scaling, accounting sign, percentage-margin prior and loss-direction defects; local committed corrections pass 2,841 tests, all four PostgreSQL lanes/performance, seven total invariant proofs and eleven unchanged locks.
+- [ ] Publish #799's confirmed-finding corrections and inspect its authorized second paid assessment; first reports remain retained. Merge and serial production verification are pending. No third paid round is authorized.
+- [ ] Continue signed earnings/cause reconciliation, derived-cash basis, debt/cash scope, guarded source coverage and measurement-only dispatch in the readout order. The final review is evidence of remaining defects, not world-class acceptance.
+
+Universe-wide pregeneration and broad historical replay remain held. All previously named founder prerequisites remain as recorded; the readout does not satisfy W3-7 or unseen acceptance.
+
 ## September 9 comparative identity — authorized finding-fix round
 
 Hosted review of #797 identified the documented `EPS (diluted)` spelling missing from the exact identity map. Two refutations checked the actual structured preambles/XBRL label and production normalization against competing generic/diluted values: this unambiguous spelling lost its own prior and per-ADS projection. Local correction `2268fcb8ef3da73caa0318cbfd2d2b4e19fcae26` adds only that alias and existing positive test cases; Ruff/Bandit and all 2,801 tests passed with four PostgreSQL lanes/performance and eleven locked anchors unchanged. Existing mutation proofs were not repeated.

@@ -1,3 +1,12 @@
+## September 9 reported-metric correction checkpoint
+
+- [x] Reconcile Fable's final review and review all 52 actual first-#799 raw outputs; preserve original evidence and source-coverage limits. [Readout and next implementation order](quality-reported-metrics-readout-2026-09-09.md).
+- [x] Confirm numeric scaling, accounting sign, percentage-margin prior and loss-direction defects; local committed corrections pass 2,841 tests, all four PostgreSQL lanes/performance, seven total invariant proofs and eleven unchanged locks.
+- [ ] Publish #799's confirmed-finding corrections and inspect its authorized second paid assessment; first reports remain retained. Merge and serial production verification are pending. No third paid round is authorized.
+- [ ] Continue signed earnings/cause reconciliation, derived-cash basis, debt/cash scope, guarded source coverage and measurement-only dispatch in the readout order. The final review is evidence of remaining defects, not world-class acceptance.
+
+Universe-wide pregeneration and broad historical replay remain held. All previously named founder prerequisites remain as recorded; the readout does not satisfy W3-7 or unseen acceptance.
+
 ## September 9 comparative release and next quality readout
 
 - [x] Complete [#797](https://github.com/neilmac91/EarningsNerd/pull/797): final 52-summary and 18-answer artifacts accepted; exact-head merge and revision `earningsnerd-backend-00322-6zw` verified at 100%, migrations 0/39 and both detailed health checks healthy. The [execution ledger](beta-to-scale-execution.md) retains exact identities, timeout recovery and traceability limits.
