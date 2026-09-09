@@ -802,7 +802,8 @@ attempt; complete section syntax does not establish factual/source correctness.
 **Preview ownership correction (September 9, first #803 actual readout).** Complete section
 syntax alone did not prevent model-authored segment figures from appearing before final processing
 removed them. Previews now reuse `_apply_structured_fallbacks` and the bank-row sanitizer on the
-freshly parsed copy, then retain only section keys already complete in the stream. Thus code-owned
+freshly parsed copy, then retain only section keys already complete in the stream. An originally
+empty lead remains pending rather than acquiring the final degraded-detail notice. Thus code-owned
 fields are derived or suppressed by their existing final owner; missing sections remain pending.
 Working-capital/cash-flow fields still follow that owner's conditional overwrite behavior when
 facts are available, rather than a new unconditional removal policy. If `AI_FORWARD_QUOTE_GATE`

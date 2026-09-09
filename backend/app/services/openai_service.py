@@ -498,9 +498,13 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
-            completed_keys = tuple(sections)
+            completed_keys = tuple(
+                key for key in sections
+                if key != "the_print" or not self._section_is_empty(sections[key])
+            )
             # Parsed sections are a fresh local copy. Reuse final numeric ownership, then
             # keep unreceived sections pending instead of revealing synthesized fallbacks.
+            # An empty lead also stays pending, without the final degraded-detail notice.
             self._apply_structured_fallbacks(sections, {}, xbrl_metrics)
             sections = {key: sections[key] for key in completed_keys if key in sections}
             if "results_that_matter" in sections:

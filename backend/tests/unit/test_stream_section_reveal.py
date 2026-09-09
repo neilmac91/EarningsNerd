@@ -225,3 +225,7 @@ def test_previews_respect_final_numeric_ownership_and_guarded_quotes(monkeypatch
     assert guarded and "A quotation awaiting verification." not in guarded
     assert "A retained outlook." in guarded and "Product demand." in guarded
     assert "quotes" in sections["forward_signals"]  # parsed-copy mutation only
+
+    # An explicitly empty lead is not an invitation to preview a generic absence notice.
+    assert openai_service._partial_markdown_preview('{"sections":{"the_print":{}}}', None) is None
+    assert openai_service._partial_markdown_preview('{"sections":{"the_print":{}}}', facts) is None
