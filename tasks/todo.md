@@ -1,3 +1,9 @@
+## September 9 explanation feasibility — offline follow-up
+
+- [x] Preserve the [exact typed-source feasibility and causal-contract finding](quality-explanations-first-readout-2026-09-09.md#follow-up-offline-feasibility--added-before-publication). The original six assessment snapshots remain unchanged.
+- [ ] Scope a selected-source registry first, then narrowly validated arithmetic: PFE continuing-income tax bridge is a positive control; BA untagged core/ex-sale relationships and RIVN payment-versus-expense periods remain negative controls. Shared presentation follows measured evidence coverage.
+- [ ] Correct the confirmed global causal-wording ambiguity only within reviewed scope. No implementation, new content stamp or second paid run is claimed; #805 remains held.
+
 ## September 9 supported-explanation assessment — semantic acceptance failed
 
 - [x] Review the first actual #805 cohort against the fixed pre-e reference; retain the [rejected assessment and exact independent reports](quality-explanations-first-readout-2026-09-09.md). Green code/regression gates and usable outputs do not clear the surviving signed, measure-basis and debt-scope defects.

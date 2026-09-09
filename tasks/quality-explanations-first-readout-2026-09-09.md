@@ -41,6 +41,18 @@ DeepSeek thinking-mode research is optional and unproven. It has not been activa
 
 The [residual acceptance checklist](quality-residual-acceptance-2026-09-09.md) and [CEO plan](ceo-implementation-plan-2026-09-08.md) retain original account, rollout, legal and major-dependency prerequisites. No decision is closed by a green regression, Fable receipt or these local preparations.
 
+## Follow-up offline feasibility — added before publication
+
+The [exact typed-explanation feasibility snapshot](review-evidence/explanations-first-2026-09-09/typed-financial-explanation-feasibility.md) narrows the next implementation to three stages:
+
+1. **Produce a selected-source registry first**, alongside existing metrics, from already owned facts/documents. Preserve exact source and expanded concept identity, lexical Decimal/precision, entity, period, dimensions, units and observed relationship provenance. Missing original source ownership or legacy-cache metadata remains explicitly unavailable; no new fetch or guessed namespace is implied.
+2. **Add narrowly validated arithmetic**, using code-created verified IDs and either a validated filed summation or an explicitly labeled code-defined accounting identity. PFE pretax minus tax to continuing income is the positive control; the prior displayed 1M rounding residual remains visible. It is not parent net income or proof of a business cause. Reject invalid/missing weights and context mismatches.
+3. **Share the accepted projection across applicable surfaces only after coverage is measured.** BA's core metric is untagged in the diagnostic source and its tagged gain/adjustment contexts do not establish an automatic ex-sale relationship. RIVN's tagged186M is a January2026 settlement payment, not proof of the FY2025 expense's inclusion. Both remain negative controls, not opportunities for same-amount inference. Unsupported adjustments retain reported facts and independently supported items without an asserted derived result.
+
+The #805 bot P1 **global causal-wording ambiguity is confirmed**: the shared predicate permits a “comparison or cause” from “signed figures or filing explanation.” Refutation1 fails because the narrower driver descriptor does not reach value-driver/liquidity recovery snippets. Refutation2 fails because matching measure/basis and signed co-movement do not prove a business cause. The exact code sites and two challenges are in the snapshot. This warrants a narrowly distinguished source-stated-causation versus validated-arithmetic contract, but no correction has been implemented and no second paid run has launched. It does not establish that another prose warning would resolve the observed accounting failures.
+
+This is feasibility research, not a source-registry release or a new gate/stamp. A model-authored inclusion flag is not verified provenance. Thinking-mode research remains optional and unactivated; its effective sampling differences would have to be disclosed in any separately authorized experiment.
+
 ## Publication and production status
 
 Documentation #806 merged as `c9af0b4031efcb4da62bbfd9688c5f17f7b16d49`. Main CI [34341005430](https://github.com/neilmac91/EarningsNerd/actions/runs/34341005430) succeeded; job [102432339156](https://github.com/neilmac91/EarningsNerd/actions/runs/34341005430/job/102432339156) explicitly logged **“No backend changes - skipping deploy.”** at **2026-09-09T10:38:13.1854728Z**, independently read in the retained deploy log. This documentation publication did not deploy a backend or apply migrations.

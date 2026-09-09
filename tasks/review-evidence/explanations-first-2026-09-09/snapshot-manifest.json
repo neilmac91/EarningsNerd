@@ -1,5 +1,5 @@
 {
-  "scope": "Six exact independent first-e reports. F/G/E locators refer to retained public filing packets, not source text shipped in this snapshot. Integrity does not prove coverage. Work paths inside unchanged reports identify local analysis artifacts, not fresh-checkout links; the reports retain the substantive findings and refutations.",
+  "scope": "Six exact independent first-e reports plus one exact offline feasibility research snapshot. F/G/E locators refer to retained public filing packets, not source text shipped in this snapshot. Integrity does not prove coverage. Work paths inside unchanged reports identify local analysis artifacts, not fresh-checkout links; the reports retain the substantive findings and refutations.",
   "files": [
     {
       "file": "pr805-financial-review-a.md",
@@ -41,6 +41,13 @@
       "source": "work/pr805-financial-review-b.md",
       "sha256": "94a3955c18483f93ffc33e3a718d1d01d26642877096ae0049fb52281f1c16c1",
       "bytes": 21372,
+      "copied_unchanged": true
+    },
+    {
+      "file": "typed-financial-explanation-feasibility.md",
+      "source": "work/typed-financial-explanation-feasibility.md",
+      "sha256": "4ec6307d3a47f4fa3151745358d1186cab1927a24d967fc729da6fa0d58e6935",
+      "bytes": 16344,
       "copied_unchanged": true
     }
   ]

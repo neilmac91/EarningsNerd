@@ -14,3 +14,7 @@ All 52 new and 52 fixed-reference outputs were read across all raw sections. Sou
 ## Snapshot erratum
 
 The unchanged A report mistypes the fixed-reference SHA-256 by omitting `384` after `...9934b`. Direct hashing confirms **`713ff3f98293881b9934b384b5ff24c474259f1043780fc1876ed4578ce80b92`**, consistent with B's frozen mechanical report. The exact original A snapshot is preserved; the parent readout uses the corrected hash. This is a transcription correction, not a different comparison artifact.
+
+## Subsequent offline research snapshot
+
+[Typed financial-explanation feasibility](typed-financial-explanation-feasibility.md) is an exact seventh snapshot added after the six completed assessment reports. It proposes an immutable selected-source registry, narrowly validated arithmetic and then shared presentation; it does not certify a production implementation. Its concrete BA/PFE/RIVN controls and two refutations of the global causal-contract ambiguity are preserved. Original six report bytes and hashes remain unchanged. Local probe paths inside the research snapshot identify exploratory evidence; the detailed design, observed results, negative controls and limitations are included in the snapshot itself.
