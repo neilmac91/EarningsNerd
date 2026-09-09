@@ -575,3 +575,17 @@ Main CI [34292889980](https://github.com/neilmac91/EarningsNerd/actions/runs/342
 ## September 9 confirmed source-provenance review correction
 
 PR #792's common evaluation exception outcome discarded source and excerpt metadata after generation, scoring or judging failure. Two refutations traced the exception return and downstream retry/report serialization; neither could recover discarded observations. Head `396b01b5a43261e787678d4dc322386a82e9ef7e` retains both optional fields, passed 2,760 tests, and has one new failure-retention mutation proof (6 failed → 6 passed). The second paid Copilot run is authorized specifically for this confirmed-finding fix round. Earlier proofs and first-round evidence remain preserved. All 52 first-round source hashes and lengths match the retained documents across 26 accessions; this does not certify accounting interpretation.
+
+## September 9 return-basis production verification
+
+[#788](https://github.com/neilmac91/EarningsNerd/pull/788) merged as `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1`. Final local gate passed 2,755 tests; actual final summary CI 34292517143 retained 52 unique attempts with zero errors/retries/vetoes (artifact 10082229264). Authorized second paid Copilot 34292517100 accepted 18/18 (artifact 10081948967). All retained return fields were inspected for contradictory quarterly/annual basis; this is not global quality acceptance.
+
+Main CI [34293928853](https://github.com/neilmac91/EarningsNerd/actions/runs/34293928853) and deploy job 102286975731 passed. `apply_migrations: applied=0 skipped=39`; `earningsnerd-backend-00318-q79` serves 100% traffic. CI detailed health 1788913070.8209805 and independent curl 1788913197.024444 are healthy, database 6.64/5.43 ms, SEC circuit closed. These health checks do not exercise the paid AI provider.
+
+## September 9 external provider block and evaluation reporting finding
+
+PR #792 final CI 34293573625 retained artifact 10082475808 / eval_20260909T001448Z.json on source c8f68b33685dde29aac4d3653d2e2e66a3ac601a. DeepSeek returned HTTP 402 “Insufficient Balance” 26 times between 00:13:22.5179604Z and 00:14:48.9626130Z. All 26 affected outputs are the application's failure placeholder with no raw sections or previews. Source hashes still match all 52 retained inputs.
+
+The actual regression step failed with two HARD regressions (coverage and numeric recall), exit 1; an offline replay of that retained report against the gate also exits 1. Overall workflow green is advisory continue-on-error, not acceptance. Copilot 34293573627 had already completed 18/18 (artifact 10082320786). The source change does not cause an external balance rejection: exact provider logs and unchanged application fallback independently refute that attribution. No further evaluation is launched, no balance is purchased, and #792 remains unmerged pending successful funded measurement. The founder was asked once to replenish DeepSeek balance.
+
+A separate confirmed instrumentation defect is being fixed locally: the runner scores application status:error payloads and records error:null. This misstates execution counts even though the regression gate detected degraded output. Preserve the original report, do not relabel the run passed or rerun paid Copilot a third time. A failed-summary-only CI rerun after balance restoration can recover required summary evidence without another Copilot run. Metric identity c and prompt d remain locally prepared, with release/actual-output acceptance held on provider balance and ordered prerequisites.

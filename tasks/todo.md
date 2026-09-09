@@ -1,3 +1,10 @@
+## September 9 provider block — current release status
+
+- [x] Return-basis #788 production-verified: main CI 34293928853, revision `earningsnerd-backend-00318-q79` at 100%, migrations 0/39, healthy CI and independent detailed health.
+- [ ] Founder prerequisite: replenish DeepSeek API balance; HTTP 402 stopped #792's required regression. Asked once. No further paid evaluation launches or purchases; universe-wide pregeneration remains held separately.
+- [ ] Source #792: local/full unit gates and Copilot pass, actual final summary regression failed from external insufficient balance; hold merge until funded summary evidence. Do not repeat paid Copilot.
+- [ ] Metric identity c / source-reported prompt d / application-error evaluation reporting: complete local preparation; ordered publication and actual model evidence wait balance and preceding releases.
+
 ## September 9 return-basis release in progress
 
 - [ ] Return-basis #788 merged as `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1`; main CI 34293928853 is pending production verification. Final PR regression scored 52 unique attempts without errors/retries/vetoes; the recorded second paid review accepted 18/18.
