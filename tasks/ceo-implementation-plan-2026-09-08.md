@@ -162,3 +162,7 @@ without saving. The previous #781 post-merge main CI is now confirmed successful
 Report at substantive milestones: what was released, what evidence changed the recommendation,
 actual cost, unresolved quality defects and the next named decision. Do not create open-ended
 background work or notification schedules without a request.
+
+## September 9 execution correction
+
+The previously fresh Dependabot #780 group is closed; its compatible minor SDK updates shipped and were verified through #791. Original major dependency decisions remain held. The EdgarTools study is complete and quality fixes #784–#791 have shipped as recorded in the September 9 handover. The first-checkpoint measurement-only workflow mode is prepared locally; no report/email job or paid weekly measurement was dispatched as a test. DeepSeek balance restoration now blocks further actual evaluation, independently of Fable's subscription limit and the founder's universe-wide pregeneration hold.
