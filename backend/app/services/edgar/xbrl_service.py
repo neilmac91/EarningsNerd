@@ -50,6 +50,7 @@ from .instance_extractor import (
     duration_series_with_currency,
     extract_financial_statement_metrics,
     instant_series_with_currency,
+    instant_series_currency_concept,
     normalize_form,
     segment_series_by_member,
 )
@@ -424,9 +425,15 @@ def _extract_from_filing_instance_sync(
             for end, value in fin_series
         ]
     for metric, concepts in instant_concepts.items():
-        series, currency = instant_series_with_currency(xb, concepts, period_of_report)
+        provenance = {}
+        if metric in ("cash_and_equivalents", "long_term_debt"):
+            series, currency, raw_tag = instant_series_currency_concept(xb, concepts, period_of_report)
+            provenance = {"raw_tag": raw_tag}
+        else:
+            series, currency = instant_series_with_currency(xb, concepts, period_of_report)
         result[metric] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
+            {"period": end, "value": value, "form": form, "accn": accession_number,
+             "currency": currency, **provenance}
             for end, value in series
         ]
         _record_currency(currency, len(series))

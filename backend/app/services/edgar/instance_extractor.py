@@ -215,8 +215,10 @@ def duration_in_window(start: Any, end: Any, form: str) -> bool:
 _CONCEPT_NAMESPACES: Tuple[str, ...] = ("us-gaap", "ifrs-full")
 
 
-def _fact_records(xb: Any, concept: str) -> List[Dict[str, Any]]:
-    """All facts for a concept as row dicts, trying us-gaap then ifrs-full (empty on failure).
+def _fact_records_with_concept(
+    xb: Any, concept: str,
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Facts and the exact successful query identity; try us-gaap then ifrs-full.
 
     A foreign private issuer reporting under IFRS tags the concept in the ``ifrs-full`` namespace;
     a domestic/US-GAAP filer (incl. Alibaba) tags it in ``us-gaap``. The first namespace that
@@ -229,8 +231,14 @@ def _fact_records(xb: Any, concept: str) -> List[Dict[str, Any]]:
             logger.debug(f"Fact query failed for {namespace}:{concept}: {exc}")
             continue
         if df is not None and not getattr(df, "empty", True):
-            return df.to_dict("records")
-    return []
+            return df.to_dict("records"), f"{namespace}:{concept}"
+    return [], None
+
+
+def _fact_records(xb: Any, concept: str) -> List[Dict[str, Any]]:
+    """Compatibility view of the same first successful namespace query."""
+    records, _qualified_concept = _fact_records_with_concept(xb, concept)
+    return records
 
 
 def _currency(row: Dict[str, Any]) -> Optional[str]:
@@ -441,18 +449,21 @@ def dividend_component_sum_series(
     return sorted(totals.items(), key=lambda kv: kv[0], reverse=True), currency
 
 
-def instant_series_with_currency(
+def instant_series_currency_concept(
     xb: Any,
     concepts: List[str],
     period_of_report: str,
     max_items: int = 5,
-) -> Tuple[List[Tuple[str, float]], Optional[str]]:
-    """Balance-sheet series + reporting currency: undimensioned instant facts (no period_start),
+) -> Tuple[List[Tuple[str, float]], Optional[str], Optional[str]]:
+    """Balance-sheet series, reporting currency and selected qualified concept.
+
+    Undimensioned instant facts (no period_start),
     anchored at period_of_report, plus the filing's comparative instants. Facts are filtered to the
     issuer's reporting currency (see ``duration_series_with_currency``)."""
     for concept in concepts:
         candidates: List[Tuple[str, float, Optional[str], float]] = []
-        for row in _fact_records(xb, concept):
+        records, qualified_concept = _fact_records_with_concept(xb, concept)
+        for row in records:
             if row.get("is_dimensioned"):
                 continue
             if _iso_date(row.get("period_start")) is not None:
@@ -474,9 +485,22 @@ def instant_series_with_currency(
             values_by_end.setdefault(end, []).append((round(value, 4), dec))
         series = _series_from_values(values_by_end, period_of_report, max_items)
         if series:
-            return series, currency
-    return [], None
+            return series, currency, qualified_concept
+    return [], None, None
 
+
+
+def instant_series_with_currency(
+    xb: Any,
+    concepts: List[str],
+    period_of_report: str,
+    max_items: int = 5,
+) -> Tuple[List[Tuple[str, float]], Optional[str]]:
+    """Compatibility pair; preserve selection and queries while hiding concept metadata."""
+    series, currency, _concept = instant_series_currency_concept(
+        xb, concepts, period_of_report, max_items,
+    )
+    return series, currency
 
 def duration_series(
     xb: Any,
