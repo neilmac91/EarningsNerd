@@ -1,3 +1,12 @@
+## September 9 final corrected reported-metric readout
+
+- [x] Review all 52 final #799 raw outputs and exact retained preview chronology; archive the [final readout and independent evidence](quality-final-reported-metrics-readout-2026-09-09.md). Final 272-row numeric projections pass their bounded helper checks. Preview semantics **FAIL** through the inherited legacy renderer; retention is not display-quality acceptance.
+- [x] Accept the authorized second summary and Copilot artifacts under their unchanged gates, preserving citation/delta advisories and all first-round evidence. #799 merged as `3917cce5dbb58934a18b463c3cc7ab457ab0dde1` at 08:53:29 UTC.
+- [x] Verify main CI `34331622543` and deploy `102402200626`: migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00323-w4b` at 100%, CI and independent detailed health healthy (database 6.91 / 7.28 ms; SEC closed, Redis disabled). Exact timestamps and evidence are in the final readout.
+- [ ] Repair current-schema preview semantics first, then continue bounded earnings/cause, prepared cash-basis e, debt/cash provenance, guarded source coverage and measurement-only work. e's 2,851-test local gate does not establish actual-output acceptance. No third #799 paid round, universe-wide pregeneration or historical replay is authorized by this record.
+
+This dated addition supersedes older pending-assessment entries only for the completed review and merge. Historical ledgers, seven partial Fable cases, unseen acceptance and the original founder prerequisites remain intact.
+
 ## September 9 application-error release — verified
 
 #796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This completes evaluation, merge and serial production verification, not the residual quality checklist or broad replay holds.
