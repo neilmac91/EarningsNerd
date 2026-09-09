@@ -61,11 +61,12 @@ async def test_real_summary_assembly_matches_streamed_and_complete_provider_json
     # Exercise real request construction, stream collection, JSON assembly and final render.
     # Only the provider and optional extra recovery requests are replaced.
     payload = json.dumps({'metadata': {}, 'sections': {
-        'the_print': 'A filing-grounded operating overview. ' * 65,
+        'the_print': {'headline': 'A filing-grounded operating overview. ' * 65},
         'results_that_matter': {'table': [], 'takeaways': ['Demand stayed steady.']},
         'risks': [{'title': 'Demand', 'summary': 'Customer orders may decline.'}],
         'forward_signals': {'quotes': []},
-        'notable_footnotes': [],
+        # A later throttle frame sees a completed first section while this remains open.
+        'notable_footnotes': [{'item': 'Note', 'impact': 'Disclosed filing detail. ' * 100}],
     }})
     requests = []
 
