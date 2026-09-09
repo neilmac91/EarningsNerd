@@ -1,6 +1,6 @@
 # Corrected #803 preview assessment — September 9, 2026
 
-The second assessment passes mechanical integrity, bounded preview completion/ownership and final numeric projection checks. Independent review accepts the retained timeout-attempt frames, and Copilot passes its existing gate with citation advisories. Production verification is pending; no release is claimed. The [three exact assessment snapshots](review-evidence/preview-final-2026-09-09/README.md) retain execution identities, counts, source checks and refutations. The [first rejected readout](quality-preview-ownership-readout-2026-09-09.md) and its evidence remain unchanged.
+The second assessment passes mechanical integrity, bounded preview completion/ownership and final numeric projection checks. Independent review accepts the retained timeout-attempt frames, and Copilot passes its existing gate with citation advisories. Production is verified at revision `earningsnerd-backend-00324-fcq`; this is bounded preview acceptance, not full filing-analysis quality clearance. The [three exact assessment snapshots](review-evidence/preview-final-2026-09-09/README.md) retain execution identities, counts, source checks and refutations. The [first rejected readout](quality-preview-ownership-readout-2026-09-09.md) and its evidence remain unchanged.
 
 ## Second summary assessment
 
@@ -22,7 +22,9 @@ Run **34336781856**, job **102417928021**, artifact **10098119705** passes all 1
 
 ## Production
 
-#803 merged once from reviewed head `cb006f8bd5a6f69c80cafe08323f7a980879b432`, as squash `5e6b673476b684ac681a7c46f890e38ca2c3ce70` at 10:14:45 UTC. Main CI **34339180475** is running at this checkpoint; production verification remains pending. No revision, migration result or health state is inferred from merge or evaluation. The previous verified backend record remains in the [#799 readout](quality-final-reported-metrics-readout-2026-09-09.md).
+#803 merged once from reviewed head `cb006f8bd5a6f69c80cafe08323f7a980879b432`, as squash `5e6b673476b684ac681a7c46f890e38ca2c3ce70` at 10:14:45 UTC. Main CI [34339180475](https://github.com/neilmac91/EarningsNerd/actions/runs/34339180475) succeeded. Deploy job [102427774938](https://github.com/neilmac91/EarningsNerd/actions/runs/34339180475/job/102427774938) records `apply_migrations: applied=0 skipped=39` at **2026-09-09T10:24:04.9698334Z**. Revision **earningsnerd-backend-00324-fcq** serves **100%** of traffic.
+
+The deployment health response at **10:25:48.3963838Z** has timestamp **1788949548.3594809** and database latency **5.87 ms**. The independent detailed health response has timestamp **1788949606.135957** and database latency **6.38 ms**. Both report healthy status, SEC circuit closed and Redis disabled/healthy. The deployment log and independent response were read directly before recording this result. This completes the serial production verification for #803; the earlier [#799 record](quality-final-reported-metrics-readout-2026-09-09.md) remains historical.
 
 ## Local next candidates and remaining boundaries
 
