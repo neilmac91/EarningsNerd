@@ -25,12 +25,15 @@ async def test_runner_measures_actual_raw_prose_and_retains_replay_input(monkeyp
     summary = {"business_overview": "Overview without that field.", "raw_summary": raw}
     monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
     grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {},
+                 "source_provenance": {"representation": "httpx_decoded_response_text_utf8"},
                  "coverage_inventory": {"schema_version": 1, "source": "edgartools"}}
     result = await runner._run_one("baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"), grounding)
     assert result["error"] is None
     assert result["figure_trace"] == {"status": "measured", "reason": "", "count": 1, "figures": ["9.7b"]}
     assert result["raw_sections"] == raw["sections"] and result["grounding_excerpt"] == grounding["excerpt"]
     assert "9.7" not in result["payload"]["executive_summary"]
+    assert result["source_provenance"] == grounding["source_provenance"]
+    assert "source_provenance" not in openai_service.summarize_filing.call_args.kwargs
     assert result["coverage_inventory"] == grounding["coverage_inventory"]
     assert "coverage_inventory" not in openai_service.summarize_filing.call_args.kwargs
 
@@ -334,6 +337,25 @@ async def test_validation_failure_preserves_actual_attempt_evidence(monkeypatch,
     assert report["harness"] == harness
 
 
+@pytest.mark.asyncio
+async def test_grounding_retains_optional_source_observation_outside_model_input(monkeypatch):
+    from app.services.edgar.compat import sec_edgar_service, xbrl_service
+    observed = {"representation": "httpx_decoded_response_text_utf8", "sha256": "observed"}
+    fetch = AsyncMock(return_value=("owned HTML", observed))
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", False)
+    monkeypatch.setattr(openai_service, "extract_critical_sections", lambda *args: "unchanged excerpt")
+    filing = GoldenFiling("FIX", "1", "a", "10-K", "https://sec.example/filing", "Fixture")
+    grounding = await runner._get_grounding(filing)
+    fetch.assert_awaited_once_with(filing.document_url, timeout=30.0)
+    assert grounding == {"filing_text": "owned HTML", "excerpt": "unchanged excerpt",
+                         "xbrl_metrics": None, "source_provenance": observed,
+                         "coverage_inventory": grounding["coverage_inventory"]}
+    prompt = runner._grounding_user_prompt(filing.company_name, filing.filing_type, grounding["excerpt"], "")
+    assert "unchanged excerpt" in prompt and "httpx_decoded" not in prompt
+
+
 @pytest.mark.parametrize("path", ["legacy_cached_excerpt", "edgartools", "regex_fallback"])
 def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(path, monkeypatch, caplog):
     from types import SimpleNamespace
@@ -406,3 +428,34 @@ def test_excerpt_observation_does_not_reopen_transaction_after_commit(monkeypatc
             assert not db.in_transaction()
     finally:
         engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["generation", "scoring", "judging"])
+@pytest.mark.parametrize("observed", [False, True])
+async def test_failed_eval_retains_optional_grounding_metadata(monkeypatch, tmp_path, stage, observed):
+    grounding = {"filing_text": "owned", "excerpt": "selected", "xbrl_metrics": {}}
+    if observed:
+        grounding.update(source_provenance={"sha256": "selected-source"},
+                         coverage_inventory={"excerpt_sha256": "selected-excerpt"})
+    summary = {"business_overview": "fixture", "raw_summary": {"sections": {}}}
+    monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
+    def fail(*args, **kwargs):
+        raise ValueError("fixture failure")
+    if stage == "generation":
+        monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(side_effect=ValueError("fixture failure")))
+    elif stage == "scoring":
+        monkeypatch.setattr(runner, "score_summary", fail)
+    else:
+        monkeypatch.setattr(runner, "_maybe_judge", AsyncMock(side_effect=ValueError("fixture failure")))
+    result = await runner._run_one(
+        "baseline", GoldenFiling("FIX", "1", "a", "10-K", "url", "Fixture"), grounding,
+    )
+    assert result["error"] == "ValueError: fixture failure" and result["score"] is None
+    assert result["retried"] == 0
+    # Actual report serialization must retain observed identity or honest legacy unknown.
+    monkeypatch.setattr(runner, "REPORTS_DIR", tmp_path)
+    runner._write_report({}, [result], {})
+    recorded = json.loads(next(tmp_path.glob("*.json")).read_text())["results"][0]
+    for key in ("source_provenance", "coverage_inventory"):
+        assert key in recorded and recorded[key] == grounding.get(key)
