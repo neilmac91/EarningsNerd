@@ -22,7 +22,7 @@ Run **34336781856**, job **102417928021**, artifact **10098119705** passes all 1
 
 ## Production
 
-Pending actual merge/deploy evidence from the release owner. Do not infer a revision, migration result or health state from local integration or hosted evaluation. The previous verified backend record remains in the [#799 readout](quality-final-reported-metrics-readout-2026-09-09.md).
+#803 merged once from reviewed head `cb006f8bd5a6f69c80cafe08323f7a980879b432`, as squash `5e6b673476b684ac681a7c46f890e38ca2c3ce70` at 10:14:45 UTC. Main CI **34339180475** is running at this checkpoint; production verification remains pending. No revision, migration result or health state is inferred from merge or evaluation. The previous verified backend record remains in the [#799 readout](quality-final-reported-metrics-readout-2026-09-09.md).
 
 ## Local next candidates and remaining boundaries
 
