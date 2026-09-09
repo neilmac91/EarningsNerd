@@ -1,0 +1,83 @@
+{
+  "scope": "Byte-identical copied evidence; adapted navigation Markdown excluded",
+  "files": [
+    {
+      "destination": "verified-inventory.json",
+      "original_artifact": "outputs/fable-final-comparison/verified-inventory.json",
+      "sha256": "11523c56b000c418395281ba4408f40dc1e4e189e15d33da4381b49a55510b4d",
+      "byte_identical": true
+    },
+    {
+      "destination": "source-manifest.json",
+      "original_artifact": "outputs/fable-full-review/manifest.json",
+      "sha256": "f9d258293ed2bbf234c66829fd39a04eba93d0c0e918b199791e2ea803ae870c",
+      "byte_identical": true
+    },
+    {
+      "destination": "fable-review-file-hashes.json",
+      "original_artifact": "outputs/fable-final-comparison/fable-review-file-hashes.json",
+      "sha256": "77f0a629c99141d87270071517688cfabb2ceda6412b02ed9c35e1c18efa4bab",
+      "byte_identical": true
+    },
+    {
+      "destination": "codex-freeze.json",
+      "original_artifact": "outputs/codex-full-review/FREEZE.json",
+      "sha256": "fa7cf6759b2d2159ab6f1447bd7db1e85ab12cd847e9aec6f132218e6b18922c",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-a.md",
+      "original_artifact": "work/codex-fable-comparison/agent-a.md",
+      "sha256": "26fdfafa8e2d16df779e4d9607851887db53627bee724818a1393f7a24cec06e",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-a.json",
+      "original_artifact": "work/codex-fable-comparison/agent-a.json",
+      "sha256": "40faf874f1340f035282e06ac77e73214c8c3226e39caa0413294fc56e77ad93",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-b.md",
+      "original_artifact": "work/codex-fable-comparison/agent-b.md",
+      "sha256": "f6e6c74c753c9d238ad4b7236ecece24ecb76efdfa4fcc8fb802f71a7819811c",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-b.json",
+      "original_artifact": "work/codex-fable-comparison/agent-b.json",
+      "sha256": "6db16424d370d900ecbdf617b5ec1b7db1c82a5ec44317117e4effea7d1934e2",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-c.md",
+      "original_artifact": "work/codex-fable-comparison/agent-c.md",
+      "sha256": "803851f2b478ccb9eb8cd822e2076a7fb59db7102ea5b14b4aff8d20fafdfd86",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/agent-c.json",
+      "original_artifact": "work/codex-fable-comparison/agent-c.json",
+      "sha256": "e050d883b18ded784bd2519d79a6f2cca1487277582d5d8a8f7c6b4e5bd8483f",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/root.md",
+      "original_artifact": "work/codex-fable-comparison/root.md",
+      "sha256": "a555d3c1b6cb2b2628e88e1b31641b8e810e41429a803ae9d6620f709059e70c",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/root.json",
+      "original_artifact": "work/codex-fable-comparison/root.json",
+      "sha256": "ea284174e339adc7ab53b02ed7c779592f917ea681bf2a795cc0a522c5738c42",
+      "byte_identical": true
+    },
+    {
+      "destination": "prior-reconciliation/ROOT-DECISIONS.md",
+      "original_artifact": "work/codex-fable-comparison/ROOT-DECISIONS.md",
+      "sha256": "b692f581566868e8332e2b647b69b6fece7f2218e9e77b4768d96367209028d4",
+      "byte_identical": true
+    }
+  ]
+}

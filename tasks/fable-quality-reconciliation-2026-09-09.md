@@ -18,13 +18,13 @@ Bounded adjudication retains JD capex basis/direction, cash-flow deterioration a
 
 Do not classify JD's genuine PP&E purchase line or MELI's valid OCF-minus-capex arithmetic as fabricated. The defect is unqualified basis, direction or inference. BYND's $38.9M Sonate accrual is a retained post-freeze addition, not a new future expense or assumed immediate payment. PDD combines absent proceedings with qualifying language available but dropped. Missing relevant filing content is a product evidence-coverage defect; the model cannot be blamed for not reading absent text. Supplied-but-unused evidence is a separate generation or deterministic-rendering issue.
 
-The detailed reconciliation, machine-readable inventory and two-refutation adjudications are retained locally as `work/fable-final-reconciliation.md`, `work/fable-final-inventory.json` and `work/fable-final-material-adjudication.md`. They supplement the frozen reports; individual finding IDs must not be matched across reviewers without their candidate paths and source passages.
+The [durable evidence bundle](review-evidence/fable-final-2026-09-09/README.md) includes the [detailed comparison](review-evidence/fable-final-2026-09-09/review-comparison.md), [machine-readable inventory](review-evidence/fable-final-2026-09-09/verified-inventory.json), [source adjudication](review-evidence/fable-final-2026-09-09/source-adjudication.md), prior two-refutation decisions, original source manifest and final review hashes. They supplement the frozen reports; individual finding IDs must not be matched across reviewers without their candidate paths and source passages.
 
 ## Raw evidence versus rendered content
 
 The current P&L and footnote contract requires verbatim prose. Composed raw supporting evidence remains a generation-contract/traceability defect. However, unmatched evidence is suppressed, and raw fields are excluded from the shared P&L/footnote UI and PDF/CSV projection; those examples do not prove displayed invented quotations. Verification establishes text presence, not relevance to every adjacent claim. Risk evidence separately permits citations/XBRL references, and actual management blockquotes are a distinct surface. No blanket displayed-fabrication claim, new founder policy question or evidence-gate arming is justified.
 
-Bounded narrative adjudication retains Boeing's core/ex-gain basis error, Intel B's ex-charge sign error, Pfizer's tax-direction/net-income bridge error, and AAPL A's current-benefit versus prior-charge confusion. These paragraphs reach web/shared exports. c/d do not deterministically repair them. After d's measured readout, a separate narrowly evaluated earnings-quality instruction across main/recovery/schema may be justified; do not implement global prose replacement or untyped adjustment arithmetic. Details and two refutations are in `work/fable-final-traceability-adjudication.md`.
+Bounded narrative adjudication retains Boeing's core/ex-gain basis error, Intel B's ex-charge sign error, Pfizer's tax-direction/net-income bridge error, and AAPL A's current-benefit versus prior-charge confusion. These paragraphs reach web/shared exports. c/d do not deterministically repair them. After d's measured readout, a separate narrowly evaluated earnings-quality instruction across main/recovery/schema may be justified; do not implement global prose replacement or untyped adjustment arithmetic. Details and two refutations are in the [narrative and evidence adjudication](review-evidence/fable-final-2026-09-09/narrative-and-evidence-adjudication.md).
 
 ## Ordered implementation and remaining acceptance
 
@@ -41,3 +41,7 @@ Funding restoration authorizes the ordered work, not universe-wide generation, n
 ## Release correction after the comparison checkpoint
 
 Scope safeguard #794 is now verified on `earningsnerd-backend-00319-kz4` at 100% traffic, main CI `34315351755`, migrations 0/39 and healthy CI/independent detailed health. Only #792's failed summary CI job has been requested for the funded retry; no third Copilot round. See the dated release record in [the execution ledger](beta-to-scale-execution.md).
+
+## Evidence durability correction
+
+The initial report linked substantive details only by local workspace identifiers, which were unavailable in a fresh checkout. The repository now carries the detailed adjudications, original counts/coverage inventory, public source manifest and hash records in the linked evidence bundle. Full filing text is not copied. F/G/X/S/E references identify the retained packet representation; hashes establish identity, not completeness or correctness. Historical reviews remain unchanged, and this documentation correction does not alter quality judgments or release acceptance.
