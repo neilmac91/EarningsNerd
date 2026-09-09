@@ -41,7 +41,7 @@ metric and note the ratio. Do not compute a ratio the filing does not state.
 ## Content quality
 - Monetary values human-readable **with currency unit**; percentage changes to one decimal when the
   filing provides them.
-- Every string field must carry substantive content — no blank strings, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists. For an array field with
+- Every string field must carry substantive content — no blank strings, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists. For a non-table array field with
   nothing to report, return a single-element array explaining why (e.g. `["Not disclosed — 6-K is a
   governance notice with no financial results"]`); never an empty array.
 - For risk factors, attach supporting evidence (a short direct quote or the section reference)

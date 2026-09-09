@@ -239,8 +239,13 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
 
 
 @pytest.mark.asyncio
-async def test_reported_metric_label_contract_reaches_primary_recovery_and_schema():
+@pytest.mark.parametrize("structured", [False, True])
+@pytest.mark.parametrize("form", ["10-K", "10-Q", "20-F", "6-K"])
+async def test_reported_metric_label_contract_reaches_primary_recovery_and_schema(monkeypatch, structured, form):
     from app.services.summary_schema import PLMetricRow, REPORTED_METRIC_LABEL
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "USE_STRUCTURED_OUTPUT", structured)
 
     requests = []
     def handler(req):
@@ -249,13 +254,19 @@ async def test_reported_metric_label_contract_reaches_primary_recovery_and_schem
     async with native_service(handler) as service:
         service._assemble_structured_summary = AsyncMock(return_value={'assembled': True})
         await service.generate_structured_summary(
-            'Income before income taxes 100 80', 'Fixture', '10-Q',
+            'Income before income taxes 100 80', 'Fixture', form,
             filing_excerpt='Income before income taxes 100 80',
         )
         recovery = service._get_section_schema_snippet('results_that_matter')
     prompt = requests[0]['messages'][1]['content']
     # Both causal sites (the row slot and ONE HOME) must share the recovery/schema policy.
     assert prompt.count(REPORTED_METRIC_LABEL) == 2
+    assert '`results_that_matter.table` is empty when no reported metric is substantiated' in prompt
+    if structured:
+        # The prepended content-quality rule must not contradict the empty-table escape.
+        assert 'Array fields:' not in prompt
+        assert 'For an array field with' not in prompt
+        assert ('Non-table array fields:' in prompt or 'For a non-table array field with' in prompt)
     assert json.loads(recovery)['results_that_matter']['table'][0]['metric'] == REPORTED_METRIC_LABEL
     assert PLMetricRow.model_json_schema()['properties']['metric']['description'] == REPORTED_METRIC_LABEL
     assert 'Revenue | Operating income | Operating margin | Diluted EPS' not in prompt
