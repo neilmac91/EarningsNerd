@@ -3,11 +3,12 @@ from __future__ import annotations
 import copy
 import json
 import math
-import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.utils.numbers import parse_display_number
 
 _MISSING_STRINGS = {
     "",
@@ -22,14 +23,6 @@ _MISSING_STRINGS = {
     "n.a.",
 }
 
-_SUFFIX_MULTIPLIERS = {
-    "k": Decimal("1e3"),
-    "m": Decimal("1e6"),
-    "b": Decimal("1e9"),
-    "t": Decimal("1e12"),
-}
-
-
 def _is_missing(value: Optional[str]) -> bool:
     if value is None:
         return True
@@ -40,64 +33,7 @@ def _is_missing(value: Optional[str]) -> bool:
 
 
 def _parse_numeric(value: Optional[str]) -> Optional[Decimal]:
-    if value is None:
-        return None
-
-    if isinstance(value, (int, float, Decimal)):
-        try:
-            return Decimal(str(value))
-        except InvalidOperation:
-            return None
-
-    if not isinstance(value, str):
-        return None
-
-    candidate = value.strip()
-    if _is_missing(candidate):
-        return None
-
-    # Handle textual indicators such as "Not disclosed" early.
-    lowered = candidate.lower()
-    if any(token in lowered for token in ("not disclosed", "not provided", "not available")):
-        return None
-
-    # Preserve negative values enclosed in parentheses.
-    negative = candidate.startswith("(") and candidate.endswith(")")
-
-    # Remove common formatting characters.
-    cleaned = (
-        candidate.replace("$", "")
-        .replace("%", "")
-        .replace(",", "")
-        .replace(" ", "")
-        .replace("(", "")
-        .replace(")", "")
-    )
-
-    # Handle basis points explicitly (e.g., "120bps")
-    if cleaned.lower().endswith("bps"):
-        cleaned = cleaned[:-3]
-
-    multiplier = Decimal(1)
-    if cleaned and cleaned[-1].lower() in _SUFFIX_MULTIPLIERS:
-        multiplier = _SUFFIX_MULTIPLIERS[cleaned[-1].lower()]
-        cleaned = cleaned[:-1]
-
-    # Extract numbers from strings like "5.2B" or "4x".
-    match = re.search(r"-?\d+(\.\d+)?", cleaned)
-    if match:
-        cleaned = match.group(0)
-
-    if not cleaned:
-        return None
-
-    try:
-        number = Decimal(cleaned) * multiplier
-        if negative:
-            number = -number
-        return number
-    except InvalidOperation:
-        return None
+    return parse_display_number(value)[0]
 
 
 _XBRL_CONFIDENCE_NOTE = "Prior period from XBRL"
@@ -217,7 +153,7 @@ class NormalizedFact(BaseModel):
         if prior_value == 0:
             model.delta_percent = None
         else:
-            model.delta_percent = (delta_value / prior_value) * Decimal("100")
+            model.delta_percent = (delta_value / abs(prior_value)) * Decimal("100")
 
         return model
 
@@ -308,6 +244,10 @@ def attach_normalized_facts(
             )
 
             xbrl_key = _infer_xbrl_metric(metric_name)
+            # Issuers also use "Gross margin" for currency amounts. Percentage
+            # XBRL comparisons require an explicitly percentage-valued current row.
+            if xbrl_key in ("net_margin", "gross_margin", "operating_margin") and not parse_display_number(current_period)[1]:
+                xbrl_key = None
             prior_filled_from_xbrl = False
 
             if xbrl_metrics and xbrl_key:

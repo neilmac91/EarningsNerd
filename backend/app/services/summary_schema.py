@@ -88,12 +88,23 @@ class _V2Base(BaseModel):
 # --- shared row/item sub-models ----------------------------------------------------------------
 
 
+REPORTED_METRIC_LABEL = (
+    "Use the filing's reported P&L metric label, preserving operating, pretax, net, adjusted, "
+    "continuing-operation and basic/diluted per-share basis. Include only substantiated rows; "
+    "omit unsupported metrics and leave the table empty if none are supported. A margin must "
+    "retain its numerator's accounting basis and use a matching period and denominator. "
+    "Example (illustrative only — NOT from the filing you are summarizing): source "
+    "Income before income taxes 100/80 becomes Income before income taxes 100/80, not "
+    "Operating income. If only revenue and EPS are supported, include those rows alone."
+)
+
+
 class PLMetricRow(_V2Base):
     """One row of the §2 P&L table. Values are model-emitted; the renderer computes the Change cell
     from current/prior via metric_delta_service (ppts for margins) — the model's own `change` text is
     a fallback only. `commentary` is the one-line driver."""
 
-    metric: str = ""
+    metric: str = Field(default="", description=REPORTED_METRIC_LABEL)
     current_period: str = ""
     prior_period: str = ""
     change: str = ""
@@ -166,7 +177,7 @@ class ThePrint(_V2Base):
 
 
 class ResultsThatMatter(_V2Base):
-    """§2 — the single P&L table (revenue, operating income, operating margin in ppts, diluted EPS),
+    """§2 — substantiated P&L rows with their reported metric labels and accounting basis,
     each with a one-line driver. Cash lines live in §3, never here."""
 
     table: List[PLMetricRow] = Field(default_factory=list)
