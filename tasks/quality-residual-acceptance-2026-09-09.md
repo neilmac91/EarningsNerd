@@ -4,17 +4,17 @@ This checklist records what remains after the shipped safeguards and staged c/d/
 
 ## September 9 subsequent acceptance update
 
-#796's summary regression and Copilot gate are now accepted; merge `295daaaa1e67ef8cc89358819646d32a9edddf94` is complete. Main CI `34320328223` and production verification remain pending. The operational artifact/merge requirements below are satisfied; serial production verification remains unchecked. See the [execution ledger](beta-to-scale-execution.md) for exact evidence and retained advisories. The prior checkpoint below remains historical.
+#796's summary regression and Copilot gate are now accepted; merge `295daaaa1e67ef8cc89358819646d32a9edddf94` is complete. Main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). Operational acceptance is complete. See the [execution ledger](beta-to-scale-execution.md) for exact evidence and retained advisories. The remaining quality criteria below stay open.
 
 ## Current release boundary
 
-Docs #795 is published at `d11a5c31968250c3e9048e7d330248f6544d9673`; main CI34319126416/job102362286528 explicitly skipped backend deployment. #796 is open, with its summary regression pending. Its one Copilot evaluation passed the pinned 18-question-attempt gate, but six answers lack citations (11 uncited figures); 30 successful provider calls include tool continuations. See the [execution ledger](beta-to-scale-execution.md) for exact source and telemetry limits. No #796 deployment is claimed.
+Docs #795 is published at `d11a5c31968250c3e9048e7d330248f6544d9673`; main CI34319126416/job102362286528 explicitly skipped backend deployment. #796 is merged and production-verified as recorded above. Its one Copilot evaluation passed the pinned 18-question-attempt gate, but six answers lack citations (11 uncited figures); 30 successful provider calls include tool continuations. See the [execution ledger](beta-to-scale-execution.md) for exact source and telemetry limits. No broad analysis-quality acceptance is claimed.
 
 The [case-by-case coverage map](review-evidence/fable-final-2026-09-09/material-coverage-map.md) accounts for original Fable and Codex material IDs, preserving dated severity changes and unresolved scope.
 
 ## Closure checklist
 
-- [ ] **Operational acceptance:** #796 must supply its actual summary artifact/gate, exact executed source, source/excerpt identities, usable cohort and telemetry before release; then verify production serially. Passing Copilot alone does not close summary acceptance.
+- [x] **Operational acceptance:** #796 supplied its actual summary artifact/gate, exact executed source, source/excerpt identities, usable cohort and telemetry; its production deployment is verified. Passing Copilot alone was not used to close summary acceptance.
 - [ ] **P&L identity:** after c/d integration, inspect both PFE repeats, genuinely operating positive controls, accounting/EPS qualifiers, unsupported-row omission, matching margins, normalized priors and all actual previews/web/export projections. Do not infer model quality from the attachment unit proof.
 - [ ] **Earnings reconciliation:** retain source-grounded BA/INTC/PFE/AAPL and MSFT/TSLA/COIN/BYND adjustment controls. Any narrower instruction change is only a proposal after d's actual readout; preserve issuer definitions and signed bridges, not a general untyped adjustment calculator.
 - [ ] **Narrative period/comparator/causality:** explicitly check Codex NVDA-02, PLTR-01, TSM-01, KO-03 and PFE-02/04. Geographic share is not prior growth; sequential and year-over-year comparisons differ; valid neighboring figures do not repair an invalid explanation. c/d/e do not rewrite every model-authored comparator or headline.
@@ -26,3 +26,5 @@ The [case-by-case coverage map](review-evidence/fable-final-2026-09-09/material-
 - [ ] **Unseen acceptance:** complete representative unseen human-reviewed acceptance, preserve the seven partial Fable cases and Amazon range ambiguity, and obtain the separate quality/spend release before universe-wide pregeneration or broad saved-summary refresh.
 
 Existing broad source/financial-interpretation work already covers these families. The concrete comparator/causality row makes a previously implicit closure criterion visible; it does not allege that every absent case name was cancelled. [The EdgarTools plan](edgartools-quality-plan-2026-09-09.md) retains typed currency/period semantics, subsequent resolution and source acquisition. No new vendor, ticker rule, fuzzy-evidence activation or extra paid run is authorized by this document.
+
+The next P&L prompt candidate also qualifies the pre-existing blanket nonempty-string instructions so they preserve the existing honest-empty P&L/footnote evidence exception. This is a confirmed should-fix contract ambiguity, not a proven cause of all composed evidence. Risk requirements remain unchanged. The local legal-boundary adapter is diagnostic only; serving inclusion and its finite allowance remain subject to source and output evidence.

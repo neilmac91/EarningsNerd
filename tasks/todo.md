@@ -1,6 +1,12 @@
-## September 9 application-error acceptance update — production pending
+## September 9 comparative identity in review
 
-#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` and production verification are pending. See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This supersedes earlier pending evaluation/merge rows, not the residual quality checklist or broad replay holds.
+- [x] Verify #796 production on `earningsnerd-backend-00321-2v4` before publishing another backend change.
+- [ ] Complete [#797](https://github.com/neilmac91/EarningsNerd/pull/797), comparative metric identity: local head `16ff38ace6990fff94b1a06ae2126ba749c621d5` passed Ruff/Bandit and 2,799 tests with the four PostgreSQL lanes/performance; hosted evaluation is running. Neither the merge nor deployment is claimed.
+- [ ] Complete the locally prepared P&L/evidence-contract/preview candidate d and cash-flow-basis e with actual output acceptance. Prepare diagnostic source-boundary evidence separately; no serving expansion or broad regeneration is authorized by this checklist.
+
+## September 9 application-error release — verified
+
+#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This completes evaluation, merge and serial production verification, not the residual quality checklist or broad replay holds.
 
 ## September 9 residual material acceptance
 
@@ -10,7 +16,7 @@ The [explicit acceptance checklist](quality-residual-acceptance-2026-09-09.md) s
 
 - [x] Publish durable final-review evidence through docs #795 (`d11a5c31`); main CI34319126416 explicitly skipped backend deployment.
 - [x] Review #796's one Copilot artifact: exact 18 planned outputs pass the current gate. Retain the six uncited-answer advisory and 30 successful provider calls; do not call this universal citation fidelity.
-- [ ] Inspect #796's pending full summary regression before exact-head merge and production verification. No second evaluation launch is authorized by this checkpoint itself.
+- [x] Accept #796's full summary regression, exact-head merge and serial production verification. No additional evaluation was launched.
 - [ ] Apply the residual material-coverage acceptance map as its scoped findings are incorporated; c/d/e and further source/narrative proposals are not global quality clearance.
 
 ## September 9 source-provenance release — funded and verified

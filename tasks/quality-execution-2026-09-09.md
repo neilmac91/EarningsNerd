@@ -1,6 +1,6 @@
-## September 9 application-error acceptance update — production pending
+## September 9 application-error release — verified
 
-#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` and production verification are pending. See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This supersedes earlier pending evaluation/merge rows, not the residual quality checklist or broad replay holds.
+#796's actual 52-summary regression and existing 18-attempt Copilot gate are accepted, with their figure/citation advisories retained. It merged as `295daaaa1e67ef8cc89358819646d32a9edddf94`; main CI `34320328223` passed; deploy job `102366031159` reported `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00321-2v4` serves 100%, and CI/independent detailed health are healthy (timestamps `1788936558.801401` / `1788936601.7972426`, database 5.82 / 7.61 ms, SEC closed, Redis disabled). See the [execution ledger](beta-to-scale-execution.md) for exact artifacts, source version and telemetry limits. This completes evaluation, merge and serial production verification, not the residual quality checklist or broad replay holds.
 
 ## September 9 source-provenance release — funded and verified
 
