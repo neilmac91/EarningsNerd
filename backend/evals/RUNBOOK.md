@@ -260,7 +260,10 @@ loss, HTTP 408/409/429/5xx, a malformed completion) is re-generated once after 5
 (`--transient-retries`, default 1; 0 restores first-failure reporting). What that means per path:
 the `baseline` candidate runs the production summary path, which raises only its own
 `TimeoutError` (the 75 s request budget exhausted after up to three internal provider attempts)
-and turns every other provider fault into a degraded, scored `status: error` summary, so for
+and turns other provider faults into application `status: error` fallbacks. The runner retains
+these as unscored, non-transient failed attempts with bounded application-error details, source
+provenance, excerpt coverage and observed preview counts; it does not infer retryability from
+the fallback text. Thus for
 `baseline` the retry fires on that timeout alone and stacks one more generation on top of the
 app's internal attempts; the other transient classes are reachable only for REGISTRY candidates,
 and the Claude candidates' Anthropic SDK faults (timeout, connection, 429, 5xx) are classified

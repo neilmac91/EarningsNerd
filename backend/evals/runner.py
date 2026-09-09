@@ -215,7 +215,8 @@ async def _run_one(
     a report never hides that a retry happened. A non-transient failure, or a transient one after
     the last retry, is the attempt's error. On the production summary path only the app's own
     timeout (its request budget exhausted after its internal attempts) surfaces as an exception;
-    other provider faults come back as a degraded, scored summary and are never retried here."""
+    other provider faults come back as application status:error fallbacks, which are retained as
+    unscored, non-transient failed attempts and are never retried here."""
     base = {"candidate": candidate, "ticker": filing.ticker,
             "filing_type": filing.filing_type, "run": run_index}
     retried = 0
@@ -246,6 +247,7 @@ async def _attempt(
     started = time.monotonic()
     stream_requested = None
     preview_count = 0
+    application_failure = None
     try:
         if candidate == "baseline":
             from app.services.openai_service import openai_service
@@ -265,6 +267,16 @@ async def _attempt(
                 xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                 stream_cb=stream_cb,
             )
+            if summary.get("status") == "error":
+                raw_error = summary.get("raw_summary") or {}
+                application_failure = {
+                    "status": "error",
+                    "code": raw_error.get("error") if isinstance(raw_error, dict) else None,
+                    "detail": str(raw_error.get("detail", ""))[:500] if isinstance(raw_error, dict) else "",
+                }
+                # The application already handled the provider failure. Its returned fallback
+                # is not a successful model output, nor evidence of a retryable exception.
+                raise ValueError("Application summary returned status:error")
             latency = round(time.monotonic() - started, 3)
             payload = _baseline_to_canonical(summary)
             # Fidelity referent = the text the model GENERATED FROM (excerpt-first) — the same
@@ -314,6 +326,7 @@ async def _attempt(
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count)
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
+                "application_failure": application_failure,
                 "source_provenance": grounding.get("source_provenance"),
                 "coverage_inventory": grounding.get("coverage_inventory"),
                 "_transient": _is_transient(exc)}

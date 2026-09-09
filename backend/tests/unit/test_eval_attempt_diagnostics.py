@@ -284,3 +284,45 @@ def test_transient_classification_recognizes_the_anthropic_sdk_faults():
     # Same class names from any other package are not the SDK's: never classified by name alone.
     other = type('APITimeoutError', (Exception,), {'__module__': 'somewhere.else'})('fault')
     assert not runner._is_transient(other)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('failure_kind', ['balance', 'unknown'])
+async def test_application_error_fallback_is_an_unscored_nonretryable_attempt(monkeypatch, failure_kind):
+    import httpx
+    from openai import APIStatusError
+
+    calls = 0
+    async def fail_extraction(*args, stream_cb, **kwargs):
+        nonlocal calls
+        calls += 1
+        await stream_cb('partial observation')
+        if failure_kind == 'balance':
+            response = httpx.Response(402, request=httpx.Request('POST', 'https://example.test/messages'))
+            raise APIStatusError('Insufficient Balance', response=response, body=None)
+        raise RuntimeError('unclassified provider failure')
+    monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)
+    # Keep the real application catch-and-return status:error contract in summarize_filing.
+    monkeypatch.setattr(openai_service, 'generate_structured_summary', fail_extraction)
+    monkeypatch.setattr(runner, 'score_summary', lambda *a, **k: pytest.fail('fallback was scored'))
+    async def unexpected_judge(*args, **kwargs):
+        pytest.fail('fallback was judged')
+    monkeypatch.setattr(runner, '_maybe_judge', unexpected_judge)
+    grounding = {'filing_text': 'owned', 'excerpt': 'selected', 'xbrl_metrics': {},
+                 'source_provenance': {'sha256': 'source'}, 'coverage_inventory': {'excerpt_sha256': 'excerpt'}}
+    result = await runner._run_one(
+        'baseline', GoldenFiling('FIX', '1', 'a', '10-K', 'url', 'Fixture'), grounding,
+        transient_retries=2, retry_delay=0,
+    )
+    assert calls == 1 and result['retried'] == 0
+    assert result['score'] is None and result['judge'] is None and not result['passed_gates']
+    assert result['error'] == 'ValueError: Application summary returned status:error'
+    assert result['application_failure'] == {
+        'status': 'error', 'code': 'structured_extraction_failed',
+        'detail': 'Insufficient Balance' if failure_kind == 'balance' else 'unclassified provider failure',
+    }
+    assert result['preview_count'] == 1 and result['stream_requested'] is True
+    for key in ('source_provenance', 'coverage_inventory'):
+        assert result[key] == grounding[key]
+    aggregate = runner._summarize([result])['baseline']
+    assert aggregate['n'] == 1 and aggregate['errors'] == 1 and aggregate['scored'] == 0
