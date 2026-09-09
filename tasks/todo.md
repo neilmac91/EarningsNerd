@@ -1,3 +1,8 @@
+## September 9 return-basis release in progress
+
+- [ ] Return-basis #788 merged as `3e0c256cf1cb38f9a28f9c3c333d12a359fcace1`; main CI 34293928853 is pending production verification. Final PR regression scored 52 unique attempts without errors/retries/vetoes; the recorded second paid review accepted 18/18.
+- [ ] Comparative identity candidate `2f094ec13afe0113d13ddefc83895db08cfadaa4` passed 2,784 tests and independent review; publication waits for the preceding backend deployment.
+
 ## September 9 maintenance verification and diagnostic correction
 
 - [x] Minor SDK #791: verified revision `earningsnerd-backend-00317-88l`, main CI 34292889980, migrations 0/39, healthy CI and independent detailed health. Dependabot #780 is closed.
