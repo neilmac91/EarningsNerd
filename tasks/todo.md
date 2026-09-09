@@ -1,3 +1,14 @@
+## September 9 residual material acceptance
+
+The [explicit acceptance checklist](quality-residual-acceptance-2026-09-09.md) separates implemented mechanisms from outstanding cases. In particular, verify supplied-evidence narrative period/comparator identity and causal direction (Codex NVDA-02, PLTR-01, TSM-01, KO-03, PFE-02/04); c/d/e and acquisition do not close these authored claims. Source/legal/earnings interventions remain bounded proposals until justified and measured. Original partial coverage, unseen acceptance and founder boundaries remain.
+
+## September 9 next quality checkpoint
+
+- [x] Publish durable final-review evidence through docs #795 (`d11a5c31`); main CI34319126416 explicitly skipped backend deployment.
+- [x] Review #796's one Copilot artifact: exact 18 planned outputs pass the current gate. Retain the six uncited-answer advisory and 30 successful provider calls; do not call this universal citation fidelity.
+- [ ] Inspect #796's pending full summary regression before exact-head merge and production verification. No second evaluation launch is authorized by this checkpoint itself.
+- [ ] Apply the residual material-coverage acceptance map as its scoped findings are incorporated; c/d/e and further source/narrative proposals are not global quality clearance.
+
 ## September 9 source-provenance release — funded and verified
 
 - [x] [#792](https://github.com/neilmac91/EarningsNerd/pull/792) merged as `f21294965e060fa31d90818eacc434b621feacc8` at 06:08:31 UTC. The funded retry produced 52 usable outputs with matching source/excerpt hashes; actual regression passed. No third Copilot run.
