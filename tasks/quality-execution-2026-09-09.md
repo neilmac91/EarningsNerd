@@ -2,6 +2,12 @@
 
 The founder authorized proceeding with confirmed review findings while Fable finishes later, requested a deep investigation of EdgarTools and useful alternatives, and renewed direct account access for necessary work. Continue the [CEO plan](ceo-implementation-plan-2026-09-08.md) under the existing committed-state gates, locked-test boundaries and serial deployment procedure. Universe-wide pregeneration and broad stale-summary regeneration remain held until explicit quality acceptance and spend release. DeepSeek remains the production provider.
 
+## Current implementation checkpoint — September 9
+
+The fallback, working-capital dates, chat cleanup, segment-share, return-basis and excerpt-observation fixes described as next in the original plan below are now merged and production-verified (#784–#790). Minor SDK maintenance #791 is also verified and #780 is closed. Latest backend is #788 / main 3e0c256cf1cb38f9a28f9c3c333d12a359fcace1 / revision earningsnerd-backend-00318-q79. The EdgarTools investigation and offline selection experiments are completed research deliverables, not production selector acceptance.
+
+#792's final regression is blocked by DeepSeek HTTP 402 Insufficient Balance: 26 of 52 outputs are application error placeholders, and the actual regression gate failed despite the advisory workflow badge. No further paid evaluations were launched. Metric identity c, source-reported prompt d, error-outcome accounting and explicit measurement-only dispatch are locally prepared or completing their final gates; production/model acceptance remains held on funding and ordered prerequisites. The [September 9 handover](handover-astra-2026-09-09.md) is the current resume map. Earlier dated entries below preserve the work's chronology.
+
 ## Evidence checkpoint
 
 Codex reviewed all 52 retained analyses from 26 exact filings and froze the independent results before importing available Fable reports. This is the retained development corpus, not all production summaries or unseen acceptance evidence. Original Codex verdicts flagged material defects in 42 attempts; this is not a reconciled consensus rate. Source adjudication narrowed some findings and accepted Fable's additional Beyond Meat Sonate accrual omission. Correct figures in surrounding text sometimes mitigate wording errors; an alternate valid metric definition is not automatically an error.

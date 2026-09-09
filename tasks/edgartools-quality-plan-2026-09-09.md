@@ -1,5 +1,12 @@
 # EdgarTools capability audit for EarningsNerd
 
+## Implementation checkpoint — September 9
+
+The selected-filing fallback defect documented below was fixed and production-verified in #785; dates, segment shares and return-basis corrections shipped in #784/#787/#788. Excerpt provenance shipped in #789. Source-response provenance #792 has local and paid Copilot clearance but its final summary regression is held on DeepSeek balance exhaustion, not accepted from its advisory green badge. The original findings below are evidence, not a claim those shipped defects remain unfixed.
+
+The SDK investigation and offline experiments are complete. No experimental evidence selector, incorporated-report acquisition, typed accounting parser, new vendor or EdgarTools upgrade has shipped. The next implementation requires the measured coverage/identity controls below and actual funded output acceptance.
+
+
 EarningsNerd should retain EdgarTools and use more of its existing structured-document capabilities before considering a replacement. The current pin, **5.56.0**, already supports the most useful building blocks: filing-specific facts, statement presentation, role-scoped dimensions, calculation relationships, structured tables, document sections/chunks/search and attachment access. The principal quality gap is the application’s selection and interpretation of evidence after extraction. A newer SDK cannot itself correct a wrongly named operating-income metric, a double-counted segment denominator, or an omitted cash-flow explanation.
 
 This research examined repository checkout `c1bc866bfd61ba04b3f5f69ab629f5c8de8571b7`, its exact installed 5.56.0 distribution, public upstream documentation and retained filing evidence. It found one confirmed application boundary defect to fix first and a separate SDK rendering trap to account for when designing evidence packages; the latter was not reproduced in the retained production sections. No production query, new SEC download, model call, dependency installation or repository edit was performed.

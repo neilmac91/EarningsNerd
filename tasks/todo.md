@@ -1,3 +1,12 @@
+## September 9 morning handover — current master-plan checkpoint
+
+See [the handover](handover-astra-2026-09-09.md) for verified releases, exact prepared heads, remaining prerequisites and what to doubt first.
+
+- [x] Publish the completed EdgarTools capability investigation and source-selection experiments in this docs checkpoint. No replacement SDK/vendor/selector adopted.
+- [x] Quality/reliability/maintenance releases #784–#791 are merged and deployment-verified; #792 remains open. Latest production is `earningsnerd-backend-00318-q79`.
+- [ ] Restore funded DeepSeek measurement, then complete #792 and the locally gated comparative identity / application-error / shared-label / measurement-only candidates in reviewable slices. No further paid launch while balance is exhausted.
+- [ ] Fable completion, unseen human-reviewed acceptance and named original plan prerequisites remain outstanding; universe-wide pregeneration and broad replay stay held.
+
 ## September 9 provider block — current release status
 
 - [x] Return-basis #788 production-verified: main CI 34293928853, revision `earningsnerd-backend-00318-q79` at 100%, migrations 0/39, healthy CI and independent detailed health.
