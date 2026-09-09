@@ -1,3 +1,9 @@
+## September 9 truthful current-schema previews — local preparation
+
+- [ ] Render strictly complete original-byte sections through the current shared projection; unfinished sections stay pending, without legacy absence claims.
+- [ ] Prove progressive callbacks before root closure and preservation of final stream content in the existing unlocked section-reveal test home; one invariant mutation is held for independent review.
+- [ ] Complete the committed backend gate with performance/four PostgreSQL lanes and unchanged locked anchors before publication. No prompt, provider, final-content version or production flag change.
+
 ## September 9 reported-metric correction checkpoint
 
 - [x] Reconcile Fable's final review and review all 52 actual first-#799 raw outputs; preserve original evidence and source-coverage limits. [Readout and next implementation order](quality-reported-metrics-readout-2026-09-09.md).

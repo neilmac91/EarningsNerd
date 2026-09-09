@@ -786,3 +786,14 @@ metric; the gate explicitly says no reference measurement and does not invent a 
 silently skip the advisory. No retrospective metric is fabricated from the older artifact, which
 lacks raw sections/excerpt. Persisted audit snapshots and these 24 weekly attempts have separate
 denominators; an empty historical audit does not prove grounding existed.
+
+
+### Current-schema preview completion (2026-09-09)
+
+Progressive previews render only complete original JSON section dicts/lists through the current
+shared section projection. The root object may still be open; unfinished sections remain pending,
+without repaired scalars or legacy disclosure-absence fallbacks. Inputs above 256,000 characters
+produce no new preview. Final generation, repair, normalization and rendering remain unchanged.
+Observed callbacks are still optional and may be coalesced before browser delivery. Their retained
+scope includes internal provider retries and does not certify association with the final provider
+attempt; complete section syntax does not establish factual/source correctness.

@@ -491,16 +491,16 @@ Rules:
         return "".join(parts)
 
     def _partial_markdown_preview(self, partial_content: str, xbrl_metrics: Optional[Dict]) -> Optional[str]:
-        """Best-effort partial render: repair-parse the in-progress JSON and build a partial markdown
-        preview with the SAME builder as the final output. Returns None on any failure (preview frames
-        are optional and are always superseded by the authoritative final render)."""
+        """Render only originally complete sections with the current summary projection.
+
+        In-flight values are never repaired into claims. Missing sections remain pending;
+        previews are optional and the authoritative final render supersedes them.
+        """
         try:
-            repaired = self._repair_json(self._clean_json_payload(partial_content or ""))
-            data = self._coerce_summary_dict(json.loads(repaired))
-            if not isinstance(data.get("sections"), dict):
-                return None
-            return self._build_structured_markdown(data) or None
-        except Exception:  # noqa: BLE001 — partial JSON frequently won't parse cleanly; skip this frame
+            sections = self._complete_preview_sections(partial_content or "")
+            rendered = render_sections({"schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections})
+            return sections_to_markdown(rendered) or None
+        except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
             return None
 
     @bounded_summary(report=True)
