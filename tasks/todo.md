@@ -1,3 +1,11 @@
+## September 9 final Fable delivery and funded queue — current correction
+
+- [x] Receive all final Fable reports and complete the [independent reconciliation](fable-quality-reconciliation-2026-09-09.md). Seven cases still have partial source coverage; Amazon has a range ambiguity. No consensus defect rate or unseen acceptance is claimed. Earlier “Fable completion pending” rows are superseded for final delivery only.
+- [x] Scope safeguard #794 merged as `47865758`; hosted PR scope skipped generation correctly.
+- [ ] Verify #794 main CI34315351755 deployment, then retry only #792's failed summary job and inspect actual evidence before release.
+- [ ] Release eval-error and comparative identity c, then evaluate integrated prompt d; separately scope FCF-basis e. #788 already covers ROE/ROA labels. Further traceability/narrative/source acquisition needs bounded implementation, not a claim d resolves it.
+- [ ] Unseen human quality acceptance and the original master-plan prerequisites remain open. Missing relevant source is a product coverage defect; no new universe spend, vendor or historical replay is authorized.
+
 ## September 9 funded resumption — scope safeguard first
 
 The founder reports that DeepSeek has been topped up and explicitly authorizes proceeding with the ordered quality work. This supersedes the temporary insufficient-balance execution hold; it does not erase the [unintended evaluation incident](incident-docs-eval-scope-2026-09-09.md), certify quality or release broader spending. DeepSeek remains the provider.
