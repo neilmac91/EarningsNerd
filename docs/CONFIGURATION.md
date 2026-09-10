@@ -115,7 +115,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `ALPHA_VANTAGE_HORIZON` | `"3month"` | Calendar horizon: 3month, 6month or 12month. |
 | `XBRL_CACHE_TTL_HOURS` | `24` | XBRL cache lifetime, hours. |
 | `STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS` | `3600` | Structured extraction retry cache lifetime, seconds. |
-| `AI_DEFAULT_MODEL` | `"deepseek-v4-pro"` | Primary provider model; CI explicitly sets this and OPENAI_BASE_URL. |
+| `AI_DEFAULT_MODEL` | `"deepseek-flash"` | Primary provider model; CI explicitly sets this and OPENAI_BASE_URL. |
 | `AI_FALLBACK_BASE_URL` | `""` | Optional fallback API base; empty uses primary origin. HTTPS only; a different origin requires its separate credential. |
 | `AI_FALLBACK_MODEL` | `""` | Empty disables provider fallback. Configure only a model served by the fallback API after eval evidence. |
 | `AI_FALLBACK_API_KEY` | `""` | Separate fallback credential. Required across origins; same-origin fallback may use the primary key. Never send the primary key to an arbitrary provider. |
@@ -156,9 +156,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `ANALYSIS_MAX_TOKENS` | `3200` | Maximum analysis narrative completion tokens. |
 | `ANALYSIS_MAX_ANNUAL_PERIODS` | `10` | Maximum annual periods selectable. |
 | `ANALYSIS_MAX_QUARTERLY_PERIODS` | `12` | Maximum quarterly periods selectable. |
-| `AI_INPUT_CACHE_HIT_PRICE_PER_1M` | `0.003625` | Configured USD estimate per million cached input tokens; telemetry assumption, not a live provider price quote. |
-| `AI_INPUT_CACHE_MISS_PRICE_PER_1M` | `0.435` | Configured USD estimate per million uncached input tokens; update alongside model pricing. |
-| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.87` | Configured USD estimate per million output tokens; does not model peak-hour surcharges. |
+| `AI_INPUT_CACHE_HIT_PRICE_PER_1M` | `0.003` | Configured USD estimate per million cached input tokens; telemetry assumption, not a live provider price quote. |
+| `AI_INPUT_CACHE_MISS_PRICE_PER_1M` | `0.15` | Configured USD estimate per million uncached input tokens; update alongside model pricing. |
+| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.6` | Configured USD estimate per million output tokens; does not model peak-hour surcharges. |
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
@@ -180,7 +180,7 @@ SKIP_REDIS_INIT=false             # Set to true in tests to skip Redis (auto-set
 # AI Configuration (OpenAI-compatible; provider configurable)
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.deepseek.com/v1   # DeepSeek default; override for other providers
-AI_DEFAULT_MODEL=deepseek-v4-pro              # Primary AI model
+AI_DEFAULT_MODEL=deepseek-flash              # Primary AI model
 AI_FAST_MODEL=                                # Optional cheaper model for low-risk tasks (falls back to default)
 AI_SECTION_RECOVERY_MODEL=                    # Optional override for section recovery (falls back to AI_FAST_MODEL)
 RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section recovery

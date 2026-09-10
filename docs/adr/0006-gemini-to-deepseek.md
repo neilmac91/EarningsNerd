@@ -1,6 +1,6 @@
 # ADR 0006 — Standardize on DeepSeek V4 via the OpenAI-compatible client
 
-- **Status:** Accepted (supersedes [ADR-0002](./0002-openai-gpt4-to-gemini.md))
+- **Status:** Accepted for the provider; model choice superseded by [ADR-0008](./0008-deepseek-v4-pro-to-v41-flash.md) (supersedes [ADR-0002](./0002-openai-gpt4-to-gemini.md))
 - **Deciders:** EarningsNerd maintainers
 
 ## Context

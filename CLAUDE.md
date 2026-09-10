@@ -6,7 +6,7 @@ verified behavior.
 
 **Stack:** FastAPI + sync SQLAlchemy 2.0 + PostgreSQL 15 on Cloud Run | Next.js 16 (App Router) +
 TypeScript + Tailwind + React Query on Vercel | AI via OpenAI-compatible client (default
-`deepseek-v4-pro` via `https://api.deepseek.com/v1`; env-configurable via `OPENAI_BASE_URL` +
+`deepseek-flash` via `https://api.deepseek.com/v1`; env-configurable via `OPENAI_BASE_URL` +
 `AI_DEFAULT_MODEL`) | Stripe, Resend, PostHog + Vercel Analytics, Sentry. Redis is dev-only;
 prod runs the L1 in-memory cache (ADR-0004).
 
