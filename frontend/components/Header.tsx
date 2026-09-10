@@ -83,9 +83,12 @@ export default function Header({
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
-          <Link href="/" className="flex items-center gap-2.5">
-            <EarningsNerdLogo variant="icon-only" iconClassName="h-10 w-10" mode="auto" />
-            <span className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
+              toggle, the short account CTA and the menu button at 44px each, so the wordmark
+              yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
+          <Link href="/" className="flex items-center gap-2.5" aria-label="EarningsNerd home">
+            <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
+            <span className="hidden text-xl font-semibold leading-none tracking-[-0.012em] text-text-primary-light dark:text-text-primary-dark sm:inline">
               Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
             </span>
           </Link>

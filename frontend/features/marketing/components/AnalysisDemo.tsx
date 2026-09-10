@@ -33,7 +33,10 @@ export default function AnalysisDemo() {
       </div>
 
       <div className="flex flex-col gap-3 p-4">
-        <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
+        {/* KpiStrip lays out four columns at lg; three tiles inside a half-width frame need three. */}
+        <div className="lg:[&>div]:grid-cols-3">
+          <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
+        </div>
         <RevenueBars points={REVENUE_POINTS} />
         <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} />
       </div>

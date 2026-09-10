@@ -51,7 +51,7 @@ function FeatureRow({
 }) {
   return (
     <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12">
-      <div className="max-w-[420px]">
+      <div className="min-w-0 max-w-[420px]">
         <div className="flex items-center gap-2.5">
           <Badge variant="pro" className="shrink-0">
             Pro
@@ -63,7 +63,9 @@ function FeatureRow({
         </p>
         {cta}
       </div>
-      {children}
+      {/* min-w-0: a grid item defaults to min-width:auto, so a wide table inside the frame would
+          otherwise widen the page instead of scrolling inside its own container. */}
+      <div className="min-w-0">{children}</div>
     </div>
   )
 }
