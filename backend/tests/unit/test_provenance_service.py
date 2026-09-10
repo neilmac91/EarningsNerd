@@ -514,3 +514,35 @@ class TestV2CitationEnrichment:
         }
         out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
         assert "evidence" not in out["sections"]["notable_footnotes"][0]
+
+
+class TestPunctuationSpacingFold:
+    """ADR-0008 Copilot readout: the ASML 20-F source carried spaces before commas that the model
+    tidied when quoting; the fold is symmetric and must never tolerate a word-level change."""
+
+    SOURCE = ("Total net sales rose by €4.4 billion , or 15.6% , reflecting an increase in net system "
+              "sales of 12.4% , and an increase in net service and field option sales. Net income for 2025 "
+              "amounted to €9,609.4 million , representing 29.4% of total net sales and €24.73 basic net "
+              "income per ordinary share. ( see Note 5 ) ")
+
+    def test_tidied_excerpt_verifies_against_spaced_source(self):
+        source = prov.normalize_for_match(self.SOURCE)
+        assert prov.verify_excerpt_in_text(
+            "Total net sales rose by €4.4 billion, or 15.6%, reflecting an increase in net system sales of 12.4%",
+            source)
+        assert prov.verify_excerpt_in_text(
+            "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales and "
+            "€24.73 basic net income per ordinary share.", source)
+        assert prov.verify_excerpt_in_text("(see Note 5)", source) is False  # below the length floor
+        assert prov.normalize_for_match("( see Note 5 ) ") == prov.normalize_for_match("(see Note 5)")
+
+    def test_fold_is_symmetric_and_word_level_changes_still_fail(self):
+        source = prov.normalize_for_match(self.SOURCE)
+        # Spaced excerpt against a tidy source verifies too (symmetry).
+        tidy = prov.normalize_for_match("Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales")
+        assert prov.verify_excerpt_in_text("Net income for 2025 amounted to €9,609.4 million , representing 29.4% of total net sales", tidy)
+        # A dropped word, a reordered clause, or a changed figure is still not verbatim.
+        assert prov.verify_excerpt_in_text("Total net sales rose by €4.4 billion, reflecting an increase in net system sales of 12.4%", source) is False
+        assert prov.verify_excerpt_in_text("Net income for 2025 amounted to €9,609.5 million, representing 29.4% of total net sales", source) is False
+        # Whitespace inside words / between words is not folded away.
+        assert prov.normalize_for_match("net sales") != prov.normalize_for_match("netsales")

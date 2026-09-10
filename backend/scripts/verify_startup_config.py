@@ -70,7 +70,7 @@ def test_openai_validation():
     # Test 1: No API key
     settings1 = Settings(
         OPENAI_API_KEY="",
-        OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+        OPENAI_BASE_URL="https://api.deepseek.com/v1"
     )
     valid1, warnings1 = settings1.validate_openai_config()
     print("Test 1 - No OpenAI key:")
@@ -82,8 +82,8 @@ def test_openai_validation():
     
     # Test 2: Valid configuration
     settings2 = Settings(
-        OPENAI_API_KEY="AIzaSyExampleKeyForGoogleAIStudio0000000000",
-        OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+        OPENAI_API_KEY="sk-example-key-for-startup-validation-0000000",
+        OPENAI_BASE_URL="https://api.deepseek.com/v1"
     )
     valid2, warnings2 = settings2.validate_openai_config()
     print("Test 2 - Valid OpenAI-compatible config:")

@@ -120,7 +120,7 @@ exists — a site this young with zero backlinks essentially doesn't get discove
 Cloud Run 1 vCPU / 1 GiB, min 1 / max 2 instances, concurrency 40, timeout 600s; Cloud SQL
 `db-g1-small` (shared core, ~50 max connections); DB pool 12+8 overflow per instance; prod runs
 Redis OFF (L1 in-process cache only, ADR-0004); Vercel functions in `iad1` (moved to `pdx1` on
-this branch); DeepSeek `deepseek-v4-pro`.
+this branch); DeepSeek `deepseek-flash` (ADR-0008; `deepseek-v4-pro` at the time of the audit).
 
 **Estimated fixed baseline: ~$38–45/mo** — Cloud SQL db-g1-small ≈ $26 + storage; Cloud Run
 min-instance idle ≈ $10–15; Vercel/Resend/PostHog/Sentry on free tiers. There is almost no
