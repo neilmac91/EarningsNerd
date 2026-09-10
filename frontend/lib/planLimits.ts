@@ -10,3 +10,11 @@
  */
 export const FREE_SUMMARY_LIMIT = 5
 export const FREE_EARNINGS_ALERT_LIMIT = 3
+
+/**
+ * Two more free-tier facts the marketing pricing card states, mirrored from the same
+ * `_FREE = Entitlements(...)` block (`copilot_free_taste`, `history_retention_days`). Same
+ * lockstep spec keeps them honest.
+ */
+export const FREE_COPILOT_QUESTIONS = 3
+export const FREE_HISTORY_RETENTION_DAYS = 90

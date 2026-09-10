@@ -133,3 +133,24 @@ describe('CompanySearch dropdown', () => {
     expect(push).toHaveBeenCalledWith('/company/AAPL')
   })
 })
+
+describe('CompanySearch accessible name', () => {
+  it('lets a visible <label htmlFor="company-search"> name the field when ariaLabel is null (landing hero)', () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <label htmlFor="company-search">Or start with a company</label>
+        <CompanySearch ariaLabel={null} shortcuts />
+      </QueryClientProvider>,
+    )
+    // Label in Name (WCAG 2.5.3): no aria-label overrides the visible label.
+    expect(screen.getByRole('combobox', { name: 'Or start with a company' })).not.toHaveAttribute('aria-label')
+    // The secondary action never takes initial focus.
+    expect(screen.getByRole('combobox')).not.toHaveFocus()
+  })
+
+  it('keeps its own aria-label by default (every other call site)', () => {
+    renderSearch()
+    expect(screen.getByRole('combobox', { name: 'Search for a company' })).toBeInTheDocument()
+  })
+})

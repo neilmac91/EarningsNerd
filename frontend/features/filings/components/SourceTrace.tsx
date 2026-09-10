@@ -46,6 +46,72 @@ interface PopoverPos {
 const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
+/**
+ * The chip's full trigger className: the base recipe plus the verified/cited colourway. Exported so
+ * the landing page's Trace-to-Source demo renders a chip identical to the product's.
+ */
+export const sourceTraceChipClass = (isVerified: boolean): string => {
+  const tone = isVerified
+    ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
+    : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
+  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
+}
+
+/**
+ * Presentational body of the provenance panel: section header, verified/cited status line and the
+ * "Open in SEC EDGAR" link. Shared by the desktop popover, the touch bottom-sheet and the landing
+ * page's Trace-to-Source demo.
+ */
+export function SourceTracePanelBody({
+  header,
+  isVerified,
+  note,
+  url,
+  excerpt,
+}: {
+  header: string | null
+  isVerified: boolean
+  note: string | null
+  url: string | null
+  /** Optional verbatim passage, slotted between the header and the status line. */
+  excerpt?: React.ReactNode
+}) {
+  const statusLine = isVerified ? (
+    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
+      <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      {note || 'Verified against the original SEC filing'}
+    </span>
+  ) : (
+    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+      <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      {note || 'Cited. Open the section to confirm.'}
+    </span>
+  )
+
+  return (
+    <>
+      {header && (
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
+          {header}
+        </span>
+      )}
+      {excerpt}
+      {statusLine}
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+        >
+          <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+          Open in SEC EDGAR
+        </a>
+      )}
+    </>
+  )
+}
+
 export function SourceTrace({ url, verified, sectionRef, label, note, excerpt }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
@@ -174,9 +240,6 @@ function SourceTraceInner({
   }, [open])
 
   const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
-  const chipClass = isVerified
-    ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
-    : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
 
   const handleTrigger = () => {
     // Toggle the panel on click. On fine pointers WITH a URL the trigger is an <a> (no onClick), so a
@@ -185,47 +248,13 @@ function SourceTraceInner({
     else openPanel()
   }
 
-  const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
-      <CheckCircleIcon className="h-3 w-3 shrink-0" />
-      {note || 'Verified against the original SEC filing'}
-    </span>
-  ) : (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
-      <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
-      {note || 'Cited. Open the section to confirm.'}
-    </span>
-  )
-
-  const panelBody = (
-    <>
-      {header && (
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
-          {header}
-        </span>
-      )}
-      {statusLine}
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
-        >
-          <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
-          Open in SEC EDGAR
-        </a>
-      )}
-    </>
-  )
-
   // The chip is an anchor when linkable (so fine-pointer click + middle-click open EDGAR, and it's
   // keyboard-reachable) — except on coarse pointers, where tapping must open the sheet, so we use a
   // button there and surface the EDGAR link inside the sheet.
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
-    className: `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${chipClass}`,
+    className: sourceTraceChipClass(isVerified),
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,
     onFocus: isCoarse ? undefined : openPanel,
@@ -303,7 +332,7 @@ function SourceTraceInner({
             >
               <XIcon className="h-4 w-4" />
             </button>
-            {panelBody}
+            <SourceTracePanelBody header={header} isVerified={isVerified} note={note} url={url} />
           </div>
         </div>,
         document.body,
@@ -319,7 +348,7 @@ function SourceTraceInner({
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
           className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
         >
-          {panelBody}
+          <SourceTracePanelBody header={header} isVerified={isVerified} note={note} url={url} />
         </span>,
         document.body,
       )

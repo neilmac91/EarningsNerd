@@ -1,3 +1,15 @@
+## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
+
+Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).
+
+- [x] Foundation: `GET /api/auth/registration` (public read of `REGISTRATION_MODE` + beta promo) with a unit test; `lib/planLimits.ts` mirrors copilot taste + history retention (lockstep spec); `lib/serverApi.fetchSignupConfig`; `features/marketing/lib/{access,headline,landing-samples}.ts`; `.mockup-frame` at 16px; Header/ThemeToggle/SiteChrome/layout plumb the access mode.
+- [x] Hero: `LandingHero` + `HeroHeadline` (PostHog `landing-headline-experiment`, A default, C control) + restyled `QuickAccessBar` + `HeroExample` (dots removed, e3, design chrome) + `CompanySearch` placeholder prop.
+- [x] Sections: `MeasuredClaims`, `EvidenceSection` (+ `TraceToSourceDemo`, `SourceTrace` panel extraction), `SummaryContents` (+ compact `HowItWorks`), `ProDepth` (`AskFilingDemo`, `AnalysisDemo`, `ChangeReportDemo`, extras), `PricingSection`, `ReaderQuoteSlot` (unrendered), `ReportingThisWeek` restyle, `CtaBanner` rewrite.
+- [x] Page assembly: `app/page.tsx` order per design, metadata per headline A, preconnect to img.logo.dev, JSON-LD kept.
+- [x] Cleanup: delete SocialProofStrip, FeatureShowcase, AccuracySection, ExampleSummaryCard (+ spec); NotableFilings dropped from the route (component kept, reported); update QuickAccessBar/Header/e2e assertions.
+- [x] Gates: frontend lint + typecheck + vitest + build (route JS 497 KB gzip vs 482 KB baseline; the 300 KB target needs app-shell work, reported); backend ruff + bandit + pytest; screenshots at 380/768/1280/1440 x light/dark for design and implementation into `frontend/design/landing-redesign/verification/`; tweak flips exercised.
+- [x] Push, draft PR (#814), summary with the design-system call, assumptions, screen sources, orphans, tweak decisions, follow-ups.
+
 ## September 10 — DeepSeek V4.1 Flash cutover (deepseek-v4-pro retired 14 Sept 04:00 UTC)
 
 Plan approved by the founder on 10 Sept (assessment: `tasks/deepseek-v41-flash-migration-2026-09-10.md`). Pre-cutover scope only; observability (W7), single-source model config (W9), format hardening (W11) and provider profiles (W13) follow after the wave-3 prompt slices land.

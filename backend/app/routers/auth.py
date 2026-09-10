@@ -497,6 +497,31 @@ _REGISTER_OPAQUE = {
 }
 
 
+class RegistrationConfig(BaseModel):
+    """Public read of the signup gate. `mode` mirrors settings.REGISTRATION_MODE; `beta_promo_enabled`
+    says whether the closed-beta 100%-off promo is configured (STRIPE_BETA_PROMO_CODE_ID), i.e.
+    whether an invited beta member actually gets Pro at $0."""
+
+    mode: str
+    beta_promo_enabled: bool
+
+
+@router.get("/registration", response_model=RegistrationConfig)
+async def get_registration_config(response: Response):
+    """Unauthenticated, cacheable read of the registration gate.
+
+    The marketing landing page renders its account CTAs ("Create a free account" vs "Request an
+    invite") and the "Free for beta members" pricing line from this answer, so flipping
+    REGISTRATION_MODE on the service flips the public copy without a frontend redeploy. Nothing
+    here is secret: /register already answers "A valid invite is required" in invite-only mode.
+    """
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return RegistrationConfig(
+        mode=settings.REGISTRATION_MODE,
+        beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID),
+    )
+
+
 @router.post("/register", response_model=MessageResponse)
 async def register(
     user_data: UserCreate,

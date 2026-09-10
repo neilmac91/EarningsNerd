@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://img.logo.dev">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Geist+Mono:wght@400..600&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/base.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/components.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/styles.css">
+  <script src="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/_ds_bundle.js"></script>
+  <style>
+    /* Theme scope — values lifted from frontend/tailwind.config.js + globals.css (July 2026 single-Sage system). */
+    :root{
+      --font-heading:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+      --font-body:-apple-system,BlinkMacSystemFont,'Inter',system-ui,'Segoe UI',Roboto,sans-serif;
+      --font-data:'Geist Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+      --page:#F4F3EE;--panel:#FBFAF6;--field:#FFFFFF;--ink:#1A1A17;--ink-2:#374151;--ink-3:#6B7280;--hair:#E5E7EB;
+      --brand:#4F7A63;--brand-strong:#3C6650;--brand-emph:#345C48;--brand-weak:#ECF2EE;--brand-border:#CFE0D6;--on-brand:#FFFFFF;
+      --brand-tint:rgba(60,102,80,.10);--brand-tint-border:rgba(60,102,80,.25);--hover-tint:#ECF2EE;--white-hover:#FFFFFF;
+      --gain:#15803D;--loss:#B91C1C;--warn:#92400E;--warn-bg:rgba(146,64,14,.10);--info:#1D4ED8;--info-bg:rgba(37,99,235,.10);
+      --e1:0 1px 2px 0 rgba(16,24,40,.06);--e2:0 1px 3px 0 rgba(16,24,40,.10),0 1px 2px -1px rgba(16,24,40,.10);
+      --e3:0 4px 6px -1px rgba(16,24,40,.10),0 2px 4px -2px rgba(16,24,40,.10);--e4:0 10px 15px -3px rgba(16,24,40,.10),0 4px 6px -4px rgba(16,24,40,.10);
+      --e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.10);
+      --ring:0 0 0 3px rgba(79,122,99,.5);
+      --frame-bg:#FBFAF6;--frame-border:rgba(16,24,40,.10);--frame-bar:rgba(16,24,40,.04);--frame-bar-border:rgba(16,24,40,.08);
+      --glass:rgba(255,255,255,.85);--glass-border:rgba(16,24,40,.12);
+      --glow:0 0 0 1px rgba(79,122,99,.20),0 0 30px -5px rgba(79,122,99,.15);--glow-focus:0 0 0 2px rgba(79,122,99,.40),0 0 40px -5px rgba(79,122,99,.25);
+      --header-bg:rgba(244,243,238,.8);--strip-bg:#F4F3EE;
+      --heading-color:#1A1A17;--text-heading-light:#1A1A17;--brand-dark:#7FB295;--brand-strong-dark:#98C5AD;
+    }
+    .dark{
+      --page:#0B1120;--panel:#1F2937;--field:rgba(255,255,255,.05);--ink:#D7DADC;--ink-2:#9CA3AF;--ink-3:#9CA3AF;--hair:rgba(255,255,255,.10);
+      --brand:#7FB295;--brand-strong:#98C5AD;--brand-emph:#569272;--brand-weak:rgba(127,178,149,.14);--brand-border:rgba(127,178,149,.28);--on-brand:#0B1120;
+      --brand-tint:rgba(127,178,149,.15);--brand-tint-border:rgba(127,178,149,.30);--hover-tint:rgba(255,255,255,.05);--white-hover:rgba(255,255,255,.10);
+      --gain:#34D399;--loss:#FB7185;--warn:#F59E0B;--warn-bg:rgba(245,158,11,.15);--info:#60A5FA;--info-bg:rgba(96,165,250,.15);
+      --e1:none;--e2:none;--e3:none;--e4:none;--e5:none;--ring:0 0 0 3px rgba(127,178,149,.55);
+      --frame-bg:#0B1120;--frame-border:rgba(255,255,255,.10);--frame-bar:rgba(255,255,255,.05);--frame-bar-border:rgba(255,255,255,.06);
+      --glass:rgba(15,23,42,.6);--glass-border:rgba(255,255,255,.06);
+      --glow:0 0 0 1px rgba(127,178,149,.28),0 0 30px -5px rgba(127,178,149,.18);--glow-focus:0 0 0 2px rgba(127,178,149,.50),0 0 40px -5px rgba(127,178,149,.28);
+      --header-bg:rgba(11,17,32,.8);--strip-bg:rgba(255,255,255,.05);--heading-color:#D7DADC;
+    }
+    html,body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+    h1,h2,h3,h4{margin:0;font-family:var(--font-heading);font-optical-sizing:auto;font-weight:600;color:var(--ink);letter-spacing:0}
+    p{margin:0}
+    a{color:inherit;text-decoration:none}
+    a:hover{color:inherit}
+    input::placeholder{color:var(--ink-3)}
+    .dark input::placeholder{color:#9CA3AF}
+    .hero-search-glow{box-shadow:var(--glow)}
+    .hero-search-glow:focus-within{box-shadow:var(--glow-focus)}
+    @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--page);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6" data-screen-label="Current landing page">
+
+  <!-- ═══ HEADER (components/Header.tsx) ═══ -->
+  <header style="position:sticky;top:0;z-index:50;border-bottom:1px solid var(--hair);background:var(--header-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)">
+    <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px clamp(16px,2.5vw,32px)">
+      <a href="#" style="display:flex;align-items:center;gap:10px">
+        <svg viewBox="0 0 94.6 73.2" aria-hidden="true" style="width:40px;height:40px;color:var(--brand-strong)"><g transform="translate(0,-14.8)"><path fill="currentColor" d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"></path><g transform="translate(0.92,6.98) scale(0.9193)"><path fill="currentColor" d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"></path><path fill="currentColor" d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"></path></g></g></svg>
+        <span style="font-size:24px;font-weight:600;color:var(--ink);letter-spacing:-0.012em">Earnings<em style="font-style:italic;color:var(--brand-strong)">Nerd</em></span>
+      </a>
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+        <nav aria-label="Main navigation" style="display:flex;align-items:center;gap:32px">
+          <a href="#" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--ink)">Multi-Period Analysis</a>
+          <a href="#" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--ink)">Calendar</a>
+          <a href="#" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--ink)">Pricing</a>
+          <a href="#" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--ink)">Contact</a>
+        </nav>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:8px;color:var(--ink-2);background:transparent;border:0;cursor:pointer;transition:background 150ms" style-hover="background:var(--hover-tint);color:var(--ink)"><i class="{{ themeIcon }}" aria-hidden="true" style="font-size:20px"></i></button>
+          <!-- Auth still resolving → skeleton circle (the production behaviour for guests before the client check settles) -->
+          <sc-if value="{{ authSettled }}" hint-placeholder-val="{{ true }}">
+            <a href="#" style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:12px;font-size:14px;font-weight:600;color:var(--brand-strong)" style-hover="background:var(--brand-weak)">Log In</a>
+            <a href="#" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:12px;font-size:14px;font-weight:600;background:var(--brand);color:var(--on-brand);box-shadow:var(--e1);transition:background 150ms" style-hover="background:var(--brand-strong)">Get Started <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:14px"></i></a>
+          </sc-if>
+          <sc-if value="{{ authPending }}" hint-placeholder-val="{{ false }}">
+            <span aria-hidden="true" style="display:block;width:36px;height:36px;border-radius:999px;background:var(--hair)"></span>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:4px">
+          <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:8px;color:var(--ink-2);background:transparent;border:0;cursor:pointer"><i class="{{ themeIcon }}" aria-hidden="true" style="font-size:20px"></i></button>
+          <button type="button" aria-label="Open menu" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:8px;color:var(--ink-3);background:transparent;border:0;cursor:pointer"><i class="ph ph-list" aria-hidden="true" style="font-size:20px"></i></button>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+
+  <main>
+  <!-- ═══ HERO (app/page.tsx) ═══ -->
+  <section style="background:var(--page)">
+    <div style="max-width:1280px;margin:0 auto;padding:clamp(64px,6vw,96px) clamp(16px,2.5vw,32px) clamp(64px,7vw,112px)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));align-items:center;gap:clamp(48px,4vw,64px)">
+        <div>
+          <h1 style="font-size:clamp(36px,4.5vw,60px);line-height:1.1;letter-spacing:-0.025em;color:var(--ink)">Understand any <span style="color:var(--brand-strong)">SEC filing</span> in minutes</h1>
+          <p style="margin-top:24px;max-width:512px;font-size:18px;line-height:1.625;color:var(--ink-2)">AI summaries that turn 100-page SEC filings into a clear five-minute read. Financials, risks, and trends, all in one place.</p>
+          <!-- CompanySearch (features/companies/components/CompanySearch.tsx) -->
+          <div style="margin-top:32px;position:relative">
+            <div class="hero-search-glow" style="position:relative;border-radius:12px">
+              <i class="ph ph-magnifying-glass" aria-hidden="true" style="pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--ink-3)"></i>
+              <input type="text" role="combobox" aria-expanded="false" aria-label="Search for a company" aria-autocomplete="list" placeholder="Search any company (e.g., AAPL, Apple, Microsoft)..." style="width:100%;box-sizing:border-box;border-radius:12px;border:1px solid var(--hair);background:var(--field);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:20px;padding:10px 14px 10px 44px;outline:none;transition:border-color 150ms,box-shadow 150ms" style-focus="border-color:var(--brand);box-shadow:var(--ring)">
+              <kbd aria-hidden="true" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);border-radius:4px;border:1px solid var(--hair);background:var(--brand-weak);padding:2px 8px;font-family:var(--font-data);font-size:12px;color:var(--ink-3)">/</kbd>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;column-gap:16px;row-gap:8px;font-size:14px;line-height:20px">
+            <a href="#" style="display:inline-flex;align-items:center;gap:4px;font-weight:500;color:var(--brand-strong);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(60,102,80,.4)">See a live example →</a>
+            <span style="color:var(--ink-3)">Free account · 5 AI summaries a month · no credit card</span>
+          </div>
+          <!-- QuickAccessBar -->
+          <section aria-label="Popular companies" style="padding:24px 0">
+            <p style="margin-bottom:16px;text-align:center;font-size:14px;font-weight:500;color:var(--ink-2)">Popular companies</p>
+            <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px">
+              <sc-for list="{{ companies }}" as="c" hint-placeholder-count="8">
+                <a href="#" style="display:flex;align-items:center;gap:8px;border-radius:999px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e1);padding:10px 16px;font-size:14px;font-weight:500;transition:all 200ms" style-hover="border-color:var(--brand-strong);background:var(--white-hover);box-shadow:var(--e2);transform:translateY(-4px)">
+                  <span role="img" aria-label="{{ c.name }} logo" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;background:var(--brand-tint);box-shadow:inset 0 0 0 1px var(--brand-border);font-size:9px;font-weight:600;color:var(--brand-strong)">{{ c.initials }}</span>
+                  <span style="font-weight:600;color:var(--ink)">{{ c.ticker }}</span>
+                  <sc-if value="{{ isDesktopOrTablet }}" hint-placeholder-val="{{ true }}"><span style="color:var(--ink-2)">{{ c.name }}</span></sc-if>
+                </a>
+              </sc-for>
+            </div>
+          </section>
+          <!-- ExampleSummaryCard (compact, lg:hidden) -->
+          <sc-if value="{{ isNotDesktop }}" hint-placeholder-val="{{ false }}">
+            <a href="#" style="display:block;margin-top:32px;border-radius:24px;border:1px solid var(--hair);background:var(--panel);padding:16px;transition:border-color 150ms" style-hover="border-color:var(--brand-tint-border)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;min-width:0;align-items:center;gap:8px">
+                  <span role="img" aria-label="Apple Inc. logo" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;background:var(--brand-tint);box-shadow:inset 0 0 0 1px var(--brand-border);font-size:9px;font-weight:600;color:var(--brand-strong)">AA</span>
+                  <span style="font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apple Inc.</span>
+                  <span style="flex-shrink:0;border-radius:999px;background:var(--brand-weak);padding:2px 8px;font-size:12px;color:var(--ink-2)">10-K</span>
+                </div>
+                <span style="flex-shrink:0;font-size:12px;color:var(--ink-3)">Example</span>
+              </div>
+              <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3">
+                  <div><div style="font-size:12px;color:var(--ink-2)">{{ m.label }}</div><div style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)">{{ m.value }}</div></div>
+                </sc-for>
+              </div>
+              <div style="margin-top:12px;display:flex;align-items:center;gap:4px;font-size:14px;font-weight:500;color:var(--brand-strong)">Read the full summary <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:14px"></i></div>
+            </a>
+          </sc-if>
+        </div>
+
+        <!-- HeroExample (lg only) -->
+        <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative;min-width:0">
+            <div style="background:var(--frame-bg);border:1px solid var(--frame-border);border-radius:12px;overflow:hidden;box-shadow:var(--e5)">
+              <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--frame-bar);border-bottom:1px solid var(--frame-bar-border)">
+                <div aria-hidden="true" style="display:flex;gap:6px"><span style="width:12px;height:12px;border-radius:999px;background:rgba(239,68,68,.7)"></span><span style="width:12px;height:12px;border-radius:999px;background:rgba(234,179,8,.7)"></span><span style="width:12px;height:12px;border-radius:999px;background:rgba(79,122,99,.7)"></span></div>
+                <div style="margin:0 auto;min-width:0;flex:1;max-width:320px"><div style="border-radius:4px;border:1px solid var(--hair);background:var(--field);padding:4px 12px;text-align:center;font-family:var(--font-data);font-size:12px;color:var(--ink-2)">earningsnerd.io · example summary</div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:16px;padding:20px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                    <span role="img" aria-label="Apple Inc. logo" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--brand-tint);box-shadow:inset 0 0 0 1px var(--brand-border);font-size:9px;font-weight:600;color:var(--brand-strong)">AA</span>
+                    <span style="font-size:14px;font-weight:600;color:var(--ink)">Apple Inc.</span>
+                    <span style="border-radius:999px;border:1px solid var(--hair);background:var(--field);padding:2px 8px;font-size:12px;color:var(--ink-2)">10-K</span>
+                    <span style="border-radius:999px;border:1px solid var(--brand-tint-border);background:var(--brand-tint);padding:2px 8px;font-size:12px;font-weight:500;color:var(--brand-strong)">Full summary</span>
+                  </div>
+                  <span style="font-family:var(--font-data);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2)">filed Oct 31, 2025</span>
+                </div>
+                <div style="border-radius:16px;border:1px solid var(--hair);background:var(--field);padding:16px">
+                  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:999px;background:var(--brand-strong)"></span><span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-strong)">Executive Snapshot</span></div>
+                  <p style="font-size:12px;line-height:1.625;color:var(--ink-2)">{{ excerpt }}</p>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+                  <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3">
+                    <div title="Reported in the filing’s XBRL data" style="min-width:0;border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:12px">
+                      <div style="font-size:12px;color:var(--ink-2)">{{ m.label }}</div>
+                      <div style="margin-top:4px;white-space:nowrap;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)">{{ m.value }}</div>
+                      <div style="margin-top:2px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--gain)">{{ m.delta }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;font-family:var(--font-data);font-size:11px;color:var(--ink-3);text-underline-offset:2px;transition:color 150ms" style-hover="color:var(--brand-strong);text-decoration:underline">Figures from the company's XBRL filing · verify on SEC EDGAR ↗</a>
+                <a href="#" style="display:flex;align-items:center;justify-content:space-between;border-radius:16px;border:1px solid var(--brand-tint-border);background:var(--brand-tint);padding:12px 16px;transition:background 150ms">
+                  <span style="font-size:12px;font-weight:500;color:var(--brand-strong)">Read the full example summary</span>
+                  <span aria-hidden="true" style="font-size:12px;color:var(--brand-strong)">→</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SOCIAL PROOF STRIP ═══ -->
+  <section style="border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);background:var(--strip-bg)">
+    <div style="max-width:1024px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;column-gap:48px;row-gap:16px;padding:40px clamp(16px,2.5vw,32px)">
+      <div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:999px;background:var(--brand-strong)"></span><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Every SEC-registered company</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:999px;background:var(--brand-strong)"></span><span style="font-size:14px;font-weight:600;color:var(--ink-2)">10-K &amp; 10-Q coverage</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:999px;background:var(--brand-strong)"></span><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Sourced directly from SEC EDGAR</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:999px;background:var(--brand-strong)"></span><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Financials grounded in XBRL data</span></div>
+    </div>
+  </section>
+
+  <!-- ═══ REPORTING THIS WEEK ═══ -->
+  <section id="reporting-this-week" style="padding:clamp(80px,8vw,96px) 0">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="margin-bottom:32px;display:flex;align-items:center;justify-content:space-between">
+        <h2 style="font-size:24px;line-height:32px;letter-spacing:-0.012em">Reporting this week</h2>
+        <a href="#" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--brand-strong)" style-hover="color:var(--brand-emph)">View full calendar <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:16px"></i></a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px">
+        <sc-for list="{{ reporting }}" as="r" hint-placeholder-count="4">
+          <a href="#" style="display:flex;flex-direction:column;align-items:center;gap:8px;border-radius:16px;border:1px solid var(--hair);background:var(--panel);padding:16px;text-align:center;box-shadow:var(--e1);transition:all 200ms" style-hover="transform:translateY(-4px);border-color:var(--brand-strong);box-shadow:var(--e2)">
+            <span role="img" aria-label="{{ r.name }} logo" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:999px;background:var(--brand-tint);box-shadow:inset 0 0 0 1px var(--brand-border);font-size:15px;font-weight:600;color:var(--brand-strong)">{{ r.initials }}</span>
+            <div style="font-weight:600;color:var(--ink)">{{ r.ticker }}</div>
+            <div style="width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--ink-2)">{{ r.name }}</div>
+            <div style="margin-top:4px;display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--hair);padding:2px 8px;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.025em;color:var(--brand-strong)">{{ r.when }}</div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ HOW IT WORKS ═══ -->
+  <section style="padding:clamp(80px,8vw,96px) 0">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="text-align:center">
+        <h2 style="font-size:clamp(30px,3vw,36px);line-height:1.2;letter-spacing:-0.02em">How it works</h2>
+        <p style="margin:16px auto 0;max-width:576px;font-size:18px;line-height:28px;color:var(--ink-2)">From SEC filing to summary in minutes, not hours.</p>
+      </div>
+      <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+          <div style="position:relative;border-radius:24px;padding:24px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-border);box-shadow:var(--e2)">
+            <div style="margin-bottom:16px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--brand-strong)">Step {{ s.n }}</div>
+            <div style="margin-bottom:16px;display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:16px;background:var(--brand-tint);color:var(--brand-strong)"><i class="{{ s.icon }}" aria-hidden="true" style="font-size:24px"></i></div>
+            <h3 style="font-size:18px;line-height:28px">{{ s.title }}</h3>
+            <p style="margin-top:8px;font-size:14px;line-height:1.625;color:var(--ink-2)">{{ s.desc }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FEATURE SHOWCASE ═══ -->
+  <section style="padding:clamp(80px,8vw,96px) 0">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="text-align:center">
+        <h2 style="font-size:clamp(30px,3vw,36px);line-height:1.2;letter-spacing:-0.02em">Everything you need to analyze filings faster</h2>
+        <p style="margin:16px auto 0;max-width:576px;font-size:18px;line-height:28px;color:var(--ink-2)">Built for investors who want the signal without the noise.</p>
+      </div>
+      <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px">
+        <sc-for list="{{ features }}" as="f" hint-placeholder-count="4">
+          <div style="border-radius:24px;padding:24px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-border);box-shadow:var(--e2)">
+            <div style="margin-bottom:16px;display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:16px;background:var(--brand-tint);color:var(--brand-strong)"><i class="{{ f.icon }}" aria-hidden="true" style="font-size:24px"></i></div>
+            <h3 style="font-size:18px;line-height:28px">{{ f.title }}</h3>
+            <p style="margin-top:8px;font-size:14px;line-height:1.625;color:var(--ink-2)">{{ f.desc }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ WHERE THE NUMBERS COME FROM ═══ -->
+  <section style="padding:clamp(80px,8vw,96px) 0">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="text-align:center">
+        <h2 style="font-size:clamp(30px,3vw,36px);line-height:1.2;letter-spacing:-0.02em">Where the numbers come from</h2>
+        <p style="margin:16px auto 0;max-width:576px;font-size:18px;line-height:28px;color:var(--ink-2)">AI summaries are only useful if you can trust them. Ours are anchored to the source.</p>
+      </div>
+      <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px">
+        <sc-for list="{{ pillars }}" as="p" hint-placeholder-count="3">
+          <div style="border-radius:24px;padding:24px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-border);box-shadow:var(--e2)">
+            <div style="margin-bottom:16px;display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:16px;background:var(--brand-tint);color:var(--brand-strong)"><i class="{{ p.icon }}" aria-hidden="true" style="font-size:24px"></i></div>
+            <h3 style="font-size:18px;line-height:28px">{{ p.title }}</h3>
+            <p style="margin-top:8px;font-size:14px;line-height:1.625;color:var(--ink-2)">{{ p.desc }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FINAL CTA ═══ -->
+  <section style="padding:0 0 clamp(80px,8vw,96px)">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="overflow:hidden;border-radius:24px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e3);padding:clamp(40px,4vw,56px);text-align:center">
+        <h2 style="font-size:clamp(30px,3vw,36px);line-height:1.2;letter-spacing:-0.02em">Ready to decode your next filing?</h2>
+        <p style="margin:16px auto 0;max-width:512px;font-size:18px;line-height:28px;color:var(--ink-2)">Stop spending hours on filings. Read what matters in minutes.</p>
+        <div style="margin-top:32px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
+          <a href="#" style="display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:var(--brand);padding:14px 32px;font-size:16px;font-weight:600;color:var(--on-brand);box-shadow:var(--e2);transition:background 150ms" style-hover="background:var(--brand-strong)">See a live example <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:16px"></i></a>
+          <a href="#" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;color:var(--ink-2);text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--hair)" style-hover="color:var(--ink)">or create a free account · 5 summaries a month · 7-day Pro trial</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <!-- ═══ FOOTER (components/Footer.tsx) ═══ -->
+  <footer style="border-top:1px solid var(--hair);background:var(--page)">
+    <div style="max-width:1280px;margin:0 auto;padding:48px clamp(16px,2.5vw,32px)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:40px">
+        <div style="grid-column:span 1">
+          <svg viewBox="0 0 94.6 73.2" aria-hidden="true" style="width:32px;height:32px;color:var(--brand-strong)"><g transform="translate(0,-14.8)"><path fill="currentColor" d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"></path><g transform="translate(0.92,6.98) scale(0.9193)"><path fill="currentColor" d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"></path><path fill="currentColor" d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"></path></g></g></svg>
+          <p style="margin-top:16px;max-width:320px;font-size:14px;line-height:1.625;color:var(--ink-2)">AI-powered SEC filing analysis. Read any 10-K or 10-Q in minutes.</p>
+        </div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-3)">Product</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Multi-Period Analysis</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Calendar</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Pricing</a></li></ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-3)">Resources</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Contact</a></li></ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-3)">Legal</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Privacy</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Terms</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Security</a></li></ul></div>
+      </div>
+      <div style="margin-top:48px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--hair);padding-top:32px">
+        <p style="font-size:12px;color:var(--ink-3)">© 2026 EarningsNerd. All rights reserved.</p>
+        <p style="font-size:12px;color:var(--ink-3)">Data sourced from SEC EDGAR. AI-generated content, for informational purposes only. Not investment advice. Not affiliated with the SEC.</p>
+      </div>
+      <p style="margin-top:16px;text-align:center;font-size:12px;color:var(--ink-3)">Company logos by <a href="https://logo.dev" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;text-underline-offset:2px" style-hover="color:var(--ink-2)">Logo.dev</a>. Logos and trademarks are the property of their respective owners.</p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;authState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;settled&quot;,&quot;pending&quot;],&quot;default&quot;:&quot;settled&quot;,&quot;tsType&quot;:&quot;'settled' | 'pending'&quot;,&quot;section&quot;:&quot;Header&quot;,&quot;description&quot;:&quot;Production shows a skeleton circle for guests until the client auth check settles&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'light', lg: true, sm: true, authState: 'settled' };
+  componentDidMount() {
+    const q = new URLSearchParams(location.search);
+    const theme = this.props.theme ?? q.get('theme') ?? 'light';
+    this._appliedPropTheme = this.props.theme;
+    this.applyTheme(theme);
+    // Breakpoints via matchMedia change events (fire only when a boundary is crossed) — a resize→setState
+    // listener loops here: re-render toggles the scrollbar, innerWidth changes, resize fires again.
+    this._mqLg = window.matchMedia('(min-width: 1024px)');
+    this._mqSm = window.matchMedia('(min-width: 640px)');
+    this._onMq = () => this.setState({ lg: this._mqLg.matches, sm: this._mqSm.matches });
+    this._mqLg.addEventListener('change', this._onMq);
+    this._mqSm.addEventListener('change', this._onMq);
+    this.setState({ theme, lg: this._mqLg.matches, sm: this._mqSm.matches });
+  }
+
+  componentWillUnmount() { this._mqLg.removeEventListener('change', this._onMq); this._mqSm.removeEventListener('change', this._onMq); }
+  applyTheme(t) { const want = t === 'dark'; const el = document.documentElement; if (el.classList.contains('dark') !== want) el.classList.toggle('dark', want); }
+  componentDidUpdate() {
+    const p = this.props.theme;
+    if (p && p !== this._appliedPropTheme) { this._appliedPropTheme = p; if (p !== this.state.theme) { this.applyTheme(p); this.setState({ theme: p }); } }
+  }
+  renderVals() {
+    const { theme, lg, sm } = this.state;
+    const authState = this.props.authState ?? this.state.authState;
+    const isDesktop = lg;
+    const companies = [['AAPL','Apple'],['NVDA','NVIDIA'],['TSLA','Tesla'],['MSFT','Microsoft'],['META','Meta'],['GOOGL','Alphabet'],['AMZN','Amazon'],['BABA','Alibaba']]
+      .map(([ticker, name]) => ({ ticker, name, initials: ticker.slice(0, 2) }));
+    return {
+      isDesktop, isMobile: !isDesktop, isNotDesktop: !isDesktop, isDesktopOrTablet: sm,
+      authSettled: authState === 'settled', authPending: authState === 'pending',
+      themeIcon: theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon',
+      themeLabel: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+      toggleTheme: () => { const next = this.state.theme === 'dark' ? 'light' : 'dark'; this.applyTheme(next); this.setState({ theme: next }); },
+      companies,
+      excerpt: 'Net sales rose 6% to $416.2B, led by iPhone and Services. Gross margin held at 46.9%, and net income grew 20% to $112.0B on record operating cash flow.',
+      metrics: [
+        { label: 'Revenue', value: '$416.2B', delta: '+6.4%' },
+        { label: 'Net Income', value: '$112.0B', delta: '+19.5%' },
+        { label: 'Diluted EPS', value: '$7.46', delta: '+22.7%' },
+      ],
+      reporting: [
+        { ticker: 'ORCL', name: 'Oracle', initials: 'OR', when: 'Tue • After Close' },
+        { ticker: 'ADBE', name: 'Adobe', initials: 'AD', when: 'Thu • After Close' },
+        { ticker: 'KR', name: 'Kroger', initials: 'KR', when: 'Fri • Before Open' },
+        { ticker: 'AVGO', name: 'Broadcom', initials: 'AV', when: 'Thu • After Close' },
+      ],
+      steps: [
+        { n: '01', title: 'Search any company', desc: 'Find any public company by name or ticker. We cover every company that files with the SEC.', icon: 'ph ph-magnifying-glass' },
+        { n: '02', title: 'Pick a filing', desc: 'Select a 10-K (annual) or 10-Q (quarterly) report. We pull it directly from SEC EDGAR.', icon: 'ph ph-file-text' },
+        { n: '03', title: 'Get the summary', desc: 'Our AI reads the full filing and writes a structured summary: financials, risks, and trends.', icon: 'ph ph-lightning' },
+      ],
+      features: [
+        { title: 'AI summaries', desc: 'Turn 100-page filings into structured 5-minute reads: business overview, financials, risks, and outlook.', icon: 'ph ph-brain' },
+        { title: 'XBRL-verified financials', desc: 'Financial metrics come from the standardized XBRL data filed with the SEC. Revenue, margins, and EPS, traced to the source.', icon: 'ph ph-chart-bar' },
+        { title: 'Risk factor analysis', desc: 'Track new, changed, and evolving risk disclosures. Spot material changes before the market reacts.', icon: 'ph ph-shield' },
+        { title: 'Multi-Period Analysis', desc: 'Trend any company across up to 10 fiscal years or 12 quarters. Growth, margins, and cash, with AI analysis grounded in SEC data.', icon: 'ph ph-columns' },
+      ],
+      pillars: [
+        { title: 'Straight from SEC EDGAR', desc: 'Every summary is generated from the official filing a company submits to the SEC, not third-party rewrites or news coverage.', icon: 'ph ph-file-text' },
+        { title: 'Grounded in XBRL', desc: 'Financial metrics are drawn from the structured XBRL data filed alongside each report, the same machine-readable figures the SEC receives.', icon: 'ph ph-database' },
+        { title: 'Honest about quality', desc: 'Each summary gets a deterministic quality check. If a section is thin or financial data could not be verified, we say so, and you can regenerate.', icon: 'ph ph-seal-check' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

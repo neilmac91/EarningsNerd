@@ -11,18 +11,28 @@ const DIR_ICON = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as co
  * no-longer-cited risk factors, and management's note — shown at the top of a filing summary. Renders
  * nothing unless there is something material to report (has_changes).
  */
-export function WhatChanged({ report }: { report: ChangeReport }) {
+export function WhatChanged({
+  report,
+  headingLevel: Heading = 'h2',
+}: {
+  report: ChangeReport
+  /** Heading element for "What changed"; the landing page nests the report under an h3. */
+  headingLevel?: 'h2' | 'h3' | 'h4'
+}) {
   if (!report.has_changes) return null
   const { metrics, risks, comparison_basis: basis, prior_filing: prior } = report
 
   return (
-    <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
+    <section
+      aria-label="What changed"
+      className="rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
+    >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <GitDiffIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" aria-hidden />
-          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <Heading className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
             What changed
-          </h2>
+          </Heading>
           {basis && (
             <span className="text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
               {basis}

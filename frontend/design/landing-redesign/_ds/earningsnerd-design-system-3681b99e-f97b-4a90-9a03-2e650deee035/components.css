@@ -1,0 +1,94 @@
+/* =============================================================================
+   EarningsNerd — component classes
+   -----------------------------------------------------------------------------
+   Theme-responsive class recipes for the reusable primitives. React components
+   in components/ apply these; they switch automatically under `.dark`.
+   Definitions live here so components stay markup-only and stay on-system.
+============================================================================= */
+
+/* ---------- Button ---------- */
+.en-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-body); font-weight: var(--weight-medium);
+  font-size: var(--text-sm); line-height: 1.25rem;
+  padding: 8px 16px; border: 1px solid transparent; cursor: pointer;
+  transition: background-color var(--duration-base) var(--ease-standard),
+              box-shadow var(--duration-base) var(--ease-standard),
+              color var(--duration-base) var(--ease-standard);
+}
+.en-btn:focus-visible { outline: 2px solid var(--brand-light); outline-offset: 2px; }
+.en-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.en-btn--sm { padding: 6px 12px; }
+.en-btn--lg { padding: 11px 22px; font-size: var(--text-base); }
+
+.en-btn--primary { background: var(--brand-strong); color: #fff; }
+.en-btn--primary:hover:not(:disabled) { background: var(--brand-light); }
+.dark .en-btn--primary { background: var(--brand-dark); color: var(--background-dark); }
+.dark .en-btn--primary:hover:not(:disabled) { background: var(--brand-strong-dark); }
+
+/* Secondary — panel fill + hairline + soft lift; BRIGHTENS on hover (never darkens). */
+.en-btn--secondary { background: var(--panel-light); color: var(--text-primary-light); border-color: var(--border-light); box-shadow: var(--shadow-e1); }
+.en-btn--secondary:hover:not(:disabled) { background: var(--brand-weak); box-shadow: var(--shadow-e2); }
+.dark .en-btn--secondary { background: var(--panel-dark); color: var(--text-primary-dark); border-color: rgba(255,255,255,0.1); box-shadow: none; }
+.dark .en-btn--secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+
+/* Tertiary — ghost: transparent + border. */
+.en-btn--tertiary { background: transparent; color: var(--text-secondary-light); border-color: var(--border-light); }
+.en-btn--tertiary:hover:not(:disabled) { background: var(--brand-weak); color: var(--text-primary-light); }
+.dark .en-btn--tertiary { color: var(--text-secondary-dark); border-color: rgba(255,255,255,0.1); }
+.dark .en-btn--tertiary:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: var(--text-primary-dark); }
+
+/* ---------- Input / field ---------- */
+.en-input {
+  width: 100%; box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  background: #fff; /* brightest surface — reads on cream page OR off-white card */
+  padding: 8px 12px;
+  font-family: var(--font-body); font-size: var(--text-base);
+  color: var(--text-primary-light);
+  transition: border-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
+}
+.en-input::placeholder { color: var(--text-tertiary-light); }
+.en-input:focus { outline: none; border-color: var(--brand-light); box-shadow: 0 0 0 3px rgba(79,122,99,0.18); }
+.en-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.dark .en-input { background: rgba(15,23,42,0.6); border-color: rgba(255,255,255,0.1); color: var(--text-primary-dark); }
+.dark .en-input::placeholder { color: var(--text-secondary-dark); }
+.dark .en-input:focus { border-color: var(--brand-dark); box-shadow: 0 0 0 3px rgba(146,160,226,0.25); }
+
+/* ---------- Card ---------- */
+.en-card {
+  background: var(--panel-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-e2);
+  padding: var(--space-6);
+  transition: box-shadow var(--duration-base) var(--ease-standard);
+}
+.en-card--interactive:hover { box-shadow: var(--shadow-e3); }
+.dark .en-card { background: var(--panel-dark); border-color: rgba(255,255,255,0.1); box-shadow: none; }
+.dark .en-card--interactive:hover { background: rgba(255,255,255,0.02); }
+
+/* ---------- Badge ---------- */
+.en-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); line-height: 1; padding: 5px 10px;
+  border: 1px solid transparent;
+}
+.en-badge--neutral { background: #F3F4F6; color: var(--text-secondary-light); border-color: var(--border-light); }
+.dark .en-badge--neutral { background: rgba(255,255,255,0.05); color: var(--text-secondary-dark); border-color: rgba(255,255,255,0.1); }
+.en-badge--brand { background: var(--brand-weak); color: var(--brand-strong); }
+.dark .en-badge--brand { background: rgba(255,255,255,0.05); color: var(--brand-strong-dark); }
+.en-badge--gain { background: var(--gain-soft); color: var(--gain); }
+.dark .en-badge--gain { background: var(--gain-soft-dark); color: var(--gain-dark); }
+.en-badge--loss { background: var(--loss-soft); color: var(--loss); }
+.dark .en-badge--loss { background: var(--loss-soft-dark); color: var(--loss-dark); }
+.en-badge--flat { background: #F3F4F6; color: var(--flat-light); }
+.dark .en-badge--flat { background: rgba(255,255,255,0.05); color: var(--flat-dark); }
+.en-badge--pro { background: var(--brand-weak); color: var(--brand-strong); font-weight: var(--weight-semibold); }
+.dark .en-badge--pro { background: rgba(255,255,255,0.05); color: var(--brand-strong-dark); }
+.en-badge--filing { background: #fff; color: var(--text-secondary-light); border-color: var(--border-light); font-family: var(--font-data); }
+.dark .en-badge--filing { background: rgba(15,23,42,0.5); color: var(--text-secondary-dark); border-color: rgba(255,255,255,0.1); }

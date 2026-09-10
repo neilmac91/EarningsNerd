@@ -1,4 +1,3 @@
-import { memo } from 'react'
 import { FileTextIcon, LightningIcon, MagnifyingGlassIcon } from '@/lib/icons'
 
 const STEPS = [
@@ -17,52 +16,43 @@ const STEPS = [
   {
     number: '03',
     title: 'Get the summary',
-    description: 'Our AI reads the full filing and writes a structured summary: financials, risks, and trends.',
+    description: 'The AI reads the full filing and writes a structured summary: financials, risks, and trends.',
+    // The design repeats file-text here; the lightning glyph is the pre-redesign choice for
+    // "get the summary" and keeps the three tiles distinct.
     icon: LightningIcon,
   },
 ] as const
 
-function HowItWorks() {
+/**
+ * The compact three-step "how it works" row: icon tile, step number in the data face, title and
+ * one line of description. It owns no section of its own; SummaryContents renders it beneath the
+ * contents card (design section 5), so headings here are h3 under that section's h2.
+ */
+export default function HowItWorks() {
   return (
-    <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
-          How it works
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-text-secondary-light dark:text-text-secondary-dark">
-          From SEC filing to summary in minutes, not hours.
-        </p>
-      </div>
-
-      <div className="mt-12 grid gap-6 md:grid-cols-3">
-        {STEPS.map((step) => {
-          const Icon = step.icon
-          return (
-            <div
-              key={step.number}
-              className="glass-card group relative rounded-2xl p-6 transition duration-base"
+    <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {STEPS.map((step) => {
+        const Icon = step.icon
+        return (
+          <li key={step.number} className="flex items-start gap-3.5">
+            <span
+              aria-hidden="true"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark"
             >
-              {/* Step number */}
-              <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
-                Step {step.number}
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {step.number}
               </div>
-
-              {/* Icon */}
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-strong/10 text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark transition-colors group-hover:bg-brand-strong/20 dark:group-hover:bg-brand-dark/20">
-                <Icon className="h-6 w-6" />
-              </div>
-
-              {/* Content */}
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+              <h3 className="mt-0.5 text-base leading-6">{step.title}</h3>
+              <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 {step.description}
               </p>
             </div>
-          )
-        })}
-      </div>
-    </section>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
-
-export default memo(HowItWorks)

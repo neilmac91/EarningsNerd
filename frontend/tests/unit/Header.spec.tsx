@@ -31,6 +31,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import Header from '@/components/Header'
+import { ACCESS_COPY } from '@/features/marketing/lib/access'
 
 const mockUser = {
   id: 1,
@@ -67,13 +68,28 @@ describe('Header auth state', () => {
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 
-  it('shows Log In / Get Started only on a definitive logged-out (null)', async () => {
+  it('shows Log In / the account CTA only on a definitive logged-out (null)', async () => {
     vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
     renderHeader()
 
     expect(await screen.findByRole('link', { name: /log in/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /get started/i })).toBeInTheDocument()
+    // No accessMode prop = the conservative invite copy (never advertise a signup the API rejects).
+    expect(screen.getByRole('link', { name: ACCESS_COPY.invite.cta })).toHaveAttribute('href', ACCESS_COPY.invite.href)
     expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
+  })
+
+  it('advertises open registration only when the access mode is public', async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Header accessMode="public" />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('link', { name: ACCESS_COPY.public.cta })).toHaveAttribute('href', '/register')
+    expect(screen.getByRole('link', { name: ACCESS_COPY.public.ctaShort })).toHaveAttribute('href', '/register')
+    expect(screen.queryByRole('link', { name: ACCESS_COPY.invite.cta })).not.toBeInTheDocument()
   })
 
   // While the auth check is still in flight (pending, including retry backoff) we hold the
@@ -104,7 +120,7 @@ describe('Header auth state', () => {
 
       expect(queryClient.getQueryState(['current-user'])?.status).toBe('error')
       expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /get started/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: ACCESS_COPY.invite.cta })).toBeInTheDocument()
       expect(container.querySelector('.animate-shimmer')).not.toBeInTheDocument()
       expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
     } finally {

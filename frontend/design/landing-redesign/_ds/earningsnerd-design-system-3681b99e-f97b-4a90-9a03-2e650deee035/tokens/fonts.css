@@ -1,0 +1,9 @@
+/* =============================================================================
+   EarningsNerd — Webfonts
+   -----------------------------------------------------------------------------
+   Figtree is the body/default reading font. In the production app it is
+   self-hosted via next/font; here it is delivered from Google Fonts so the
+   design system is portable. Headings (Helvetica/Arial), data (system mono),
+   and editorial (Georgia) are all OS-native — no @font-face needed.
+============================================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap");
