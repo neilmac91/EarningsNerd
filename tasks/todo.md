@@ -10,7 +10,7 @@ Plan approved by the founder on 10 Sept (assessment: `tasks/deepseek-v41-flash-m
 - [x] W8 — `deploy_check.py` defers to `Settings.validate_openai_config` (DeepSeek accepted) and prints the model; startup log and `verify_startup_config` are provider-neutral.
 - [x] W11 — Shared verbatim normaliser folds stray whitespace before closing punctuation / after opening brackets (symmetric); the ASML Copilot miss re-scores to 18/18 on Flash, Pro unchanged.
 - [x] W12 — Operational docs no longer quote V4 Pro prices or `deepseek-v4-pro` as current.
-- [ ] W9 — Single source for the model id across workflows and config.
+- [x] W9 — `.github/ai-model.env` is the deploy-time source for `AI_DEFAULT_MODEL` / `OPENAI_BASE_URL`; the three workflows load it into `GITHUB_ENV` and carry no model literal (gate: `test_retired_model_ids.py`).
 - [ ] W7 — Per-request observability (latency, reasoning tokens, requested vs served model, fingerprint, cost table with peak hours, trigger label, summary-path cost telemetry).
 - [ ] W10 — Thinking-mode low-effort experiment on the summary path (measurement only).
 

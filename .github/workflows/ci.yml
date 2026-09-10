@@ -327,6 +327,9 @@ jobs:
       - name: Install dependencies
         if: steps.key.outputs.have == 'true'
         run: pip install -r backend/requirements.txt
+      - name: Load AI model configuration
+        if: steps.key.outputs.have == 'true'
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - name: Run baseline eval (deterministic scorers, no judge)
         if: steps.key.outputs.have == 'true'
         working-directory: backend
@@ -340,8 +343,7 @@ jobs:
           STRIPE_WEBHOOK_SECRET: whsec_ci_eval
           PWNED_PASSWORD_CHECK_ENABLED: 'false'
           OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_BASE_URL: https://api.deepseek.com/v1
-          AI_DEFAULT_MODEL: deepseek-flash
+          # OPENAI_BASE_URL / AI_DEFAULT_MODEL come from .github/ai-model.env (loaded above).
           AI_FALLBACK_MODEL: ''
           AI_FALLBACK_BASE_URL: ''
           AI_EVIDENCE_SNAP: 'false'
@@ -493,6 +495,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
+      - name: Load AI model configuration
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - name: Detect backend changes
         id: changes
         # HEAD^ is the previous main tip (first parent of the merge commit),
@@ -578,7 +582,7 @@ jobs:
             --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --remove-env-vars=ENABLE_GUEST_DAILY_QUOTA \
-            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-flash,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=12,DB_MAX_OVERFLOW=8,NOTABLE_FILINGS_ENABLED=false,AI_EVIDENCE_SNAP=false,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=12,DB_MAX_OVERFLOW=8,NOTABLE_FILINGS_ENABLED=false,AI_EVIDENCE_SNAP=false,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
             --quiet
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
@@ -590,7 +594,7 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-flash,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=false,AI_EVIDENCE_SNAP=false,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=false,AI_EVIDENCE_SNAP=false,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true \
             --quiet
       - name: Update filing-scan + digest + backfill-facts + earnings-calendar job images
         if: steps.changes.outputs.backend == 'true'
