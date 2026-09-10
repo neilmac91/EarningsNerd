@@ -96,6 +96,41 @@ the service while a job runs is the aggregate SEC budget being exceeded, which o
 per-process budgets on the service and jobs can fix. This addition changes no capacity or
 startup/probe deadlines.
 
+### AI call telemetry (`ai_call` / `ai_summary` log lines)
+
+Every provider attempt logs one JSON line, `ai_call {...}`, from `app/services/ai_metrics.py`
+(never prompts, keys or filing identities). Fields: `operation` (`summary_primary`,
+`summary_fallback`, `section_recovery`, `copilot_chat`, `analysis_chat`), `provider`
+(`primary`/`fallback`), `trigger` (`user` for request traffic, `job` for Cloud Run jobs, `eval`
+for the eval harness), `requested_model` vs `actual_model` (what we asked for vs what the response
+said it served), `system_fingerprint` (the provider's backend build id when present), `outcome`,
+`latency_ms`, `first_token_ms` (streams), `usage` (`prompt_tokens`, `completion_tokens`,
+`total_tokens`, `cache_hit_tokens`, `cache_miss_tokens`, `reasoning_tokens`; `null` = the provider
+did not report it, never zero), `estimated_cost_usd` (per-model price table in
+`app/services/llm_pricing.py`, times `AI_PEAK_PRICE_MULTIPLIER` when `peak` is true) and `peak`.
+One `ai_summary` aggregate follows each summary generation. Admin `GET /metrics` exposes the
+process-local counters, including `estimated_cost_usd` per (operation, provider, model, outcome).
+
+What to watch after a provider change (ADR-0008): `actual_model` or `system_fingerprint` moving
+without a deploy is a silent routing change; `reasoning_tokens` above zero means thinking mode was
+enabled upstream (every path sends it disabled); a step in `completion_tokens` or `latency_ms`
+per `operation` is a behaviour change worth an eval run.
+
+Log-based cost metric (one-time setup, not applied by CI):
+
+```bash
+gcloud logging metrics create ai_call_estimated_cost_usd \
+  --project=earnings-nerd \
+  --description="Sum of estimated_cost_usd over ai_call lines" \
+  --log-filter='resource.type="cloud_run_revision" AND textPayload:"ai_call {"' \
+  --value-extractor='REGEXP_EXTRACT(textPayload, "\"estimated_cost_usd\":([0-9.]+)")' \
+  --metric-kind=DELTA --value-type=DISTRIBUTION
+```
+
+Then an alerting policy on the daily sum (a $5/day threshold is roughly 2× current product
+spend) and a dashboard split by the `trigger` and `operation` labels, extracted the same way.
+Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exists (plan item W6).
+
 **Status codes:**
 - `200` with `status: healthy` - All dependencies operational
 - `200` with `status: degraded` - Non-critical dependency (Redis) unavailable

@@ -460,12 +460,15 @@ Rules:
         rendering and ``stream_cb`` are best-effort — they never affect the returned content."""
         parts: List[str] = []
         emitted_at = 0
+        started = asyncio.get_running_loop().time()
         stream = await (_client or self.client).chat.completions.create(**create_kwargs)
         try:
             async for chunk in stream:
                 if _observation is not None:
                     if getattr(chunk, "model", None):
                         _observation["model"] = chunk.model
+                    if getattr(chunk, "system_fingerprint", None):
+                        _observation["fingerprint"] = chunk.system_fingerprint
                     if getattr(chunk, "usage", None) is not None:
                         _observation["usage"] = chunk.usage
                 choices = getattr(chunk, "choices", None)
@@ -475,6 +478,8 @@ Rules:
                 piece = getattr(delta, "content", None) if delta is not None else None
                 if not piece:
                     continue
+                if _observation is not None and _observation.get("first_token_ms") is None:
+                    _observation["first_token_ms"] = (asyncio.get_running_loop().time() - started) * 1000
                 parts.append(piece)
                 total = sum(len(p) for p in parts)
                 # Re-render a preview every ~1500 new chars to keep preview frames modest.
