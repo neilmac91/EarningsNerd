@@ -87,7 +87,7 @@ describe('AskFilingDemo', () => {
       screen.getByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax · Services'),
     ).toBeInTheDocument()
     expect(screen.getByText('Passage')).toBeInTheDocument()
-    expect(screen.getByText('Item 7 · Segment Operating Performance')).toBeInTheDocument()
+    expect(screen.getByText(SAMPLE_ASK.citations[1].section_ref as string)).toBeInTheDocument()
     expect(screen.getAllByText('Verified')).toHaveLength(2)
   })
 

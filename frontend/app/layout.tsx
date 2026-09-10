@@ -97,8 +97,9 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   // The header's account CTA follows the backend's registration gate (invite-only vs open), read
-  // through a 5-minute ISR fetch so a config flip on the service flips the chrome everywhere with
-  // no redeploy; unreachable backend = the conservative invite copy.
+  // through an hourly ISR fetch so a config flip on the service flips the chrome everywhere with
+  // no redeploy (this fetch is the ISR floor for every route); unreachable backend = the
+  // conservative invite copy.
   const accessMode = resolveAccessMode(await fetchSignupConfig())
   return (
     // suppressHydrationWarning: the THEME pre-paint script sets the .dark class on

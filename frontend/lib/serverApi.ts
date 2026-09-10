@@ -160,7 +160,8 @@ export interface NotableFilingsResponse {
 
 /** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
  * when the list is empty, so there is no client query. ISR 15 min, matching the backend's own
- * serve-cache TTL. */
+ * serve-cache TTL. Dormant since the 2026-09 landing redesign dropped the section from `/`
+ * (NOTABLE_FILINGS_ENABLED is off in production); kept with NotableFilings.tsx for reinstatement. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
   fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 900)
 
@@ -265,11 +266,13 @@ export interface SignupConfig {
 /**
  * The backend's registration gate (REGISTRATION_MODE + whether the beta promo is configured),
  * read at render time so the landing page's account CTAs and beta pricing line flip when the
- * service config flips, with no frontend redeploy. Revalidates every 5 minutes. Returns null when
- * the backend is unreachable or answers with an unknown mode (the caller fails closed).
+ * service config flips, with no frontend redeploy. Revalidates hourly, like the hero example: the
+ * root layout reads it for the header CTA, and a layout fetch sets the ISR floor for every route,
+ * so this must not be shorter than the longest-lived page data. Returns null when the backend is
+ * unreachable or answers with an unknown mode (the caller fails closed).
  */
 export const fetchSignupConfig = async (): Promise<SignupConfig | null> => {
-  const raw = await fetchJson<{ mode?: unknown; beta_promo_enabled?: unknown }>('/api/auth/registration', 300)
+  const raw = await fetchJson<{ mode?: unknown; beta_promo_enabled?: unknown }>('/api/auth/registration', 3600)
   if (!raw || (raw.mode !== 'public' && raw.mode !== 'invite_only')) return null
   return { mode: raw.mode, beta_promo_enabled: raw.beta_promo_enabled === true }
 }

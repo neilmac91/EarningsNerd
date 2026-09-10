@@ -72,11 +72,11 @@ describe('QuickAccessBar', () => {
     expect(mockCapture).toHaveBeenCalledTimes(2)
   })
 
-  it('renders section with accessible label', () => {
+  it('renders as a labelled navigation landmark', () => {
     render(<QuickAccessBar />)
 
-    const section = screen.getByRole('region', { name: /popular companies/i })
-    expect(section).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: /popular companies/i })
+    expect(nav).toBeInTheDocument()
   })
 
   it('includes BABA (Alibaba) not AMD', () => {

@@ -40,9 +40,9 @@ const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   // Copy: the caps written out in prose.
   { label: 'free summary cap spelled out', pattern: /\b\d+ (?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
-  { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings alerts?\b/i },
-  { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b/i },
-  { label: 'free history retention spelled out', pattern: /\b\d+-day (?:summary )?history\b/i },
+  { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
+  { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
+  { label: 'free history retention spelled out', pattern: /\b\d+-day (?:summary )?history\b|\bFree keeps \d+ days\b/i },
   // Behaviour: a free-tier cap constant assigned a literal, or a count compared against one
   // (the calendar pre-flight and fixture checks drifted this way before the mirror existed).
   { label: 'free-tier cap constant assigned a literal', pattern: /\bFREE_[A-Z0-9_]*(?:LIMIT|CAP)\b\s*=\s*\d+/ },

@@ -28,7 +28,7 @@ function QuickAccessBar() {
   }, [])
 
   return (
-    <section className="mt-3.5 flex flex-wrap gap-2" aria-label="Popular companies">
+    <nav className="mt-3.5 flex flex-wrap gap-2" aria-label="Popular companies">
       {TOP_COMPANIES.map(({ ticker, name }) => (
         <Link
           key={ticker}
@@ -42,7 +42,7 @@ function QuickAccessBar() {
           <span className="hidden text-text-secondary-light dark:text-text-secondary-dark sm:inline">{name}</span>
         </Link>
       ))}
-    </section>
+    </nav>
   )
 }
 

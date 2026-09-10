@@ -41,7 +41,8 @@ export default function LandingHero({
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{access.line}</p>
             </div>
 
-            {/* Company search: the secondary action. */}
+            {/* Company search: the secondary action, so it keeps the "/" shortcut but never
+                takes initial focus from the skip link, the H1 and the primary CTA. */}
             <div className="mt-7 max-w-[560px]">
               <label
                 htmlFor="company-search"
@@ -49,13 +50,13 @@ export default function LandingHero({
               >
                 Or start with a company
               </label>
-              <CompanySearch autoFocusDesktop placeholder="Search any company or ticker" />
+              <CompanySearch shortcuts ariaLabel={null} placeholder="Search any company or ticker" />
               <QuickAccessBar />
             </div>
           </div>
 
           {/* The real pre-generated example summary (ISR), same card at every breakpoint. */}
-          <div className="min-w-0" aria-label={`Example summary: ${example?.companyName ?? 'Apple Inc.'} ${example?.filingType ?? '10-K'}`}>
+          <div className="min-w-0">
             <HeroExample example={example} />
           </div>
         </div>

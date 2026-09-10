@@ -97,7 +97,7 @@ export const SAMPLE_ASK = {
       n: 1,
       excerpt:
         'Services net sales increased during 2022 compared to 2021 due primarily to higher net sales from advertising, cloud services and the App Store.',
-      section_ref: 'Item 7 · Segment Operating Performance',
+      section_ref: 'Item 7 · Products and Services Performance',
       verified: true,
       fragment_url: AAPL_FY22_EDGAR_URL,
     },

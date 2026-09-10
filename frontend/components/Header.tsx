@@ -125,7 +125,7 @@ export default function Header({
               </Link>
               <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
                 {account.cta}
-                <ArrowRightIcon className="h-3.5 w-3.5" />
+                <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
             </>
           ) : (
@@ -133,7 +133,9 @@ export default function Header({
             // slow/cold backend never flashes the "Log In" CTAs to a user who is actually signed
             // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
             // the branches above renders, so the user is never trapped on this placeholder.
-            <Skeleton className="h-9 w-9 rounded-full" />
+            <span role="status" aria-label="Checking sign-in">
+              <Skeleton className="h-9 w-9 rounded-full" />
+            </span>
           )}
         </div>
 
@@ -179,7 +181,7 @@ export default function Header({
                     <p className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                       {user.full_name || 'Your account'}
                     </p>
-                    <p className="truncate text-xs text-text-tertiary-light dark:text-text-secondary-dark">{user.email}</p>
+                    <p className="truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">{user.email}</p>
                   </div>
                   {user.email_verified === false && (
                     <Link
@@ -231,7 +233,9 @@ export default function Header({
                 // bordered container empty (a stray divider + gap), matching the desktop header's
                 // loading state. A settled error falls through to the Log In / account CTA links
                 // above (via `isError`), so the mobile menu is never stuck on this placeholder.
-                <Skeleton className="h-9 w-full rounded-lg" />
+                <span role="status" aria-label="Checking sign-in" className="block">
+                  <Skeleton className="h-9 w-full rounded-lg" />
+                </span>
               )}
             </div>
           </nav>
