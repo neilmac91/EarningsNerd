@@ -1,3 +1,15 @@
+## September 10 — DeepSeek V4.1 Flash cutover (deepseek-v4-pro retired 14 Sept 04:00 UTC)
+
+Plan approved by the founder on 10 Sept (assessment: `tasks/deepseek-v41-flash-migration-2026-09-10.md`). Pre-cutover scope only; observability (W7), single-source model config (W9), format hardening (W11) and provider profiles (W13) follow after the wave-3 prompt slices land.
+
+- [x] W1 — 5 Sept pinned report (`eval_20260905T111951Z.json`, run 33962580838) downloaded before its 19 Sept artifact expiry and tracked under `backend/evals/baselines/` as the V4 Pro reference. No judge spend (founder decision).
+- [x] W2 — Baseline eval route records per-attempt provider usage (`provider_usage` on each result row; token stats in the summary) via an `ai_metrics` observer; `evals/compare_reports.py` pairs two reports filing-by-filing.
+- [x] W3 — Smoke one raw `deepseek-flash` call with production kwargs; run 26 × 3 on `deepseek-flash` plus one 26 × 1 `deepseek-v4-pro` token-count run on the same SHA (~$2 total, founder-approved); Copilot golden set; compare against the 5 Sept pin.
+- [x] W4 — Cutover PR (same PR as W2, #809): `deepseek-flash` in all nine literal sites, Flash prices, re-pinned baseline, ADR-0008, literal-drift gate test. Merge only after W3 passes.
+- [ ] W6 — Founder creates a CI-only DeepSeek key and rotates the GitHub Actions `DEEPSEEK_API_KEY` secret.
+
+Coordination rule until W4 merges: the cutover PR is the only PR that re-pins `baseline_scores.json`; prompt candidates (#805, `d`/`e`) are measured on Flash afterwards, once. Astra's local `work/eval-error-outcome` rebases onto the W2 `runner.py` change.
+
 ## September 9 explanation feasibility — offline follow-up
 
 - [x] Preserve the [exact typed-source feasibility and causal-contract finding](quality-explanations-first-readout-2026-09-09.md#follow-up-offline-feasibility--added-before-publication). The original six assessment snapshots remain unchanged.

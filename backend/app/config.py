@@ -293,7 +293,7 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "deepseek-v4-pro"  # Primary model (DeepSeek V4 migration, non-thinking; chose pro over flash on the quality preference). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
+    AI_DEFAULT_MODEL: str = "deepseek-flash"  # Primary model (DeepSeek V4.1 Flash, non-thinking; ADR-0008 — V4 Pro retired 2026-09-14). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
     # Optional fallback: same origin may reuse primary auth; other origins require their own key.
     AI_FALLBACK_BASE_URL: str = ""
     AI_FALLBACK_MODEL: str = ""
@@ -502,15 +502,15 @@ class Settings(BaseSettings):
     ANALYSIS_MAX_TOKENS: int = 3200
     ANALYSIS_MAX_ANNUAL_PERIODS: int = 10
     ANALYSIS_MAX_QUARTERLY_PERIODS: int = 12
-    # Inference-cost estimate for Copilot telemetry ($ per 1M tokens) for the configured AI model
-    # (default deepseek-v4-pro). DeepSeek prices INPUT tokens differently on a context-cache HIT vs
-    # MISS (~120x apart), so the two input rates are tracked separately and the response's hit/miss
-    # split is priced accordingly. Update these on a model/price change.
-    # NB: from the V4 official release (~mid-July 2026) v4-pro adds a peak-hour surcharge (~2x)
-    # during UTC 01:00-04:00 + 06:00-10:00 — NOT modelled here (regular rates); revisit if material.
-    AI_INPUT_CACHE_HIT_PRICE_PER_1M: float = 0.003625
-    AI_INPUT_CACHE_MISS_PRICE_PER_1M: float = 0.435
-    AI_OUTPUT_PRICE_PER_1M_TOKENS: float = 0.87
+    # Inference-cost estimate for Copilot/Analysis telemetry ($ per 1M tokens) for the configured
+    # AI model (default deepseek-flash; off-peak rates effective 2026-09-10, ADR-0008). DeepSeek
+    # prices INPUT tokens differently on a context-cache HIT vs MISS (~50x apart), so the two input
+    # rates are tracked separately and the response's hit/miss split is priced accordingly. Update
+    # these on a model/price change. The peak-hour rate (2x during UTC 01:00-04:00 + 06:00-10:00,
+    # Mon-Fri) is NOT modelled here; a per-model price table is an observability follow-up.
+    AI_INPUT_CACHE_HIT_PRICE_PER_1M: float = 0.003
+    AI_INPUT_CACHE_MISS_PRICE_PER_1M: float = 0.15
+    AI_OUTPUT_PRICE_PER_1M_TOKENS: float = 0.60
 
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)

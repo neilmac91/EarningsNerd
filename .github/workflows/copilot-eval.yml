@@ -28,7 +28,7 @@ jobs:
       PWNED_PASSWORD_CHECK_ENABLED: 'false'
       USE_STATEMENT_FINANCIALS: 'true'
       OPENAI_BASE_URL: https://api.deepseek.com/v1
-      AI_DEFAULT_MODEL: deepseek-v4-pro
+      AI_DEFAULT_MODEL: deepseek-flash
       AI_FALLBACK_MODEL: ''
       AI_FALLBACK_BASE_URL: ''
     steps:
