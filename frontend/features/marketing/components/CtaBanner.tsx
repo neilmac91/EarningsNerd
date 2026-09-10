@@ -17,7 +17,7 @@ export default function CtaBanner({ accessMode }: { accessMode: AccessMode }) {
     <section aria-labelledby="cta-h" className="border-t border-border-light py-20 dark:border-white/10 sm:py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <SectionImpression section="cta_banner">
-          <Card elevation="e3" className="grid items-center gap-8 rounded-2xl p-8 sm:p-12 md:grid-cols-2 lg:p-14">
+          <Card elevation="e3" radius="2xl" className="grid items-center gap-8 p-8 sm:p-12 md:grid-cols-2 lg:p-14">
             <div>
               <h2 id="cta-h" className="text-3xl lg:text-4xl">
                 Start with a real filing.

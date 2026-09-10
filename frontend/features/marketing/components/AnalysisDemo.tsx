@@ -38,7 +38,7 @@ export default function AnalysisDemo() {
           <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
         </div>
         <RevenueBars points={REVENUE_POINTS} />
-        <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} />
+        <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
       </div>
     </div>
   )

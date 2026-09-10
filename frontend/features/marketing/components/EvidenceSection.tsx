@@ -4,8 +4,13 @@ import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo
 import { SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS, SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
 // The design's card footer sentence; FinancialMetricsTable renders it in its own CardFooter.
-const TABLE_NOTES =
-  'Each row carries its own source label. A metric reads SEC XBRL only when the value matched the SEC-filed XBRL figure.'
+const TABLE_NOTES = (
+  <>
+    Each row carries its own source label. A metric reads{' '}
+    <span className="font-data text-brand-strong dark:text-brand-strong-dark">SEC XBRL</span> only when the
+    value matched the SEC-filed XBRL figure.
+  </>
+)
 
 /**
  * "Where the numbers come from": the evidence block of the landing page. Left, the REAL
@@ -13,12 +18,9 @@ const TABLE_NOTES =
  * with its provenance panel open. Nothing here is drawn live; see landing-samples.
  */
 export default function EvidenceSection() {
+  // No hairline of its own: the measured-claims strip above already draws one.
   return (
-    <section
-      id="evidence"
-      aria-labelledby="evidence-h"
-      className="border-t border-border-light py-20 dark:border-white/10 sm:py-24"
-    >
+    <section id="evidence" aria-labelledby="evidence-h" className="py-20 sm:py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <SectionImpression section="evidence">
           <div className="max-w-2xl">

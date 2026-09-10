@@ -142,7 +142,7 @@ export default function Header({
         <div className="flex items-center gap-1 lg:hidden">
           <ThemeToggle className="min-h-11 min-w-11" />
           {(user === null || isError) && (
-            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'px-3.5' })}>
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
               {account.ctaShort}
             </Link>
           )}

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
@@ -33,7 +34,8 @@ export type FinancialMetric = {
 
 interface FinancialMetricsTableProps {
   metrics?: FinancialMetric[]
-  notes?: string
+  /** Footer note; a node lets a caller emphasise a phrase (the landing page's evidence card). */
+  notes?: ReactNode
   // Embed mode (T2.4): render just the table (+ notes) without the wrapping Card / "Financial
   // Highlights" header, because the structured page's section Card already supplies that title.
   // Default false preserves the self-contained card for the standalone/legacy call sites.

@@ -2,9 +2,9 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, SparkleIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, MinusIcon, SparkleIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
-import { directionText } from '@/lib/financialTone'
+import { directionOf, directionText } from '@/lib/financialTone'
 import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
@@ -52,8 +52,10 @@ const EYEBROW =
 
 function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
-  const up = (metric.deltaPercent ?? 0) >= 0
-  const DeltaIcon = up ? TrendUpIcon : TrendDownIcon
+  // Direction never rides on colour alone (financialTone rule): the glyph carries it, and a flat
+  // delta is neither gain nor loss.
+  const direction = directionOf(metric.deltaPercent)
+  const DeltaIcon = direction === 'up' ? TrendUpIcon : direction === 'down' ? TrendDownIcon : MinusIcon
   return (
     <div
       className="min-w-0 rounded-lg border border-border-light bg-white p-3 transition-colors duration-fast hover:border-brand-border dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-border-dark"
@@ -64,7 +66,7 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
         {metric.value}
       </div>
       {delta && (
-        <div className={`tnum mt-0.5 flex items-center gap-0.5 font-data text-xs font-medium ${directionText[up ? 'up' : 'down']}`}>
+        <div className={`tnum mt-0.5 flex items-center gap-0.5 font-data text-xs font-medium ${directionText[direction]}`}>
           <DeltaIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {delta}
         </div>

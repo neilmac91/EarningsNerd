@@ -18,7 +18,7 @@ export default function ChangeReportDemo() {
   return (
     <div className="mockup-frame shadow-e3 dark:shadow-none" data-capture="change-report">
       <div className="[&>section]:rounded-none [&>section]:border-0 [&>section]:bg-transparent [&>section]:shadow-none dark:[&>section]:bg-transparent">
-        <WhatChanged report={SAMPLE_CHANGE_REPORT} />
+        <WhatChanged report={SAMPLE_CHANGE_REPORT} headingLevel="h4" />
       </div>
 
       <div className="grid gap-4 px-6 pb-6 sm:grid-cols-2">
