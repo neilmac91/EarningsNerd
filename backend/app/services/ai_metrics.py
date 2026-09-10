@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 import json
 import logging
 import re
@@ -25,6 +26,10 @@ _model_labels: set[str] = set()
 _calls: dict[tuple, dict] = {}
 _summaries: Counter = Counter()
 _lock = Lock()
+# Optional per-task observer: a caller (the eval harness) that wants the normalized records of
+# every provider attempt made under its task binds a list here; records are appended after the
+# process counters/log line. Independent tasks never see each other's records (ContextVar).
+_observer: ContextVar[list | None] = ContextVar("ai_call_observer", default=None)
 
 
 def _field(value: Any, name: str) -> Any:
@@ -96,7 +101,23 @@ def record_ai_call(*, operation: str, provider: str, actual_model: Any, usage: A
         bucket["count"] += 1
         _add_usage(bucket["usage"], normalized)
     logger.info("ai_call %s", json.dumps(record, separators=(",", ":")))
+    sink = _observer.get()
+    if sink is not None:
+        sink.append(record)
     return record
+
+
+def observe_ai_calls() -> tuple[list, Any]:
+    """Bind a fresh record list for the current task; returns ``(records, reset_token)``.
+
+    The caller must pass ``reset_token`` to :func:`stop_observing` when done so the binding does
+    not leak into unrelated work on the same context."""
+    records: list = []
+    return records, _observer.set(records)
+
+
+def stop_observing(token: Any) -> None:
+    _observer.reset(token)
 
 
 def record_ai_summary(records: Sequence[dict], outcome: str) -> dict:
