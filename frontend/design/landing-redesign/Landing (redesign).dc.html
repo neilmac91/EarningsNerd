@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://img.logo.dev">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Geist+Mono:wght@400..600&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/base.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/components.css">
+  <link rel="stylesheet" href="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/styles.css">
+  <script src="_ds/earningsnerd-design-system-3681b99e-f97b-4a90-9a03-2e650deee035/_ds_bundle.js"></script>
+  <style>
+    /* Theme scope — values lifted from frontend/tailwind.config.js + globals.css (July 2026 single-Sage system). */
+    :root{
+      --font-heading:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+      --font-body:-apple-system,BlinkMacSystemFont,'Inter',system-ui,'Segoe UI',Roboto,sans-serif;
+      --font-data:'Geist Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+      --page:#F4F3EE;--panel:#FBFAF6;--field:#FFFFFF;--ink:#1A1A17;--ink-2:#374151;--ink-3:#6B7280;--hair:#E5E7EB;
+      --brand:#4F7A63;--brand-strong:#3C6650;--brand-emph:#345C48;--brand-weak:#ECF2EE;--brand-border:#CFE0D6;--on-brand:#FFFFFF;
+      --hover-tint:#ECF2EE;--white-hover:#FFFFFF;
+      --gain:#15803D;--loss:#B91C1C;--warn:#92400E;--warn-bg:rgba(146,64,14,.10);--info:#1D4ED8;--info-bg:rgba(37,99,235,.10);
+      --chart-1:#3E8E84;--chart-3:#5B7CC0;--chart-axis:#E5E7EB;--chart-label:#6B7280;
+      --e1:0 1px 2px 0 rgba(16,24,40,.06);--e2:0 1px 3px 0 rgba(16,24,40,.10),0 1px 2px -1px rgba(16,24,40,.10);
+      --e3:0 4px 6px -1px rgba(16,24,40,.10),0 2px 4px -2px rgba(16,24,40,.10);--e4:0 10px 15px -3px rgba(16,24,40,.10),0 4px 6px -4px rgba(16,24,40,.10);
+      --e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.10);
+      --ring:0 0 0 3px rgba(79,122,99,.5);
+      --frame-bg:#FBFAF6;--frame-border:rgba(16,24,40,.10);--frame-bar:rgba(16,24,40,.04);--frame-bar-border:rgba(16,24,40,.08);
+      --glow:0 0 0 1px rgba(79,122,99,.20),0 0 30px -5px rgba(79,122,99,.15);--glow-focus:0 0 0 2px rgba(79,122,99,.40),0 0 40px -5px rgba(79,122,99,.25);
+      --header-bg:rgba(244,243,238,.8);--skeleton:#E5E7EB;
+      --heading-color:#1A1A17;--text-heading-light:#1A1A17;--brand-dark:#7FB295;--brand-strong-dark:#98C5AD;
+    }
+    .dark{
+      --page:#0B1120;--panel:#1F2937;--field:rgba(255,255,255,.05);--ink:#D7DADC;--ink-2:#9CA3AF;--ink-3:#9CA3AF;--hair:rgba(255,255,255,.10);
+      --brand:#7FB295;--brand-strong:#98C5AD;--brand-emph:#569272;--brand-weak:rgba(127,178,149,.14);--brand-border:rgba(127,178,149,.28);--on-brand:#0B1120;
+      --hover-tint:rgba(255,255,255,.05);--white-hover:rgba(255,255,255,.10);
+      --gain:#34D399;--loss:#FB7185;--warn:#F59E0B;--warn-bg:rgba(245,158,11,.15);--info:#60A5FA;--info-bg:rgba(96,165,250,.15);
+      --chart-axis:rgba(255,255,255,.10);--chart-label:#9CA3AF;
+      --e1:none;--e2:none;--e3:none;--e4:none;--e5:none;--ring:0 0 0 3px rgba(127,178,149,.55);
+      --frame-bg:#0B1120;--frame-border:rgba(255,255,255,.10);--frame-bar:rgba(255,255,255,.05);--frame-bar-border:rgba(255,255,255,.06);
+      --glow:0 0 0 1px rgba(127,178,149,.28),0 0 30px -5px rgba(127,178,149,.18);--glow-focus:0 0 0 2px rgba(127,178,149,.50),0 0 40px -5px rgba(127,178,149,.28);
+      --header-bg:rgba(11,17,32,.8);--skeleton:rgba(255,255,255,.08);--heading-color:#D7DADC;
+    }
+    html,body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+    h1,h2,h3,h4{margin:0;font-family:var(--font-heading);font-optical-sizing:auto;font-weight:600;color:var(--ink);letter-spacing:0}
+    p{margin:0;text-wrap:pretty}
+    a{color:inherit;text-decoration:none}
+    a:hover{color:inherit}
+    input::placeholder{color:var(--ink-3)}
+    .dark input::placeholder{color:#9CA3AF}
+    .hero-search-glow{box-shadow:var(--glow)}
+    .hero-search-glow:focus-within{box-shadow:var(--glow-focus)}
+    :focus-visible{outline:none;box-shadow:var(--ring)}
+    @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--page);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6" data-screen-label="Redesigned landing page">
+
+  <!-- ═══ 1. HEADER ═══ -->
+  <header style="position:sticky;top:0;z-index:50;border-bottom:1px solid var(--hair);background:var(--header-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)">
+    <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(16px,2.5vw,32px)">
+      <a href="#" aria-label="EarningsNerd home" style="display:flex;align-items:center;gap:10px;border-radius:8px">
+        <svg viewBox="0 0 94.6 73.2" aria-hidden="true" style="width:36px;height:36px;color:var(--brand-strong);flex-shrink:0"><g transform="translate(0,-14.8)"><path fill="currentColor" d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"></path><g transform="translate(0.92,6.98) scale(0.9193)"><path fill="currentColor" d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"></path><path fill="currentColor" d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"></path></g></g></svg>
+        <span style="font-size:20px;font-weight:600;color:var(--ink);letter-spacing:-0.012em;line-height:1">Earnings<em style="font-style:italic;color:var(--brand-strong)">Nerd</em></span>
+      </a>
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+        <nav aria-label="Main navigation" style="display:flex;align-items:center;gap:32px">
+          <a href="#pro" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms;border-radius:4px" style-hover="color:var(--ink)">Multi-Period Analysis</a>
+          <a href="#reporting" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms;border-radius:4px" style-hover="color:var(--ink)">Calendar</a>
+          <a href="#pricing" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms;border-radius:4px" style-hover="color:var(--ink)">Pricing</a>
+          <a href="#" style="font-size:14px;font-weight:500;color:var(--ink-2);transition:color 150ms;border-radius:4px" style-hover="color:var(--ink)">Contact</a>
+        </nav>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:8px;color:var(--ink-2);background:transparent;border:0;cursor:pointer;transition:background 150ms" style-hover="background:var(--hover-tint);color:var(--ink)"><i class="{{ themeIcon }}" aria-hidden="true" style="font-size:20px"></i></button>
+          <a href="#" style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:12px;font-size:14px;font-weight:600;color:var(--brand-strong);transition:background 150ms" style-hover="background:var(--brand-weak)">Log In</a>
+          <a href="#" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:12px;font-size:14px;font-weight:600;background:var(--brand);color:var(--on-brand);box-shadow:var(--e1);transition:background 150ms" style-hover="background:var(--brand-strong)">{{ accountCta }}</a>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:4px">
+          <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:10px;color:var(--ink-2);background:transparent;border:0;cursor:pointer;min-width:44px;min-height:44px"><i class="{{ themeIcon }}" aria-hidden="true" style="font-size:20px"></i></button>
+          <a href="#" style="display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:12px;font-size:14px;font-weight:600;background:var(--brand);color:var(--on-brand);box-shadow:var(--e1)">{{ accountCtaShort }}</a>
+          <button type="button" aria-label="Open menu" aria-expanded="false" style="display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:10px;color:var(--ink-2);background:transparent;border:0;cursor:pointer;min-width:44px;min-height:44px"><i class="ph ph-list" aria-hidden="true" style="font-size:20px"></i></button>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+
+  <main>
+  <!-- ═══ 2. HERO ═══ -->
+  <section aria-labelledby="hero-h" style="background:var(--page)">
+    <div style="max-width:1280px;margin:0 auto;padding:clamp(48px,6vw,88px) clamp(16px,2.5vw,32px) clamp(56px,6vw,96px)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));align-items:start;gap:clamp(40px,4vw,64px)">
+        <div style="min-width:0">
+          <h1 id="hero-h" style="font-size:clamp(36px,4.6vw,60px);line-height:1.08;letter-spacing:-0.025em;color:var(--ink)">{{ headlinePre }}<span style="color:var(--brand-strong)">{{ headlineAccent }}</span>{{ headlinePost }}</h1>
+          <p style="margin-top:20px;max-width:560px;font-size:clamp(16px,1.3vw,18px);line-height:1.6;color:var(--ink-2)">AI summaries of 10-Ks and 10-Qs for investors who read the source. Nine sections, every figure grounded in SEC XBRL, every claim linked to the passage it came from.</p>
+          <div style="margin-top:28px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+            <a href="#" data-placement="hero" style="display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 20px;border-radius:12px;font-size:16px;font-weight:600;background:var(--brand);color:var(--on-brand);box-shadow:var(--e1);transition:background 150ms" style-hover="background:var(--brand-strong)">See a live example <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:16px"></i></a>
+            <p style="font-size:14px;line-height:20px;color:var(--ink-2)">{{ accessLine }}</p>
+          </div>
+          <!-- Company search: secondary action -->
+          <div style="margin-top:28px;position:relative;max-width:560px">
+            <label for="company-search" style="display:block;margin-bottom:8px;font-size:14px;font-weight:500;color:var(--ink-2)">Or start with a company</label>
+            <div class="hero-search-glow" style="position:relative;border-radius:12px">
+              <i class="ph ph-magnifying-glass" aria-hidden="true" style="pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--ink-3)"></i>
+              <input id="company-search" type="text" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Search any company or ticker" style="width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--hair);background:var(--field);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:20px;padding:10px 52px 10px 44px;outline:none;transition:border-color 150ms,box-shadow 150ms" style-focus="border-color:var(--brand);box-shadow:var(--ring)">
+              <sc-if value="{{ isTablet }}" hint-placeholder-val="{{ true }}"><kbd aria-hidden="true" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);border-radius:4px;border:1px solid var(--hair);background:var(--brand-weak);padding:2px 8px;font-family:var(--font-data);font-size:12px;color:var(--ink-3)">/</kbd></sc-if>
+            </div>
+            <div aria-label="Popular companies" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ companies }}" as="c" hint-placeholder-count="8">
+                <a href="#" style="display:inline-flex;align-items:center;gap:8px;min-height:36px;border-radius:999px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e1);padding:6px 12px 6px 6px;font-size:13px;font-weight:500;transition:background 150ms,border-color 150ms" style-hover="border-color:var(--brand-border);background:var(--white-hover)">
+                  <span role="img" aria-label="{{ c.logo.label }}" style="position:relative;display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;overflow:hidden;width:24px;height:24px;border-radius:999px;background:var(--brand-weak);box-shadow:inset 0 0 0 1px var(--brand-border)">
+                    <span aria-hidden="true" style="font-size:9px;font-weight:600;color:var(--brand-strong);opacity:{{ c.logo.monoOpacity }};transition:opacity 200ms">{{ c.logo.initials }}</span>
+                    <sc-if value="{{ c.logo.showImg }}" hint-placeholder-val="{{ false }}"><img src="{{ c.logo.src }}" alt="" aria-hidden="true" width="24" height="24" loading="lazy" decoding="async" onLoad="{{ c.logo.onLoad }}" onError="{{ c.logo.onError }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:{{ c.logo.imgOpacity }};transition:opacity 200ms"></sc-if>
+                  </span>
+                  <span style="font-family:var(--font-data);font-weight:600;color:var(--ink);font-size:12px">{{ c.ticker }}</span>
+                  <sc-if value="{{ isTablet }}" hint-placeholder-val="{{ true }}"><span style="color:var(--ink-2)">{{ c.name }}</span></sc-if>
+                </a>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero example: the real Apple FY2025 10-K summary (HeroExample, ISR-fetched). Same card at every breakpoint. -->
+        <div style="position:relative;min-width:0" aria-label="Example summary: Apple Inc. 10-K">
+          <div style="background:var(--frame-bg);border:1px solid var(--frame-border);border-radius:16px;overflow:hidden;box-shadow:var(--e3)">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;padding:10px 16px;background:var(--frame-bar);border-bottom:1px solid var(--frame-bar-border)">
+              <span style="font-family:var(--font-data);font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">earningsnerd.io/filing/aapl-10-k-2025</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:2px 10px;font-size:12px;font-weight:600;color:var(--brand-strong);white-space:nowrap"><i class="ph ph-sparkle" aria-hidden="true" style="font-size:12px"></i>AI summary</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px;padding:clamp(16px,1.5vw,20px)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
+                  <span role="img" aria-label="Apple Inc. logo" style="position:relative;display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;overflow:hidden;width:24px;height:24px;border-radius:999px;background:var(--brand-weak);box-shadow:inset 0 0 0 1px var(--brand-border)">
+                    <span aria-hidden="true" style="font-size:9px;font-weight:600;color:var(--brand-strong);opacity:{{ appleMonoOpacity }};transition:opacity 200ms">AA</span>
+                    <sc-if value="{{ appleShowImg }}" hint-placeholder-val="{{ false }}"><img src="{{ appleSrc }}" alt="" aria-hidden="true" width="24" height="24" loading="lazy" decoding="async" onLoad="{{ appleOnLoad }}" onError="{{ appleOnError }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:{{ appleImgOpacity }};transition:opacity 200ms"></sc-if>
+                  </span>
+                  <span style="font-size:14px;font-weight:600;color:var(--ink)">Apple Inc.</span>
+                  <span style="font-family:var(--font-data);font-size:12px;color:var(--ink-2)">AAPL</span>
+                  <span style="border-radius:999px;border:1px solid var(--hair);background:var(--field);padding:2px 10px;font-size:12px;font-weight:600;color:var(--ink-2)">10-K</span>
+                  <span style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:2px 10px;font-size:12px;font-weight:600;color:var(--brand-strong);white-space:nowrap"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i>Full summary</span>
+                </div>
+                <span style="font-family:var(--font-data);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap">filed Oct 31, 2025</span>
+              </div>
+              <div style="border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:16px">
+                <div style="margin-bottom:8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3)">Executive snapshot</div>
+                <p style="font-size:13px;line-height:1.6;color:var(--ink-2)">{{ excerpt }}</p>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+                <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3">
+                  <div title="{{ m.concept }}" style="min-width:0;border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:12px;transition:border-color 150ms" style-hover="border-color:var(--brand-border)">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.label }}</div>
+                    <div style="margin-top:4px;white-space:nowrap;font-family:var(--font-data);font-size:clamp(14px,1.2vw,16px);font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)">{{ m.value }}</div>
+                    <div style="margin-top:2px;display:flex;align-items:center;gap:3px;font-family:var(--font-data);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--gain)"><i class="ph ph-trend-up" aria-hidden="true" style="font-size:12px"></i>{{ m.delta }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;font-family:var(--font-data);font-size:11px;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--brand-strong);text-decoration:underline;text-underline-offset:2px"><i class="ph ph-arrow-square-out" aria-hidden="true" style="font-size:12px"></i>Figures from the company's XBRL filing · verify on SEC EDGAR</a>
+              <a href="#" data-placement="hero_visual" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:12px 16px;transition:border-color 150ms" style-hover="border-color:var(--brand-strong)">
+                <span style="font-size:13px;font-weight:600;color:var(--brand-strong)">Read the full example summary</span>
+                <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:14px;color:var(--brand-strong)"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 3. MEASURED CLAIMS ═══ -->
+  <section aria-label="Measured claims" style="border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+    <div style="max-width:1024px;margin:0 auto;padding:clamp(28px,3vw,40px) clamp(16px,2.5vw,32px)">
+      <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:clamp(20px,2.5vw,40px)">
+        <sc-for list="{{ claims }}" as="k" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <dt style="font-family:var(--font-data);font-size:clamp(24px,2.2vw,30px);line-height:1.15;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.016em;color:var(--ink)">{{ k.figure }}</dt>
+            <dd style="margin:0;font-size:14px;line-height:20px;color:var(--ink-2)">{{ k.label }}</dd>
+          </div>
+        </sc-for>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ═══ 4. EVIDENCE: WHERE THE NUMBERS COME FROM ═══ -->
+  <section id="evidence" aria-labelledby="evidence-h" style="padding:clamp(80px,8vw,96px) 0">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="max-width:640px">
+        <h2 id="evidence-h" style="font-size:clamp(30px,3vw,36px);line-height:1.15;letter-spacing:-0.02em">Where the numbers come from</h2>
+        <p style="margin-top:16px;font-size:18px;line-height:28px;color:var(--ink-2)">Every figure is matched to the filing's own XBRL data. Every claim links to the passage it came from. Nothing is drawn from outside the document you chose.</p>
+      </div>
+
+      <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:24px;align-items:start">
+        <!-- Financial Highlights excerpt (FinancialMetricsTable via DataTable) -->
+        <div style="border-radius:16px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e2);overflow:hidden">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;border-bottom:1px solid var(--hair);padding:14px 20px">
+            <h3 style="font-size:14px;line-height:20px">Financial Highlights</h3>
+            <span style="font-family:var(--font-data);font-size:11px;color:var(--ink-2);white-space:nowrap">FY2025 vs FY2024</span>
+          </div>
+          <div role="table" aria-label="Financial highlights: current period, prior period, change, and investor takeaway per metric" style="padding:0 8px 8px">
+            <div role="row" style="display:grid;grid-template-columns:minmax(120px,1.4fr) repeat(3,minmax(64px,1fr));gap:8px;padding:10px 12px;border-bottom:1px solid var(--hair);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3)">
+              <span role="columnheader">Metric</span><span role="columnheader" style="text-align:right">Current</span><span role="columnheader" style="text-align:right">Prior</span><span role="columnheader" style="text-align:right">Change</span>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+              <div role="row" style="border-bottom:1px solid var(--hair);padding:12px 12px 12px">
+                <div style="display:grid;grid-template-columns:minmax(120px,1.4fr) repeat(3,minmax(64px,1fr));gap:8px;align-items:start">
+                  <div role="cell" style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                    <span style="font-size:14px;font-weight:500;color:var(--ink)">{{ r.metric }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;line-height:1;color:var(--brand-strong);border-radius:4px;padding:2px 0;white-space:nowrap"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i><span style="font-family:var(--font-data)">{{ r.source }}</span></span>
+                  </div>
+                  <span role="cell" style="text-align:right;font-family:var(--font-data);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap">{{ r.current }}</span>
+                  <span role="cell" style="text-align:right;font-family:var(--font-data);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap">{{ r.prior }}</span>
+                  <span role="cell" style="display:inline-flex;justify-content:flex-end;align-items:center;gap:4px;font-family:var(--font-data);font-size:13px;font-variant-numeric:tabular-nums;color:var(--gain);white-space:nowrap"><i class="ph ph-trend-up" aria-hidden="true" style="font-size:14px"></i>{{ r.change }}</span>
+                </div>
+                <div role="cell" style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px">
+                  <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3)">Takeaway</span>
+                  <span style="font-size:13px;line-height:1.5;color:var(--ink-2)">{{ r.takeaway }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:10px 20px 14px;font-size:12px;color:var(--ink-2)">Each row carries its own source label. A metric reads <span style="font-family:var(--font-data);color:var(--brand-strong)">SEC XBRL</span> only when the value matched the SEC-filed XBRL figure.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:24px">
+          <!-- Trace to Source (SourceTrace) with its popover open -->
+          <div style="border-radius:16px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e2);padding:20px">
+            <h3 style="font-size:14px;line-height:20px">Trace to Source</h3>
+            <p style="margin-top:6px;font-size:14px;line-height:20px;color:var(--ink-2)">Every metric and risk claim carries a chip. Hover or tap it to see the section, the passage, and a link into SEC EDGAR.</p>
+            <div style="margin-top:16px;border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:14px 16px">
+              <p style="font-size:13px;line-height:1.6;color:var(--ink-2)">Revenue grew 6% year over year, led by iPhone and Services. <button type="button" aria-label="Source: Verified in filing" aria-expanded="true" aria-controls="trace-pop" onClick="{{ toggleTrace }}" style="display:inline-flex;align-items:center;gap:4px;vertical-align:baseline;border-radius:4px;border:0;padding:2px 4px;font-family:var(--font-body);font-size:11px;font-weight:500;line-height:1;color:var(--brand-strong);background:var(--brand-weak);cursor:pointer;white-space:nowrap"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i>Verified in filing</button></p>
+              <sc-if value="{{ traceOpen }}" hint-placeholder-val="{{ true }}">
+                <div id="trace-pop" role="group" aria-label="Source detail" style="margin-top:12px;border-radius:12px;border:1px solid var(--hair);background:var(--panel);padding:12px;box-shadow:var(--e4);max-width:320px">
+                  <span style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-2)">Item 7 · Management's Discussion and Analysis</span>
+                  <span style="display:block;margin-top:6px;border-left:2px solid var(--brand-border);padding-left:8px;font-family:var(--font-data);font-size:12px;line-height:1.5;color:var(--ink-2)">{{ traceExcerpt }}</span>
+                  <span style="margin-top:8px;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--brand-strong)"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i>Verified against the original SEC filing</span>
+                  <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K" target="_blank" rel="noopener noreferrer" style="margin-top:8px;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--ink-2);transition:color 150ms" style-hover="color:var(--brand-strong)"><i class="ph ph-arrow-square-out" aria-hidden="true" style="font-size:12px"></i>Open in SEC EDGAR</a>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 5. WHAT A SUMMARY CONTAINS ═══ -->
+  <section id="contents" aria-labelledby="contents-h" style="padding:0 0 clamp(80px,8vw,96px)">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="max-width:640px">
+        <h2 id="contents-h" style="font-size:clamp(30px,3vw,36px);line-height:1.15;letter-spacing:-0.02em">What a summary contains</h2>
+        <p style="margin-top:16px;font-size:18px;line-height:28px;color:var(--ink-2)">Nine sections, in the order the summary renders them. A fresh filing streams in section by section in about half a minute. A filing someone has already read loads at once.</p>
+      </div>
+      <nav aria-label="Summary sections" style="margin-top:40px;border-radius:16px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e2);overflow:hidden">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;border-bottom:1px solid var(--hair);padding:14px 20px">
+          <h3 style="font-size:14px;line-height:20px">Contents</h3>
+          <span style="font-family:var(--font-data);font-size:11px;color:var(--ink-2);white-space:nowrap">Apple Inc. · 10-K · FY2025</span>
+        </div>
+        <ol style="margin:0;padding:8px 12px;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));column-gap:24px">
+          <sc-for list="{{ sections }}" as="s" hint-placeholder-count="9">
+            <li style="display:flex;align-items:center;gap:14px;padding:12px 8px;border-bottom:1px solid var(--hair)">
+              <span style="font-family:var(--font-data);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-3);width:20px;flex-shrink:0">{{ s.n }}</span>
+              <span style="font-size:15px;font-weight:500;color:var(--ink)">{{ s.name }}</span>
+            </li>
+          </sc-for>
+        </ol>
+      </nav>
+
+      <!-- How it works: compact row -->
+      <ol style="margin:32px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+          <li style="display:flex;gap:14px;align-items:flex-start">
+            <span style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:var(--brand-weak);color:var(--brand-strong)"><i class="{{ s.icon }}" aria-hidden="true" style="font-size:20px"></i></span>
+            <div>
+              <div style="font-family:var(--font-data);font-size:11px;color:var(--ink-3)">{{ s.n }}</div>
+              <h3 style="margin-top:2px;font-size:16px;line-height:24px">{{ s.title }}</h3>
+              <p style="margin-top:4px;font-size:14px;line-height:20px;color:var(--ink-2)">{{ s.desc }}</p>
+            </div>
+          </li>
+        </sc-for>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══ 6. PRO DEPTH ═══ -->
+  <section id="pro" aria-labelledby="pro-h" style="padding:clamp(80px,8vw,96px) 0;border-top:1px solid var(--hair)">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="max-width:640px">
+        <h2 id="pro-h" style="font-size:clamp(30px,3vw,36px);line-height:1.15;letter-spacing:-0.02em">What Pro adds</h2>
+        <p style="margin-top:16px;font-size:18px;line-height:28px;color:var(--ink-2)">Three ways to go deeper than one filing, each grounded in the same SEC data.</p>
+      </div>
+
+      <div style="margin-top:48px;display:flex;flex-direction:column;gap:clamp(48px,5vw,72px)">
+        <!-- Ask this Filing -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:clamp(24px,3vw,48px);align-items:center">
+          <div style="max-width:420px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:2px 10px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--brand-strong);flex-shrink:0;white-space:nowrap">Pro</span><h3 style="font-size:24px;line-height:32px;letter-spacing:-0.012em;flex:1;min-width:0">Ask this Filing</h3></div>
+            <p style="margin-top:12px;font-size:16px;line-height:25.6px;color:var(--ink-2)">Ask a question of one filing. Every answer cites its source: numbered chips for passages, F-numbered chips for XBRL figures, each marked Verified or Cited. Free accounts get 3 questions.</p>
+          </div>
+          <div style="background:var(--frame-bg);border:1px solid var(--frame-border);border-radius:16px;overflow:hidden;box-shadow:var(--e3)" data-capture="ask-this-filing">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 16px;border-bottom:1px solid var(--hair)">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--brand-weak);color:var(--brand-strong)"><i class="ph ph-quotes" aria-hidden="true" style="font-size:16px"></i></span>
+              <span style="font-size:14px;font-weight:600;color:var(--ink)">Ask this Filing</span>
+              <span style="font-family:var(--font-data);font-size:11px;color:var(--ink-2);white-space:nowrap">AAPL · 10-K · FY2025</span>
+            </div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="align-self:flex-end;max-width:85%;border-radius:12px;background:var(--brand-weak);border:1px solid var(--brand-border);padding:10px 14px;font-size:14px;line-height:20px;color:var(--ink)">How much did Services revenue grow, and what drove it?</div>
+              <div style="border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:14px">
+                <p style="font-family:var(--font-data);font-size:13px;line-height:1.65;color:var(--ink)">Services net sales were <span style="font-variant-numeric:tabular-nums">$109.2B</span>, up <span style="font-variant-numeric:tabular-nums">13.5%</span> from <span style="font-variant-numeric:tabular-nums">$96.2B</span> <span style="display:inline-flex;min-height:18px;min-width:18px;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:0 4px;font-size:10px;font-weight:600;line-height:1;color:var(--brand-strong);vertical-align:baseline">[F1]</span>. Management attributes the increase to advertising, the App Store and cloud services <span style="display:inline-flex;min-height:18px;min-width:18px;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:0 4px;font-size:10px;font-weight:600;line-height:1;color:var(--brand-strong);vertical-align:baseline">[1]</span>.</p>
+                <div style="margin-top:12px;border-top:1px solid var(--hair);padding-top:10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)"><span style="font-family:var(--font-data);font-weight:600;color:var(--brand-strong)">[F1]</span><span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-3)">XBRL figure</span><span style="font-family:var(--font-data)">us-gaap:RevenueFromContractWithCustomer · Services</span><span style="display:inline-flex;align-items:center;gap:4px;color:var(--brand-strong);font-weight:500"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i>Verified</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)"><span style="font-family:var(--font-data);font-weight:600;color:var(--brand-strong)">[1]</span><span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-3)">Passage</span><span>Item 7 · Segment Operating Performance</span><span style="display:inline-flex;align-items:center;gap:4px;color:var(--brand-strong);font-weight:500"><i class="ph ph-check-circle" aria-hidden="true" style="font-size:12px"></i>Verified</span></div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:6px 6px 6px 14px">
+                <span style="flex:1;font-size:14px;color:var(--ink-3)">Ask this filing…</span>
+                <span style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:12px;background:var(--brand);color:var(--on-brand);font-size:12px;font-weight:600">Ask</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-Period Analysis -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:clamp(24px,3vw,48px);align-items:center">
+          <div style="max-width:420px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:2px 10px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--brand-strong);flex-shrink:0;white-space:nowrap">Pro</span><h3 style="font-size:24px;line-height:32px;letter-spacing:-0.012em;flex:1;min-width:0">Multi-Period Analysis</h3></div>
+            <p style="margin-top:12px;font-size:16px;line-height:25.6px;color:var(--ink-2)">Up to 10 fiscal years or 12 quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel.</p>
+            <a href="#" style="margin-top:16px;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--brand-border);font-size:14px;font-weight:600;color:var(--brand-strong);transition:background 150ms" style-hover="background:var(--brand-weak)">Try it on Apple <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:14px"></i></a>
+          </div>
+          <div style="background:var(--frame-bg);border:1px solid var(--frame-border);border-radius:16px;overflow:hidden;box-shadow:var(--e3)" data-capture="multi-period-analysis">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:12px 16px;border-bottom:1px solid var(--hair)">
+              <span style="font-size:14px;font-weight:600;color:var(--ink)">Apple Inc. · Annual · FY2019–FY2025</span>
+              <span style="font-family:var(--font-data);font-size:11px;color:var(--ink-2);white-space:nowrap">SEC XBRL</span>
+            </div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+                <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="3">
+                  <div style="border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:12px">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3)">{{ k.label }}</div>
+                    <div style="margin-top:4px;font-family:var(--font-data);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)">{{ k.value }}</div>
+                    <div style="margin-top:2px;font-family:var(--font-data);font-size:12px;font-variant-numeric:tabular-nums;color:var(--gain)">{{ k.growth }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border-radius:12px;border:1px solid var(--hair);background:var(--field);padding:14px">
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 8px"><span style="font-size:12px;font-weight:600;color:var(--ink)">Revenue</span><span style="font-family:var(--font-data);font-size:11px;color:var(--ink-2);white-space:nowrap">USD, billions</span></div>
+                <div role="img" aria-label="Revenue by fiscal year, FY2019 to FY2025: $260B, $275B, $366B, $394B, $383B, $391B, $416B" style="margin-top:12px;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px">
+                  <div aria-hidden="true" style="position:relative;height:140px;width:32px">
+                    <sc-for list="{{ yTicks }}" as="y" hint-placeholder-count="5">
+                      <span style="position:absolute;right:0;bottom:{{ y.pos }};transform:translateY(50%);font-family:var(--font-data);font-size:11px;font-variant-numeric:tabular-nums;color:var(--chart-label);line-height:1">{{ y.label }}</span>
+                    </sc-for>
+                  </div>
+                  <div style="position:relative;height:140px">
+                    <div aria-hidden="true" style="position:absolute;inset:0">
+                      <sc-for list="{{ yTicks }}" as="y" hint-placeholder-count="5"><span style="position:absolute;left:0;right:0;bottom:{{ y.pos }};border-top:1px solid var(--chart-axis)"></span></sc-for>
+                    </div>
+                    <div style="position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:100%">
+                      <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7">
+                        <div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0">
+                          <span style="margin-bottom:4px;font-family:var(--font-data);font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-2);line-height:1;white-space:nowrap">{{ b.value }}</span>
+                          <div style="width:100%;height:{{ b.h }};background:var(--chart-1);border-radius:3px 3px 0 0"></div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top:6px;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px">
+                  <span aria-hidden="true" style="width:32px"></span>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
+                    <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7"><span style="text-align:center;font-family:var(--font-data);font-size:11px;color:var(--chart-label)">{{ b.label }}</span></sc-for>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:12px;border:1px solid var(--hair);background:var(--field);overflow:hidden">
+                <div style="display:grid;grid-template-columns:minmax(90px,1.3fr) repeat(4,minmax(56px,1fr));gap:6px;padding:8px 12px;border-bottom:1px solid var(--hair);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3)"><span>Metric</span><span style="text-align:right">FY22</span><span style="text-align:right">FY23</span><span style="text-align:right">FY24</span><span style="text-align:right">FY25</span></div>
+                <sc-for list="{{ grid }}" as="g" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:minmax(90px,1.3fr) repeat(4,minmax(56px,1fr));gap:6px;padding:8px 12px;border-bottom:1px solid var(--hair);font-size:12px"><span style="color:var(--ink);font-weight:500">{{ g.m }}</span><span style="text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;color:var(--ink-2)">{{ g.a }}</span><span style="text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;color:var(--ink-2)">{{ g.b }}</span><span style="text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;color:var(--ink-2)">{{ g.c }}</span><span style="text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;color:var(--ink)">{{ g.d }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change Report -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:clamp(24px,3vw,48px);align-items:center">
+          <div style="max-width:420px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--brand-border);background:var(--brand-weak);padding:2px 10px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--brand-strong);flex-shrink:0;white-space:nowrap">Pro</span><h3 style="font-size:24px;line-height:32px;letter-spacing:-0.012em;flex:1;min-width:0">Change Report</h3></div>
+            <p style="margin-top:12px;font-size:16px;line-height:25.6px;color:var(--ink-2)">What changed against the prior filing: metric deltas computed from XBRL, risk factors that are new, and language no longer cited.</p>
+          </div>
+          <div style="background:var(--frame-bg);border:1px solid var(--frame-border);border-radius:16px;overflow:hidden;box-shadow:var(--e3)" data-capture="change-report">
+            <div style="padding:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <i class="ph ph-git-diff" aria-hidden="true" style="font-size:20px;color:var(--brand-strong)"></i>
+                  <span style="font-size:18px;font-weight:600;color:var(--ink)">What changed</span>
+                  <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-3)">Year over year</span>
+                </div>
+                <span style="font-size:12px;font-weight:500;color:var(--brand-strong)">vs prior 10-K (2024-09-28) ↗</span>
+              </div>
+              <p style="margin-top:12px;font-size:14px;line-height:1.6;color:var(--ink-2)">Revenue, net income and diluted EPS all rose against the prior fiscal year.</p>
+              <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+                <sc-for list="{{ deltas }}" as="d" hint-placeholder-count="3">
+                  <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--hair);background:var(--field);padding:4px 12px;font-size:13px"><span style="color:var(--ink-2)">{{ d.label }}</span><i class="ph ph-trend-up" aria-hidden="true" style="font-size:14px;color:var(--gain)"></i><span style="font-family:var(--font-data);font-weight:600;font-variant-numeric:tabular-nums;color:var(--gain)">{{ d.display }}</span></span>
+                </sc-for>
+              </div>
+              <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:16px">
+                <div>
+                  <div style="margin-bottom:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-3)">New risk factors</div>
+                  <div role="status" aria-label="Risk factor text loads from the live report" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;gap:8px;align-items:center"><span aria-hidden="true" style="color:var(--ink-3)">+</span><span style="display:block;height:12px;width:88%;border-radius:4px;background:var(--skeleton)"></span></div>
+                    <div style="display:flex;gap:8px;align-items:center"><span aria-hidden="true" style="color:var(--ink-3)">+</span><span style="display:block;height:12px;width:70%;border-radius:4px;background:var(--skeleton)"></span></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="margin-bottom:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--brand-strong)">No longer cited</div>
+                  <div role="status" aria-label="Risk factor text loads from the live report" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;gap:8px;align-items:center"><span aria-hidden="true" style="color:var(--brand-strong)">−</span><span style="display:block;height:12px;width:76%;border-radius:4px;background:var(--skeleton)"></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:clamp(48px,5vw,72px);border-top:1px solid var(--hair);padding-top:32px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <h3 style="font-size:14px;line-height:20px;color:var(--ink-2);font-weight:600">Also in Pro</h3>
+          <span style="font-size:13px;color:var(--ink-2)">Watchlists are unlimited on both plans.</span>
+        </div>
+        <ul style="margin:16px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px">
+          <sc-for list="{{ extras }}" as="x" hint-placeholder-count="4">
+            <li style="display:flex;flex-direction:column;gap:12px;border-radius:16px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e2);padding:18px;transition:background 150ms" style-hover="background:var(--white-hover)">
+              <span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:var(--brand-weak);color:var(--brand-strong)"><i class="{{ x.icon }}" style="font-size:24px"></i></span>
+              <div>
+                <div style="font-size:15px;font-weight:600;line-height:20px;color:var(--ink)">{{ x.title }}</div>
+                <div style="margin-top:4px;font-size:13px;line-height:18px;color:var(--ink-2)">{{ x.desc }}</div>
+              </div>
+              <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ x.tags }}" as="t" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--hair);background:var(--field);padding:2px 8px;font-family:var(--font-data);font-size:11px;font-weight:500;color:var(--ink-2);white-space:nowrap">{{ t }}</span></sc-for>
+              </div>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 7. PRICING ═══ -->
+  <section id="pricing" aria-labelledby="pricing-h" style="padding:clamp(80px,8vw,96px) 0;border-top:1px solid var(--hair)">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px">
+        <div style="max-width:560px">
+          <h2 id="pricing-h" style="font-size:clamp(30px,3vw,36px);line-height:1.15;letter-spacing:-0.02em">Pricing</h2>
+          <p style="margin-top:16px;font-size:18px;line-height:28px;color:var(--ink-2)">Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price.</p>
+        </div>
+        <div role="radiogroup" aria-label="Billing period" style="display:inline-flex;border-radius:12px;border:1px solid var(--hair);background:var(--panel);padding:4px;box-shadow:var(--e1)">
+          <button type="button" role="radio" aria-checked="{{ isMonthly }}" onClick="{{ setMonthly }}" style="height:36px;padding:0 14px;border-radius:8px;border:0;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;background:{{ monthlyBg }};color:{{ monthlyColor }};transition:background 150ms">Monthly</button>
+          <button type="button" role="radio" aria-checked="{{ isAnnual }}" onClick="{{ setAnnual }}" style="height:36px;padding:0 14px;border-radius:8px;border:0;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;background:{{ annualBg }};color:{{ annualColor }};transition:background 150ms">Annual <span style="font-weight:500;color:var(--brand-strong)">· 2 months free</span></button>
+        </div>
+      </div>
+
+      <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px;align-items:stretch">
+        <!-- Free -->
+        <div style="display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e2);padding:clamp(20px,2vw,28px)">
+          <h3 style="font-size:20px;line-height:28px;letter-spacing:-0.012em">Free</h3>
+          <div style="margin-top:12px;display:flex;align-items:baseline;gap:6px"><span style="font-family:var(--font-data);font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--ink)">$0</span></div>
+          <p style="margin-top:6px;font-size:14px;line-height:20px;color:var(--ink-2)">For reading a few filings a month.</p>
+          <a href="#" style="margin-top:20px;display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 20px;border-radius:12px;border:1px solid var(--brand-border);font-size:14px;font-weight:600;color:var(--brand-strong);transition:background 150ms" style-hover="background:var(--brand-weak)">{{ accountCta }}</a>
+          <ul style="margin:24px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ freeFeatures }}" as="f" hint-placeholder-count="8">
+              <li style="display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:20px;color:var(--ink-2)"><i class="ph ph-check" aria-hidden="true" style="font-size:16px;color:var(--brand-strong);flex-shrink:0;margin-top:2px"></i><span>{{ f }}</span></li>
+            </sc-for>
+          </ul>
+        </div>
+        <!-- Pro -->
+        <div style="position:relative;display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--brand-border);background:var(--panel);box-shadow:var(--e3);padding:clamp(20px,2vw,28px)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <h3 style="font-size:20px;line-height:28px;letter-spacing:-0.012em">Pro</h3>
+            <span style="display:inline-flex;align-items:center;border-radius:999px;background:var(--brand-strong);padding:2px 10px;font-size:12px;font-weight:600;color:var(--on-brand);white-space:nowrap">Most popular</span>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:baseline;gap:6px"><span style="font-family:var(--font-data);font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--ink)">{{ proPrice }}</span><span style="font-size:14px;color:var(--ink-2)">per month</span></div>
+          <p style="margin-top:6px;font-size:14px;line-height:20px;color:var(--ink-2)">{{ proBillingNote }}</p>
+          <sc-if value="{{ showBeta }}" hint-placeholder-val="{{ false }}"><p style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--brand-strong)"><i class="ph ph-seal-check" aria-hidden="true" style="font-size:16px"></i>Free for beta members</p></sc-if>
+          <a href="#" style="margin-top:20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:12px;background:var(--brand);color:var(--on-brand);font-size:14px;font-weight:600;box-shadow:var(--e1);transition:background 150ms" style-hover="background:var(--brand-strong)">Start 7-day free trial</a>
+          <p style="margin-top:8px;font-size:12px;line-height:16px;color:var(--ink-2)">Card required. One trial per account. Cancel any time in the 7 days at no charge.</p>
+          <ul style="margin:24px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ proFeatures }}" as="f" hint-placeholder-count="8">
+              <li style="display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:20px;color:var(--ink-2)"><i class="ph ph-check" aria-hidden="true" style="font-size:16px;color:var(--brand-strong);flex-shrink:0;margin-top:2px"></i><span>{{ f }}</span></li>
+            </sc-for>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quote slot: designed, left empty until a real quote exists (tweak) -->
+  <sc-if value="{{ showQuoteSlot }}" hint-placeholder-val="{{ false }}">
+    <section aria-label="Reader quote" style="padding:0 0 clamp(80px,8vw,96px)">
+      <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+        <figure style="margin:0;border-radius:16px;border:1px dashed var(--brand-border);background:transparent;padding:clamp(24px,3vw,40px);display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start">
+          <i class="ph ph-quotes" aria-hidden="true" style="font-size:24px;color:var(--brand-strong)"></i>
+          <div>
+            <blockquote style="margin:0;font-family:var(--font-heading);font-size:clamp(20px,2vw,24px);line-height:1.35;letter-spacing:-0.012em;color:var(--ink-3)">Reserved for a reader's words. Nothing appears here until a real reader supplies them.</blockquote>
+            <figcaption style="margin-top:12px;font-size:14px;color:var(--ink-3)">Name · what they invest in</figcaption>
+          </div>
+        </figure>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ═══ 8. DISCOVERY: REPORTING THIS WEEK (renders only with live data) ═══ -->
+  <sc-if value="{{ showReporting }}" hint-placeholder-val="{{ true }}">
+    <section id="reporting" aria-labelledby="reporting-h" style="padding:clamp(80px,8vw,96px) 0;border-top:1px solid var(--hair)">
+      <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+        <div style="margin-bottom:32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <h2 id="reporting-h" style="font-size:24px;line-height:32px;letter-spacing:-0.012em">Reporting this week</h2>
+          <a href="#" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--brand-strong);border-radius:4px" style-hover="color:var(--brand-emph)">View full calendar <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:16px"></i></a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px">
+          <sc-for list="{{ reporting }}" as="r" hint-placeholder-count="4">
+            <a href="#" style="display:flex;flex-direction:column;align-items:center;gap:8px;border-radius:16px;border:1px solid var(--hair);background:var(--panel);padding:16px;text-align:center;box-shadow:var(--e1);transition:background 150ms,border-color 150ms" style-hover="border-color:var(--brand-border);background:var(--white-hover)">
+              <span role="img" aria-label="{{ r.logo.label }}" style="position:relative;display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;overflow:hidden;width:40px;height:40px;border-radius:999px;background:var(--brand-weak);box-shadow:inset 0 0 0 1px var(--brand-border)">
+                <span aria-hidden="true" style="font-size:15px;font-weight:600;color:var(--brand-strong);opacity:{{ r.logo.monoOpacity }};transition:opacity 200ms">{{ r.logo.initials }}</span>
+                <sc-if value="{{ r.logo.showImg }}" hint-placeholder-val="{{ false }}"><img src="{{ r.logo.src }}" alt="" aria-hidden="true" width="40" height="40" loading="lazy" decoding="async" onLoad="{{ r.logo.onLoad }}" onError="{{ r.logo.onError }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:{{ r.logo.imgOpacity }};transition:opacity 200ms"></sc-if>
+              </span>
+              <div style="font-family:var(--font-data);font-weight:600;color:var(--ink)">{{ r.ticker }}</div>
+              <div style="width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--ink-2)">{{ r.name }}</div>
+              <div style="margin-top:4px;display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--hair);padding:2px 8px;font-size:12px;font-weight:500;color:var(--ink-2)">{{ r.when }}</div>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ═══ 9. FINAL CTA ═══ -->
+  <section aria-labelledby="cta-h" style="padding:clamp(80px,8vw,96px) 0;border-top:1px solid var(--hair)">
+    <div style="max-width:1024px;margin:0 auto;padding:0 clamp(16px,2.5vw,32px)">
+      <div style="border-radius:24px;border:1px solid var(--hair);background:var(--panel);box-shadow:var(--e3);padding:clamp(32px,4vw,56px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:32px;align-items:center">
+        <div>
+          <h2 id="cta-h" style="font-size:clamp(30px,3vw,36px);line-height:1.15;letter-spacing:-0.02em">Start with a real filing.</h2>
+          <p style="margin-top:12px;font-size:18px;line-height:28px;color:var(--ink-2)">Read the Apple 10-K summary first. Then read your own.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <a href="#" data-placement="cta_banner" style="display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 20px;border-radius:12px;font-size:16px;font-weight:600;background:var(--brand);color:var(--on-brand);box-shadow:var(--e1);transition:background 150ms" style-hover="background:var(--brand-strong)">See a live example <i class="ph ph-arrow-right" aria-hidden="true" style="font-size:16px"></i></a>
+          <a href="#" style="display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 20px;border-radius:12px;border:1px solid var(--brand-border);font-size:16px;font-weight:600;color:var(--brand-strong);transition:background 150ms" style-hover="background:var(--brand-weak)">{{ accountCta }}</a>
+          <p style="font-size:14px;line-height:20px;color:var(--ink-2)">{{ accessLine }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <!-- ═══ 10. FOOTER (unchanged) ═══ -->
+  <footer style="border-top:1px solid var(--hair);background:var(--page)">
+    <div style="max-width:1280px;margin:0 auto;padding:48px clamp(16px,2.5vw,32px)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:40px">
+        <div>
+          <svg viewBox="0 0 94.6 73.2" aria-hidden="true" style="width:32px;height:32px;color:var(--brand-strong)"><g transform="translate(0,-14.8)"><path fill="currentColor" d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"></path><g transform="translate(0.92,6.98) scale(0.9193)"><path fill="currentColor" d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"></path><path fill="currentColor" d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"></path></g></g></svg>
+          <p style="margin-top:16px;max-width:320px;font-size:14px;line-height:1.625;color:var(--ink-2)">AI-powered SEC filing analysis. Read any 10-K or 10-Q in minutes.</p>
+        </div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2)">Product</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#pro" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Multi-Period Analysis</a></li><li><a href="#reporting" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Calendar</a></li><li><a href="#pricing" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Pricing</a></li></ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2)">Resources</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Contact</a></li></ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2)">Legal</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px"><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Privacy</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Terms</a></li><li><a href="#" style="font-size:14px;color:var(--ink-2)" style-hover="color:var(--ink)">Security</a></li></ul></div>
+      </div>
+      <div style="margin-top:48px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--hair);padding-top:32px">
+        <p style="font-size:12px;color:var(--ink-2)">© 2026 EarningsNerd. All rights reserved.</p>
+        <p style="font-size:12px;color:var(--ink-2)">Data sourced from SEC EDGAR. AI-generated content, for informational purposes only. Not investment advice. Not affiliated with the SEC.</p>
+      </div>
+      <p style="margin-top:16px;text-align:center;font-size:12px;color:var(--ink-2)">Company logos by <a href="https://logo.dev" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;text-underline-offset:2px" style-hover="color:var(--ink)">Logo.dev</a>. Logos and trademarks are the property of their respective owners.</p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;headline&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;,&quot;C&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;'A' | 'B' | 'C'&quot;,&quot;section&quot;:&quot;Hero&quot;,&quot;description&quot;:&quot;A: Every number in the filing, traced to the filing · B: The 10-K, read for you. Sources included. · C: Understand any SEC filing in minutes (control)&quot;},&quot;access&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;public&quot;,&quot;invite&quot;],&quot;default&quot;:&quot;public&quot;,&quot;tsType&quot;:&quot;'public' | 'invite'&quot;,&quot;section&quot;:&quot;Hero&quot;,&quot;description&quot;:&quot;Registration open (Create a free account) or invite-only (Request an invite) — FOUNDER: confirm&quot;},&quot;logoToken&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Company logos&quot;,&quot;description&quot;:&quot;Logo.dev publishable token (NEXT_PUBLIC_LOGO_DEV_TOKEN, pk_…). Empty = initials monogram, exactly as CompanyLogo.tsx behaves without a token.&quot;},&quot;showBeta&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Pricing&quot;,&quot;description&quot;:&quot;Show the Free-for-beta-members line — FOUNDER: confirm&quot;},&quot;showReporting&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Discovery&quot;,&quot;description&quot;:&quot;Reporting this week renders only when live data exists&quot;},&quot;showQuoteSlot&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Discovery&quot;,&quot;description&quot;:&quot;Reader-quote slot: designed, left empty until a real quote exists&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'light', lg: true, sm: true, billing: 'monthly', traceOpen: true, logoLoaded: {}, logoFailed: {} };
+  // Mirrors components/CompanyLogo.tsx: monogram first, Logo.dev ticker-keyed PNG fades in on load, monogram stays on error.
+  mark(ticker, name, size) {
+    const token = this.props.logoToken ?? '';
+    const t = (ticker || '').toUpperCase();
+    const loaded = !!this.state.logoLoaded[t], failed = !!this.state.logoFailed[t];
+    const letters = t.replace(/[^A-Z]/g, '');
+    return {
+      ticker: t, name, size,
+      label: name ? name + ' logo' : t + ' logo',
+      initials: (letters.slice(0, 2) || t.slice(0, 2) || '?'),
+      fontSize: Math.max(9, Math.round(size * 0.38)) + 'px',
+      showImg: !!token && !!t && !failed,
+      src: token ? 'https://img.logo.dev/ticker/' + encodeURIComponent(t) + '?token=' + encodeURIComponent(token) + '&size=' + (size * 2) + '&format=png&retina=true' : '',
+      imgOpacity: loaded ? 1 : 0, monoOpacity: loaded ? 0 : 1,
+      onLoad: () => this.setState(s => ({ logoLoaded: { ...s.logoLoaded, [t]: true } })),
+      onError: () => this.setState(s => ({ logoFailed: { ...s.logoFailed, [t]: true } })),
+    };
+  }
+  componentDidMount() {
+    const q = new URLSearchParams(location.search);
+    const theme = this.props.theme ?? q.get('theme') ?? 'light';
+    this._appliedPropTheme = this.props.theme;
+    this.applyTheme(theme);
+    // Breakpoints via matchMedia change events (fire only when a boundary is crossed) — a resize→setState
+    // listener loops here: re-render toggles the scrollbar, innerWidth changes, resize fires again.
+    this._mqLg = window.matchMedia('(min-width: 1024px)');
+    this._mqSm = window.matchMedia('(min-width: 640px)');
+    this._onMq = () => this.setState({ lg: this._mqLg.matches, sm: this._mqSm.matches });
+    this._mqLg.addEventListener('change', this._onMq);
+    this._mqSm.addEventListener('change', this._onMq);
+    this.setState({ theme, lg: this._mqLg.matches, sm: this._mqSm.matches });
+  }
+
+  componentWillUnmount() { this._mqLg.removeEventListener('change', this._onMq); this._mqSm.removeEventListener('change', this._onMq); }
+  applyTheme(t) { const want = t === 'dark'; const el = document.documentElement; if (el.classList.contains('dark') !== want) el.classList.toggle('dark', want); }
+  componentDidUpdate() {
+    // Tweaks prop → theme. Lifecycle-only; renderVals stays pure.
+    const p = this.props.theme;
+    if (p && p !== this._appliedPropTheme) { this._appliedPropTheme = p; if (p !== this.state.theme) { this.applyTheme(p); this.setState({ theme: p }); } }
+  }
+  renderVals() {
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+    const { theme, lg, sm, billing, traceOpen } = this.state;
+    const headline = this.props.headline ?? q.get('headline') ?? 'A';
+    const access = this.props.access ?? q.get('access') ?? 'public';
+    const isDesktop = lg;
+    const H = {
+      A: { pre: 'Every number in the filing, ', accent: 'traced to the filing', post: '.' },
+      B: { pre: 'The 10-K, read for you. ', accent: 'Sources included', post: '.' },
+      C: { pre: 'Understand any ', accent: 'SEC filing', post: ' in minutes' },
+    }[headline] || { pre: '', accent: '', post: '' };
+    const isPublic = access === 'public';
+    const monthly = billing === 'monthly';
+    const companies = [['AAPL','Apple'],['NVDA','NVIDIA'],['TSLA','Tesla'],['MSFT','Microsoft'],['META','Meta'],['GOOGL','Alphabet'],['AMZN','Amazon'],['BABA','Alibaba']]
+      .map(([ticker, name]) => ({ ticker, name, logo: this.mark(ticker, name, 24) }));
+    const apple = this.mark('AAPL', 'Apple Inc.', 24);
+    const rev = [260.2, 274.5, 365.8, 394.3, 383.3, 391.0, 416.2];
+    const max = Math.max(...rev);
+    return {
+      isDesktop, isMobile: !isDesktop, isTablet: sm,
+      themeIcon: theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon',
+      themeLabel: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+      toggleTheme: () => { const next = this.state.theme === 'dark' ? 'light' : 'dark'; this.applyTheme(next); this.setState({ theme: next }); },
+      headlinePre: H.pre, headlineAccent: H.accent, headlinePost: H.post,
+      accountCta: isPublic ? 'Create a free account' : 'Request an invite',
+      accountCtaShort: isPublic ? 'Sign up' : 'Request invite',
+      accessLine: isPublic ? 'Free account · 5 AI summaries a month · no credit card' : 'Private beta · request an invite',
+      companies,
+      appleShowImg: apple.showImg, appleSrc: apple.src, appleMonoOpacity: apple.monoOpacity, appleImgOpacity: apple.imgOpacity, appleOnLoad: apple.onLoad, appleOnError: apple.onError,
+      excerpt: 'Net sales rose 6% to $416.2B, led by iPhone and Services. Gross margin held at 46.9%, and net income grew 20% to $112.0B on record operating cash flow.',
+      metrics: [
+        { label: 'Revenue', value: '$416.2B', delta: '+6.4%', concept: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax' },
+        { label: 'Net income', value: '$112.0B', delta: '+19.5%', concept: 'us-gaap:NetIncomeLoss' },
+        { label: 'Diluted EPS', value: '$7.46', delta: '+22.7%', concept: 'us-gaap:EarningsPerShareDiluted' },
+      ],
+      claims: [
+        { figure: '100%', label: 'Numeric accuracy against XBRL on a 26-filing evaluation set, 3 runs each' },
+        { figure: '~30 s', label: 'From a fresh filing to a streamed nine-section summary' },
+        { figure: 'XBRL', label: 'Every financial figure traced to the filing\u2019s SEC XBRL data' },
+        { figure: '10-K · 10-Q · 20-F', label: 'Pulled from SEC EDGAR for every company that files with the SEC' },
+      ],
+      rows: [
+        { metric: 'Revenue', source: 'Revenue · SEC XBRL', current: '$416.2B', prior: '$391.0B', change: '+6.4%', takeaway: 'Growth returned after two flat years, led by iPhone and Services.' },
+        { metric: 'Net income', source: 'NetIncomeLoss · SEC XBRL', current: '$112.0B', prior: '$93.7B', change: '+19.5%', takeaway: 'Profit grew three times faster than revenue.' },
+        { metric: 'Diluted EPS', source: 'EPS Diluted · SEC XBRL', current: '$7.46', prior: '$6.08', change: '+22.7%', takeaway: 'Buybacks lifted per-share earnings above net income growth.' },
+      ],
+      traceOpen, toggleTrace: () => this.setState(s => ({ traceOpen: !s.traceOpen })),
+      traceExcerpt: '\u201CTotal net sales increased 6% or $25.1 billion during 2025 compared to 2024, driven by higher net sales of iPhone and Services.\u201D',
+      sections: ['Executive Assessment','Financial Highlights','Investment Risks & Concerns','Management Strategy & Execution','Business Segment Analysis','Liquidity & Capital Structure','Forward Outlook & Investment Implications','Notable Footnotes','3-Year Investment Perspective']
+        .map((name, i) => ({ n: String(i + 1).padStart(2, '0'), name })),
+      steps: [
+        { n: '01', title: 'Search any company', desc: 'Find any public company by name or ticker. We cover every company that files with the SEC.', icon: 'ph ph-magnifying-glass' },
+        { n: '02', title: 'Pick a filing', desc: 'Select a 10-K (annual) or 10-Q (quarterly) report. We pull it directly from SEC EDGAR.', icon: 'ph ph-file-text' },
+        { n: '03', title: 'Get the summary', desc: 'The AI reads the full filing and writes a structured summary: financials, risks, and trends.', icon: 'ph ph-file-text' },
+      ],
+      kpis: [
+        { label: 'Revenue (FY2025)', value: '$416.2B', growth: 'CAGR +8.1%' },
+        { label: 'Net income (FY2025)', value: '$112.0B', growth: 'CAGR +12.2%' },
+        { label: 'Net margin (FY2025)', value: '26.9%', growth: '+5.7 pp' },
+      ],
+      // Axis tops out at 500 so the highest bar leaves room for its data label; ticks every 100.
+      bars: rev.map((v, i) => ({ h: Math.round((v / 500) * 100) + '%', label: 'FY' + (19 + i), value: '$' + Math.round(v) + 'B' })),
+      yTicks: [0, 100, 200, 300, 400, 500].map(v => ({ pos: (v / 5) + '%', label: v === 0 ? '0' : v })),
+      grid: [
+        { m: 'Revenue', a: '$394.3B', b: '$383.3B', c: '$391.0B', d: '$416.2B' },
+        { m: 'Net income', a: '$99.8B', b: '$97.0B', c: '$93.7B', d: '$112.0B' },
+        { m: 'Net margin', a: '25.3%', b: '25.3%', c: '24.0%', d: '26.9%' },
+      ],
+      deltas: [
+        { label: 'Revenue', display: '+6.4%' },
+        { label: 'Net income', display: '+19.5%' },
+        { label: 'Diluted EPS', display: '+22.7%' },
+      ],
+      extras: [
+        { icon: 'ph ph-file-xls', title: 'Excel export', desc: 'Multi-Period Analysis as a workbook, figures still tied to XBRL.', tags: ['XLSX'] },
+        { icon: 'ph ph-file-pdf', title: 'Summary export', desc: 'Any summary as a PDF for reading or a CSV for your own model.', tags: ['PDF', 'CSV'] },
+        { icon: 'ph ph-bell', title: 'Filing alerts', desc: 'Hourly checks for new filings on your watchlist, including 8-Ks.', tags: ['10-K', '10-Q', '8-K'] },
+        { icon: 'ph ph-clock-counter-clockwise', title: 'Full history', desc: 'Every summary you have read, kept. Free keeps 90 days.', tags: ['Unlimited'] },
+      ],
+      isMonthly: monthly, isAnnual: !monthly,
+      setMonthly: () => this.setState({ billing: 'monthly' }),
+      setAnnual: () => this.setState({ billing: 'annual' }),
+      monthlyBg: monthly ? 'var(--brand-weak)' : 'transparent', monthlyColor: monthly ? 'var(--ink)' : 'var(--ink-2)',
+      annualBg: monthly ? 'transparent' : 'var(--brand-weak)', annualColor: monthly ? 'var(--ink-2)' : 'var(--ink)',
+      proPrice: monthly ? '$39' : '$32.50',
+      proBillingNote: monthly ? 'Billed monthly. Or $390 a year, 2 months free.' : 'Billed annually at $390. Two months free against monthly.',
+      showBeta: this.props.showBeta ?? false,
+      showQuoteSlot: this.props.showQuoteSlot ?? false,
+      showReporting: this.props.showReporting ?? true,
+      freeFeatures: ['5 AI summaries a month','Every 10-K, 10-Q and 20-F on SEC EDGAR','Company search and historical filings','3 Ask this Filing questions','3 earnings-day alerts','Multi-Period Analysis demo (locked)','90-day summary history','Unlimited watchlist'],
+      proFeatures: ['Unlimited summaries','Unlimited Multi-Period Analysis','Ask this Filing','Change Report','Hourly filing alerts and 8-K alerts','PDF, CSV and Excel exports','Full summary history','Priority support'],
+      reporting: [
+        { ticker: 'ORCL', name: 'Oracle', when: 'Tue · After close' },
+        { ticker: 'ADBE', name: 'Adobe', when: 'Thu · After close' },
+        { ticker: 'AVGO', name: 'Broadcom', when: 'Thu · After close' },
+        { ticker: 'KR', name: 'Kroger', when: 'Fri · Before open' },
+      ].map(r => ({ ...r, logo: this.mark(r.ticker, r.name, 40) })),
+    };
+  }
+}
+</script>
+</body>
+</html>
