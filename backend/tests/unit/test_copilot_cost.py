@@ -111,3 +111,28 @@ def test_router_emit_is_noop_without_usage(monkeypatch):
     monkeypatch.setattr(summaries, "capture_copilot_inference", lambda **kw: called.append(kw))
     summaries._emit_copilot_cost_best_effort(42, 3, "AAPL", {"type": "complete", "kind": "answer"})
     assert called == []
+
+
+def test_per_model_price_table_and_peak_multiplier(monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.services import llm_pricing
+
+    usage = {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
+             "cache_hit_tokens": 500_000, "cache_miss_tokens": 500_000}
+    off_peak = datetime(2026, 9, 12, 12, 0, tzinfo=timezone.utc)   # Saturday: never peak
+    peak = datetime(2026, 9, 14, 7, 30, tzinfo=timezone.utc)       # Monday 07:30 UTC
+    assert llm_pricing.is_peak_hour(off_peak) is False and llm_pricing.is_peak_hour(peak) is True
+    assert llm_pricing.is_peak_hour(datetime(2026, 9, 14, 4, 0, tzinfo=timezone.utc)) is False  # [start, end)
+    flash = llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=off_peak)
+    assert flash == {"cost_usd": round(0.5 * 0.003 + 0.5 * 0.15 + 0.60, 6), "peak": False}
+    doubled = llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=peak)
+    assert doubled["peak"] is True and doubled["cost_usd"] == round(flash["cost_usd"] * 2, 6)
+    monkeypatch.setattr(settings, "AI_PEAK_PRICE_MULTIPLIER", 3.0)
+    assert llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=peak)["cost_usd"] == round(flash["cost_usd"] * 3, 6)
+    # Unknown model: the Settings constants (the configured default's rates); no split → all miss.
+    monkeypatch.setattr(settings, "AI_INPUT_CACHE_MISS_PRICE_PER_1M", 1.0)
+    monkeypatch.setattr(settings, "AI_OUTPUT_PRICE_PER_1M_TOKENS", 2.0)
+    unknown = llm_pricing.estimate_call_cost_usd("other-model", {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000}, at=off_peak)
+    assert unknown["cost_usd"] == 3.0
+    assert llm_pricing.estimate_call_cost_usd("deepseek-flash", {}, at=off_peak) == {"cost_usd": None, "peak": False}

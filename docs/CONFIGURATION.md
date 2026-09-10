@@ -158,7 +158,8 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `ANALYSIS_MAX_QUARTERLY_PERIODS` | `12` | Maximum quarterly periods selectable. |
 | `AI_INPUT_CACHE_HIT_PRICE_PER_1M` | `0.003` | Configured USD estimate per million cached input tokens; telemetry assumption, not a live provider price quote. |
 | `AI_INPUT_CACHE_MISS_PRICE_PER_1M` | `0.15` | Configured USD estimate per million uncached input tokens; update alongside model pricing. |
-| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.6` | Configured USD estimate per million output tokens; does not model peak-hour surcharges. |
+| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.6` | Configured USD estimate per million output tokens (off-peak); the PostHog per-answer estimate uses this flat rate. |
+| `AI_PEAK_PRICE_MULTIPLIER` | `2.0` | Multiplier the per-call `ai_call` log estimate applies during DeepSeek peak hours (UTC 01:00–04:00 and 06:00–10:00, Mon–Fri); see `docs/OPERATIONS.md` "AI call telemetry". |
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |

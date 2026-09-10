@@ -259,7 +259,7 @@ async def _run_one(
                 "retry_preview_attempts_omitted": max(0, retried - len(retry_previews))}
 
 
-_USAGE_KEYS = ("prompt_tokens", "completion_tokens", "cache_hit_tokens", "cache_miss_tokens")
+_USAGE_KEYS = ("prompt_tokens", "completion_tokens", "cache_hit_tokens", "cache_miss_tokens", "reasoning_tokens")
 
 
 def summarize_provider_calls(records: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -645,6 +645,7 @@ def _configure_eval_telemetry() -> None:
 
 
 if __name__ == "__main__":
+    ai_metrics.set_trigger("eval")  # every ai_call made by this process is harness spend, not product
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidates", default="baseline",

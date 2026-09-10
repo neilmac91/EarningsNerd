@@ -187,8 +187,9 @@ class _ProviderRequestsMixin:
             request.pop("stream", None)
             if streaming:
                 request.update(stream=True, stream_options={"include_usage": True})
-            observation = {"model": None, "usage": None}
+            observation = {"model": None, "usage": None, "fingerprint": None, "first_token_ms": None}
             outcome = "error"
+            started = asyncio.get_running_loop().time()
             local_attempt += 1
             if not recovery:
                 budget.summary_attempts += 1
@@ -205,7 +206,8 @@ class _ProviderRequestsMixin:
                     else:
                         response = await client.chat.completions.create(**request)
                         observation.update(
-                            model=getattr(response, "model", None), usage=getattr(response, "usage", None)
+                            model=getattr(response, "model", None), usage=getattr(response, "usage", None),
+                            fingerprint=getattr(response, "system_fingerprint", None),
                         )
                         choices = getattr(response, "choices", None)
                         content = getattr(choices[0].message, "content", None) if choices else None
@@ -233,6 +235,10 @@ class _ProviderRequestsMixin:
                         actual_model=observation["model"],
                         usage=observation["usage"],
                         outcome=outcome,
+                        requested_model=model,
+                        system_fingerprint=observation["fingerprint"],
+                        latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
+                        first_token_ms=observation["first_token_ms"],
                     )
                 )
             if local_attempt < (2 if recovery else MAX_SUMMARY_ATTEMPTS) and (

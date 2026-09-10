@@ -17,9 +17,9 @@ from evals import compare_reports, runner
 from evals.schema import GoldenFiling
 
 
-def _usage(prompt=None, completion=None, hit=None, miss=None):
+def _usage(prompt=None, completion=None, hit=None, miss=None, reasoning=None):
     return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": None,
-            "cache_hit_tokens": hit, "cache_miss_tokens": miss}
+            "cache_hit_tokens": hit, "cache_miss_tokens": miss, "reasoning_tokens": reasoning}
 
 
 def test_observer_collects_only_records_made_under_its_own_task():
@@ -64,6 +64,7 @@ def test_summarize_provider_calls_sums_reported_counters_and_keeps_unknowns_unkn
     assert runner.summarize_provider_calls([]) == {
         "calls": 0, "unknown_calls": 0, "operations": {}, "actual_models": [],
         "prompt_tokens": None, "completion_tokens": None, "cache_hit_tokens": None, "cache_miss_tokens": None,
+        "reasoning_tokens": None,
     }
 
 
@@ -117,7 +118,7 @@ async def test_baseline_attempt_carries_the_pipelines_provider_usage(monkeypatch
     assert result["provider_usage"] == {
         "calls": 1, "unknown_calls": 0, "operations": {"summary_primary": 1},
         "actual_models": ["deepseek-flash"], "prompt_tokens": 41000, "completion_tokens": 2700,
-        "cache_hit_tokens": 40000, "cache_miss_tokens": 1000,
+        "cache_hit_tokens": 40000, "cache_miss_tokens": 1000, "reasoning_tokens": None,
     }
     # The observer binding does not leak past the attempt.
     assert ai_metrics._observer.get() is None

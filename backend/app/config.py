@@ -511,6 +511,10 @@ class Settings(BaseSettings):
     AI_INPUT_CACHE_HIT_PRICE_PER_1M: float = 0.003
     AI_INPUT_CACHE_MISS_PRICE_PER_1M: float = 0.15
     AI_OUTPUT_PRICE_PER_1M_TOKENS: float = 0.60
+    # Peak-hour multiplier applied by llm_pricing.estimate_call_cost_usd to the per-call estimate in
+    # the ai_call log line (UTC 01:00-04:00 and 06:00-10:00, Mon-Fri). The PostHog per-answer
+    # estimate stays at off-peak rates (a stable, comparable series).
+    AI_PEAK_PRICE_MULTIPLIER: float = Field(default=2.0, ge=1.0, le=10.0)
 
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)
