@@ -254,3 +254,22 @@ export const summaryHasDisplayableContent = <T extends { business_overview?: str
   summary: T | null | undefined,
 ): summary is T & { business_overview: string } =>
   !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
+
+// --- Signup gate (landing page access line) ---------------------------------------------------
+
+export interface SignupConfig {
+  mode: 'public' | 'invite_only'
+  beta_promo_enabled: boolean
+}
+
+/**
+ * The backend's registration gate (REGISTRATION_MODE + whether the beta promo is configured),
+ * read at render time so the landing page's account CTAs and beta pricing line flip when the
+ * service config flips, with no frontend redeploy. Revalidates every 5 minutes. Returns null when
+ * the backend is unreachable or answers with an unknown mode (the caller fails closed).
+ */
+export const fetchSignupConfig = async (): Promise<SignupConfig | null> => {
+  const raw = await fetchJson<{ mode?: unknown; beta_promo_enabled?: unknown }>('/api/auth/registration', 300)
+  if (!raw || (raw.mode !== 'public' && raw.mode !== 'invite_only')) return null
+  return { mode: raw.mode, beta_promo_enabled: raw.beta_promo_enabled === true }
+}

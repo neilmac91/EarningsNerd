@@ -27,8 +27,11 @@ const isTypingTarget = (el: EventTarget | null): boolean => {
 export default function CompanySearch({
   autoFocusDesktop = false,
   onSelect,
+  placeholder = 'Search any company (e.g., AAPL, Apple, Microsoft)...',
 }: {
   autoFocusDesktop?: boolean
+  /** Field placeholder; the landing hero passes its shorter design copy. */
+  placeholder?: string
   /**
    * Override the pick behaviour (default navigates to /company/{ticker}). Used by surfaces that
    * consume the selection in place — e.g. the Multi-Period Analysis picker. Enter on a
@@ -184,7 +187,7 @@ export default function CompanySearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          placeholder="Search any company (e.g., AAPL, Apple, Microsoft)..."
+          placeholder={placeholder}
           role="combobox"
           aria-expanded={navigableTickers.length > 0}
           aria-controls="company-search-results"

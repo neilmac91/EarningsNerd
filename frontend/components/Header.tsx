@@ -14,6 +14,7 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCESS_COPY, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 
 const NAV_LINKS = [
   // Flag-gated: /search, /analysis and /calendar all 404 while their flags are off, so the nav
@@ -33,10 +34,17 @@ const MOBILE_USER_LINKS = [
   { href: '/dashboard/settings', label: 'Settings' },
 ]
 
-export default function Header() {
+export default function Header({
+  accessMode = DEFAULT_ACCESS_MODE,
+}: {
+  /** Registration gate (app/layout.tsx reads it from the backend): drives the account CTA's label
+   *  and target, so the header never advertises a signup the API would reject. */
+  accessMode?: AccessMode
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   const queryClient = useQueryClient()
+  const account = ACCESS_COPY[accessMode]
 
   // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
   // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
@@ -112,8 +120,8 @@ export default function Header() {
               <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
                 Log In
               </Link>
-              <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'md' })}>
-                Get Started
+              <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
+                {account.cta}
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </>
@@ -126,13 +134,19 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile actions */}
+        {/* Mobile actions: 44px touch targets on the icon controls; the short account CTA sits in
+            the bar (not only inside the menu) so a logged-out visitor always has the next step. */}
         <div className="flex items-center gap-1 lg:hidden">
-          <ThemeToggle />
+          <ThemeToggle className="min-h-11 min-w-11" />
+          {(user === null || isError) && (
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'px-3.5' })}>
+              {account.ctaShort}
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="inline-flex items-center justify-center rounded-lg p-2 text-text-tertiary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
@@ -202,17 +216,17 @@ export default function Header() {
                     Log In
                   </Link>
                   <Link
-                    href="/register"
+                    href={account.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className="block rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
                   >
-                    Get Started
+                    {account.cta}
                   </Link>
                 </>
               ) : (
                 // Auth still resolving (pending): show a skeleton bar rather than leaving the
                 // bordered container empty (a stray divider + gap), matching the desktop header's
-                // loading state. A settled error falls through to the Log In / Get Started links
+                // loading state. A settled error falls through to the Log In / account CTA links
                 // above (via `isError`), so the mobile menu is never stuck on this placeholder.
                 <Skeleton className="h-9 w-full rounded-lg" />
               )}

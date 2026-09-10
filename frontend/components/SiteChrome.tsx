@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import type { AccessMode } from '@/features/marketing/lib/access'
 
 // Auth routes render their own full-screen immersive shell (AuthShell), so the
 // marketing header/footer are suppressed there.
@@ -38,11 +39,11 @@ export function SkipToContent() {
   )
 }
 
-export function SiteHeader() {
+export function SiteHeader({ accessMode }: { accessMode?: AccessMode }) {
   return isAuthRoute(usePathname()) ? null : (
     <>
       <SkipToContent />
-      <Header />
+      <Header accessMode={accessMode} />
     </>
   )
 }
