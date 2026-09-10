@@ -7,7 +7,6 @@ import {
   SourceTracePanelBody,
   sourceTraceChipClass,
 } from '@/features/filings/components/SourceTrace'
-import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
 /**
  * Landing-page demo of the product's Trace-to-Source chip with its provenance panel open, so a
@@ -16,7 +15,16 @@ import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
  * SourceTracePanelBody); only the open/closed toggle is local, and the panel renders in flow
  * (no portal, no pointer detection) so the demo is static, SSR-safe and needs no matchMedia.
  */
-export default function TraceToSourceDemo() {
+export interface TraceSample {
+  claim: string
+  sectionRef: string
+  excerpt: string
+  url: string
+}
+
+/** `trace` comes from the server section (SAMPLE_TRACE in landing-samples), so this client
+ *  boundary never imports the sample module (which also carries the analysis demo dataset). */
+export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
   const [open, setOpen] = useState(true)
   const panelId = useId()
 
@@ -29,7 +37,7 @@ export default function TraceToSourceDemo() {
       </p>
       <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5">
         <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          {SAMPLE_TRACE.claim}{' '}
+          {trace.claim}{' '}
           <button
             type="button"
             aria-label="Source: Verified in filing"
@@ -50,13 +58,13 @@ export default function TraceToSourceDemo() {
             className="mt-3 max-w-xs rounded-lg border border-border-light bg-panel-light p-3 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
             <SourceTracePanelBody
-              header={SAMPLE_TRACE.sectionRef}
+              header={trace.sectionRef}
               isVerified
               note={null}
-              url={SAMPLE_TRACE.url}
+              url={trace.url}
               excerpt={
                 <blockquote className="mt-1.5 border-l-2 border-brand-border pl-2 font-data text-xs leading-relaxed text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
-                  “{SAMPLE_TRACE.excerpt}”
+                  “{trace.excerpt}”
                 </blockquote>
               }
             />

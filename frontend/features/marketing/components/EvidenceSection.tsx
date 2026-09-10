@@ -1,7 +1,7 @@
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo'
-import { SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS } from '@/features/marketing/lib/landing-samples'
+import { SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS, SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
 // The design's card footer sentence; FinancialMetricsTable renders it in its own CardFooter.
 const TABLE_NOTES =
@@ -41,7 +41,7 @@ export default function EvidenceSection() {
               </p>
               <FinancialMetricsTable metrics={SAMPLE_FINANCIAL_METRICS} notes={TABLE_NOTES} />
             </div>
-            <TraceToSourceDemo />
+            <TraceToSourceDemo trace={SAMPLE_TRACE} />
           </div>
         </SectionImpression>
       </div>

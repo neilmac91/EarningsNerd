@@ -5,7 +5,7 @@ import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
 describe('TraceToSourceDemo (landing evidence section)', () => {
   it('renders the claim with its provenance panel open and a real EDGAR link', () => {
-    render(<TraceToSourceDemo />)
+    render(<TraceToSourceDemo trace={SAMPLE_TRACE} />)
     expect(screen.getByText(SAMPLE_TRACE.claim, { exact: false })).toBeInTheDocument()
 
     const trigger = screen.getByRole('button', { name: 'Source: Verified in filing' })
@@ -22,7 +22,7 @@ describe('TraceToSourceDemo (landing evidence section)', () => {
   })
 
   it('toggles the panel closed and open again from the chip', () => {
-    render(<TraceToSourceDemo />)
+    render(<TraceToSourceDemo trace={SAMPLE_TRACE} />)
     const trigger = screen.getByRole('button', { name: 'Source: Verified in filing' })
 
     fireEvent.click(trigger)
