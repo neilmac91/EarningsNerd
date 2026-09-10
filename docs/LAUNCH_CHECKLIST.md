@@ -51,7 +51,7 @@ be done from the repo. Ordered by impact. Companion docs: `SEO_AUDIT.md`, `SEO_R
 - **Vercel plan:** a commercial product on the Hobby plan violates Vercel's fair-use terms —
   budget Pro ($20/mo) or confirm current usage/plan status. This is the biggest single line
   item vs the $50 ceiling; the roadmap assumes you decide this consciously.
-- **DeepSeek pregeneration budget:** approve the one-time ~$25–50 S&P-500 backfill
+- **DeepSeek pregeneration budget:** approve the one-time ~$10–25 S&P-500 backfill (at `deepseek-flash` rates; ~$0.01 per fresh summary)
   (roadmap Phase 1) — it directly determines how many filing pages can be indexed.
 - **Cloud SQL upgrade trigger:** pre-approve (or veto) the `db-custom-1-3840` (~+$25/mo) jump
   so it can happen fast if connection/CPU alerts fire during launch.
@@ -65,7 +65,7 @@ be done from the repo. Ordered by impact. Companion docs: `SEO_AUDIT.md`, `SEO_R
 | Cloud Run metrics | GCP console → earningsnerd-backend | instance count (should sit at 1, spike to 2), p95 latency, 429/5xx rates |
 | Cloud SQL | GCP console → earningsnerd-db | active connections (<40), CPU (<70%) |
 | Backend metrics | `GET /metrics` (admin JWT) | EDGAR circuit-breaker state, rate-limit hits |
-| DeepSeek spend | provider console | monthly total vs ~$15 comfort line |
+| DeepSeek spend | provider console | monthly total vs ~$15 comfort line for product traffic (CI eval runs bill to the same key until a CI-only key exists) |
 | PostHog funnel | PostHog | organic-landing → summary_viewed → signup conversion |
 | Sentry | Sentry | new hydration/SSR errors after this branch deploys (watch the first day) |
 

@@ -354,7 +354,7 @@ generate *less* SEC traffic than tens do today.
 
 ### Cost model (us-west1 list prices, approximate)
 
-**LLM unit economics** (from configured pricing, `config.py:401-403` — DeepSeek-equivalent):
+**LLM unit economics** (from the configured pricing constants in `backend/app/config.py`, `AI_*_PRICE_PER_1M*`; V4 Pro rates when written — `deepseek-flash` since ADR-0008 is ~3× cheaper on output, so the ranges below are upper bounds):
 a fresh 10-K summary ≈ 25–30k input tokens (≤ $0.013 at the cache-miss rate, ~120× cheaper on
 cache hits) + 8–12k output tokens (≈ $0.007–0.010) → **~$0.02–0.03 per fresh summary**, and
 summaries are generated **once per filing ever** (DB-unique + dedup), so LLM cost scales with
