@@ -120,6 +120,8 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_FALLBACK_MODEL` | `""` | Empty disables provider fallback. Configure only a model served by the fallback API after eval evidence. |
 | `AI_FALLBACK_API_KEY` | `""` | Separate fallback credential. Required across origins; same-origin fallback may use the primary key. Never send the primary key to an arbitrary provider. |
 | `AI_FAST_MODEL` | `""` | Optional cheaper task model; empty falls back to AI_DEFAULT_MODEL. Change only after evals. |
+| `AI_SUMMARY_THINKING_EFFORT` | `""` | Experiment switch (W10): when set (`low`/`high`/`max`) the primary summary call runs DeepSeek thinking mode at that effort, drops `temperature` and raises `max_tokens` to `AI_SUMMARY_THINKING_MAX_TOKENS`; recovery and fallback calls stay non-thinking. Empty in production. |
+| `AI_SUMMARY_THINKING_MAX_TOKENS` | `24000` | Output ceiling for the thinking-mode summary arm (reasoning tokens count toward it). |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
 | `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. |

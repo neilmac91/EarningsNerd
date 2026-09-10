@@ -308,6 +308,14 @@ class Settings(BaseSettings):
     AI_FAST_MODEL: str = ""
     AI_SECTION_RECOVERY_MODEL: str = ""
 
+    # Measured experiment switch (ADR-0008 follow-up W10): thinking mode at a fixed effort for the
+    # PRIMARY summary call only (never recovery or the fallback provider). "" = off (production).
+    # DeepSeek thinking mode rejects `temperature` and counts reasoning tokens toward max_tokens, so
+    # the switch drops temperature and raises the output ceiling to AI_SUMMARY_THINKING_MAX_TOKENS.
+    # Flip only for an eval arm; adopting it in production is a separate re-pinned change.
+    AI_SUMMARY_THINKING_EFFORT: str = ""
+    AI_SUMMARY_THINKING_MAX_TOKENS: int = Field(default=24000, ge=8000, le=131072)
+
     # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
     # extraction call uses an API-level response_format (JSON object), a schema-described
     # prompt with the narrative-format instructions removed, and a pinned low temperature —

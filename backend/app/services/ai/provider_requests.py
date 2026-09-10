@@ -178,7 +178,15 @@ class _ProviderRequestsMixin:
             )
             request = dict(kwargs, model=model)
             request.pop("extra_body", None)
-            if _thinking_disabled_model(model, base_url):
+            request.pop("reasoning_effort", None)
+            effort = settings.AI_SUMMARY_THINKING_EFFORT.strip().lower()
+            if _thinking_disabled_model(model, base_url) and effort and not recovery and not use_fallback:
+                # W10 experiment arm: thinking on at a fixed effort for the primary summary call.
+                request["extra_body"] = {"thinking": {"type": "enabled"}}
+                request["reasoning_effort"] = effort
+                request.pop("temperature", None)
+                request["max_tokens"] = max(int(request.get("max_tokens") or 0), settings.AI_SUMMARY_THINKING_MAX_TOKENS)
+            elif _thinking_disabled_model(model, base_url):
                 request["extra_body"] = {"thinking": {"type": "disabled"}}
             elif "max_tokens" in request:
                 request["max_tokens"] = min(request["max_tokens"], 8192)
