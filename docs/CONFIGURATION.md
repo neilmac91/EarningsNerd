@@ -115,7 +115,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `ALPHA_VANTAGE_HORIZON` | `"3month"` | Calendar horizon: 3month, 6month or 12month. |
 | `XBRL_CACHE_TTL_HOURS` | `24` | XBRL cache lifetime, hours. |
 | `STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS` | `3600` | Structured extraction retry cache lifetime, seconds. |
-| `AI_DEFAULT_MODEL` | `"deepseek-flash"` | Primary provider model; CI explicitly sets this and OPENAI_BASE_URL. |
+| `AI_DEFAULT_MODEL` | `"deepseek-flash"` | Primary provider model. Deploy-time source is `.github/ai-model.env` (every workflow loads it into `GITHUB_ENV`); `tests/unit/test_retired_model_ids.py` keeps that file, this table and the code default identical. |
 | `AI_FALLBACK_BASE_URL` | `""` | Optional fallback API base; empty uses primary origin. HTTPS only; a different origin requires its separate credential. |
 | `AI_FALLBACK_MODEL` | `""` | Empty disables provider fallback. Configure only a model served by the fallback API after eval evidence. |
 | `AI_FALLBACK_API_KEY` | `""` | Separate fallback credential. Required across origins; same-origin fallback may use the primary key. Never send the primary key to an arbitrary provider. |
