@@ -1,8 +1,11 @@
 import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
+import { Badge } from '@/components/ui/Badge'
+import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, SparkleIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionText } from '@/lib/financialTone'
+import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
@@ -14,9 +17,6 @@ import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
  */
 
 // Static fallback — every value verified against Apple's FY 2022 10-K XBRL.
-const AAPL_FY22_EDGAR_URL =
-  'https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/'
-
 const FALLBACK: ExampleData = {
   filingId: 0,
   ticker: 'AAPL',
@@ -46,21 +46,26 @@ const formatDelta = (delta?: number | null): string | null => {
   return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`
 }
 
+// Inside-card eyebrow register (11px uppercase tracked, tertiary on the white field surface).
+const EYEBROW =
+  'text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark'
+
 function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
+  const up = (metric.deltaPercent ?? 0) >= 0
+  const DeltaIcon = up ? TrendUpIcon : TrendDownIcon
   return (
     <div
-      className="min-w-0 rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
+      className="min-w-0 rounded-lg border border-border-light bg-white p-3 transition-colors duration-fast hover:border-brand-border dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-border-dark"
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
-      <div className="break-words text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
-      <div className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
+      <div className={`truncate ${EYEBROW}`}>{metric.label}</div>
+      <div className="tnum mt-1 whitespace-nowrap font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-base">
+        {metric.value}
+      </div>
       {delta && (
-        <div
-          className={`mt-0.5 text-xs font-medium tabular-nums ${
-            directionText[(metric.deltaPercent ?? 0) >= 0 ? 'up' : 'down']
-          }`}
-        >
+        <div className={`tnum mt-0.5 flex items-center gap-0.5 font-data text-xs font-medium ${directionText[up ? 'up' : 'down']}`}>
+          <DeltaIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {delta}
         </div>
       )}
@@ -94,99 +99,80 @@ function HeroExample({
 
   return (
     <div className="relative min-w-0 max-w-full">
-      {/* Browser frame — no ambient glow: DS §7, the only glow is the hero search. */}
-      <div className="mockup-frame relative shadow-e5 dark:shadow-none">
-        {/* Title bar */}
-        <div className="mockup-frame-titlebar flex items-center gap-2 px-4 py-3">
-          <div className="flex gap-1.5" aria-hidden="true">
-            <span className="h-3 w-3 rounded-full bg-red-500/70" />
-            <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
-            <span className="h-3 w-3 rounded-full bg-brand/70" />
-          </div>
-          <div className="mx-auto min-w-0 flex-1 max-w-xs">
-            <div className="rounded border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              earningsnerd.io · example summary
-            </div>
-          </div>
+      {/* Browser frame: panel + hairline + e3 (DS §7); no title-bar dots, no ambient glow. */}
+      <div className="mockup-frame relative shadow-e3 dark:shadow-none">
+        {/* Title bar: the summary's address + the "AI summary" chip (sparkle lives ONLY here, DS §4). */}
+        <div className="mockup-frame-titlebar flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-4 py-2.5">
+          <span className="min-w-0 truncate font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            {isFallback ? 'earningsnerd.io · example summary' : `earningsnerd.io/filing/${data.filingId}`}
+          </span>
+          <Badge variant="brand" icon={<SparkleIcon className="h-3 w-3" aria-hidden="true" />}>
+            AI summary
+          </Badge>
         </div>
 
         {/* Page content */}
-        <div className="space-y-4 p-5">
+        <div className="flex flex-col gap-3.5 p-4 sm:p-5">
           {/* Header area */}
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
-                <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
-                <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:truncate">{data.companyName}</span>
-              </div>
-              <span className="flex-shrink-0 rounded-full border border-border-light dark:border-white/10 bg-white dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {data.filingType}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
+              <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                {data.companyName}
               </span>
+              <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">{data.ticker}</span>
+              <Badge variant="neutral">{data.filingType}</Badge>
               {data.qualityTier === 'full' && (
-                <span className="flex-shrink-0 rounded-full border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-2 py-0.5 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
+                <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}>
                   Full summary
-                </span>
+                </Badge>
               )}
-              {data.qualityTier === 'partial' && (
-                <span className="flex-shrink-0 rounded-full border border-warning-light/30 dark:border-warning-dark/30 bg-warning-light/10 dark:bg-warning-dark/10 px-2 py-0.5 text-xs font-medium text-warning-light dark:text-warning-dark">
-                  Partial
-                </span>
-              )}
+              {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
             </div>
             {filedLabel && (
-              <span className="flex-shrink-0 font-mono text-xs tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="tnum whitespace-nowrap font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 filed {filedLabel}
               </span>
             )}
           </div>
 
           {/* Executive snapshot — real summary text */}
-          <div className="rounded-xl border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-dark" aria-hidden="true" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-brand-strong dark:text-brand-strong-dark">
-                Executive Snapshot
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
+          <div className="rounded-lg border border-border-light bg-white p-4 dark:border-white/10 dark:bg-white/5">
+            <div className={`mb-2 ${EYEBROW}`}>Executive snapshot</div>
+            <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
           </div>
 
           {/* Metrics — with the receipt: where the numbers come from */}
           {data.metrics.length > 0 && (
-            <div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {data.metrics.map((metric) => (
-                  <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
-                ))}
-              </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {data.metrics.map((metric) => (
+                <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
+              ))}
             </div>
           )}
           <a
             href={data.secUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-text-tertiary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark hover:underline"
+            className="inline-flex items-center gap-1 font-data text-[11px] text-text-secondary-light underline-offset-2 transition-colors duration-fast hover:text-brand-strong hover:underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
           >
+            <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
             {data.metrics.length > 0
-              ? "Figures from the company's XBRL filing · verify on SEC EDGAR ↗"
-              : 'Source filing · read on SEC EDGAR ↗'}
+              ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
+              : 'Source filing · read on SEC EDGAR'}
           </a>
 
           {/* Footer CTA into the real example */}
           <ExampleCtaLink
             href={ctaHref}
             placement={ctaPlacement}
-            className="group flex items-center justify-between rounded-xl border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 transition-colors hover:border-brand-strong/40 dark:hover:border-brand-dark/40 hover:bg-brand-strong/15 dark:hover:bg-brand-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            className="group flex items-center justify-between gap-2 rounded-lg border border-brand-border bg-brand-weak px-4 py-3 transition-colors duration-fast hover:border-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            <span className="text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-              {ctaLabel}
-            </span>
-            <span
-              className="text-xs text-brand-strong dark:text-brand-strong-dark transition-transform group-hover:translate-x-0.5"
+            <span className="text-[13px] font-semibold text-brand-strong dark:text-brand-strong-dark">{ctaLabel}</span>
+            <ArrowRightIcon
+              className="h-3.5 w-3.5 shrink-0 text-brand-strong transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0 dark:text-brand-strong-dark"
               aria-hidden="true"
-            >
-              →
-            </span>
+            />
           </ExampleCtaLink>
         </div>
       </div>

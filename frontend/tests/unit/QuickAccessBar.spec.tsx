@@ -79,12 +79,6 @@ describe('QuickAccessBar', () => {
     expect(section).toBeInTheDocument()
   })
 
-  it('displays helper text', () => {
-    render(<QuickAccessBar />)
-
-    expect(screen.getByText('Popular companies')).toBeInTheDocument()
-  })
-
   it('includes BABA (Alibaba) not AMD', () => {
     render(<QuickAccessBar />)
 

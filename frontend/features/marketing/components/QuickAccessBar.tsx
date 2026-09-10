@@ -17,6 +17,10 @@ const TOP_COMPANIES = [
   { ticker: 'BABA', name: 'Alibaba' },
 ] as const
 
+/**
+ * Popular-company chips under the hero search: monogram/Logo.dev mark, ticker in the data face,
+ * company name from `sm` up. Chips are e1 panel pills that brighten on hover (no lift).
+ */
 function QuickAccessBar() {
   // Track clicks for analytics
   const handleClick = useCallback((ticker: string) => {
@@ -24,27 +28,20 @@ function QuickAccessBar() {
   }, [])
 
   return (
-    <section className="py-6" aria-label="Popular companies">
-      <p className="mb-4 text-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
-        Popular companies
-      </p>
-      <div className="flex flex-wrap justify-center gap-3">
-        {TOP_COMPANIES.map(({ ticker, name }) => (
-          <Link
-            key={ticker}
-            href={`/company/${ticker}`}
-            onClick={() => handleClick(ticker)}
-            className="group flex items-center gap-2 rounded-full border border-border-light bg-panel-light shadow-e1 px-4 py-2.5 text-sm font-medium transition duration-base hover:-translate-y-1 motion-reduce:hover:translate-y-0 hover:border-brand-strong hover:bg-white hover:shadow-e2 dark:border-white/10 dark:bg-white/5 dark:shadow-none dark:hover:border-brand-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
-            data-testid={`quick-access-${ticker}`}
-          >
-            <CompanyLogo ticker={ticker} name={name} size={20} />
-            <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker}</span>
-            <span className="hidden text-text-secondary-light transition-colors group-hover:text-brand-strong dark:text-text-secondary-dark dark:group-hover:text-brand-strong-dark sm:inline">
-              {name}
-            </span>
-          </Link>
-        ))}
-      </div>
+    <section className="mt-3.5 flex flex-wrap gap-2" aria-label="Popular companies">
+      {TOP_COMPANIES.map(({ ticker, name }) => (
+        <Link
+          key={ticker}
+          href={`/company/${ticker}`}
+          onClick={() => handleClick(ticker)}
+          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border-light bg-panel-light py-1.5 pl-1.5 pr-3 text-[13px] font-medium shadow-e1 transition-colors duration-fast hover:border-brand-border hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          data-testid={`quick-access-${ticker}`}
+        >
+          <CompanyLogo ticker={ticker} name={name} size={24} />
+          <span className="font-data text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker}</span>
+          <span className="hidden text-text-secondary-light dark:text-text-secondary-dark sm:inline">{name}</span>
+        </Link>
+      ))}
     </section>
   )
 }
