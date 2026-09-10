@@ -12,7 +12,7 @@ Plan approved by the founder on 10 Sept (assessment: `tasks/deepseek-v41-flash-m
 - [x] W12 — Operational docs no longer quote V4 Pro prices or `deepseek-v4-pro` as current.
 - [x] W9 — `.github/ai-model.env` is the deploy-time source for `AI_DEFAULT_MODEL` / `OPENAI_BASE_URL`; the three workflows load it into `GITHUB_ENV` and carry no model literal (gate: `test_retired_model_ids.py`).
 - [x] W7 — `ai_call` log lines carry `trigger`, `requested_model` vs `actual_model`, `system_fingerprint`, `latency_ms`, `first_token_ms`, `reasoning_tokens`, nested cache-field fallback, and a per-model peak-aware `estimated_cost_usd`; `chat_stream` split into `copilot_chat` / `analysis_chat`; admin `/metrics` sums cost per bucket; log-based metric recipe in `docs/OPERATIONS.md`.
-- [ ] W10 — Thinking-mode low-effort experiment on the summary path (measurement only).
+- [x] W10 — Measured thinking `low` on the summary path (3 × 26 vs the non-thinking reference): hard gates equal, citation/forward-quote fidelity +0.06/+0.07, but ×2.25 output tokens, ×2.5 latency, 11 timeout retries and 2 lost attempts. Not adopted; readout in `tasks/review-evidence/deepseek-v41-flash-2026-09-10/w10-thinking-mode-readout.md`.
 
 Coordination rule until W4 merges: the cutover PR is the only PR that re-pins `baseline_scores.json`; prompt candidates (#805, `d`/`e`) are measured on Flash afterwards, once. Astra's local `work/eval-error-outcome` rebases onto the W2 `runner.py` change.
 
