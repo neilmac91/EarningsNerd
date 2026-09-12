@@ -490,8 +490,8 @@ class _MarkdownRenderMixin:
                 eq["cash_conversion"] = line[0].upper() + line[1:] + "."
                 sections["earnings_quality"] = eq
 
-        # value_drivers (§4, T5.3): two machine-authored fields — numbers from code, the value VERDICT
-        # stays the model's (`capital_allocation` prose + `highlights`).
+        # value_drivers (§4, T5.3): fill monetary fields. Final/preview orchestration separately
+        # binds financing comparisons and verifies capital-allocation source passages.
         #
         # `shareholder_returns` (filler sole author; never in the schema): the §4-homed capital-
         # allocation dollars — dividends paid, share repurchases, capex — current vs prior,

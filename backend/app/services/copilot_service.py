@@ -224,14 +224,14 @@ def _fact_identity(fact: dict) -> str:
 
 
 def _without_source_durations(xbrl_data: Any) -> Any:
-    """``xbrl_data`` with each metric point's ``period_start`` removed — model-facing projection."""
+    """Model-facing metrics without source durations or internal comparison descriptors."""
     if not isinstance(xbrl_data, dict):
         return xbrl_data
     return {
         key: [{k: v for k, v in point.items() if k != "period_start"}
               if isinstance(point, dict) else point for point in value]
         if isinstance(value, list) else value
-        for key, value in xbrl_data.items()
+        for key, value in xbrl_data.items() if key != "financing_comparison_source"
     }
 
 

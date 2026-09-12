@@ -377,6 +377,7 @@ def duration_series_with_starts(
     max_items: int = 5,
     *,
     qualified_concept: bool = False,
+    selected_sources: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[Tuple[str, float, Optional[str]]], Optional[str], Optional[str]]:
     """As :func:`duration_series_currency_concept`, but each entry also carries the SOURCE start.
 
@@ -389,9 +390,14 @@ def duration_series_with_starts(
     from the form, the fiscal label, the period end, comparative cadence or value matching. When
     the equal-valued facts behind one period disagree on their start, or carry none, the start is
     ``None``: the uncertainty is preserved rather than resolved to a convenient date.
+
+    The optional ``selected_sources`` collector retains the original rows inside this same
+    winning resolution for financing source certification; it never changes the returned series.
     """
+    if selected_sources is not None:
+        selected_sources.clear()
     for concept in concepts:
-        candidates: List[Tuple[str, float, Optional[str], float, Optional[str]]] = []
+        candidates: List[Tuple[str, float, Optional[str], float, Optional[str], Dict[str, Any]]] = []
         records, queried_concept = _fact_records_with_concept(xb, concept)
         for row in records:
             if row.get("is_dimensioned"):
@@ -403,16 +409,18 @@ def duration_series_with_starts(
             if not duration_in_window(row.get("period_start"), end, form):
                 continue
             candidates.append((end, value, _currency(row), _parse_decimals(row.get("decimals")),
-                               _iso_date(row.get("period_start"))))
-        currency = _reporting_currency([(e, v, c, d) for e, v, c, d, _s in candidates],
+                               _iso_date(row.get("period_start")), row))
+        currency = _reporting_currency([(e, v, c, d) for e, v, c, d, _s, _r in candidates],
                                        period_of_report)
         values_by_end: Dict[str, List[Tuple[float, float]]] = {}
         # Every start seen for a given (period end, resolved-precision value). One unanimous
         # non-null start is the selected fact's; anything else stays unknown.
         starts_by_entry: Dict[Tuple[str, float], set] = {}
-        for end, value, ccy, dec, start in candidates:
+        rows_by_end: Dict[str, List[Dict[str, Any]]] = {}
+        for end, value, ccy, dec, start, row in candidates:
             if currency is not None and ccy != currency:
                 continue
+            rows_by_end.setdefault(end, []).append(row)
             rounded = round(value, 4)
             values_by_end.setdefault(end, []).append((rounded, dec))
             starts_by_entry.setdefault((end, rounded), set()).add(start)
@@ -420,6 +428,14 @@ def duration_series_with_starts(
         if series:
             dated = [(end, value, _unanimous_start(starts_by_entry.get((end, round(value, 4)))))
                      for end, value in series]
+            if selected_sources is not None:
+                # Keep provenance inside the winning resolution, including coarser duplicate
+                # facts accepted by the precision resolver. Never re-query by amount afterward.
+                selected_sources.extend(
+                    {"value": value, "period_end": end, "period_start": start,
+                     "currency": currency, "raw_tag": queried_concept, "rows": rows_by_end[end]}
+                    for end, value, start in dated
+                )
             return dated, currency, queried_concept if qualified_concept else concept
     return [], None, None
 

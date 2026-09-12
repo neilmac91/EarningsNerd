@@ -205,11 +205,14 @@ class EarningsQuality(_V2Base):
 
 
 class ValueDrivers(_V2Base):
-    """§4 — capital allocation this period (buybacks/dividends/capex) with a value verdict, and the
-    returns read from the filing's own XBRL. `capital_allocation` + `highlights` are model-extracted
-    (the value VERDICT); `shareholder_returns` + `returns_on_capital` are machine-authored (T5.3)."""
+    """§4 — source-owned financing comparison and verified filing passages for new output.
 
-    capital_allocation: str = ""
+    Legacy capital-allocation strings remain readable. New generation extracts passages,
+    then binds them to source and owns the comparison outside this model schema.
+    Shareholder returns and returns on capital remain machine-authored.
+    """
+
+    capital_allocation: str | dict = ""
     # Machine-authored from standardized XBRL by the pipeline's deterministic filler — NOT
     # model-emitted. `shareholder_returns`: the §4-homed capital-allocation dollars (dividends paid,
     # share repurchases, capex; current vs prior, cash-paid magnitudes). NOTE: a v1 field of the same

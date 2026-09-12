@@ -32,6 +32,9 @@ from app.services.ai.copilot_chat import (
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
+from app.services.ai.financing_comparison import (
+    CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
+)
 from app.services.ai.source_units import (
     attach_quote_unit_context, capital_plan_proposition, restore_authored_plan_units,
 )
@@ -246,8 +249,8 @@ EXTRACTED FINANCIAL SIGNALS:
       "source_section_ref": "<e.g., 'Item 8' or 'Statements of Cash Flows'>"
     },
     "value_drivers": {
-      "capital_allocation": "<the value READ on this period's capital allocation, qualitative — the dividends/buybacks/capex dollar figures are filled deterministically from XBRL, so do NOT restate them; judge the allocation (sustaining? accelerating? funded by cash or debt?) as the filing frames it>",
-      "highlights": ["<a specific capital-allocation action stated in the filing beyond the recurring flows, e.g. a newly authorized repurchase program, a dividend policy change, an announced acquisition; leave empty if none — most filings have none>"],
+      "capital_allocation": {"filing_statements": ["<copy a complete, contiguous VERBATIM passage explaining financing or capital allocation; no inferred funding/comparison claims. Monetary amounts must include their explicit thousand/million/billion scale in the passage; otherwise select qualitative prose. Leave empty if none>"]},
+      "highlights": ["<copy a contiguous VERBATIM passage about a newly authorized repurchase program, dividend policy change or announced acquisition; preserve explicit amount scales; no paraphrase. Leave empty if none>"],
       "source_section_ref": "<e.g., 'Item 7' or 'Statements of Cash Flows'>"
     },
     "forward_signals": {
@@ -426,6 +429,8 @@ Rules:
         if not isinstance(metadata, dict):
             metadata = {}
 
+        # The model cannot choose its own evidence source. Overwrite its private key.
+        summary_data["_capital_allocation_grounding"] = filing_sample
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             recovered = await self._recover_missing_sections(
@@ -437,6 +442,10 @@ Rules:
             )
             if recovered:
                 sections_info.update(recovered)
+                if "value_drivers" in recovered:
+                    summary_data["_capital_allocation_grounding"] = self._build_section_context(
+                        "value_drivers", recovery_sources, filing_sample,
+                    )
                 # Evidence auto-snap (skeptic F3): recovery re-asks generate from
                 # separately selected context, which may differ from the exact primary excerpt; its verbatim-TRUE
                 # evidence can fail the excerpt exact-check — the snap must not touch it.
@@ -534,7 +543,11 @@ Rules:
             forward = sections.get("forward_signals")
             if settings.AI_FORWARD_QUOTE_GATE and isinstance(forward, dict):
                 forward.pop("quotes", None)
-            rendered = render_sections({"schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections})
+            bind_capital_allocation(sections, xbrl_metrics)
+            rendered = render_sections({
+                "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
+                CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            })
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
             return None
@@ -670,6 +683,9 @@ Rules:
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
 
+        capital_source = structured_summary.pop("_capital_allocation_grounding", "")
+        bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
+
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
         coverage_map = {
@@ -748,10 +764,12 @@ Rules:
         # association above, authorizes displaying code-owned units. Older persisted envelopes
         # only contain their explicit raw-summary keys, never arbitrary model top-level keys.
         structured_summary.pop(SOURCE_UNIT_CONTEXT_KEY, None)
+        structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
+            CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
         }
         rendered = render_sections(render_envelope)
         final_markdown = (
@@ -761,6 +779,7 @@ Rules:
 
         raw_summary_payload = {
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
+            CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             "structured": structured_summary,
             "sections": sections_info,
             "section_coverage": coverage_snapshot,
