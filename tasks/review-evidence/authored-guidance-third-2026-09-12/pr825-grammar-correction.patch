@@ -1,0 +1,95 @@
+diff --git a/backend/app/services/ai/source_units.py b/backend/app/services/ai/source_units.py
+index b0250356..caa2c0a5 100644
+--- a/backend/app/services/ai/source_units.py
++++ b/backend/app/services/ai/source_units.py
+@@ -85,9 +85,16 @@ _SPEND_PLAN = re.compile(
+     rf"(?P<amount>{_NUMBER}) during fiscal (?P<year>\d{{4}})(?=[,.])"
+ )
+ _AUTHORED_PLAN = re.compile(
+-    r"\AThe [Cc]ompany (?:stated it is its|states its) current intention to spend approximately "
++    r"\bcurrent intention to spend approximately "
+     rf"(?P<amount>{_NUMBER}) on capital expenditures during fiscal (?P<year>\d{{4}})(?=[,.]| and plans to )"
+ )
++# Keep attribution and affirmative reporting separate from the financial proposition.
++# Unknown subjects, modals, denial and preceding sentences abstain; no opaque prefix.
++_AFFIRMATIVE_PLAN_INTRO = re.compile(
++    r"(?:The (?:[Cc]ompany|filing)|[Mm]anagement) "
++    r"(?:states?|stated|reports?|reported|notes?|noted|describes?|described) "
++    r"(?:that )?(?:(?:it is|there is) )?(?:its|a|the) "
++)
+ _AMBIGUOUS_PLAN = re.compile(
+     r'["“”]|\b(?:not|never|if|unless|conditional|subsidiary|segment)\b', re.I
+ )
+@@ -123,8 +130,9 @@ def restore_authored_plan_units(
+     guidance = forward.get('guidance') if isinstance(forward, dict) else None
+     if not proposition or not isinstance(guidance, str) or _AMBIGUOUS_PLAN.search(guidance):
+         return
+-    match = _AUTHORED_PLAN.match(guidance)
+-    if match is None or (match['amount'], match['year']) != proposition:
++    match = _AUTHORED_PLAN.search(guidance)
++    if (match is None or (match['amount'], match['year']) != proposition
++            or _AFFIRMATIVE_PLAN_INTRO.fullmatch(guidance[:match.start()]) is None):
+         return
+     # More than one spending intention is ambiguous even if the initial amount happens to match.
+     if guidance.count('intention to spend') != 1:
+diff --git a/backend/tests/unit/test_source_unit_quote_context.py b/backend/tests/unit/test_source_unit_quote_context.py
+index 4107c237..440998b0 100644
+--- a/backend/tests/unit/test_source_unit_quote_context.py
++++ b/backend/tests/unit/test_source_unit_quote_context.py
+@@ -142,6 +142,8 @@ GUIDANCE = ('The Company stated it is its current intention to spend approximate
+ @pytest.mark.asyncio
+ @pytest.mark.parametrize('case', [
+     'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
++    'filing_report', 'management_report', 'company_report', 'foreign_subject',
++    'denied_plan', 'modal_report', 'preceding_sentence',
+     'past_amount', 'wrong_amount', 'already_scaled', 'billions', 'conditional',
+     'quoted', 'duplicate_plan', 'source_year', 'source_action', 'source_conditional',
+     'source_wrong_scope', 'source_duplicate', 'missing_source', 'recovered',
+@@ -161,9 +163,18 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
+         'already_scaled': ('$6,500', '$6,500 million'),
+         'billions': ('$6,500', '$6.5 billion'),
+         'conditional': ('The Company', 'If approved, the Company'),
++        'filing_report': ('The Company stated it is its', 'The filing states a'),
++        'management_report': ('The Company stated it is its', 'Management noted that there is a'),
++        'company_report': ('The Company stated it is its', 'The company reports its'),
++        'foreign_subject': ('The Company stated it is its', 'A competitor reports its'),
++        'denied_plan': ('The Company stated it is its', 'The filing denies a'),
++        'modal_report': ('The Company stated it is its', 'Management may report its'),
++        'preceding_sentence': ('The Company', 'Another entity is discussed. The Company'),
+     }
+     if case in changes:
+         guidance = guidance.replace(*changes[case])
++        if case == 'filing_report':
++            guidance = guidance.replace('2026, and plans', '2026 and plans')
+     elif case == 'present_tense_plan':
+         guidance = guidance.replace('The Company stated it is its', 'The company states its').replace('2026, and plans', '2026 and plans')
+     elif case == 'quoted':
+@@ -193,7 +204,10 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
+     service = OpenAIService()
+     monkeypatch.setattr(service, 'generate_structured_summary', generated)
+     result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q', filing_excerpt=source)
+-    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan') else guidance
++    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in (
++        'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan',
++        'filing_report', 'management_report', 'company_report',
++    ) else guidance
+     final = result['raw_summary']['sections']['forward_signals']
+     assert final['guidance'] == expected
+     assert final['quotes'][0]['quote'] == QUOTE
+diff --git a/tasks/todo.md b/tasks/todo.md
+index 8ec2cc92..99483147 100644
+--- a/tasks/todo.md
++++ b/tasks/todo.md
+@@ -5039,3 +5039,12 @@ The founder explicitly approved one additional assessment round for the verified
+ - [x] Record explicit additional-assessment approval.
+ - [ ] Gate and publish the integrated correction; perform the one approved assessment round.
+ - [ ] Review actual outcome evidence, then merge and verify deployment only if accepted.
++
++
++### September 12 — approved third #825 assessment confirms reporting-grammar miss
++
++The approved third round ran once: summary CI `34707231389` / job `103589365066` and Copilot `34707255553` / job `103589434605`. COST run 0 reports “The filing states a current intention” and retains unscaled $6,500 in both final fields and five of ten previews; run 1 is corrected. Two independent refutations confirm identical selected source and the same action/amount/year/unit scope, then trace the remaining error to the reporting introduction in actual final/preview output. #825 is returned to draft; no merge or fourth paid assessment is authorized.
++
++The local correction separates the financial proposition from a bounded affirmative reporting grammar for the company, management or selected filing. Unknown subjects, denial, modals and prior sentences abstain. Source ownership, amount/year/action correspondence, quote/recovery safeguards and exact preservation remain unchanged. The actual third failure and representative attribution/polarity controls extend the existing consumer invariant; its original mutation proof is not repeated. Complete the committed gate, all retained-output comparison and independent review before presenting further assessment for approval.
++
++Metadata checks preserve all 52 identities/source/XBRL/coverage and deterministic cash fields, with 496 retained previews. One SE error and internal retry retain unknown usage and final-preview association `not_observed`; 2,364,849 tokens are known totals, not complete spend. Copilot accepts the 18 requested financial answers within its existing gate; inherited citation advisories and historical failures stay open. None of these bounded passes overrides the COST functional hold.
