@@ -4668,3 +4668,15 @@ not complete spend; no retrospective usage is invented.
 Local targeted verification: 101 passed, 2 warnings. The sole conservation mutation
 (discard failed-generation usage) failed all five scenarios, then the exact restored code passed
 all five. Full gate and hosted release remain pending; no provider calls were made.
+
+## September 12 — migration audit remediation and #818 production verification
+
+This dated record supersedes earlier pending assessment/release entries without altering their history. The audit investigation and all must-fix remediation are complete; audit documentation PR #816 is not yet merged. Wrong #812 production attribution and instructions to redo merged #796/#799 have dated corrections. The new usage-loss defect is fixed by [#818](https://github.com/neilmac91/EarningsNerd/pull/818).
+
+Reviewed head `208767ff4ae2016b55cb834316b88a3eb18649be` passed Ruff/Bandit, all four PostgreSQL lanes/performance and 2,875 tests (29 warnings, 89.86s, exit 0), with 11 locked anchors unchanged. The single mutation proof remains five failures followed by five passes. Actual synthetic merge `f2c8a635c681fe106bb84d88d036d51a6713083f` has base `bf0ff3bf2dbbacef25f97945d470430ce0b5e26b` and that head as parents; root verified whole-tree equality to the gated head.
+
+First CI 34686113163 accepted all 52 expected summary outcomes; 52 calls with no errors/unknown calls reconcile exactly to the provider log. First paid Copilot run 34686148069 accepted 18/18, retaining seven reported uncited figures as advisory. Initial draft run 34686113173 skipped; no additional assessment ran. The [summary](review-evidence/migration-audit-2026-09-12/pr818-summary-acceptance.md) and [Copilot](review-evidence/migration-audit-2026-09-12/pr818-copilot-acceptance.md) reports retain full verification limits. No live retry occurred; failure conservation is covered by the committed invariant tests/proof, not invented live evidence.
+
+#818 squash `3ea7fc27455418716c9819836d26ce9d59646158` merged at 2026-09-12T09:42:37Z. Main CI 34686557889 passed. Deploy job 103534841757 reported `apply_migrations: applied=0 skipped=39` at 09:48:22.4327398Z; revision `earningsnerd-backend-00330-24t` serves 100% at 09:49:10.0902820Z, with explicit traffic confirmation at 09:49:11.1367937Z. CI detailed health was healthy at 09:49:42.9211120Z (database 6.54 ms); independent saved health was healthy (database 6.18 ms, timestamp 1789206591.1288583; Redis disabled, SEC closed). The previous backend release was verified before this merge.
+
+Historical omitted provider usage remains unknown. This accounting release changes no prompt, model, source acquisition, frontend or baseline. It does not clear financial-quality findings or release universe-wide pregeneration/historical replay. The exact T9 metadata exception is approved; #808 local integration `047696da` passes 2,878 tests/29 warnings in 95.27s, but remains unpublished and requires current-model acceptance. Original founder-held rollout, legal, account and dependency prerequisites remain.
