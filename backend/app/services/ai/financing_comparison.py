@@ -135,7 +135,7 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
             verified = [existing for existing in verified if existing not in quote]
             verified.append(quote)
     if not verified:
-        verified = []  # mutation: discard available source explanation
+        verified = fallback_capital_passages(source_text, qualifies)
     metrics = metrics if isinstance(metrics, dict) else {}
     data[OWNED_FIELD] = {
         "comparison": financing_statement(metrics.get("financing_comparison_source")),
