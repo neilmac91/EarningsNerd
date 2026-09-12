@@ -1,0 +1,15 @@
+# Fourth #825 guidance acceptance — independent scoped review
+
+Accept the source-owned authored capital-plan unit correction for the two observed COST outcomes in fourth artifact eval_20260912T175138Z.json. This is scoped functional acceptance, not universal paraphrase, full-filing or world-class financial-quality clearance. No tests, source edits or provider calls were performed.
+
+Both COST results[22] (run0, “The filing states a”) and results[23] (run1, “The company stated it is its”) now say `$6,500 million on capital expenditures during fiscal 2026`. Their complete guidance strings occur verbatim in both actual executive_summary and outlook payloads. Each has nine retained preview frames: four contain the scaled authored phrase and zero contain the prior unscaled phrase. The remaining frames do not yet contain that guidance. The artifact labels final-response association `not_observed`; these are observed retained frames, not proof of association to one particular native final attempt or every intermediate byte.
+
+Refutation 1 — source mismatch or false ownership: both offered source excerpts are byte-identical to the third assessment. The exact single million declaration belongs to the MD&A block, and its Capital Expenditure Plans paragraph states the $6,500 current spending intention for fiscal 2026. The distinct $4,228 first-thirty-six-weeks spend is not substituted. Both source amount/year/action and scope match the correction; no other filing or numeric rescaling is involved.
+
+Refutation 2 — apparent correction exists only in raw fields: the complete corrected guidance is present in both actual final rendered fields and in four observed frames per outcome. The correction is therefore visibly delivered, not merely a parallel quote badge or metadata annotation. The formerly failing filing-states-a form itself is corrected in this fourth result.
+
+All four retained COST quote strings occur exactly once in their offered source. The raw quoted $6,500 remains unmodified, with a separate source-unit declaration where owned; the authored prose alone carries the inserted million scale. Warehouse counts, relocation wording and earnings/revenue-guidance disclaimers remain in final guidance. The reviewed committed implementation changes only the matched authored amount insertion, and prior offline 156-outcome evidence verifies other section-byte preservation; this provider artifact does not contain pre-normalization native output, so it cannot independently prove every unrelated model byte was preserved before processing. Different sampled wording across runs is not itself evidence of an unwanted transformation.
+
+No scoped survivor remains after these two refutations. Prior three failed assessments remain archival; unsupported reporting forms, recovery/missing-source abstention, broader debt/comparison/issuer-cash-flow defects and Copilot advisories are not closed by this result. Root owns whole-cohort metadata/usage verification and serial release decisions.
+
+Evidence: work/pr825-fourth-guidance-independent-evidence.json. Artifact SHA256 14440e573ce84252137663a1e6c960fbae54b7f37895979424665a758ef8b0ec.

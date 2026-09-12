@@ -1,0 +1,50 @@
+{
+  "artifact": "work/pr825-fourth-summary/eval_20260912T175138Z.json",
+  "sha256": "14440e573ce84252137663a1e6c960fbae54b7f37895979424665a758ef8b0ec",
+  "cost": [
+    {
+      "result_index": 22,
+      "run": 0,
+      "source_identical_to_third": true,
+      "guidance": "The filing states a current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance is provided.",
+      "guidance_verbatim_in_exec": true,
+      "guidance_verbatim_in_outlook": true,
+      "preview_total": 9,
+      "preview_scaled": 4,
+      "preview_unscaled": 0,
+      "preview_association": "not_observed",
+      "quotes": [
+        {
+          "quote": "In the first thirty-six weeks of 2026, we spent $4,228 on capital expenditures, and it is our current intention to spend approximately $6,500 during fiscal 2026, as we continue to invest in new warehouse openings, remodel existing locations, expand our depot network, and further develop our digitally-enabled businesses.",
+          "source_count": 1
+        },
+        {
+          "quote": "We opened 16 new warehouses, including two relocations, in the first thirty-six weeks of 2026, and plan to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026.",
+          "source_count": 1
+        }
+      ]
+    },
+    {
+      "result_index": 23,
+      "run": 1,
+      "source_identical_to_third": true,
+      "guidance": "The company stated it is its current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026, and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance was provided.",
+      "guidance_verbatim_in_exec": true,
+      "guidance_verbatim_in_outlook": true,
+      "preview_total": 9,
+      "preview_scaled": 4,
+      "preview_unscaled": 0,
+      "preview_association": "not_observed",
+      "quotes": [
+        {
+          "quote": "it is our current intention to spend approximately $6,500 during fiscal 2026, as we continue to invest in new warehouse openings, remodel existing locations, expand our depot network, and further develop our digitally-enabled businesses.",
+          "source_count": 1
+        },
+        {
+          "quote": "We believe that our cash and investment positions and operating cash flow, with capacity under existing and available credit agreements, will be sufficient to meet our liquidity and capital requirements for the foreseeable future",
+          "source_count": 1
+        }
+      ]
+    }
+  ]
+}

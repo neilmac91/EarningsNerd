@@ -831,3 +831,21 @@ Local bounded-grammar correction `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` has 
 This supersedes the prior local-gate-pending entry. Local unpublished `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` passed Ruff/Bandit, all four PostgreSQL lanes and performance: **2,936 passed, 29 warnings in 87.85s**, exit 0. Gate SHA-256 `9ebd13f100fcebafe64da8e5368b74c2b36e597ac89314c298acc6c76ab7d150`. The [verified correction archive](review-evidence/authored-guidance-third-2026-09-12/README.md#verified-local-correction-awaiting-an-assessment-decision) retains independent clearance, eleven unchanged locked anchors and offline replay of 156 outcomes correcting exactly the three missed COST strings. This is not a fourth model run or general paraphrase acceptance.
 
 The specifically approved third assessment is consumed and functionally held. #825 remains a draft at published `03f0df37711b90e2ba3f8b24e77256bae28bc62d`; another paid assessment and new code push require the next specific authorization. No merge or release is claimed; production remains verified #823.
+
+
+## September 12 — fourth #825 scoped assessment accepted; release pending
+
+The [fourth assessment archive](review-evidence/authored-guidance-release-2026-09-12/README.md) records actual functional, metadata and Copilot acceptance on gated `503239f653ae2d93df7f66722586349c2d83baed`. Both COST authored guidance draws now carry the source-owned million scale in final output and every retained preview containing the plan. All 52 source/XBRL/cash identities are conserved; 507 frames retain `not_observed` final-response association. Copilot's 18 requested answers are correct within its existing gate, with inherited citation limitations. Earlier failed rounds remain unchanged.
+
+This supersedes earlier current assessment holds for the supported unit correction only. No merge or production verification is claimed yet; root owns serial release verification. Broad debt/comparison/causal findings and universe-wide pregeneration/historical replay remain held.
+
+
+## September 12 — #825 production verified; current continuation
+
+This dated record supersedes earlier current HOLD, unpublished and release-pending instructions for the supported authored-guidance unit correction. #825 merged as `473558ec259e5c4860cd0373ee4209289bb17167` at 17:55:30Z. Main CI `34709660590` and deploy job `103596329864` succeeded. Migrations reported `apply_migrations: applied=0 skipped=39` at 18:00:25.9058631Z. Revision `earningsnerd-backend-00334-pqv` serves 100% of traffic, confirmed at 18:01:14.1872642Z and explicitly at 18:01:15.7139218Z. CI detailed health was healthy at 18:01:53.6718523Z (database 7.16 ms). Independent `curl -fsS` exited 0 and returned healthy (database 7.9 ms, server timestamp `1789236229.8216112`; Redis disabled, SEC circuit closed). [Release evidence](review-evidence/authored-guidance-release-2026-09-12/README.md) preserves the fourth scoped acceptance and links all three earlier failed rounds; no prior verdict or usage uncertainty was rewritten.
+
+- [x] Complete #825 correction, actual fourth assessment and serial production verification.
+- [ ] Continue source-qualified debt and financial relationship design that preserves valid explanation; metadata or parallel contradictory prose is not a completed fix.
+- [ ] Retain unsupported guidance/recovery/source-coverage cases and broader numerical/accounting findings for bounded future work.
+
+No further #825 assessment is required by this record. World-class quality and universe-wide pregeneration/historical replay remain held. Original master-plan prerequisites remain in effect; E06 natural delivery is unobserved and E09 remains proposal-only with incomplete fleet/egress/budget evidence.
