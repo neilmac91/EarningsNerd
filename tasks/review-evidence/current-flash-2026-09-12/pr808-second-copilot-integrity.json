@@ -1,0 +1,84 @@
+{
+  "source_sha": "c0999c8df55751a8a7a5d3e2941e312ed7aa541d",
+  "report_sha256": "6a84ea4298c26c47f447447b61e83883994834d51e09ca2abfce1a02087311ec",
+  "24_files_verified": true,
+  "db_verified": true,
+  "planned_exact": true,
+  "unique": 18,
+  "golden_hash_verified": true,
+  "text_citations": [
+    {
+      "ticker": "AAPL",
+      "run": 1,
+      "n": 3,
+      "len": 38,
+      "present": true
+    },
+    {
+      "ticker": "AAPL",
+      "run": 2,
+      "n": 3,
+      "len": 35,
+      "present": true
+    },
+    {
+      "ticker": "BABA",
+      "run": 0,
+      "n": 2,
+      "len": 54,
+      "present": true
+    },
+    {
+      "ticker": "BABA",
+      "run": 1,
+      "n": 2,
+      "len": 88,
+      "present": true
+    },
+    {
+      "ticker": "BABA",
+      "run": 2,
+      "n": 2,
+      "len": 214,
+      "present": true
+    },
+    {
+      "ticker": "BABA",
+      "run": 0,
+      "n": 2,
+      "len": 45,
+      "present": true
+    },
+    {
+      "ticker": "BABA",
+      "run": 2,
+      "n": 2,
+      "len": 45,
+      "present": true
+    },
+    {
+      "ticker": "ASML",
+      "run": 1,
+      "n": 3,
+      "len": 50,
+      "present": true
+    }
+  ],
+  "fact_citations_match_tools": true,
+  "fact_count": 26,
+  "call_count": 34,
+  "outcomes": {
+    "success": 34
+  },
+  "models": {
+    "deepseek-flash": 34
+  },
+  "usage": {
+    "prompt_tokens": 1055967,
+    "completion_tokens": 5427,
+    "total_tokens": 1061394,
+    "cache_hit_tokens": 873088,
+    "cache_miss_tokens": 182879
+  },
+  "uncited_figures": 7
+}

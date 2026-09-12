@@ -238,3 +238,13 @@ inventory compliance: #759 appended tests to the actual T4 file,
 assertions were preserved; the founder approved retaining the additions on 2026-09-08 as a
 specific exception. Future edits remain locked.
 The original statements are retained as historical records, with this dated correction beneath.
+
+## September 12 continuation — audit complete; quality engineering remains active
+
+The original September 8 checkpoint above is historical. The founder subsequently commissioned the quality review and continued implementation. The original audit and its fixes were completed; the [current assessment and release record](review-evidence/current-flash-2026-09-12/README.md#september-12-1147-utc--808-production-verified) now governs completed releases and quality continuation. The statement that engineering is exhausted and the old E06 observation prerequisite are superseded.
+
+#808 is merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03` and production-verified: main CI `34691615781`, deploy job `103548163219`, migrations 0/39, revision `earningsnerd-backend-00331-tfm` at 100%, healthy CI and independent detailed health. E06 endpoint/schema reconciliation and the exact approved `invoice_payment.paid` addition are complete; natural future delivery/attribution remains unobserved. Do not repeat either completed operation. Comparative identity backfill #797 is also already merged; do not rebuild it.
+
+Next engineering is the separate [cash-basis candidate](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis), preserved remotely at `37401e996c980fbdf01306fcb1472601b31c2eed` after its 2,888-test committed gate. Fetch that branch in a fresh checkout, integrate subsequent documentation without losing ledger history, gate committed state, then open the draft PR and assess actual output before serial release. Source-unit, accounting/explanation, numerical-comparison and guidance-coverage work follows in the [current quality plan](edgartools-quality-plan-2026-09-09.md). Local gates and bounded metadata acceptance do not certify world-class financial analysis.
+
+The original rollout order still applies to its uncompleted items when their named prerequisites arrive: Notable retain review through September 15; Analysis warm-up/live acceptance; W3-7's exact strong-judge readout and arm decision; serial W3-8 re-pins; E09 proposal decisions; major dependencies; D8/#270 and other named founder holds. Universe-wide pregeneration and historical replay remain withheld. Flash with thinking off remains approved; this continuation authorizes no flag, model, budget, live test or additional locked-test change.
