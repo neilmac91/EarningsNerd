@@ -1,0 +1,151 @@
+{
+  "rows": 52,
+  "errors": [],
+  "outer_retries": 0,
+  "logged_calls": 52,
+  "incurred": {
+    "calls": 52,
+    "unknown_calls": 0,
+    "prompt_tokens": 2169884,
+    "completion_tokens": 202236,
+    "cache_hit_tokens": 2160128,
+    "cache_miss_tokens": 9756,
+    "reasoning_tokens": null,
+    "operations": {
+      "summary_primary": 52
+    },
+    "actual_models": [
+      "deepseek-flash"
+    ]
+  },
+  "failures": [],
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": false,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "judge": false,
+    "source_sha": "bad2f6ade7b267986b20647b7117327c73917e64",
+    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 2,
+    "filings": [
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  }
+}

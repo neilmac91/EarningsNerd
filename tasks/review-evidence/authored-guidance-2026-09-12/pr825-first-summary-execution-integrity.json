@@ -1,0 +1,328 @@
+{
+  "report_sha256": "d8f3c86efa461fdeabb7f628ae4bb1b6dad997caae2c1d7dbbca78cf57176999",
+  "execution_sha": "216003c75ebd13f2c704b56c56f90ffd5c56ec1b",
+  "execution_tree": "8e58f1429c02ba44c9028b475556a285374b6483",
+  "gated_tree": "8e58f1429c02ba44c9028b475556a285374b6483",
+  "parents": "8dd880d977dd8484acb50466dacbe1fcc9e62052 21c72a120395fb3640d3343b3593b1ca53159302",
+  "harness_except_source_equal": true,
+  "schema_valid_rate": 1.0,
+  "preview_frames": 507,
+  "preview_count_matches": true,
+  "previews_truncated": 0,
+  "quotes": 83,
+  "annotated_quotes": [],
+  "call_checks": [
+    {
+      "call": 0,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 1,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 2,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 3,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 4,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 5,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 6,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 7,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 8,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 9,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 10,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 11,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 12,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 13,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 14,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 15,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 16,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 17,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 18,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 19,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 20,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 21,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 22,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 23,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 24,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 25,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 26,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 27,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 28,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 29,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 30,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 31,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 32,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 33,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 34,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 35,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 36,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 37,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 38,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 39,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 40,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 41,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 42,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 43,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 44,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 45,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 46,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 47,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 48,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 49,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 50,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 51,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    }
+  ]
+}

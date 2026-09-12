@@ -1,0 +1,344 @@
+{
+  "report_sha256": "e1e4bcce990f68274112cf83967d7c61faf6b2ae94ec4605bea41fb333fe1f44",
+  "execution_sha": "bad2f6ade7b267986b20647b7117327c73917e64",
+  "gated_sha": "604a457c4e755e27cdf8d7f1b1ca6f403f315b38",
+  "execution_tree": "2c042ad29ee9b3dfbad3679bacaacb343d358fb7",
+  "gated_tree": "2c042ad29ee9b3dfbad3679bacaacb343d358fb7",
+  "parents": "8dd880d977dd8484acb50466dacbe1fcc9e62052 604a457c4e755e27cdf8d7f1b1ca6f403f315b38",
+  "harness_except_source_equal": true,
+  "schema_valid_rate": 1.0,
+  "preview_frames": 521,
+  "preview_count_matches": true,
+  "previews_truncated": 0,
+  "quotes": 93,
+  "annotated_quotes": [
+    [
+      [
+        "COST",
+        "10-Q",
+        1,
+        "0000909832-26-000051"
+      ],
+      {
+        "index": 0,
+        "quote": "it is our current intention to spend approximately $6,500 during fiscal 2026, as we continue to invest in new warehouse openings, remodel existing locations, expand our depot network, and further develop our digitally-enabled businesses",
+        "context": "(amounts in millions, except per share, share, percentages and warehouse count data)",
+        "eligible_primary_context": "(amounts in millions, except per share, share, percentages and warehouse count data)"
+      }
+    ]
+  ],
+  "call_checks": [
+    {
+      "call": 0,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 1,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 2,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 3,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 4,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 5,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 6,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 7,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 8,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 9,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 10,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 11,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 12,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 13,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 14,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 15,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 16,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 17,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 18,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 19,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 20,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 21,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 22,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 23,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 24,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 25,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 26,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 27,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 28,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 29,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 30,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 31,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 32,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 33,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 34,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 35,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 36,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 37,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 38,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 39,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 40,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 41,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 42,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 43,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 44,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 45,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 46,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 47,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 48,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 49,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 50,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    },
+    {
+      "call": 51,
+      "outcome": "success",
+      "token_conservation": true,
+      "cache_conservation": true
+    }
+  ]
+}
