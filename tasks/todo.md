@@ -4706,3 +4706,11 @@ The proposed change adds only `invoice_payment.paid`, preserving the six existin
 - [ ] Founder: approve the exact one-event addition already presented. Continue other engineering while it waits; do not repeat the question.
 - [ ] After approval, re-read current events, add only the missing event, and verify unchanged endpoint/version plus the addition. No test event, live-account test or historical replay.
 - [ ] Confirm naturally occurring delivery/attribution before claiming forward payment coverage; configuration alone does not prove revenue completeness.
+
+### September 12, 10:06:49 UTC — E06 exact approval and configuration verified
+
+The founder subsequently approved the exact addition of `invoice_payment.paid`. This resolves the earlier approval rejection and pending request for this one action; it grants no broader live-account authority. Root re-read the endpoint and confirmed the same six selected events before execution, added only the approved event, then independently read it back. At 2026-09-12 10:06:49 UTC the enabled live endpoint retained API version `2025-10-29.clover`, URL `https://api.earningsnerd.io/api/subscriptions/webhook`, status and every other field; the only change was the seventh selected event, `invoice_payment.paid`.
+
+- [x] Record the founder's exact approval, fresh prerequisite read, successful one-event update and independent readback.
+- [x] Complete E06 endpoint observation, schema compatibility reconciliation and forward event-selection configuration. The old pending-approval entries are superseded.
+- [ ] Observe a naturally occurring future invoice-payment delivery and application attribution before claiming operational payment coverage. No test event, replay, customer read or account test was performed. Historical completeness, MRR and net revenue are not established by this configuration.
