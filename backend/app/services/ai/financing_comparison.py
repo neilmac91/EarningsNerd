@@ -16,7 +16,7 @@ OWNED_FIELD = "capital_allocation_verified"
 # Unscaled numbers in a detached quotation can lose a table/section unit header.
 # Keep only self-contained scales, percentages and calendar years; omit the whole
 # passage on uncertainty rather than changing the source's words or guessing units.
-_NUMBER = re.compile(r"(?<![\w])\d[\d,]*(?:\.\d+)?")
+_NUMBER = re.compile(r"(?<![\w])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 _SCALE = re.compile(r"\s*(?:%|percent\b|thousand\b|million\b|billion\b|trillion\b)", re.I)
 
 _PER_SHARE = re.compile(
