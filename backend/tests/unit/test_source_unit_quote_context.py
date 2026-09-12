@@ -141,7 +141,7 @@ GUIDANCE = ('The Company stated it is its current intention to spend approximate
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('case', [
-    'matching', 'lowercase_company', 'coordinated_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
+    'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
     'past_amount', 'wrong_amount', 'already_scaled', 'billions', 'conditional',
     'quoted', 'duplicate_plan', 'source_year', 'source_action', 'source_conditional',
     'source_wrong_scope', 'source_duplicate', 'missing_source', 'recovered',
@@ -164,6 +164,8 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
     }
     if case in changes:
         guidance = guidance.replace(*changes[case])
+    elif case == 'present_tense_plan':
+        guidance = guidance.replace('The Company stated it is its', 'The company states its').replace('2026, and plans', '2026 and plans')
     elif case == 'quoted':
         guidance = '"' + guidance + '"'
     elif case == 'duplicate_plan':
@@ -191,7 +193,7 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
     service = OpenAIService()
     monkeypatch.setattr(service, 'generate_structured_summary', generated)
     result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q', filing_excerpt=source)
-    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan') else guidance
+    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan') else guidance
     final = result['raw_summary']['sections']['forward_signals']
     assert final['guidance'] == expected
     assert final['quotes'][0]['quote'] == QUOTE
