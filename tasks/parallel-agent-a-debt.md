@@ -126,8 +126,78 @@ short-term borrowings were still missing. A partition must close before it may b
 - [x] Alignment preflight (no-op here: fresh clone equal to verified `origin/main`).
 - [x] Source-row audit and checkpoint above.
 - [x] Registry, acquisition, shared owner, both surfaces, figure-gate alignment.
-- [ ] Dedicated debt-scope controls, two mutation proofs, full committed gate.
-- [ ] Codex publication slot. Nothing pushed; no assessment dispatched; no paid run.
+- [x] Dedicated debt-scope controls (70), two mutation proofs, full committed gate.
+- [ ] Codex publication slot. Nothing pushed; no PR; no assessment dispatched; no paid run.
+
+### Gate — committed code head `626ec33abec5a4c50225b015f6fcccf05c0c990a`
+
+```
+ruff check .                       All checks passed!            (exit 0)
+bandit -r app -ll                                                (exit 0)
+pytest -m ""                       2967 passed, 39 skipped, 29 warnings in 127.33s
+  PostgreSQL lane — stripe         24 passed
+  PostgreSQL lane — usage          29 passed
+  PostgreSQL lane — login           6 passed
+  PostgreSQL lane — delivery        5 passed
+```
+
+All eleven locked anchors byte-identical to base `48f3758` (verified by SHA-256, not inspection).
+PostgreSQL here is 16.13, not CI's `postgres:15`: this container has no Docker daemon, so the only
+server available is the distribution's. The four lane variables and per-lane databases are the
+CI-named ones. Baseline for comparison: 2,893 tests in the fast lane before this branch.
+
+### Mutation proofs
+
+One per new invariant, on committed state, each restored to an identical tree.
+
+1. **Scope fidelity** — `9fdab19` dropped the partition-closure requirement in
+   `build_debt_scope_view`, so any non-overlapping set is summed. **4 failed, 121 passed**:
+   `test_noncurrent_plus_current_portion_alone_is_never_summed`,
+   `test_a_single_noncurrent_balance_states_its_scope_and_names_what_is_missing`,
+   `test_the_grounding_carries_each_observations_own_source_identity_and_the_scope_limit`,
+   `test_the_incorrect_total_cannot_survive_the_whole_real_path`. Restored `cb75c25`:
+   **125 passed**.
+2. **Visible ownership** — `5d79215` restored the pre-change behaviour (author the slot only when
+   the model left it empty). **4 failed, 121 passed**:
+   `test_the_incorrect_total_cannot_survive_the_whole_real_path`,
+   `test_a_complete_partition_reaches_the_page_as_components_with_a_subtotal`,
+   `test_preview_and_final_show_the_same_authored_leverage`,
+   `test_apply_structured_fallbacks_preserves_model_liquidity_commentary`. Restored `f9547c2`:
+   **125 passed**, and `git diff 6567a6c f9547c2` is empty.
+
+### Self-review findings
+
+Three defects were found by an adversarial pass over the first commit and fixed in `116b344`,
+each with its own control: a NaN `element_period_type` column read as a known non-instant type
+(one missing column would have discarded every observation for a filing); a reported combined
+total listed itself among its own components; and the grounding label read "not reported in
+standardized data" on a row that was printing a balance. A fourth, found before commit: the
+component pass lacked the reporting-currency filter, so a foreign issuer's USD convenience
+translation would have suppressed every component for exactly the filers whose scope is hardest
+to read.
+
+Surviving, reported rather than absorbed:
+
+- **`leverage` is no longer scanned by `figure_trace`.** Correct for the machine-authored half
+  (re-policing code-grounded figures is category-wrong, the established precedent for
+  `cash_flow` / `working_capital` / `cash_conversion`), but the admitted model half — prose that
+  makes no debt claim, so asset/equity/cash reads — also loses that advisory dollar-figure count.
+  Two refutations failed: the text is scanned nowhere else (`_prose_blob` builds only from the two
+  field dicts plus segments and footnotes), and "the gate is off by default" does not dispose of
+  it, because `summary_generation_service` records `figures_untraceable` into the quality payload
+  and `data_quality_service` reads it regardless of the flag. Narrow but real. Proposed patch, for
+  Codex since it touches a function the quality tier reads: add the debt observation magnitudes
+  (and any emitted subtotal/total) to `figure_trace.xbrl_values`, then restore `"leverage"` to
+  `_PROSE_STRING_FIELDS`; the authored figures then ground by construction and the retained model
+  half stays policed.
+- **The named tradeoff** in §1 above (text-sourced components the standardized path cannot verify).
+
+Refuted twice each, no change made: that `_mutually_consistent`'s basis check is dead code (it is
+the guard that makes adding a non-carrying concept safe rather than a silent basis mix, and a
+registry-level assertion cannot cover a record written under an older registry); and that the
+seven extra fact queries per extraction are an SEC-pacing or performance concern (they are
+in-memory queries over the already-parsed instance, adding no `sec.gov` URL, against roughly forty
+the extraction already issues, with the performance suite unchanged at 127-135s across runs).
 
 ## 3. Not in this lane
 
