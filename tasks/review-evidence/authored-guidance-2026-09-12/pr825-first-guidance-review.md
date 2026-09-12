@@ -1,0 +1,11 @@
+# PR #825 first summary: guidance correction incomplete
+
+Hold this candidate for a confirmed same-scope fix. The first assessment report `eval_20260912T152642Z.json` contains one corrected COST guidance output and one uncorrected output. This is not overall financial-quality acceptance.
+
+**Must-fix before this PR merges:** `backend/app/services/ai/source_units.py:89` requires comma or period immediately after the fiscal year. COST run 0 says “during fiscal 2026 and plans to open”; the absent comma makes the same source-backed capital-spending proposition ineligible. Its raw guidance and actual rendered executive-summary/outlook retain `$6,500` without million, and none of its nine retained preview frames contains the corrected amount. COST run 1's comma form is corrected in actual final rendering and three of eight preview frames.
+
+Refutation 1: source/context mismatch cannot explain this difference. Both use the same retained filing and eligible million-scope capital-plan proposition; action, exact amount and year correspond. Refutation 2: the correct quote annotation does not qualify the standalone guidance, and examining actual final Markdown plus previews confirms this is visible, not just a raw-field representation issue. The target lookahead rejects the punctuation variant; the narrow predicate otherwise matches.
+
+Correct only this authored boundary to accept the explicit coordinated ` and plans to ` continuation, retaining all other eligibility checks and preserving every byte outside the unit insertion. Add the observed comma-free variant to the existing invariant's consumer cases; retain the original committed mutation proof rather than adding a second proof for the same invariant. Re-run the full committed gate and request the authorized second confirmed-finding assessment round, recording its reason. Do not overwrite or reclassify this first artifact.
+
+Other guidance paraphrases, recovered/missing-source cases and broader debt/comparison/causal findings remain open. Linked private evidence: `work/pr825-first-guidance-finding.json`. The missing unit in run 0 is sufficient to withhold scoped acceptance; it does not establish a regression in unrelated narratives.

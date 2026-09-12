@@ -4959,3 +4959,27 @@ Continue actual authored-guidance unit correction, source-qualified debt scope a
 ### September 12 — E09 live capacity observation limitation
 
 Read-only Cloud Run inspection could not reach production project `earnings-nerd` through the available personal browser account; the existing production-account session requires reauthentication. No settings were altered. Live capacity remains unverified; the E09 proposal continues from repository evidence and must distinguish configured source settings from effective production capacity.
+
+
+## September 12 — #824 documentation verified; #825 assessment pending
+
+#824 merged as `8dd880d977dd8484acb50466dacbe1fcc9e62052` at 15:11:21Z. Main CI `34701471681` succeeded; job `103574296028` explicitly reported “No backend changes - skipping deploy.” at 15:14:34.4069220Z. The preceding #823 production verification remains complete; no new deployment is attributed to the documentation release.
+
+The [#825 preparatory archive](review-evidence/authored-guidance-2026-09-12/README.md) retains the 2,927-test integrated gate, one new red/green proof, copy-only 52-outcome check and first 18/18 Copilot acceptance. Fresh summary acceptance, merge and deployment remain pending. The proposed numerical-relationship contract remains design-only because unrestricted analytical text can repeat false relations; no implementation or founder decision follows yet. Preserve debt/comparison findings and the existing pregeneration/replay holds.
+
+
+### September 12 — #825 first summary held for punctuation-boundary correction
+
+The [first functional assessment](review-evidence/authored-guidance-2026-09-12/pr825-first-guidance-review.md) found one COST draw still unscaled because its fiscal-year continuation omitted a comma. Source/metadata and usage checks pass, but scoped summary acceptance is withheld; accepted Copilot results are separate. Root committed correction `604a457c` and is running the full gate after a preserved sandbox PostgreSQL startup denial. The original invariant proof remains valid and is not repeated for this variant. The second confirmed-finding assessment is authorized but not yet triggered by this record. No merge, release or general quality clearance is claimed.
+
+
+### September 12 — #825 second functional hold; no additional paid assessment yet
+
+The [second functional review](review-evidence/authored-guidance-2026-09-12/pr825-second-guidance-review.md) confirms another supported COST reporting-introduction variant remains unscaled in final guidance and three retained previews. Metadata/usage and separate Copilot acceptance do not close this functional failure. #825 is a draft; production remains verified #823 `earningsnerd-backend-00333-56s`. Root prepared local correction `d19c782b`; its full gate is running. Both authorized paid rounds are used, so another assessment requires explicit approval after local gate and independent review. No third run, push, merge or release is claimed. Preserve both failed rounds and the single existing invariant proof.
+
+
+### September 12 — #825 local reporting correction verified; assessment approval pending
+
+Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit and the full four-PostgreSQL-lane/performance gate: **2,929 passed, 29 warnings in 119.95s**, exit 0. [Verification and patch](review-evidence/authored-guidance-2026-09-12/README.md#latest-local-correction-gated-and-awaiting-assessment-authorization) retain the exact correction and gate hash. Offline comparison of 104 outcomes corrects only the two previously missed strings; this does not replace actual acceptance. Independent review cleared the delta, all eleven locks are unchanged, and the original proof is not repeated.
+
+#825 remains a draft at published `604a457c4e755e27cdf8d7f1b1ca6f403f315b38`. Both authorized assessment rounds are used; no third round or additional code push is approved. The local fix is concrete and reviewable for an additional-assessment decision. No merge/deployment is claimed; production remains verified #823 `earningsnerd-backend-00333-56s`. Previous pending local-gate entries are historical.

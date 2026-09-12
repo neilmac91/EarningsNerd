@@ -1,0 +1,150 @@
+{
+  "status": "Both functional holds retained; local second correction gated; draft published head unchanged; additional paid assessment requires approval",
+  "base_commit": "8dd880d977dd8484acb50466dacbe1fcc9e62052",
+  "files": [
+    {
+      "file": "authored-guidance-units-independent-review.md",
+      "sha256": "1aea4fba1885a9f6cd30c8c4f68070afe5cc457ed340baedbb20b4ce72ed2c77",
+      "bytes": 4299,
+      "original_private_path": "work/authored-guidance-units-independent-review.md"
+    },
+    {
+      "file": "authored-guidance-retained-evidence.json",
+      "sha256": "0ac3c9748f779e716b4dc021831116e02287936d1700878851d4e6461bb8696a",
+      "bytes": 43260,
+      "original_private_path": "work/authored-guidance-retained-evidence.json"
+    },
+    {
+      "file": "pr825-first-copilot-acceptance.md",
+      "sha256": "e0ab43b31eb264eaf41b6756435cba85c6254a6e530c58f5316e40df5cc5b8b4",
+      "bytes": 4443,
+      "original_private_path": "work/pr825-first-copilot-acceptance.md"
+    },
+    {
+      "file": "pr825-first-copilot-integrity.json",
+      "sha256": "a0ddfd25df6b1adc5d8d3e9b38d14d4325094d091c8fa0459cc41a2571e84c98",
+      "bytes": 27417,
+      "original_private_path": "work/pr825-first-copilot-integrity.json"
+    },
+    {
+      "file": "authored-guidance-local-verification.md",
+      "sha256": "a7650e78c6626680ea6ef461557e6ff9dbd3b0a8b8d119ee47efdd470bda72a2",
+      "bytes": 2020,
+      "original_private_path": "work/authored-guidance-local-verification.md"
+    },
+    {
+      "file": "pr825-first-summary-metadata-acceptance.md",
+      "sha256": "71a904feb6ab73978cb2814507b306b43721a2dbc36d666a9f01fac7ff831a71",
+      "bytes": 3056,
+      "original_private_path": "work/pr825-first-summary-metadata-acceptance.md"
+    },
+    {
+      "file": "pr825-first-summary-execution-integrity.json",
+      "sha256": "6350d3ba22b5d99c586e38fe866407ec45cdf4b0484b6fd549bab5e7f7289445",
+      "bytes": 7134,
+      "original_private_path": "work/pr825-first-summary-execution-integrity.json"
+    },
+    {
+      "file": "pr825-first-summary-usage.json",
+      "sha256": "177bdd3b5189c503f1a54dc8e7b5e68c0121012755779593d6fc42d5562c53f3",
+      "bytes": 3071,
+      "original_private_path": "work/pr825-first-summary-usage.json"
+    },
+    {
+      "file": "pr825-first-summary-metadata.json",
+      "sha256": "8841f0134847867c2aee88f8726e7f8528927f4eb1fa29c77733caadc8729373",
+      "bytes": 58216,
+      "original_private_path": "work/pr825-first-summary-metadata.json"
+    },
+    {
+      "file": "pr825-first-guidance-review.md",
+      "sha256": "ed9855a94deac8b694be23f1316cc05215f60ab770148101f99049ed13251d51",
+      "bytes": 2214,
+      "original_private_path": "work/pr825-first-guidance-review.md"
+    },
+    {
+      "file": "pr825-first-guidance-finding.json",
+      "sha256": "55de263bcee35fdb25215c710767237b5cdef1e002da01f440e4f4ef2bf89cf5",
+      "bytes": 919,
+      "original_private_path": "work/pr825-first-guidance-finding.json"
+    },
+    {
+      "file": "authored-guidance-correction-review.md",
+      "sha256": "ee9ab59e5bdc60e6b7e151d041bba371ab25b09d1480bd29f48a2aa781f20361",
+      "bytes": 1400,
+      "original_private_path": "work/authored-guidance-correction-review.md"
+    },
+    {
+      "file": "pr825-correction-retained-evidence.json",
+      "sha256": "88b8b36670ced9e80ef1876b97e148ba59d45422a8b7701f2cebe768a9a31b3d",
+      "bytes": 770,
+      "original_private_path": "work/pr825-correction-retained-evidence.json"
+    },
+    {
+      "file": "pr825-second-copilot-acceptance.md",
+      "sha256": "f3b668a393862cd1d97e173ca4563dee0447b4d1f9ea247a0597a283a1305f78",
+      "bytes": 5396,
+      "original_private_path": "work/pr825-second-copilot-acceptance.md"
+    },
+    {
+      "file": "pr825-second-copilot-integrity.json",
+      "sha256": "cf428c02364926fcde4f5be891335a1174a6be09c7d9b79048c6f7c93239be78",
+      "bytes": 26724,
+      "original_private_path": "work/pr825-second-copilot-integrity.json"
+    },
+    {
+      "file": "pr825-second-guidance-review.md",
+      "sha256": "c29bf9103d1165a6eb5253a0eaee48601e5d975088c4200255fe962b6b142a35",
+      "bytes": 1971,
+      "original_private_path": "work/pr825-second-guidance-review.md"
+    },
+    {
+      "file": "pr825-second-guidance-finding.json",
+      "sha256": "e0773b01bda99746df13ebf22ce369e61235c0ea0a442e1037bfb29c940eb1ed",
+      "bytes": 877,
+      "original_private_path": "work/pr825-second-guidance-finding.json"
+    },
+    {
+      "file": "pr825-second-summary-metadata-acceptance.md",
+      "sha256": "cbbaeb7557e6ddaf9a60e26e75627eb96716103bd857f1f4b38762b487fca117",
+      "bytes": 2981,
+      "original_private_path": "work/pr825-second-summary-metadata-acceptance.md"
+    },
+    {
+      "file": "pr825-second-summary-execution-integrity.json",
+      "sha256": "386a52ef7983582abe1201f9ebc9619b2917295ff226cff8a0c0f4f1d4ef8815",
+      "bytes": 7822,
+      "original_private_path": "work/pr825-second-summary-execution-integrity.json"
+    },
+    {
+      "file": "pr825-second-summary-metadata.json",
+      "sha256": "363f5be200819c56b6f9d9eb89b21bcc367359cb2c8fecc6279350690c075b9d",
+      "bytes": 62774,
+      "original_private_path": "work/pr825-second-summary-metadata.json"
+    },
+    {
+      "file": "pr825-second-summary-usage.json",
+      "sha256": "37a8a23d135f052b8f8dfd7b2f97255b1b6fde2c5edf054b4892bf070bab5dfb",
+      "bytes": 3071,
+      "original_private_path": "work/pr825-second-summary-usage.json"
+    },
+    {
+      "file": "authored-guidance-reporting-verification.md",
+      "sha256": "1c2cc29e6b2c5de82d21fdfc52bb92cf96c2f582eaf8682165c4c753b4364b42",
+      "bytes": 2051,
+      "original_private_path": "work/authored-guidance-reporting-verification.md"
+    },
+    {
+      "file": "pr825-reporting-retained-evidence.json",
+      "sha256": "19972f4b874ea8b0473a4ae3616d163d75a53614ae948672bee40b58e96806bb",
+      "bytes": 1830,
+      "original_private_path": "work/pr825-reporting-retained-evidence.json"
+    },
+    {
+      "file": "pr825-reporting-correction.patch",
+      "sha256": "eebfa5c1bc7be0fe002db82e1fff621b3febdafd82425f8781278cbe70be04e3",
+      "bytes": 5496,
+      "original_private_path": "work/pr825-reporting-correction.patch"
+    }
+  ]
+}
