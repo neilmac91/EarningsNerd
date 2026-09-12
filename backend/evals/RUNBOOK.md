@@ -631,15 +631,13 @@ no duration and passes `_valid_fact_provenance`. The selected-instance path does
 downstream. Certifying on the label would put a verified chip on a possibly-quarterly figure, so a
 fact without `period_start` abstains — including the retained BABA row that motivated this layer.
 
-Extraction therefore preserves the source duration forward-only, on the **per-filing instance
-path**: `instance_extractor.duration_series_with_starts` keeps the selected fact's own start (the
-proof `duration_in_window` already applied), `normalise_series` passes the key through and
-`normalize_standardized_to_facts` stores it in the existing nullable column. Selection, precedence
-and upsert skip semantics are unchanged. The **companyfacts fallback still drops its start**: the
-locked T9 anchor pins that path's emitted points by full-dict equality, so adding a key there is a
-contract change needing pre-approval — its facts keep an unknown duration and keep abstaining,
-which is safe but less informative. **A filing ingested through the instance path after this ships
-can certify; rows stored before it, and fallback rows, still abstain, and there is no backfill.** Durations are deliberately excluded from the model-facing compact block
+Extraction preserves the source duration forward-only through the per-filing instance and
+companyfacts fallback paths. `duration_series_with_starts` retains the instance fact's start;
+`append_items` retains the selected fallback fact's start; `normalise_series` passes it through;
+`normalize_standardized_to_facts` stores it in the existing nullable column. The founder approved
+the T9 expected-dictionary additions on 2026-09-12. Selection, precedence and upsert skip semantics
+are unchanged. Newly inserted facts with proven annual duration can certify; existing undated
+rows still abstain, and there is no backfill. Durations are deliberately excluded from the model-facing compact block
 (`_without_source_durations`), so prompt bytes are unchanged — widening what the model sees is a
 prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`

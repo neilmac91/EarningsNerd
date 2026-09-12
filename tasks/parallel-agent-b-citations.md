@@ -266,3 +266,10 @@ start. The earlier fallback limitation above is superseded for newly inserted re
 The realistic quarterly regression now verifies the quarterly start survives and still cannot
 certify an annual claim. Existing undated rows remain untouched; no replay or backfill.
 Other locked anchors retain their lock. Integration gate results will be appended after execution.
+
+
+Integration gate on `a87b602bd0748284a59ed4802abd68119b8c9a62`: PostgreSQL 15.15
+(Homebrew), four separate CI-named concurrency databases, Ruff passed, Bandit exit 0,
+full pytest including performance: `2998 passed, 29 warnings in 98.47s (0:01:38)`,
+exit 0. First attempt was blocked by sandbox access to localhost before tests began;
+the complete rerun with local database access passed. No push, assessment or deployment.
