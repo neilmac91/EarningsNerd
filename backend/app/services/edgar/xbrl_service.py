@@ -388,6 +388,15 @@ def _extract_from_filing_instance_sync(
                  "currency": currency, "raw_tag": raw_tag}
                 for end, value in series
             ]
+        elif metric == "capital_expenditures":
+            series, currency, raw_tag = duration_series_currency_concept(
+                xb, concepts, base_form, period_of_report, qualified_concept=True
+            )
+            result[metric] = [
+                {"period": end, "value": value, "form": form, "accn": accession_number,
+                 "currency": currency, "raw_tag": raw_tag}
+                for end, value in series
+            ]
         else:
             series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
             result[metric] = [

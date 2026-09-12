@@ -4833,3 +4833,12 @@ The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now
 
 - [x] Integrate docs-only main `32137be8cc816a0c82f481454e916f28913bb565` with the complete new-main ledger and prior cash-candidate additions preserved byte-for-byte.
 - [ ] Run the full committed publication gate with performance and four isolated PostgreSQL lanes. Original single mutation proof is retained; parent owns publication and actual assessment.
+
+
+### September 12 — #821 capex identity propagation correction plan
+
+- [x] Preserve the exact winning qualified capex query identity through filing-instance extraction and existing metric normalization into cash-basis grounding. Keep revenue helper/API behavior, selection, values, currencies, dates and query order unchanged; companyfacts identity remains unknown when unavailable.
+- [x] Add one extraction-to-grounding conservation control covering US-GAAP, IFRS, later-candidate fallback and unavailable capex; leave all locked tests unchanged.
+- [ ] Commit the correction for parent review before any mutation proof or full gate. Retain the original ten-consumer basis proof; no remote write or paid assessment is authorized by this checkpoint.
+
+Correction prepared for parent review: the duration selector retains its legacy bare-name return by default and exposes the qualified successful query only on request; capex opts in. No source-selection or normalizer behavior changes. The new control and full gate have not run; mutation proof awaits parent review. Existing companyfacts capex identity remains unavailable rather than inferred.
