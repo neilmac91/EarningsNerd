@@ -308,3 +308,8 @@ lanes passed with no skips:
 Independent read-only review confirms the previously reported blockers are closed.
 The selected numeric row now supplies its own debt scope; supplementary totals carry their own amounts. Unverified model leverage prose is removed. Codex reverted its now-unnecessary mixed-prose trace repair before integration; the resulting tree matches Agent A revision 2 exactly. All eleven locked anchors remain unchanged. Neutral leverage commentary is intentionally lost; no corpus acceptance is claimed.
 Both branch gates are separate; textual merge preview is conflict-free but does not substitute for testing the combined committed state. No publication, paid assessment, merge to main or production verification has occurred for either candidate.
+
+
+### First #829 assessment — confirmed wording correction
+
+CI34720068225/job103624176091 completed52 attempts with0 errors/retries/hard vetoes; regression PASS/1 advisory warning. Copilot34720087733/job103624235323 completed18/18 with0 execution errors. Actual COIN/JD/AMZN debt observations cover all named borrowing bands but overlap, so no subtotal is allowed. The fallback wording incorrectly said other borrowings were unreported. Two refutations failed: no named band is missing; overlap independently blocks the sum without evidence of an additional missing category. Correct both grounding and visible explanation, preserving all selection, numbers and total guards. This confirmed-finding fix uses the founder-authorized second assessment round; retain the first reports unchanged. Neither run establishes complete filing coverage or universal financial quality.
