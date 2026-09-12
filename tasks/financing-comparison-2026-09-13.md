@@ -56,3 +56,12 @@ The preservation correction adds one distinct invariant: an empty model selectio
 
 
 Boundary correction before publication: independent review found both extraction caps and recovery allocation can append synthetic separators after a cut line. The fallback now excludes first and last nonempty lines of every source block. It selects an internal verbatim source passage; this is not proof of an original HTML paragraph or complete surrounding context. Actual MELI selection remains internal. The pre-correction committed gate passed 3,096 tests; that pass did not refute the subsequently confirmed boundary defect. Final corrected gates and actual assessment remain required.
+
+
+### Preservation correction verified locally
+
+Committed boundary-corrected code `6386b7ab690d75354c0527b76c8abf93b095b5d2` passed Ruff, Bandit and the full PostgreSQL 15 gate with all four lanes and performance: **3,097 passed, 29 warnings in 90.12s**, exit 0. Independent correctness/rules review found no remaining blocker. All eleven locked anchors remain byte-identical. Final offline review of all 52 sources retains the same two MELI internal passages; 16 other empty cases abstain.
+
+The third invariant's single committed mutation `59b43cac18a7662172381a5a33e7d8222764fa6c` disables source fallback: **1 failed, 12 passed, 2 warnings in 2.89s**. Restoration `5eaff0bc5529ac37674aa5ec955ff49d4594fc8a` is tree-identical to the gated code: **13 passed, 2 warnings in 2.47s**. Original two proofs remain unchanged. The [first held assessment](review-evidence/financing-comparison-2026-09-13/assessment-1.md) and [final offline inventory](review-evidence/financing-comparison-2026-09-13/preservation-inventory.json) are retained.
+
+Second bounded assessment is authorized for the confirmed preservation correction. No unchanged retry is requested. Actual new output acceptance and serial deployment remain pending.

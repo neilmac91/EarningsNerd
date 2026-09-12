@@ -1,0 +1,120 @@
+{
+  "source_report_sha256": "f3a42a64628118e69da98d60d963ee3e7be3e2272fe82d9bd3f9efc36b3f919a",
+  "code_head": "6386b7ab690d75354c0527b76c8abf93b095b5d2",
+  "reviewed": 52,
+  "activation_rows": [
+    {
+      "index": 8,
+      "ticker": "KO",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 9,
+      "ticker": "KO",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 14,
+      "ticker": "XOM",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 15,
+      "ticker": "XOM",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 22,
+      "ticker": "COST",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 23,
+      "ticker": "COST",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 30,
+      "ticker": "RIVN",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 31,
+      "ticker": "RIVN",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 38,
+      "ticker": "ASML",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 39,
+      "ticker": "ASML",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 40,
+      "ticker": "TSM",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 41,
+      "ticker": "TSM",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 42,
+      "ticker": "JD",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 43,
+      "ticker": "JD",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 44,
+      "ticker": "SE",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 45,
+      "ticker": "SE",
+      "activate": true,
+      "selected": []
+    },
+    {
+      "index": 50,
+      "ticker": "MELI",
+      "activate": true,
+      "selected": [
+        "Furthermore, the evolution of Mercado Pago\u2019s activities themselves has resulted in the Company managing a significant volume of cash, cash equivalents and investments. This is due to an increase in users\u2019 account balances in their Mercado Pago digital account managed by the Company, and an increase in the level of the Company\u2019s indebtedness to finance those operations. As a result, these Mercado Pago\u2019s funds, together with the financing activities, have generated a significant volume of interest income and other financial gains and interest expenses and other financial losses, respectively."
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "activate": true,
+      "selected": [
+        "Furthermore, the evolution of Mercado Pago\u2019s activities themselves has resulted in the Company managing a significant volume of cash, cash equivalents and investments. This is due to an increase in users\u2019 account balances in their Mercado Pago digital account managed by the Company, and an increase in the level of the Company\u2019s indebtedness to finance those operations. As a result, these Mercado Pago\u2019s funds, together with the financing activities, have generated a significant volume of interest income and other financial gains and interest expenses and other financial losses, respectively."
+      ]
+    }
+  ],
+  "full_inventory_sha256": "618bf352a29225647933260a1e0da5da976405d80528fc29ff0ae8aec91508ce"
+}

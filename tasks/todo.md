@@ -5163,3 +5163,12 @@ PR #833 at `bde9730eb124bc2f692d5e6bb338e54f65006b88` completed CI `34724865936`
 PR #833 returned to draft without merging. A bounded, source-section-owned fallback is being prepared; one complete attributed paragraph may be selected only when the model offers no qualifying explanation. No extra SEC or model call is part of that fallback. Offline selection review precedes any second assessment, whose reason is this confirmed preservation failure under the founder’s necessary-spend authorization.
 
 Automated review separately confirmed a coverage limit: persisted-first XBRL can lack the new descriptor even during summary refresh. Comparison coverage requires qualifying fresh extraction, not merely fresh generation. Missing descriptors abstain while source quotations remain eligible. No automatic invalidation, historical replay or universal refresh claim is introduced.
+
+
+### Preservation correction verified locally
+
+Committed boundary-corrected code `6386b7ab690d75354c0527b76c8abf93b095b5d2` passed Ruff, Bandit and the full PostgreSQL 15 gate with all four lanes and performance: **3,097 passed, 29 warnings in 90.12s**, exit 0. Independent correctness/rules review found no remaining blocker. All eleven locked anchors remain byte-identical. Final offline review of all 52 sources retains the same two MELI internal passages; 16 other empty cases abstain.
+
+The third invariant's single committed mutation `59b43cac18a7662172381a5a33e7d8222764fa6c` disables source fallback: **1 failed, 12 passed, 2 warnings in 2.89s**. Restoration `5eaff0bc5529ac37674aa5ec955ff49d4594fc8a` is tree-identical to the gated code: **13 passed, 2 warnings in 2.47s**. Original two proofs remain unchanged. The [first held assessment](review-evidence/financing-comparison-2026-09-13/assessment-1.md) and [final offline inventory](review-evidence/financing-comparison-2026-09-13/preservation-inventory.json) are retained.
+
+Second bounded assessment is authorized for the confirmed preservation correction. No unchanged retry is requested. Actual new output acceptance and serial deployment remain pending.
