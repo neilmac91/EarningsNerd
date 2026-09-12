@@ -1,3 +1,11 @@
+## September 9 standalone selected cash-flow basis — local candidate
+
+- [x] Reuse only the reviewed cash-basis helper, grounding/render calls and existing unlocked consumer tests from local `b8de2057`, on actual main `a811faf6`; retain the original ten-case mutation proof without repetition.
+- [x] Refine the same shared basis helper so exact source concepts appear only in grounding; customer web/Markdown/export text retains readable basis/formula. Existing surface invariant assertions are aligned; the original basis-removal proof is retained without repeat.
+- [x] Keep released d explanation behavior. Rejected/unreleased #805 e code is absent; f retains its locally reserved cash identifier and advances directly from released d. No historical note implies e shipped.
+- [ ] Complete full committed Ruff/Bandit/pytest gate with performance, four dedicated PostgreSQL lanes and eleven unchanged locked anchors; independent review remains before publication.
+- [ ] Inspect authorized actual summary/Copilot and all-surface cash-basis outcomes before release. Existing formula, source selection, provider and held replay/universe workloads remain unchanged. This is basis disclosure, not full financial quality acceptance.
+
 ## September 12 — Restore Astra instruction audit for GitHub publication
 
 - [x] Reconstructed the supplied audit summary on current main: contextual documentation routing,
@@ -4815,3 +4823,59 @@ E06 event-selection configuration is complete under the exact approval; naturall
 ### September 12 — cash candidate made recoverable before handover
 
 The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now preserved on the remote [codex/wave3-standalone-cash-basis branch](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis). A fresh checkout can fetch that branch; its implementation is no longer dependent on a local worktree. This supersedes earlier “unpublished” only for branch publication: no cash PR, hosted assessment or production release is claimed yet. Subsequent documentation integration and its committed gate precede the draft PR.
+
+
+## September 12 standalone cash-basis integration — current correction
+
+- [x] Integrate the prepared standalone cash-basis candidate onto main `65b9243f9739803594e0e73e10f371648a19378c` (#819), preserving both historical ledgers. Application scope remains the shared selected-input basis disclosure and its existing consumers; the original sole mutation proof is retained without repetition.
+- [ ] Complete the full committed backend gate with performance and four isolated PostgreSQL concurrency lanes, then obtain three-lens review before publication.
+- [ ] Inspect actual output acceptance after the parent coordinates serial release. AMZN gross/net capex and F/MELI issuer-versus-derived FCF benefit from explicit labels; issuer bridges, model-written narrative claims, debt composition and source completeness are not repaired by this bounded change. No paid run, push, PR or production operation is claimed here.
+
+
+### September 12 cash-basis integration after #808 merge
+
+- [x] Integrate main `f0a81fff216c318a40979b7dfcd55500c8b43a03`, preserving all earlier ledger text and inheriting the approved T9 contract change from main. Cash implementation/test scope remains identical to the prepared standalone candidate.
+- [ ] Pass the new committed full backend gate with four isolated PostgreSQL lanes and performance. Retain the original single mutation proof without repetition.
+- [ ] Wait for parent verification of #808 deployment before any cash-basis publication; no deployment, paid assessment or remote write is claimed here.
+
+
+### September 12 cash-basis integration after #820 archive
+
+- [x] Integrate docs-only main `32137be8cc816a0c82f481454e916f28913bb565` with the complete new-main ledger and prior cash-candidate additions preserved byte-for-byte.
+- [ ] Run the full committed publication gate with performance and four isolated PostgreSQL lanes. Original single mutation proof is retained; parent owns publication and actual assessment.
+
+
+### September 12 — #821 capex identity propagation correction plan
+
+- [x] Preserve the exact winning qualified capex query identity through filing-instance extraction and existing metric normalization into cash-basis grounding. Keep revenue helper/API behavior, selection, values, currencies, dates and query order unchanged; companyfacts identity remains unknown when unavailable.
+- [x] Add one extraction-to-grounding conservation control covering US-GAAP, IFRS, later-candidate fallback and unavailable capex; leave all locked tests unchanged.
+- [ ] Commit the correction for parent review before any mutation proof or full gate. Retain the original ten-consumer basis proof; no remote write or paid assessment is authorized by this checkpoint.
+
+Correction prepared for parent review: the duration selector retains its legacy bare-name return by default and exposes the qualified successful query only on request; capex opts in. No source-selection or normalizer behavior changes. The new control and full gate have not run; mutation proof awaits parent review. Existing companyfacts capex identity remains unavailable rather than inferred.
+
+### September 12 — #821 confirmed capex propagation correction proof
+
+Parent review cleared correction `0f72d715a41c6bd64d740b935b04c068b2d70175`. The focused committed control passed 4 tests, 34 deselected, 2 warnings in 3.83s. An earlier invocation without the established runtime/cache configuration produced no test output and was interrupted; it is not a passed or partial gate.
+
+Exactly one new mutation at `2832da1276e82f2b64ec22bd389e5b3c39dfa507` removed only capex `raw_tag` emission. Its test tail was:
+
+```text
+3 failed, 1 passed, 34 deselected, 2 warnings in 1.13s
+```
+
+Restoration `70c4bac90fb02468bf51569fd17bcd6383c9c2b2` restored the reviewed implementation and passed:
+
+```text
+4 passed, 34 deselected, 2 warnings in 0.98s
+```
+
+The original ten-consumer cash-basis proof remains unchanged and was not repeated. The first #821 assessments remain separate evidence; a second assessment is justified by the confirmed production extraction gap, not by a flake. Existing revenue namespace-prefix behavior is outside this correction; companyfacts and persisted missing capex identities remain unknown. Full committed Ruff/Bandit/pytest (including performance and four isolated PostgreSQL lanes) is next, before any publication or paid assessment.
+
+
+### September 12 — #821 correction integrated after #822 instructions
+
+The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, Bandit and the complete backend gate with performance and four PostgreSQL lanes: `2892 passed, 29 warnings in 101.49s (0:01:41)`, exit 0. The initial sandbox invocation was denied local PostgreSQL access before any gate; the authorized local run completed. A post-summary logging teardown diagnostic did not change the successful exit.
+
+- [x] Integrate docs-only main `baf75a3c30f1931018c76f9a144b193066899988` (#822), retaining both complete prior ledgers and the unchanged reviewed backend code. The only conflict joined independent top-of-ledger additions.
+- [ ] Complete the final integrated committed Ruff/Bandit/pytest gate including performance and four PostgreSQL lanes. Both existing mutation proofs remain retained without repetition.
+- [ ] Parent to complete independent review, publication and the justified second actual assessments; retain first #821 artifacts separately. No new provider, SEC, remote or production action is claimed by this integration.

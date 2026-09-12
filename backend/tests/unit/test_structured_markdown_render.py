@@ -278,7 +278,7 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow was positive despite a net loss; free cash flow of $2.0B."
+    assert cc == "Operating cash flow was positive despite a net loss; free cash flow of $2.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
     assert "x net income" not in cc  # no meaningless ratio against a negative denominator
 
 
@@ -331,7 +331,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
-    assert s1["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B."
+    assert s1["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
 
     # operating_cash_flow + free_cash_flow, NO net_income.
     s2: dict = {}
@@ -339,7 +339,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
-    assert s2["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B."
+    assert s2["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
 
 
 def test_apply_structured_fallbacks_cash_conversion_strips_stray_model_text_for_banks():
@@ -633,7 +633,7 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
     vd = sections["value_drivers"]
     assert vd["shareholder_returns"] == (
         "Capital returned — dividends paid $15.4B (prior $15.2B), share repurchases $90.7B "
-        "(prior $94.9B); capital expenditures $12.7B (prior $9.4B)."
+        "(prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment)."
     )
     assert vd["returns_on_capital"] == (
         "Return on equity was 151.3% (prior 164.6%) (period net income / period-end equity, not annualized); "
@@ -650,7 +650,7 @@ def test_apply_structured_fallbacks_shareholder_returns_capex_only():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["shareholder_returns"] == (
-        "Capital expenditures $11.3B (prior $8.9B)."
+        "Capital expenditures $11.3B (prior $8.9B) (selected cash-flow amount, not necessarily total capital investment)."
     )
     assert "returns_on_capital" not in sections["value_drivers"]
 
@@ -710,8 +710,8 @@ def test_apply_structured_fallbacks_flow_signs_normalized_with_abs():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     line = sections["value_drivers"]["shareholder_returns"]
-    assert line == "Capital expenditures $1.2B (prior $900.0M)."
-    assert "-" not in line
+    assert line == "Capital expenditures $1.2B (prior $900.0M) (selected cash-flow amount, not necessarily total capital investment)."
+    assert "$-" not in line
 
 
 def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios():

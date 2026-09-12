@@ -606,3 +606,85 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     assert service.extract_standardized_metrics(old)['cash_and_equivalents']['current'] == {
         'period': period, 'value': 120, 'form': '10-K', 'currency': None, 'raw_tag': None,
     }
+
+
+@pytest.mark.parametrize('qualified', [
+    'us-gaap:PaymentsToAcquirePropertyPlantAndEquipment',
+    'ifrs-full:PurchaseOfPropertyPlantAndEquipment',
+    'us-gaap:PaymentsToAcquireProductiveAssets',
+    None,
+])
+def test_instance_capex_identity_reaches_grounding_without_changing_selection(monkeypatch, qualified):
+    """The selected query identity must survive real extraction, normalization and grounding."""
+    from types import SimpleNamespace
+    from app.config import settings
+    from app.services.ai.xbrl_narrative import build_xbrl_narrative_section
+    from app.services.edgar.instance_extractor import duration_series_currency_concept
+
+    period, accession = '2025-12-31', '0001-25-000001'
+    concepts = DURATION_CONCEPTS['capital_expenditures']
+    frames, calls = {}, []
+    if qualified:
+        frames[qualified] = pd.DataFrame([
+            {'period_start': '2025-01-01', 'period_end': period, 'numeric_value': 120},
+            {'period_start': '2024-01-01', 'period_end': '2024-12-31', 'numeric_value': 100},
+            {'period_start': '2025-10-01', 'period_end': period, 'numeric_value': 777},
+        ]).assign(currency='EUR', is_dimensioned=False)
+
+    class Query:
+        def by_concept(self, concept, exact=True):
+            assert exact is True
+            calls.append(concept)
+            self.frame = frames.get(concept, pd.DataFrame())
+            return self
+
+        def to_dataframe(self):
+            return self.frame
+
+    xb = SimpleNamespace(facts=SimpleNamespace(query=Query))
+    expected_queries = [f'{ns}:{name}' for name in concepts for ns in ('us-gaap', 'ifrs-full')]
+    if qualified:
+        expected_queries = expected_queries[:expected_queries.index(qualified) + 1]
+    series = [(period, 120.0), ('2024-12-31', 100.0)] if qualified else []
+    currency = 'EUR' if qualified else None
+    # The existing revenue-facing helper still returns its bare candidate and identical queries.
+    assert duration_series_currency_concept(xb, concepts, '10-K', period) == (
+        series, currency, qualified.split(':', 1)[1] if qualified else None,
+    )
+    assert calls == expected_queries
+    calls.clear()
+    frames['us-gaap:NetIncomeLoss'] = pd.DataFrame([{
+        'period_start': '2025-01-01', 'period_end': period, 'numeric_value': 10,
+        'currency': 'EUR', 'is_dimensioned': False,
+    }])
+    monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
+    monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
+    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {
+        'net_income': ['NetIncomeLoss'], 'capital_expenditures': concepts,
+    })
+    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    with _patch_company([FakeFiling('10-K', period, xb)]):
+        raw = _extract_from_filing_instance_sync('0000000001', accession)
+    assert calls == ['us-gaap:NetIncomeLoss'] + expected_queries
+    if qualified:
+        expected_raw = [
+            {'period': end, 'value': value, 'form': '10-K', 'accn': accession,
+             'currency': currency, 'raw_tag': qualified}
+            for end, value in series
+        ]
+        assert raw['capital_expenditures'] == expected_raw
+        standardized = EdgarXBRLService().extract_standardized_metrics(raw)
+        assert standardized['capital_expenditures']['series'] == [
+            {key: value for key, value in row.items() if key != 'accn'} for row in expected_raw
+        ]
+        grounding = build_xbrl_narrative_section(standardized)
+        assert f'current source concept: {qualified}' in grounding
+        assert f'prior source concept: {qualified}' in grounding
+    else:
+        # No selected fact remains unavailable; the adapter must not invent a concept or value.
+        assert raw['capital_expenditures'] == []
+        standardized = EdgarXBRLService().extract_standardized_metrics(raw)
+        assert 'capital_expenditures' not in standardized
+        assert 'source concept:' not in build_xbrl_narrative_section(standardized)
