@@ -85,8 +85,15 @@ _SPEND_PLAN = re.compile(
     rf"(?P<amount>{_NUMBER}) during fiscal (?P<year>\d{{4}})(?=[,.])"
 )
 _AUTHORED_PLAN = re.compile(
-    r"\AThe [Cc]ompany (?:stated it is its|states its) current intention to spend approximately "
+    r"\bcurrent intention to spend approximately "
     rf"(?P<amount>{_NUMBER}) on capital expenditures during fiscal (?P<year>\d{{4}})(?=[,.]| and plans to )"
+)
+# Keep attribution and affirmative reporting separate from the financial proposition.
+# Unknown subjects, modals, denial and preceding sentences abstain; no opaque prefix.
+_AFFIRMATIVE_PLAN_INTRO = re.compile(
+    r"(?:The (?:[Cc]ompany|filing)|[Mm]anagement) "
+    r"(?:states?|stated|reports?|reported|notes?|noted|describes?|described) "
+    r"(?:that )?(?:(?:it is|there is) )?(?:its|a|the) "
 )
 _AMBIGUOUS_PLAN = re.compile(
     r'["“”]|\b(?:not|never|if|unless|conditional|subsidiary|segment)\b', re.I
@@ -123,8 +130,9 @@ def restore_authored_plan_units(
     guidance = forward.get('guidance') if isinstance(forward, dict) else None
     if not proposition or not isinstance(guidance, str) or _AMBIGUOUS_PLAN.search(guidance):
         return
-    match = _AUTHORED_PLAN.match(guidance)
-    if match is None or (match['amount'], match['year']) != proposition:
+    match = _AUTHORED_PLAN.search(guidance)
+    if (match is None or (match['amount'], match['year']) != proposition
+            or _AFFIRMATIVE_PLAN_INTRO.fullmatch(guidance[:match.start()]) is None):
         return
     # More than one spending intention is ambiguous even if the initial amount happens to match.
     if guidance.count('intention to spend') != 1:

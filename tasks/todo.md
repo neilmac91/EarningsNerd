@@ -5039,3 +5039,12 @@ The founder explicitly approved one additional assessment round for the verified
 - [x] Record explicit additional-assessment approval.
 - [ ] Gate and publish the integrated correction; perform the one approved assessment round.
 - [ ] Review actual outcome evidence, then merge and verify deployment only if accepted.
+
+
+### September 12 — approved third #825 assessment confirms reporting-grammar miss
+
+The approved third round ran once: summary CI `34707231389` / job `103589365066` and Copilot `34707255553` / job `103589434605`. COST run 0 reports “The filing states a current intention” and retains unscaled $6,500 in both final fields and five of ten previews; run 1 is corrected. Two independent refutations confirm identical selected source and the same action/amount/year/unit scope, then trace the remaining error to the reporting introduction in actual final/preview output. #825 is returned to draft; no merge or fourth paid assessment is authorized.
+
+The local correction separates the financial proposition from a bounded affirmative reporting grammar for the company, management or selected filing. Unknown subjects, denial, modals and prior sentences abstain. Source ownership, amount/year/action correspondence, quote/recovery safeguards and exact preservation remain unchanged. The actual third failure and representative attribution/polarity controls extend the existing consumer invariant; its original mutation proof is not repeated. Complete the committed gate, all retained-output comparison and independent review before presenting further assessment for approval.
+
+Metadata checks preserve all 52 identities/source/XBRL/coverage and deterministic cash fields, with 496 retained previews. One SE error and internal retry retain unknown usage and final-preview association `not_observed`; 2,364,849 tokens are known totals, not complete spend. Copilot accepts the 18 requested financial answers within its existing gate; inherited citation advisories and historical failures stay open. None of these bounded passes overrides the COST functional hold.

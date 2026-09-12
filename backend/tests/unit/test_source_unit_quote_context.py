@@ -142,6 +142,8 @@ GUIDANCE = ('The Company stated it is its current intention to spend approximate
 @pytest.mark.asyncio
 @pytest.mark.parametrize('case', [
     'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
+    'filing_report', 'management_report', 'company_report', 'foreign_subject',
+    'denied_plan', 'modal_report', 'preceding_sentence',
     'past_amount', 'wrong_amount', 'already_scaled', 'billions', 'conditional',
     'quoted', 'duplicate_plan', 'source_year', 'source_action', 'source_conditional',
     'source_wrong_scope', 'source_duplicate', 'missing_source', 'recovered',
@@ -161,9 +163,18 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
         'already_scaled': ('$6,500', '$6,500 million'),
         'billions': ('$6,500', '$6.5 billion'),
         'conditional': ('The Company', 'If approved, the Company'),
+        'filing_report': ('The Company stated it is its', 'The filing states a'),
+        'management_report': ('The Company stated it is its', 'Management noted that there is a'),
+        'company_report': ('The Company stated it is its', 'The company reports its'),
+        'foreign_subject': ('The Company stated it is its', 'A competitor reports its'),
+        'denied_plan': ('The Company stated it is its', 'The filing denies a'),
+        'modal_report': ('The Company stated it is its', 'Management may report its'),
+        'preceding_sentence': ('The Company', 'Another entity is discussed. The Company'),
     }
     if case in changes:
         guidance = guidance.replace(*changes[case])
+        if case == 'filing_report':
+            guidance = guidance.replace('2026, and plans', '2026 and plans')
     elif case == 'present_tense_plan':
         guidance = guidance.replace('The Company stated it is its', 'The company states its').replace('2026, and plans', '2026 and plans')
     elif case == 'quoted':
@@ -193,7 +204,10 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
     service = OpenAIService()
     monkeypatch.setattr(service, 'generate_structured_summary', generated)
     result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q', filing_excerpt=source)
-    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan') else guidance
+    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in (
+        'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan',
+        'filing_report', 'management_report', 'company_report',
+    ) else guidance
     final = result['raw_summary']['sections']['forward_signals']
     assert final['guidance'] == expected
     assert final['quotes'][0]['quote'] == QUOTE
