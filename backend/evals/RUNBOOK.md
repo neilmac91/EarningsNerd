@@ -869,3 +869,10 @@ calls with no known usage fields; partially reported fields can also leave token
 Missing counters remain null. Older reports without incurred evidence remain unavailable in the
 new summary fields; their final-attempt totals cannot reconstruct failed-generation costs. No
 baseline or historical report is rewritten by this correction.
+
+
+## September 13 financing-comparison acceptance
+
+New capital-allocation output is a code-owned financing comparison plus exact primary/recovery filing passages, authorized by an explicit outer envelope. Existing unrestricted capital-allocation/highlight prose is not a fallback inside that new representation; old summaries remain legacy. Source descriptors require original cached XML context/unit evidence, not only empty SDK dimensions. Copilot compact context excludes these internal descriptors.
+
+Before accepting this slice, inspect actual MELI source/current/prior descriptors and visible final/preview direction, plus retained AAPL program/per-share disclosures. Green aggregate scores do not establish those semantics. Unknown sources, broader financial explanations and issuer-adjusted FCF remain open. See [implementation evidence](../../tasks/financing-comparison-2026-09-13.md). No baseline floor is changed by this record.

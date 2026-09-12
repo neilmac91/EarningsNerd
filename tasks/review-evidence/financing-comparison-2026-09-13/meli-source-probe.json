@@ -1,0 +1,60 @@
+{
+  "full_probe_sha256": "9662bf74ef91740ce1167b0abb537f7a05360690d65e3a3fb81f3cb316397af0",
+  "source": {
+    "accession": "0001099590-26-000006",
+    "form": "10-K",
+    "period_of_report": "2025-12-31",
+    "current": {
+      "value": 2904000000.0,
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "currency": "USD",
+      "raw_tag": "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+      "entity_identifier": "0001099590",
+      "entity_scheme": "http://www.sec.gov/CIK",
+      "context_refs": [
+        "c-1"
+      ],
+      "scope": "issuer_undimensioned"
+    },
+    "prior": {
+      "value": 1959000000.0,
+      "period_start": "2024-01-01",
+      "period_end": "2024-12-31",
+      "currency": "USD",
+      "raw_tag": "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+      "entity_identifier": "0001099590",
+      "entity_scheme": "http://www.sec.gov/CIK",
+      "context_refs": [
+        "c-16"
+      ],
+      "scope": "issuer_undimensioned"
+    }
+  },
+  "selected_financing_series": [
+    {
+      "period": "2025-12-31",
+      "value": 2904000000.0,
+      "form": "10-K",
+      "accn": "0001099590-26-000006",
+      "currency": "USD",
+      "period_start": "2025-01-01"
+    },
+    {
+      "period": "2024-12-31",
+      "value": 1959000000.0,
+      "form": "10-K",
+      "accn": "0001099590-26-000006",
+      "currency": "USD",
+      "period_start": "2024-01-01"
+    },
+    {
+      "period": "2023-12-31",
+      "value": -267000000.0,
+      "form": "10-K",
+      "accn": "0001099590-26-000006",
+      "currency": "USD",
+      "period_start": "2023-01-01"
+    }
+  ]
+}

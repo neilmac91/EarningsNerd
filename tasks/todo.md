@@ -5143,3 +5143,14 @@ Founder authorizes continued implementation and necessary bounded assessment spe
 - [ ] Independently review, assess actual outputs and release serially; retain unsupported scope and other financial-interpretation findings.
 
 AAPL distributions/OCF and issuer-adjusted FCF remain separate accounting follow-ups. Preserve useful source explanation instead of replacing the field with metadata alone. Unknown source context is unavailable, not consolidated.
+
+
+### September 13 — financing correction ready for bounded assessment
+
+Source acquisition, shared final/preview ownership, actual MELI source availability and committed local verification are complete. Full gate: 3,091 passed on PostgreSQL 15 with performance/four lanes; eleven locked anchors unchanged. Two mutation proofs restored byte-identical. The exact AAPL per-share/date preservation defect found in review is corrected. [Implementation and evidence](financing-comparison-2026-09-13.md) retain failures and scope limits.
+
+- [x] Source descriptors and new source-owned capital-allocation representation.
+- [x] Integrated controls, independent lenses, full committed gate and two mutation proofs.
+- [ ] First authorized actual summary/Copilot assessment, then serial production verification if accepted.
+
+DeepSeek read-only balance is USD87.04 before this assessment. The new approval permits necessary bounded evaluations; it does not activate broad generation or historical replay. No release is claimed by a local gate.
