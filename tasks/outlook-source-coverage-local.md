@@ -15,3 +15,10 @@ Single invariant/proof design: after committing, temporarily suppress the source
 Independent read-only correctness review found no surviving finding after checking source identity, contiguous boundaries, no displacement, wrapper-inclusive budgets and cache scope. The original fixture hash was independently verified. This clearance remains conditional on committed tests and current-main integration.
 
 Root-owned integration before publication: review candidate, integrate current main, decide prompt-version treatment without rewriting financing's pending version, record source-budget/cost impact, run the serial full gate and one invariant proof, and allocate any paid assessment. Actual assessment must verify fresh source delivery and guidance behavior; no production quality clearance follows from offline delivery alone. Cached historical omissions and incorporated annual-report exhibits remain separate open items.
+
+
+## Committed local verification before main integration
+
+Implementation `f6830a20daa8d62be67f29e8c931ae4fd1edfb1a` passed 40 focused source/recovery tests. The one invariant mutation `21b1d4923c1f4b50db8110be6fc38b739dfcb339` suppressed the supplement: **1 failed, 39 passed, 2 warnings in 6.15s**. Restoration `db94c1aa76a8343bf4b13e6e5a14d8ba7ec31e38` is tree-identical: **40 passed, 2 warnings in 2.68s**.
+
+Full committed gate on the restored base candidate: Ruff clean, Bandit zero medium/high findings, PostgreSQL 15 with four isolated lanes and performance; **3,079 passed, 29 warnings in 94.83s**, exit 0. This is pre-integration verification, not a claim that the later combined release state is gated. No PR, assessment or deployment is associated with these local checks.
