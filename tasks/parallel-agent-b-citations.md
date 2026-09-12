@@ -254,3 +254,15 @@ certifies end to end (`test_freshly_ingested_annual_filing_certifies_end_to_end`
 before this — the retained BABA `results[14]` row among them, still pinned by
 `test_retained_baba_row_still_abstains_because_it_carries_no_duration` — and every fact written
 through the companyfacts fallback, pending the T9 decision above.
+
+
+### Founder-approved T9 correction — 2026-09-12
+
+The founder approved the exact proposed T9 duration exception in this session: add the
+recorded source start dates to seven expected dictionaries across three tests in
+`backend/tests/unit/test_companyfacts_fixture.py`, preserving existing values and assertions.
+The approved patch is now applied alongside `append_items` preserving the selected source's
+start. The earlier fallback limitation above is superseded for newly inserted records.
+The realistic quarterly regression now verifies the quarterly start survives and still cannot
+certify an annual claim. Existing undated rows remain untouched; no replay or backfill.
+Other locked anchors retain their lock. Integration gate results will be appended after execution.

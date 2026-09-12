@@ -186,15 +186,14 @@ def test_quarterly_point_in_an_annual_filing_never_certifies():
 
     A three-month revenue point ending on the fiscal year end is the case the companyfacts fallback
     ranks but never rejects — an annual filing may legitimately disclose a quarter, so selection is
-    unchanged and the point is still kept and still labelled `FY` from the FORM. Because the locked
-    T9 anchor pins that path's emitted points, its duration is still dropped, so the row reaches the
-    tool with no duration at all. It passes `_valid_fact_provenance`; only the duration requirement
+    unchanged and the point is still kept and still labelled `FY` from the FORM. Its own quarterly
+    duration now survives into the tool. It passes `_valid_fact_provenance`; only the duration requirement
     stands between it and a verified annual citation.
     """
     row, runtime = _ingest_via_companyfacts('2024-12-29')
     claim, view = _ingested_claim_and_view()
 
-    assert runtime['period_start'] is None and runtime['fiscal_period'] == 'FY'
+    assert runtime['period_start'] == '2024-12-29' and runtime['fiscal_period'] == 'FY'
     assert service._valid_fact_provenance(runtime, INGESTED_ACCESSION, 'USD')
     assert claim is not None and claim['value'] == 95359000000.0
     assert not service._fact_certifies_claim(runtime, claim, view)

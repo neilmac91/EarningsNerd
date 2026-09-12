@@ -984,12 +984,8 @@ class EdgarXBRLService:
                     "value": item.get("val"),
                     "form": item.get("form"),
                     "accn": item.get("accn"),
-                    # NOT carrying `item["start"]` here, though the ranking above already read it:
-                    # the locked T9 anchor (`tests/unit/test_companyfacts_fixture.py`) pins these
-                    # emitted points by full-dict equality, so adding a key is a contract change
-                    # that needs pre-approval. Consequence: facts from this fallback keep an unknown
-                    # duration and therefore keep ABSTAINING on annual claims — safe, but less
-                    # informative than the instance path. See the PR body's conflict report.
+                    # Preserve the selected source's duration; instant facts have no start.
+                    **({"period_start": item["start"]} if item.get("start") else {}),
                     **({"raw_tag": raw_tag} if raw_tag is not None else {}),
                 })
 
