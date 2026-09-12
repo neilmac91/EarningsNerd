@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
 from app.services import metric_delta_service
-from app.services.summary_schema import SECTION_META
+from app.services.summary_schema import SECTION_META, SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
 
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
@@ -636,7 +636,7 @@ def _v2_value_drivers(sections: dict) -> Section:
     return section
 
 
-def _v2_forward_signals(sections: dict) -> Section:
+def _v2_forward_signals(sections: dict, *, source_units_owned: bool = False) -> Section:
     section = Section(SECTION_META["forward_signals"]["title"])
     data = sections.get("forward_signals")
     if isinstance(data, str):
@@ -673,7 +673,7 @@ def _v2_forward_signals(sections: dict) -> Section:
                 # A verbatim quote is the ideal citation: the read-time ``evidence`` (T4) verifies it in
                 # the filing and deep-links to it. None on the unenriched path — the web omits the chip.
                 unit_context = _clean(quote.get("source_unit_context"))
-                if unit_context:
+                if source_units_owned and unit_context:
                     section.blocks.append(Block("paragraph", text=f"Source units: {unit_context}"))
                 ev = quote.get("evidence")
                 section.blocks.append(
@@ -802,9 +802,14 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     sections = raw_summary.get("sections")
     if not isinstance(sections, dict):
         return []
+    marker = raw_summary.get(SOURCE_UNIT_CONTEXT_KEY)
+    source_units_owned = type(marker) is int and marker == SOURCE_UNIT_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
-        section = builder(sections)
+        section = (
+            builder(sections, source_units_owned=source_units_owned)
+            if builder is _v2_forward_signals else builder(sections)
+        )
         if section.has_content:
             rendered.append(section)
     return rendered

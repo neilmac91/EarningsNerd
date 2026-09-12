@@ -43,7 +43,7 @@ from app.services.summary_sections import render_sections, sections_to_markdown
 # V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
 # moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
 # for the v2 names lives in summary_schema.
-from app.services.summary_schema import REPORTED_METRIC_LABEL
+from app.services.summary_schema import REPORTED_METRIC_LABEL, SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
 from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTURED_SECTIONS
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
@@ -729,13 +729,23 @@ Rules:
         # render_sections dispatches on schema_version; stamp the model output with the current
         # generation version so the v2 builders (not the v1 default) render the v2 sections.
         structured_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
-        rendered = render_sections(structured_summary)
+        # Discard any model envelope claim. Only this explicit final envelope, after source
+        # association above, authorizes displaying code-owned units. Older persisted envelopes
+        # only contain their explicit raw-summary keys, never arbitrary model top-level keys.
+        structured_summary.pop(SOURCE_UNIT_CONTEXT_KEY, None)
+        render_envelope = {
+            "schema_version": SUMMARY_SCHEMA_VERSION,
+            "sections": sections_info,
+            SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
+        }
+        rendered = render_sections(render_envelope)
         final_markdown = (
             sections_to_markdown(rendered) if rendered
             else self._build_structured_markdown(structured_summary)
         )
 
         raw_summary_payload = {
+            SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             "structured": structured_summary,
             "sections": sections_info,
             "section_coverage": coverage_snapshot,

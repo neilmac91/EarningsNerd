@@ -80,6 +80,12 @@ SECTION_META: dict[str, dict[str, str]] = {
 }
 
 
+# A code-constructed OUTER raw-summary envelope marker, never a model schema field.
+# Previous envelopes did not copy arbitrary model top-level keys; nested markers are untrusted.
+SOURCE_UNIT_CONTEXT_KEY = "source_unit_context_version"
+SOURCE_UNIT_CONTEXT_VERSION = 1
+
+
 class _V2Base(BaseModel):
     # Lenient by design — the model emits JSON that may carry extra keys or omit optional ones.
     model_config = ConfigDict(extra="ignore")
@@ -120,8 +126,6 @@ class ManagementQuote(_V2Base):
     speaker: str = ""
     quote: str = ""
     context: str = ""
-    # Code-owned exact unit declaration; generated values are discarded at the boundary.
-    source_unit_context: str = ""
 
 
 class RiskItem(_V2Base):

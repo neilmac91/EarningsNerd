@@ -70,7 +70,8 @@ async def test_source_units_belong_to_entire_quote_in_actual_consumer(monkeypatc
     retained = raw['sections']['forward_signals']['quotes'][0]
     assert retained['quote'] == quote  # declaration must never be stitched into the quote
     assert raw['sections']['forward_signals']['guidance'] == sections['forward_signals']['guidance']
-    rendered = render_sections(raw['structured'])
+    # The orchestrator stamps this outer envelope before persistence (summary_pipeline).
+    rendered = render_sections({**raw, 'schema_version': SUMMARY_SCHEMA_VERSION})
     markdown = sections_to_markdown(rendered)
     assert markdown == result['business_overview']
     assert 'fabricated amounts' not in markdown
@@ -82,3 +83,52 @@ async def test_source_units_belong_to_entire_quote_in_actual_consumer(monkeypatc
     else:
         assert 'source_unit_context' not in retained
         assert 'Source units:' not in markdown
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('case', ['old_quote_key', 'nested_marker', 'boolean_marker', 'new_envelope'])
+async def test_only_code_owned_outer_envelope_authorizes_read_and_export(monkeypatch, case):
+    from types import SimpleNamespace
+
+    from app.services.export_service import ExportService
+    from app.services.provenance_service import enrich_summary_provenance
+    from app.services.summary_schema import SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
+
+    quote = {'speaker': 'Costco', 'quote': QUOTE, 'source_unit_context': DECLARATION}
+    sections = {'forward_signals': {'guidance': 'Authored guidance.', 'quotes': [quote]}}
+    # Historical pipeline copied nested model objects but constructed the outer envelope itself.
+    old = {'schema_version': SUMMARY_SCHEMA_VERSION, 'sections': sections,
+           'structured': {'sections': deepcopy(sections)}}
+    if case == 'nested_marker':
+        old['structured'][SOURCE_UNIT_CONTEXT_KEY] = SOURCE_UNIT_CONTEXT_VERSION
+        quote[SOURCE_UNIT_CONTEXT_KEY] = SOURCE_UNIT_CONTEXT_VERSION
+    elif case == 'boolean_marker':
+        old[SOURCE_UNIT_CONTEXT_KEY] = True  # equality to integer 1 must not confer eligibility
+    raw = old
+    if case == 'new_envelope':
+        service = OpenAIService()
+
+        async def generated(*args, **kwargs):
+            return {'sections': deepcopy(sections), 'metadata': {}, SOURCE_UNIT_CONTEXT_KEY: 999}
+
+        monkeypatch.setattr(service, 'generate_structured_summary', generated)
+        result = await service.summarize_filing(SOURCE, 'Costco', '10-Q', filing_excerpt=SOURCE)
+        raw = result['raw_summary']
+        # The actual orchestrator's existing outer schema stamp, not a changed rollout policy.
+        raw['schema_version'] = SUMMARY_SCHEMA_VERSION
+        assert raw[SOURCE_UNIT_CONTEXT_KEY] == SOURCE_UNIT_CONTEXT_VERSION
+        assert SOURCE_UNIT_CONTEXT_KEY not in raw['structured']
+    summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview='',
+                              financial_highlights={}, risk_factors=[], management_discussion='',
+                              key_changes='', schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None)
+    filing = SimpleNamespace(company=SimpleNamespace(name='Costco'), filing_type='10-Q',
+                             filing_date=None, period_end_date=None, sec_url='', document_url='',
+                             content_cache=SimpleNamespace(critical_excerpt=SOURCE))
+    web = json.dumps(enrich_summary_provenance(summary, filing)['rendered_sections'])
+    exporter = ExportService()
+    pdf = exporter.generate_pdf_html(summary, filing)
+    csv = exporter.generate_csv(summary, filing)
+    markdown = sections_to_markdown(render_sections(raw))
+    for displayed in (web, pdf, csv, markdown):
+        assert ('Source units:' in displayed) is (case == 'new_envelope')
+    assert raw['sections']['forward_signals']['quotes'][0]['quote'] == QUOTE
