@@ -4694,3 +4694,15 @@ Two refutations were attempted. First, following the audit link yields the corre
 - [ ] Continue cash-flow basis, source-qualified explanations, bounded source coverage and remaining original master-plan items; no broad pregeneration or historical replay.
 
 Independent follow-up review found the same stale action in the migration coordination correction, and an audit introduction still describing its own publication as pending. Following the audit link did not remove those explicit current-state conflicts; actual merged release records refuted unfinished work. Both current September 12 sections are corrected in this same follow-up; earlier September 10/11 records are preserved.
+
+
+### September 12 — E06 observation completed; exact event approval requested
+
+Read-only inspection of the sole live EarningsNerd endpoint `https://api.earningsnerd.io/api/subscriptions/webhook` confirms it is enabled on `2025-10-29.clover`. Its six selected events cover checkout, subscription changes and dunning; they omit `invoice_payment.paid` and contain no wildcard. Current E06 code only consumes that event for payment evidence. Official versioned Stripe documentation and the deployed validator/enrichment shapes indicate no prerequisite API-version or code change.
+
+The proposed change adds only `invoice_payment.paid`, preserving the six existing events, URL, enabled status and API version. Root initially interpreted the founder's later direct-account-update authorization as covering this narrow action. Automatic approval review rejected it because the original live-account boundary requires exact authorization. The operation did not execute; an immediate readback was identical. Root informed the founder and requested explicit approval for this exact addition, without attempting another tool or browser path.
+
+- [x] Complete the formerly pending Stripe endpoint observation and compatibility reconciliation.
+- [ ] Founder: approve the exact one-event addition already presented. Continue other engineering while it waits; do not repeat the question.
+- [ ] After approval, re-read current events, add only the missing event, and verify unchanged endpoint/version plus the addition. No test event, live-account test or historical replay.
+- [ ] Confirm naturally occurring delivery/attribution before claiming forward payment coverage; configuration alone does not prove revenue completeness.
