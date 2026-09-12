@@ -293,3 +293,18 @@ behaviour. Eleven locked anchors remain byte-identical to `48f3758`.
 Two documentation defects found and fixed in `5229f84`: the module docstring still described
 leverage prose as admitted when it makes no debt claim, contradicting the code it heads; and the
 removed denylist block took two blank lines with it. No behavioural finding survived.
+
+
+### Codex revision integration review — 2026-09-12
+
+Reviewed and gated code head `8b2aef6edbbf607a7c06c7631961b7c23744662d`. Ruff passed, Bandit exited 0, and the full
+backend suite including performance and all four isolated PostgreSQL 15.15 concurrency
+lanes passed with no skips:
+
+```text
+3001 passed, 29 warnings in 106.82s (0:01:46)
+```
+
+Independent read-only review confirms the previously reported blockers are closed.
+The selected numeric row now supplies its own debt scope; supplementary totals carry their own amounts. Unverified model leverage prose is removed. Codex reverted its now-unnecessary mixed-prose trace repair before integration; the resulting tree matches Agent A revision 2 exactly. All eleven locked anchors remain unchanged. Neutral leverage commentary is intentionally lost; no corpus acceptance is claimed.
+Both branch gates are separate; textual merge preview is conflict-free but does not substitute for testing the combined committed state. No publication, paid assessment, merge to main or production verification has occurred for either candidate.
