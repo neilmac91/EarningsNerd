@@ -296,7 +296,8 @@ def debt_balance_label(view: DebtScopeView) -> str:
     # This label is only ever attached to a row that is PRINTING a balance, so it must never read
     # "not reported" either: that contradicts the figure beside it. An unadmitted concept, an
     # absent one, or a refused component set all leave the scope honestly unavailable.
-    selected = view.selected_balance
+    # MUTATION: read the largest observation again instead of the selected balance's own source.
+    selected = view.observations[0] if view.observations else view.selected_balance
     if selected is not None and selected.scope:
         return f"Debt — {SCOPE_PHRASE[selected.scope]}"
     return "Debt Balance (maturity scope unavailable)"
