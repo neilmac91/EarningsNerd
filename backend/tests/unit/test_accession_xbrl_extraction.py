@@ -501,7 +501,7 @@ def test_extended_golden_set_concepts_match_product_extraction():
 
 @pytest.mark.parametrize('case', ['ifrs_cash', 'us_debt', 'unknown'])
 def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkeypatch, case):
-    """Instance portion of the existing provenance invariant: carry only winning identity."""
+    """One invariant across instance and in-layer companyfacts: carry only winning identity."""
     from types import SimpleNamespace
     from app.config import settings
     from app.services.edgar.instance_extractor import (
@@ -576,6 +576,31 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     else:
         assert metric not in standardized
 
+    # Legacy in-layer companyfacts chooses latest target-accession concept, retaining ties/order.
+    def fact(end, value, accn=accession):
+        return {'end': end, 'val': value, 'form': '10-K', 'accn': accn}
+
+    data = {'facts': {'us-gaap': {
+        'CashAndCashEquivalentsAtCarryingValue': {'units': {'USD': [
+            fact('2024-12-31', 90), fact('2026-12-31', 900, 'other-accession')]}},
+        'Cash': {'units': {'USD': [fact(period, 120), fact('2024-12-31', 100)]}},
+        'CashAndCashEquivalents': {'units': {'USD': [fact(period, 777)]}},
+    }}}
+    target = accession if case != 'unknown' else 'missing-accession'
+    legacy = service._parse_company_facts(data, target)
+    expected_legacy = [] if case == 'unknown' else [
+        {'period': end, 'value': value, 'form': '10-K', 'accn': accession, 'raw_tag': 'us-gaap:Cash'}
+        for end, value in [(period, 120), ('2024-12-31', 100)]
+    ]
+    assert legacy['cash_and_equivalents'] == expected_legacy
+    converted = service.extract_standardized_metrics(legacy)
+    if expected_legacy:
+        assert converted['cash_and_equivalents']['series'] == [
+            {**{k: v for k, v in item.items() if k != 'accn'}, 'currency': None}
+            for item in expected_legacy
+        ]
+    else:
+        assert 'cash_and_equivalents' not in converted
     # Pre-change stored series never acquires guessed identity during standardization.
     old = {'cash_and_equivalents': [{'period': period, 'value': 120, 'form': '10-K'}]}
     assert service.extract_standardized_metrics(old)['cash_and_equivalents']['current'] == {

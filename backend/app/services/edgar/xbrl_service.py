@@ -902,7 +902,9 @@ class EdgarXBRLService:
             )
             return sorted_items[:max_items]
 
-        def select_fact_data(fields: List[str], unit_keys: Tuple[str, ...] = ("USD",)) -> list:
+        def select_fact_data_with_concept(
+            fields: List[str], unit_keys: Tuple[str, ...] = ("USD",),
+        ) -> Tuple[list, Optional[str]]:
             """Pick the candidate concept actually used by recent filings.
 
             Taking the first concept present is wrong: issuers retire tags over
@@ -914,6 +916,7 @@ class EdgarXBRLService:
             """
             best_end: Optional[str] = None
             best_data: list = []
+            best_tag: Optional[str] = None
             for field in fields:
                 fact = us_gaap.get(field)
                 if not (isinstance(fact, dict) and isinstance(fact.get("units"), dict)):
@@ -927,10 +930,15 @@ class EdgarXBRLService:
                     latest_end = max(i["end"] for i in valid)
                     if best_end is None or latest_end > best_end:
                         best_end, best_data = latest_end, valid
+                        best_tag = f"us-gaap:{field}"
                     break  # first unit key with data for this concept
-            return best_data
+            return best_data, best_tag
 
-        def append_items(metric: str, data: list) -> None:
+        def select_fact_data(fields: List[str], unit_keys: Tuple[str, ...] = ("USD",)) -> list:
+            data, _raw_tag = select_fact_data_with_concept(fields, unit_keys)
+            return data
+
+        def append_items(metric: str, data: list, raw_tag: Optional[str] = None) -> None:
             from .fiscal_periods import fiscal_label
             from app.services.facts_service import _classify_duration
 
@@ -954,6 +962,7 @@ class EdgarXBRLService:
                     "value": item.get("val"),
                     "form": item.get("form"),
                     "accn": item.get("accn"),
+                    **({"raw_tag": raw_tag} if raw_tag is not None else {}),
                 })
 
         try:
@@ -970,7 +979,8 @@ class EdgarXBRLService:
                 ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
             append_items("total_assets", select_fact_data(["Assets"]))
             append_items("total_liabilities", select_fact_data(["Liabilities"]))
-            append_items("cash_and_equivalents", select_fact_data(CASH_TAG_CANDIDATES))
+            cash_data, cash_tag = select_fact_data_with_concept(CASH_TAG_CANDIDATES)
+            append_items("cash_and_equivalents", cash_data, cash_tag)
             append_items("earnings_per_share", select_fact_data(
                 ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
                 unit_keys=("USD/shares", "USD", "pure")))
