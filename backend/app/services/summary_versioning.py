@@ -83,7 +83,8 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   Released in #821, advancing directly from released d to f.
 # summary-2026-09-g: verified final primary quotes may display source-owned unit context.
 #   The separate code-owned envelope marker governs read eligibility; old payloads remain untrusted.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-g"
+# summary-2026-09-h: restore source-owned million units in a uniquely matched authored capital plan.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-h"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

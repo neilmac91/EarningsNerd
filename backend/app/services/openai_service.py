@@ -32,7 +32,9 @@ from app.services.ai.copilot_chat import (
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
-from app.services.ai.source_units import attach_quote_unit_context
+from app.services.ai.source_units import (
+    attach_quote_unit_context, capital_plan_proposition, restore_authored_plan_units,
+)
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
@@ -367,9 +369,12 @@ Rules:
             max_tokens=config.get("max_tokens", 1500),
             response_format={"type": "json_object"},
         )
+        # Only the supplied excerpt owns this correction on both preview and final paths.
+        layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
+        plan = capital_plan_proposition(filing_excerpt or "", layout)
         content = await self._request_content(
             create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
-            xbrl_metrics=xbrl_metrics,
+            xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
         )
         return await self._assemble_structured_summary(
             content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
@@ -454,7 +459,7 @@ Rules:
         stream_cb: Any,
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
-        *, _client=None, _observation=None,
+        *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -486,7 +491,9 @@ Rules:
                 # Re-render a preview every ~1500 new chars to keep preview frames modest.
                 if total - emitted_at >= 1500:
                     emitted_at = total
-                    preview = self._partial_markdown_preview("".join(parts), xbrl_metrics)
+                    preview = self._partial_markdown_preview(
+                        "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
+                    )
                     if preview:
                         try:
                             await stream_cb(preview)
@@ -496,7 +503,9 @@ Rules:
             await close_stream(stream)
         return "".join(parts)
 
-    def _partial_markdown_preview(self, partial_content: str, xbrl_metrics: Optional[Dict]) -> Optional[str]:
+    def _partial_markdown_preview(
+        self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
+    ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
         In-flight values are never repaired into claims. Missing sections remain pending;
@@ -504,8 +513,9 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
-            # Preview has no owned source context; never display a model-authored unit badge.
+            # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
+            restore_authored_plan_units(sections, capital_plan)
             completed_keys = tuple(
                 key for key in sections
                 if key != "the_print" or not self._section_is_empty(sections[key])
@@ -654,6 +664,11 @@ Rules:
             sections_info, filing_excerpt or "", layout,
             recovered="forward_signals" in recovered_keys,
         )
+
+        if "forward_signals" not in recovered_keys:
+            restore_authored_plan_units(
+                sections_info, capital_plan_proposition(filing_excerpt or "", layout),
+            )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
