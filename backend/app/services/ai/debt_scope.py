@@ -27,8 +27,11 @@ evidence alone:
   or a net-cash position.
 
 Nothing here infers a scope, context, entity, basis or lease policy from a convenient amount
-match, and nothing rewrites a model sentence: an authored leverage claim is either admitted whole
-because it makes no debt claim, or replaced whole by the source-qualified statement.
+match, and nothing rewrites a model sentence. Model-authored leverage prose is not carried at all:
+review found that a denylist of debt words admits "Cash exceeded outstanding bonds and bank loans",
+an amount-free relationship claim no figure gate can see, and no small positive eligibility rule
+separates it from "equity rose" without classifying the sentence's meaning. The visible field is
+machine-authored or absent — see ``leverage_statement`` for the loss that accepts.
 """
 from __future__ import annotations
 
@@ -62,6 +65,7 @@ _NAMEABLE_GAPS: Tuple[str, ...] = (SCOPE_CURRENT_PORTION, SCOPE_SHORT_TERM, SCOP
 _SUBTOTAL_EXCLUSIONS = (
     "it covers borrowings only, not lease, deposit or other financial liabilities"
 )
+
 
 @dataclass(frozen=True)
 class DebtObservation:
