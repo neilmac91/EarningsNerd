@@ -4842,3 +4842,21 @@ The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now
 - [ ] Commit the correction for parent review before any mutation proof or full gate. Retain the original ten-consumer basis proof; no remote write or paid assessment is authorized by this checkpoint.
 
 Correction prepared for parent review: the duration selector retains its legacy bare-name return by default and exposes the qualified successful query only on request; capex opts in. No source-selection or normalizer behavior changes. The new control and full gate have not run; mutation proof awaits parent review. Existing companyfacts capex identity remains unavailable rather than inferred.
+
+### September 12 — #821 confirmed capex propagation correction proof
+
+Parent review cleared correction `0f72d715a41c6bd64d740b935b04c068b2d70175`. The focused committed control passed 4 tests, 34 deselected, 2 warnings in 3.83s. An earlier invocation without the established runtime/cache configuration produced no test output and was interrupted; it is not a passed or partial gate.
+
+Exactly one new mutation at `2832da1276e82f2b64ec22bd389e5b3c39dfa507` removed only capex `raw_tag` emission. Its test tail was:
+
+```text
+3 failed, 1 passed, 34 deselected, 2 warnings in 1.13s
+```
+
+Restoration `70c4bac90fb02468bf51569fd17bcd6383c9c2b2` restored the reviewed implementation and passed:
+
+```text
+4 passed, 34 deselected, 2 warnings in 0.98s
+```
+
+The original ten-consumer cash-basis proof remains unchanged and was not repeated. The first #821 assessments remain separate evidence; a second assessment is justified by the confirmed production extraction gap, not by a flake. Existing revenue namespace-prefix behavior is outside this correction; companyfacts and persisted missing capex identities remain unknown. Full committed Ruff/Bandit/pytest (including performance and four isolated PostgreSQL lanes) is next, before any publication or paid assessment.
