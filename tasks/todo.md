@@ -4999,7 +4999,6 @@ Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit 
 Pre-merge automated review identified that the earlier clean-worktree `git diff --check` did not inspect the committed archive. The actual committed range reports two intentional context-space lines in the immutable correction patch. The range check passes excluding only that patch, whose original hash is preserved; the [archive verification correction](review-evidence/authored-guidance-2026-09-12/README.md#documentation-verification-correction) records the exact command and two refutations. No merge preceded this correction.
 
 
-<<<<<<< HEAD
 ### September 12 — authored-unit proof and #824 integration
 
 The sole new authored-unit mutation `c510be6605f9c5617279db22c4d7049f9b53d319` disabled only the shared insertion. Actual final/preview plus source/action/year/scope negative controls yielded:
@@ -5049,7 +5048,8 @@ The approved third round ran once: summary CI `34707231389` / job `103589365066`
 The local correction separates the financial proposition from a bounded affirmative reporting grammar for the company, management or selected filing. Unknown subjects, denial, modals and prior sentences abstain. Source ownership, amount/year/action correspondence, quote/recovery safeguards and exact preservation remain unchanged. The actual third failure and representative attribution/polarity controls extend the existing consumer invariant; its original mutation proof is not repeated. Complete the committed gate, all retained-output comparison and independent review before presenting further assessment for approval.
 
 Metadata checks preserve all 52 identities/source/XBRL/coverage and deterministic cash fields, with 496 retained previews. One SE error and internal retry retain unknown usage and final-preview association `not_observed`; 2,364,849 tokens are known totals, not complete spend. Copilot accepts the 18 requested financial answers within its existing gate; inherited citation advisories and historical failures stay open. None of these bounded passes overrides the COST functional hold.
-=======
+
+
 ## September 12 — #826 verified and one additional #825 assessment approved
 
 #826 merged as `b36039e8a1af020c3d7310c7fd447b9544dbe458` at 16:13:10Z. Main CI `34704558305` passed; deploy job `103582557985` explicitly reported “No backend changes - skipping deploy.” at 16:16:17.2460461Z. It published the guidance hold evidence only; production remained verified #823 `earningsnerd-backend-00333-56s`.
@@ -5076,4 +5076,16 @@ Local bounded-grammar correction `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` has 
 This supersedes the prior local-gate-pending entry. Local unpublished `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` passed Ruff/Bandit, all four PostgreSQL lanes and performance: **2,936 passed, 29 warnings in 87.85s**, exit 0. Gate SHA-256 `9ebd13f100fcebafe64da8e5368b74c2b36e597ac89314c298acc6c76ab7d150`. The [verified correction archive](review-evidence/authored-guidance-third-2026-09-12/README.md#verified-local-correction-awaiting-an-assessment-decision) retains independent clearance, eleven unchanged locked anchors and offline replay of 156 outcomes correcting exactly the three missed COST strings. This is not a fourth model run or general paraphrase acceptance.
 
 The specifically approved third assessment is consumed and functionally held. #825 remains a draft at published `03f0df37711b90e2ba3f8b24e77256bae28bc62d`; another paid assessment and new code push require the next specific authorization. No merge or release is claimed; production remains verified #823.
->>>>>>> 82421c9807937f7b7d9a92cd362d1ef6e75ffcf4
+
+
+### September 12 — founder approves one fourth #825 assessment
+
+The founder explicitly approved one fourth assessment for the reviewed bounded reporting-grammar correction: 52 summary outcomes and 18 Copilot answers. This supersedes earlier fourth-assessment holds only for that one round. All three prior assessments, functional failures, unknown usage and the original single invariant proof remain retained. No fifth round, unchanged retry, broader generation, historical replay or production-setting change is authorized.
+
+Integrated docs-only #827 main `82421c9807937f7b7d9a92cd362d1ef6e75ffcf4` into the existing candidate. The backend tree remains identical to reviewed `07c549cb9ead90634393cb5eeb2d2ca5b311aa88`; every line of both ledger histories is preserved. The committed integrated gate precedes parent-owned publication and the single approved assessment. Actual final/preview guidance acceptance remains required; metadata or Copilot acceptance alone does not close the unit defect. No #825 release is claimed.
+
+During local integration, the resolution script stopped on a non-ASCII bytes literal before writing, but subsequent shell lines erroneously committed unresolved todo conflict markers as `c9a78326`. No gate, push or provider call occurred. A correcting commit restored exact prior-candidate bytes plus the exact new-main suffix; independent ordered-line checks preserve both complete histories. This dated record preserves the mistake without rewriting prior records.
+
+- [x] Record explicit fourth-assessment approval and integrate verified documentation.
+- [ ] Complete the committed integrated full gate and independent review.
+- [ ] Publish and inspect the one approved 52-summary/18-Copilot round; release only after scoped acceptance.
