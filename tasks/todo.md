@@ -4653,3 +4653,18 @@ Frontend's full restored gate is now complete on clean8e9: lint/TypeScript,106 f
 - [ ] Finish the separately integrated usage-conservation gate and release sequence before the next quality cohort. Preserve the prior mutation proof and all historical unknown-usage qualifications. Audit #816 and the code correction are not merged by this record.
 
 See the [dated audit update](audit-astra-2026-09-11.md#usage-correction-and-balance-prerequisite). The narrow T9 exception is already approved; source-provenance implementation and verification remain outstanding. Original founder boundaries and the universe-wide pregeneration/historical-replay hold remain in force.
+
+## September 12 — conserve evaluation provider usage (migration audit M3)
+
+- [x] Preserve observed provider usage on successful and failed baseline generations.
+- [x] Retain every outer retry's usage, with separate incurred totals and final-output metrics.
+- [x] Add one conservation invariant and one committed mutation proof; preserve all locked anchors.
+- [ ] Complete full gate, independent review, normal PR procedure and serial production verification.
+
+This correction changes measurement only. Prices, scoring, prompts, model, baseline, previews and
+production flags are unchanged. Historical W10 totals remain historical final-attempt measurements,
+not complete spend; no retrospective usage is invented.
+
+Local targeted verification: 101 passed, 2 warnings. The sole conservation mutation
+(discard failed-generation usage) failed all five scenarios, then the exact restored code passed
+all five. Full gate and hosted release remain pending; no provider calls were made.

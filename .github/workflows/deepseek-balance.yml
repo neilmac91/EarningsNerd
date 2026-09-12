@@ -1,0 +1,83 @@
+name: DeepSeek balance readout
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Read available provider balance
+        shell: bash
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import http.client
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+          from decimal import Decimal, InvalidOperation
+
+          def fail(message):
+              print(message, file=sys.stderr)
+              raise SystemExit(1)
+
+          key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+          if not key:
+              fail("Balance unavailable: DEEPSEEK_API_KEY is not configured.")
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          request = urllib.request.Request(
+              "https://api.deepseek.com/user/balance",
+              headers={"Authorization": "Bearer " + key, "Accept": "application/json"},
+              method="GET",
+          )
+          try:
+              with urllib.request.build_opener(NoRedirect()).open(request, timeout=15) as response:
+                  if response.status != 200:
+                      fail("Balance unavailable: unexpected HTTP status.")
+                  body = response.read(65537)
+              if len(body) > 65536:
+                  fail("Balance unavailable: response exceeds size limit.")
+          except urllib.error.HTTPError as exc:
+              fail(f"Balance unavailable: HTTP {exc.code}; check credential, quota or provider status.")
+          except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException):
+              fail("Balance unavailable: transport failed or timed out.")
+
+          try:
+              payload = json.loads(body)
+              if not isinstance(payload, dict) or type(payload.get("is_available")) is not bool:
+                  raise ValueError
+              rows = payload["balance_infos"]
+              if not isinstance(rows, list) or not 1 <= len(rows) <= 10:
+                  raise ValueError
+              normalized = []
+              for row in rows:
+                  if not isinstance(row, dict) or row.get("currency") not in ("CNY", "USD"):
+                      raise ValueError
+                  item = {"currency": row["currency"]}
+                  for field in ("total_balance", "granted_balance", "topped_up_balance"):
+                      value = row[field]
+                      if not isinstance(value, str) or not 1 <= len(value) <= 64:
+                          raise ValueError
+                      number = Decimal(value)
+                      if not number.is_finite() or not -Decimal("1e12") <= number <= Decimal("1e12"):
+                          raise ValueError
+                      # Bound fixed-point formatting even for hostile exponent strings.
+                      if not -12 <= number.as_tuple().exponent <= 12:
+                          raise ValueError
+                      item[field] = format(number, "f")
+                  normalized.append(item)
+          except (ValueError, KeyError, TypeError, InvalidOperation, UnicodeError, RecursionError):
+              fail("Balance unavailable: provider returned an invalid balance schema.")
+          print(json.dumps({"is_available": payload["is_available"], "balance_infos": normalized}))
+          PY
