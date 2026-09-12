@@ -339,3 +339,8 @@ lanes passed with no skips:
 Independent read-only review confirms the previously reported blockers are closed.
 Duration-versus-fiscal-scope guards cover current, prior and margin-denominator operands. Ten locked anchors remain unchanged; T9 contains only the founder-approved seven expected-dictionary additions. Existing undated records remain untouched and may still abstain.
 Both branch gates are separate; textual merge preview is conflict-free but does not substitute for testing the combined committed state. No publication, paid assessment, merge to main or production verification has occurred for either candidate.
+
+
+### Combined A+B local gate — 2026-09-12
+
+Integrated A's reviewed release candidate into B at `c22bcbf04c254f288cdd00ca81752e7ec13fcaf5`. The shared extraction/test files merged without textual conflicts. Full committed-state Ruff/Bandit/pytest passed on PostgreSQL 15.15 with four isolated concurrency databases and performance included: `3071 passed, 29 warnings in 92.80s (0:01:32)`, zero skipped, exit 0. This verifies the combined code locally, not production or model acceptance. B remains unpublished while A PR #829 is assessed and awaits serial deployment verification.
