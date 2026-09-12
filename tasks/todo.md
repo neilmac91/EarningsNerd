@@ -4680,3 +4680,15 @@ First CI 34686113163 accepted all 52 expected summary outcomes; 52 calls with no
 #818 squash `3ea7fc27455418716c9819836d26ce9d59646158` merged at 2026-09-12T09:42:37Z. Main CI 34686557889 passed. Deploy job 103534841757 reported `apply_migrations: applied=0 skipped=39` at 09:48:22.4327398Z; revision `earningsnerd-backend-00330-24t` serves 100% at 09:49:10.0902820Z, with explicit traffic confirmation at 09:49:11.1367937Z. CI detailed health was healthy at 09:49:42.9211120Z (database 6.54 ms); independent saved health was healthy (database 6.18 ms, timestamp 1789206591.1288583; Redis disabled, SEC closed). The previous backend release was verified before this merge.
 
 Historical omitted provider usage remains unknown. This accounting release changes no prompt, model, source acquisition, frontend or baseline. It does not clear financial-quality findings or release universe-wide pregeneration/historical replay. The exact T9 metadata exception is approved; #808 local integration `047696da` passes 2,878 tests/29 warnings in 95.27s, but remains unpublished and requires current-model acceptance. Original founder-held rollout, legal, account and dependency prerequisites remain.
+
+
+## September 12 — post-audit continuation correction
+
+Audit #816 merged as `2e2cfabd690e8e6abeaa3db01ef6c5eec442995f`. A late automated review correctly identified that its newly added continuation section still described the pre-#818 checkpoint and could repeat completed gates, usage repair and a paid-work prerequisite. Root fetched review comments and issued merge in the same tool invocation, so the finding was not evaluated before the merge. The merge was confirmed remotely and was not retried. The founder was informed immediately; this docs-only follow-up corrects the current continuation section before the next quality publication. The original September 11 handover and previous-session ledgers remain intact.
+
+Two refutations were attempted. First, following the audit link yields the correct release evidence, but does not remove the conflicting explicit instructions in the higher-priority continuation document. Second, actual #818 merge/main CI/deployment and completed balance/assessment records prove those tasks are complete; no unfinished execution justifies the old instructions. The finding survives both checks. No duplicate paid assessment or deployment followed it.
+
+- [x] Complete and production-verify usage conservation #818; retain original proof and actual assessment evidence.
+- [x] Merge audit #816; correct the stale current continuation state in this follow-up.
+- [ ] Resume #808 after this correction: its approved T9 consolidation passes 2,878 local tests but needs final documentation integration, committed verification and current-Flash hosted acceptance.
+- [ ] Continue cash-flow basis, source-qualified explanations, bounded source coverage and remaining original master-plan items; no broad pregeneration or historical replay.
