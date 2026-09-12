@@ -368,9 +368,12 @@ def debt_grounding_lines(view: DebtScopeView, format_amount: Any) -> List[str]:
             f"({_SUBTOTAL_EXCLUSIONS})."
         )
     else:
-        gaps = "; ".join(view.missing_scopes) or "other borrowings"
+        limitation = (
+            f"Not separately reported here: {'; '.join(view.missing_scopes)}."
+            if view.missing_scopes else "The reported scopes overlap; no non-overlapping subtotal is established."
+        )
         lines.append(
-            f"- Debt scope: NOT established. Not separately reported here: {gaps}. Report ONLY "
+            f"- Debt scope: NOT established. {limitation} Report ONLY "
             "the component(s) above with their stated scope; do NOT add them into a total, call "
             "any of them total debt, net debt or net cash, or state a debt-to-equity ratio."
         )
@@ -447,12 +450,13 @@ def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
             f"separately on this basis, though {_SUBTOTAL_EXCLUSIONS}, so it is not a total "
             "obligations measure."
         )
-    gaps = "; ".join(view.missing_scopes) or "other borrowings"
     scope_note = (
-        f"Not separately reported in this filing's standardized data: {gaps}."
-        if primary.scope else
-        "The concept behind this balance does not establish which maturities it covers."
+        f"Not separately reported in this filing's standardized data: {'; '.join(view.missing_scopes)}."
+        if view.missing_scopes else
+        "The reported scopes overlap; no non-overlapping subtotal is established."
     )
+    if not primary.scope:
+        scope_note = "The concept behind this balance does not establish which maturities it covers."
     return (
         f"Identified debt{dated}{basis}: {listed}. {scope_note} Total debt, net debt and "
         "debt-to-equity are therefore not stated."
