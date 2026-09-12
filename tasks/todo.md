@@ -5,6 +5,7 @@
 - [x] Keep released d explanation behavior. Rejected/unreleased #805 e code is absent; f retains its locally reserved cash identifier and advances directly from released d. No historical note implies e shipped.
 - [ ] Complete full committed Ruff/Bandit/pytest gate with performance, four dedicated PostgreSQL lanes and eleven unchanged locked anchors; independent review remains before publication.
 - [ ] Inspect authorized actual summary/Copilot and all-surface cash-basis outcomes before release. Existing formula, source selection, provider and held replay/universe workloads remain unchanged. This is basis disclosure, not full financial quality acceptance.
+
 ## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
 
 Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).
@@ -2408,7 +2409,8 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s =```
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
+```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
 The existing asynchronous Yahoo-client shutdown logging diagnostic follows the passing
