@@ -5131,3 +5131,15 @@ This dated correction supersedes earlier candidate-only debt status without rewr
 - [ ] Continue source completeness and general citation work, then scoped independent quality acceptance. A deterministic PASS is not world-class quality clearance.
 
 This dated correction supersedes earlier B publication/deployment-pending status. Earlier failures and assessments remain intact. Notable waits for the review-week retain decision through September 15; Analysis still needs warm-up/live acceptance; W3-7 needs its prescribed strong-judge artifact/decision, followed by serial W3-8 work under the existing timing rule. E06 awaits natural payment delivery evidence; E09 remains proposal-only. Major dependencies, D8/#270 and other founder-held settings remain held. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 13 — financing comparison implementation started
+
+Founder authorizes continued implementation and necessary bounded assessment spend within the existing DeepSeek budget. No universe-wide pregeneration or historical replay. Base main `fcffd060dc3cacb92a71f01ff15136807e872143`; previous backend #831 is production-verified.
+
+- [ ] Preserve the winning financing facts' source descriptors without changing selected values or performing extra SEC fetches. Parsed empty dimensions alone do not prove scope; inspect already-loaded context XML, otherwise abstain.
+- [ ] Replace newly generated capital-allocation inference with a source-qualified financing comparison and exact source-attributed passages through the existing final/preview/shared-render owners. Legacy rows remain legacy. No unsupported sibling analysis may bypass the new representation.
+- [ ] Prove source-to-visible ownership with integrated positive/adversarial controls, unchanged locked anchors and one mutation proof per new invariant; run full committed gates.
+- [ ] Independently review, assess actual outputs and release serially; retain unsupported scope and other financial-interpretation findings.
+
+AAPL distributions/OCF and issuer-adjusted FCF remain separate accounting follow-ups. Preserve useful source explanation instead of replacing the field with metadata alone. Unknown source context is unavailable, not consolidated.
