@@ -4983,3 +4983,8 @@ The [second functional review](review-evidence/authored-guidance-2026-09-12/pr82
 Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit and the full four-PostgreSQL-lane/performance gate: **2,929 passed, 29 warnings in 119.95s**, exit 0. [Verification and patch](review-evidence/authored-guidance-2026-09-12/README.md#latest-local-correction-gated-and-awaiting-assessment-authorization) retain the exact correction and gate hash. Offline comparison of 104 outcomes corrects only the two previously missed strings; this does not replace actual acceptance. Independent review cleared the delta, all eleven locks are unchanged, and the original proof is not repeated.
 
 #825 remains a draft at published `604a457c4e755e27cdf8d7f1b1ca6f403f315b38`. Both authorized assessment rounds are used; no third round or additional code push is approved. The local fix is concrete and reviewable for an additional-assessment decision. No merge/deployment is claimed; production remains verified #823 `earningsnerd-backend-00333-56s`. Previous pending local-gate entries are historical.
+
+
+### September 12 — #826 documentation whitespace verification correction
+
+Pre-merge automated review identified that the earlier clean-worktree `git diff --check` did not inspect the committed archive. The actual committed range reports two intentional context-space lines in the immutable correction patch. The range check passes excluding only that patch, whose original hash is preserved; the [archive verification correction](review-evidence/authored-guidance-2026-09-12/README.md#documentation-verification-correction) records the exact command and two refutations. No merge preceded this correction.

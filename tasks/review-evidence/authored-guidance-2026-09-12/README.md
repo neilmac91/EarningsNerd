@@ -56,3 +56,13 @@ Root prepared local correction `d19c782bf488463d93e26c33d76ded6a07cc003e`, addin
 ```
 
 Ruff, Bandit, performance and all four PostgreSQL lanes passed, exit 0. Gate log `work/authored-units-reporting-gate.log` SHA-256: `f6e4b3d7155e081365327beca60870c67dba11b594b76a938ed9d1d3f826e438`. All eleven locked anchors remain unchanged. The original proof was not repeated. #825 remains a draft at published `604a457c4e755e27cdf8d7f1b1ca6f403f315b38`; no additional code push or third paid round is approved. Only this documentation hold record is prepared for publication.
+
+## Documentation verification correction
+
+The initial clean-worktree whitespace check did not inspect the committed additions. Checking the actual range detects two intentionally retained patch-context lines (19 and 51) with trailing spaces. The immutable patch remains byte-identical. The committed-range check passes when excluding only that evidence file:
+
+```sh
+git diff --check 8dd880d977dd8484acb50466dacbe1fcc9e62052 HEAD -- . ':(exclude)tasks/review-evidence/authored-guidance-2026-09-12/pr825-reporting-correction.patch'
+```
+
+Two refutations were attempted: the actual base/head range reproduces the whitespace finding, so the earlier clean-worktree result is insufficient; inspection of the two lines establishes unified-diff context, not changed executable source, so preserving their bytes is appropriate. No other file is excluded, and archive hashes remain verified.
