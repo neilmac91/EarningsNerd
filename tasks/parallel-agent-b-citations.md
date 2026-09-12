@@ -324,3 +324,18 @@ never `period_start`, so they are unaffected — a quarterly point labelled `FY`
 those readers before any of this work, unchanged by it. The only readers that newly gain data are
 `copilot_tools._has_duration`, `_prior_comparable` and the margin `period_start` equality, all on
 the computed path corrected here.
+
+
+### Codex revision integration review — 2026-09-12
+
+Reviewed and gated code head `6310fbb0bc61a871647083bf4160f7c66068f295`. Ruff passed, Bandit exited 0, and the full
+backend suite including performance and all four isolated PostgreSQL 15.15 concurrency
+lanes passed with no skips:
+
+```text
+3006 passed, 29 warnings in 103.52s (0:01:43)
+```
+
+Independent read-only review confirms the previously reported blockers are closed.
+Duration-versus-fiscal-scope guards cover current, prior and margin-denominator operands. Ten locked anchors remain unchanged; T9 contains only the founder-approved seven expected-dictionary additions. Existing undated records remain untouched and may still abstain.
+Both branch gates are separate; textual merge preview is conflict-free but does not substitute for testing the combined committed state. No publication, paid assessment, merge to main or production verification has occurred for either candidate.
