@@ -4783,3 +4783,21 @@ This supersedes the preceding integrated historical pending-gate/assessment/merg
 - [x] Merge #808 as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at2026-09-12T11:39:24Z.
 - [ ] Verify running main CI34691615781, actual migration tail, revision at100%, and CI/independent detailed health; append the evidence before the next backend release.
 - [ ] Publish this archive only after root adds production evidence and authorizes it. Cash-basis publication, financial-quality work and original founder holds remain as above.
+
+## September 12, 11:47 UTC — #808 production verified
+
+This dated record supersedes earlier pending-assessment, pending-merge and pending-deployment entries. [PR #808](https://github.com/neilmac91/EarningsNerd/pull/808) merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at 11:39:24 UTC. [Main CI 34691615781](https://github.com/neilmac91/EarningsNerd/actions/runs/34691615781) and deploy job `103548163219` succeeded. The deploy log records:
+
+```text
+2026-09-12T11:45:06.9511863Z apply_migrations: applied=0 skipped=39
+2026-09-12T11:46:04.9189989Z   100% LATEST (currently earningsnerd-backend-00331-tfm)
+```
+
+CI detailed health passed at 11:46:44 UTC (database 5.68 ms). Independent `curl -fsS https://api.earningsnerd.io/health/detailed` returned healthy with database 5.27 ms and server timestamp `1789213665.7251222`. The final committed gate passed 2,878 tests with 29 warnings in 83.93 seconds, including performance and all four PostgreSQL lanes; Ruff and Bandit passed. Both actual second assessments were accepted within their documented limits, with 52 summary outcomes and 18 Copilot answers. Original failed evidence and material debt-scope findings remain preserved. This is no general financial-quality or universal citation-compliance clearance.
+
+- [x] Complete #808 merge and serial production verification; do not repeat either paid assessment or the merge.
+- [x] Integrate the separate cash-basis candidate with #808 at `37401e996c980fbdf01306fcb1472601b31c2eed`: 2,888 tests passed, 29 warnings, 93.77 seconds; all eleven locked anchors match new main.
+- [ ] Publish and assess that cash-basis slice after any subsequent documentation integration and committed gate. Its local gate is not actual-output or production acceptance.
+- [ ] Continue source-unit ownership, compatible accounting/explanation relationships, typed numerical comparisons and scoped guidance coverage. Current reviews still contain material financial findings.
+
+E06 event-selection configuration is complete under the exact approval; naturally occurring delivery and attribution remain unobserved. No test event or replay was sent. Notable retain review through September 15, Analysis warm-up/live acceptance, the exact W3-7 strong-judge readout/arm decision, serial W3-8 re-pins, E09 proposal decisions, major dependencies, D8/#270, CI-only DeepSeek key and other named founder prerequisites remain as recorded. Universe-wide pregeneration and historical replay remain held; Flash with thinking off is unchanged.

@@ -1,6 +1,6 @@
 # Current-Flash assessment archive — September 12, 2026
 
-These snapshots preserve the original review text verbatim. Their `work/` paths identify local retained evidence and are not repository artifacts; original source payloads and private scratch files are not added here. Source checks were targeted, not exhaustive original-filing coverage. Reviews concern the #818 baseline unless explicitly identified as #808 first assessment. They do not certify all production output.
+These snapshots preserve the original review text verbatim. Their `work/` paths identify local retained evidence and are not repository artifacts; original source payloads and private scratch files are not added here. Source checks were targeted, not exhaustive original-filing coverage. Reviews concern the #818 baseline unless explicitly identified as a first or second #808 assessment. They do not certify all production output.
 
 - [Earnings review](flash-earnings-review-20260912.md)
 - [Cash, debt and guidance review](flash-cash-guidance-review-20260912.md)
@@ -34,3 +34,25 @@ The [final-head summary assessment](pr808-flash-summary-second-acceptance.md) ac
 Material narrative limitations remain: WMT draw1 omits separate short borrowings from “total debt”; COIN draw1 omits short borrowings; both ASML summary attempts omit the €990.2M current portion when adding noncurrent debt and ECP. ASML comparable carrying debt is €4,390.9M. Metadata improved without certifying financial meaning. Two ASML Copilot draws remain uncited as recorded separately.
 
 [#808](https://github.com/neilmac91/EarningsNerd/pull/808) merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at2026-09-12T11:39:24Z. Main CI34691615781 is running; no migration/revision/health or completed deployment is claimed. Earlier pending-summary and pending-merge text is superseded; production verification remains a prerequisite before the next backend merge or archive publication.
+
+## September 12, 11:47 UTC — #808 production verified
+
+This dated record supersedes earlier pending-assessment, pending-merge and pending-deployment entries. [PR #808](https://github.com/neilmac91/EarningsNerd/pull/808) merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at 11:39:24 UTC. [Main CI 34691615781](https://github.com/neilmac91/EarningsNerd/actions/runs/34691615781) and deploy job `103548163219` succeeded. The deploy log records:
+
+```text
+2026-09-12T11:45:06.9511863Z apply_migrations: applied=0 skipped=39
+2026-09-12T11:46:04.9189989Z   100% LATEST (currently earningsnerd-backend-00331-tfm)
+```
+
+CI detailed health passed at 11:46:44 UTC (database 5.68 ms). Independent `curl -fsS https://api.earningsnerd.io/health/detailed` returned healthy with database 5.27 ms and server timestamp `1789213665.7251222`. The final committed gate passed 2,878 tests with 29 warnings in 83.93 seconds, including performance and all four PostgreSQL lanes; Ruff and Bandit passed. Both actual second assessments were accepted within their documented limits, with 52 summary outcomes and 18 Copilot answers. Original failed evidence and material debt-scope findings remain preserved. This is no general financial-quality or universal citation-compliance clearance.
+
+- [x] Complete #808 merge and serial production verification; do not repeat either paid assessment or the merge.
+- [x] Integrate the separate cash-basis candidate with #808 at `37401e996c980fbdf01306fcb1472601b31c2eed`: 2,888 tests passed, 29 warnings, 93.77 seconds; all eleven locked anchors match new main.
+- [ ] Publish and assess that cash-basis slice after any subsequent documentation integration and committed gate. Its local gate is not actual-output or production acceptance.
+- [ ] Continue source-unit ownership, compatible accounting/explanation relationships, typed numerical comparisons and scoped guidance coverage. Current reviews still contain material financial findings.
+
+E06 event-selection configuration is complete under the exact approval; naturally occurring delivery and attribution remain unobserved. No test event or replay was sent. Notable retain review through September 15, Analysis warm-up/live acceptance, the exact W3-7 strong-judge readout/arm decision, serial W3-8 re-pins, E09 proposal decisions, major dependencies, D8/#270, CI-only DeepSeek key and other named founder prerequisites remain as recorded. Universe-wide pregeneration and historical replay remain held; Flash with thinking off is unchanged.
+
+### Local archive merge correction
+
+During integration of main, a local conflict cleanup briefly shortened one historical pytest separator line. The original line was restored before publication. The final integrated `tasks/todo.md` diff against main was checked as additions only; no earlier published ledger text is replaced. This was a local preparation error, not a released test result or a gate failure. The earlier cash-worktree incident remains separately recorded.
