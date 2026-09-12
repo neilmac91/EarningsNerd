@@ -45,6 +45,7 @@ from .instance_extractor import (
     INSTANT_CONCEPTS,
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
+    debt_component_observations,
     dividend_component_sum_series,
     duration_series_with_starts,
     extract_financial_statement_metrics,
@@ -463,6 +464,27 @@ def _extract_from_filing_instance_sync(
     # Filing-level reporting currency = the currency carried by the most monetary facts.
     if currency_votes:
         result["reporting_currency"] = max(currency_votes.items(), key=lambda kv: kv[1])[0]
+
+    # Source-qualified DEBT observations from the SAME `xb` instance (no extra SEC round-trip;
+    # rule 5 — these are in-memory queries over the already-parsed instance). Additive evidence
+    # beside the `long_term_debt` series above, which stays exactly as selected: one
+    # first-candidate-wins value cannot say WHICH obligations it covers, so a scope claim needs
+    # each admissible concept retained separately with its own concept/instant/currency/context/
+    # entity identity. Filtered to the reporting currency resolved just above, so a foreign
+    # issuer's USD convenience translation is not mistaken for a conflicting balance. Absent for a
+    # filer tagging none of the admissible concepts — which downstream reads as "not separately
+    # reported", never as zero. Best-effort: this must never break the metrics path.
+    try:
+        debt_observations = debt_component_observations(
+            xb, period_of_report,
+            reporting_currency=result.get("reporting_currency"),
+            accession_number=accession_number, form=form,
+        )
+    except Exception as exc:  # noqa: BLE001 - debt evidence must never break metric extraction
+        logger.warning(f"Debt observation extraction failed for {accession_number}: {exc}")
+        debt_observations = []
+    if debt_observations:
+        result["debt_observations"] = debt_observations
 
     # Item A: attach the issuer's locked ADS ratio (ratio != 1 ADRs only) so the standardized
     # metrics can surface a per-ADS EPS alongside the as-filed per-ordinary-share figure. Absent
@@ -1237,6 +1259,15 @@ class EdgarXBRLService:
         segments = xbrl_data.get("segments")
         if isinstance(segments, list) and segments:
             metrics["segments"] = segments
+
+        # Source-qualified debt observations (debt-scope slice): passed through unchanged, like
+        # `segments` — an evidence annotation, not a standardized metric, so it deliberately does
+        # NOT get a current/prior/series entry. The shared debt-scope owner (`ai/debt_scope.py`)
+        # turns these into the grounding label and the visible leverage statement. Absent on rows
+        # extracted before this slice; that absence is unknown scope, never zero debt.
+        debt_observations = xbrl_data.get("debt_observations")
+        if isinstance(debt_observations, list) and debt_observations:
+            metrics["debt_observations"] = debt_observations
 
         # Same-period derived ratios/flows inherit the fiscal label of their source values.
         labels = {}

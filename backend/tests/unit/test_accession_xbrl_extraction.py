@@ -15,6 +15,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.services.edgar import xbrl_service as xbrl_module
+from app.services.edgar.debt_concepts import DEBT_COMPONENT_CONCEPTS
 from app.services.edgar.instance_extractor import (
     DURATION_CONCEPTS,
     duration_in_window,
@@ -604,7 +605,14 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
-    assert calls == ['us-gaap:NetIncomeLoss'] + expected_queries
+    # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
+    # concepts, AFTER metric selection: the pair assertion above still holds byte-for-byte, so
+    # selection queries, retries and precedence are unchanged, and these are in-memory queries over
+    # the same parsed instance (no SEC request). Pinned against the registry rather than a copied
+    # literal, so a registry entry costs exactly one query here and a second pass would fail.
+    assert calls == (
+        ['us-gaap:NetIncomeLoss'] + expected_queries + list(DEBT_COMPONENT_CONCEPTS)
+    )
     service = EdgarXBRLService()
     standardized = service.extract_standardized_metrics(raw)
     expected_raw = [{'period': end, 'value': value, 'form': '10-K', 'accn': accession,
@@ -712,7 +720,14 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
     monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
-    assert calls == ['us-gaap:NetIncomeLoss'] + expected_queries
+    # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
+    # concepts, AFTER metric selection: the pair assertion above still holds byte-for-byte, so
+    # selection queries, retries and precedence are unchanged, and these are in-memory queries over
+    # the same parsed instance (no SEC request). Pinned against the registry rather than a copied
+    # literal, so a registry entry costs exactly one query here and a second pass would fail.
+    assert calls == (
+        ['us-gaap:NetIncomeLoss'] + expected_queries + list(DEBT_COMPONENT_CONCEPTS)
+    )
     if qualified:
         expected_raw = [
             {'period': end, 'value': value, 'form': '10-K', 'accn': accession,
