@@ -78,6 +78,18 @@
       "bytes": 3071,
       "sha256": "e7174b258334a0d7398610f821952a4d383dd77b987a52cf35d871bdbc2a553b",
       "original_private_path": "work/pr825-fourth-summary-usage.json"
+    },
+    {
+      "file": "pr825-release-verification.md",
+      "bytes": 1201,
+      "sha256": "fc60c76e7f5ea3ffef0e410415d49f2a378b08cbcf97aec9be6f9632fde21d0e",
+      "original_private_path": "work/pr825-release-verification.md"
+    },
+    {
+      "file": "pr825-independent-health.json",
+      "bytes": 287,
+      "sha256": "b96a1e1b50e745cac1ed3d720027f0de271365a5d62fd6b5c8302f9e1a2f888f",
+      "original_private_path": "work/pr825-independent-health.json"
     }
   ]
 }

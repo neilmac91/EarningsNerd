@@ -1,0 +1,1 @@
+{"status":"healthy","checks":{"database":{"healthy":true,"latency_ms":7.9},"redis":{"healthy":true,"disabled":true,"latency_ms":0.0},"sec_edgar_circuit":{"state":"closed","healthy":true,"stats":{"total_requests":0,"success_rate":0,"rejected_requests":0}}},"timestamp":1789236229.8216112}
