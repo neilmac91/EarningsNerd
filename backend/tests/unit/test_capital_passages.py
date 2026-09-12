@@ -12,6 +12,8 @@ MELI = (
     "expenses and other financial losses, respectively."
 )
 LABEL = "FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n"
+PREFIX = "Selected source context before the passage.\n"
+SUFFIX = "\nFollowing source context remains available.\n"
 
 
 def select(source):
@@ -21,7 +23,7 @@ def select(source):
 
 
 def test_actual_financing_explanation_requires_owned_complete_unique_paragraph():
-    assert select(LABEL + MELI + "\n\nNext source paragraph.") == [MELI]
+    assert select(LABEL + PREFIX + MELI + SUFFIX) == [MELI]
     assert select(MELI + "\n") == []  # unknown source family
     assert select("ITEM 1A - RISK FACTORS:\n" + MELI + "\n") == []
     assert select(LABEL + MELI) == []  # cannot prove the final paragraph is complete
@@ -41,7 +43,7 @@ def test_ranking_never_admits_table_join_unscaled_amount_or_risk_paragraph():
 
 def test_source_order_breaks_equal_topic_rank_and_returns_only_one():
     second = MELI.replace("Furthermore,", "Separately,")
-    source = LABEL + MELI + "\n" + second + "\n"
+    source = LABEL + PREFIX + MELI + "\n" + second + SUFFIX
     assert select(source) == [MELI]
 
 
@@ -64,5 +66,13 @@ def test_direct_financing_context_wins_over_actual_earlier_fcf_definition():
         'al assets balance for the year. Therefore, we believe it is important to view the adjusted free'
         ' cash flow measure only as a complement to our entire consolidated statements of cash flows.'
     )
-    source = LABEL + definition + "\nAdjusted free cash flow reconciliation\n1,481\n" + MELI + "\n"
+    source = LABEL + PREFIX + definition + "\nAdjusted free cash flow reconciliation\n1,481\n" + MELI + SUFFIX
     assert select(source) == [MELI]
+
+
+def test_generated_separators_do_not_certify_clipped_block_edges():
+    # Producers can append a separator after a cap lands at an internal sentence period.
+    assert select(LABEL + MELI + "\n\n") == []
+    assert select(LABEL + PREFIX + MELI + "\n\n") == []
+    assert select(LABEL + MELI + SUFFIX) == []
+    assert select(LABEL + PREFIX + MELI + SUFFIX) == [MELI]

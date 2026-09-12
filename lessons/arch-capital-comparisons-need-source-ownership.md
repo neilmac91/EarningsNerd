@@ -12,3 +12,6 @@ Existing gates: `backend/tests/unit/test_financing_source.py` and `test_financin
 
 
 September 13 assessment correction: both actual MELI draws omitted available financing explanation even after the comparison was corrected. Source qualification alone does not ensure selection. A bounded fallback may choose one complete, unique paragraph from identified MD&A/financial context when no offered passage qualifies; relevance ranking does not establish causality. Keep exact-source and denomination checks, defer preview quotations without source, and inspect actual choices before assessment. Risk/unlabelled text is ineligible. The first assessment and missing pre-binding evidence remain recorded rather than assigning an unsupported cause.
+
+
+Boundary correction before publication: independent review found both extraction caps and recovery allocation can append synthetic separators after a cut line. The fallback now excludes first and last nonempty lines of every source block. It selects an internal verbatim source passage; this is not proof of an original HTML paragraph or complete surrounding context. Actual MELI selection remains internal. The pre-correction committed gate passed 3,096 tests; that pass did not refute the subsequently confirmed boundary defect. Final corrected gates and actual assessment remain required.

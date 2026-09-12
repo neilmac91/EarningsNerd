@@ -165,7 +165,9 @@ async def test_actual_apple_program_preserves_per_share_denominations_and_dates(
 async def test_real_meli_explanation_survives_empty_model_selection(monkeypatch):
     # Exact paragraph from retained #833 source, not a model-authored explanation.
     passage = 'Furthermore, the evolution of Mercado Pago’s activities themselves has resulted in the Company managing a significant volume of cash, cash equivalents and investments. This is due to an increase in users’ account balances in their Mercado Pago digital account managed by the Company, and an increase in the level of the Company’s indebtedness to finance those operations. As a result, these Mercado Pago’s funds, together with the financing activities, have generated a significant volume of interest income and other financial gains and interest expenses and other financial losses, respectively.'
-    source = "FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n" + passage + "\n\n"
+    source = ("FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n"
+              "Selected accounting context preceding the passage.\n" + passage
+              + "\nFollowing accounting context remains available.\n")
     _raw, xbrl = metrics(monkeypatch)
     service = OpenAIService()
     supplied = structured()

@@ -53,3 +53,6 @@ Automated review separately confirmed a coverage limit: persisted-first XBRL can
 
 
 The preservation correction adds one distinct invariant: an empty model selection must not discard an available qualifying complete paragraph from identified financial/MD&A source. It receives one additional committed mutation proof disabling that fallback, with the actual MELI paragraph as the source-to-visible control. The two original source-comparison and quote-trust proofs remain retained unchanged. No new provider call or source acquisition is added to generation. Exact contained-quote deduplication also removes the MSFT repetition observed in the first assessment.
+
+
+Boundary correction before publication: independent review found both extraction caps and recovery allocation can append synthetic separators after a cut line. The fallback now excludes first and last nonempty lines of every source block. It selects an internal verbatim source passage; this is not proof of an original HTML paragraph or complete surrounding context. Actual MELI selection remains internal. The pre-correction committed gate passed 3,096 tests; that pass did not refute the subsequently confirmed boundary defect. Final corrected gates and actual assessment remain required.

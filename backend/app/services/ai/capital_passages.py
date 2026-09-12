@@ -1,4 +1,4 @@
-"""Select one attributed financing paragraph from already labelled filing context.
+"""Select one attributed financing passage from already labelled filing context.
 
 Ranking establishes relevance only, never a cause, numerical relationship or source fact.
 No text is assembled, rewritten or fetched; an uncertain source boundary abstains.
@@ -34,18 +34,19 @@ _WORD = re.compile(r"\b[A-Za-z][A-Za-z’'-]*\b")
 
 
 def fallback_capital_passages(source_text: str, qualifies: Callable[[str], bool]) -> list[str]:
-    """One complete existing paragraph, restricted to labelled financial/MD&A source.
+    """One internal verbatim source passage, restricted to labelled financial/MD&A source.
 
-    Only single source lines qualify: wrapped prose and tables are not joined into guessed
-    paragraphs. The line must terminate in sentence punctuation and have a following newline;
-    a source ending mid-paragraph (even at a period) cannot establish a complete boundary.
+    Only internal physical source lines qualify: wrapped prose and tables are not joined.
+    Block-edge lines can be clipped by extraction/recovery before a synthetic separator;
+    exclude both edges even when they end at a sentence. This is not HTML-paragraph proof.
     ``qualifies`` is the binder's existing unique-source/length/number-denomination guard.
     """
     ranked: list[tuple[int, int, str]] = []
     for block in recovery_blocks(source_text, _LAYOUT):
         if not block.families or not set(block.families) <= {"financials", "mda"}:
             continue
-        for line in block.text.splitlines():
+        lines = [line for line in block.text.splitlines() if line.strip()]
+        for line in lines[1:-1]:
             paragraph = line.strip()
             if (not 25 <= len(paragraph) <= 2000 or not paragraph[0].isupper()
                     or not paragraph.endswith((".", ".”", '."'))
