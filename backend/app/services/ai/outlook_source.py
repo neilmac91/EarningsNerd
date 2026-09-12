@@ -27,4 +27,4 @@ def outlook_supplement(mda: str, existing_excerpt: str, prefix_cap: int) -> str:
     if block in existing_excerpt:
         return ""
     wrapped = f"\n\n{OUTLOOK_LABEL}:\n{block}"
-    return wrapped if len(wrapped) <= MAX_OUTLOOK_SUPPLEMENT_CHARS else ""
+    return ""  # mutation: omit available Outlook source
