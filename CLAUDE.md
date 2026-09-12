@@ -10,12 +10,12 @@ TypeScript + Tailwind + React Query on Vercel | AI via OpenAI-compatible client 
 `AI_DEFAULT_MODEL`) | Stripe, Resend, PostHog + Vercel Analytics, Sentry. Redis is dev-only;
 prod runs the L1 in-memory cache (ADR-0004).
 
-## Read before working
+## Context by task
 
 - `lessons/README.md` — hard-won operating rules, one file each. Scan the index; open what applies.
-- `docs/adr/` — settled decisions (Cloud Run, edgartools, Redis-off-in-prod, React 18,
+- `docs/adr/` — consult when changing architectural decisions; settled decisions (Cloud Run, edgartools, Redis-off-in-prod, React 18,
   DeepSeek supersedes Gemini). Don't re-litigate; supersede with a new ADR.
-- `docs/ARCHITECTURE.md` — system map (services, routers, data model, patterns).
+- `docs/ARCHITECTURE.md` — consult for service boundaries, data flow, and architectural changes.
 - `frontend/DESIGN_SYSTEM.md` — MANDATORY before any UI work; link it in subagent briefs.
 - `backend/evals/RUNBOOK.md` — MANDATORY before changing prompts, models, or AI flags.
 - Reference detail lives in `docs/CONFIGURATION.md` (env vars), `docs/OPERATIONS.md`
@@ -148,13 +148,16 @@ Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.m
 
 ## Workflow
 
-- **Plan first:** plan mode for any non-trivial task (3+ steps or architectural decisions); write
-  the plan to `tasks/todo.md` with checkable items and check in before implementing. If something
-  goes sideways, STOP and re-plan — don't keep pushing.
-- **Subagents:** offload research/exploration to subagents (`.claude/agents/`), one task each, to
-  keep the main context clean.
-- **Verify before done:** never mark complete without demonstrating correctness — run the gates,
-  diff behavior vs main, check logs. Ask: "Would a staff engineer approve this?"
+- **Planning:** use a short plan for work with meaningful dependencies or architectural choices;
+  record substantial work in `tasks/todo.md`. Resolve routine implementation choices directly.
+  Re-plan when evidence changes the approach; ask only when a decision needs founder input.
+- **Completion:** continue authorized work through implementation, applicable verification and
+  fixes for failures caused by the change. Make the result reviewable before returning; preserve
+  explicit approval and release boundaries. Report any remaining blocker precisely.
+- **Subagents:** delegate bounded independent work when parallelism or context isolation helps;
+  straightforward tasks can stay local. Use `.claude/agents/` for relevant specialist context.
+- **Verification:** apply the changed area's gates and `AGENTS.md` testing proportionality.
+  Once the required checks pass, repeat them only for new changes, failures or unresolved concerns.
 - **Self-improvement loop:** after ANY user correction, add or update a file in `lessons/`
   (format in `lessons/README.md`). Review relevant lessons at session start.
 - **Elegance (balanced):** for non-trivial changes ask "is there a more elegant way?"; skip for

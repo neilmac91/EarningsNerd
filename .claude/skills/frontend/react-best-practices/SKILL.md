@@ -1,6 +1,6 @@
 ---
 name: react-best-practices
-description: Performance optimization rules for React and Next.js applications
+description: Optimize React and Next.js performance when investigating rendering, data-fetching waterfalls, or bundle size.
 version: 1.0.0
 author: vercel
 source: https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices
@@ -8,7 +8,7 @@ source: https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-
 
 # React Best Practices
 
-This skill provides 57 performance optimization rules for React and Next.js applications, organized by impact level. Apply these rules when writing components, implementing data fetching, reviewing code, or optimizing bundle sizes.
+This skill provides 57 performance optimization rules for React and Next.js applications, organized by impact level. Consult the relevant categories when investigating or improving performance; routine component edits do not require a full performance review.
 
 ## Rule Categories by Impact
 

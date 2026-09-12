@@ -1,6 +1,6 @@
 ---
 name: vercel-deploy
-description: Deploy applications and websites to Vercel
+description: Package and deploy a project to Vercel when the user explicitly requests this deployment workflow.
 version: 1.0.0
 author: vercel
 source: https://github.com/vercel-labs/agent-skills/tree/main/skills/claude.ai/vercel-deploy-claimable
