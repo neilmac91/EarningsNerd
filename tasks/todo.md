@@ -4794,6 +4794,34 @@ No source snapping, threshold relaxation, invalid-citation deletion, production 
 
 The first correction full gate stopped at Bandit B608 before pytest: its SQL heuristic matched the English “select ... from” inside the existing prompt f-string. The prompt has no SQL execution path. Changing the instruction to “choose a longer contiguous source span” preserves the same behavior without suppressing Bandit; the canonical minimum and its existing proof are unchanged. Re-run the complete gate on the corrected commit.
 
+
+### 2026-09-12 — Source-owned capital-plan quote unit context (local preparation)
+
+- [x] Read current governing rules and inspect the actual v2 quote consumer. Branch from verified origin/main `f0a81fff216c318a40979b7dfcd55500c8b43a03`; old local main is stale and was not used.
+- [ ] Add a narrow owner for uniquely raw-matched capital-plan quotes with an explicit directly-under-MD&A-title unit declaration; preserve quote bytes, exceptions and existing verification. Reject ambiguous scopes and duplicates.
+- [ ] Render the source-owned declaration adjacent to the existing quote in the shared v2 consumer. Strip model-supplied annotations; no new model selection field, numeric conversion or flags.
+- [ ] Cover the one source-association invariant through the actual consumer with positive/negative controls. Commit implementation for root review before the single mutation proof/full gate.
+
+Initial scope is authoritative final primary quotes only. Recovered forward sections and previews receive no unit annotation because their available context differs; no parity claim is made. All six retained COST authored-guidance strings are paraphrases and remain an open unit-loss finding. Four retained capital-plan quotes qualify for targeted source context; this does not establish universal guidance coverage or release pregeneration spend. Historical ledger bytes above are preserved.
+
+Implementation prepared: source association runs after final quote verification/snapping, using the same supplied excerpt cleaned by the primary path. It abstains without that excerpt, on recovered forward sections, conflicting declarations, duplicate raw spans or missing capital-paragraph boundaries. Preview strips untrusted annotations without claiming source context. The shared v2 quote consumer renders the declaration outside the unchanged quote. The owner deliberately supports only the observed explicit MD&A declaration grammar; authored guidance and other unit losses remain open. No mutation proof, test run, full gate, publication or paid assessment has been performed for this preparation.
+
+Source-unit verification checkpoint: the first two focused runs failed because the test rendered the service's deliberately unstamped outer raw-summary payload before the orchestrator's existing schema stamp. The fixture now reads the actual stamped nested summary and compares shared v2 rendering with the service's actual markdown; production stamp policy was not changed. Focused run at `f795474f` passed 10 controls. The single committed mutation `39a5389c` omitted only the visible declaration: **1 failed, 9 passed, 2 warnings in 2.12s**. Restored commit `bd8a35f6`: **10 passed, 2 warnings in 1.87s**. The declaration remains outside unchanged quotation text. Full committed gate and release evidence are pending; no paid run or publication occurred.
+
+
+### 2026-09-12 — Source-unit historical trust correction (local plan)
+
+The pre-publication read review confirmed that older model responses can retain arbitrary nested quote keys; Pydantic has no production caller. New read-time units therefore need an explicit code-owned outer-envelope eligibility check, separately from any cache/version rollout. The 245 retained Flash quotes contain no unknown keys, so no historical production contamination is claimed.
+
+- [ ] Construct eligibility only in the new final service envelope after source annotation stripping/association; never copy model/nested markers into the persisted outer envelope.
+- [ ] Gate the common v2 projection on that exact outer marker, covering web, final Markdown and PDF/CSV; old envelopes remain ineligible. Remove the unused Pydantic quote field.
+- [ ] Add persisted-trust controls for forged old quote/nested markers and valid new generation envelopes across shared consumers; retain the original association/delivery proof.
+- [ ] Commit correction for root scope review before any new trust proof/full gate. No cache stamp or broad replay change belongs to this trust correction.
+
+Trust correction prepared: the service constructs `source_unit_context_version=1` only in its final render/persistence envelopes after association, discarding any model top-level copy. The common renderer authorizes the adjacent declaration only from that exact integer outer field; quote/structured nested markers and booleans confer no authority. Old code built the outer envelope from explicit keys and never copied arbitrary model top-level fields, so prior model data cannot mint the new outer eligibility. Existing pipeline persistence and read/export enrichment preserve the envelope. The unused Pydantic quote field was removed; it never enforced production trust. New regression controls exercise actual web enrichment, PDF, CSV and Markdown with old forged nested data and a genuinely generated new envelope. Root review precedes the distinct persisted-trust proof/full gate; original source-association proof remains retained.
+
+Persisted-trust verification checkpoint: focused corrected suite at `578d21b5` passed **14 passed, 2 warnings in 3.01s**. The one new committed trust mutation `3023c479` bypassed only envelope eligibility: old quote keys, nested markers and boolean markers became visible and failed the actual read/export controls (**3 failed, 1 passed, 10 deselected, 2 warnings in 2.63s**). Restoration `690de5c7` passed the same controls (**4 passed, 10 deselected, 2 warnings in 1.98s**). The earlier source-association/delivery proof was not repeated. Full committed backend gate follows; no content-stamp, model, flag, paid call or publication change occurred.
+
 ### September 12, 11:39 UTC — #808 merged; production verification pending
 
 This supersedes the preceding integrated historical pending-gate/assessment/merge entries. Final correction passed the recorded full gate; both actual second assessments are accepted within their bounded gates. The [final summary report](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) preserves all52 outcomes, unchanged data apart from qualified tags, and53 provider calls including one without usage telemetry. WMT/COIN incomplete totals and ASML's omitted €990.2M current portion remain material narrative findings. Copilot's two uncited ASML answers also remain advisory limitations.
@@ -4879,3 +4907,12 @@ The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, 
 - [x] Integrate docs-only main `baf75a3c30f1931018c76f9a144b193066899988` (#822), retaining both complete prior ledgers and the unchanged reviewed backend code. The only conflict joined independent top-of-ledger additions.
 - [ ] Complete the final integrated committed Ruff/Bandit/pytest gate including performance and four PostgreSQL lanes. Both existing mutation proofs remain retained without repetition.
 - [ ] Parent to complete independent review, publication and the justified second actual assessments; retain first #821 artifacts separately. No new provider, SEC, remote or production action is claimed by this integration.
+
+
+### September 12 — source-unit candidate integration after #821
+
+- [x] Integrate actual main `929995d4b9190785e732e4d889cd193e9ce271f7`, preserving both complete ledgers and the source-unit association and code-owned envelope eligibility controls. #821 is merged; its production verification remains parent-owned and is not claimed here.
+- [ ] Advance the future-generation content stamp from released `summary-2026-09-f` to the newly allocated `summary-2026-09-g`; keep the separate exact outer-envelope eligibility check. Held #805's reserved e remains unreleased. No historical replay or old-model trust follows from the stamp.
+- [ ] Record the marker-trust lesson against the existing read/export guard and completed proof, then commit for parent review before the final integrated gate. Retain both existing source-association and persisted-trust proofs without repetition. No paid call, push or release before the previous backend deployment is verified.
+
+Integration prepared: no backend text conflict required manual resolution; main's cash-basis helper/render/qualified capex propagation was inherited, while source-unit association and exact envelope gating remain unchanged. Version allocation checked current main and the prepared source-unit candidate, plus the recent version-file history through d/f; no prior g ownership was found in that bounded check. `summary-2026-09-g` is newly allocated here, not a claim about an existing release. The existing `test_summary_version_stamps.py` mechanism governs current/stale identity; no mirror version test or repeated proof was added. Final committed gate awaits parent review.
