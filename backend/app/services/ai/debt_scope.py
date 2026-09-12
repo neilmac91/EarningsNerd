@@ -294,10 +294,12 @@ def debt_balance_label(view: DebtScopeView) -> str:
     not always carry. An unadmitted or absent concept is labelled as an unestablished scope rather
     than promoted to the label of whichever concept usually wins.
     """
-    if not view.observations:
-        return "Debt Balance (not reported in standardized data)"
-    primary = view.observations[0]
-    if primary.scope:
+    # This label is only ever attached to a row that is PRINTING a balance, so it must never read
+    # "not reported" — that contradicts the figure beside it. With no admissible observation (an
+    # unadmitted concept, or a set refused for inconsistency) the honest label is the unavailable
+    # scope.
+    primary = view.observations[0] if view.observations else None
+    if primary is not None and primary.scope:
         return f"Debt — {SCOPE_PHRASE[primary.scope]}"
     return "Debt Balance (maturity scope unavailable)"
 
@@ -409,13 +411,20 @@ def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
     basis = f" ({primary.basis} amount)" if primary.basis else ""
 
     if view.reported_total is not None:
-        return (
-            f"Total debt of {format_currency(view.reported_total.value)}{dated}{basis} — the "
-            f"issuer's own combined short-term and long-term debt measure. Also reported "
-            f"separately: {listed}." if len(view.observations) > 1 else
+        sentence = (
             f"Total debt of {format_currency(view.reported_total.value)}{dated}{basis} — the "
             "issuer's own combined short-term and long-term debt measure."
         )
+        # Anything else observed is a COMPONENT of that total, so it is listed separately and never
+        # added to it. The total itself is excluded from that list — restating it as one of its own
+        # components would read as two balances.
+        others = "; ".join(
+            f"{obs.phrase} of {format_currency(obs.value) or 'an undisclosed amount'}"
+            for obs in view.observations if obs is not view.reported_total
+        )
+        if others:
+            sentence += f" Reported separately within it: {others}."
+        return sentence
     if view.components_subtotal is not None:
         return (
             f"Identified borrowing components{dated}{basis}: {listed}. Together "

@@ -374,6 +374,38 @@ def test_only_an_issuer_reported_combined_concept_yields_a_total():
     assert "the issuer's own combined short-term and long-term debt measure" in text
 
 
+def test_a_reported_total_lists_its_components_without_restating_itself():
+    view = view_of(
+        obs("us-gaap:DebtLongtermAndShorttermCombinedAmount", 44_762_000_000.0),
+        obs("us-gaap:ShortTermBorrowings", 6_596_000_000.0),
+    )
+    text = leverage_statement(view, money)
+    assert text.count("$44.8B") == 1  # the total appears once, not again as its own component
+    assert "Reported separately within it: short-term borrowings of $6.6B." in text
+    assert "51.4B" not in text  # and the total is never added to its own part
+
+
+def test_an_unresolvable_scope_is_never_labelled_not_reported_beside_a_printed_figure():
+    """The grounding label rides a row that IS printing a balance, so "not reported" would lie."""
+    refused = view_of(
+        obs("us-gaap:LongTermDebtNoncurrent", 1.0),
+        obs("us-gaap:LongTermDebtNoncurrent", 2.0),
+    )
+    assert refused.rejection is not None
+    assert debt_balance_label(refused) == "Debt Balance (maturity scope unavailable)"
+    assert "not reported" not in debt_balance_label(refused)
+
+
+def test_an_unknown_element_period_type_does_not_discard_the_fact():
+    """An absent/NaN column is unknown, not "duration"; the instant check remains load-bearing."""
+    for unknown in (None, float("nan"), ""):
+        rows = observations({"us-gaap:LongTermDebtNoncurrent": [
+            fact(34_624_000_000.0, element_period_type=unknown),
+        ]})
+        assert len(rows) == 1, unknown
+        assert rows[0]["value"] == 34_624_000_000.0
+
+
 @pytest.mark.parametrize("second, reason", [
     (obs("us-gaap:ShortTermBorrowings", 1.0, accn="0000000-00-000000"), "different source filings"),
     (obs("us-gaap:ShortTermBorrowings", 1.0, instant="2025-01-31"), "different balance dates"),

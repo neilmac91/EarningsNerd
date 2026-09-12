@@ -525,6 +525,16 @@ def instant_series_with_currency(
 # ordering and public shape are untouched — this is purely additive evidence.
 
 
+def _text_or_none(value: Any) -> Optional[str]:
+    """A non-empty stripped string, or None (pandas NaN / <NA> / "" all collapse to None)."""
+    if value is None:
+        return None
+    if isinstance(value, float) and value != value:  # NaN
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _one_undimensioned_instant_fact(
     records: List[Dict[str, Any]],
     period_of_report: str,
@@ -555,8 +565,12 @@ def _one_undimensioned_instant_fact(
             continue
         if _iso_date(row.get("period_start")) is not None:
             continue  # a duration fact, not a balance
-        period_type = row.get("element_period_type")
-        if period_type is not None and str(period_type).strip().lower() not in ("", "instant"):
+        # Reject only a KNOWN non-instant period type. An absent/NaN column is unknown, not
+        # "duration": rejecting on it would drop every fact the moment the column is missing, so
+        # the instant-date check below stays the load-bearing guard. (`str(nan)` is "nan", which a
+        # naive comparison would treat as a mismatch.)
+        period_type = _text_or_none(row.get("element_period_type"))
+        if period_type is not None and period_type.lower() != "instant":
             continue
         instant = _iso_date(row.get("period_instant")) or _iso_date(row.get("period_end"))
         if instant != period_of_report:
@@ -576,16 +590,6 @@ def _one_undimensioned_instant_fact(
     if len(values) != 1 or len(entities) > 1:
         return None
     return next(iter(values.values()))
-
-
-def _text_or_none(value: Any) -> Optional[str]:
-    """A non-empty stripped string, or None (pandas NaN / <NA> / "" all collapse to None)."""
-    if value is None:
-        return None
-    if isinstance(value, float) and value != value:  # NaN
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 def debt_component_observations(
