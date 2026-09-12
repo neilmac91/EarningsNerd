@@ -1,0 +1,77 @@
+{
+  "status": "Third assessment functionally held; local grammar correction gated and offline-verified; fourth assessment requires approval",
+  "files": [
+    {
+      "file": "pr825-third-guidance-review.md",
+      "bytes": 3024,
+      "sha256": "928637250b1e1d829c73f9eb9849f17d89bcedfee150f2fb4148ae9ea7a707f8",
+      "original_private_path": "work/pr825-third-guidance-review.md"
+    },
+    {
+      "file": "pr825-third-guidance-evidence.json",
+      "bytes": 30441,
+      "sha256": "67575dc056280d486b5eda5fb566c5618a30dbd7cc78aea047d9f8beb142410d",
+      "original_private_path": "work/pr825-third-guidance-evidence.json"
+    },
+    {
+      "file": "pr825-third-guidance-extract.txt",
+      "bytes": 18465,
+      "sha256": "6d89ba7b1f61ab5bd5c25c462738b56e162b3fa6188f29f4fdc9cef902e2614b",
+      "original_private_path": "work/pr825-third-guidance-extract.txt"
+    },
+    {
+      "file": "pr825-third-summary-metadata-acceptance.md",
+      "bytes": 3282,
+      "sha256": "0d520556045d94970596061dea93682822362cbbb6c8fdb8b180533365da21d7",
+      "original_private_path": "work/pr825-third-summary-metadata-acceptance.md"
+    },
+    {
+      "file": "pr825-third-summary-execution-integrity.json",
+      "bytes": 9494,
+      "sha256": "75c8c3e90d22d26ea02e2b850bc2d30e9a66d89a0b2817aed91e88c370e5a866",
+      "original_private_path": "work/pr825-third-summary-execution-integrity.json"
+    },
+    {
+      "file": "pr825-third-summary-metadata.json",
+      "bytes": 58128,
+      "sha256": "367824f27c222165fcea3cce59addde1a7f80e3527d749aec26ffd2527401bc1",
+      "original_private_path": "work/pr825-third-summary-metadata.json"
+    },
+    {
+      "file": "pr825-third-summary-usage.json",
+      "bytes": 3071,
+      "sha256": "e9cceb61b48d830516df8c0f62825e645432ef4eeb229a2b7322463d84663c64",
+      "original_private_path": "work/pr825-third-summary-usage.json"
+    },
+    {
+      "file": "pr825-third-copilot-acceptance.md",
+      "bytes": 4606,
+      "sha256": "889fe35e6d89cede31c470cf9f886200e51dcd3956e4e60abb5ea1cce4cb6270",
+      "original_private_path": "work/pr825-third-copilot-acceptance.md"
+    },
+    {
+      "file": "pr825-third-copilot-integrity.json",
+      "bytes": 26860,
+      "sha256": "038084e855cece44eab42865e006bf55425413bbdb13e14c53584b98fb8063c1",
+      "original_private_path": "work/pr825-third-copilot-integrity.json"
+    },
+    {
+      "file": "authored-guidance-grammar-verification.md",
+      "bytes": 2554,
+      "sha256": "32b6cb89d33dbb9815c7a290b2e08023a605173268421432cad74ba6879ac9b8",
+      "original_private_path": "work/authored-guidance-grammar-verification.md"
+    },
+    {
+      "file": "pr825-grammar-retained-evidence.json",
+      "bytes": 2746,
+      "sha256": "79b844d30427955c030f14df19f96a13071df9a460cb29a226f8ff2eb22452bd",
+      "original_private_path": "work/pr825-grammar-retained-evidence.json"
+    },
+    {
+      "file": "pr825-grammar-correction.patch",
+      "bytes": 7240,
+      "sha256": "06cc399c0700b32e5725d85fb1128fe4f0296560f907d61f3b5bddf96fe0fcbc",
+      "original_private_path": "work/pr825-grammar-correction.patch"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "local_head": "07c549cb9ead90634393cb5eeb2d2ca5b311aa88",
+  "reports": [
+    {
+      "source": "pr825-first-summary/eval_20260912T152642Z.json",
+      "sha256": "d8f3c86efa461fdeabb7f628ae4bb1b6dad997caae2c1d7dbbca78cf57176999",
+      "outcomes": 52,
+      "changes": [
+        {
+          "ticker": "COST",
+          "run": 0,
+          "before": "The company stated it is its current intention to spend approximately $6,500 on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance was provided.",
+          "after": "The company stated it is its current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance was provided."
+        }
+      ]
+    },
+    {
+      "source": "pr825-second-summary/eval_20260912T154505Z.json",
+      "sha256": "e1e4bcce990f68274112cf83967d7c61faf6b2ae94ec4605bea41fb333fe1f44",
+      "outcomes": 52,
+      "changes": [
+        {
+          "ticker": "COST",
+          "run": 1,
+          "before": "The company states its current intention to spend approximately $6,500 on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026.",
+          "after": "The company states its current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026."
+        }
+      ]
+    },
+    {
+      "source": "pr825-third-summary/eval_20260912T171400Z.json",
+      "sha256": "ad829a0eb48a8c47d567db8e0b0a032f9e201e6799cd66d1d2c8818b60775446",
+      "outcomes": 52,
+      "changes": [
+        {
+          "ticker": "COST",
+          "run": 0,
+          "before": "The filing states a current intention to spend approximately $6,500 on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance is provided.",
+          "after": "The filing states a current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026 and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance is provided."
+        }
+      ]
+    }
+  ],
+  "limits": "Offline final-primary transformation only; not fresh model execution, arbitrary paraphrase coverage or production/recovery certification."
+}
