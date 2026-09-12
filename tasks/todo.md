@@ -4734,3 +4734,15 @@ The founder subsequently approved the exact addition of `invoice_payment.paid`. 
 ### September 12 — #808 pre-publication integration checkpoint
 
 The approved T9 consolidation now incorporates verified #818 and documentation releases #816/#819, preserving both sides of the appended-ledger conflict. Extraction code and the complete source-propagation invariant are unchanged from reviewed `c5b1eb698c6f26bdaf183a60407d633889f39d1c`; the only locked difference remains the exact approved T9 two rows/docstring. The previous integrated gate at `047696da8e2807476f5a77bd9080255f3f52436e` passed 2,878 tests; run the final committed publication gate after this documentation integration. Retain the original single proof and historical Pro readout. The current-Flash summary assessment and first ready Copilot evaluation follow under standing authorization; publication/acceptance/deployment outcomes belong in the PR and subsequent dated release record. Read remote PR state before any repeat action.
+
+### 2026-09-12 — #808 first current-Flash Copilot finding and bounded correction
+
+The first ready evaluation `34688285251` completed18/scored18/errors0, passing17. ASML repeat0 has correct EUR figures with valid fact citations, but adds two present source excerpts shorter than the shared verifier's24-normalized-character minimum. Exact retained-source matching refutes fabrication; replay through the product verifier/scorer retains the hard rejection. The prompt requests the shortest contiguous span without communicating that minimum. This is not a provider failure or a reason for a blind retry. The original failed artifact remains unchanged.
+
+- [x] Publish consolidated provenance head131523498c6858b7c516ba4690cb0f718a0b7f64 after committed full gate:2878passed/29warnings88.48s; ready once for the first Copilot evaluation.
+- [x] Retain failed first Copilot output and return#808 to draft while resolving the mismatch.
+- [ ] Reuse the canonical verifier minimum in the actual Copilot request instruction; preserve contiguous-only citations, existing fact markers, verifier threshold and hard veto. Clarify the scorer diagnostic to distinguish failed verification from proof of absence.
+- [ ] Extend the existing actual-message wiring gate, retain one committed mutation proof for the new minimum-delivery invariant, and run the full committed gate and three review lenses. This proves instruction delivery, not universal model compliance.
+- [ ] Perform the authorized second confirmed-finding assessment only after that correction; record actual three-draw Copilot and summary outcomes before release. Reason for second paid run: first live assessment exposed the undisclosed citation-length contract, not a retry to seek a green badge.
+
+No source snapping, threshold relaxation, invalid-citation deletion, production flag, provider/model change or baseline re-pin is part of this correction. The shared summary baseline does not measure this Copilot-only instruction. Universe-wide pregeneration and general financial-quality acceptance remain held.
