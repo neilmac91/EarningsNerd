@@ -156,7 +156,7 @@ class _ProviderRequestsMixin:
         stream_cb=None,
         filing_type_key: str = "10-K",
         xbrl_metrics=None,
-        capital_plan=None,
+        capital_plan: tuple[str, str] | None = None,
         timeout: float = ATTEMPT_SECONDS,
     ) -> str:
         budget = _budget.get()

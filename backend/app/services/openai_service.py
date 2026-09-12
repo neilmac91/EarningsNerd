@@ -459,7 +459,7 @@ Rules:
         stream_cb: Any,
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
-        *, _client=None, _observation=None, capital_plan=None,
+        *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -504,7 +504,7 @@ Rules:
         return "".join(parts)
 
     def _partial_markdown_preview(
-        self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan=None,
+        self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
