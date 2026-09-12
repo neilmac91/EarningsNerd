@@ -4764,3 +4764,13 @@ Initial scope is authoritative final primary quotes only. Recovered forward sect
 Implementation prepared: source association runs after final quote verification/snapping, using the same supplied excerpt cleaned by the primary path. It abstains without that excerpt, on recovered forward sections, conflicting declarations, duplicate raw spans or missing capital-paragraph boundaries. Preview strips untrusted annotations without claiming source context. The shared v2 quote consumer renders the declaration outside the unchanged quote. The owner deliberately supports only the observed explicit MD&A declaration grammar; authored guidance and other unit losses remain open. No mutation proof, test run, full gate, publication or paid assessment has been performed for this preparation.
 
 Source-unit verification checkpoint: the first two focused runs failed because the test rendered the service's deliberately unstamped outer raw-summary payload before the orchestrator's existing schema stamp. The fixture now reads the actual stamped nested summary and compares shared v2 rendering with the service's actual markdown; production stamp policy was not changed. Focused run at `f795474f` passed 10 controls. The single committed mutation `39a5389c` omitted only the visible declaration: **1 failed, 9 passed, 2 warnings in 2.12s**. Restored commit `bd8a35f6`: **10 passed, 2 warnings in 1.87s**. The declaration remains outside unchanged quotation text. Full committed gate and release evidence are pending; no paid run or publication occurred.
+
+
+### 2026-09-12 — Source-unit historical trust correction (local plan)
+
+The pre-publication read review confirmed that older model responses can retain arbitrary nested quote keys; Pydantic has no production caller. New read-time units therefore need an explicit code-owned outer-envelope eligibility check, separately from any cache/version rollout. The 245 retained Flash quotes contain no unknown keys, so no historical production contamination is claimed.
+
+- [ ] Construct eligibility only in the new final service envelope after source annotation stripping/association; never copy model/nested markers into the persisted outer envelope.
+- [ ] Gate the common v2 projection on that exact outer marker, covering web, final Markdown and PDF/CSV; old envelopes remain ineligible. Remove the unused Pydantic quote field.
+- [ ] Add persisted-trust controls for forged old quote/nested markers and valid new generation envelopes across shared consumers; retain the original association/delivery proof.
+- [ ] Commit correction for root scope review before any new trust proof/full gate. No cache stamp or broad replay change belongs to this trust correction.
