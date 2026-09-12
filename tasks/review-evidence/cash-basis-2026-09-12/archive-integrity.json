@@ -1,0 +1,79 @@
+{
+  "status": "Bounded assessment accepted; #821 merged and production-verified; documentation unpublished",
+  "base_commit": "baf75a3c30f1931018c76f9a144b193066899988",
+  "files": [
+    {
+      "file": "pr821-first-copilot-acceptance.md",
+      "sha256": "7850e8127c01834ed6eea4935669f4b2c60203d2a8824ad3e182dc841564b4f6",
+      "bytes": 4450,
+      "original_private_path": "work/pr821-first-copilot-acceptance.md"
+    },
+    {
+      "file": "pr821-first-copilot-integrity.json",
+      "sha256": "6cbde3ac08b73b3021f93925167fb0b827d1dfb3ffc500c60fda3be0489e420b",
+      "bytes": 21995,
+      "original_private_path": "work/pr821-first-copilot-integrity.json"
+    },
+    {
+      "file": "pr821-first-summary-cash-review.md",
+      "sha256": "d4e73a8e18c582977c10fa599b3016361a6b8fb0da39f0a8c72233a5faced49d",
+      "bytes": 9701,
+      "original_private_path": "work/pr821-first-summary-cash-review.md"
+    },
+    {
+      "file": "pr821-first-summary-cash-review-evidence.json",
+      "sha256": "d1b7b3b3f70463d4b694c2062f1090e1f587de9969adcf4da49f55c17285cbd1",
+      "bytes": 27512,
+      "original_private_path": "work/pr821-first-summary-cash-review-evidence.json"
+    },
+    {
+      "file": "pr821-first-summary-integrity.json",
+      "sha256": "19c94fad29339cef758308035a2ab0e42fe678f1c258ee6cbe74bfade043d5a3",
+      "bytes": 36479,
+      "original_private_path": "work/pr821-first-summary-integrity.json"
+    },
+    {
+      "file": "pr821-second-copilot-acceptance.md",
+      "sha256": "0936059fe2949d19e77e81efdc167c18427383bb28eeaa67cb844d1fc77e084a",
+      "bytes": 5172,
+      "original_private_path": "work/pr821-second-copilot-acceptance.md"
+    },
+    {
+      "file": "pr821-second-copilot-integrity.json",
+      "sha256": "3e84fb14d5da359f2f9a71e21e29d244956ded035fe41326cdd79d823ad26ee0",
+      "bytes": 21930,
+      "original_private_path": "work/pr821-second-copilot-integrity.json"
+    },
+    {
+      "file": "pr821-second-summary-acceptance.md",
+      "sha256": "2bbae9467e635731f65bc261b579a64066204a2b078683fa609d8b2be3a02ebd",
+      "bytes": 3298,
+      "original_private_path": "work/pr821-second-summary-acceptance.md"
+    },
+    {
+      "file": "pr821-second-summary-integrity.json",
+      "sha256": "4eb8549f08407fc42dc339c9e92e4bb7d46c22265858f745abdc4a11642d6ca8",
+      "bytes": 69110,
+      "original_private_path": "work/pr821-second-summary-integrity.json"
+    },
+    {
+      "file": "pr821-second-summary-usage.json",
+      "sha256": "2f63761f94de48be0ced037925db92de0d62d8cc8d2964936d84a3a54c0cbc37",
+      "bytes": 392,
+      "original_private_path": "work/pr821-second-summary-usage.json"
+    },
+    {
+      "file": "pr821-second-summary-cash-review.md",
+      "sha256": "a641116641c1f7e6223b32ac9f053a291fd4ce0fb69e51cf23861eb2d657c721",
+      "bytes": 8916,
+      "original_private_path": "work/pr821-second-summary-cash-review.md"
+    },
+    {
+      "file": "pr821-second-summary-cash-review-evidence.json",
+      "sha256": "b621d3dd58eb393132a5664d561c727fa58c4af125c746397ec664d9ea55c33f",
+      "bytes": 36957,
+      "original_private_path": "work/pr821-second-summary-cash-review-evidence.json"
+    }
+  ],
+  "integrated_main_commit": "929995d4b9190785e732e4d889cd193e9ce271f7"
+}

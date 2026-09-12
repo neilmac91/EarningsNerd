@@ -60,3 +60,8 @@ During integration of main, a local conflict cleanup briefly shortened one histo
 ### September 12 — cash candidate made recoverable before handover
 
 The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now preserved on the remote [codex/wave3-standalone-cash-basis branch](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis). A fresh checkout can fetch that branch; its implementation is no longer dependent on a local worktree. This supersedes earlier “unpublished” only for branch publication: no cash PR, hosted assessment or production release is claimed yet. Subsequent documentation integration and its committed gate precede the draft PR.
+
+
+## September 12 — subsequent verified quality releases
+
+[Cash basis and qualified capex identity #821](../cash-basis-2026-09-12/README.md) and [source-owned quote-unit context #823](../source-unit-2026-09-12/README.md) are merged and production-verified. Their separate archives preserve original assessments, corrections, proofs and limits. The latest verified revision is `earningsnerd-backend-00333-56s` at 100%. Authored guidance, debt scope, numerical relationships and broader financial explanations remain open; these bounded releases do not authorize universe-wide pregeneration or historical replay.
