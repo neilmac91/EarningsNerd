@@ -674,7 +674,7 @@ def _v2_forward_signals(sections: dict) -> Section:
                 # the filing and deep-links to it. None on the unenriched path — the web omits the chip.
                 unit_context = _clean(quote.get("source_unit_context"))
                 if unit_context:
-                    section.blocks.append(Block("paragraph", text=f"Source units: {unit_context}"))
+                    pass  # Mutation: omit the source declaration from the visible quote context.
                 ev = quote.get("evidence")
                 section.blocks.append(
                     Block(
