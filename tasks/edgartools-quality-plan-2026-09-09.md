@@ -154,3 +154,7 @@ No source-unit/semantic implementation, paid assessment, new public contract or 
 ### September 12 — bounded Copilot acceptance update
 
 [Second #808 Copilot assessment](review-evidence/current-flash-2026-09-12/pr808-second-copilot-acceptance.md) passed18/18 across three draws per six questions. Two ASML answers remain without citations; another answer's closing sales citation has narrower scope than the repeated sentence. Preserve these limitations. Separate summary CI34691090937, with two repeats per filing, remains pending, as do #808 merge and production verification. This updates the preceding assessment status without changing the broader quality priorities or holds.
+
+### September 12, 11:39 UTC — metadata change merged; semantic limits remain
+
+[Final summary acceptance](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) clears data/metadata conservation and execution accounting. #808 merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03`; main CI34691615781 and production verification remain pending. WMT and COIN still omit borrowing components in one summary each; both ASML summaries omit the current portion. These observations reinforce the distinction between source metadata and correct source-qualified aggregation. No financial-quality/pregeneration clearance follows from this bounded release.

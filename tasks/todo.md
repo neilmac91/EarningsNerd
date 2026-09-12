@@ -2401,7 +2401,8 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s =```
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
+```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
 The existing asynchronous Yahoo-client shutdown logging diagnostic follows the passing
@@ -4774,3 +4775,11 @@ No source snapping, threshold relaxation, invalid-citation deletion, production 
 #808 correction proof checkpoint: reviewed implementationd32c150ecf5e694841813f12d9cefcd8ce1eae71; committed mutation4faa93bf removes only the delivered minimum and yields1failed/6deselected/2warnings2.31s. Restoration3f4a02343b9c2e7a8cd1860239ee7db17e8e84f2 yields1passed/6deselected/2warnings1.26s. A first invocation from the repository root failed collection before app import; it is retained separately and is not the mutation proof. Independent review found no surviving correction defect after two refutations. Full committed gate and actual second assessment remain pending.
 
 The first correction full gate stopped at Bandit B608 before pytest: its SQL heuristic matched the English “select ... from” inside the existing prompt f-string. The prompt has no SQL execution path. Changing the instruction to “choose a longer contiguous source span” preserves the same behavior without suppressing Bandit; the canonical minimum and its existing proof are unchanged. Re-run the complete gate on the corrected commit.
+
+### September 12, 11:39 UTC — #808 merged; production verification pending
+
+This supersedes the preceding integrated historical pending-gate/assessment/merge entries. Final correction passed the recorded full gate; both actual second assessments are accepted within their bounded gates. The [final summary report](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) preserves all52 outcomes, unchanged data apart from qualified tags, and53 provider calls including one without usage telemetry. WMT/COIN incomplete totals and ASML's omitted €990.2M current portion remain material narrative findings. Copilot's two uncited ASML answers also remain advisory limitations.
+
+- [x] Merge #808 as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at2026-09-12T11:39:24Z.
+- [ ] Verify running main CI34691615781, actual migration tail, revision at100%, and CI/independent detailed health; append the evidence before the next backend release.
+- [ ] Publish this archive only after root adds production evidence and authorizes it. Cash-basis publication, financial-quality work and original founder holds remain as above.

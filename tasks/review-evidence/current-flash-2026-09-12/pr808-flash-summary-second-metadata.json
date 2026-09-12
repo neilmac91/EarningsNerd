@@ -1,0 +1,4806 @@
+{
+  "baseline": "work/pr818-summary/eval_20260912T094019Z.json",
+  "baseline_sha256": "0af78f2034d2695fbbf788510f1ebec1f62fad2101cebb47c746d268e819f415",
+  "candidate": "work/pr808-flash-summary-second/eval_20260912T113555Z.json",
+  "candidate_sha256": "6889a3dde5ef17decb030b9c53cb7c087cb0850a0727714da4e8d8a9d2c9ffc6",
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": false,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "judge": false,
+    "source_sha": "c0999c8df55751a8a7a5d3e2941e312ed7aa541d",
+    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 2,
+    "filings": [
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "identities": 52,
+  "checks": [
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 5,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 5,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 5,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 5,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 9,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 6,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 8,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "source_provenance_equal": true,
+      "grounding_excerpt_equal": true,
+      "coverage_inventory_equal": true,
+      "xbrl_changes": 4,
+      "nonmetadata_changes": []
+    }
+  ],
+  "tag_changes": [
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebt"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[2].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[3].raw_tag",
+      "before": null,
+      "after": "ifrs-full:CashAndCashEquivalents"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "path": ".long_term_debt.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:LongTermDebtNoncurrent"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.current.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.prior.raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[0].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "path": ".cash_and_equivalents.series[1].raw_tag",
+      "before": null,
+      "after": "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+    }
+  ],
+  "tag_counts": {
+    "us-gaap:CashAndCashEquivalentsAtCarryingValue": 198,
+    "us-gaap:LongTermDebtNoncurrent": 96,
+    "us-gaap:LongTermDebt": 32,
+    "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents": 12,
+    "ifrs-full:CashAndCashEquivalents": 24
+  },
+  "issues": []
+}
