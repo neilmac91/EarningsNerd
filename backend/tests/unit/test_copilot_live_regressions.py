@@ -61,7 +61,7 @@ def test_contiguous_citation_instruction_reaches_actual_service_messages():
     instruction = messages[0]['content']
     assert 'SHORTEST contiguous span' in instruction
     assert f'at least {_MIN_VERIFIABLE_LEN} characters after whitespace is collapsed' in instruction
-    assert 'select a longer contiguous source span; never pad or paraphrase it' in instruction
+    assert 'choose a longer contiguous source span; never pad or paraphrase it' in instruction
     assert 'Never stitch separated table cells or sentences together, or insert an ellipsis' in instruction
     assert 'reuse its existing [F#] marker; do not add a text citation' in instruction
 

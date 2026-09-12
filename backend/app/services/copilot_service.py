@@ -99,7 +99,7 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
      Each text excerpt must contain at least {_MIN_VERIFIABLE_LEN} characters after whitespace is collapsed.
-     When a span is too short, select a longer contiguous source span; never pad or paraphrase it.
+     When a span is too short, choose a longer contiguous source span; never pad or paraphrase it.
      Never stitch separated table cells or sentences together, or insert an ellipsis into an excerpt.
      If separate spans are needed, cite each exact span separately. For a tool-provided figure,
      reuse its existing [F#] marker; do not add a text citation merely to restate that same figure.
