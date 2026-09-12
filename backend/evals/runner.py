@@ -235,6 +235,8 @@ async def _run_one(
     first_error: Optional[str] = None
     first_latency: Optional[float] = None
     retry_previews = []
+    retry_provider_attempts = []
+    started = time.monotonic()
     while True:
         outcome = await _attempt(candidate, filing, grounding, run_index, judge_model)
         transient = outcome.pop("_transient", False)
@@ -248,12 +250,27 @@ async def _run_one(
                     "previews_truncated", *_PREVIEW_OBSERVATION,
                 ) if key in outcome}
                 retry_previews.append({"attempt": retried, **record})
+            if candidate == "baseline":
+                retry_provider_attempts.append({
+                    "attempt": retried, "error": outcome["error"],
+                    "latency_seconds": outcome.get("latency_seconds"),
+                    "provider_usage": outcome["provider_usage"],
+                })
             retried += 1
             print(f"  ~ transient provider fault on {filing.ticker} {filing.filing_type} run {run_index}: "
                   f"{outcome['error']} — retry {retried}/{transient_retries} in {retry_delay:g}s")
             await asyncio.sleep(retry_delay)
             continue
-        return {**base, **outcome, "retried": retried, "first_error": first_error,
+        incurred = {}
+        if candidate == "baseline":
+            incurred = {
+                "retry_provider_attempts": retry_provider_attempts,
+                "incurred_provider_usage": _merge_provider_usage(
+                    [r["provider_usage"] for r in retry_provider_attempts] + [outcome["provider_usage"]]
+                ),
+                "incurred_latency_seconds": round(time.monotonic() - started, 3),
+            }
+        return {**base, **outcome, **incurred, "retried": retried, "first_error": first_error,
                 "first_latency_seconds": first_latency,
                 "retry_preview_evidence": retry_previews,
                 "retry_preview_attempts_omitted": max(0, retried - len(retry_previews))}
@@ -288,6 +305,23 @@ def summarize_provider_calls(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             "actual_models": models, **totals}
 
 
+def _merge_provider_usage(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Merge disjoint generation summaries; unavailable counters never become zero."""
+    merged = summarize_provider_calls([])
+    for row in rows:
+        merged["calls"] += row["calls"]
+        merged["unknown_calls"] += row["unknown_calls"]
+        for key in _USAGE_KEYS:
+            if row[key] is not None:
+                merged[key] = (merged[key] or 0) + row[key]
+        for model in row["actual_models"]:
+            if model not in merged["actual_models"]:
+                merged["actual_models"].append(model)
+        for operation, count in row["operations"].items():
+            merged["operations"][operation] = merged["operations"].get(operation, 0) + count
+    return merged
+
+
 async def _attempt(
     candidate: str, filing: GoldenFiling, grounding: Dict[str, Any],
     run_index: int, judge_model: Optional[str],
@@ -301,6 +335,7 @@ async def _attempt(
     preview_chars = 0
     previews_truncated = False
     application_failure = None
+    call_records = []
     try:
         if candidate == "baseline":
             from app.services.openai_service import openai_service
@@ -395,7 +430,8 @@ async def _attempt(
         if candidate == "baseline":
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count,
                                preview_frames=preview_frames, preview_chars=preview_chars,
-                               previews_truncated=previews_truncated, **_PREVIEW_OBSERVATION)
+                               previews_truncated=previews_truncated, **_PREVIEW_OBSERVATION,
+                               provider_usage=summarize_provider_calls(call_records))
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
                 "application_failure": application_failure,
@@ -410,6 +446,7 @@ def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
     Reports the number of attempts that carried usage so a mean over a partial set is never
     mistaken for a full one; absent usage yields ``None``, not zero."""
     rows = [r.get("provider_usage") for r in rs if isinstance(r.get("provider_usage"), dict)]
+    incurred = [r["incurred_provider_usage"] for r in rs if isinstance(r.get("incurred_provider_usage"), dict)]
     with_output = [u["completion_tokens"] for u in rows if u.get("completion_tokens") is not None]
     with_input = [u["prompt_tokens"] for u in rows if u.get("prompt_tokens") is not None]
     models: List[str] = []
@@ -418,6 +455,8 @@ def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
             if m not in models:
                 models.append(m)
     return {
+        "incurred_usage_attempts": len(incurred),
+        "incurred_provider_usage": _merge_provider_usage(incurred) if incurred else None,
         "usage_attempts": len(with_output),
         "mean_completion_tokens": round(statistics.mean(with_output), 1) if with_output else None,
         "mean_prompt_tokens": round(statistics.mean(with_input), 1) if with_input else None,
