@@ -119,19 +119,19 @@ async def test_retained_baba_row_still_abstains_because_it_carries_no_duration(m
 INGESTED_ACCESSION = '0000320193-25-000079'
 
 
-def _ingest(start, end='2025-03-29'):
-    """Source companyfacts item -> stored fact row -> runtime tool result, all production code.
+def _ingest_via_companyfacts(start):
+    """Source companyfacts item -> stored row -> runtime tool result, all production code.
 
-    `_parse_company_facts` ranks and keeps the point, `append_items` emits it,
-    `extract_standardized_metrics` carries it, `normalize_standardized_to_facts` builds the row and
-    `_fact_provenance` projects what the Copilot tool actually returns.
+    This is the path whose emitted points the locked T9 anchor pins by full-dict equality, so it
+    still carries NO duration (see the PR body's conflict report) — the point of this helper is to
+    show what that costs, not to assert it is fine.
     """
     from app.models.financial_fact import FinancialFact
     from app.services.edgar.xbrl_service import EdgarXBRLService
     from app.services.facts_service import normalize_standardized_to_facts
 
-    item = {'end': end, 'val': 95359000000.0, 'form': '10-K', 'accn': INGESTED_ACCESSION,
-            'filed': '2025-05-02', 'fy': 2025, 'fp': 'FY'}
+    item = {'end': '2025-03-29', 'val': 95359000000.0, 'form': '10-K',
+            'accn': INGESTED_ACCESSION, 'filed': '2025-05-02', 'fy': 2025, 'fp': 'FY'}
     if start is not None:
         item['start'] = start
     payload = {'facts': {'us-gaap': {'Revenues': {'units': {'USD': [item]}}}}}
@@ -143,6 +143,36 @@ def _ingest(start, end='2025-03-29'):
     return row, service.copilot_tools._fact_provenance(FinancialFact(**row))
 
 
+def _ingest_via_filing_instance(period_start, period_end='2025-03-29'):
+    """The per-filing instance path, which DOES preserve the selected fact's duration.
+
+    Drives the real `_extract_from_filing_instance_sync` over a fake instance, then the same
+    standardization, fact-row and tool projection the runtime uses.
+    """
+    import pandas as pd
+
+    from app.models.financial_fact import FinancialFact
+    from app.services.edgar import xbrl_service as xbrl_module
+    from app.services.edgar.xbrl_service import EdgarXBRLService, _extract_from_filing_instance_sync
+    from app.services.facts_service import normalize_standardized_to_facts
+    from tests.unit.test_accession_xbrl_extraction import FakeFiling, FakeXBRL, _patch_company
+
+    frames = {'Revenues': pd.DataFrame(
+        [{'is_dimensioned': False, 'period_start': period_start, 'period_end': period_end,
+          'numeric_value': 95359000000.0}])}
+    filing_stub = FakeFiling('10-K', period_end, FakeXBRL(frames))
+    with _patch_company([filing_stub]):
+        xbrl_module._xbrl_cache.clear()
+        raw = _extract_from_filing_instance_sync('0000320193', INGESTED_ACCESSION)
+        xbrl_module._xbrl_cache.clear()
+    standardized = EdgarXBRLService().extract_standardized_metrics(raw)
+    rows = [r for r in normalize_standardized_to_facts(
+        9, 7, INGESTED_ACCESSION, '10-K', standardized) if r['concept'] == 'revenue']
+    if not rows:
+        return raw, None, None
+    return raw, rows[0], service.copilot_tools._fact_provenance(FinancialFact(**rows[0]))
+
+
 def _ingested_claim_and_view():
     claim = service._plan_uncited_fact_citation(
         'Revenue for the fiscal year ended March 29, 2025 was $95,359 million.')
@@ -152,49 +182,49 @@ def _ingested_claim_and_view():
 
 
 def test_quarterly_point_in_an_annual_filing_never_certifies():
-    """The realistic regression: a three-month point ending on the fiscal year end.
+    """The realistic regression, driven through the actual source-to-runtime transformation.
 
-    This is the case the companyfacts fallback ranks but never rejects — an annual filing may
-    legitimately disclose a quarter, so selection is unchanged and the point is still kept and
-    still labelled `FY` from the FORM. What changed is that its real duration now survives to the
-    stored row, so the claim layer can refuse it instead of mistaking it for a year. It passes
-    `_valid_fact_provenance`, so only the duration requirement stands between it and a verified
-    annual citation.
+    A three-month revenue point ending on the fiscal year end is the case the companyfacts fallback
+    ranks but never rejects — an annual filing may legitimately disclose a quarter, so selection is
+    unchanged and the point is still kept and still labelled `FY` from the FORM. Because the locked
+    T9 anchor pins that path's emitted points, its duration is still dropped, so the row reaches the
+    tool with no duration at all. It passes `_valid_fact_provenance`; only the duration requirement
+    stands between it and a verified annual citation.
     """
-    row, runtime = _ingest('2024-12-29')
+    row, runtime = _ingest_via_companyfacts('2024-12-29')
     claim, view = _ingested_claim_and_view()
 
-    # The duration is preserved honestly, and the FY label is still there — both facts matter.
-    assert runtime['period_start'] == '2024-12-29' and runtime['fiscal_period'] == 'FY'
+    assert runtime['period_start'] is None and runtime['fiscal_period'] == 'FY'
     assert service._valid_fact_provenance(runtime, INGESTED_ACCESSION, 'USD')
     assert claim is not None and claim['value'] == 95359000000.0
     assert not service._fact_certifies_claim(runtime, claim, view)
 
 
-def test_freshly_ingested_annual_point_certifies_end_to_end():
-    """The repaired path: a genuine annual source duration reaches the row, the tool and the chip."""
-    row, runtime = _ingest('2024-03-30')
+def test_freshly_ingested_annual_filing_certifies_end_to_end():
+    """The repaired path: a genuine annual source duration reaches the point, row, tool and chip."""
+    raw, row, runtime = _ingest_via_filing_instance('2024-03-30')
     claim, view = _ingested_claim_and_view()
 
+    assert raw['revenue'][0]['period_start'] == '2024-03-30'
     assert str(row['period_start']) == '2024-03-30'
     assert runtime['period_start'] == '2024-03-30'
     assert service._fact_certifies_claim(runtime, claim, view)
 
 
-def test_a_source_point_with_no_start_stays_unknown_through_ingestion():
-    """Missing duration is carried as missing — never filled in from the form or the period end."""
-    row, runtime = _ingest(None)
-    claim, view = _ingested_claim_and_view()
+def test_a_quarterly_instance_fact_never_reaches_an_annual_row():
+    """The instance path filters duration before selection, so a quarter cannot pose as the year.
 
-    assert row['period_start'] is None and runtime['period_start'] is None
-    assert runtime['fiscal_period'] == 'FY'
-    assert not service._fact_certifies_claim(runtime, claim, view)
+    `duration_in_window` rejects the 90-day fact for a 10-K, leaving nothing to anchor on — the
+    extraction yields no revenue at all rather than a quarter wearing an annual label.
+    """
+    raw, row, _runtime = _ingest_via_filing_instance('2024-12-29')
+    assert (raw is None or not raw.get('revenue')) and row is None
 
 
 @pytest.mark.asyncio
 async def test_freshly_ingested_annual_point_reaches_the_citation(monkeypatch):
     """The whole visible path: source duration -> stored row -> tool -> rendered chip."""
-    _row, runtime = _ingest('2024-03-30')
+    _raw, _row, runtime = _ingest_via_filing_instance('2024-03-30')
     view = filing(filing_type='10-K', period_of_report='2025-03-29',
                   accession_number=INGESTED_ACCESSION, xbrl_data={'reporting_currency': 'USD'})
     complete = await _complete(
@@ -206,6 +236,16 @@ async def test_freshly_ingested_annual_point_reaches_the_citation(monkeypatch):
     assert len(complete['citations']) == 1
     assert complete['citations'][0]['period_start'] == '2024-03-30'
     assert complete['grounded'] == 1 and complete['uncited_figures'] == 0
+
+
+def test_a_source_point_with_no_start_stays_unknown_through_ingestion():
+    """Missing duration is carried as missing — never filled in from the form or the period end."""
+    row, runtime = _ingest_via_companyfacts(None)
+    claim, view = _ingested_claim_and_view()
+
+    assert row['period_start'] is None and runtime['period_start'] is None
+    assert runtime['fiscal_period'] == 'FY'
+    assert not service._fact_certifies_claim(runtime, claim, view)
 
 
 def test_preserved_durations_never_reach_the_model_prompt():

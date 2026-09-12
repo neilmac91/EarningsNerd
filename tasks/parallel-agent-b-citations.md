@@ -199,10 +199,31 @@ producer and keeps the start of the exact fact each value was resolved from;
 `duration_series_currency_concept` became a thin wrapper dropping it, so every long-standing
 `(end, value)` consumer — `duration_series_with_currency`, `duration_series`,
 `dividend_component_sum_series` and the extraction tests — is untouched. `xbrl_service` emits
-`period_start` at its three duration point sites and in the companyfacts fallback's `append_items`
-(which already held `item["start"]`); `normalise_series` passes the key through;
-`normalize_standardized_to_facts` stores it through `_duration_start`, which accepts only a real
-date strictly before the period end.
+`period_start` at its three per-filing duration point sites; `normalise_series` passes the key
+through; `normalize_standardized_to_facts` stores it through `_duration_start`, which accepts only
+a real date strictly before the period end.
+
+**LOCKED-ANCHOR CONFLICT — reported, not worked around.** The companyfacts fallback
+(`xbrl_service.append_items`) already holds `item["start"]` and was the other intended writer, but
+`backend/tests/unit/test_companyfacts_fixture.py` — the locked T9 characterization anchor — pins
+that path's emitted points by FULL-DICT equality:
+
+```
+assert parsed["revenue"] == [
+    {"period": "2023-12-31", "value": 24_318_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+    ...
+]
+```
+
+Adding `period_start` fails `test_revenue_series_matches_fixture`,
+`test_net_income_series_matches_fixture` and
+`test_extract_standardized_metrics_shapes_current_prior_change` (observed: 3 failed, 2994 passed on
+the full gate). Under CLAUDE.md rule 6 that is a contract change requiring pre-approval, so the
+`append_items` hunk was reverted and the anchor left byte-identical; the reason is recorded at the
+site in code. **Consequence:** facts from the fallback keep an unknown duration and keep abstaining
+— safe, but they cannot certify even when the source fact is genuinely annual. Authorizing the
+one-key contract change would close that; the required edit is three expected-dict literals in the
+anchor.
 
 **What deliberately does not.** Instant facts (no duration by definition), the dividend component
 SUM (a computed aggregate), and statement-derived `fin_metrics` (its helper returns no starts).
@@ -226,8 +247,10 @@ annual current period paired with a prior quarter and still accepts a genuine ye
 resolve on newly dated rows instead of returning `basis_unavailable`, under its existing strict
 endpoint and duration checks.
 
-**Answer to the question asked: fresh annual ingestion is repaired; existing records are not.** A
-filing whose facts are written after this ships certifies end to end
-(`test_freshly_ingested_annual_point_reaches_the_citation`). Every row stored before it keeps NULL
-and abstains — the retained BABA `results[14]` row among them, still pinned by
-`test_retained_baba_row_still_abstains_because_it_carries_no_duration`.
+**Answer to the question asked: fresh annual ingestion through the instance path is repaired;
+everything else still abstains.** A filing extracted from its own instance after this ships
+certifies end to end (`test_freshly_ingested_annual_filing_certifies_end_to_end` and
+`test_freshly_ingested_annual_point_reaches_the_citation`). Still abstaining: every row stored
+before this — the retained BABA `results[14]` row among them, still pinned by
+`test_retained_baba_row_still_abstains_because_it_carries_no_duration` — and every fact written
+through the companyfacts fallback, pending the T9 decision above.

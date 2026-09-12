@@ -34,11 +34,13 @@ real repair.
 drives the whole transformation through production code.
 
 **Correction (2026-09-12, later the same day):** extraction now preserves the source duration
-forward-only, so the first sentence above describes existing rows, not new ones. Both producers
-carry the selected fact's own start: `instance_extractor.duration_series_with_starts` (the proof
-`duration_in_window` already applied, no longer discarded at the tuple boundary) and
-`xbrl_service.append_items` (the `start` the ranking already read). `normalise_series` passes the
-key through and `normalize_standardized_to_facts` stores it in the existing nullable column.
+forward-only, so the first sentence above describes existing rows, not new ones. The per-filing instance
+path carries the selected fact's own start: `instance_extractor.duration_series_with_starts` (the
+proof `duration_in_window` already applied, no longer discarded at the tuple boundary),
+`normalise_series` passes the key through and `normalize_standardized_to_facts` stores it in the
+existing nullable column. The companyfacts fallback still drops its start — the locked T9 anchor
+pins those emitted points by full-dict equality, so carrying it there is a contract change needing
+pre-approval; those facts keep an unknown duration and keep abstaining.
 Selection, precedence and the upsert's skip semantics are unchanged, and a short-duration point in
 an annual filing is still KEPT — annual filings legitimately disclose quarters — but now carries
 its real duration so a consumer can refuse it for an annual claim. The rule is unchanged and now

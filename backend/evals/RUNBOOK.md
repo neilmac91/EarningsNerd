@@ -631,14 +631,15 @@ no duration and passes `_valid_fact_provenance`. The selected-instance path does
 downstream. Certifying on the label would put a verified chip on a possibly-quarterly figure, so a
 fact without `period_start` abstains — including the retained BABA row that motivated this layer.
 
-Extraction therefore preserves the source duration forward-only: both producers now carry the
-selected fact's own start (`instance_extractor.duration_series_with_starts` and
-`xbrl_service.append_items`), `normalise_series` passes it through and
+Extraction therefore preserves the source duration forward-only, on the **per-filing instance
+path**: `instance_extractor.duration_series_with_starts` keeps the selected fact's own start (the
+proof `duration_in_window` already applied), `normalise_series` passes the key through and
 `normalize_standardized_to_facts` stores it in the existing nullable column. Selection, precedence
-and upsert skip semantics are unchanged, and a quarterly disclosure inside an annual filing is
-still kept — it simply arrives with its real 90-day duration and is refused for an annual claim.
-**A filing re-ingested after this ships can certify; rows stored before it still abstain, and there
-is no backfill.** Durations are deliberately excluded from the model-facing compact block
+and upsert skip semantics are unchanged. The **companyfacts fallback still drops its start**: the
+locked T9 anchor pins that path's emitted points by full-dict equality, so adding a key there is a
+contract change needing pre-approval — its facts keep an unknown duration and keep abstaining,
+which is safe but less informative. **A filing ingested through the instance path after this ships
+can certify; rows stored before it, and fallback rows, still abstain, and there is no backfill.** Durations are deliberately excluded from the model-facing compact block
 (`_without_source_durations`), so prompt bytes are unchanged — widening what the model sees is a
 prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`

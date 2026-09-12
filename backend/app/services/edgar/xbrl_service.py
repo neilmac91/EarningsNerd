@@ -984,12 +984,12 @@ class EdgarXBRLService:
                     "value": item.get("val"),
                     "form": item.get("form"),
                     "accn": item.get("accn"),
-                    # The source duration this ranking already read (`_duration_penalty`,
-                    # `_classify_duration` above) but used to discard. Selection and precedence are
-                    # unchanged: a lone short-duration point is still KEPT, because an annual filing
-                    # may legitimately disclose one — it is now carried honestly so a consumer can
-                    # refuse it for an annual claim instead of mistaking it for a year.
-                    **_source_duration(item.get("start")),
+                    # NOT carrying `item["start"]` here, though the ranking above already read it:
+                    # the locked T9 anchor (`tests/unit/test_companyfacts_fixture.py`) pins these
+                    # emitted points by full-dict equality, so adding a key is a contract change
+                    # that needs pre-approval. Consequence: facts from this fallback keep an unknown
+                    # duration and therefore keep ABSTAINING on annual claims — safe, but less
+                    # informative than the instance path. See the PR body's conflict report.
                     **({"raw_tag": raw_tag} if raw_tag is not None else {}),
                 })
 
