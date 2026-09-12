@@ -15,7 +15,9 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.services.summary_schema import REPORTED_METRIC_LABEL
+from app.services.summary_schema import (
+    REPORTED_METRIC_LABEL, FINANCIAL_EXPLANATION_SUPPORT, FINANCIAL_DRIVER, EARNINGS_RECONCILIATION,
+)
 
 from app.services.ai.normalize import _normalize_simple_string
 from app.services.ai.recovery_context import RecoveryBlock, build_recovery_context
@@ -98,9 +100,9 @@ class _SectionRecoveryMixin:
         # verbatim contract; full descriptive parity for non-evidence qualifiers is
         # deliberately out of scope (snippet size vs the recovery token cap).
         schema_snippets = {
-            "the_print": '{"the_print": {"headline": "<string>", "key_takeaways": ["<string>"], "what_changed": "<string>", "tone": "<positive|neutral|cautious>"}}',
-            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<reported_metric_label>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}}',
-            "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<string>", "red_flags": ["<string>"]}}',
+            "the_print": '{"the_print": {"headline": "<apply the financial-driver condition below>", "key_takeaways": ["<apply the financial-driver condition below>"], "what_changed": "<financial_driver>", "tone": "<positive|neutral|cautious>"}}',
+            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<reported_metric_label>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<financial_driver>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}}',
+            "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<earnings_reconciliation>", "red_flags": ["<string>"]}}',
             "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "highlights": ["<string>"]}}',
             "forward_signals": '{"forward_signals": {"guidance": "<guidance exactly as the filing states it; if none, say so>", "known_trends": ["<an Item 303 known trend or uncertainty>"], "subsequent_events": ["<a material event after period end>"], "quotes": [{"speaker": "<string>", "quote": "<copied CHARACTER-FOR-CHARACTER from the excerpt — never reword or re-tense; omit the quote if you cannot copy it exactly>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
             "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<non-empty excerpt or citation>", "materiality": "<low|medium|high>"}]}',
@@ -108,7 +110,9 @@ class _SectionRecoveryMixin:
             "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>", "supporting_evidence": "<a SHORT PROSE quote (a sentence or contiguous fragment, never a table-row transcription) copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}',
         }
         snippet = schema_snippets.get(section_key)
-        return snippet.replace("<reported_metric_label>", REPORTED_METRIC_LABEL) if snippet else None
+        return (snippet.replace("<reported_metric_label>", REPORTED_METRIC_LABEL)
+                .replace("<financial_driver>", FINANCIAL_DRIVER)
+                .replace("<earnings_reconciliation>", EARNINGS_RECONCILIATION)) if snippet else None
 
     async def _run_secondary_completion(
         self,
@@ -166,7 +170,7 @@ class _SectionRecoveryMixin:
 Filing type: {filing_type_label}
 Reporting period: {reporting_period}
 
-Populate only the `{section_key}` portion of the structured summary schema shown below. Use concrete facts from the excerpt. For non-table narrative fields, if figures are missing, supply concise qualitative statements rather than placeholders.
+Populate only the `{section_key}` portion of the structured summary schema shown below. {FINANCIAL_EXPLANATION_SUPPORT} For non-table narrative fields, if figures or explanations are missing, state supported qualitative facts or explain what is unknown rather than inventing an explanation.
 
 SCHEMA:
 {schema_snippet}

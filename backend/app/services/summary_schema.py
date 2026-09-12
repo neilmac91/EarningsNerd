@@ -99,16 +99,46 @@ REPORTED_METRIC_LABEL = (
 )
 
 
+# One source-identity condition for authored financial explanations, including claims outside
+# the P&L/earnings fields. Primary and recovery deliver it at their general evidence boundary;
+# the two field forms below apply it without repeating the global condition in every slot.
+FINANCIAL_EXPLANATION_SUPPORT = (
+    "Use only figures and explanations supported by the provided filing excerpts or XBRL data. "
+    "Preserve the source's named measure, entity/component scope, period, accounting/tax basis, "
+    "currency/unit and the number's role. A balance, change, ratio/rate and component are not "
+    "interchangeable. Use a comparison or cause only when the signed figures or filing explanation "
+    "support it on that same basis; otherwise retain the supported facts without the unsupported conclusion."
+)
+FINANCIAL_DRIVER = (
+    "Explain the movement or significance on that same supported basis; otherwise state the "
+    "supported movement alone without inventing a cause or comparator. An evidence span must "
+    "substantiate this explanation, not merely mention a nearby figure. Example (illustrative "
+    "only, not filing data): revenue 100 versus 80 supports revenue increased 25%; a segment's "
+    "40% growth does not establish prior company growth. With only those totals, report the "
+    "25% movement without an acceleration or causal claim."
+)
+EARNINGS_RECONCILIATION = (
+    "Explain reported earnings and disclosed unusual items on that same supported basis. State "
+    "an adjusted result or direction only when the filing's definition or a transparent signed "
+    "same-period reconciliation supports it. Remove only items included in the named subtotal; "
+    "preserve tax effects and distinguish current items from prior-period changes. Otherwise "
+    "describe the disclosed items without an adjusted total or core-improved conclusion. Example "
+    "(illustrative only, not filing data): operating profit 4 includes gain 9; company core profit "
+    "3 excludes pension 1 only. Core profit still includes gain 9; operating profit excluding "
+    "the gain is -5. If inclusion or tax basis is unknown, report the item without an ex-item total."
+)
+
+
 class PLMetricRow(_V2Base):
     """One row of the §2 P&L table. Values are model-emitted; the renderer computes the Change cell
     from current/prior via metric_delta_service (ppts for margins) — the model's own `change` text is
-    a fallback only. `commentary` is the one-line driver."""
+    a fallback only. `commentary` is a supported interpretation or movement."""
 
     metric: str = Field(default="", description=REPORTED_METRIC_LABEL)
     current_period: str = ""
     prior_period: str = ""
     change: str = ""
-    commentary: str = ""
+    commentary: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
     # T4: a verbatim filing excerpt backing the Investor-Takeaway (`commentary`), text-verified at read
     # time into a Trace-to-Source chip. "" when the model has no line to quote for the driver.
     supporting_evidence: str = ""
@@ -167,29 +197,29 @@ class FootnoteItem(_V2Base):
 
 class ThePrint(_V2Base):
     """§1 — the reaction-note lead. Absorbs Key Takeaways; echoes ≤3 headline figures by reference,
-    each with driver + so-what; states what this filing changes."""
+    each with supported interpretation; states what this filing changes."""
 
-    headline: str = ""
-    key_takeaways: List[str] = Field(default_factory=list)
-    what_changed: str = ""
+    headline: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
+    key_takeaways: List[str] = Field(default_factory=list, description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
+    what_changed: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
     tone: str = ""
     source_section_ref: str = ""
 
 
 class ResultsThatMatter(_V2Base):
     """§2 — substantiated P&L rows with their reported metric labels and accounting basis,
-    each with a one-line driver. Cash lines live in §3, never here."""
+    each with a supported interpretation or movement. Cash lines live in §3, never here."""
 
     table: List[PLMetricRow] = Field(default_factory=list)
     source_section_ref: str = ""
 
 
 class EarningsQuality(_V2Base):
-    """§3 — the differentiator: operating-vs-one-time bridge (adjusted vs reported), the NI-vs-CFO
+    """§3 — the differentiator: supported reported/adjusted earnings reconciliation, the NI-vs-CFO
     accrual read + FCF/conversion, and a red-flag scan. `operating_vs_one_time` + `red_flags` are
     model-extracted; `cash_conversion` is machine-authored from XBRL (T5.1)."""
 
-    operating_vs_one_time: str = ""
+    operating_vs_one_time: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + EARNINGS_RECONCILIATION)
     # Machine-authored from standardized XBRL by the pipeline's deterministic filler (the NI-vs-CFO
     # cash-conversion ratio + free cash flow) — NOT model-emitted. Declared here so the shape SSOT
     # stays complete; the v2 render builder reads it. Suppressed for financial institutions.
