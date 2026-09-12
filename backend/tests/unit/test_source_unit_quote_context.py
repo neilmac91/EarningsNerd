@@ -6,6 +6,7 @@ import pytest
 
 from app.services.openai_service import OpenAIService
 from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
 # Exact retained COST 10-Q text fragments, accession 0000909832-26-000051.
 DECLARATION = '(amounts in millions, except per share, share, percentages and warehouse count data)'
@@ -49,7 +50,7 @@ async def test_source_units_belong_to_entire_quote_in_actual_consumer(monkeypatc
     item = {'speaker': 'Costco', 'quote': quote, 'context': 'Capital Expenditure Plans',
             'source_unit_context': '(fabricated amounts in billions)'}
     sections = {'forward_signals': {'guidance': 'Authored $6,500 guidance remains unchanged.', 'quotes': [item]}}
-    structured = {'sections': deepcopy(sections), 'metadata': {}}
+    structured = {'schema_version': SUMMARY_SCHEMA_VERSION, 'sections': deepcopy(sections), 'metadata': {}}
     if case == 'recovered':
         structured['_recovered_sections'] = ['forward_signals']
 
