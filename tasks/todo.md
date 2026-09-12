@@ -4612,3 +4612,15 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 ## Measurement implementation — archived
 
 - [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).
+
+
+## September 12 — conserve evaluation provider usage (migration audit M3)
+
+- [ ] Preserve observed provider usage on successful and failed baseline generations.
+- [ ] Retain every outer retry's usage, with separate incurred totals and final-output metrics.
+- [ ] Add one conservation invariant and one committed mutation proof; preserve all locked anchors.
+- [ ] Complete full gate, independent review, normal PR procedure and serial production verification.
+
+This correction changes measurement only. Prices, scoring, prompts, model, baseline, previews and
+production flags are unchanged. Historical W10 totals remain historical final-attempt measurements,
+not complete spend; no retrospective usage is invented.
