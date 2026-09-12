@@ -5107,3 +5107,14 @@ This dated record supersedes earlier current HOLD, unpublished and release-pendi
 - [ ] Retain unsupported guidance/recovery/source-coverage cases and broader numerical/accounting findings for bounded future work.
 
 No further #825 assessment is required by this record. World-class quality and universe-wide pregeneration/historical replay remain held. Original master-plan prerequisites remain in effect; E06 natural delivery is unobserved and E09 remains proposal-only with incomplete fleet/egress/budget evidence.
+
+
+## September 13 local / September 12 UTC — debt release verified
+
+- [x] Agent A debt scope integrated, independently reviewed and corrected through PR #829; both assessment rounds retained.
+- [x] #829 merged as `b251ead4ff52bf05576adedd857e123af82c0d1e`; main CI `34721229716` green, migrations 0/39, revision `earningsnerd-backend-00335-wws` at 100%, CI and independent detailed health healthy. See [release evidence](debt-scope-release-2026-09-12.md).
+- [x] Agent B revised citation/duration code integrated with A; full PostgreSQL 15 gate passed 3,071 tests. T9 exception is founder-approved and confined to seven expected dictionaries; existing rows remain unchanged.
+- [ ] Publish and assess B next, then verify its deployment serially. Its local gate is not release acceptance.
+- [ ] Continue source completeness, financial relationship explanations and ASML/general citation residuals. Broad quality acceptance, strong-judge prerequisites, historical replay and universe-wide pregeneration remain held.
+
+This dated correction supersedes earlier candidate-only debt status without rewriting historical records. Both external agents are finished; Codex owns the release queue.
