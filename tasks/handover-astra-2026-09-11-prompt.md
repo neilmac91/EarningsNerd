@@ -213,3 +213,11 @@ Stop when the audit PR and the reconciled candidates are merged or blocked on a 
 prerequisite, and every remaining item is listed in `tasks/todo.md` with its blocker. Then give
 the founder one message: what merged, what is blocked on what, the DeepSeek balance, and the
 single most useful decision they could make next.
+
+## September 12 correction — current continuation state
+
+The [migration audit](audit-astra-2026-09-11.md) supersedes conflicting instructions above. Main is #815 (`8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f`); latest backend is #814 revision `earningsnerd-backend-00329-cx2`, not #812. #814 includes a registration-metadata endpoint and backend test and therefore requires backend audit/deploy verification. Its Actions log shows migrations0/39,100% and healthy detailed health; #815 explicitly skips deployment.
+
+Eval-error-outcome #796 and reported-metric d #799 were already merged and production-verified before the Flash cutover. Preserve their code and do not repeat their release or consume a third #799 assessment. #805 remains held after failed first financial acceptance; #808 is a separate draft awaiting current-main integration/acceptance. The newly discovered failure/retry usage loss is a different harness defect: correct it before further paid cohorts. Historical report cost totals omit failed outer attempts and cannot establish complete billing.
+
+DeepSeek's [current official notice](https://api-docs.deepseek.com/quick_start/pricing), retrieved September12, says V4 Pro continues after September14 with unchanged billing. This supersedes the retirement premise, without changing the approved Flash model or disabled thinking. The old balance is historical; read the configured account's current balance before any paid run. The audit's full current gates and fix release remain pending. Original founder-held prerequisites, locked contracts and broad-generation hold remain intact.

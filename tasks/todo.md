@@ -4612,3 +4612,23 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 ## Measurement implementation — archived
 
 - [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).
+
+## September 12 — migration audit and quality continuation (dated correction)
+
+This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
+
+- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
+- [x] Confirm #796 error-outcome and #799 reported-metric d are already merged and verified. Do not reimplement either or launch a third #799 assessment. #805 is the genuinely unfinished explanation candidate, held after its first failed financial assessment.
+- [x] Verify current official Flash prices and peak schedule. DeepSeek now states V4 Pro continues after September14 at its own unchanged rates; the old retirement premise is superseded. Flash with thinking off remains the approved configuration.
+- [ ] Finish clean current-main backend (four PostgreSQL lanes/performance) and frontend lint/TypeScript/Vitest/build gates. Local database recovery and cold file reads delayed startup; no partial pass is claimed.
+- [ ] Fix and review lost provider usage on failed generations/outer retries before another paid cohort. Retain all known usage and explicit unknown counts; distinguish final-output metrics from incurred work. Preserve frozen reports and append historical-cost limitations.
+- [ ] Publish the completed audit with dated ledger corrections; merge only after its own link/anchor check and hosted prerequisites.
+- [ ] Integrate #808 and independent cash-basis/source-diagnostic preparations against current Flash main, preserve original mutation evidence, gate committed state and inspect actual accepted artifacts before serial release. Historical Pro assessments are bounded historical evidence.
+- [ ] Continue the source-qualified accounting registry and narrow explanation correction for #805, then bounded source inclusion and measurement-only workflow. No second #805 assessment has launched.
+- [ ] Retain original founder prerequisites: Notable review through September15/retain decision; Analysis recorded warm-up/live acceptance; W3-7 readout and ordered W3-8 repins; E09 proposal; E06 Stripe observation; major dependencies; D8/#270; legal/account settings; CI-only DeepSeek key. The narrow T9 metadata decision remains pending. Universe-wide pregeneration and historical replay remain held.
+
+Pricing telemetry should-fix findings and historical provenance/gate limitations remain in the audit; none authorizes provider, flag, baseline or account-setting changes.
+
+### September 12 committed-state process correction
+
+During this resumed audit, Codex edited only audit/ledger documents in `work/flash-migration-audit` while its frontend gate was active. This violated the committed-state verification procedure even though frontend source bytes were unchanged. The run was invalidated and the founder was informed immediately; no push, ready, merge or paid run followed it. The draft documentation was preserved in the separate `work/flash-audit-report` worktree. Restore the original audit worktree to clean main and run the entire frontend gate again before recording a pass. The backend gate uses its own unchanged detached worktree and is unaffected.
