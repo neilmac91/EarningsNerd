@@ -4750,3 +4750,13 @@ No source snapping, threshold relaxation, invalid-citation deletion, production 
 #808 correction proof checkpoint: reviewed implementationd32c150ecf5e694841813f12d9cefcd8ce1eae71; committed mutation4faa93bf removes only the delivered minimum and yields1failed/6deselected/2warnings2.31s. Restoration3f4a02343b9c2e7a8cd1860239ee7db17e8e84f2 yields1passed/6deselected/2warnings1.26s. A first invocation from the repository root failed collection before app import; it is retained separately and is not the mutation proof. Independent review found no surviving correction defect after two refutations. Full committed gate and actual second assessment remain pending.
 
 The first correction full gate stopped at Bandit B608 before pytest: its SQL heuristic matched the English “select ... from” inside the existing prompt f-string. The prompt has no SQL execution path. Changing the instruction to “choose a longer contiguous source span” preserves the same behavior without suppressing Bandit; the canonical minimum and its existing proof are unchanged. Re-run the complete gate on the corrected commit.
+
+
+### 2026-09-12 — Source-owned capital-plan quote unit context (local preparation)
+
+- [x] Read current governing rules and inspect the actual v2 quote consumer. Branch from verified origin/main `f0a81fff216c318a40979b7dfcd55500c8b43a03`; old local main is stale and was not used.
+- [ ] Add a narrow owner for uniquely raw-matched capital-plan quotes with an explicit directly-under-MD&A-title unit declaration; preserve quote bytes, exceptions and existing verification. Reject ambiguous scopes and duplicates.
+- [ ] Render the source-owned declaration adjacent to the existing quote in the shared v2 consumer. Strip model-supplied annotations; no new model selection field, numeric conversion or flags.
+- [ ] Cover the one source-association invariant through the actual consumer with positive/negative controls. Commit implementation for root review before the single mutation proof/full gate.
+
+Initial scope is authoritative final primary quotes only. Recovered forward sections and previews receive no unit annotation because their available context differs; no parity claim is made. All six retained COST authored-guidance strings are paraphrases and remain an open unit-loss finding. Four retained capital-plan quotes qualify for targeted source context; this does not establish universal guidance coverage or release pregeneration spend. Historical ledger bytes above are preserved.
