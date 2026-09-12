@@ -4,9 +4,18 @@ The retained #825 second Copilot assessment (`results[14]`, BABA 20-F `000095017
 run 2) shipped "Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million." with an
 empty tool trace, an empty citations array and zero stripped markers — the right number with no
 attribution. The placement guards cannot reach it: they only ever REMOVE a marker, and this answer
-never placed one. These tests drive the real service path with a fake stream and a scoped fact
-lookup, so the positive control is the actual defect and every negative control abstains with the
-answer byte-identical.
+never placed one.
+
+The repair attaches a marker only when the filing's own fact proves it covers the claimed year,
+which means the fact must carry its own reported duration. `test_quarterly_point_in_an_annual_
+filing_never_certifies` drives the real production transformation to show why nothing weaker will
+do: a three-month revenue point ending on the fiscal year end survives the companyfacts fallback,
+loses its start, and reaches the fact table labelled `FY`. A fact with no duration therefore
+abstains — including the retained BABA row itself, which is pinned below as a known incomplete
+case rather than quietly presented as fixed.
+
+These tests drive the real service path with a fake stream and a scoped fact lookup; every
+negative control leaves the answer byte-identical.
 """
 from datetime import datetime
 from types import SimpleNamespace
@@ -22,14 +31,19 @@ REPAIRED = 'Revenue for the fiscal year ended March 31, 2025 was RMB996,347 mill
 
 
 def fact(**changes):
-    """The viewed filing's own revenue fact, exactly as `copilot_tools` returns it at runtime.
+    """The viewed filing's revenue fact WITH a trustworthy reported duration (364 days).
 
-    `period_start` is None because `facts_service._build_facts` never writes one — the reason this
-    repair certifies annual SCOPE (annual form + period of report + FY label) and not duration.
+    This is the shape the repair can certify. Pass `period_start=None` for the shape most runtime
+    rows actually have today — see `undated_fact`.
     """
     return {'concept': 'revenue', 'raw_tag': 'us-gaap:Revenues', 'value': 996347000000.0,
-            'unit': 'CNY', 'accession': ACC, 'period_start': None, 'period_end': '2025-03-31',
-            'fiscal_year': 2025, 'fiscal_period': 'FY', **changes}
+            'unit': 'CNY', 'accession': ACC, 'period_start': '2024-04-01',
+            'period_end': '2025-03-31', 'fiscal_year': 2025, 'fiscal_period': 'FY', **changes}
+
+
+def undated_fact(**changes):
+    """The same fact as the per-filing ingest path actually stores it: no duration at all."""
+    return fact(period_start=None, **changes)
 
 
 def filing(**changes):
@@ -66,8 +80,11 @@ async def _complete(monkeypatch, answer, *, lookup=None, view=None, model_calls=
 
 
 @pytest.mark.asyncio
-async def test_retained_uncited_answer_gains_the_filings_own_citation(monkeypatch):
-    """The actual defect: same prose, one real chip, numbering agreeing with the citations list."""
+async def test_uncited_answer_gains_a_citation_when_the_fact_proves_the_year(monkeypatch):
+    """The positive path: same prose, one real chip, numbering agreeing with the citations list.
+
+    The fact here carries a 364-day reported duration, so it demonstrably covers the claimed year.
+    """
     complete = await _complete(monkeypatch, UNCITED)
 
     assert complete['answer'] == REPAIRED
@@ -80,6 +97,70 @@ async def test_retained_uncited_answer_gains_the_filings_own_citation(monkeypatc
     assert complete['grounded'] == 1 and complete['misplaced_fact_markers'] == 0
     # The advisory coverage counter follows the repair; it never drives it.
     assert (complete['figure_count'], complete['uncited_figures']) == (1, 0)
+
+
+@pytest.mark.asyncio
+async def test_retained_baba_row_still_abstains_because_it_carries_no_duration(monkeypatch):
+    """KNOWN INCOMPLETE — the retained #825 defect is not repaired by this change.
+
+    `results[14]`'s filing stored its revenue through the per-filing ingest path, which writes no
+    `period_start`. Nothing in the record proves the figure spans the fiscal year the sentence
+    claims, so the repair abstains and the answer ships exactly as it did. Certifying it on the
+    annual form and the `FY` label alone would put a verified chip on a possibly-quarterly figure.
+    Closing this needs duration carried into the fact record — an ingestion change owned elsewhere.
+    """
+    complete = await _complete(monkeypatch, UNCITED, lookup=lambda *a, **kw: undated_fact())
+
+    assert complete['answer'] == UNCITED
+    assert complete['citations'] == [] and complete['grounded'] == 0
+    assert complete['uncited_figures'] == 1
+
+
+def test_quarterly_point_in_an_annual_filing_never_certifies():
+    """The realistic regression, driven through the actual source-to-runtime transformation.
+
+    A three-month revenue point ending on the fiscal year end is the case the companyfacts
+    fallback ranks but never rejects. Every step below is production code: `filter_and_sort` keeps
+    the sole point, `append_items` drops its `start`, `extract_standardized_metrics` carries it
+    through, and `normalize_standardized_to_facts` stamps `FY` from the FORM. The result is a Q4
+    figure wearing an annual label, and it passes `_valid_fact_provenance` — so only the duration
+    requirement stands between it and a verified annual citation.
+    """
+    from app.models.financial_fact import FinancialFact
+    from app.services.edgar.xbrl_service import EdgarXBRLService
+    from app.services.facts_service import normalize_standardized_to_facts
+
+    accession = '0000320193-25-000079'
+    payload = {'facts': {'us-gaap': {'Revenues': {'units': {'USD': [
+        {'start': '2024-12-29', 'end': '2025-03-29', 'val': 95359000000.0,
+         'form': '10-K', 'accn': accession, 'filed': '2025-05-02', 'fy': 2025, 'fp': 'FY'},
+    ]}}}}}
+    svc = EdgarXBRLService.__new__(EdgarXBRLService)
+    standardized = svc.extract_standardized_metrics(svc._parse_company_facts(payload, accession))
+    row = [r for r in normalize_standardized_to_facts(9, 7, accession, '10-K', standardized)
+           if r['concept'] == 'revenue'][0]
+    runtime = service.copilot_tools._fact_provenance(FinancialFact(**row))
+
+    # The transformation really does produce an undated FY row from a quarterly point.
+    assert runtime['period_start'] is None and runtime['fiscal_period'] == 'FY'
+    assert service._valid_fact_provenance(runtime, accession, 'USD')
+
+    claim = service._plan_uncited_fact_citation(
+        'Revenue for the fiscal year ended March 29, 2025 was $95,359 million.')
+    view = filing(filing_type='10-K', period_of_report='2025-03-29', accession_number=accession,
+                  xbrl_data={'reporting_currency': 'USD'})
+    assert claim is not None and claim['value'] == 95359000000.0
+    assert not service._fact_certifies_claim(runtime, claim, view)
+
+
+def test_the_annual_window_matches_the_two_modules_that_already_own_it():
+    """One annual window repo-wide: drift in either owner must fail here, not widen certification."""
+    from app.services.edgar.instance_extractor import DURATION_WINDOWS
+    from app.services.facts_service import _CF_ANNUAL_WINDOW
+
+    assert service._ANNUAL_DURATION_DAYS == _CF_ANNUAL_WINDOW
+    assert all(DURATION_WINDOWS[form] == service._ANNUAL_DURATION_DAYS
+               for form in ('10-K', '20-F', '40-F'))
 
 
 @pytest.mark.asyncio
@@ -194,6 +275,11 @@ async def test_unsupported_claim_shapes_abstain(monkeypatch, answer):
     pytest.param(lambda: dict(fact(period_end='2024-03-31')), id='wrong-full-date'),
     pytest.param(lambda: dict(fact(fiscal_period='Q4')), id='quarterly-not-annual'),
     pytest.param(lambda: dict(fact(fiscal_period=None)), id='unlabelled-period'),
+    pytest.param(lambda: dict(undated_fact()), id='no-reported-duration'),
+    pytest.param(lambda: dict(fact(period_start='2024-12-31')), id='quarterly-duration'),
+    pytest.param(lambda: dict(fact(period_start='2024-07-01')), id='nine-month-ytd-duration'),
+    pytest.param(lambda: dict(fact(period_start='2023-04-01')), id='two-year-duration'),
+    pytest.param(lambda: dict(fact(period_start='not-a-date')), id='unparseable-duration'),
     pytest.param(lambda: dict(fact(unit='USD')), id='wrong-currency'),
     pytest.param(lambda: dict(fact(unit=None)), id='unknown-unit'),
     pytest.param(lambda: dict(fact(value=-996347000000.0)), id='wrong-sign'),

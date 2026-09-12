@@ -610,7 +610,9 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
 # marker ONLY when the filing's own fact carries every identity the sentence asserts.
 #
 # Everything here is POSITIVE certification, which is the opposite of the falsification guards: an
-# absent or ambiguous signal abstains. Amount coincidence is never enough.
+# absent or ambiguous signal abstains. Amount coincidence is never enough, and neither is an
+# annual-looking label — the fact must carry its own reported duration. Today most runtime facts
+# do not, so this abstains far more often than it fires; that is the intended direction.
 # ---------------------------------------------------------------------------------------------
 
 # Marks a fact this module looked up on the server's own initiative, so a diagnostic reading
@@ -655,9 +657,16 @@ _ANNUAL_FIGURE_CLAIM = re.compile(
 )
 
 # Annual report forms: the ones whose period of report IS a full fiscal year. Same test
-# ``facts_service._fiscal_period`` applies to decide which points get stamped ``fiscal_period="FY"``,
-# so the form check and the FY label agree by construction. Amendments ("10-K/A") share the prefix.
+# ``facts_service._fiscal_period`` applies to decide which points get stamped ``fiscal_period="FY"``.
+# NOTE this makes the FY label and the form the SAME signal, not two — see
+# :func:`_fact_certifies_claim`. Amendments ("10-K/A") share the prefix.
 _ANNUAL_REPORT_FORMS = ("10K", "20F", "40F")
+
+# What counts as an annual slice, in days. One window, mirrored from the two places that already
+# own it — ``facts_service._CF_ANNUAL_WINDOW`` and ``edgar.instance_extractor.DURATION_WINDOWS``
+# for 10-K/20-F/40-F. ``test_copilot_citation_repair`` asserts the three stay equal, so a change
+# there cannot silently widen what this module will certify.
+_ANNUAL_DURATION_DAYS = (320, 390)
 
 
 def _is_annual_report_form(filing_type: Any) -> bool:
@@ -717,13 +726,24 @@ def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
 def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
     """True only when the viewed filing's own fact carries EVERY identity the claim asserts.
 
-    Scope is established from metadata that actually exists at this layer. ``period_start`` does
-    not: ``facts_service._build_facts`` never writes it, so a duration test would abstain on every
-    real answer. Instead the viewed filing must be an annual report form, its period of report must
-    equal both the fact's ``period_end`` and the claimed date, and the fact must carry the ``FY``
-    label only an annual-form point receives. That is annual SCOPE, not a proven duration — a
-    same-period-end quarterly point that collapsed under the fact table's identity constraint would
-    be indistinguishable here, and closing that needs duration in the fact writer.
+    The claim says "for the fiscal year ended <date>", so the fact must be shown to COVER that
+    year. Only its own reported duration shows that, and nothing else here is a substitute:
+
+    * The **form** cannot. ``facts_service._fiscal_period`` derives ``FY`` from the form, so the
+      annual-form test and the ``FY`` label are one signal wearing two hats, not two signals.
+    * The **companyfacts fallback** cannot. ``edgar/xbrl_service.py``'s ``filter_and_sort`` only
+      *ranks* the durations sharing a period end and keeps the best one; a sole quarterly point is
+      not rejected, and ``append_items`` then drops its ``start`` entirely. A three-month revenue
+      figure ending on the fiscal year end therefore reaches the fact table labelled ``FY`` with no
+      duration at all. (The selected-instance path does filter — ``instance_extractor``'s
+      ``duration_in_window`` — but that proof is consumed at extraction and never recorded, so the
+      two are indistinguishable downstream.)
+    * **Comparative cadence** cannot: matching period ends a year apart are consistent with a
+      quarterly point sitting among annual ones.
+
+    So a fact with no ``period_start`` abstains, however annual everything around it looks. Adding
+    a *verified* chip to an annual sentence on a possibly-quarterly figure would be a new error of
+    our own making, which is worse than the uncited prose it replaces.
     """
     if not _is_annual_report_form(getattr(filing, "filing_type", None)):
         return False
@@ -733,6 +753,13 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
         return False
     claimed = claim["period_end"]
     if fact.get("period_end") != claimed or _iso_day(getattr(filing, "period_of_report", None)) != claimed:
+        return False
+    # The binding proof: the fact's own reported duration must span an annual slice.
+    start, end = _iso_day(fact.get("period_start")), _iso_day(fact.get("period_end"))
+    if start is None or end is None:
+        return False
+    low, high = _ANNUAL_DURATION_DAYS
+    if not low <= (date.fromisoformat(end) - date.fromisoformat(start)).days <= high:
         return False
     if copilot_tools.canonical_unit(fact.get("unit")) != claim["currency"]:
         return False

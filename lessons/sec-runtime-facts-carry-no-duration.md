@@ -1,25 +1,34 @@
-# Runtime per-filing facts carry no `period_start` — certify annual SCOPE, never duration
+# Runtime per-filing facts carry no duration — abstain, never substitute an annual-looking label
 
 Date: 2026-09-12   Area: sec / verification
 
-**Context**: Repairing the Copilot's uncited reported-figure answers needed proof that the fact
-behind "for the fiscal year ended March 31, 2025" really is the annual figure. The obvious test —
-`period_end - period_start` inside the 357–373-day window `copilot_tools._prior_comparable`
-already uses — would have abstained on every real answer: `facts_service._build_facts` never puts
-`period_start` in the dict it writes, so every `edgar_xbrl` row stores NULL. Both retained #825
-Copilot assessments confirm it: all 30+ successful `get_financial_fact` results carry
-`period_start: null`. A duration guard written from the schema alone would have looked correct,
-passed its fixtures, and been a no-op in production.
+**Context**: Attaching a verified citation to "revenue for the fiscal year ended March 31, 2025"
+needs proof that the fact behind it spans that year. The obvious proof is its own reported
+duration, and per-filing facts do not have one: `facts_service.normalize_standardized_to_facts`
+never writes `period_start`, and both retained #825 Copilot assessments show `period_start: null`
+on every successful `get_financial_fact` result. The first implementation substituted an
+annual-report form, `period_of_report` equality and the `FY` label. Review showed that is not a
+substitute, and the actual production path proves it end to end: a three-month revenue point
+ending on the fiscal year end survives `edgar/xbrl_service.py`'s `filter_and_sort`, which only
+*ranks* the durations sharing a period end and never rejects a lone quarterly one; `append_items`
+then drops its `start`; and `facts_service._fiscal_period` stamps `FY` from the FORM. A Q4 figure
+therefore reaches the fact table wearing an annual label with no duration, and passes
+`_valid_fact_provenance`. The form test and the `FY` label are one signal, not two, and
+comparative cadence cannot separate them either.
 
-**Rule**: Before gating on a fact field, confirm the writer actually populates it — read the
-writer, then a real retained artifact, not just the model's nullable column. When duration is
-needed and absent, certify annual **scope** from evidence that does exist (the viewed filing is a
-10-K/20-F/40-F, its `period_of_report` equals the fact's `period_end`, and the fact carries the
-`FY` label only an annual-form point receives) and say plainly that this is scope, not a proven
-duration — a same-period-end quarterly point that collapsed under `uq_financial_fact_identity`
-stays indistinguishable until the writer records durations.
+**Rule**: Before gating on a fact field, read the writer and a real retained artifact, not just
+the nullable column. When the evidence a claim needs is absent, abstain — do not substitute a
+weaker signal that correlates with it. Adding an affirmative, *verified* marker on unproven scope
+is a new error of our own making and is worse than the uncited prose it replaces; shipping
+uncited is the safe direction. Say plainly that the abstaining case is unfixed rather than
+reporting the mechanism as a fix. The selected-instance path DOES filter duration
+(`instance_extractor.duration_in_window`), but it consumes that proof at extraction and records
+nothing, so downstream the two paths are indistinguishable — carrying duration forward is the
+real repair.
 
-**Evidence**: `backend/app/services/facts_service.py::_build_facts` (no `period_start` key) and
-`_fiscal_period`; `backend/app/services/copilot_service.py::_fact_certifies_claim`;
-`backend/evals/RUNBOOK.md` ("Runtime per-filing facts currently omit duration starts");
-`backend/tests/unit/test_copilot_citation_repair.py`.
+**Evidence**: `backend/app/services/edgar/xbrl_service.py` (`_duration_penalty`, `filter_and_sort`,
+`append_items`); `backend/app/services/edgar/instance_extractor.py::duration_in_window`;
+`backend/app/services/facts_service.py::_fiscal_period` and `normalize_standardized_to_facts`;
+`backend/app/services/copilot_service.py::_fact_certifies_claim`;
+`backend/tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
+drives the whole transformation through production code.
