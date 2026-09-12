@@ -4628,3 +4628,18 @@ remain historical. Consolidate the original full preparation into the existing d
 
 No new source fetch, historical replay, prompt/model/flag change or paid run is authorized by this
 local preparation. The ordinary review and serial production verification remain required.
+
+## September 12 — conserve evaluation provider usage (migration audit M3)
+
+- [x] Preserve observed provider usage on successful and failed baseline generations.
+- [x] Retain every outer retry's usage, with separate incurred totals and final-output metrics.
+- [x] Add one conservation invariant and one committed mutation proof; preserve all locked anchors.
+- [ ] Complete full gate, independent review, normal PR procedure and serial production verification.
+
+This correction changes measurement only. Prices, scoring, prompts, model, baseline, previews and
+production flags are unchanged. Historical W10 totals remain historical final-attempt measurements,
+not complete spend; no retrospective usage is invented.
+
+Local targeted verification: 101 passed, 2 warnings. The sole conservation mutation
+(discard failed-generation usage) failed all five scenarios, then the exact restored code passed
+all five. Full gate and hosted release remain pending; no provider calls were made.
