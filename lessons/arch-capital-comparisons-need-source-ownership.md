@@ -15,3 +15,6 @@ September 13 assessment correction: both actual MELI draws omitted available fin
 
 
 Boundary correction before publication: independent review found both extraction caps and recovery allocation can append synthetic separators after a cut line. The fallback now excludes first and last nonempty lines of every source block. It selects an internal verbatim source passage; this is not proof of an original HTML paragraph or complete surrounding context. Actual MELI selection remains internal. The pre-correction committed gate passed 3,096 tests; that pass did not refute the subsequently confirmed boundary defect. Final corrected gates and actual assessment remain required.
+
+
+September 13 second-assessment correction: a nonempty model quote list can contain bare table labels or unrelated program quotes, so emptiness cannot own explanation preservation. Select the qualifying internal source passage independently, then containment-deduplicate it with legitimate quotations. Reject whole-line labels followed by numeric cells structurally; a sentence-ending requirement would discard valid fragments. Source-exact attribution still does not certify causality or make a prior-period passage current. This supersedes the empty-only fallback above.
