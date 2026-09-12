@@ -117,6 +117,27 @@ module would have had to duplicate `_CURRENCY_ALIASES` and the adjacency guards 
 downward, and two divergent currency tables is a real correctness hazard. The repair therefore
 lives beside the resolver in `copilot_service.py`, reusing one vocabulary.
 
+## Verification
+
+Full backend gate on committed state, one test process, isolated venv/cache/DB paths:
+Ruff `All checks passed!`, Bandit exit 0 (0 high/medium findings at `-ll`), and
+`python -m pytest -m ""` with all four CI-named PostgreSQL lane variables pointing at a private
+PostgreSQL 16 cluster — **2979 passed, 29 warnings in 123.30s**, exit 0, zero skipped. That is the
+recorded #825 total of 2,936 plus this lane's 43 new tests; the two later interaction controls
+bring the file to 45 and were gated on the final commit.
+
+One mutation proof for the new positive-certification invariant: dropping the concept-identity
+requirement from `_fact_certifies_claim` turns
+`test_uncertified_evidence_abstains[equal-amount-wrong-concept]` red (1 failed, 42 passed), and the
+restored file hashes byte-identical to its committed state with 43 passed.
+
+All eleven locked anchors are byte-identical. No file in the debt or Codex lanes is touched:
+`copilot_tools.py`, `summary_pipeline.py`, `openai_service.py`, the summary schema/render/version
+files, `source_units.py`, XBRL extraction, prompts, frontend, `.github/**`, dependencies and
+`tasks/todo.md` are all unchanged.
+
 ## Status
 
-`IMPLEMENTING` at this checkpoint. No push, no PR, no assessment, no external action.
+`READY FOR INTEGRATION`. No push, no PR, no assessment, no deployment, no external action, no
+spend. Publication waits on a Codex slot — a `backend/app/**` change matches the `eval-baseline`
+path filter and fires on any pull-request event, draft included.

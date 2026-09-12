@@ -236,6 +236,29 @@ async def test_repair_never_ships_a_marker_the_resolver_would_strip(monkeypatch)
     assert complete['misplaced_fact_markers'] == 0 and complete['answer'] == REPAIRED
 
 
+@pytest.mark.asyncio
+async def test_declared_but_unplaced_text_citation_still_gets_the_certified_chip(monkeypatch):
+    """The model declared a source and forgot to place its marker, so the prose is still uncited.
+
+    The declared-but-never-placed citation is dropped as always; the repair supplies the chip the
+    figure actually needs, and numbering still comes from the one resolver pass.
+    """
+    declared = (f'{UNCITED}{service._CITATIONS_SENTINEL}'
+                '[{"n": 1, "excerpt": "Selected filing source.", "section": "Item 5"}]')
+    complete = await _complete(monkeypatch, declared)
+
+    assert complete['answer'] == REPAIRED
+    assert len(complete['citations']) == 1
+    assert complete['citations'][0]['section_ref'] == 'XBRL \u00b7 us-gaap:Revenues'
+
+
+def test_an_unrepresentable_numeral_never_certifies():
+    """A numeral too large to be a float must abstain, not compare as an infinite value."""
+    absurd = service._plan_uncited_fact_citation(
+        'Revenue for the fiscal year ended March 31, 2025 was RMB' + '9' * 400 + ' million.')
+    assert not service._fact_certifies_claim(fact(), absurd, filing())
+
+
 def test_display_rounding_half_interval_is_the_last_stated_digit():
     """The numeral must be the correct rounding of the filing value at the precision written."""
     whole = service._plan_uncited_fact_citation(UNCITED)
