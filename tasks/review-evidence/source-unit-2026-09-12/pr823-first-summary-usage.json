@@ -1,0 +1,21 @@
+{
+  "report_sha256": "b77191f0634d49f823bf763abbc39a66cacfc01acd99af8e7bf1ab32b3069dcb",
+  "calls": 52,
+  "usage": {
+    "prompt_tokens": 2169884,
+    "completion_tokens": 200089,
+    "total_tokens": 2369973,
+    "cache_hit_tokens": 2160128,
+    "cache_miss_tokens": 9756
+  },
+  "outcomes": {
+    "success": 52
+  },
+  "models": [
+    "deepseek-flash"
+  ],
+  "unknown_usage_calls": 0,
+  "preview_count": 515,
+  "truncated": 0,
+  "per_call_usage_conserves": true
+}

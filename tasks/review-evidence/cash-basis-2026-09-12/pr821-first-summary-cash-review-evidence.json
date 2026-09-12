@@ -1,0 +1,1604 @@
+{
+  "sha256": "d92eb5508c80eca8074c7ce36b7b6a6b54020b299aad6005949f4b71bd8d5ab6",
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": false,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "judge": false,
+    "source_sha": "f2200353f590f2d7a75e96bb188966077b0777de",
+    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 2,
+    "filings": [
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "preview_total": 509,
+  "findings": [
+    {
+      "index": 19,
+      "ticker": "F",
+      "run": 1,
+      "path": "raw_sections.value_drivers.capital_allocation",
+      "text": "Capital spending of $2,376M exceeded operating cash flow of $1,316M, producing negative Company adjusted free cash flow of $1.9B. Company cash declined to $22.0B from $28.7B at year-end 2025, after the repayment of the 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under the anti-dilutive share repurchase program. Management states it targets an ongoing Company cash balance at or above $20 billion plus significant additional liquidity above that target, and generally targets shareholder distributions of 40% to 50% of adjusted free cash flow.",
+      "preview_indices": [],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 13,
+      "ticker": "AMZN",
+      "run": 1,
+      "path": "raw_sections.earnings_quality.red_flags.1",
+      "text": "Free cash flow fell to $11.2B from $38.2B as capital expenditures rose to $128.3B, a 54.6% increase, outpacing operating cash flow growth.",
+      "preview_indices": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "payload_fields": [
+        "executive_summary",
+        "management_discussion"
+      ]
+    },
+    {
+      "index": 17,
+      "ticker": "PFE",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.liquidity",
+      "text": "Cash and cash equivalents of $1,703M plus short-term investments of $11,372M; operating cash flow of $2,615M and free cash flow of $2,179M covered $2,445M of cash dividends paid during the quarter.",
+      "preview_indices": [
+        9,
+        10
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 20,
+      "ticker": "WMT",
+      "run": 0,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total debt was $38,166M as of January 31, 2026, versus cash and cash equivalents of $10,727M, with total Walmart shareholders' equity of $99,617M. Total outstanding long-term debt increased $2.2B during fiscal 2026, primarily due to issuances of long-term debt.",
+      "preview_indices": [
+        10,
+        11
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 21,
+      "ticker": "WMT",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total debt was $38.2B as of January 31, 2026, up from $36.0B, with long-term debt of $34.6B and short-term borrowings of $6.6B. Cash and cash equivalents were $10.7B, and total Walmart shareholders' equity was $99.6B.",
+      "preview_indices": [
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 38,
+      "ticker": "ASML",
+      "run": 0,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total debt declined to EUR 3.7B from EUR 4.7B, with long-term debt of EUR 2.7B and short-term borrowings of EUR 693.0M under the ECP program. Cash and cash equivalents of EUR 12.9B plus short-term investments of EUR 405.9M exceed total debt. Shareholders' equity rose to EUR 19.6B from EUR 18.5B. Credit ratings: Moody's A1 (Stable, upgraded in November 2025 from A2) and Fitch A+ (Stable, upgraded in May 2024 from A).",
+      "preview_indices": [
+        9,
+        10
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 49,
+      "ticker": "PDD",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total liabilities of CNY 216.7B against total shareholders' equity of CNY 413.4B; no outstanding convertible bonds as of December 31, 2025. Cash and cash equivalents of CNY 108.9B exceed total liabilities.",
+      "preview_indices": [
+        8
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 49,
+      "ticker": "PDD",
+      "run": 1,
+      "path": "raw_sections.the_print.key_takeaways.3",
+      "text": "Cash and cash equivalents more than doubled to CNY 108.9B; total cash, cash equivalents and restricted cash reached CNY 182.7B.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total liabilities rose to $35,919M from $20,845M, with long-term debt of $9,193M (up from $5,715M) and total equity of $6,748M (up from $4,351M); cash and cash equivalents of $3,670M plus restricted cash and cash equivalents of $9,867M.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "path": "raw_sections.the_print.key_takeaways.2",
+      "text": "Operating cash flow rose to $12.1B from $7.9B, while total assets grew to $42.7B from $25.2B and long-term debt rose to $9.2B from $5.7B.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 37,
+      "ticker": "BABA",
+      "run": 1,
+      "path": "raw_sections.earnings_quality.red_flags.1",
+      "text": "Operating cash flow fell 53% to CNY 76.2B while capital expenditures rose to CNY 126.1B, producing negative free cash flow of CNY 46.6B versus positive CNY 73.9B in FY2025.",
+      "preview_indices": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "payload_fields": [
+        "executive_summary",
+        "management_discussion"
+      ]
+    }
+  ],
+  "usage": {
+    "calls": 53,
+    "outcomes": [
+      "error"
+    ],
+    "known_tokens": {
+      "prompt_tokens": 2168460,
+      "completion_tokens": 202031,
+      "total_tokens": 2370491,
+      "cache_hit_tokens": 1438078,
+      "cache_miss_tokens": 730382
+    },
+    "unknown_calls": [
+      {
+        "operation": "summary_primary",
+        "provider": "primary",
+        "trigger": "eval",
+        "requested_model": "deepseek-flash",
+        "actual_model": "deepseek-flash",
+        "system_fingerprint": "aeb56401ca74e127821c4f9126dcb669",
+        "outcome": "error",
+        "latency_ms": 6820,
+        "first_token_ms": 1477,
+        "usage": {
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "total_tokens": null,
+          "cache_hit_tokens": null,
+          "cache_miss_tokens": null,
+          "reasoning_tokens": null
+        },
+        "estimated_cost_usd": null,
+        "peak": false
+      }
+    ]
+  },
+  "preview_checks": [
+    {
+      "index": 0,
+      "ticker": "AAPL",
+      "run": 0,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 1,
+      "ticker": "AAPL",
+      "run": 1,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 2,
+      "ticker": "MSFT",
+      "run": 0,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 3,
+      "ticker": "MSFT",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 4,
+      "ticker": "NVDA",
+      "run": 0,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 5,
+      "ticker": "NVDA",
+      "run": 1,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 6,
+      "ticker": "JPM",
+      "run": 0,
+      "frames": 15,
+      "truncated": false,
+      "fcf_frames": [],
+      "capex_frames": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 7,
+      "ticker": "JPM",
+      "run": 1,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 8,
+      "ticker": "KO",
+      "run": 0,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 9,
+      "ticker": "KO",
+      "run": 1,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 10,
+      "ticker": "TSLA",
+      "run": 0,
+      "frames": 7,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 11,
+      "ticker": "TSLA",
+      "run": 1,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 12,
+      "ticker": "AMZN",
+      "run": 0,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 13,
+      "ticker": "AMZN",
+      "run": 1,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 14,
+      "ticker": "XOM",
+      "run": 0,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 15,
+      "ticker": "XOM",
+      "run": 1,
+      "frames": 5,
+      "truncated": false,
+      "fcf_frames": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "capex_frames": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 16,
+      "ticker": "PFE",
+      "run": 0,
+      "frames": 13,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 17,
+      "ticker": "PFE",
+      "run": 1,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 18,
+      "ticker": "F",
+      "run": 0,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 19,
+      "ticker": "F",
+      "run": 1,
+      "frames": 3,
+      "truncated": false,
+      "fcf_frames": [],
+      "capex_frames": [],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 20,
+      "ticker": "WMT",
+      "run": 0,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 21,
+      "ticker": "WMT",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 22,
+      "ticker": "COST",
+      "run": 0,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [],
+      "capex_frames": [],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 23,
+      "ticker": "COST",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [],
+      "capex_frames": [],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 24,
+      "ticker": "BA",
+      "run": 0,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 25,
+      "ticker": "BA",
+      "run": 1,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 26,
+      "ticker": "INTC",
+      "run": 0,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 27,
+      "ticker": "INTC",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 28,
+      "ticker": "PLTR",
+      "run": 0,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 29,
+      "ticker": "PLTR",
+      "run": 1,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 30,
+      "ticker": "RIVN",
+      "run": 0,
+      "frames": 13,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 31,
+      "ticker": "RIVN",
+      "run": 1,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 32,
+      "ticker": "COIN",
+      "run": 0,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 33,
+      "ticker": "COIN",
+      "run": 1,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 34,
+      "ticker": "BYND",
+      "run": 0,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 35,
+      "ticker": "BYND",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 36,
+      "ticker": "BABA",
+      "run": 0,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 37,
+      "ticker": "BABA",
+      "run": 1,
+      "frames": 13,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 38,
+      "ticker": "ASML",
+      "run": 0,
+      "frames": 11,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 39,
+      "ticker": "ASML",
+      "run": 1,
+      "frames": 8,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 40,
+      "ticker": "TSM",
+      "run": 0,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 41,
+      "ticker": "TSM",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 42,
+      "ticker": "JD",
+      "run": 0,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 43,
+      "ticker": "JD",
+      "run": 1,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 44,
+      "ticker": "SE",
+      "run": 0,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 45,
+      "ticker": "SE",
+      "run": 1,
+      "frames": 7,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 46,
+      "ticker": "NVO",
+      "run": 0,
+      "frames": 6,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 47,
+      "ticker": "NVO",
+      "run": 1,
+      "frames": 7,
+      "truncated": false,
+      "fcf_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 48,
+      "ticker": "PDD",
+      "run": 0,
+      "frames": 12,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_frames": [],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 49,
+      "ticker": "PDD",
+      "run": 1,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 50,
+      "ticker": "MELI",
+      "run": 0,
+      "frames": 9,
+      "truncated": false,
+      "fcf_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_raw_tag": null
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "frames": 10,
+      "truncated": false,
+      "fcf_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_raw_tag": null
+    }
+  ]
+}

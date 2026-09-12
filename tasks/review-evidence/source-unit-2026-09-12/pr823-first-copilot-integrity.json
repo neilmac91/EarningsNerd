@@ -1,0 +1,1173 @@
+{
+  "report_sha256": "eb798590d5990420772df46fd7a6ebfb88dc4c3a830ca31bd7874a5c9826779a",
+  "source_sha": "2cb44227970a5614345d930e78bd6a7854884176",
+  "execution_tree": "ee4fe35c6a10c457bc75c4fa3c528234af0f4f8c",
+  "gated_tree": "ee4fe35c6a10c457bc75c4fa3c528234af0f4f8c",
+  "parents": "929995d4b9190785e732e4d889cd193e9ce271f7 be5e506cd29def3b684df28c7eebaa8629025eeb",
+  "source_files": [
+    {
+      "path": "0000320193-25-000079/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000320193-25-000079/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000320193-25-000079/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000320193-25-000079/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-25-003063/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-25-003063/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-25-003063/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-25-003063/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-100235/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-100235/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-100235/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-100235/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001193125-26-231755/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001193125-26-231755/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001193125-26-231755/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001193125-26-231755/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-090161/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-090161/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-090161/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0000950170-25-090161/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-26-011378/excerpt.txt",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-26-011378/filing.html",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-26-011378/sections.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "path": "0001628280-26-011378/xbrl.json",
+      "hash_ok": true,
+      "bytes_ok": true
+    }
+  ],
+  "database_hash_ok": true,
+  "golden_hash_ok": true,
+  "planned_matches_results": true,
+  "unique_attempts": 18,
+  "all_terminal": true,
+  "summary": {
+    "expected": 18,
+    "completed": 18,
+    "scored": 18,
+    "errors": 0,
+    "passed": 18,
+    "pass_rate": 1.0
+  },
+  "text_citations": [
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        0
+      ],
+      "n": 2,
+      "length": 88,
+      "source_present": true,
+      "excerpt": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        1
+      ],
+      "n": 2,
+      "length": 88,
+      "source_present": true,
+      "excerpt": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        2
+      ],
+      "n": 2,
+      "length": 88,
+      "source_present": true,
+      "excerpt": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        0
+      ],
+      "n": 2,
+      "length": 45,
+      "source_present": true,
+      "excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300"
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        1
+      ],
+      "n": 2,
+      "length": 45,
+      "source_present": true,
+      "excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300"
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        2
+      ],
+      "n": 2,
+      "length": 45,
+      "source_present": true,
+      "excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300"
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "n": 3,
+      "length": 50,
+      "source_present": true,
+      "excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "n": 3,
+      "length": 50,
+      "source_present": true,
+      "excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "n": 3,
+      "length": 50,
+      "source_present": true,
+      "excerpt": "Total net sales\n28,262.9\n100.0\n32,667.3\n100.0\n15.6"
+    }
+  ],
+  "tools": [
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        0
+      ],
+      "concept": "revenue",
+      "value": 416161000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        0
+      ],
+      "concept": "gross_profit",
+      "value": 195201000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        1
+      ],
+      "concept": "revenue",
+      "value": 416161000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        1
+      ],
+      "concept": "gross_profit",
+      "value": 195201000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        2
+      ],
+      "concept": "revenue",
+      "value": 416161000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        2
+      ],
+      "concept": "gross_profit",
+      "value": 195201000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        0
+      ],
+      "concept": "revenue",
+      "value": 97690000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        0
+      ],
+      "concept": "operating_income",
+      "value": 7076000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        1
+      ],
+      "concept": "revenue",
+      "value": 97690000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        1
+      ],
+      "concept": "operating_income",
+      "value": 7076000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        2
+      ],
+      "concept": "revenue",
+      "value": 97690000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        2
+      ],
+      "concept": "operating_income",
+      "value": 7076000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "concept": "revenue",
+      "value": 281724000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "concept": "eps_diluted",
+      "value": 13.64,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "concept": "revenue",
+      "value": 281724000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "concept": "eps_diluted",
+      "value": 13.64,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "concept": "revenue",
+      "value": 281724000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "concept": "eps_diluted",
+      "value": 13.64,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        0
+      ],
+      "concept": "revenue",
+      "value": 1023670000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        1
+      ],
+      "concept": "revenue",
+      "value": 1023670000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        2
+      ],
+      "concept": "revenue",
+      "value": 1023670000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        0
+      ],
+      "concept": "revenue",
+      "value": 996347000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        1
+      ],
+      "concept": "revenue",
+      "value": 996347000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        2
+      ],
+      "concept": "revenue",
+      "value": 996347000000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "concept": "revenue",
+      "value": 32667300000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "concept": "net_income",
+      "value": 9609400000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "concept": "revenue",
+      "value": 32667300000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "concept": "net_income",
+      "value": 9609400000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "concept": "revenue",
+      "value": 32667300000.0,
+      "source_match": true,
+      "currency_ok": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "concept": "net_income",
+      "value": 9609400000.0,
+      "source_match": true,
+      "currency_ok": true
+    }
+  ],
+  "attempts": [
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        0
+      ],
+      "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        1
+      ],
+      "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        2
+      ],
+      "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        0
+      ],
+      "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [1] and income from operations of $7.08 billion [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        1
+      ],
+      "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97,690 million (USD) [1] and income from operations of $7,076 million (USD) [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        2
+      ],
+      "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97,690 million (USD) [1] and income from operations of $7,076 million (USD) [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        0
+      ],
+      "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1]. This is consistent with the filing's own statement that total revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        1
+      ],
+      "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1]. This is consistent with the filing's overview, which states total revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        2
+      ],
+      "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1]. This is consistent with the filing's overview, which states total revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [2].",
+      "citations": 2,
+      "uncited_figures": 1,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        0
+      ],
+      "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1]. This is the \"Revenue\" line reported in the Consolidated Income Statements, which also shows the convenience translation of US$137,300 million [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        1
+      ],
+      "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1]. This is the \"Revenue\" line reported in the Consolidated Income Statements for the year ended March 31, 2025 [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        2
+      ],
+      "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1]. This is confirmed by the consolidated income statement, which reports \"Revenue ... 996,347\" for the year ended March 31, 2025 [2].",
+      "citations": 2,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "answer": "For the year ended December 31, 2025, ASML reported total net sales of \u20ac32,667.3 million [1] and net income of \u20ac9,609.4 million [2]. The filing's own operating results table confirms these figures, showing \"Total net sales 32,667.3\" and \"Net income 9,609.4\" for 2025 [3].",
+      "citations": 3,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "answer": "For the year ended December 31, 2025, ASML reported total net sales of \u20ac32,667.3 million [1] and net income of \u20ac9,609.4 million [2]. The filing's operating results table confirms these figures, showing \"Total net sales 32,667.3\" and \"Net income 9,609.4\" for 2025 [3].",
+      "citations": 3,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "answer": "For the year ended December 31, 2025, ASML reported total net sales of \u20ac32,667.3 million [1] and net income of \u20ac9,609.4 million [2]. The filing's operating results table confirms these figures, showing \"Total net sales 32,667.3\" and \"Net income 9,609.4\" for 2025 [3].",
+      "citations": 3,
+      "uncited_figures": 0,
+      "stripped": 0,
+      "minimum_instruction": true
+    }
+  ],
+  "telemetry": {
+    "calls": 36,
+    "models": [
+      "deepseek-flash"
+    ],
+    "outcomes": [
+      "success"
+    ],
+    "usage": {
+      "prompt_tokens": 1120820,
+      "completion_tokens": 5635,
+      "total_tokens": 1126455,
+      "cache_hit_tokens": 1113088,
+      "cache_miss_tokens": 7732
+    },
+    "conservation": true,
+    "estimated_cost_usd": 0.00788
+  },
+  "independent_golden_plan_matches": true,
+  "retained_inputs_equal": true,
+  "numeric_citations": [
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        0
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        1
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "AAPL",
+        "0000320193-25-000079",
+        "sales-gross-profit-2025",
+        2
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        0
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        1
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "TSLA",
+        "0001628280-25-003063",
+        "sales-operating-income-2024",
+        2
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "BABA",
+        "0000950170-25-090161",
+        "viewed-native-revenue-2025",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        0
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        1
+      ],
+      "n": 2,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "n": 1,
+      "tool_match": true
+    },
+    {
+      "identity": [
+        "ASML",
+        "0001628280-26-011378",
+        "us-gaap-sales-net-income-2025",
+        2
+      ],
+      "n": 2,
+      "tool_match": true
+    }
+  ],
+  "all_numeric_citations_match": true
+}

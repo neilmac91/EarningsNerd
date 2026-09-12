@@ -1,0 +1,47 @@
+{
+  "status": "Bounded assessment accepted; #823 merged and production verified",
+  "files": [
+    {
+      "file": "pr823-first-summary-unit-acceptance.md",
+      "sha256": "a15013244a8a784a30b4992607a5a03de5827b6758b6b6befabe2eb1db5d1f50",
+      "bytes": 5657,
+      "original_private_path": "work/pr823-first-summary-unit-acceptance.md"
+    },
+    {
+      "file": "pr823-first-summary-unit-integrity.json",
+      "sha256": "90eeb449985830dd523fa8c026f81376f51a44fb2d30816953b45e53321b196c",
+      "bytes": 76747,
+      "original_private_path": "work/pr823-first-summary-unit-integrity.json"
+    },
+    {
+      "file": "pr823-first-summary-usage.json",
+      "sha256": "aa61cd9ddef3eb9c35e4dee9059675f74a9fb98ed2603739da17e2cd57fc4d14",
+      "bytes": 463,
+      "original_private_path": "work/pr823-first-summary-usage.json"
+    },
+    {
+      "file": "pr823-first-copilot-acceptance.md",
+      "sha256": "73525201061d9fcf2c08b5c751b63a3fa33a14d9d1368fcdeebbcf98cd30bc2c",
+      "bytes": 4606,
+      "original_private_path": "work/pr823-first-copilot-acceptance.md"
+    },
+    {
+      "file": "pr823-first-copilot-integrity.json",
+      "sha256": "3f145fa7c77d62e34b54ceff46308cc02b225400eac113e5166f4ef610e5ecda",
+      "bytes": 27528,
+      "original_private_path": "work/pr823-first-copilot-integrity.json"
+    },
+    {
+      "file": "source-unit-final-integration-review.md",
+      "sha256": "e84536013742802ca04c3aa291e99c2bc7f33593b033ed8770c8b466a7c01a16",
+      "bytes": 3117,
+      "original_private_path": "work/source-unit-final-integration-review.md"
+    },
+    {
+      "file": "source-unit-local-verification.md",
+      "sha256": "74acd801b183467f8208c55530a9cd08c7cb392ba92d65b92d4a0cfb8e712284",
+      "bytes": 5293,
+      "original_private_path": "work/source-unit-local-verification.md"
+    }
+  ]
+}
