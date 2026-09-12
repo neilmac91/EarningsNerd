@@ -32,7 +32,6 @@ because it makes no debt claim, or replaced whole by the source-qualified statem
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -64,23 +63,6 @@ _SUBTOTAL_EXCLUSIONS = (
     "it covers borrowings only, not lease, deposit or other financial liabilities"
 )
 
-# A model-authored leverage sentence is admitted only when it makes no debt or leverage claim at
-# all. Matching is deliberately broad and one-directional: a false rejection loses a sentence, a
-# false admission keeps an unverifiable total on the page. Word-boundary anchored so "indebted"
-# matches and "debut" does not.
-_DEBT_CLAIM_RE = re.compile(
-    r"\b("
-    r"debts?|indebted(?:ness)?|"
-    r"borrow(?:ing|ings|ed|er|ers)?|"
-    r"leverag(?:e|ed|ing)|deleverag(?:e|ed|ing)|gearing|"
-    r"refinanc(?:e|ed|ing)|"
-    r"notes?\s+payable|loans?\s+payable|"
-    r"net\s+cash\s+position|net\s+debt"
-    r")\b",
-    re.IGNORECASE,
-)
-
-
 @dataclass(frozen=True)
 class DebtObservation:
     """One source-qualified debt balance. Every field is observed, never defaulted."""
@@ -107,9 +89,18 @@ class DebtObservation:
 
 @dataclass(frozen=True)
 class DebtScopeView:
-    """What this filing's standardized data does and does not establish about debt."""
+    """What this filing's standardized data does and does not establish about debt.
+
+    ``selected_balance`` and ``observations`` are deliberately separate. The grounding block prints
+    the SELECTED ``long_term_debt`` value — one concept, chosen by the extractor's own precedence —
+    while ``observations`` is the component evidence, which may contain a different and larger
+    concept. Labelling the printed value from the component set was a real defect: a $34,624M
+    noncurrent balance beside a $40,000M combined-total observation read as a $34,624M combined
+    total. A balance is labelled from its OWN source or not at all.
+    """
 
     observations: Tuple[DebtObservation, ...] = ()
+    selected_balance: Optional[DebtObservation] = None
     reported_total: Optional[DebtObservation] = None
     components_subtotal: Optional[float] = None
     missing_scopes: Tuple[str, ...] = ()
@@ -180,11 +171,14 @@ def _mutually_consistent(observations: Sequence[DebtObservation]) -> Optional[st
     return None
 
 
-def _fallback_observation(xbrl_metrics: Dict[str, Any]) -> Optional[DebtObservation]:
-    """The selected ``long_term_debt`` balance as one observation, for rows with no component
-    evidence (every summary cached before this slice, and any filer whose instance yields no
-    admissible concept through the component path). Its concept may be unadmitted or absent, in
-    which case the scope is explicitly unknown — the label correction still applies."""
+def _selected_balance(xbrl_metrics: Dict[str, Any]) -> Optional[DebtObservation]:
+    """The selected ``long_term_debt`` balance as one observation, from its OWN ``raw_tag``.
+
+    Computed on every path, not only as a fallback: it is the value the grounding block actually
+    prints, so its label must come from this concept and no other. Its concept may be unadmitted or
+    absent, in which case the scope is explicitly unknown — the label correction still applies. It
+    doubles as the sole observation for rows with no component evidence (every summary cached
+    before this slice, and any filer whose instance yields no admissible concept)."""
     entry = xbrl_metrics.get("long_term_debt")
     current = entry.get("current") if isinstance(entry, dict) else None
     if not isinstance(current, dict):
@@ -211,6 +205,7 @@ def build_debt_scope_view(xbrl_metrics: Optional[Dict[str, Any]]) -> DebtScopeVi
     if not isinstance(xbrl_metrics, dict):
         return DebtScopeView()
 
+    selected = _selected_balance(xbrl_metrics)
     records = xbrl_metrics.get("debt_observations")
     observations = [
         obs for obs in (
@@ -218,19 +213,20 @@ def build_debt_scope_view(xbrl_metrics: Optional[Dict[str, Any]]) -> DebtScopeVi
         ) if obs is not None
     ]
     if not observations:
-        fallback = _fallback_observation(xbrl_metrics)
-        if fallback is None:
+        if selected is None:
             return DebtScopeView()
         # A single balance establishes nothing beyond itself: no total, no subtotal, and every
         # borrowing band it does not name stays explicitly missing.
         return DebtScopeView(
-            observations=(fallback,),
-            missing_scopes=_missing_scopes((fallback,)),
+            observations=(selected,),
+            selected_balance=selected,
+            missing_scopes=_missing_scopes((selected,)),
         )
 
     refusal = _mutually_consistent(observations)
     if refusal is not None:
-        return DebtScopeView(rejection=refusal)
+        # The printed balance keeps its own label even when the component set is refused whole.
+        return DebtScopeView(selected_balance=selected, rejection=refusal)
 
     observations.sort(key=lambda obs: (-abs(obs.value), obs.concept))
     frozen = tuple(observations)
@@ -248,6 +244,7 @@ def build_debt_scope_view(xbrl_metrics: Optional[Dict[str, Any]]) -> DebtScopeVi
             subtotal = sum(obs.value for obs in frozen)
     return DebtScopeView(
         observations=frozen,
+        selected_balance=selected,
         reported_total=reported_total,
         components_subtotal=subtotal,
         missing_scopes=() if (reported_total or subtotal is not None) else _missing_scopes(frozen),
@@ -294,22 +291,34 @@ def debt_balance_label(view: DebtScopeView) -> str:
     not always carry. An unadmitted or absent concept is labelled as an unestablished scope rather
     than promoted to the label of whichever concept usually wins.
     """
+    # Bound to the SELECTED balance's own concept — never to another observation, however large.
+    # Reading the component set here attached a combined-total scope to a noncurrent-only value.
     # This label is only ever attached to a row that is PRINTING a balance, so it must never read
-    # "not reported" — that contradicts the figure beside it. With no admissible observation (an
-    # unadmitted concept, or a set refused for inconsistency) the honest label is the unavailable
-    # scope.
-    primary = view.observations[0] if view.observations else None
-    if primary is not None and primary.scope:
-        return f"Debt — {SCOPE_PHRASE[primary.scope]}"
+    # "not reported" either: that contradicts the figure beside it. An unadmitted concept, an
+    # absent one, or a refused component set all leave the scope honestly unavailable.
+    selected = view.selected_balance
+    if selected is not None and selected.scope:
+        return f"Debt — {SCOPE_PHRASE[selected.scope]}"
     return "Debt Balance (maturity scope unavailable)"
 
 
-def debt_grounding_lines(view: DebtScopeView) -> List[str]:
-    """Extra grounding rows naming every observation's own source identity and the scope limit.
+def debt_grounding_lines(view: DebtScopeView, format_amount: Any) -> List[str]:
+    """Extra grounding rows naming every observation's own amount, source identity and scope limit.
 
     Emitted beside the standardized debt row so the model reads the same scope the render shows.
     Empty when there is nothing observed to qualify.
+
+    Every line that refers to a total or a subtotal carries that figure's OWN source-qualified
+    amount. An instruction saying a total is "shown above" while no line above carried its value
+    pointed the model at the one figure that WAS printed — the selected balance, a different
+    concept. ``format_amount`` is the caller's own formatter, so these amounts read exactly like
+    the surrounding grounding rows and follow the same reporting-currency relabel.
     """
+
+    def amount(value: Optional[float]) -> str:
+        rendered = format_amount(value) if value is not None else None
+        return str(rendered) if rendered else "amount unavailable"
+
     if view.rejection is not None:
         return [
             f"- Debt scope: {view.rejection}. Do NOT state a debt total, net debt or "
@@ -337,17 +346,22 @@ def debt_grounding_lines(view: DebtScopeView) -> List[str]:
             identity.append(f"context: {obs.context_ref}")
         if obs.accn:
             identity.append(f"accession: {obs.accn}")
-        lines.append(f"- Debt component — {obs.phrase}: {'; '.join(identity)}")
+        lines.append(
+            f"- Debt component — {obs.phrase}: {amount(obs.value)} ({'; '.join(identity)})"
+        )
     if view.reported_total is not None:
         lines.append(
-            "- Debt scope: the issuer reports a combined short-term and long-term debt total, "
-            "shown above. Quote that figure for total debt; do not recompute it."
+            "- Debt scope: the issuer's own combined short-term and long-term debt total is "
+            f"{amount(view.reported_total.value)} ({view.reported_total.concept}). Quote THAT "
+            "exact figure for total debt; do not recompute it, and do not describe any other "
+            "balance above — including the selected debt balance — as a total."
         )
     elif view.components_subtotal is not None:
         lines.append(
             "- Debt scope: the components above cover every borrowing this filing reports "
-            f"separately on one basis, so their sum may be cited as identified borrowing "
-            f"components — never as total debt or total obligations ({_SUBTOTAL_EXCLUSIONS})."
+            f"separately on one basis. Their sum is {amount(view.components_subtotal)}, citable "
+            "ONLY as identified borrowing components — never as total debt or total obligations "
+            f"({_SUBTOTAL_EXCLUSIONS})."
         )
     else:
         gaps = "; ".join(view.missing_scopes) or "other borrowings"
@@ -363,31 +377,28 @@ def debt_grounding_lines(view: DebtScopeView) -> List[str]:
 # Surface 2: the visible §8 leverage statement.
 
 
-def model_leverage_is_admissible(text: Any) -> bool:
-    """True when model-authored leverage prose may be kept beside the source-qualified statement.
+def leverage_statement(view: DebtScopeView, format_currency: Any) -> str:
+    """The visible leverage text: the source-qualified debt scope, and nothing else.
 
-    Admits only prose that makes no debt or leverage claim whatsoever — an equity, asset or cash
-    observation, for instance, which the source statement does not cover and which is genuine
-    analysis worth preserving. Judged on the WHOLE field: splitting a paragraph and relabelling the
-    clause that happens to contain a number is exactly the brittle rewrite this design avoids.
-    """
-    if not isinstance(text, str) or not text.strip():
-        return False
-    return _DEBT_CLAIM_RE.search(text) is None
+    Model-authored leverage prose is not carried here at all. An earlier revision kept prose that
+    made no debt claim, judged by a denylist of debt words; review found that admits "Cash exceeded
+    outstanding bonds and bank loans" — an amount-free relationship claim that no figure gate can
+    catch, surviving beside a statement that the debt scope is unestablished. Extending the
+    denylist with bonds, notes, facilities, borrowings and every future synonym is an unbounded
+    list dressed as semantic coverage, and no small POSITIVE eligibility rule separates "equity
+    rose" from "cash exceeded bonds" without classifying the sentence's meaning. So the field is
+    machine-authored or absent, never model-authored — the ``cash_conversion`` precedent exactly.
 
-
-def leverage_statement(
-    view: DebtScopeView, format_currency: Any, retained_prose: Optional[str] = None,
-) -> str:
-    """The visible leverage text: source-qualified debt scope, then any admissible model prose.
+    Accepted loss: a neutral assets/equity/cash trend sentence written into the LEVERAGE slot is
+    dropped with the rest. Those figures stay in the model's grounding block ("Total Assets",
+    "Cash & Equivalents", "Shareholders' Equity") and it remains free to write them into the
+    fields it still owns; no code-owned visible field carries them, so in the leverage slot alone
+    they are lost.
 
     ``format_currency`` is the caller's own money formatter, so the figures read exactly like the
     rest of the section (currency-aware, same abbreviations). Scope wording comes from here alone.
     """
-    parts: List[str] = [_scope_sentences(view, format_currency)]
-    if retained_prose and retained_prose.strip():
-        parts.append(retained_prose.strip())
-    return " ".join(part for part in parts if part)
+    return _scope_sentences(view, format_currency)
 
 
 def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
