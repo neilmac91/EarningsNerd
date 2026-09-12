@@ -123,7 +123,7 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
     for quote in candidates:
         if not isinstance(quote, str) or not 25 <= len(quote) <= 2000:
             continue
-        if False:  # mutation: admit unverified source passages
+        if not source_text or source_text.count(quote) != 1 or not _self_contained_numbers(quote):
             continue
         if quote not in verified:
             verified.append(quote)
