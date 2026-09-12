@@ -203,3 +203,93 @@ the extraction already issues, with the performance suite unchanged at 127-135s 
 
 Financing comparisons, distributions-versus-OCF, tax bridges, source-coverage expansion, Copilot
 citations (`copilot_service.py` and its tests are agent B's), any locked anchor, any eval re-pin.
+
+## 4. Revision after integration review (2026-09-12)
+
+Codex returned two independently reviewed blockers. Both reproduced on the delivered head before
+any change, and both are fixed. `figure_trace.py` is untouched in this revision: Codex has its own
+leverage audit on the integration branch.
+
+### Blocker 1 — the printed balance wore another observation's scope
+
+`debt_balance_label` read `view.observations[0]`, the largest observation, while
+`xbrl_narrative` printed the unchanged selected `long_term_debt` value. Reproduced exactly:
+
+```
+- Debt — combined short-term and long-term debt: $34,624,000,000 (period: 2026-01-31)
+- Debt scope: the issuer reports a combined short-term and long-term debt total, shown above. …
+```
+
+The $34,624M noncurrent balance was labelled a combined total, and the instruction pointed at a
+total "shown above" that no line carried — the only amount above being the mislabelled one.
+
+`DebtScopeView` now carries `selected_balance`, derived on every path from the selected row's own
+`raw_tag`, and the label reads only that. The component set keeps its own identity, so a larger
+observation can never relabel a smaller printed balance. Every supplementary line now carries its
+own source-qualified amount, formatted by the caller so the reporting-currency relabel still
+applies (pinned for a EUR filer through the real `build_xbrl_narrative_section`). After:
+
+```
+- Debt — noncurrent long-term debt: $34,624,000,000 (period: 2026-01-31)
+- Debt component — combined short-term and long-term debt: $40,000,000,000 (concept: …)
+- Debt component — noncurrent long-term debt: $34,624,000,000 (concept: …)
+- Debt scope: the issuer's own combined short-term and long-term debt total is $40,000,000,000
+  (us-gaap:DebtLongtermAndShorttermCombinedAmount). Quote THAT exact figure for total debt; do not
+  recompute it, and do not describe any other balance above — including the selected debt balance
+  — as a total.
+```
+
+### Blocker 2 — model leverage prose is no longer carried at all
+
+`model_leverage_is_admissible` admitted "Cash exceeded outstanding bonds and bank loans": the
+denylist caught `loans payable` but not `bonds` or `bank loans`, and no figure gate can see a
+relationship claim that carries no figure. Extending the list with bonds, notes, facilities and
+every future synonym is an unbounded list dressed as semantic coverage, and no small POSITIVE
+eligibility rule separates that sentence from "equity rose" without classifying its meaning. The
+channel is removed: `leverage` is machine-authored or absent, exactly as `cash_conversion` is.
+`leverage_statement` no longer takes a prose argument and `model_leverage_is_admissible` no longer
+exists; a guard pins both, so re-opening the channel is a visible change.
+
+**Accepted loss.** A neutral assets/equity/cash trend sentence written into the LEVERAGE slot is
+dropped with the rest — NVO's retained paragraph is the real example. Verified rather than assumed:
+those figures remain in the model's grounding block as "Total Assets", "Cash & Equivalents" and
+"Shareholders' Equity", and the model may still write them into the fields it owns; no code-owned
+visible field carries them, so in this slot alone they are lost. Other model-authored fields,
+`liquidity` included, are outside this slice and untouched.
+
+### Gate — revised head `5229f84ab067c487e61175bab3889de07f606fb2`
+
+```
+ruff check .                       All checks passed!            (exit 0)
+bandit -r app -ll                                                (exit 0)
+pytest -m ""                       2962 passed, 39 skipped, 29 warnings in 115.84s
+  PostgreSQL lane — stripe         24 passed
+  PostgreSQL lane — usage          29 passed
+  PostgreSQL lane — login           6 passed
+  PostgreSQL lane — delivery        5 passed
+```
+
+2,967 → 2,962 is fully explained by this revision's own test churn: the prose-admissibility
+parametrization lost more cases than the new counterexamples added (70 → 65 in the debt file).
+
+A first attempt at this gate failed all four lanes on `connection refused`. Cause established
+before re-running rather than assumed: the local PostgreSQL had stopped between runs after a clean
+checkpoint, with no crash record. Restarted, the lanes pass and the server is still up afterwards.
+The lanes fail loudly rather than skipping when their target is unavailable, which is the intended
+behaviour. Eleven locked anchors remain byte-identical to `48f3758`.
+
+### Mutation proofs, re-established on the revised seams
+
+1. **Scope fidelity** — `228439e` labelled the printed balance from the largest observation again.
+   **1 failed, 120 passed** (`test_the_selected_balance_is_labelled_by_its_own_source_not_a_larger_observation`).
+   Restored `f944aba`: **121 passed**.
+2. **Visible ownership** — `96fb5c0` re-opened a model-prose channel in the leverage slot.
+   **6 failed, 115 passed**, including the two integrated real-path controls, the four-surface
+   projection control and the preview/final parity control. Restored `3e42651`: **121 passed**,
+   and `git diff 1593f44 3e42651` is empty.
+
+### Self-review of the revision
+
+Two documentation defects found and fixed in `5229f84`: the module docstring still described
+leverage prose as admitted when it makes no debt claim, contradicting the code it heads; and the
+removed denylist block took two blank lines with it. No behavioural finding survived.
