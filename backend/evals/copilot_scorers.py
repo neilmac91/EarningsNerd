@@ -256,7 +256,7 @@ def score_copilot_answer(
             else "REFUSAL: refused a disclosed question"
         )
     if unverified:
-        gate_failures.append(f"CITATION: {len(unverified)} excerpt(s) not found verbatim in filing")
+        gate_failures.append(f"CITATION: {len(unverified)} excerpt(s) failed filing-text verification (absent or too short)")
     if misplaced:
         gate_failures.append(f"ADJACENCY: {len(misplaced)} fact marker(s) not on their own figure")
     if missing:

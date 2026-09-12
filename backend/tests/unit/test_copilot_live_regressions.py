@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 from app.services import copilot_service as service
+from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 from evals.copilot_schema import CopilotQACase
 from evals.copilot_scorers import score_copilot_answer, score_numeric_recall
 from evals.schema import GroundTruthFact
@@ -59,6 +60,8 @@ def test_contiguous_citation_instruction_reaches_actual_service_messages():
     messages = service._build_messages(filing(), 'Filing source.', 'Revenue?', [])
     instruction = messages[0]['content']
     assert 'SHORTEST contiguous span' in instruction
+    assert f'at least {_MIN_VERIFIABLE_LEN} characters after whitespace is collapsed' in instruction
+    assert 'choose a longer contiguous source span; never pad or paraphrase it' in instruction
     assert 'Never stitch separated table cells or sentences together, or insert an ellipsis' in instruction
     assert 'reuse its existing [F#] marker; do not add a text citation' in instruction
 
@@ -80,4 +83,4 @@ def test_actual_aapl_stitched_quote_remains_a_hard_veto():
                     'verified': False}])
     assert result.numeric_recall == 1.0
     assert not result.passed and result.unverified_excerpts == [excerpt]
-    assert result.gate_failures == ['CITATION: 1 excerpt(s) not found verbatim in filing']
+    assert result.gate_failures == ['CITATION: 1 excerpt(s) failed filing-text verification (absent or too short)']

@@ -17,7 +17,8 @@ Production call sequence (from ``_fallback_to_company_facts``):
     {"revenue", "net_income", "total_assets",
      "total_liabilities", "cash_and_equivalents", "earnings_per_share"}
 
-each a list of ``{"period", "value", "form", "accn"}`` newest-period-first.
+each a list of records containing ``{"period", "value", "form", "accn"}`` newest-period-first.
+Cash records additionally retain ``raw_tag`` naming the selected qualified companyfacts concept.
 ``select_fact_data`` is a nested helper inside ``_parse_company_facts`` (concept
 selection) and is not called directly. ``extract_standardized_metrics`` is the
 real downstream consumer that shapes the buckets into current/prior/change/series.
@@ -119,8 +120,10 @@ def test_fallback_parser_preserves_liabilities_and_cash(parsed: dict):
         {"period": "2022-12-31", "value": 20_880_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
     ]
     assert parsed["cash_and_equivalents"] == [
-        {"period": "2023-12-31", "value": 5_120_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
-        {"period": "2022-12-31", "value": 4_760_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+        {"period": "2023-12-31", "value": 5_120_000_000, "form": "10-K", "accn": TARGET_ACCESSION,
+         "raw_tag": "us-gaap:CashAndCashEquivalentsAtCarryingValue"},
+        {"period": "2022-12-31", "value": 4_760_000_000, "form": "10-K", "accn": TARGET_ACCESSION,
+         "raw_tag": "us-gaap:CashAndCashEquivalentsAtCarryingValue"},
     ]
 
 

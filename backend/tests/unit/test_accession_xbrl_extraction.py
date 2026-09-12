@@ -497,3 +497,112 @@ def test_extended_golden_set_concepts_match_product_extraction():
     assert EXTENDED_METRIC_CONCEPTS["net_interest_income"][2] == "duration"
     # The product suppresses the conflated revenue total for banks — the generator must too.
     assert "revenue" in bank["suppress"]
+
+
+@pytest.mark.parametrize('case', ['ifrs_cash', 'us_debt', 'unknown'])
+def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkeypatch, case):
+    """One invariant across instance and in-layer companyfacts: carry only winning identity."""
+    from types import SimpleNamespace
+    from app.config import settings
+    from app.services.edgar.instance_extractor import (
+        INSTANT_CONCEPTS, instant_series_with_currency, instant_series_currency_concept,
+    )
+
+    period, accession = '2025-12-31', '0001-25-000001'
+    metric = 'long_term_debt' if case == 'us_debt' else 'cash_and_equivalents'
+    concepts = INSTANT_CONCEPTS[metric]
+    qualified = {'ifrs_cash': 'ifrs-full:CashAndCashEquivalents',
+                 'us_debt': 'us-gaap:LongTermDebtNoncurrent', 'unknown': None}[case]
+    calls = []
+    frames = {'us-gaap:NetIncomeLoss': pd.DataFrame([{
+        'period_start': '2025-01-01', 'period_end': period, 'numeric_value': 10,
+        'currency': 'EUR', 'is_dimensioned': False,
+    }])}
+    if qualified:
+        frames[qualified] = pd.DataFrame([
+            {'period_instant': period, 'numeric_value': 120, 'currency': 'EUR'},
+            {'period_instant': '2024-12-31', 'numeric_value': 100, 'currency': 'EUR'},
+            {'period_instant': period, 'numeric_value': 999, 'currency': 'USD'},
+            {'period_instant': '2026-12-31', 'numeric_value': 888, 'currency': 'EUR'},
+        ]).assign(is_dimensioned=False)
+
+    class Query:
+        def by_concept(self, concept, exact=True):
+            assert exact is True
+            calls.append(concept)
+            self.frame = frames.get(concept, pd.DataFrame())
+            return self
+
+        def to_dataframe(self):
+            return self.frame
+
+    xb = SimpleNamespace(facts=SimpleNamespace(query=Query))
+    expected_queries = {
+        'ifrs_cash': ['us-gaap:CashAndCashEquivalentsAtCarryingValue',
+                      'ifrs-full:CashAndCashEquivalentsAtCarryingValue',
+                      'us-gaap:CashAndCashEquivalents', 'ifrs-full:CashAndCashEquivalents'],
+        'us_debt': ['us-gaap:LongTermDebtNoncurrent'],
+        'unknown': [f'{ns}:{name}' for name in concepts for ns in ('us-gaap', 'ifrs-full')],
+    }[case]
+    expected_series = [(period, 120.0), ('2024-12-31', 100.0)] if qualified else []
+    expected_currency = 'EUR' if qualified else None
+    assert instant_series_currency_concept(xb, concepts, period) == (
+        expected_series, expected_currency, qualified,
+    )
+    assert calls == expected_queries
+    calls.clear()
+    assert instant_series_with_currency(xb, concepts, period) == (expected_series, expected_currency)
+    assert calls == expected_queries  # Pair compatibility adds no query/retry or selection change.
+    calls.clear()
+    monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
+    monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
+    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'net_income': ['NetIncomeLoss']})
+    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {metric: concepts})
+    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    with _patch_company([FakeFiling('10-K', period, xb)]):
+        raw = _extract_from_filing_instance_sync('0000000001', accession)
+    assert calls == ['us-gaap:NetIncomeLoss'] + expected_queries
+    service = EdgarXBRLService()
+    standardized = service.extract_standardized_metrics(raw)
+    expected_raw = [{'period': end, 'value': value, 'form': '10-K', 'accn': accession,
+                     'currency': expected_currency, 'raw_tag': qualified}
+                    for end, value in expected_series]
+    assert raw[metric] == expected_raw
+    if qualified:
+        assert standardized[metric]['series'] == [
+            {k: v for k, v in item.items() if k != 'accn'} for item in expected_raw
+        ]
+    else:
+        assert metric not in standardized
+
+    # Legacy in-layer companyfacts chooses latest target-accession concept, retaining ties/order.
+    def fact(end, value, accn=accession):
+        return {'end': end, 'val': value, 'form': '10-K', 'accn': accn}
+
+    data = {'facts': {'us-gaap': {
+        'CashAndCashEquivalentsAtCarryingValue': {'units': {'USD': [
+            fact('2024-12-31', 90), fact('2026-12-31', 900, 'other-accession')]}},
+        'Cash': {'units': {'USD': [fact(period, 120), fact('2024-12-31', 100)]}},
+        'CashAndCashEquivalents': {'units': {'USD': [fact(period, 777)]}},
+    }}}
+    target = accession if case != 'unknown' else 'missing-accession'
+    legacy = service._parse_company_facts(data, target)
+    expected_legacy = [] if case == 'unknown' else [
+        {'period': end, 'value': value, 'form': '10-K', 'accn': accession, 'raw_tag': 'us-gaap:Cash'}
+        for end, value in [(period, 120), ('2024-12-31', 100)]
+    ]
+    assert legacy['cash_and_equivalents'] == expected_legacy
+    converted = service.extract_standardized_metrics(legacy)
+    if expected_legacy:
+        assert converted['cash_and_equivalents']['series'] == [
+            {**{k: v for k, v in item.items() if k != 'accn'}, 'currency': None}
+            for item in expected_legacy
+        ]
+    else:
+        assert 'cash_and_equivalents' not in converted
+    # Pre-change stored series never acquires guessed identity during standardization.
+    old = {'cash_and_equivalents': [{'period': period, 'value': 120, 'form': '10-K'}]}
+    assert service.extract_standardized_metrics(old)['cash_and_equivalents']['current'] == {
+        'period': period, 'value': 120, 'form': '10-K', 'currency': None, 'raw_tag': None,
+    }
