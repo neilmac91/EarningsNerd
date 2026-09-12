@@ -5172,3 +5172,12 @@ Committed boundary-corrected code `6386b7ab690d75354c0527b76c8abf93b095b5d2` pas
 The third invariant's single committed mutation `59b43cac18a7662172381a5a33e7d8222764fa6c` disables source fallback: **1 failed, 12 passed, 2 warnings in 2.89s**. Restoration `5eaff0bc5529ac37674aa5ec955ff49d4594fc8a` is tree-identical to the gated code: **13 passed, 2 warnings in 2.47s**. Original two proofs remain unchanged. The [first held assessment](review-evidence/financing-comparison-2026-09-13/assessment-1.md) and [final offline inventory](review-evidence/financing-comparison-2026-09-13/preservation-inventory.json) are retained.
 
 Second bounded assessment is authorized for the confirmed preservation correction. No unchanged retry is requested. Actual new output acceptance and serial deployment remain pending.
+
+
+### September 13 — second assessment held; explanation selection corrected
+
+PR #833 at `beee66fcb68ac433c27d91c7eb44dbaba17ee2c7` passed CI `34725981746` and Copilot `34725989451`. The 52-summary assessment again had zero errors, retries, repairs or vetoes. MELI attempt 50 retained the explanation, but attempt 51 offered two bare table labels, which suppressed the fallback. Exact source matching alone does not make a table label an explanation; the available 597-character passage independently refutes source absence. The PR returned to draft without merging.
+
+The correction selects a source-owned explanation independently of model program quotations, deduplicates contained passages, and rejects whole-line labels immediately followed by numeric table cells. It preserves prose fragments rather than requiring terminal punctuation. Independent offline replay preserves all 60 legitimate quotations and all 52 comparisons, removes only the two MELI labels, and adds 12 relevant source passages. All resulting 72 quotations are unique, exact source substrings. Prior-period passages retain generic filing attribution and their original dates; no causal or current-period claim is inferred.
+
+A third bounded assessment is necessary to verify this confirmed preservation fix and is covered by the founder's necessary-spend authorization. It is not an unchanged retry. Full committed verification and re-establishment of the existing preservation mutation proof precede publication. No baseline, production setting, historical replay or locked test changes.

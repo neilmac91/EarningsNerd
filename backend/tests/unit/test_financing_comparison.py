@@ -162,16 +162,21 @@ async def test_actual_apple_program_preserves_per_share_denominations_and_dates(
 
 
 @pytest.mark.asyncio
-async def test_real_meli_explanation_survives_empty_model_selection(monkeypatch):
+@pytest.mark.parametrize("offered_kind", ["empty", "table_labels", "program"])
+async def test_real_meli_explanation_survives_model_selection(monkeypatch, offered_kind):
     # Exact paragraph from retained #833 source, not a model-authored explanation.
     passage = 'Furthermore, the evolution of Mercado Pago’s activities themselves has resulted in the Company managing a significant volume of cash, cash equivalents and investments. This is due to an increase in users’ account balances in their Mercado Pago digital account managed by the Company, and an increase in the level of the Company’s indebtedness to finance those operations. As a result, these Mercado Pago’s funds, together with the financing activities, have generated a significant volume of interest income and other financial gains and interest expenses and other financial losses, respectively.'
     source = ("FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n"
               "Selected accounting context preceding the passage.\n" + passage
-              + "\nFollowing accounting context remains available.\n")
+              + "\nFollowing accounting context remains available.\n"
+              + "Payments on loans payable and other financing liabilities\n(\n41,088\n)\n"
+              + "Payments of finance lease liabilities\n(\n57\n)\n" + PROGRAM + "\n")
     _raw, xbrl = metrics(monkeypatch)
     service = OpenAIService()
     supplied = structured()
-    supplied["sections"]["value_drivers"]["capital_allocation"] = {"filing_statements": []}
+    offered = {"empty": [], "table_labels": ["Payments on loans payable and other financing liabilities",
+                                              "Payments of finance lease liabilities"], "program": [PROGRAM]}[offered_kind]
+    supplied["sections"]["value_drivers"]["capital_allocation"] = {"filing_statements": offered}
     supplied["sections"]["value_drivers"]["highlights"] = []
 
     async def request(*args, **kwargs):
@@ -182,7 +187,7 @@ async def test_real_meli_explanation_survives_empty_model_selection(monkeypatch)
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     owned = raw["sections"]["value_drivers"][OWNED_FIELD]
-    assert owned["filing_statements"] == [passage]
+    assert owned["filing_statements"] == [passage] + ([PROGRAM] if offered_kind == "program" else [])
     assert "Both periods had net inflows." in owned["comparison"]
     assert passage in result["business_overview"]
     summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],

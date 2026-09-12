@@ -9,7 +9,7 @@ import math
 import re
 from typing import Any
 
-from .capital_passages import fallback_capital_passages
+from .capital_passages import select_capital_passages
 
 CAPITAL_CONTEXT_KEY = "capital_allocation_context_version"
 CAPITAL_CONTEXT_VERSION = 1
@@ -45,6 +45,24 @@ def _self_contained_numbers(text: str) -> bool:
                 continue
         return False
     return True
+
+
+def _is_bare_table_label(quote: str, source_text: str) -> bool:
+    """Reject a whole source-line label immediately followed by a numeric table cell.
+
+    Mid-line prose clauses and ordinary fragments remain eligible; this does not
+    infer grammar or financial meaning from terminal punctuation.
+    """
+    start = source_text.find(quote)
+    if start < 0:
+        return False
+    end = start + len(quote)
+    line_start = source_text.rfind("\n", 0, start) + 1
+    line_end = source_text.find("\n", end)
+    if line_end < 0 or source_text[line_start:start].strip() or source_text[end:line_end].strip():
+        return False
+    following = next((line.strip() for line in source_text[line_end + 1:].splitlines() if line.strip()), "")
+    return bool(following and re.fullmatch(r"[\d\s$€£¥()+−,%.\-]+", following))
 
 
 def _money(value: float, currency: str) -> str:
@@ -123,7 +141,8 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
         candidates.extend(highlights)
     def qualifies(quote: str) -> bool:
         return (25 <= len(quote) <= 2000 and bool(source_text)
-                and source_text.count(quote) == 1 and _self_contained_numbers(quote))
+                and source_text.count(quote) == 1 and _self_contained_numbers(quote)
+                and not _is_bare_table_label(quote, source_text))
 
     verified: list[str] = []
     for quote in candidates:
@@ -134,8 +153,13 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
         if not any(quote in existing for existing in verified):
             verified = [existing for existing in verified if existing not in quote]
             verified.append(quote)
-    if not verified:
-        verified = fallback_capital_passages(source_text, qualifies)
+    # Source-owned explanation is independent of the model's choice of program quotes.
+    # Otherwise a valid but irrelevant quotation could suppress useful source context.
+    selected = select_capital_passages(source_text, qualifies)
+    for passage in selected:
+        if not any(passage in existing for existing in verified):
+            verified = [existing for existing in verified if existing not in passage]
+            verified.insert(0, passage)
     metrics = metrics if isinstance(metrics, dict) else {}
     data[OWNED_FIELD] = {
         "comparison": financing_statement(metrics.get("financing_comparison_source")),

@@ -33,7 +33,7 @@ _ACTION_WORD = re.compile(r"\b(?:used|uses|funded|financed|provided|generated|re
 _WORD = re.compile(r"\b[A-Za-z][A-Za-z’'-]*\b")
 
 
-def fallback_capital_passages(source_text: str, qualifies: Callable[[str], bool]) -> list[str]:
+def select_capital_passages(source_text: str, qualifies: Callable[[str], bool]) -> list[str]:
     """One internal verbatim source passage, restricted to labelled financial/MD&A source.
 
     Only internal physical source lines qualify: wrapped prose and tables are not joined.

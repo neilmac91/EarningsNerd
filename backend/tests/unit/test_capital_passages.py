@@ -1,5 +1,5 @@
 """Complete source paragraphs, never unowned or assembled prose, supply the fallback."""
-from app.services.ai.capital_passages import fallback_capital_passages
+from app.services.ai.capital_passages import select_capital_passages
 from app.services.ai.financing_comparison import _self_contained_numbers
 
 MELI = (
@@ -17,7 +17,7 @@ SUFFIX = "\nFollowing source context remains available.\n"
 
 
 def select(source):
-    return fallback_capital_passages(source, lambda q: (
+    return select_capital_passages(source, lambda q: (
         25 <= len(q) <= 2000 and source.count(q) == 1 and _self_contained_numbers(q)
     ))
 
@@ -38,7 +38,7 @@ def test_ranking_never_admits_table_join_unscaled_amount_or_risk_paragraph():
     unscaled = "Financing activities provided cash of $6,500 to fund the company's operating activities."
     source = LABEL + table + unscaled + "\n" + risk
     assert select(source) == []
-    assert fallback_capital_passages(LABEL + MELI + "\n", lambda q: False) == []
+    assert select_capital_passages(LABEL + MELI + "\n", lambda q: False) == []
 
 
 def test_source_order_breaks_equal_topic_rank_and_returns_only_one():
