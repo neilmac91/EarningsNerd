@@ -673,7 +673,7 @@ def _v2_forward_signals(sections: dict, *, source_units_owned: bool = False) -> 
                 # A verbatim quote is the ideal citation: the read-time ``evidence`` (T4) verifies it in
                 # the filing and deep-links to it. None on the unenriched path — the web omits the chip.
                 unit_context = _clean(quote.get("source_unit_context"))
-                if source_units_owned and unit_context:
+                if unit_context:  # Mutation: trust historical nested fields without envelope eligibility.
                     section.blocks.append(Block("paragraph", text=f"Source units: {unit_context}"))
                 ev = quote.get("evidence")
                 section.blocks.append(
