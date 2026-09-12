@@ -1,3 +1,21 @@
+## September 9 standalone selected cash-flow basis — local candidate
+
+- [x] Reuse only the reviewed cash-basis helper, grounding/render calls and existing unlocked consumer tests from local `b8de2057`, on actual main `a811faf6`; retain the original ten-case mutation proof without repetition.
+- [x] Refine the same shared basis helper so exact source concepts appear only in grounding; customer web/Markdown/export text retains readable basis/formula. Existing surface invariant assertions are aligned; the original basis-removal proof is retained without repeat.
+- [x] Keep released d explanation behavior. Rejected/unreleased #805 e code is absent; f retains its locally reserved cash identifier and advances directly from released d. No historical note implies e shipped.
+- [ ] Complete full committed Ruff/Bandit/pytest gate with performance, four dedicated PostgreSQL lanes and eleven unchanged locked anchors; independent review remains before publication.
+- [ ] Inspect authorized actual summary/Copilot and all-surface cash-basis outcomes before release. Existing formula, source selection, provider and held replay/universe workloads remain unchanged. This is basis disclosure, not full financial quality acceptance.
+
+## September 12 — Restore Astra instruction audit for GitHub publication
+
+- [x] Reconstructed the supplied audit summary on current main: contextual documentation routing,
+  proportional planning and completion guidance, scoped skill triggers, skill-authoring guidance,
+  and the agent framework's current `deepseek-flash` default.
+- [x] Preserved contract-test locks, approval boundaries, required gates, draft review and deployment controls.
+- Original reported commit `6e8566d` and branch `codex/wave3-astra-instructions` were not found on
+  GitHub. This is a new reconstruction, not a claim that the original commit was recovered.
+- Documentation verification and publication evidence are recorded in the pull request.
+
 ## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
 
 Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).
@@ -4730,6 +4748,31 @@ The founder subsequently approved the exact addition of `invoice_payment.paid`. 
 - [x] Complete E06 endpoint observation, schema compatibility reconciliation and forward event-selection configuration. The old pending-approval entries are superseded.
 - [ ] Observe a naturally occurring future invoice-payment delivery and application attribution before claiming operational payment coverage. No test event, replay, customer read or account test was performed. Historical completeness, MRR and net revenue are not established by this configuration.
 
+## September 12 — current-Flash review archive preparation
+
+- [x] Archive all three current-Flash review reports and the priority, explanation and source-unit design notes verbatim; append corrections separately.
+- [x] Reconcile current continuation and quality priorities without changing historical records or founder holds.
+- [x] Check documentation links/anchors and docs-only scope: eight snapshots byte-identical; twelve local links/anchors checked with zero failures.
+- [ ] Publish only after root authorization and #808 production verification; final release evidence is still pending.
+
+### September 12 — provenance and financial-quality continuation
+
+This dated continuation supersedes older pending-release wording without rewriting it. [#819](https://github.com/neilmac91/EarningsNerd/pull/819) and E06 endpoint/schema/event-selection reconciliation are complete. E06 still requires a naturally occurring invoice-payment delivery before operational attribution can be claimed; no replay or live test is authorized by this record.
+
+- [x] Preserve the [current-Flash review archive](review-evidence/current-flash-2026-09-12/README.md), including source-coverage limits and the dated ASML principal-versus-carrying correction.
+- [x] Accept #808's first metadata/data-conservation assessment only. First Copilot17/18 failed on present-but-too-short citations; retain the failed assessment and correction instead of calling it a flake.
+- [ ] Complete #808's second assessment for correction `0e6b076b3e1112c7e11fb3170b64c941d880a18f` (local gate2,878/29 in83.93s), then normal merge and serial production verification. No merge/deploy completion is claimed here.
+- [ ] Publish the separately gated cash-basis candidate `e9dbe8b991cfd393033f88e277c434d9e3540cc5` (2,885 passes/29 warnings in85.80s) only after the prerequisite release is verified and root authorizes publication; it is currently local.
+- [ ] Implement source-qualified standalone units and a narrow semantic registry/projection, then restricted numerical comparisons and scoped guidance coverage. Use the [priority snapshot](review-evidence/current-flash-2026-09-12/flash-quality-priority-plan-20260912.md) with the archive's dated corrections. Metadata retention alone is not an output fix; a tax bridge does not solve all unusual-item prose.
+
+All original master-plan founder holds remain. #805 is rejected/held; model, flags, prices, legal/account boundaries, locked tests and baseline are not changed by these plans. Universe-wide pregeneration remains held until output quality earns founder confidence. Historical replay remains held.
+
+### September 12 — second Copilot assessment completed; summary pending
+
+- [x] Preserve the [second #808 Copilot acceptance](review-evidence/current-flash-2026-09-12/pr808-second-copilot-acceptance.md) and [integrity evidence](review-evidence/current-flash-2026-09-12/pr808-second-copilot-integrity.json):18/18 under the existing gate, three draws per six pinned questions. ASML draws0 and2 remain uncited despite correct requested figures; do not describe all three ASML answers as repaired citation adherence.
+- [ ] Complete separate summary CI34691090937 (two summary repeats per filing), then merge and production verification. Verified synthetic source `c0999c8df55751a8a7a5d3e2941e312ed7aa541d` equals the final correction tree; that execution identity is not a deployment record.
+
+This supersedes only the prior Copilot-pending status. Financial-quality, pregeneration and original founder holds remain unchanged.
 
 ### September 12 — #808 pre-publication integration checkpoint
 
@@ -4778,3 +4821,98 @@ The pre-publication read review confirmed that older model responses can retain 
 Trust correction prepared: the service constructs `source_unit_context_version=1` only in its final render/persistence envelopes after association, discarding any model top-level copy. The common renderer authorizes the adjacent declaration only from that exact integer outer field; quote/structured nested markers and booleans confer no authority. Old code built the outer envelope from explicit keys and never copied arbitrary model top-level fields, so prior model data cannot mint the new outer eligibility. Existing pipeline persistence and read/export enrichment preserve the envelope. The unused Pydantic quote field was removed; it never enforced production trust. New regression controls exercise actual web enrichment, PDF, CSV and Markdown with old forged nested data and a genuinely generated new envelope. Root review precedes the distinct persisted-trust proof/full gate; original source-association proof remains retained.
 
 Persisted-trust verification checkpoint: focused corrected suite at `578d21b5` passed **14 passed, 2 warnings in 3.01s**. The one new committed trust mutation `3023c479` bypassed only envelope eligibility: old quote keys, nested markers and boolean markers became visible and failed the actual read/export controls (**3 failed, 1 passed, 10 deselected, 2 warnings in 2.63s**). Restoration `690de5c7` passed the same controls (**4 passed, 10 deselected, 2 warnings in 1.98s**). The earlier source-association/delivery proof was not repeated. Full committed backend gate follows; no content-stamp, model, flag, paid call or publication change occurred.
+
+### September 12, 11:39 UTC — #808 merged; production verification pending
+
+This supersedes the preceding integrated historical pending-gate/assessment/merge entries. Final correction passed the recorded full gate; both actual second assessments are accepted within their bounded gates. The [final summary report](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) preserves all52 outcomes, unchanged data apart from qualified tags, and53 provider calls including one without usage telemetry. WMT/COIN incomplete totals and ASML's omitted €990.2M current portion remain material narrative findings. Copilot's two uncited ASML answers also remain advisory limitations.
+
+- [x] Merge #808 as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at2026-09-12T11:39:24Z.
+- [ ] Verify running main CI34691615781, actual migration tail, revision at100%, and CI/independent detailed health; append the evidence before the next backend release.
+- [ ] Publish this archive only after root adds production evidence and authorizes it. Cash-basis publication, financial-quality work and original founder holds remain as above.
+
+## September 12, 11:47 UTC — #808 production verified
+
+This dated record supersedes earlier pending-assessment, pending-merge and pending-deployment entries. [PR #808](https://github.com/neilmac91/EarningsNerd/pull/808) merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03` at 11:39:24 UTC. [Main CI 34691615781](https://github.com/neilmac91/EarningsNerd/actions/runs/34691615781) and deploy job `103548163219` succeeded. The deploy log records:
+
+```text
+2026-09-12T11:45:06.9511863Z apply_migrations: applied=0 skipped=39
+2026-09-12T11:46:04.9189989Z   100% LATEST (currently earningsnerd-backend-00331-tfm)
+```
+
+CI detailed health passed at 11:46:44 UTC (database 5.68 ms). Independent `curl -fsS https://api.earningsnerd.io/health/detailed` returned healthy with database 5.27 ms and server timestamp `1789213665.7251222`. The final committed gate passed 2,878 tests with 29 warnings in 83.93 seconds, including performance and all four PostgreSQL lanes; Ruff and Bandit passed. Both actual second assessments were accepted within their documented limits, with 52 summary outcomes and 18 Copilot answers. Original failed evidence and material debt-scope findings remain preserved. This is no general financial-quality or universal citation-compliance clearance.
+
+- [x] Complete #808 merge and serial production verification; do not repeat either paid assessment or the merge.
+- [x] Integrate the separate cash-basis candidate with #808 at `37401e996c980fbdf01306fcb1472601b31c2eed`: 2,888 tests passed, 29 warnings, 93.77 seconds; all eleven locked anchors match new main.
+- [ ] Publish and assess that cash-basis slice after any subsequent documentation integration and committed gate. Its local gate is not actual-output or production acceptance.
+- [ ] Continue source-unit ownership, compatible accounting/explanation relationships, typed numerical comparisons and scoped guidance coverage. Current reviews still contain material financial findings.
+
+E06 event-selection configuration is complete under the exact approval; naturally occurring delivery and attribution remain unobserved. No test event or replay was sent. Notable retain review through September 15, Analysis warm-up/live acceptance, the exact W3-7 strong-judge readout/arm decision, serial W3-8 re-pins, E09 proposal decisions, major dependencies, D8/#270, CI-only DeepSeek key and other named founder prerequisites remain as recorded. Universe-wide pregeneration and historical replay remain held; Flash with thinking off is unchanged.
+
+### September 12 — cash candidate made recoverable before handover
+
+The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now preserved on the remote [codex/wave3-standalone-cash-basis branch](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis). A fresh checkout can fetch that branch; its implementation is no longer dependent on a local worktree. This supersedes earlier “unpublished” only for branch publication: no cash PR, hosted assessment or production release is claimed yet. Subsequent documentation integration and its committed gate precede the draft PR.
+
+
+## September 12 standalone cash-basis integration — current correction
+
+- [x] Integrate the prepared standalone cash-basis candidate onto main `65b9243f9739803594e0e73e10f371648a19378c` (#819), preserving both historical ledgers. Application scope remains the shared selected-input basis disclosure and its existing consumers; the original sole mutation proof is retained without repetition.
+- [ ] Complete the full committed backend gate with performance and four isolated PostgreSQL concurrency lanes, then obtain three-lens review before publication.
+- [ ] Inspect actual output acceptance after the parent coordinates serial release. AMZN gross/net capex and F/MELI issuer-versus-derived FCF benefit from explicit labels; issuer bridges, model-written narrative claims, debt composition and source completeness are not repaired by this bounded change. No paid run, push, PR or production operation is claimed here.
+
+
+### September 12 cash-basis integration after #808 merge
+
+- [x] Integrate main `f0a81fff216c318a40979b7dfcd55500c8b43a03`, preserving all earlier ledger text and inheriting the approved T9 contract change from main. Cash implementation/test scope remains identical to the prepared standalone candidate.
+- [ ] Pass the new committed full backend gate with four isolated PostgreSQL lanes and performance. Retain the original single mutation proof without repetition.
+- [ ] Wait for parent verification of #808 deployment before any cash-basis publication; no deployment, paid assessment or remote write is claimed here.
+
+
+### September 12 cash-basis integration after #820 archive
+
+- [x] Integrate docs-only main `32137be8cc816a0c82f481454e916f28913bb565` with the complete new-main ledger and prior cash-candidate additions preserved byte-for-byte.
+- [ ] Run the full committed publication gate with performance and four isolated PostgreSQL lanes. Original single mutation proof is retained; parent owns publication and actual assessment.
+
+
+### September 12 — #821 capex identity propagation correction plan
+
+- [x] Preserve the exact winning qualified capex query identity through filing-instance extraction and existing metric normalization into cash-basis grounding. Keep revenue helper/API behavior, selection, values, currencies, dates and query order unchanged; companyfacts identity remains unknown when unavailable.
+- [x] Add one extraction-to-grounding conservation control covering US-GAAP, IFRS, later-candidate fallback and unavailable capex; leave all locked tests unchanged.
+- [ ] Commit the correction for parent review before any mutation proof or full gate. Retain the original ten-consumer basis proof; no remote write or paid assessment is authorized by this checkpoint.
+
+Correction prepared for parent review: the duration selector retains its legacy bare-name return by default and exposes the qualified successful query only on request; capex opts in. No source-selection or normalizer behavior changes. The new control and full gate have not run; mutation proof awaits parent review. Existing companyfacts capex identity remains unavailable rather than inferred.
+
+### September 12 — #821 confirmed capex propagation correction proof
+
+Parent review cleared correction `0f72d715a41c6bd64d740b935b04c068b2d70175`. The focused committed control passed 4 tests, 34 deselected, 2 warnings in 3.83s. An earlier invocation without the established runtime/cache configuration produced no test output and was interrupted; it is not a passed or partial gate.
+
+Exactly one new mutation at `2832da1276e82f2b64ec22bd389e5b3c39dfa507` removed only capex `raw_tag` emission. Its test tail was:
+
+```text
+3 failed, 1 passed, 34 deselected, 2 warnings in 1.13s
+```
+
+Restoration `70c4bac90fb02468bf51569fd17bcd6383c9c2b2` restored the reviewed implementation and passed:
+
+```text
+4 passed, 34 deselected, 2 warnings in 0.98s
+```
+
+The original ten-consumer cash-basis proof remains unchanged and was not repeated. The first #821 assessments remain separate evidence; a second assessment is justified by the confirmed production extraction gap, not by a flake. Existing revenue namespace-prefix behavior is outside this correction; companyfacts and persisted missing capex identities remain unknown. Full committed Ruff/Bandit/pytest (including performance and four isolated PostgreSQL lanes) is next, before any publication or paid assessment.
+
+
+### September 12 — #821 correction integrated after #822 instructions
+
+The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, Bandit and the complete backend gate with performance and four PostgreSQL lanes: `2892 passed, 29 warnings in 101.49s (0:01:41)`, exit 0. The initial sandbox invocation was denied local PostgreSQL access before any gate; the authorized local run completed. A post-summary logging teardown diagnostic did not change the successful exit.
+
+- [x] Integrate docs-only main `baf75a3c30f1931018c76f9a144b193066899988` (#822), retaining both complete prior ledgers and the unchanged reviewed backend code. The only conflict joined independent top-of-ledger additions.
+- [ ] Complete the final integrated committed Ruff/Bandit/pytest gate including performance and four PostgreSQL lanes. Both existing mutation proofs remain retained without repetition.
+- [ ] Parent to complete independent review, publication and the justified second actual assessments; retain first #821 artifacts separately. No new provider, SEC, remote or production action is claimed by this integration.
+
+
+### September 12 — source-unit candidate integration after #821
+
+- [x] Integrate actual main `929995d4b9190785e732e4d889cd193e9ce271f7`, preserving both complete ledgers and the source-unit association and code-owned envelope eligibility controls. #821 is merged; its production verification remains parent-owned and is not claimed here.
+- [ ] Advance the future-generation content stamp from released `summary-2026-09-f` to the newly allocated `summary-2026-09-g`; keep the separate exact outer-envelope eligibility check. Held #805's reserved e remains unreleased. No historical replay or old-model trust follows from the stamp.
+- [ ] Record the marker-trust lesson against the existing read/export guard and completed proof, then commit for parent review before the final integrated gate. Retain both existing source-association and persisted-trust proofs without repetition. No paid call, push or release before the previous backend deployment is verified.
+
+Integration prepared: no backend text conflict required manual resolution; main's cash-basis helper/render/qualified capex propagation was inherited, while source-unit association and exact envelope gating remain unchanged. Version allocation checked current main and the prepared source-unit candidate, plus the recent version-file history through d/f; no prior g ownership was found in that bounded check. `summary-2026-09-g` is newly allocated here, not a claim about an existing release. The existing `test_summary_version_stamps.py` mechanism governs current/stale identity; no mirror version test or repeated proof was added. Final committed gate awaits parent review.

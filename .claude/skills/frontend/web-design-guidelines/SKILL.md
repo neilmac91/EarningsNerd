@@ -1,6 +1,6 @@
 ---
 name: web-design-guidelines
-description: Audit UI code against web interface design standards
+description: Review UI code against web interface standards when a design or accessibility audit is requested.
 version: 1.0.0
 author: vercel
 source: https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines

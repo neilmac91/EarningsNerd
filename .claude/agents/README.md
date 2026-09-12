@@ -187,7 +187,7 @@ agent file must also cite this section; non-engineering legacy examples remain i
 | Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); seven configured job targets (pregenerate is required; the other six are updated only when found) |
 | Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` applied once per filename/checksum through `migration_ledger` and skipped afterwards (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
 | Auth | Own JWT (HS256, `Authorization: Bearer`), rotated refresh tokens, OAuth (Google/Apple) — **no Firebase** |
-| AI | OpenAI-compatible client → DeepSeek (`deepseek-v4-pro` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |
+| AI | OpenAI-compatible client → DeepSeek (`deepseek-flash` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |
 | Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/` (shared chrome files) and `frontend/components/ui/` — there is no `frontend/src`, no Vite, no React Router |
 | Cache | Redis dev-only; prod is L1 in-memory (ADR-0004); all rate limiters are per-process |
 | Routes | `/api/...`, admin `/api/admin/...`, cron `/internal/...` — no `/api/v1` |
@@ -195,8 +195,9 @@ agent file must also cite this section; non-engineering legacy examples remain i
 | Tests | `backend/tests/{unit,integration,smoke,performance}` and `frontend/tests/{unit,e2e}` only |
 | Third parties | Stripe, Resend, PostHog + Vercel Analytics, Sentry; `app/integrations/` (finnhub/fmp/stocktwits are tombstoned — see `test_dead_integrations_allowlist.py`) |
 
-Read before any task: `CLAUDE.md`, `lessons/README.md`, `docs/ARCHITECTURE.md`; UI work also
-`frontend/DESIGN_SYSTEM.md`; AI work also `backend/evals/RUNBOOK.md`.
+Use `CLAUDE.md` for repository rules and `lessons/README.md` to find applicable lessons.
+Consult `docs/ARCHITECTURE.md` for service boundaries, `frontend/DESIGN_SYSTEM.md` for UI work,
+and `backend/evals/RUNBOOK.md` for prompt, model, eval or AI flag changes.
 
 ## Maintaining This Framework
 

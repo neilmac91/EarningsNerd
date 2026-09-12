@@ -108,3 +108,5 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-true-config-descriptions-grep-file-moves.md`](./ops-true-config-descriptions-grep-file-moves.md) — Make canonized config descriptions literally true and grep the whole repo when moving files
 - [`ops-verify-env-updates-reach-session.md`](./ops-verify-env-updates-reach-session.md) — Fingerprint env values in the running shell before debugging a rotated secret
 - [`ops-verify-plan-gaps-against-code.md`](./ops-verify-plan-gaps-against-code.md) — Re-read the actual code before implementing any plan item marked missing
+
+- [`arch-code-owned-render-eligibility.md`](./arch-code-owned-render-eligibility.md) — Keep application-owned render eligibility separate from model payloads and generation stamps.

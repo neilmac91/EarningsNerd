@@ -140,3 +140,31 @@ Legal section lookup also needs identity validation. On retained files, the corr
 ## Production-only metric backfill finding
 
 The source-label review exposed a separate application defect: generic label inference maps income/profit labels to net income and arbitrary margin labels to net margin when filling missing prior values. This production pipeline step is outside the baseline generation evaluation path. A narrow identity-safe backfill fix therefore precedes further instruction changes or automatic pretax relabeling. Unknown labels should keep missing comparison values rather than inherit another accounting measure.
+
+## September 12 — current-Flash evidence and implementation order
+
+The [archived current-Flash reviews and scoped designs](review-evidence/current-flash-2026-09-12/README.md) supersede speculative claims about which old narrative errors recur. Some old BA/RIVN/JD/NVO defects do not recur; source ownership, units, financial meaning and comparative direction still need work. The original reports remain verbatim with a separate ASML carrying-amount correction.
+
+First finish #808 metadata/citation acceptance and serial production verification; its first summary assessment proves unchanged data plus qualified cash/debt tags, not correct total-debt narratives. First Copilot17/18 failed on source-present excerpts below the verifier minimum. Corrected `0e6b076b3e1112c7e11fb3170b64c941d880a18f` passed2,878 tests/29 warnings in83.93s; second assessment is pending. The independently gated cash-basis candidate `e9dbe8b991cfd393033f88e277c434d9e3540cc5` passed2,885 tests/29 warnings in85.80s and remains unpublished. #819 and E06 reconciliation/configuration are complete, with future natural payment attribution still unverified.
+
+Then prioritize source-unit preservation (COST's primary already received the millions header), a source-owned tax/continuing-income relationship and later explicit adjustment-table relations, restricted numeric comparisons, and guidance coverage. The unit design requires selected source passages with governing unit context, not a global dollar multiplier. The semantic registry must bind entity, period, measure, sign, units and accounting basis together; no amount collision, global cue, model-authored inclusion flag or calculation/presentation edge certifies business causation. Both designs distinguish useful metadata from visible corrections and unknown source scope. Retain good explanations and qualify missing evidence rather than deleting all interpretation.
+
+No source-unit/semantic implementation, paid assessment, new public contract or quality clearance is claimed by these designs. Original founder prerequisites, locked anchors and financial-quality/pregeneration holds remain unchanged.
+
+### September 12 — bounded Copilot acceptance update
+
+[Second #808 Copilot assessment](review-evidence/current-flash-2026-09-12/pr808-second-copilot-acceptance.md) passed18/18 across three draws per six questions. Two ASML answers remain without citations; another answer's closing sales citation has narrower scope than the repeated sentence. Preserve these limitations. Separate summary CI34691090937, with two repeats per filing, remains pending, as do #808 merge and production verification. This updates the preceding assessment status without changing the broader quality priorities or holds.
+
+### September 12, 11:39 UTC — metadata change merged; semantic limits remain
+
+[Final summary acceptance](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) clears data/metadata conservation and execution accounting. #808 merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03`; main CI34691615781 and production verification remain pending. WMT and COIN still omit borrowing components in one summary each; both ASML summaries omit the current portion. These observations reinforce the distinction between source metadata and correct source-qualified aggregation. No financial-quality/pregeneration clearance follows from this bounded release.
+
+### September 12, after deployment — provenance release complete
+
+The [verified release record](review-evidence/current-flash-2026-09-12/README.md#september-12-1147-utc--808-production-verified) supersedes all pending #808 gates, assessments, merge and deployment instructions above. Main CI `34691615781` and deploy job `103548163219` succeeded: migrations 0/39, revision `earningsnerd-backend-00331-tfm` at 100%, healthy CI and independent detailed health. Do not repeat those completed actions.
+
+Proceed with the separate cash-basis candidate, integrated at `37401e996c980fbdf01306fcb1472601b31c2eed` with 2,888 passing tests. Integrate later documentation and gate committed state before publication and actual-output assessment. Then continue source-unit and source-owned explanation work in the priority order above. Remaining financial findings and all specific founder prerequisites, including universe-wide pregeneration and historical replay, remain open. E06 configuration is complete; future natural delivery is unobserved.
+
+### September 12 — comparative backfill prerequisite already completed
+
+The earlier “Production-only metric backfill finding” is resolved by [#797](https://github.com/neilmac91/EarningsNerd/pull/797), merged as `4ba05087a04969e0391ac4e0efcfd1b5bef99eb3` on September 9. Current `backend/app/schemas/summary.py` uses `_PRIOR_METRIC_KEYS` whole-label lookup in `_infer_xbrl_metric`, consumed by `attach_normalized_facts`; percentage margins also require an explicitly percentage-valued current row. Do not rebuild that completed prerequisite. This correction leaves genuinely unimplemented source-unit and source-owned explanation work in the order above.

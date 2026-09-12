@@ -77,7 +77,13 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-09-c: Production comparative backfill and ADS display require a matching
 #   metric identity; unknown or differently qualified measures cannot borrow values. Taxonomy unchanged.
 # summary-2026-09-d: preserve reported P&L labels and accounting basis across primary/recovery.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-d"
+# summary-2026-09-e: reserved by rejected/unreleased #805 supported-explanation candidate;
+#   its explanation changes are not included here. Prior production behavior remains d.
+# summary-2026-09-f: name selected capex and derived FCF basis in grounding and rendered cash text.
+#   Retains the locally reserved cash stamp; advances directly from released d.
+# summary-2026-09-g: verified final primary quotes may display source-owned unit context.
+#   The separate code-owned envelope marker governs read eligibility; old payloads remain untrusted.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-g"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

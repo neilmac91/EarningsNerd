@@ -373,6 +373,8 @@ def duration_series_currency_concept(
     form: str,
     period_of_report: str,
     max_items: int = 5,
+    *,
+    qualified_concept: bool = False,
 ) -> Tuple[List[Tuple[str, float]], Optional[str], Optional[str]]:
     """Income-statement series + reporting currency + the winning concept.
 
@@ -383,11 +385,14 @@ def duration_series_currency_concept(
     as an ambiguous duplicate, which previously dropped the whole period). Concepts are never mixed
     within one series. Returns (series, currency, concept); currency is None when facts carry no
     currency, and concept is the winning us-gaap/ifrs candidate (recorded as a ``raw_tag`` so
-    downstream can detect a concept that flips between filings). Both are None when nothing resolves.
+    downstream can detect a concept that flips between filings). Set qualified_concept to retain
+    the exact successful namespace query; the default preserves the historical bare-name API.
+    Both are None when nothing resolves.
     """
     for concept in concepts:
         candidates: List[Tuple[str, float, Optional[str], float]] = []
-        for row in _fact_records(xb, concept):
+        records, queried_concept = _fact_records_with_concept(xb, concept)
+        for row in records:
             if row.get("is_dimensioned"):
                 continue
             end = _iso_date(row.get("period_end"))
@@ -405,7 +410,7 @@ def duration_series_currency_concept(
             values_by_end.setdefault(end, []).append((round(value, 4), dec))
         series = _series_from_values(values_by_end, period_of_report, max_items)
         if series:
-            return series, currency, concept
+            return series, currency, queried_concept if qualified_concept else concept
     return [], None, None
 
 
