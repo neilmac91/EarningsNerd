@@ -50,7 +50,11 @@ from app.services.ai.debt_scope import (
     leverage_statement,
     model_leverage_is_admissible,
 )
-from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.summary_sections import (
+    render_sections,
+    render_sections_json,
+    sections_to_markdown,
+)
 
 PERIOD = "2026-01-31"
 ACCN = "0000104169-26-000055"
@@ -707,6 +711,50 @@ def test_preview_and_final_show_the_same_authored_leverage(monkeypatch):
     assert "$38.2B" not in preview
     assert "noncurrent long-term debt of $34.6B" in preview
     assert sections["balance_sheet_liquidity"]["leverage"] in preview
+
+
+def test_the_authored_leverage_reaches_web_markdown_pdf_html_and_csv(monkeypatch):
+    """Every customer-visible projection, not just the Markdown.
+
+    Web read (`render_sections_json`), Markdown (`sections_to_markdown`) and both exports
+    (`ExportService`) already share `summary_sections.render_sections`, so the code-owned field
+    needs no projection change — this pins that the reach is real rather than assumed, and that
+    the replaced total is absent from all four.
+    """
+    from types import SimpleNamespace
+
+    from app.services.export_service import ExportService
+
+    _raw, _metrics, sections, _grounding, markdown = _run_real_path(
+        monkeypatch,
+        {"us-gaap:LongTermDebtNoncurrent": [fact(34_624_000_000.0)]},
+        {"leverage": "Total debt was $38.2B as of January 31, 2026."},
+    )
+    authored = sections["balance_sheet_liquidity"]["leverage"]
+    stored = {"schema_version": 2, "sections": sections}
+
+    web = render_sections_json(stored)
+    web_text = " ".join(
+        str(block.get("text", ""))
+        for section in web for block in section.get("blocks", [])
+    )
+    assert authored in web_text
+
+    summary = SimpleNamespace(raw_summary=stored)
+    filing = SimpleNamespace(
+        filing_date=None, period_end_date=None, filing_type="10-K",
+        company=SimpleNamespace(name="Test Co"),
+        sec_url="https://www.sec.gov/Archives/edgar/data/104169/x/",
+    )
+    service = ExportService()
+    pdf_html = service.generate_pdf_html(summary, filing)
+    csv_text = service.generate_csv(summary, filing)
+
+    for surface, text in (
+        ("markdown", markdown), ("web", web_text), ("pdf_html", pdf_html), ("csv", csv_text),
+    ):
+        assert "noncurrent long-term debt of $34.6B" in text, surface
+        assert "$38.2B" not in text, surface
 
 
 def test_a_stored_historical_row_still_renders_its_own_recorded_leverage():
