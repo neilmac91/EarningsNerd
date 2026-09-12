@@ -216,11 +216,14 @@
 }
 
 /* Mockup frame — flat brand surfaces in BOTH themes (decorative gradients stay
-   retired): light = off-white panel + cool hairline; dark = flat brand navy. */
+   retired): light = off-white panel + cool hairline; dark = flat brand navy.
+   Radius sits on the card step of the 4/8/12/16/24 scale (16px = rounded-xl);
+   pair with shadow-e3 on the marketing route. The title-bar traffic-light dots
+   were retired with the landing redesign (raw red/yellow, not tokenised). */
 .mockup-frame {
   background: #FBFAF6; /* panel.light */
   border: 1px solid rgba(16, 24, 40, 0.10);
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
 }
 .mockup-frame-titlebar {

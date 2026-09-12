@@ -34,6 +34,13 @@ _FRAGMENT_MAX_WORDS = 10
 _FRAGMENT_MAX_CHARS = 120
 
 _WS_RE = re.compile(r"\s+")
+# Punctuation-spacing fold (ADR-0008 Copilot readout): HTML-derived filing text sometimes carries a
+# space BEFORE a comma/period/percent or AFTER an opening bracket ("€4.4 billion , or 15.6% ,") that
+# the logical text does not; a model quoting the sentence tidies it and the verbatim match fails.
+# Deleting whitespace on that side of the punctuation, on BOTH sides of the comparison, is symmetric
+# and never lets a word change, reordering, or elision through.
+_SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+(?=[,.;:%)\]])")
+_SPACE_AFTER_OPEN_RE = re.compile(r"(?<=[(\[])\s+")
 # Typography folds (T5.4): filings render curly quotes/apostrophes and en/em dashes; model output
 # usually types the straight ASCII forms. Folding both sides to ASCII before matching removes a
 # guaranteed false-mismatch class from EVERY consumer of this normalizer — T4 read-time evidence
@@ -86,8 +93,10 @@ def normalize_for_match(text: Optional[str]) -> str:
     """Lowercase, fold typography (curly quotes/apostrophes, en/em dashes → ASCII), and collapse all
     whitespace — the shared definition of "the same text" for verbatim matching. Every verbatim
     check in the product uses this one function (T4 read-time evidence, copilot citations, T5.4
-    forward-quote gate), so tightening or loosening it here moves ALL of them together."""
-    return _WS_RE.sub(" ", (text or "").translate(_TYPOGRAPHY_FOLDS).strip().lower())
+    forward-quote gate), so tightening or loosening it here moves ALL of them together. Stray
+    whitespace before closing punctuation / after opening brackets is folded too (symmetric)."""
+    folded = _WS_RE.sub(" ", (text or "").translate(_TYPOGRAPHY_FOLDS).strip().lower())
+    return _SPACE_AFTER_OPEN_RE.sub("", _SPACE_BEFORE_PUNCT_RE.sub("", folded))
 
 
 def extract_quoted_span(evidence: Any) -> str:

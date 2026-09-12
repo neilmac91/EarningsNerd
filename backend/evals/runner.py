@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 from evals.figure_measurement import measure_figures, summarize_figures
 from evals.judge import judge_summary
 from evals.models import REGISTRY, ModelConfig, call_model, cost_usd
+from app.services import ai_metrics
 from evals.schema import GoldenFiling
 from evals.scorers import parse_model_json, score_summary
 
@@ -258,6 +259,35 @@ async def _run_one(
                 "retry_preview_attempts_omitted": max(0, retried - len(retry_previews))}
 
 
+_USAGE_KEYS = ("prompt_tokens", "completion_tokens", "cache_hit_tokens", "cache_miss_tokens", "reasoning_tokens")
+
+
+def summarize_provider_calls(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Fold the ``ai_call`` records observed during one generation into a per-attempt usage row.
+
+    Sums only provider-reported counters (``None`` = unavailable, never zero); ``unknown_calls``
+    says how many attempts carried no usage at all. ``actual_models`` preserves the response's
+    own model identity so a silent provider-side routing change is visible per filing."""
+    totals: Dict[str, Optional[int]] = {key: None for key in _USAGE_KEYS}
+    unknown = 0
+    models: List[str] = []
+    operations: Dict[str, int] = {}
+    for record in records:
+        usage = record.get("usage") or {}
+        if all(usage.get(key) is None for key in _USAGE_KEYS):
+            unknown += 1
+        for key in _USAGE_KEYS:
+            value = usage.get(key)
+            if value is not None:
+                totals[key] = (totals[key] or 0) + value
+        model = record.get("actual_model")
+        if model and model not in models:
+            models.append(model)
+        operations[record.get("operation") or "other"] = operations.get(record.get("operation") or "other", 0) + 1
+    return {"calls": len(records), "unknown_calls": unknown, "operations": operations,
+            "actual_models": models, **totals}
+
+
 async def _attempt(
     candidate: str, filing: GoldenFiling, grounding: Dict[str, Any],
     run_index: int, judge_model: Optional[str],
@@ -291,11 +321,19 @@ async def _attempt(
             # selects streaming extraction. Preview text is never substituted for final output.
             stream_requested = settings.STREAM_SECTION_REVEAL
             stream_cb = observe_preview if stream_requested else None
-            summary = await openai_service.summarize_filing(
-                grounding["filing_text"], filing.company_name, filing.filing_type,
-                xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
-                stream_cb=stream_cb,
-            )
+            # Observe every provider attempt the pipeline makes for THIS generation (primary,
+            # fallback, section recovery) so the report carries measured usage per filing —
+            # the baseline route has no other token record (its cost_usd is not metered).
+            call_records, observer_token = ai_metrics.observe_ai_calls()
+            try:
+                summary = await openai_service.summarize_filing(
+                    grounding["filing_text"], filing.company_name, filing.filing_type,
+                    xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
+                    stream_cb=stream_cb,
+                )
+            finally:
+                ai_metrics.stop_observing(observer_token)
+            provider_usage = summarize_provider_calls(call_records)
             if summary.get("status") == "error":
                 raw_error = summary.get("raw_summary") or {}
                 application_failure = {
@@ -321,6 +359,7 @@ async def _attempt(
             return {"score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
+                    "provider_usage": provider_usage,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
                     "preview_frames": preview_frames, "preview_chars": preview_chars,
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
@@ -363,6 +402,32 @@ async def _attempt(
                 "source_provenance": grounding.get("source_provenance"),
                 "coverage_inventory": grounding.get("coverage_inventory"),
                 "_transient": _is_transient(exc)}
+
+
+def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Provider-reported token totals across the candidate's attempts (baseline route only).
+
+    Reports the number of attempts that carried usage so a mean over a partial set is never
+    mistaken for a full one; absent usage yields ``None``, not zero."""
+    rows = [r.get("provider_usage") for r in rs if isinstance(r.get("provider_usage"), dict)]
+    with_output = [u["completion_tokens"] for u in rows if u.get("completion_tokens") is not None]
+    with_input = [u["prompt_tokens"] for u in rows if u.get("prompt_tokens") is not None]
+    models: List[str] = []
+    for u in rows:
+        for m in u.get("actual_models") or []:
+            if m not in models:
+                models.append(m)
+    return {
+        "usage_attempts": len(with_output),
+        "mean_completion_tokens": round(statistics.mean(with_output), 1) if with_output else None,
+        "mean_prompt_tokens": round(statistics.mean(with_input), 1) if with_input else None,
+        "total_completion_tokens": sum(with_output) if with_output else None,
+        "total_prompt_tokens": sum(with_input) if with_input else None,
+        "total_cache_hit_tokens": sum(u["cache_hit_tokens"] for u in rows if u.get("cache_hit_tokens") is not None) if any(u.get("cache_hit_tokens") is not None for u in rows) else None,
+        "total_cache_miss_tokens": sum(u["cache_miss_tokens"] for u in rows if u.get("cache_miss_tokens") is not None) if any(u.get("cache_miss_tokens") is not None for u in rows) else None,
+        "provider_calls": sum(u.get("calls", 0) for u in rows),
+        "actual_models": models,
+    }
 
 
 def _summarize(
@@ -413,6 +478,7 @@ def _summarize(
             "mean_citation_checked": mean("citation_checked"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
+            **_usage_stats(rs),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,
         }
     return summary
@@ -579,6 +645,7 @@ def _configure_eval_telemetry() -> None:
 
 
 if __name__ == "__main__":
+    ai_metrics.set_trigger("eval")  # every ai_call made by this process is harness spend, not product
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidates", default="baseline",

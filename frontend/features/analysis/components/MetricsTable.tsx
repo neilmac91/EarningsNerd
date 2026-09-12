@@ -36,8 +36,11 @@ export default function MetricsTable({
   dataset,
   onExportXlsx,
   exporting = false,
+  headingLevel: Heading = 'h2',
 }: {
   dataset: AnalysisDataset
+  /** Heading element for "Metrics by period"; the landing page nests the table under an h3. */
+  headingLevel?: 'h2' | 'h3' | 'h4'
   /** Branded Excel workbook of the whole dataset (built server-side) — the page passes this on
    *  the Pro results surface only. */
   onExportXlsx?: () => void
@@ -145,9 +148,9 @@ export default function MetricsTable({
     <Card as="section" className="p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Metrics by period
-          </h2>
+          </Heading>
           {hasDerived && (
             <Badge
               variant="warning"

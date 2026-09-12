@@ -64,6 +64,8 @@ const config = [
       'playwright-report/**',
       'test-results/**',
       'next-env.d.ts',
+      // The Claude Design export (its own runtime + bundle), a spec reference, not app code.
+      'design/**',
     ],
   },
   ...next,

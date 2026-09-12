@@ -146,3 +146,10 @@ export const ENABLE_PRO_TRIAL =
  */
 export const ENABLE_FULLTEXT_SEARCH =
   process.env.NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH === 'true'
+
+/**
+ * Logo.dev publishable token presence. When set, company marks hotlink `img.logo.dev`
+ * (components/CompanyLogo.tsx) and the landing page preconnects to that host; when unset, marks
+ * stay on the ticker monogram and no preconnect is emitted.
+ */
+export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)

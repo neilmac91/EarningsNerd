@@ -47,15 +47,17 @@ _CHAT_SECONDS = 75.0
 class _CopilotChatMixin:
     """Streaming chat + tool-use wrappers for the copilot path, mixed into OpenAIService."""
 
-    async def _chat_chunks(self, kwargs: dict, usage_sink: Optional[dict], deadline: float):
+    async def _chat_chunks(self, kwargs: dict, usage_sink: Optional[dict], deadline: float,
+                           operation: str = "copilot_chat"):
         """Retry only before yielding any SDK chunk; never replay append-only prose/tool deltas."""
         for attempt in range(2):
             stream = None
             emitted = False
             cleanup_failed = False
-            actual_model = usage = None
+            actual_model = usage = fingerprint = first_token_ms = None
             outcome = "error"
             error = None
+            started = asyncio.get_running_loop().time()
             try:
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
@@ -69,8 +71,12 @@ class _CopilotChatMixin:
                             async for chunk in stream:
                                 if getattr(chunk, "model", None):
                                     actual_model = chunk.model
+                                if getattr(chunk, "system_fingerprint", None):
+                                    fingerprint = chunk.system_fingerprint
                                 if getattr(chunk, "usage", None) is not None:
                                     usage = chunk.usage
+                                if first_token_ms is None and getattr(chunk, "choices", None):
+                                    first_token_ms = (asyncio.get_running_loop().time() - started) * 1000
                                 emitted = True
                                 yield chunk
                     finally:
@@ -91,8 +97,11 @@ class _CopilotChatMixin:
                 if cleanup_failed or emitted or attempt == 1 or not transient(exc):
                     raise
             finally:
-                record = record_ai_call(operation="chat_stream", provider="primary",
-                                        actual_model=actual_model, usage=usage, outcome=outcome)
+                record = record_ai_call(operation=operation, provider="primary",
+                                        actual_model=actual_model, usage=usage, outcome=outcome,
+                                        requested_model=kwargs.get("model"), system_fingerprint=fingerprint,
+                                        latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
+                                        first_token_ms=first_token_ms)
                 if usage_sink is not None:
                     for key, value in record["usage"].items():
                         if value is not None:
@@ -138,7 +147,7 @@ class _CopilotChatMixin:
             if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
                 create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
             create_kwargs["stream_options"] = {"include_usage": True}
-            stream = self._chat_chunks(create_kwargs, usage_sink, deadline)
+            stream = self._chat_chunks(create_kwargs, usage_sink, deadline, operation="analysis_chat")
             try:
                 async for chunk in stream:
                     if not chunk.choices:
@@ -215,7 +224,7 @@ class _CopilotChatMixin:
                 # meter cost. Opt-in, so the default streaming contract is otherwise unchanged.
                 create_kwargs["stream_options"] = {"include_usage": True}
 
-                stream = self._chat_chunks(create_kwargs, usage_sink, deadline)
+                stream = self._chat_chunks(create_kwargs, usage_sink, deadline, operation="copilot_chat")
 
                 # Assemble tool calls across chunks, keyed by their delta index. Each entry holds the
                 # call id, function name, and the concatenated arguments-string fragments. Whether any

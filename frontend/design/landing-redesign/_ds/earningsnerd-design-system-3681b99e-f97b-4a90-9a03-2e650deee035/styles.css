@@ -1,0 +1,12 @@
+/* =============================================================================
+   EarningsNerd Design System — global entry point
+   -----------------------------------------------------------------------------
+   Consumers link THIS one file. It is an @import manifest only — every token
+   and webfont lives in a file reached from here. Do not add rules inline.
+============================================================================= */
+@import "tokens/fonts.css";
+@import "tokens/colors.css";
+@import "tokens/typography.css";
+@import "tokens/spacing.css";
+@import "base.css";
+@import "components.css";

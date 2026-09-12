@@ -99,6 +99,9 @@ async def main(tickers: list[str], force: bool = False, *, annual_only: bool = F
 
 
 if __name__ == "__main__":
+    from app.services import ai_metrics
+
+    ai_metrics.set_trigger("job")  # Cloud Run job spend, separable from user traffic in the ai_call log
     # Skip Redis initialization — this is an offline-style batch job.
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
 

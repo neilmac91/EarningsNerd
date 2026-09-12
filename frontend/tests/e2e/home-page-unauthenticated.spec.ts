@@ -8,8 +8,8 @@ test.describe('Home Page - Unauthenticated Users', () => {
     // Should stay on home page (not redirect)
     await expect(page).toHaveURL('/')
 
-    // Should display hero section
-    await expect(page.locator('h1')).toContainText('SEC filing')
+    // Should display hero section (default headline A; the experiment arms all name the filing)
+    await expect(page.locator('h1')).toContainText(/filing|10-K/)
 
     // Should display company search component
     const searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="company" i], input[placeholder*="ticker" i]')

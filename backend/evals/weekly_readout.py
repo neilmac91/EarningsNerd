@@ -142,4 +142,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    from app.services import ai_metrics
+
+    ai_metrics.set_trigger("eval")
     raise SystemExit(main())

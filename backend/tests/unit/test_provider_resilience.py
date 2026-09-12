@@ -604,3 +604,35 @@ async def test_facade_propagates_earlier_request_timeout_to_orchestrator(monkeyp
         with pytest.raises(TimeoutError, match="request deadline exhausted"):
             await service.summarize_filing("Selected filing", "Issuer", "10-K")
     assert reports == ["timeout"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lib", [httpx2, httpx])
+async def test_summary_thinking_effort_switch_applies_only_to_the_primary_summary_call(lib, observations, monkeypatch):
+    """W10 experiment switch: thinking on at a fixed effort for the primary call, temperature dropped,
+    output ceiling raised; recovery calls and the default (empty) setting stay non-thinking."""
+    from app.config import settings
+
+    calls = []
+
+    def handler(req):
+        calls.append(json.loads(req.content))
+        return lib.Response(200, json=completion())
+
+    monkeypatch.setattr(settings, "AI_SUMMARY_THINKING_EFFORT", "low")
+    monkeypatch.setattr(settings, "AI_SUMMARY_THINKING_MAX_TOKENS", 24000)
+    async with service_for(handler, lib) as service:
+        assert await service._request_content(dict(KW, temperature=0.2, max_tokens=8000)) == '{"fresh":true}'
+        assert await service._request_content(dict(KW, temperature=0.1, max_tokens=500), operation="section_recovery") == '{"fresh":true}'
+    primary, recovery = calls
+    assert primary["thinking"] == {"type": "enabled"} and primary["reasoning_effort"] == "low"
+    assert "temperature" not in primary and primary["max_tokens"] == 24000
+    assert recovery["thinking"] == {"type": "disabled"} and recovery["temperature"] == 0.1
+    assert recovery["max_tokens"] == 500 and "reasoning_effort" not in recovery
+
+    calls.clear()
+    monkeypatch.setattr(settings, "AI_SUMMARY_THINKING_EFFORT", "")
+    async with service_for(handler, lib) as service:
+        await service._request_content(dict(KW, temperature=0.2, max_tokens=8000))
+    assert calls[0]["thinking"] == {"type": "disabled"} and calls[0]["temperature"] == 0.2
+    assert calls[0]["max_tokens"] == 8000 and "reasoning_effort" not in calls[0]

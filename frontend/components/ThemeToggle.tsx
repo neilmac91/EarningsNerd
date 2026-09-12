@@ -4,7 +4,7 @@ import { MoonIcon, SunIcon } from '@/lib/icons'
 import { useContext, useEffect, useState } from 'react'
 import { ThemeContext } from './ThemeProvider'
 
-export function ThemeToggle() {
+export function ThemeToggle({ className = '' }: { className?: string }) {
   const [mounted, setMounted] = useState(false)
   
   // Always call hooks unconditionally - before any early returns
@@ -18,7 +18,7 @@ export function ThemeToggle() {
   // During SSR or before context is available, render placeholder
   if (!mounted || !context) {
     return (
-      <div className="inline-flex items-center justify-center rounded-lg p-2 text-text-secondary-light">
+      <div className={`inline-flex items-center justify-center rounded-lg p-2 text-text-secondary-light ${className}`}>
         <SunIcon className="h-5 w-5" />
       </div>
     )
@@ -29,7 +29,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="inline-flex items-center justify-center rounded-lg p-2 text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/10 dark:hover:text-text-primary-dark"
+      className={`inline-flex items-center justify-center rounded-lg p-2 text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/10 dark:hover:text-text-primary-dark ${className}`}
       aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
     >
       {theme === 'light' ? (

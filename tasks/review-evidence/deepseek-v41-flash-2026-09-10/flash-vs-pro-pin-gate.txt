@@ -1,0 +1,6 @@
+Regression gate: eval_20260910T153541Z.json vs baseline_scores.json (baseline: 26 filings × 3 runs)
+  note: baseline: expected=78 attempted=78 scored=78 errors=0; quality means use scored outputs only
+  note: baseline: figure trace measured=78 unavailable=0 errors=0; unavailable is not measured zero
+  [WARN] baseline: mean_untraceable_dollar_figures = 3.026 — absolute advisory: untraceable dollar figures in measured raw prose
+
+PASS — no hard regressions (1 warning(s)).

@@ -48,7 +48,7 @@ pip install anthropic          # only for Claude candidates + the LLM judge
 # Load your normal backend .env, then add provider keys:
 export OPENAI_API_KEY=...       # baseline uses the OpenAI-compatible DeepSeek provider
 export OPENAI_BASE_URL=https://api.deepseek.com/v1
-export AI_DEFAULT_MODEL=deepseek-v4-pro
+export AI_DEFAULT_MODEL=deepseek-flash
 export AI_FALLBACK_MODEL=       # leave empty for every eval and pin
 export AI_FALLBACK_BASE_URL=    # leave empty for every eval and pin
 export AI_EVIDENCE_SNAP=false

@@ -1,3 +1,49 @@
+## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
+
+Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).
+
+- [x] Foundation: `GET /api/auth/registration` (public read of `REGISTRATION_MODE` + beta promo) with a unit test; `lib/planLimits.ts` mirrors copilot taste + history retention (lockstep spec); `lib/serverApi.fetchSignupConfig`; `features/marketing/lib/{access,headline,landing-samples}.ts`; `.mockup-frame` at 16px; Header/ThemeToggle/SiteChrome/layout plumb the access mode.
+- [x] Hero: `LandingHero` + `HeroHeadline` (PostHog `landing-headline-experiment`, A default, C control) + restyled `QuickAccessBar` + `HeroExample` (dots removed, e3, design chrome) + `CompanySearch` placeholder prop.
+- [x] Sections: `MeasuredClaims`, `EvidenceSection` (+ `TraceToSourceDemo`, `SourceTrace` panel extraction), `SummaryContents` (+ compact `HowItWorks`), `ProDepth` (`AskFilingDemo`, `AnalysisDemo`, `ChangeReportDemo`, extras), `PricingSection`, `ReaderQuoteSlot` (unrendered), `ReportingThisWeek` restyle, `CtaBanner` rewrite.
+- [x] Page assembly: `app/page.tsx` order per design, metadata per headline A, preconnect to img.logo.dev, JSON-LD kept.
+- [x] Cleanup: delete SocialProofStrip, FeatureShowcase, AccuracySection, ExampleSummaryCard (+ spec); NotableFilings dropped from the route (component kept, reported); update QuickAccessBar/Header/e2e assertions.
+- [x] Gates: frontend lint + typecheck + vitest + build (route JS 497 KB gzip vs 482 KB baseline; the 300 KB target needs app-shell work, reported); backend ruff + bandit + pytest; screenshots at 380/768/1280/1440 x light/dark for design and implementation into `frontend/design/landing-redesign/verification/`; tweak flips exercised.
+- [x] Push, draft PR (#814), summary with the design-system call, assumptions, screen sources, orphans, tweak decisions, follow-ups.
+
+## September 10 — DeepSeek V4.1 Flash cutover (deepseek-v4-pro retired 14 Sept 04:00 UTC)
+
+Plan approved by the founder on 10 Sept (assessment: `tasks/deepseek-v41-flash-migration-2026-09-10.md`). Pre-cutover scope only; observability (W7), single-source model config (W9), format hardening (W11) and provider profiles (W13) follow after the wave-3 prompt slices land.
+
+- [x] W1 — 5 Sept pinned report (`eval_20260905T111951Z.json`, run 33962580838) downloaded before its 19 Sept artifact expiry and tracked under `backend/evals/baselines/` as the V4 Pro reference. No judge spend (founder decision).
+- [x] W2 — Baseline eval route records per-attempt provider usage (`provider_usage` on each result row; token stats in the summary) via an `ai_metrics` observer; `evals/compare_reports.py` pairs two reports filing-by-filing.
+- [x] W3 — Smoke one raw `deepseek-flash` call with production kwargs; run 26 × 3 on `deepseek-flash` plus one 26 × 1 `deepseek-v4-pro` token-count run on the same SHA (~$2 total, founder-approved); Copilot golden set; compare against the 5 Sept pin.
+- [x] W4 — Cutover PR (same PR as W2, #809): `deepseek-flash` in all nine literal sites, Flash prices, re-pinned baseline, ADR-0008, literal-drift gate test. Merge only after W3 passes.
+- [ ] W6 — Founder creates a CI-only DeepSeek key and rotates the GitHub Actions `DEEPSEEK_API_KEY` secret.
+- [x] W8 — `deploy_check.py` defers to `Settings.validate_openai_config` (DeepSeek accepted) and prints the model; startup log and `verify_startup_config` are provider-neutral.
+- [x] W11 — Shared verbatim normaliser folds stray whitespace before closing punctuation / after opening brackets (symmetric); the ASML Copilot miss re-scores to 18/18 on Flash, Pro unchanged.
+- [x] W12 — Operational docs no longer quote V4 Pro prices or `deepseek-v4-pro` as current.
+- [x] W9 — `.github/ai-model.env` is the deploy-time source for `AI_DEFAULT_MODEL` / `OPENAI_BASE_URL`; the three workflows load it into `GITHUB_ENV` and carry no model literal (gate: `test_retired_model_ids.py`).
+- [x] W7 — `ai_call` log lines carry `trigger`, `requested_model` vs `actual_model`, `system_fingerprint`, `latency_ms`, `first_token_ms`, `reasoning_tokens`, nested cache-field fallback, and a per-model peak-aware `estimated_cost_usd`; `chat_stream` split into `copilot_chat` / `analysis_chat`; admin `/metrics` sums cost per bucket; log-based metric recipe in `docs/OPERATIONS.md`.
+- [x] W10 — Measured thinking `low` on the summary path (3 × 26 vs the non-thinking reference): hard gates equal, citation/forward-quote fidelity +0.06/+0.07, but ×2.25 output tokens, ×2.5 latency, 11 timeout retries and 2 lost attempts. Not adopted; readout in `tasks/review-evidence/deepseek-v41-flash-2026-09-10/w10-thinking-mode-readout.md`.
+
+Coordination rule until W4 merges: the cutover PR is the only PR that re-pins `baseline_scores.json`; prompt candidates (#805, `d`/`e`) are measured on Flash afterwards, once. Astra's local `work/eval-error-outcome` rebases onto the W2 `runner.py` change.
+
+## September 9 explanation feasibility — offline follow-up
+
+- [x] Preserve the [exact typed-source feasibility and causal-contract finding](quality-explanations-first-readout-2026-09-09.md#follow-up-offline-feasibility--added-before-publication). The original six assessment snapshots remain unchanged.
+- [ ] Scope a selected-source registry first, then narrowly validated arithmetic: PFE continuing-income tax bridge is a positive control; BA untagged core/ex-sale relationships and RIVN payment-versus-expense periods remain negative controls. Shared presentation follows measured evidence coverage.
+- [ ] Correct the confirmed global causal-wording ambiguity only within reviewed scope. No implementation, new content stamp or second paid run is claimed; #805 remains held.
+
+## September 9 supported-explanation assessment — semantic acceptance failed
+
+- [x] Review the first actual #805 cohort against the fixed pre-e reference; retain the [rejected assessment and exact independent reports](quality-explanations-first-readout-2026-09-09.md). Green code/regression gates and usable outputs do not clear the surviving signed, measure-basis and debt-scope defects.
+- [x] Record docs-only #806 main CI34341005430 and deploy job102432339156: explicit `No backend changes - skipping deploy.` at 10:38:13.1854728 UTC. Last verified backend remains `earningsnerd-backend-00324-fcq` from #803.
+- [ ] Keep #805 open and held, not merged. Only its first paid assessment round has run; no second assessment has been launched. A coherent correction and review decision remain required.
+- [ ] Prioritize source-qualified debt/cash components and bounded typed source/measure/period/signed-explanation feasibility at existing owners. Keep independent cash-basis/source-coverage preparations separate; their local gates do not establish actual acceptance. Optional DeepSeek thinking-mode research is unproven feasibility, with no activation or additional experiment.
+- [ ] Preserve the existing founder boundaries, seven partial Fable cases and unseen acceptance. The readout states the pending T9 decision once; broad replay and universe-wide pregeneration remain held.
+
+This dated addition supersedes earlier pending-first-assessment status only. Earlier published records remain unchanged.
+
 ## September 9 corrected preview assessment — production verified
 
 - [x] Read the second #803 summary artifact: 52 usable final outcomes; one timeout-triggered outer retry, 54 provider calls and unknown usage for two unsuccessful calls. Successful-call ownership and 265-row numeric projections pass; preserve the [dated second readout](quality-preview-final-readout-2026-09-09.md) alongside the rejected first assessment.

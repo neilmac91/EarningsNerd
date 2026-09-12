@@ -32,13 +32,13 @@ def test_sdk_and_vendor_cache_metadata_are_subsets_not_additional_tokens():
                           prompt_tokens_details=PromptTokensDetails(cached_tokens=40))
     first = record(sdk)
     assert first["usage"] == {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120,
-                              "cache_hit_tokens": 40, "cache_miss_tokens": None}
+                              "cache_hit_tokens": 40, "cache_miss_tokens": None, "reasoning_tokens": None}
     vendor = SimpleNamespace(prompt_tokens=100, completion_tokens=20, total_tokens=120,
                              prompt_cache_hit_tokens=60, prompt_cache_miss_tokens=40,
                              prompt_tokens_details=SimpleNamespace(cached_tokens=40))
     second = record(vendor)
     assert second["usage"] == {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120,
-                               "cache_hit_tokens": 60, "cache_miss_tokens": 40}
+                               "cache_hit_tokens": 60, "cache_miss_tokens": 40, "reasoning_tokens": None}
     totals = ai_metrics.get_ai_metrics()["calls"][0]["usage"]
     assert totals["total_tokens"] == {"known_total": 240, "known_calls": 2, "unknown_calls": 0}
     assert totals["cache_hit_tokens"]["known_total"] == 100
@@ -59,14 +59,15 @@ def test_contradictory_provider_counters_do_not_become_claimed_totals():
     result = record({"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 20,
                      "prompt_cache_hit_tokens": 11, "prompt_cache_miss_tokens": 12})
     assert result["usage"] == {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": None,
-                               "cache_hit_tokens": None, "cache_miss_tokens": None}
+                               "cache_hit_tokens": None, "cache_miss_tokens": None, "reasoning_tokens": None}
     result = record({"prompt_tokens": 10, "prompt_cache_hit_tokens": 6, "prompt_cache_miss_tokens": 5})
     assert result["usage"]["cache_miss_tokens"] is None
 
 
 def test_reported_zero_usage_is_measured_zero_not_unavailable():
     result = record({"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
-                     "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0})
+                     "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0,
+                     "completion_tokens_details": {"reasoning_tokens": 0}})
     assert set(result["usage"].values()) == {0}
     totals = ai_metrics.get_ai_metrics()["calls"][0]["usage"]
     assert all(v == {"known_total": 0, "known_calls": 1, "unknown_calls": 0} for v in totals.values())
@@ -201,3 +202,52 @@ async def test_admin_metrics_observes_saturated_worker_limiter_without_joining_q
             await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=2)
         finally:
             limiter.total_tokens = original_capacity
+
+
+def test_nested_cache_split_and_reasoning_tokens_are_read_when_top_level_fields_are_absent():
+    # DeepSeek documents the nested names; a wire-shape change must not drop the split.
+    nested = {"prompt_tokens": 100, "completion_tokens": 30, "total_tokens": 130,
+              "prompt_tokens_details": {"prompt_cache_hit_tokens": 90, "prompt_cache_miss_tokens": 10},
+              "completion_tokens_details": {"reasoning_tokens": 12}}
+    result = record(nested)
+    assert result["usage"]["cache_hit_tokens"] == 90 and result["usage"]["cache_miss_tokens"] == 10
+    assert result["usage"]["reasoning_tokens"] == 12
+    # Reasoning tokens are a subset of completion tokens; a contradiction is unavailable, not claimed.
+    assert record({"completion_tokens": 5, "completion_tokens_details": {"reasoning_tokens": 9}})["usage"]["reasoning_tokens"] is None
+
+
+def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_and_cost(monkeypatch):
+    from app.services import llm_pricing
+
+    monkeypatch.setattr(llm_pricing, "is_peak_hour", lambda at=None: False)
+    result = record({"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
+                     "prompt_cache_hit_tokens": 1_000_000, "prompt_cache_miss_tokens": 0},
+                    requested_model="deepseek-flash", system_fingerprint="fp_abc123", latency_ms=1234.9,
+                    first_token_ms=210.2)
+    assert result["requested_model"] == "deepseek-flash" and result["actual_model"] == "deepseek-v4-pro"
+    assert result["system_fingerprint"] == "fp_abc123"
+    assert result["latency_ms"] == 1234 and result["first_token_ms"] == 210
+    assert result["trigger"] == "user"
+    # actual model prices the call: deepseek-v4-pro is billed at Flash rates after the retirement.
+    assert result["estimated_cost_usd"] == round(0.003 + 0.60, 6) and result["peak"] is False
+    # Malformed provider metadata never reaches the log.
+    junk = record(None, system_fingerprint="x" * 100, latency_ms="fast", first_token_ms=-1)
+    assert junk["system_fingerprint"] is None and junk["latency_ms"] is None and junk["first_token_ms"] is None
+    assert junk["estimated_cost_usd"] is None  # no token counts: unknown, never a claimed zero
+    bucket = [c for c in ai_metrics.get_ai_metrics()["calls"] if c["count"] == 2][0]
+    assert bucket["estimated_cost_usd"] == round(0.003 + 0.60, 6)
+
+
+def test_trigger_label_is_context_scoped():
+    token = ai_metrics.set_trigger("eval")
+    try:
+        assert record(None)["trigger"] == "eval"
+        assert ai_metrics._trigger.get() == "eval"
+    finally:
+        ai_metrics.reset_trigger(token)
+    assert record(None)["trigger"] == "user"
+    bogus = ai_metrics.set_trigger("cron")  # unknown labels fall back to user, never leak text
+    try:
+        assert record(None)["trigger"] == "user"
+    finally:
+        ai_metrics.reset_trigger(bogus)
