@@ -155,7 +155,7 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
             verified.append(quote)
     # Source-owned explanation is independent of the model's choice of program quotes.
     # Otherwise a valid but irrelevant quotation could suppress useful source context.
-    selected = []  # mutation: discard available source explanation
+    selected = select_capital_passages(source_text, qualifies)
     for passage in selected:
         if not any(passage in existing for existing in verified):
             verified = [existing for existing in verified if existing not in passage]
