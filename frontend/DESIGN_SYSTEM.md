@@ -178,7 +178,14 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
 search glow. The hero accent word is solid `text-brand-strong dark:text-brand-strong-dark`.
-`.mockup-frame` is flat navy (the decorative slate gradient is retired).
+`.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
+`shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
+(panel + hairline + e2, brighten on hover); the popular-company chips and the reporting tiles are
+the same surface at e1, per the design. `.glass-card` is retired on the landing route (its
+remaining consumer is `AuthShell`). Container rhythm on the landing: hero + header `max-w-7xl`,
+every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
+tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
+`text-tertiary-light` (4.35:1 on cream) is reserved for inside-card eyebrows and the kbd hint.
 
 ## 8. Theme mechanics
 
@@ -259,7 +266,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 1. **App-wide, not just the obvious page** — public *and* authenticated.
 2. **Grep gate** — zero residual legacy brand colors AND legacy type roles:
    ```
-   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|bg|text|border|ring)-(sky|indigo|cyan|teal|violet|fuchsia)-[0-9]|bg-blue-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2)' app components features
+   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|bg|text|border|ring)-(sky|indigo|cyan|teal|violet|fuchsia)-[0-9]|bg-blue-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
    ```
    For motion changes also: raw durations outside the token homes —
    ```

@@ -26,9 +26,19 @@ const isTypingTarget = (el: EventTarget | null): boolean => {
 
 export default function CompanySearch({
   autoFocusDesktop = false,
+  shortcuts = autoFocusDesktop,
+  ariaLabel = 'Search for a company',
   onSelect,
+  placeholder = 'Search any company (e.g., AAPL, Apple, Microsoft)...',
 }: {
   autoFocusDesktop?: boolean
+  /** "/" and Cmd/Ctrl+K focus the field from anywhere on the page. Defaults to autoFocusDesktop
+   *  so existing call sites keep both; the landing hero wants the shortcut without the autofocus. */
+  shortcuts?: boolean
+  /** Accessible name. Pass null when a visible <label htmlFor="company-search"> names the field. */
+  ariaLabel?: string | null
+  /** Field placeholder; the landing hero passes its shorter design copy. */
+  placeholder?: string
   /**
    * Override the pick behaviour (default navigates to /company/{ticker}). Used by surfaces that
    * consume the selection in place — e.g. the Multi-Period Analysis picker. Enter on a
@@ -53,7 +63,7 @@ export default function CompanySearch({
 
   // "/" or Cmd/Ctrl+K focuses search from anywhere on the page.
   useEffect(() => {
-    if (!autoFocusDesktop) return
+    if (!shortcuts) return
     const onKeyDown = (e: KeyboardEvent) => {
       const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey
       const cmdK = e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)
@@ -64,7 +74,7 @@ export default function CompanySearch({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [autoFocusDesktop])
+  }, [shortcuts])
 
   // Debounce search
   useEffect(() => {
@@ -184,20 +194,23 @@ export default function CompanySearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          placeholder="Search any company (e.g., AAPL, Apple, Microsoft)..."
+          placeholder={placeholder}
           role="combobox"
           aria-expanded={navigableTickers.length > 0}
           aria-controls="company-search-results"
           aria-activedescendant={
             highlightIndex >= 0 ? `company-search-option-${highlightIndex}` : undefined
           }
-          aria-label="Search for a company"
+          aria-label={ariaLabel ?? undefined}
           aria-describedby={isError ? "company-search-error" : undefined}
           aria-autocomplete="list"
           className={inputClasses({ leadingIcon: true })}
         />
         {isLoading && (
-          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon
+            aria-hidden="true"
+            className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong motion-reduce:animate-none dark:text-brand-strong-dark"
+          />
         )}
         {!isLoading && !query && (
           <kbd

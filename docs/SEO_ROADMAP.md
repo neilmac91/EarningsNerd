@@ -28,7 +28,7 @@ how many summaries exist. The pregenerate cron already exists (weekly, Cloud Run
 lever is its ticker × form coverage:
 
 1. Expand pregeneration to the S&P 500's latest 10-K + latest 10-Q (~1,000 summaries). At
-   ~$0.02–0.05/summary that's a **one-time ~$25–50** DeepSeek spend, then ~$5–10/quarter to
+   ~$0.01/summary at `deepseek-flash` rates (was ~$0.02–0.05 on V4 Pro) that's a **one-time ~$10–25** DeepSeek spend, then ~$5–10/quarter to
    keep current (only new filings get summarized; dedup means nothing is ever paid twice).
 2. Then Russell-1000 / full coverage as search impressions justify it — check GSC queries
    first, spend second. Full 8,000-ticker × 2-form coverage would be a one-time ~$300–800;
@@ -72,7 +72,7 @@ Trigger-based, not calendar-based. Watch the dashboards in `LAUNCH_CHECKLIST.md`
 | Cloud Run p95 >1.5s or frequent 2-instance saturation | max-instances 3 (check pool math: 3×20 conns needs the DB upgrade first) | +$0–10/mo |
 | `/api/companies/search` abuse in logs | generous per-IP limit (e.g. 120/min) + negative cache for unknown tickers (24h TTL in DB or L1) | $0 |
 | GSC crawl-stats show heavy bot traffic on ISR misses | lengthen revalidate windows (company 30→60min) | $0 |
-| DeepSeek monthly spend >$15 | check PRO_SUMMARY_MONTHLY_CAP / batch sizes before paying more | $0 |
+| DeepSeek monthly spend >$15 (product traffic; CI eval runs are the larger line item, see `tasks/deepseek-v41-flash-migration-2026-09-10.md` §1.4) | check PRO_SUMMARY_MONTHLY_CAP / batch sizes before paying more | $0 |
 
 Explicitly **not** planned: Redis in prod (ADR-0004 holds — ISR + DB caches cover the misses),
 multi-region, queues, or any second generation path (CLAUDE.md rule 1).

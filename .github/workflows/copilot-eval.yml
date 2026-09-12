@@ -27,12 +27,13 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
       PWNED_PASSWORD_CHECK_ENABLED: 'false'
       USE_STATEMENT_FINANCIALS: 'true'
-      OPENAI_BASE_URL: https://api.deepseek.com/v1
-      AI_DEFAULT_MODEL: deepseek-v4-pro
+      # OPENAI_BASE_URL / AI_DEFAULT_MODEL come from .github/ai-model.env (loaded in the first step).
       AI_FALLBACK_MODEL: ''
       AI_FALLBACK_BASE_URL: ''
     steps:
       - uses: actions/checkout@v7
+      - name: Load AI model configuration
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'

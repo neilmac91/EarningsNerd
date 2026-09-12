@@ -2,7 +2,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { FREE_SUMMARY_LIMIT, FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
+import {
+  FREE_SUMMARY_LIMIT,
+  FREE_EARNINGS_ALERT_LIMIT,
+  FREE_COPILOT_QUESTIONS,
+  FREE_HISTORY_RETENTION_DAYS,
+} from '@/lib/planLimits'
 
 /**
  * Structural gate for free-tier plan copy (CLAUDE.md rules 4 and 12).
@@ -22,12 +27,22 @@ const backendConst = (name: string): number => {
   return Number(match[1])
 }
 
+/** A field of the `_FREE = Entitlements(...)` literal, e.g. `copilot_free_taste=3,`. */
+const freeEntitlementField = (name: string): number => {
+  const block = entitlements.match(/_FREE = Entitlements\(([\s\S]*?)\n\)/)
+  const match = block?.[1].match(new RegExp(`\\b${name}\\s*=\\s*(\\d+)`))
+  if (!match) throw new Error(`${name} not found in the _FREE entitlements block`)
+  return Number(match[1])
+}
+
 const SOURCE_ROOTS = ['app', 'features', 'components', 'lib', 'hooks']
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   // Copy: the caps written out in prose.
   { label: 'free summary cap spelled out', pattern: /\b\d+ (?:free )?(?:AI )?summar(?:y|ies)\b/i },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
-  { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings alerts?\b/i },
+  { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
+  { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
+  { label: 'free history retention spelled out', pattern: /\b\d+-day (?:summary )?history\b|\bFree keeps \d+ days\b/i },
   // Behaviour: a free-tier cap constant assigned a literal, or a count compared against one
   // (the calendar pre-flight and fixture checks drifted this way before the mirror existed).
   { label: 'free-tier cap constant assigned a literal', pattern: /\bFREE_[A-Z0-9_]*(?:LIMIT|CAP)\b\s*=\s*\d+/ },
@@ -58,6 +73,11 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
 
   it('mirrors FREE_EARNINGS_ALERT_LIMIT', () => {
     expect(FREE_EARNINGS_ALERT_LIMIT).toBe(backendConst('FREE_EARNINGS_ALERT_LIMIT'))
+  })
+
+  it('mirrors the free Copilot taste and history retention', () => {
+    expect(FREE_COPILOT_QUESTIONS).toBe(freeEntitlementField('copilot_free_taste'))
+    expect(FREE_HISTORY_RETENTION_DAYS).toBe(freeEntitlementField('history_retention_days'))
   })
 
   it('functional cap sites import the mirrored constants', () => {

@@ -48,7 +48,7 @@ pip install anthropic          # only for Claude candidates + the LLM judge
 # Load your normal backend .env, then add provider keys:
 export OPENAI_API_KEY=...       # baseline uses the OpenAI-compatible DeepSeek provider
 export OPENAI_BASE_URL=https://api.deepseek.com/v1
-export AI_DEFAULT_MODEL=deepseek-v4-pro
+export AI_DEFAULT_MODEL=deepseek-flash
 export AI_FALLBACK_MODEL=       # leave empty for every eval and pin
 export AI_FALLBACK_BASE_URL=    # leave empty for every eval and pin
 export AI_EVIDENCE_SNAP=false
@@ -811,3 +811,19 @@ is armed, attributed quotes wait for final verification because the preview call
 excerpt. This conservatively delays even valid, short or no-excerpt quotes; final quote policy and
 all flag defaults remain unchanged. The initial #803 artifact remains retained as a failed preview
 ownership readout; corrected actual acceptance is a separate requirement.
+
+### Provider usage conservation (September 12 migration audit correction)
+
+Baseline result `provider_usage` and `latency_seconds` describe the final generation, including
+when it fails. `retry_provider_attempts` retains every earlier generation's error, elapsed time
+and observed usage; the existing bounded retry-preview evidence is unchanged.
+`incurred_provider_usage` sums those disjoint generations once, and `incurred_latency_seconds`
+measures total wall time including retries, backoff and scoring. Neither includes separate judge
+provider usage. Candidate summaries retain their existing final-generation token means/totals and
+add `incurred_provider_usage` with `incurred_usage_attempts` as its result-row denominator.
+
+Token totals are sums of known provider counters, not full billed spend. `unknown_calls` counts
+calls with no known usage fields; partially reported fields can also leave token totals incomplete.
+Missing counters remain null. Older reports without incurred evidence remain unavailable in the
+new summary fields; their final-attempt totals cannot reconstruct failed-generation costs. No
+baseline or historical report is rewritten by this correction.

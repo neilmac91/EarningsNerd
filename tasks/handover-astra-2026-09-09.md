@@ -94,3 +94,13 @@ Avoid another paid run when only a retained artifact, local code trace or existi
 ## 6. Next session configuration
 
 Resume in the existing workspace and prepared worktrees. Retain source/output artifacts and mutation logs. Use the current minor SDK environment; the older edgar-maintenance-venv does not match #791's updated pins. Ask only about named unresolved founder prerequisites, once, with concrete evidence. Start by checking DeepSeek funding and the actual #792 regression outcome, then continue the serial queue. The founder will supply Fable's remaining review when available.
+
+## Dated addition — 10 September 2026: DeepSeek model cutover (read before any paid assessment)
+
+DeepSeek retires `deepseek-v4-pro` at 04:00 UTC on Monday 14 September; requests are then routed to V4.1 Flash (`deepseek-flash`) at Flash pricing. Consequences for this stream, decided by the founder on 10 Sept (`tasks/deepseek-v41-flash-migration-2026-09-10.md`, `tasks/todo.md`):
+
+1. Any summary or Copilot assessment run against `deepseek-v4-pro` this week measures a model that stops serving production on Monday. Measure the `d`/`e` prompt candidates (#805 and `work/reported-metric-labels`) on `deepseek-flash` after the cutover PR re-pins `baseline_scores.json`, once each; do not re-pin from another PR.
+2. `backend/evals/runner.py` now records `provider_usage` per baseline attempt through an `ai_metrics` observer (additive; the result row gains one key, the summary gains token stats). Rebase the local `work/eval-error-outcome` candidate onto it; keep its error-outcome correction.
+3. `backend/evals/baselines/` holds the 5 Sept pinned report (V4 Pro reference, 3 × 26). `python -m evals.compare_reports <a> <b>` pairs two reports filing-by-filing.
+4. The cutover PR will change one line in `.github/workflows/data-quality-weekly.yml` (`AI_DEFAULT_MODEL`); `work/measurement-only-dispatch` should expect that textual conflict.
+5. Check the DeepSeek balance before any paid run; the 9 Sept HTTP 402 cohort was scored from fallback output.

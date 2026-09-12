@@ -29,6 +29,8 @@ jobs:
       readout: ${{ steps.handoff.outputs.readout }}
     steps:
       - uses: actions/checkout@v7
+      - name: Load AI model configuration
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -53,8 +55,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_BASE_URL: https://api.deepseek.com/v1
-          AI_DEFAULT_MODEL: deepseek-v4-pro
+          # OPENAI_BASE_URL / AI_DEFAULT_MODEL come from .github/ai-model.env (loaded after checkout).
           AI_FALLBACK_MODEL: ''
           AI_FALLBACK_BASE_URL: ''
           USE_STRUCTURED_OUTPUT: 'false'

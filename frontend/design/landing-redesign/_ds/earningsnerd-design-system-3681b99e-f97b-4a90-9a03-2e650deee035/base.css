@@ -1,0 +1,102 @@
+/* =============================================================================
+   EarningsNerd — base element styles & a few signature effect classes
+   -----------------------------------------------------------------------------
+   Minimal, token-driven element defaults plus the brand's reusable effect
+   utilities (glass card, hero glow, financial tone, tabular numerics).
+   NOTE: no global heading COLOR — headings inherit their surface's text color
+   (a global heading color paints dark ink on the always-dark hero in light
+   theme). Headings only get the fixed grotesque family here.
+============================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: var(--font-active);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  background: var(--surface-page);
+  color: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: var(--tracking-snug);
+  text-wrap: balance;
+}
+
+a { color: var(--accent-strong); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+::selection { background: rgba(79, 122, 99, 0.22); }
+.dark ::selection { background: rgba(146, 160, 226, 0.30); }
+
+/* ---- Numeric alignment helper — money / % / tickers / XBRL ---- */
+.tabular {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- Financial direction tone (calm, never casino) ---- */
+.is-gain { color: var(--gain); }
+.dark .is-gain { color: var(--gain-dark); }
+.is-loss { color: var(--loss); }
+.dark .is-loss { color: var(--loss-dark); }
+.is-flat { color: var(--flat-light); }
+.dark .is-flat { color: var(--flat-dark); }
+
+/* ---- Glass card — theme-aware translucent surface ---- */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-e2);
+}
+.glass-card:hover {
+  border-color: rgba(60, 102, 80, 0.30);
+  box-shadow: 0 8px 30px -12px rgba(16, 24, 40, 0.18);
+}
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+.dark .glass-card:hover {
+  border-color: rgba(146, 160, 226, 0.25);
+  box-shadow: 0 0 30px -10px rgba(146, 160, 226, 0.15);
+}
+
+/* ---- Hero search glow — brand accent, theme-aware ---- */
+.hero-search-glow {
+  box-shadow: 0 0 0 1px rgba(79, 122, 99, 0.22), 0 0 30px -5px rgba(79, 122, 99, 0.15);
+  transition: box-shadow var(--duration-base) var(--ease-standard);
+}
+.hero-search-glow:focus-within {
+  box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40), 0 0 40px -5px rgba(79, 122, 99, 0.25);
+}
+.dark .hero-search-glow {
+  box-shadow: 0 0 0 1px rgba(146, 160, 226, 0.22), 0 0 30px -5px rgba(146, 160, 226, 0.18);
+}
+.dark .hero-search-glow:focus-within {
+  box-shadow: 0 0 0 2px rgba(146, 160, 226, 0.45), 0 0 40px -5px rgba(146, 160, 226, 0.28);
+}
+
+/* ---- Entrance animations ---- */
+@keyframes fade-up {
+  0%   { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-fade-up { animation: fade-up var(--duration-slow) var(--ease-standard) forwards; }
+  .animate-float   { animation: float 3s ease-in-out infinite; }
+}

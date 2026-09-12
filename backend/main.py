@@ -164,17 +164,17 @@ async def lifespan(app: FastAPI):
         logger.critical(f"Database connection failed: {e}")
         raise RuntimeError(f"Cannot start application: database unreachable - {e}")
 
-    # Validate Google AI Studio configuration
+    # Validate the AI provider configuration (OpenAI-compatible client; DeepSeek, ADR-0008)
     is_valid, warnings = settings.validate_openai_config()
 
     if warnings:
-        logger.warning("Google AI Studio Configuration Warnings:")
+        logger.warning("AI provider configuration warnings:")
         for warning in warnings:
             logger.warning(f"  - {warning}")
     if is_valid:
-        logger.info(f"Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model={settings.AI_DEFAULT_MODEL}")
+        logger.info(f"AI provider configured: base_url={settings.OPENAI_BASE_URL}, model={settings.AI_DEFAULT_MODEL}")
     else:
-        logger.error("Google AI Studio configuration is invalid. AI summaries may not work.")
+        logger.error("AI provider configuration is invalid. AI summaries may not work.")
 
     # Validate Stripe configuration
     stripe_valid, stripe_warnings = settings.validate_stripe_config()

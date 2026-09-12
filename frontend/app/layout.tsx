@@ -7,6 +7,8 @@ import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
+import { fetchSignupConfig } from '@/lib/serverApi'
+import { resolveAccessMode } from '@/features/marketing/lib/access'
 
 // Type v2 — fixed roles, self-hosted via next/font (zero layout shift; the runtime
 // font switcher is retired). Inter loads WITH the variable opsz axis: that is what
@@ -89,11 +91,16 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // The header's account CTA follows the backend's registration gate (invite-only vs open), read
+  // through an hourly ISR fetch so a config flip on the service flips the chrome everywhere with
+  // no redeploy (this fetch is the ISR floor for every route); unreachable backend = the
+  // conservative invite copy.
+  const accessMode = resolveAccessMode(await fetchSignupConfig())
   return (
     // suppressHydrationWarning: the THEME pre-paint script sets the .dark class on
     // <html> before hydration.
@@ -107,7 +114,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <SiteHeader />
+          <SiteHeader accessMode={accessMode} />
           <VerificationBanner />
           {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
               single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}

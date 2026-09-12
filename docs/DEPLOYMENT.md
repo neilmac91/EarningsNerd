@@ -671,7 +671,7 @@ history is backfilled; pre-existing rows are not rewritten by the additive migra
 
 ### Optional AI fallback (WS-6 resilience)
 
-Production keeps its current DeepSeek model/base/key. Provider fallback is implemented but
+Production runs DeepSeek `deepseek-flash` (ADR-0008) on the base URL and key above; the deploy job reads the model id and base URL from `.github/ai-model.env` (single source, W9) and passes them to `gcloud run deploy` / `jobs update`, so a model change is one edit there plus the matching `config.py` default. Provider fallback is implemented but
 **disabled by default**: no alternate provider credential is provisioned by this change.
 `AI_FALLBACK_MODEL` opts in; `AI_FALLBACK_BASE_URL` selects its HTTPS OpenAI-compatible API
 (empty means the primary base). Another origin requires a separately reviewed/licensed

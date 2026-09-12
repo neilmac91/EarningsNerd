@@ -97,7 +97,7 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
 @pytest.mark.asyncio
 @pytest.mark.parametrize('streaming', [True, False])
 async def test_timeout_retains_elapsed_and_observed_previews_without_scoring(monkeypatch, streaming):
-    clock = iter([100.0, 175.125])
+    clock = iter([99.0, 100.0, 175.125, 176.0])  # outer wall time brackets the unchanged generation timing
     monkeypatch.setattr(runner, 'time', SimpleNamespace(monotonic=lambda: next(clock)))
     monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', streaming)
 

@@ -1,11 +1,13 @@
 {
-  "snapshot_date": "2026-09-05T11:19:51Z",
-  "source_report": "eval_20260905T111951Z.json",
+  "snapshot_date": "2026-09-10T15:35:41Z",
+  "source_report": "eval_20260910T153541Z.json",
   "golden_set_size": 26,
   "runs_per_candidate": 3,
   "harness": {
-    "model": "deepseek-v4-pro",
+    "model": "deepseek-flash",
     "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
     "use_structured_output": false,
     "use_statement_financials": true,
     "stream_section_reveal": true,
@@ -15,13 +17,131 @@
     "ai_figure_trace_gate": false,
     "ai_forward_quote_gate": false,
     "judge": false,
-    "source_sha": "f5b46ba96b3023f93554087e431937ed9daba3c4",
-    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3"
+    "source_sha": "a811faf6cb11c74c0ffc12a4b0c93d385c194fdd",
+    "golden_set_sha256": "8e3a3d38f6a267f0f5721ca7ea5f521d2a38b049f50780a6244b6ead88010db3",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 3,
+    "filings": [
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
   },
   "candidates": {
     "baseline": {
+      "mean_untraceable_dollar_figures": 3.0256,
+      "figure_trace_measured": 78,
+      "figure_trace_unavailable": 0,
+      "figure_trace_errors": 0,
       "n": 78,
+      "scored": 78,
       "errors": 0,
+      "retried": 0,
       "mean_aggregate": 1.0,
       "aggregate_stdev": 0.0,
       "pass_rate": 1.0,
@@ -31,17 +151,28 @@
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.9402,
-      "mean_specificity": 0.9889,
-      "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9618,
-      "mean_delta_consistency": 0.9466,
-      "mean_forward_quote_fidelity": 0.9487,
-      "mean_citation_fidelity": 0.7012,
-      "mean_citation_checked": 6.0897,
+      "mean_financial_depth": 0.9316,
+      "mean_specificity": 0.9946,
+      "mean_currency_consistency": 0.9998,
+      "mean_redundancy": 0.9023,
+      "mean_delta_consistency": 0.8515,
+      "mean_forward_quote_fidelity": 0.9103,
+      "mean_citation_fidelity": 0.9061,
+      "mean_citation_checked": 7.8846,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "mean_latency_seconds": 30.299
+      "usage_attempts": 78,
+      "mean_completion_tokens": 3894.3,
+      "mean_prompt_tokens": 41671.9,
+      "total_completion_tokens": 303759,
+      "total_prompt_tokens": 3250410,
+      "total_cache_hit_tokens": 2208122,
+      "total_cache_miss_tokens": 1042288,
+      "provider_calls": 78,
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "mean_latency_seconds": 14.54
     }
   }
 }

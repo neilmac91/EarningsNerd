@@ -1,0 +1,115 @@
+/* =============================================================================
+   EarningsNerd — Color tokens
+   -----------------------------------------------------------------------------
+   Two layers:
+   1. BASE palette — raw, theme-agnostic hexes (mirror tailwind.config.js).
+   2. SEMANTIC aliases — role-based, theme-responsive. :root = light theme;
+      the `.dark` scope re-points the same aliases to the dark values.
+   Brand = SAGE in light / SLATE in dark. Mint/emerald/blue/teal are NOT brand
+   (legacy only). Financial gain/loss/flat are data signals, never the accent.
+============================================================================= */
+
+:root {
+  /* ---- Surfaces ---- */
+  --background-light: #F4F3EE; /* warm cream page */
+  --background-dark:  #0B1120; /* deep navy page  */
+  --panel-light:      #FBFAF6; /* warm off-white card */
+  --panel-dark:       #1F2937; /* gray-800 card */
+
+  /* ---- Brand accent (sage light / slate dark) ---- */
+  --brand:             #4F7A63;
+  --brand-light:       #4F7A63; /* sage — light theme default */
+  --brand-strong:      #3C6650; /* text/links on cream — AA */
+  --brand-weak:        #ECF2EE; /* tint background */
+  --brand-dark:        #92A0E2; /* slate — dark theme default */
+  --brand-strong-dark: #B4BEEE;
+
+  /* ---- Financial data semantics (NOT the brand accent) ---- */
+  --gain:           #16A34A;
+  --gain-dark:      #34D399;
+  --gain-soft:      #DCFCE7;
+  --gain-soft-dark: rgba(52, 211, 153, 0.14);
+  --loss:           #DC2626;
+  --loss-dark:      #FB7185;
+  --loss-soft:      #FEE2E2;
+  --loss-soft-dark: rgba(251, 113, 133, 0.14);
+  --flat-light:     #6B7280;
+  --flat-dark:      #9CA3AF;
+
+  /* ---- UI state ---- */
+  --success-light: #16A34A;  --success-dark: #22C55E;
+  --warning-light: #B45309;  --warning-dark: #F59E0B;
+  --error-light:   #DC2626;  --error-dark:   #F87171;
+  --info-light:    #2563EB;  --info-dark:    #60A5FA;
+
+  /* ---- Categorical chart palette (subdued, warm-leaning) ---- */
+  --chart-1: #3E8E84; /* teal */
+  --chart-2: #5B7CC0; /* cornflower */
+  --chart-3: #D99E4A; /* honey */
+  --chart-4: #CF7159; /* coral */
+  --chart-5: #8B7BC0; /* periwinkle */
+  --chart-6: #5E9A6E; /* sage */
+
+  /* ---- Text ---- */
+  --text-primary-light:   #1A1A17; /* espresso ink */
+  --text-primary-dark:    #D7DADC;
+  --text-heading-light:   #3A2E26; /* warm dark-brown */
+  --text-heading-dark:    #D7DADC;
+  --text-secondary-light: #374151;
+  --text-secondary-dark:  #9CA3AF;
+  --text-tertiary-light:  #6B7280;
+  --text-tertiary-dark:   #4B5563;
+
+  /* ---- Borders ---- */
+  --border-light: #E5E7EB; /* gray-200 */
+  --border-dark:  #374151; /* gray-700 */
+
+  /* ---- Logo mark palette (FIXED identity — teal + amber + navy) ---- */
+  --logo-navy:       #0F172A;
+  --logo-teal:       #14B8A6;
+  --logo-teal-deep:  #0F766E;
+  --logo-amber:      #F59E0B;
+  --logo-amber-deep: #D97706;
+
+  /* =========================================================================
+     SEMANTIC ALIASES — light theme defaults. Build UI against THESE.
+     ========================================================================= */
+  --surface-page:    var(--background-light);
+  --surface-card:    var(--panel-light);
+  --surface-tint:    var(--brand-weak);
+  --surface-field:   #FFFFFF;            /* brightest — inputs read on card OR page */
+
+  --text-body:       var(--text-primary-light);
+  --text-muted:      var(--text-secondary-light);
+  --text-subtle:     var(--text-tertiary-light);
+  --text-title:      var(--text-heading-light);
+
+  --accent:          var(--brand-light);   /* fills, focus rings */
+  --accent-strong:   var(--brand-strong);  /* text/links on light */
+  --accent-on:       #FFFFFF;              /* text atop a brand fill */
+
+  --hairline:        var(--border-light);
+  --ring:            var(--brand-light);
+}
+
+/* =========================================================================
+   DARK THEME — re-point semantic aliases. Toggle by adding `.dark` to <html>.
+   ========================================================================= */
+.dark {
+  --surface-page:    var(--background-dark);
+  --surface-card:    var(--panel-dark);
+  --surface-tint:    rgba(255, 255, 255, 0.05);
+  --surface-field:   rgba(15, 23, 42, 0.6);
+
+  --text-body:       var(--text-primary-dark);
+  --text-muted:      var(--text-secondary-dark);
+  --text-subtle:     var(--text-secondary-dark); /* tertiary-dark fails AA on panels */
+  --text-title:      var(--text-heading-dark);
+
+  --accent:          var(--brand-dark);
+  --accent-strong:   var(--brand-strong-dark);
+  --accent-on:       var(--background-dark);
+
+  --hairline:        rgba(255, 255, 255, 0.10);
+  --ring:            var(--brand-dark);
+}

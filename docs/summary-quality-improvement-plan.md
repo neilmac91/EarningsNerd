@@ -14,7 +14,7 @@
 **Fixed constraints (designed around, not revisited):**
 
 1. **One universal summary** per filing, generated once, cached for all users (`UNIQUE(filing_id)`). No per-persona variants.
-2. **DeepSeek `deepseek-v4-pro` stays the generation model.** Everything here optimizes prompt, schema, grounding, and verification *around* it.
+2. **DeepSeek stays the generation model** (`deepseek-flash` since 2026-09-14, ADR-0008; `deepseek-v4-pro` when this plan was written). Everything here optimizes prompt, schema, grounding, and verification *around* it.
 3. **Exports stay data-linked to the summary** — PDF and CSV must always reflect the same underlying data as the web view.
 4. **New infrastructure ≤ ~$50/month; low build complexity** (solo founder).
 
@@ -210,7 +210,9 @@ Repo pins `edgartools==5.40.1`; current is **5.41.0** (PyPI, 2026-07-07) — a m
 | `Ownership` (Forms 3/4/5), `ThirteenF` | Future §4 color (insider nets) | Defer; not in the ≤T6 roadmap |
 | 20-F/6-K support | FPI roadmap (`ENABLE_FPI_FILINGS`) | Thinner than TenK — plan on `markdown()` + XBRL + exhibits, not item properties |
 
-### 4.2 DeepSeek `deepseek-v4-pro`: how to drive the fixed generator
+### 4.2 DeepSeek: how to drive the fixed generator
+
+> Written for `deepseek-v4-pro`. Production moved to `deepseek-flash` on 2026-09-10 (ADR-0008); the model facts below are dated, the pricing line is superseded (Flash off-peak per 1M: cache-hit $0.003, cache-miss $0.15, output $0.60; peak 2×), and the "will not abstain" figure was measured on V4 Pro.
 
 Verified against live docs (post-knowledge-cutoff model; sources: [pricing](https://api-docs.deepseek.com/quick_start/pricing) · [json mode](https://api-docs.deepseek.com/guides/json_mode) · [thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) · [rate limits](https://api-docs.deepseek.com/quick_start/rate_limit)):
 
@@ -334,7 +336,7 @@ Status note: the report-quality plan's Phase 1 (A7/A8), Phase 2 (A13/A14/A15), a
 ### Do-not-do list
 
 - Persona or user-conditional summaries (violates one-cached-summary and `UNIQUE(filing_id)`).
-- Generation-model swap or a second generation path (one orchestrator; DeepSeek v4-pro only).
+- A second generation path (one orchestrator). A generation-model swap is not a non-goal any more: it happened under ADR-0008, gated by the eval harness.
 - `instructor`/function-calling structured output (v4-pro `tool_choice` 400 trap) — `json_object` + pydantic + json-repair only.
 - Model-computed arithmetic anywhere; precomputed deltas in *narrative grounding* alongside "explain why" directives (lesson `arch-no-precomputed-deltas-in-grounding` — computed values live in schema fields the model copies or never touches).
 - Consensus/market data or any cross-filing content in the summary body (labeled What-changed surface only).

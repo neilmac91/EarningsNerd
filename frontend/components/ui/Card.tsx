@@ -17,15 +17,27 @@ export interface CardProps extends HTMLAttributes<HTMLElement> {
   /** Hover/active/focus affordances for clickable cards (wrap in <a>/<button> for semantics). */
   interactive?: boolean
   elevation?: 'e1' | 'e2' | 'e3'
+  /** Corner step on the 16 / 24 scale (cards 16; a featured banner 24). A `rounded-2xl` in
+      className would NOT override the recipe: the stylesheet emits it before `rounded-xl`. */
+  radius?: 'xl' | '2xl'
 }
 
 const ELEVATION = { e1: 'shadow-e1', e2: 'shadow-e2', e3: 'shadow-e3' } as const
+const RADIUS = { xl: 'rounded-xl', '2xl': 'rounded-2xl' } as const
 
-export function Card({ as: Tag = 'div', interactive = false, elevation = 'e2', className, ...rest }: CardProps) {
+export function Card({
+  as: Tag = 'div',
+  interactive = false,
+  elevation = 'e2',
+  radius = 'xl',
+  className,
+  ...rest
+}: CardProps) {
   return (
     <Tag
       className={cx(
-        'rounded-xl border border-border-light bg-panel-light',
+        RADIUS[radius],
+        'border border-border-light bg-panel-light',
         ELEVATION[elevation],
         'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
         interactive &&

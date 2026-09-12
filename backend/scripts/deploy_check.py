@@ -20,6 +20,14 @@ except Exception as e:  # pydantic ValidationError, etc.
     sys.exit(1)
 
 
+
+def _base_url_recognized(cfg) -> bool:
+    """True when OPENAI_BASE_URL is set and passes Settings' provider allowlist (single source)."""
+    if not cfg.OPENAI_BASE_URL:
+        return False
+    _valid, warnings = cfg.validate_openai_config()
+    return not any("does not appear to be a supported provider" in w for w in warnings)
+
 def check_environment_variables():
     """Check critical environment variables"""
     print("=" * 60)
@@ -36,11 +44,16 @@ def check_environment_variables():
         "OPENAI_BASE_URL": {
             "required": True,
             "set": bool(settings.OPENAI_BASE_URL),
-            "valid": any(
-                provider in settings.OPENAI_BASE_URL.lower()
-                for provider in ("generativelanguage.googleapis.com", "openrouter.ai")
-            ) if settings.OPENAI_BASE_URL else False,
-            "message": "Should point to Google AI Studio (recommended) or OpenRouter"
+            # One allowlist: Settings.validate_openai_config owns the recognized providers
+            # (DeepSeek in production; ADR-0008), so this check can never drift from it.
+            "valid": _base_url_recognized(settings),
+            "message": "Must point to a recognized OpenAI-compatible provider (DeepSeek in production)"
+        },
+        "AI_DEFAULT_MODEL": {
+            "required": True,
+            "set": bool(settings.AI_DEFAULT_MODEL),
+            "valid": bool(settings.AI_DEFAULT_MODEL.strip()),
+            "message": f"Primary model id (configured: {settings.AI_DEFAULT_MODEL!r})"
         },
         "STRIPE_SECRET_KEY": {
             "required": False,  # Optional if not using Stripe
@@ -136,9 +149,11 @@ def check_configuration_validation():
     print("CONFIGURATION VALIDATION")
     print("=" * 60)
     
-    # OpenAI validation
+    # AI provider validation (OpenAI-compatible client; DeepSeek in production, ADR-0008)
     openai_valid, openai_warnings = settings.validate_openai_config()
-    print("\nOpenAI-compatible Configuration (Google AI Studio recommended):")
+    print("\nAI provider configuration (OpenAI-compatible client):")
+    print(f"  Base URL: {settings.OPENAI_BASE_URL}")
+    print(f"  Model:    {settings.AI_DEFAULT_MODEL}")
     print(f"  Status: {'✓ Valid' if openai_valid else '✗ Invalid'}")
     if openai_warnings:
         for warning in openai_warnings:

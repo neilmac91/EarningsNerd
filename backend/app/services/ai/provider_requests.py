@@ -178,7 +178,15 @@ class _ProviderRequestsMixin:
             )
             request = dict(kwargs, model=model)
             request.pop("extra_body", None)
-            if _thinking_disabled_model(model, base_url):
+            request.pop("reasoning_effort", None)
+            effort = settings.AI_SUMMARY_THINKING_EFFORT.strip().lower()
+            if _thinking_disabled_model(model, base_url) and effort and not recovery and not use_fallback:
+                # W10 experiment arm: thinking on at a fixed effort for the primary summary call.
+                request["extra_body"] = {"thinking": {"type": "enabled"}}
+                request["reasoning_effort"] = effort
+                request.pop("temperature", None)
+                request["max_tokens"] = max(int(request.get("max_tokens") or 0), settings.AI_SUMMARY_THINKING_MAX_TOKENS)
+            elif _thinking_disabled_model(model, base_url):
                 request["extra_body"] = {"thinking": {"type": "disabled"}}
             elif "max_tokens" in request:
                 request["max_tokens"] = min(request["max_tokens"], 8192)
@@ -187,8 +195,9 @@ class _ProviderRequestsMixin:
             request.pop("stream", None)
             if streaming:
                 request.update(stream=True, stream_options={"include_usage": True})
-            observation = {"model": None, "usage": None}
+            observation = {"model": None, "usage": None, "fingerprint": None, "first_token_ms": None}
             outcome = "error"
+            started = asyncio.get_running_loop().time()
             local_attempt += 1
             if not recovery:
                 budget.summary_attempts += 1
@@ -205,7 +214,8 @@ class _ProviderRequestsMixin:
                     else:
                         response = await client.chat.completions.create(**request)
                         observation.update(
-                            model=getattr(response, "model", None), usage=getattr(response, "usage", None)
+                            model=getattr(response, "model", None), usage=getattr(response, "usage", None),
+                            fingerprint=getattr(response, "system_fingerprint", None),
                         )
                         choices = getattr(response, "choices", None)
                         content = getattr(choices[0].message, "content", None) if choices else None
@@ -233,6 +243,10 @@ class _ProviderRequestsMixin:
                         actual_model=observation["model"],
                         usage=observation["usage"],
                         outcome=outcome,
+                        requested_model=model,
+                        system_fingerprint=observation["fingerprint"],
+                        latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
+                        first_token_ms=observation["first_token_ms"],
                     )
                 )
             if local_attempt < (2 if recovery else MAX_SUMMARY_ATTEMPTS) and (

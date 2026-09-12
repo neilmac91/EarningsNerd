@@ -18,7 +18,7 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
                               ▼                     ▼                        ▼
                      ┌───────────────┐     ┌────────────────┐      ┌────────────────┐
                      │ SEC EDGAR     │     │ DeepSeek        │      │ PostgreSQL 15  │
-                     │ (edgartools)  │     │ (deepseek-v4-pro│      │ (Cloud SQL)    │
+                     │ (edgartools)  │     │ (deepseek-flash │      │ (Cloud SQL)    │
                      │ + XBRL        │     │  OpenAI-compat) │      │                │
                      └───────────────┘     └────────────────┘      └────────────────┘
 ```
@@ -28,7 +28,7 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
   cookie** set by the backend — the token is never readable by client JS.
 - **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0 ORM (no raw SQL), async I/O throughout.
 - **AI:** an OpenAI-*compatible* client pointed at **DeepSeek**; default model
-  `deepseek-v4-pro` (`backend/app/config.py`; ADR-0006 — previously Gemini, ADR-0002).
+  `deepseek-flash` (`backend/app/config.py`; ADR-0008 — previously `deepseek-v4-pro`, ADR-0006; Gemini, ADR-0002).
   Not OpenAI/GPT-4: the `OPENAI_*` naming is a compatibility shim.
 - **Caching:** two-tier (L1 in-memory LRU + L2 Redis). **Redis is off in production**
   (ADR-0004) — prod runs L1-only; Redis is local-dev via docker-compose.

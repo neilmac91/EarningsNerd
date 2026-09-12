@@ -25,8 +25,9 @@ We use a lightweight [MADR](https://adr.github.io/madr/)-style template:
 | [0003](./0003-edgartools-for-sec-data.md) | Consolidate SEC data access on `edgartools` | Accepted |
 | [0004](./0004-redis-off-in-production.md) | Run Redis off in production (L1 in-memory cache only) | Accepted |
 | [0005](./0005-stay-on-react-18.md) | Stay on React 18 under Next.js 16 | Accepted |
-| [0006](./0006-gemini-to-deepseek.md) | Standardize on DeepSeek V4 via the OpenAI-compatible client | Accepted |
+| [0006](./0006-gemini-to-deepseek.md) | Standardize on DeepSeek V4 via the OpenAI-compatible client | Model choice superseded by 0008 |
 | [0007](./0007-schema-migrations-ledger.md) | Track applied SQL migrations in a `migration_ledger` table | Accepted |
+| [0008](./0008-deepseek-v4-pro-to-v41-flash.md) | Move to DeepSeek V4.1 Flash (`deepseek-flash`) on the retirement of `deepseek-v4-pro` | Accepted |
 
 ## Adding an ADR
 
