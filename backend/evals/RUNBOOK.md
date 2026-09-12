@@ -610,10 +610,20 @@ reused as year labels on gross-profit/net-income figures).
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
 | Filing origin | fact `[Fn]` | trusted viewed accession and native reporting currency bind every tool query; each returned fact and derived operand retains origin | unavailable tool result, no verified marker |
 | Currency adjacency | fact `[Fn]` | explicit ISO/symbol and supported textual currency labels, including inline emphasis/code formatting, must match the adjacent fact | occurrence stripped, counted as misplaced |
+| Uncited-claim repair | fact `[Fn]` | `_repair_uncited_fact_claim`: an answer that cites NOTHING and states one complete reported annual figure (subject, full fiscal end date, native currency, amount) gets a server-initiated DB lookup on the viewed accession; the marker is attached only when the filing's own fact matches concept, `period_end`, the filing's period of report, `FY` scope on an annual form, currency and value at the stated display precision | abstains — the answer ships unchanged and still uncited |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
 
-**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py -q`
+The repair row is the only layer that ADDS a citation, so it is positive certification rather than
+falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.
+It reads no SEC endpoint, makes no second model call and rewrites no prose — the marker is the only
+byte inserted, and the resolver above still owns numbering and provenance. The lookup is
+server-initiated and carries `_origin = "server_citation_lookup"`, so it never enters model
+tool-call history. Annual **scope** is certified (annual form + period of report + `FY` label), not
+duration: runtime facts carry no `period_start` (see below), so a same-period-end quarterly point
+would be indistinguishable here. `count_uncited_figures` stays advisory and is never consulted.
+
+**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py -q`
 — covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
 which re-runs the SAME production matcher + window rule over the final answer, so a resolver
 regression can't hide from the harness).
