@@ -158,3 +158,9 @@ No source-unit/semantic implementation, paid assessment, new public contract or 
 ### September 12, 11:39 UTC — metadata change merged; semantic limits remain
 
 [Final summary acceptance](review-evidence/current-flash-2026-09-12/pr808-flash-summary-second-acceptance.md) clears data/metadata conservation and execution accounting. #808 merged as `f0a81fff216c318a40979b7dfcd55500c8b43a03`; main CI34691615781 and production verification remain pending. WMT and COIN still omit borrowing components in one summary each; both ASML summaries omit the current portion. These observations reinforce the distinction between source metadata and correct source-qualified aggregation. No financial-quality/pregeneration clearance follows from this bounded release.
+
+### September 12, after deployment — provenance release complete
+
+The [verified release record](review-evidence/current-flash-2026-09-12/README.md#september-12-1147-utc--808-production-verified) supersedes all pending #808 gates, assessments, merge and deployment instructions above. Main CI `34691615781` and deploy job `103548163219` succeeded: migrations 0/39, revision `earningsnerd-backend-00331-tfm` at 100%, healthy CI and independent detailed health. Do not repeat those completed actions.
+
+Proceed with the separate cash-basis candidate, integrated at `37401e996c980fbdf01306fcb1472601b31c2eed` with 2,888 passing tests. Integrate later documentation and gate committed state before publication and actual-output assessment. Then continue source-unit and source-owned explanation work in the priority order above. Remaining financial findings and all specific founder prerequisites, including universe-wide pregeneration and historical replay, remain open. E06 configuration is complete; future natural delivery is unobserved.
