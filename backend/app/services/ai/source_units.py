@@ -130,4 +130,4 @@ def restore_authored_plan_units(
     if guidance.count('intention to spend') != 1:
         return
     offset = match.end('amount')
-    forward['guidance'] = guidance[:offset] + guidance[offset:]
+    forward['guidance'] = guidance[:offset] + ' million' + guidance[offset:]
