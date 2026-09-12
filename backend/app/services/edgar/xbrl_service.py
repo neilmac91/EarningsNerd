@@ -394,7 +394,7 @@ def _extract_from_filing_instance_sync(
             )
             result[metric] = [
                 {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, "raw_tag": raw_tag}
+                 "currency": currency}
                 for end, value in series
             ]
         else:
