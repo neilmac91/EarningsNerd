@@ -433,11 +433,7 @@ class _MarkdownRenderMixin:
         # section to "covered" on that sentence alone.
         debt_view = build_debt_scope_view(xbrl_metrics)
         if debt_view.has_evidence or bsl:
-            # MUTATION: re-open a channel for model leverage prose beside the source statement.
-            model_leverage = bsl.get("leverage")
             bsl["leverage"] = leverage_statement(debt_view, format_currency)
-            if isinstance(model_leverage, str) and model_leverage.strip():
-                bsl["leverage"] += " " + model_leverage.strip()
 
         if bsl:
             sections["balance_sheet_liquidity"] = bsl
