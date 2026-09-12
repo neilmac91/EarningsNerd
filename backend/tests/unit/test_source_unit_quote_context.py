@@ -70,8 +70,9 @@ async def test_source_units_belong_to_entire_quote_in_actual_consumer(monkeypatc
     retained = raw['sections']['forward_signals']['quotes'][0]
     assert retained['quote'] == quote  # declaration must never be stitched into the quote
     assert raw['sections']['forward_signals']['guidance'] == sections['forward_signals']['guidance']
-    rendered = render_sections(raw)
+    rendered = render_sections(raw['structured'])
     markdown = sections_to_markdown(rendered)
+    assert markdown == result['business_overview']
     assert 'fabricated amounts' not in markdown
     if case == 'primary':
         assert retained['source_unit_context'] == DECLARATION
