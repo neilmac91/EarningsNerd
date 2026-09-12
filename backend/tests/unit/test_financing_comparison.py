@@ -159,3 +159,40 @@ async def test_actual_apple_program_preserves_per_share_denominations_and_dates(
     assert "$100 billion" in result["business_overview"]
     assert "$0.25 to $0.26 per share" in result["business_overview"]
     assert "$6,500" not in result["business_overview"]
+
+
+@pytest.mark.asyncio
+async def test_real_meli_explanation_survives_empty_model_selection(monkeypatch):
+    # Exact paragraph from retained #833 source, not a model-authored explanation.
+    passage = 'Furthermore, the evolution of Mercado Pago’s activities themselves has resulted in the Company managing a significant volume of cash, cash equivalents and investments. This is due to an increase in users’ account balances in their Mercado Pago digital account managed by the Company, and an increase in the level of the Company’s indebtedness to finance those operations. As a result, these Mercado Pago’s funds, together with the financing activities, have generated a significant volume of interest income and other financial gains and interest expenses and other financial losses, respectively.'
+    source = "FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n" + passage + "\n\n"
+    _raw, xbrl = metrics(monkeypatch)
+    service = OpenAIService()
+    supplied = structured()
+    supplied["sections"]["value_drivers"]["capital_allocation"] = {"filing_statements": []}
+    supplied["sections"]["value_drivers"]["highlights"] = []
+
+    async def request(*args, **kwargs):
+        return json.dumps(supplied)
+
+    monkeypatch.setattr(service, "_request_content", request)
+    result = await service.summarize_filing(source, "MercadoLibre", "10-K", xbrl_metrics=xbrl, filing_excerpt=source)
+    raw = result["raw_summary"]
+    raw["schema_version"] = SUMMARY_SCHEMA_VERSION
+    owned = raw["sections"]["value_drivers"][OWNED_FIELD]
+    assert owned["filing_statements"] == [passage]
+    assert "Both periods had net inflows." in owned["comparison"]
+    assert passage in result["business_overview"]
+    summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],
+                              financial_highlights={}, risk_factors=[], management_discussion="", key_changes="",
+                              schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None)
+    filing = SimpleNamespace(company=SimpleNamespace(name="MercadoLibre"), filing_type="10-K",
+                             filing_date=None, period_end_date=None, sec_url="", document_url="",
+                             content_cache=SimpleNamespace(critical_excerpt=source))
+    exporter = ExportService()
+    for surface in [json.dumps(enrich_summary_provenance(summary, filing)["rendered_sections"], ensure_ascii=False),
+                    exporter.generate_pdf_html(summary, filing), exporter.generate_csv(summary, filing),
+                    sections_to_markdown(render_sections(raw))]:
+        assert passage in surface
+    # Source is unavailable during preview; no invented or mismatched explanation appears.
+    assert passage not in service._partial_markdown_preview(json.dumps(supplied), xbrl)

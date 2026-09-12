@@ -9,6 +9,8 @@ import math
 import re
 from typing import Any
 
+from .capital_passages import fallback_capital_passages
+
 CAPITAL_CONTEXT_KEY = "capital_allocation_context_version"
 CAPITAL_CONTEXT_VERSION = 1
 OWNED_FIELD = "capital_allocation_verified"
@@ -119,14 +121,21 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
     candidates = list(passages) if isinstance(passages, list) else []
     if isinstance(highlights, list):
         candidates.extend(highlights)
+    def qualifies(quote: str) -> bool:
+        return (25 <= len(quote) <= 2000 and bool(source_text)
+                and source_text.count(quote) == 1 and _self_contained_numbers(quote))
+
     verified: list[str] = []
     for quote in candidates:
         if not isinstance(quote, str) or not 25 <= len(quote) <= 2000:
             continue
-        if not source_text or source_text.count(quote) != 1 or not _self_contained_numbers(quote):
+        if not qualifies(quote):
             continue
-        if quote not in verified:
+        if not any(quote in existing for existing in verified):
+            verified = [existing for existing in verified if existing not in quote]
             verified.append(quote)
+    if not verified:
+        verified = fallback_capital_passages(source_text, qualifies)
     metrics = metrics if isinstance(metrics, dict) else {}
     data[OWNED_FIELD] = {
         "comparison": financing_statement(metrics.get("financing_comparison_source")),

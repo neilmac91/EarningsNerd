@@ -5154,3 +5154,12 @@ Source acquisition, shared final/preview ownership, actual MELI source availabil
 - [ ] First authorized actual summary/Copilot assessment, then serial production verification if accepted.
 
 DeepSeek read-only balance is USD87.04 before this assessment. The new approval permits necessary bounded evaluations; it does not activate broad generation or historical replay. No release is claimed by a local gate.
+
+
+### September 13 — first financing assessment held for explanation preservation
+
+PR #833 at `bde9730eb124bc2f692d5e6bb338e54f65006b88` completed CI `34724865936` and Copilot `34724877046`. The actual summary regression passed (52 scored, no errors/retries/repairs/vetoes), but semantic acceptance is held. All 52 prior source/excerpt/XBRL/debt identities remain unchanged; 50 source-qualified comparisons are correct. Both MELI outputs now compare positive 2025/2024 flows correctly, and both AAPL outputs preserve the repurchase/dividend program. However, neither MELI output retains its useful available financing explanation. Two refutations establish that the exact 597-character source paragraph is available and passes the existing qualification guard; pre-binding candidates were not retained, so the cause of omission cannot be assigned to selection versus matching.
+
+PR #833 returned to draft without merging. A bounded, source-section-owned fallback is being prepared; one complete attributed paragraph may be selected only when the model offers no qualifying explanation. No extra SEC or model call is part of that fallback. Offline selection review precedes any second assessment, whose reason is this confirmed preservation failure under the founder’s necessary-spend authorization.
+
+Automated review separately confirmed a coverage limit: persisted-first XBRL can lack the new descriptor even during summary refresh. Comparison coverage requires qualifying fresh extraction, not merely fresh generation. Missing descriptors abstain while source quotations remain eligible. No automatic invalidation, historical replay or universal refresh claim is introduced.
