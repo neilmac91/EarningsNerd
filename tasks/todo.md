@@ -5089,3 +5089,21 @@ During local integration, the resolution script stopped on a non-ASCII bytes lit
 - [x] Record explicit fourth-assessment approval and integrate verified documentation.
 - [ ] Complete the committed integrated full gate and independent review.
 - [ ] Publish and inspect the one approved 52-summary/18-Copilot round; release only after scoped acceptance.
+
+
+## September 12 — fourth #825 scoped assessment accepted; release pending
+
+The [fourth assessment archive](review-evidence/authored-guidance-release-2026-09-12/README.md) records actual functional, metadata and Copilot acceptance on gated `503239f653ae2d93df7f66722586349c2d83baed`. Both COST authored guidance draws now carry the source-owned million scale in final output and every retained preview containing the plan. All 52 source/XBRL/cash identities are conserved; 507 frames retain `not_observed` final-response association. Copilot's 18 requested answers are correct within its existing gate, with inherited citation limitations. Earlier failed rounds remain unchanged.
+
+This supersedes earlier current assessment holds for the supported unit correction only. No merge or production verification is claimed yet; root owns serial release verification. Broad debt/comparison/causal findings and universe-wide pregeneration/historical replay remain held.
+
+
+## September 12 — #825 production verified; current continuation
+
+This dated record supersedes earlier current HOLD, unpublished and release-pending instructions for the supported authored-guidance unit correction. #825 merged as `473558ec259e5c4860cd0373ee4209289bb17167` at 17:55:30Z. Main CI `34709660590` and deploy job `103596329864` succeeded. Migrations reported `apply_migrations: applied=0 skipped=39` at 18:00:25.9058631Z. Revision `earningsnerd-backend-00334-pqv` serves 100% of traffic, confirmed at 18:01:14.1872642Z and explicitly at 18:01:15.7139218Z. CI detailed health was healthy at 18:01:53.6718523Z (database 7.16 ms). Independent `curl -fsS` exited 0 and returned healthy (database 7.9 ms, server timestamp `1789236229.8216112`; Redis disabled, SEC circuit closed). [Release evidence](review-evidence/authored-guidance-release-2026-09-12/README.md) preserves the fourth scoped acceptance and links all three earlier failed rounds; no prior verdict or usage uncertainty was rewritten.
+
+- [x] Complete #825 correction, actual fourth assessment and serial production verification.
+- [ ] Continue source-qualified debt and financial relationship design that preserves valid explanation; metadata or parallel contradictory prose is not a completed fix.
+- [ ] Retain unsupported guidance/recovery/source-coverage cases and broader numerical/accounting findings for bounded future work.
+
+No further #825 assessment is required by this record. World-class quality and universe-wide pregeneration/historical replay remain held. Original master-plan prerequisites remain in effect; E06 natural delivery is unobserved and E09 remains proposal-only with incomplete fleet/egress/budget evidence.

@@ -1,0 +1,22 @@
+{
+  "head": "503239f653ae2d93df7f66722586349c2d83baed",
+  "previous_candidate": "07c549cb9ead90634393cb5eeb2d2ca5b311aa88",
+  "main": "82421c9807937f7b7d9a92cd362d1ef6e75ffcf4",
+  "backend_tree": "303fe949118f0da49e4a98e3017c350f30c6d376",
+  "locks": {
+    "backend/tests/unit/test_background_generation_characterization.py": true,
+    "backend/tests/unit/test_generation_requires_account.py": true,
+    "backend/tests/unit/test_refresh_replay.py": true,
+    "backend/tests/unit/test_filing_scan.py": true,
+    "backend/tests/unit/test_expired_trial_gating.py": true,
+    "backend/tests/unit/test_subscription_webhook_sync.py": true,
+    "backend/tests/unit/test_auth_flow.py": true,
+    "backend/tests/unit/test_stripe_webhook.py": true,
+    "backend/tests/unit/test_companyfacts_fixture.py": true,
+    "backend/tests/integration/test_summary_stream_contract.py": true,
+    "frontend/tests/unit/summaryStream.contract.spec.ts": true
+  },
+  "ordered_parent_ledgers_preserved": true,
+  "new_conflict_markers": false,
+  "incident_commit": "c9a78326"
+}

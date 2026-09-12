@@ -195,3 +195,21 @@ Funding is restored for the ordered queue. Scope safeguard #794 merged as `47865
 The [retained console observation](review-evidence/cloud-run-capacity-2026-09-12/observation.md) supersedes the earlier inability to inspect the production account: authenticated read-only access succeeded without changing settings. Service `earningsnerd-backend` in project `earnings-nerd`, region `us-west1`, showed revision `earningsnerd-backend-00333-56s` at 100%. Revision overrides are minimum 1 / maximum 2; service scaling is separately minimum 0 / maximum 20. Observed container settings are 1 vCPU, 1 GiB, concurrency 40, timeout 600 seconds, instance-based billing, startup CPU boost enabled and database pool 12 plus overflow 8. The outbound VPC option was unchecked and ingress was All. These are observations, not proposed edits.
 
 Assuming one process per instance, the simple serving-revision estimate is 40 potential database connections (2 × (12 + 8)); worker/process count was not observed. This excludes jobs, other services and old revisions and is not measured database headroom. Another `earningsnerd` service in `us-central1` was listed but not reconciled. Job task/parallelism limits, scheduler overlap, full fleet ownership, database headroom, outbound IP identity and budget remain unresolved. Prior-day CPU/memory charts are not a load test. An unchecked VPC option does not establish stable shared egress. E09 remains proposal-only; no capacity, scheduler, cost or generation activation is authorized. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 12 — fourth #825 scoped assessment accepted; release pending
+
+The [fourth assessment archive](review-evidence/authored-guidance-release-2026-09-12/README.md) records actual functional, metadata and Copilot acceptance on gated `503239f653ae2d93df7f66722586349c2d83baed`. Both COST authored guidance draws now carry the source-owned million scale in final output and every retained preview containing the plan. All 52 source/XBRL/cash identities are conserved; 507 frames retain `not_observed` final-response association. Copilot's 18 requested answers are correct within its existing gate, with inherited citation limitations. Earlier failed rounds remain unchanged.
+
+This supersedes earlier current assessment holds for the supported unit correction only. No merge or production verification is claimed yet; root owns serial release verification. Broad debt/comparison/causal findings and universe-wide pregeneration/historical replay remain held.
+
+
+## September 12 — #825 production verified; current continuation
+
+This dated record supersedes earlier current HOLD, unpublished and release-pending instructions for the supported authored-guidance unit correction. #825 merged as `473558ec259e5c4860cd0373ee4209289bb17167` at 17:55:30Z. Main CI `34709660590` and deploy job `103596329864` succeeded. Migrations reported `apply_migrations: applied=0 skipped=39` at 18:00:25.9058631Z. Revision `earningsnerd-backend-00334-pqv` serves 100% of traffic, confirmed at 18:01:14.1872642Z and explicitly at 18:01:15.7139218Z. CI detailed health was healthy at 18:01:53.6718523Z (database 7.16 ms). Independent `curl -fsS` exited 0 and returned healthy (database 7.9 ms, server timestamp `1789236229.8216112`; Redis disabled, SEC circuit closed). [Release evidence](review-evidence/authored-guidance-release-2026-09-12/README.md) preserves the fourth scoped acceptance and links all three earlier failed rounds; no prior verdict or usage uncertainty was rewritten.
+
+- [x] Complete #825 correction, actual fourth assessment and serial production verification.
+- [ ] Continue source-qualified debt and financial relationship design that preserves valid explanation; metadata or parallel contradictory prose is not a completed fix.
+- [ ] Retain unsupported guidance/recovery/source-coverage cases and broader numerical/accounting findings for bounded future work.
+
+No further #825 assessment is required by this record. World-class quality and universe-wide pregeneration/historical replay remain held. Original master-plan prerequisites remain in effect; E06 natural delivery is unobserved and E09 remains proposal-only with incomplete fleet/egress/budget evidence.

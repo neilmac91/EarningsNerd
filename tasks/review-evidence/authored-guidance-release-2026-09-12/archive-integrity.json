@@ -1,0 +1,83 @@
+{
+  "status": "Fourth scoped assessment accepted; #825 merged and production verified",
+  "files": [
+    {
+      "file": "pr825-fourth-guidance-review.md",
+      "bytes": 3331,
+      "sha256": "61b85d06af15da33db6601a6b4148f98d24ba01f84f4791a2d1568ab957372b4",
+      "original_private_path": "work/pr825-fourth-guidance-review.md"
+    },
+    {
+      "file": "pr825-fourth-guidance-evidence.json",
+      "bytes": 29248,
+      "sha256": "ebabd8668affe57f002170fc70ca3a34ef75bcbdfabdc90e79b6d8bb0cc90379",
+      "original_private_path": "work/pr825-fourth-guidance-evidence.json"
+    },
+    {
+      "file": "pr825-fourth-guidance-extract.txt",
+      "bytes": 17190,
+      "sha256": "6f62925ae2235e62a3a3b0718f7c8775c5a6d75bf35a82e20101c6d515f2b624",
+      "original_private_path": "work/pr825-fourth-guidance-extract.txt"
+    },
+    {
+      "file": "pr825-fourth-guidance-independent-review.md",
+      "bytes": 3170,
+      "sha256": "761b323afc04507ab592d162f74d07c5a3e462dc082c9afb8f52b40ac5cc395e",
+      "original_private_path": "work/pr825-fourth-guidance-independent-review.md"
+    },
+    {
+      "file": "pr825-fourth-guidance-independent-evidence.json",
+      "bytes": 2705,
+      "sha256": "8b85e9f809c3bfa71bd58110f85a6f4d8ac78e42c90a8e842811fb1a71d2ca93",
+      "original_private_path": "work/pr825-fourth-guidance-independent-evidence.json"
+    },
+    {
+      "file": "pr825-fourth-copilot-acceptance.md",
+      "bytes": 4616,
+      "sha256": "f5399646ed9f99856b11d22c214b603a19fcb2f9fa87a9336d8cc8ec74fc22ac",
+      "original_private_path": "work/pr825-fourth-copilot-acceptance.md"
+    },
+    {
+      "file": "pr825-fourth-copilot-integrity.json",
+      "bytes": 27288,
+      "sha256": "77e736b1423b308eb539a4e1d5a6f0ad1289d0928bc92abd988070d9936b8f89",
+      "original_private_path": "work/pr825-fourth-copilot-integrity.json"
+    },
+    {
+      "file": "pr825-fourth-integration-review.md",
+      "bytes": 2960,
+      "sha256": "86664dbff83d6eab0413d3dc8e0af5b843e78a4f84b0770e7313b19c2c3eb417",
+      "original_private_path": "work/pr825-fourth-integration-review.md"
+    },
+    {
+      "file": "pr825-fourth-integration-integrity.json",
+      "bytes": 1050,
+      "sha256": "0fcb0e21d3bfbb68c2aa829f1aeddc8cf5c504f424a8fbddd910f71c9c3064b7",
+      "original_private_path": "work/pr825-fourth-integration-integrity.json"
+    },
+    {
+      "file": "pr825-fourth-summary-metadata-acceptance.md",
+      "bytes": 3361,
+      "sha256": "935804e35ba0cba8e748288f7e9d6a198d790a145ab4e7ee92444482826506f6",
+      "original_private_path": "work/pr825-fourth-summary-metadata-acceptance.md"
+    },
+    {
+      "file": "pr825-fourth-summary-metadata.json",
+      "bytes": 58640,
+      "sha256": "7dc74e12a09e372678a9ecc706f7d0fc42d217cb7305250832707aaf727071e5",
+      "original_private_path": "work/pr825-fourth-summary-metadata.json"
+    },
+    {
+      "file": "pr825-fourth-summary-execution-integrity.json",
+      "bytes": 10103,
+      "sha256": "732734a35d7a237c457e1573ae31e0b62bb9150e671d4a4701fbb5b4291c791e",
+      "original_private_path": "work/pr825-fourth-summary-execution-integrity.json"
+    },
+    {
+      "file": "pr825-fourth-summary-usage.json",
+      "bytes": 3071,
+      "sha256": "e7174b258334a0d7398610f821952a4d383dd77b987a52cf35d871bdbc2a553b",
+      "original_private_path": "work/pr825-fourth-summary-usage.json"
+    }
+  ]
+}
