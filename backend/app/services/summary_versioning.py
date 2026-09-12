@@ -78,9 +78,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   metric identity; unknown or differently qualified measures cannot borrow values. Taxonomy unchanged.
 # summary-2026-09-d: preserve reported P&L labels and accounting basis across primary/recovery.
 # summary-2026-09-e: reserved by rejected/unreleased #805 supported-explanation candidate;
-#   its explanation changes are not included here. Prior production behavior remains d.
+#   its explanation changes remain unreleased; f shipped separately in #821.
 # summary-2026-09-f: name selected capex and derived FCF basis in grounding and rendered cash text.
-#   Retains the locally reserved cash stamp; advances directly from released d.
+#   Released in #821, advancing directly from released d to f.
 # summary-2026-09-g: verified final primary quotes may display source-owned unit context.
 #   The separate code-owned envelope marker governs read eligibility; old payloads remain untrusted.
 SUMMARY_PROMPT_VERSION: str = "summary-2026-09-g"
