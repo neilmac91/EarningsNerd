@@ -116,6 +116,17 @@ def _fiscal_period(form: Optional[str]) -> Optional[str]:
     return "FY" if (form or "").upper().replace("-", "").startswith(("10K", "20F", "40F")) else None
 
 
+def _duration_start(raw: Any, period_end: date) -> Optional[date]:
+    """A source start that genuinely precedes its period end, else None (duration unknown).
+
+    Deliberately incurious: it parses what extraction preserved and rejects anything that is not a
+    real date strictly before the end. It never derives a start from the form, the fiscal label,
+    the period end or a neighbouring period.
+    """
+    start = _parse_date(raw)
+    return start if start is not None and start < period_end else None
+
+
 def _unit_for(concept: str, currency: Optional[str]) -> str:
     """Resolve the stored unit for a fact, substituting the as-filed reporting currency.
 
@@ -181,6 +192,13 @@ def normalize_standardized_to_facts(
                     # don't carry a per-point currency, so fall back to the filing's overall
                     # reporting currency rather than silently defaulting to USD.
                     "unit": _unit_for(concept, point.get("currency") or standardized.get("reporting_currency")),
+                    # The source fact's own reported start, when extraction preserved one. Absent
+                    # for instant facts, computed aggregates, and any period whose equal-valued
+                    # source facts disagreed — readers must treat NULL as "duration unknown" and
+                    # stay conservative, never infer a year from the form or the fiscal label.
+                    # Forward-only: existing rows keep their NULL, since `upsert_facts` skips an
+                    # identity that already exists.
+                    "period_start": _duration_start(point.get("period_start"), period_end),
                     "period_end": period_end,
                     "fiscal_year": point.get("fiscal_year") or period_end.year,
                     "fiscal_period": point.get("fiscal_period") or _fiscal_period(point_form),

@@ -20,6 +20,8 @@ from app.services.edgar.instance_extractor import (
     DURATION_CONCEPTS,
     duration_in_window,
     duration_series,
+    duration_series_currency_concept,
+    duration_series_with_starts,
     instant_series,
 )
 from app.services.edgar.xbrl_service import (
@@ -137,6 +139,44 @@ def test_10q_selects_quarter_not_ytd_and_keeps_yoy_comparative():
     ])})
     series = duration_series(xb, ["Revenues"], "10-Q", "2026-03-31")
     assert series == [("2026-03-31", 90_000.0), ("2025-03-31", 80_000.0)]
+
+
+def test_duration_series_carries_the_selected_facts_own_start():
+    """The duration proof this path already applies is now kept, not discarded at the boundary.
+
+    The start must come from the fact the value was resolved from: the FY row's own start, never
+    the Q4 row sharing its period end, and never anything inferred from form or period end.
+    """
+    xb = FakeXBRL({"NetIncomeLoss": _facts_df([
+        (False, "2025-10-01", "2025-12-31", 477.0),      # Q4, same end as FY
+        (False, "2025-01-01", "2025-12-31", 7_153.0),    # FY — the selected fact
+        (False, "2024-01-01", "2024-12-31", 6_000.0),    # prior FY comparative
+    ])})
+    series, _currency, _concept = duration_series_with_starts(
+        xb, ["NetIncomeLoss"], "10-K", "2025-12-31")
+    assert series == [("2025-12-31", 7_153.0, "2025-01-01"), ("2024-12-31", 6_000.0, "2024-01-01")]
+
+
+def test_equal_valued_facts_with_disagreeing_starts_leave_the_duration_unknown():
+    """Preserve the uncertainty: an unresolvable duration is None, never a convenient start."""
+    xb = FakeXBRL({"Revenues": _facts_df([
+        (False, "2025-01-01", "2025-12-31", 7_153.0),    # 364 days
+        (False, "2025-01-05", "2025-12-31", 7_153.0),    # 360 days, same value
+    ])})
+    series, _currency, _concept = duration_series_with_starts(
+        xb, ["Revenues"], "10-K", "2025-12-31")
+    # The value still resolves (the facts agree on it); only the duration is withheld.
+    assert series == [("2025-12-31", 7_153.0, None)]
+
+
+def test_existing_duration_series_callers_keep_their_two_tuple_shape():
+    """The start-carrying producer is additive: every long-standing consumer reads (end, value)."""
+    xb = FakeXBRL({"Revenues": _facts_df([
+        (False, "2025-01-01", "2025-12-31", 7_153.0),
+    ])})
+    assert duration_series_currency_concept(xb, ["Revenues"], "10-K", "2025-12-31")[0] == [
+        ("2025-12-31", 7_153.0)]
+    assert duration_series(xb, ["Revenues"], "10-K", "2025-12-31") == [("2025-12-31", 7_153.0)]
 
 
 def test_10k_selects_full_year_not_q4():
@@ -304,6 +344,8 @@ def test_sync_extraction_uses_filings_own_instance():
         # Revenue now records the winning XBRL concept (raw_tag) so a concept that flips between
         # filings can be caught downstream. This filer's revenue resolves to us-gaap:Revenues.
         "raw_tag": "us-gaap:Revenues",
+        # ...and the selected fact's own start, so a reader can tell this quarter from a year.
+        "period_start": "2026-01-01",
     }
     assert result["revenue"][1]["period"] == "2025-03-31"  # YoY quarter
     assert result["net_income"][0]["value"] == 9_000.0
@@ -654,6 +696,9 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
     if qualified:
         expected_queries = expected_queries[:expected_queries.index(qualified) + 1]
     series = [(period, 120.0), ('2024-12-31', 100.0)] if qualified else []
+    # Each selected fact's own start now rides through to the emitted point; the Q4 row
+    # sharing the current period end is still excluded by the duration window.
+    starts = {period: '2025-01-01', '2024-12-31': '2024-01-01'}
     currency = 'EUR' if qualified else None
     # The existing revenue-facing helper still returns its bare candidate and identical queries.
     assert duration_series_currency_concept(xb, concepts, '10-K', period) == (
@@ -686,7 +731,7 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
     if qualified:
         expected_raw = [
             {'period': end, 'value': value, 'form': '10-K', 'accn': accession,
-             'currency': currency, 'raw_tag': qualified}
+             'currency': currency, 'raw_tag': qualified, 'period_start': starts[end]}
             for end, value in series
         ]
         assert raw['capital_expenditures'] == expected_raw

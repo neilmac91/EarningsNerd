@@ -79,17 +79,17 @@ def test_revenue_series_matches_fixture(parsed: dict):
     # income-statement years surface (FY2020 exists under the prior filing but is
     # dropped by the target-accession restriction).
     assert parsed["revenue"] == [
-        {"period": "2023-12-31", "value": 24_318_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
-        {"period": "2022-12-31", "value": 21_704_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
-        {"period": "2021-12-31", "value": 18_225_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+        {"period": "2023-12-31", "value": 24_318_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2023-01-01"},
+        {"period": "2022-12-31", "value": 21_704_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2022-01-01"},
+        {"period": "2021-12-31", "value": 18_225_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2021-01-01"},
     ]
 
 
 def test_net_income_series_matches_fixture(parsed: dict):
     assert parsed["net_income"] == [
-        {"period": "2023-12-31", "value": 3_142_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
-        {"period": "2022-12-31", "value": 2_588_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
-        {"period": "2021-12-31", "value": 2_001_000_000, "form": "10-K", "accn": TARGET_ACCESSION},
+        {"period": "2023-12-31", "value": 3_142_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2023-01-01"},
+        {"period": "2022-12-31", "value": 2_588_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2022-01-01"},
+        {"period": "2021-12-31", "value": 2_001_000_000, "form": "10-K", "accn": TARGET_ACCESSION, "period_start": "2021-01-01"},
     ]
 
 
@@ -135,7 +135,7 @@ def test_extract_standardized_metrics_shapes_current_prior_change(parsed: dict):
     revenue = metrics["revenue"]
     assert revenue["current"] == {
         "period": "2023-12-31", "value": 24_318_000_000,
-        "form": "10-K", "currency": None, "raw_tag": None,
+        "form": "10-K", "currency": None, "raw_tag": None, "period_start": "2023-01-01",
     }
     assert revenue["prior"]["period"] == "2022-12-31"
     assert revenue["prior"]["value"] == 21_704_000_000

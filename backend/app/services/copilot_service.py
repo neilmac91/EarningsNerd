@@ -25,7 +25,7 @@ import math
 from datetime import date
 import re
 from types import SimpleNamespace
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Callable, Optional
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
@@ -223,16 +223,35 @@ def _fact_identity(fact: dict) -> str:
     return json.dumps({key: fact.get(key) for key in keys}, sort_keys=True, separators=(",", ":"))
 
 
+def _without_source_durations(xbrl_data: Any) -> Any:
+    """``xbrl_data`` with each metric point's ``period_start`` removed — model-facing projection."""
+    if not isinstance(xbrl_data, dict):
+        return xbrl_data
+    return {
+        key: [{k: v for k, v in point.items() if k != "period_start"}
+              if isinstance(point, dict) else point for point in value]
+        if isinstance(value, list) else value
+        for key, value in xbrl_data.items()
+    }
+
+
 def _compact_xbrl_block(xbrl_data: Any) -> str:
     """Render the filing's XBRL JSON compactly for context, or "" when absent/oversized.
 
     Numeric tools provide exact accession-scoped facts independently. This compact reference
     cannot crowd out the section excerpt.
+
+    Source durations are dropped here even though extraction now preserves them: this block is
+    truncated at a fixed cap, so every key added displaces excerpt content the model would
+    otherwise see, and the tools already hand the model exact period provenance. Keeping the
+    projection stable also keeps the prompt bytes — and their cache — unchanged. Widening what
+    the model sees is a prompt change, gated on its own evidence.
     """
     if not xbrl_data:
         return ""
     try:
-        rendered = json.dumps(xbrl_data, default=str, separators=(",", ":"))
+        rendered = json.dumps(_without_source_durations(xbrl_data), default=str,
+                              separators=(",", ":"))
     except (TypeError, ValueError):
         return ""
     # Cap so a pathological XBRL payload can't dominate the context window.
@@ -598,6 +617,209 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------------------------
+# Server-owned repair for a wholly uncited, explicit single-fact answer.
+#
+# The guards above only ever REMOVE a marker the model placed wrongly. They cannot help the other
+# failure shape the field reports keep surfacing: an answer that states one complete reported
+# figure, correctly, having called no tool at all — right number, no attribution, nothing for a
+# chip to open (retained evidence: the BABA 20-F revenue answer with empty tool results, empty
+# citations and zero stripped markers). Asking the model to try again costs a call and still
+# enforces nothing, so the server looks the figure up in the viewed filing itself and attaches a
+# marker ONLY when the filing's own fact carries every identity the sentence asserts.
+#
+# Everything here is POSITIVE certification, which is the opposite of the falsification guards: an
+# absent or ambiguous signal abstains. Amount coincidence is never enough, and neither is an
+# annual-looking label — the fact must carry its own reported duration. Today most runtime facts
+# do not, so this abstains far more often than it fires; that is the intended direction.
+# ---------------------------------------------------------------------------------------------
+
+# Marks a fact this module looked up on the server's own initiative, so a diagnostic reading
+# ``used_facts`` can tell it from a model tool call (which carries no origin key). It is absent
+# from ``_fact_identity``'s key list and from ``fact_to_citation``'s, so it reaches neither the
+# marker identity nor the citation.
+_SERVER_LOOKUP_ORIGIN = "server_citation_lookup"
+
+# The concepts this repair can certify, and the complete subject phrases that name them. Each
+# phrase must name the CONSOLIDATED metric on its own: bare "sales" and any segment-qualified
+# subject ("Cloud revenue") are deliberately absent, so those answers abstain instead of borrowing
+# the consolidated fact. This is claim vocabulary, not the falsification vocabulary in
+# ``_CONCEPT_SYNONYMS`` — that one may stay broad precisely because it can only KEEP a marker.
+_REPAIRABLE_CLAIM_PHRASES: dict[str, tuple[str, ...]] = {
+    "revenue": (
+        "consolidated revenue", "consolidated revenues", "total net revenue", "total net revenues",
+        "total net sales", "total revenue", "total revenues", "total sales", "net revenue",
+        "net revenues", "net sales", "revenue", "revenues",
+    ),
+}
+_CLAIM_PHRASE_CONCEPT = {p: c for c, phrases in _REPAIRABLE_CLAIM_PHRASES.items() for p in phrases}
+_MONTH_NAMES = ("January", "February", "March", "April", "May", "June", "July", "August",
+                "September", "October", "November", "December")
+_CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
+
+# The ONE finite claim shape this repair certifies: subject, explicit full fiscal end date, copula,
+# native currency, amount and optional scale — and nothing else, because the pattern is anchored
+# over the WHOLE answer. That anchor is what rejects multi-metric, comparative, causal, quoted,
+# conditional, derived and incomplete-scope statements: a second proposition simply falls outside
+# the match. Longest phrases first so the alternation binds the fullest subject.
+_ANNUAL_FIGURE_CLAIM = re.compile(
+    r"(?P<subject>" + "|".join(
+        re.escape(p) for p in sorted(_CLAIM_PHRASE_CONCEPT, key=len, reverse=True)) + r")"
+    r"\s+(?:for|in)\s+(?:the\s+)?(?:fiscal\s+)?year\s+ended(?:\s+on)?\s+"
+    r"(?P<month>" + "|".join(_MONTH_NAMES) + r")\s+(?P<day>\d{1,2}),\s+(?P<year>\d{4})"
+    r"\s+(?:was|were|totaled|totalled|amounted\s+to)\s+"
+    r"(?P<currency>" + _CURRENCY_TOKEN + r")\s*"
+    r"(?P<amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?:\s*(?P<scale>billion|million|thousand))?"
+    r"\.\Z",
+    re.IGNORECASE,
+)
+
+# Annual report forms: the ones whose period of report IS a full fiscal year. Same test
+# ``facts_service._fiscal_period`` applies to decide which points get stamped ``fiscal_period="FY"``.
+# NOTE this makes the FY label and the form the SAME signal, not two — see
+# :func:`_fact_certifies_claim`. Amendments ("10-K/A") share the prefix.
+_ANNUAL_REPORT_FORMS = ("10K", "20F", "40F")
+
+# What counts as an annual slice, in days. One window, mirrored from the two places that already
+# own it — ``facts_service._CF_ANNUAL_WINDOW`` and ``edgar.instance_extractor.DURATION_WINDOWS``
+# for 10-K/20-F/40-F. ``test_copilot_citation_repair`` asserts the three stay equal, so a change
+# there cannot silently widen what this module will certify.
+_ANNUAL_DURATION_DAYS = (320, 390)
+
+
+def _is_annual_report_form(filing_type: Any) -> bool:
+    return str(filing_type or "").upper().replace("-", "").startswith(_ANNUAL_REPORT_FORMS)
+
+
+def _iso_day(value: Any) -> Optional[str]:
+    """The ISO date of a filing period field, whether it arrived as a string, date or datetime."""
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value[:10]).isoformat()
+        except ValueError:
+            return None
+    iso = getattr(value, "isoformat", None)
+    return iso()[:10] if callable(iso) else None
+
+
+def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
+    """Read a wholly uncited answer as ONE complete reported annual figure, or return ``None``.
+
+    Text only — no DB read and no filing metadata: this decides what the sentence CLAIMS, and the
+    caller decides whether the filing supports it. ``answer`` must already be stripped (the caller
+    holds the final answer). Returns the concept, claimed period end, canonical currency, the
+    stated value with its display-rounding half-interval, and the offset the marker belongs at.
+    """
+    if re.search(r"\[\s*F?\s*\d+\s*\]", answer, re.IGNORECASE):
+        return None  # already cites something — never rewrite it
+    match = _ANNUAL_FIGURE_CLAIM.fullmatch(answer)
+    if match is None:
+        return None
+    try:
+        period_end = date(int(match["year"]),
+                          _MONTH_NAMES.index(match["month"].capitalize()) + 1,
+                          int(match["day"]))
+    except ValueError:
+        return None  # "February 30, 2025" is not a period end
+    label = match["currency"].upper()
+    currency = _CURRENCY_ALIASES.get(label, label)
+    if not re.fullmatch(r"[A-Z]{3}", currency):
+        return None
+    digits = match["amount"].replace(",", "")
+    scale = _CLAIM_SCALES.get((match["scale"] or "").lower(), 1.0)
+    decimals = len(digits.partition(".")[2])
+    return {
+        "concept": _CLAIM_PHRASE_CONCEPT[match["subject"].lower()],
+        "period_end": period_end.isoformat(),
+        "currency": currency,
+        "value": float(digits) * scale,
+        # The filing value must ROUND to the numeral exactly as written — half a unit of the last
+        # stated digit, at the stated scale. "996,347 million" admits 5e5; "996.3 billion" 5e7.
+        "tolerance": 0.5 * (10.0 ** -decimals) * scale,
+        # The claim ends with its terminal period; the marker goes just before it.
+        "insert_at": match.end() - 1,
+    }
+
+
+def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
+    """True only when the viewed filing's own fact carries EVERY identity the claim asserts.
+
+    The claim says "for the fiscal year ended <date>", so the fact must be shown to COVER that
+    year. Only its own reported duration shows that, and nothing else here is a substitute:
+
+    * The **form** cannot. ``facts_service._fiscal_period`` derives ``FY`` from the form, so the
+      annual-form test and the ``FY`` label are one signal wearing two hats, not two signals.
+    * The **companyfacts fallback** cannot. ``edgar/xbrl_service.py``'s ``filter_and_sort`` only
+      *ranks* the durations sharing a period end and keeps the best one; a sole quarterly point is
+      not rejected, and ``append_items`` then drops its ``start`` entirely. A three-month revenue
+      figure ending on the fiscal year end therefore reaches the fact table labelled ``FY`` with no
+      duration at all. (The selected-instance path does filter — ``instance_extractor``'s
+      ``duration_in_window`` — but that proof is consumed at extraction and never recorded, so the
+      two are indistinguishable downstream.)
+    * **Comparative cadence** cannot: matching period ends a year apart are consistent with a
+      quarterly point sitting among annual ones.
+
+    So a fact with no ``period_start`` abstains, however annual everything around it looks. Adding
+    a *verified* chip to an annual sentence on a possibly-quarterly figure would be a new error of
+    our own making, which is worse than the uncited prose it replaces.
+    """
+    if not _is_annual_report_form(getattr(filing, "filing_type", None)):
+        return False
+    if fact.get("kind") or fact.get("value_kind") or fact.get("source_facts"):
+        return False  # a derived result never certifies a reported figure
+    if fact.get("concept") != claim["concept"] or fact.get("fiscal_period") != "FY":
+        return False
+    claimed = claim["period_end"]
+    if fact.get("period_end") != claimed or _iso_day(getattr(filing, "period_of_report", None)) != claimed:
+        return False
+    # The binding proof: the fact's own reported duration must span an annual slice.
+    start, end = _iso_day(fact.get("period_start")), _iso_day(fact.get("period_end"))
+    if start is None or end is None:
+        return False
+    low, high = _ANNUAL_DURATION_DAYS
+    if not low <= (date.fromisoformat(end) - date.fromisoformat(start)).days <= high:
+        return False
+    if copilot_tools.canonical_unit(fact.get("unit")) != claim["currency"]:
+        return False
+    value = fact.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return False
+    # Signed: a negative filing value can never certify a positively stated amount.
+    return abs(float(value) - claim["value"]) <= claim["tolerance"]
+
+
+def _repair_uncited_fact_claim(answer: str, *, filing: Any, accession: Optional[str],
+                               currency: Optional[str], register: Callable[[dict], str]) -> str:
+    """Attach one source-owned fact marker to a certified uncited claim; otherwise abstain.
+
+    Inserts the marker and nothing else — every other byte of the answer, punctuation included,
+    survives. The existing resolver still owns numbering, placement and citation provenance.
+    """
+    claim = _plan_uncited_fact_citation(answer)
+    if claim is None:
+        return answer
+    # The existing DB-only, accession-bound owner, called with its plainest existing selector. It
+    # opens and closes its own session, reaches no SEC endpoint and runs no model.
+    fact = copilot_tools.run_tool("get_financial_fact", {"concept": claim["concept"]},
+                                  getattr(filing, "company_id", None),
+                                  accession_number=accession, reporting_currency=currency)
+    if not isinstance(fact, dict) or "error" in fact or "value" not in fact:
+        return answer  # missing, errored or ambiguous evidence abstains
+    if not _valid_fact_provenance(fact, accession, currency) or not _fact_certifies_claim(fact, claim, filing):
+        return answer
+    # Last check, on the exact window the resolver will compute (no other marker exists, so the
+    # window is bounded only by its own length). The guards are falsification-only and are NOT the
+    # certification above; this just means we never ship a marker the resolver would strip.
+    window = _adjacency_window(answer[:claim["insert_at"]] + " ", claim["insert_at"] + 1, 0)
+    if not (_fact_matches_adjacent_number(fact, window)
+            and _fact_matches_adjacent_concept(fact, window)
+            and _fact_matches_adjacent_currency(fact, window)):
+        return answer
+    fact["_origin"] = _SERVER_LOOKUP_ORIGIN
+    return f"{answer[:claim['insert_at']]} [{register(fact)}]{answer[claim['insert_at']:]}"
+
+
 def count_uncited_figures(answer: str, valid_count: Optional[int] = None) -> tuple[int, int]:
     """Count financial-looking figures in a FINAL answer and how many lack a citation.
 
@@ -800,21 +1022,25 @@ async def answer_filing_question(
         used_facts: list[dict] = []
         _fact_markers: dict[str, str] = {}
 
+        def _register_fact(result: dict) -> str:
+            """The stable ``F#`` marker for this exact fact/expression, deduped by provenance."""
+            key = _fact_identity(result)
+            marker = _fact_markers.get(key)
+            if marker is None:
+                marker = f"F{len(used_facts) + 1}"
+                _fact_markers[key] = marker
+                result["_marker"] = marker
+                used_facts.append(result)
+            return marker
+
         def _run_tool(name: str, args: dict) -> dict:
             result = copilot_tools.run_tool(name, args, company_id, accession_number=accession,
                                             reporting_currency=currency)
             if isinstance(result, dict) and "error" not in result and "value" in result:
                 if not _valid_fact_provenance(result, accession, currency):
                     return {"error": "invalid_filing_provenance"}
-                key = _fact_identity(result)
-                marker = _fact_markers.get(key)
-                if marker is None:
-                    marker = f"F{len(used_facts) + 1}"
-                    _fact_markers[key] = marker
-                    result["_marker"] = marker
-                    used_facts.append(result)
                 # Hand the model the exact inline marker to use for this figure (e.g. "[F1]").
-                return {**result, "cite": marker}
+                return {**result, "cite": _register_fact(result)}
             return result
 
         yield {"type": "progress", "stage": "reading"}
@@ -969,6 +1195,15 @@ async def answer_filing_question(
             # Only groups with at least one F-ref expand: an ALL-plain-number group never does
             # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
+        )
+        # An answer that states one complete reported annual figure and cites NOTHING is the gap
+        # the placement guards cannot close — they only ever remove a wrong marker, and this shape
+        # reaches the end of the stream having called no tool at all. Look the figure up in the
+        # viewed filing and attach a marker only when the filing's own fact certifies every
+        # identity the sentence asserts; the prose keeps every other byte either way.
+        full_answer = _repair_uncited_fact_claim(
+            full_answer, filing=filing, accession=accession, currency=currency,
+            register=_register_fact,
         )
         # Single server-owned numbering pass: resolves every marker actually present in the answer
         # (text-excerpt or tool-figure alike) against its real source, assigns one continuous
