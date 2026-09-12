@@ -118,7 +118,7 @@ def financing_comparison_source(filing: Any, selected: list[dict], *, accession:
         if root.tag != f"{_X}xbrl" or root.getroottree().docinfo.doctype:
             return None
         contexts, units = _unique_elements(root, "context"), _unique_elements(root, "unit")
-        current, prior = [_point(source, contexts, units, cik) for source in [selected[0], selected[-1]]]
+        current, prior = [_point(source, contexts, units, cik) for source in selected[:2]]
         if current is None or prior is None:
             return None
         if (current["period_end"] != period_of_report
