@@ -431,7 +431,7 @@ async def _attempt(
             diagnostics.update(stream_requested=stream_requested, preview_count=preview_count,
                                preview_frames=preview_frames, preview_chars=preview_chars,
                                previews_truncated=previews_truncated, **_PREVIEW_OBSERVATION,
-                               provider_usage=summarize_provider_calls([]))
+                               provider_usage=summarize_provider_calls(call_records))
         return {**diagnostics, "score": None, "aggregate": 0.0, "passed_gates": False,
                 "judge": None, "error": f"{type(exc).__name__}: {exc}",
                 "application_failure": application_failure,
