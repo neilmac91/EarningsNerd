@@ -187,3 +187,47 @@ correct and demonstrated, but the retained BABA defect still abstains because it
 duration. No push, no PR, no assessment, no deployment, no external action, no spend. Publication
 waits on a Codex slot — a `backend/app/**` change matches the `eval-baseline` path filter and
 fires on any pull-request event, draft included.
+
+## Dated follow-up — 2026-09-12: forward-only source-duration preservation
+
+Codex allocated the ingestion edits after Agent A delivered. Implemented forward-only; no
+historical replay, live acquisition, backfill, existing-row enrichment, identity change or
+migration. This appends to the records above rather than replacing them.
+
+**What now carries duration.** `instance_extractor.duration_series_with_starts` is the real
+producer and keeps the start of the exact fact each value was resolved from;
+`duration_series_currency_concept` became a thin wrapper dropping it, so every long-standing
+`(end, value)` consumer — `duration_series_with_currency`, `duration_series`,
+`dividend_component_sum_series` and the extraction tests — is untouched. `xbrl_service` emits
+`period_start` at its three duration point sites and in the companyfacts fallback's `append_items`
+(which already held `item["start"]`); `normalise_series` passes the key through;
+`normalize_standardized_to_facts` stores it through `_duration_start`, which accepts only a real
+date strictly before the period end.
+
+**What deliberately does not.** Instant facts (no duration by definition), the dividend component
+SUM (a computed aggregate), and statement-derived `fin_metrics` (its helper returns no starts).
+Each stays absent rather than guessing. A period whose equal-valued source facts disagree on their
+start also stays absent — `_unanimous_start` preserves that uncertainty.
+
+**Selection and precedence unchanged.** No blanket rejection of short-duration facts in annual
+forms was added: an annual filing may legitimately disclose a quarter. `filter_and_sort`,
+`_duration_penalty` and the upsert skip semantics are exactly as before; the point is carried
+honestly so the claim layer can refuse it.
+
+**Model-facing bytes unchanged.** `filing.xbrl_data` is the one structure serialized wholesale into
+a prompt (`copilot_service._compact_xbrl_block`, capped at 8000 chars), so durations are projected
+out there — a new key would displace excerpt content the model would otherwise see.
+`ai/xbrl_narrative.py` and `fallback_summary.py` read named keys only, so they are inert. Gated by
+`test_preserved_durations_never_reach_the_model_prompt`.
+
+**Derived readers stay conservative.** `_prior_comparable` gains data here; it still refuses an
+annual current period paired with a prior quarter and still accepts a genuine year-over-year pair
+(`test_newly_dated_facts_do_not_let_a_mismatched_comparison_through`). `compute_metric` will now
+resolve on newly dated rows instead of returning `basis_unavailable`, under its existing strict
+endpoint and duration checks.
+
+**Answer to the question asked: fresh annual ingestion is repaired; existing records are not.** A
+filing whose facts are written after this ships certifies end to end
+(`test_freshly_ingested_annual_point_reaches_the_citation`). Every row stored before it keeps NULL
+and abstains — the retained BABA `results[14]` row among them, still pinned by
+`test_retained_baba_row_still_abstains_because_it_carries_no_duration`.

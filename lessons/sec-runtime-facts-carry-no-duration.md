@@ -32,3 +32,16 @@ real repair.
 `backend/app/services/copilot_service.py::_fact_certifies_claim`;
 `backend/tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
 drives the whole transformation through production code.
+
+**Correction (2026-09-12, later the same day):** extraction now preserves the source duration
+forward-only, so the first sentence above describes existing rows, not new ones. Both producers
+carry the selected fact's own start: `instance_extractor.duration_series_with_starts` (the proof
+`duration_in_window` already applied, no longer discarded at the tuple boundary) and
+`xbrl_service.append_items` (the `start` the ranking already read). `normalise_series` passes the
+key through and `normalize_standardized_to_facts` stores it in the existing nullable column.
+Selection, precedence and the upsert's skip semantics are unchanged, and a short-duration point in
+an annual filing is still KEPT — annual filings legitimately disclose quarters — but now carries
+its real duration so a consumer can refuse it for an annual claim. The rule is unchanged and now
+has teeth: a start is taken only from the selected source fact, never inferred, and equal-valued
+facts that disagree on their start leave it NULL. Rows written before this still carry NULL and
+still abstain; there is no backfill.

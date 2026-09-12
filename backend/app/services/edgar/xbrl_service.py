@@ -46,8 +46,7 @@ from .instance_extractor import (
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
     dividend_component_sum_series,
-    duration_series_currency_concept,
-    duration_series_with_currency,
+    duration_series_with_starts,
     extract_financial_statement_metrics,
     instant_series_with_currency,
     instant_series_currency_concept,
@@ -290,6 +289,17 @@ def _extract_segments(
     return rows
 
 
+def _source_duration(start: Optional[str]) -> Dict[str, str]:
+    """The source fact's own start, or nothing at all when it is unknown.
+
+    Emitted as a key only when a real start exists, so an undated point keeps exactly the shape it
+    has always had. Never synthesised: an instant fact, a computed aggregate, or a period whose
+    equal-valued source facts disagreed on their start all stay absent, and every consumer treats
+    absence as "duration unknown" rather than guessing one.
+    """
+    return {"period_start": start} if isinstance(start, str) and start else {}
+
+
 def _extract_from_filing_instance_sync(
     cik_padded: str,
     accession_number: str,
@@ -379,29 +389,32 @@ def _extract_from_filing_instance_sync(
         if metric == "revenue":
             # Record the winning concept as raw_tag so a revenue concept that FLIPS between filings
             # can be detected downstream (the −53.8% apples-to-oranges class of bug).
-            series, currency, concept = duration_series_currency_concept(
+            series, currency, concept = duration_series_with_starts(
                 xb, concepts, base_form, period_of_report
             )
             raw_tag = f"us-gaap:{concept}" if concept else None
             result[metric] = [
                 {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, "raw_tag": raw_tag}
-                for end, value in series
+                 "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
+                for end, value, start in series
             ]
         elif metric == "capital_expenditures":
-            series, currency, raw_tag = duration_series_currency_concept(
+            series, currency, raw_tag = duration_series_with_starts(
                 xb, concepts, base_form, period_of_report, qualified_concept=True
             )
             result[metric] = [
                 {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, "raw_tag": raw_tag}
-                for end, value in series
+                 "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
+                for end, value, start in series
             ]
         else:
-            series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
+            series, currency, _concept = duration_series_with_starts(
+                xb, concepts, base_form, period_of_report
+            )
             result[metric] = [
-                {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
-                for end, value in series
+                {"period": end, "value": value, "form": form, "accn": accession_number,
+                 "currency": currency, **_source_duration(start)}
+                for end, value, start in series
             ]
         # EPS is per-share (currency-per-share), so it shouldn't sway the headline reporting
         # currency vote; weight revenue/net_income (true monetary totals) instead.
@@ -971,6 +984,12 @@ class EdgarXBRLService:
                     "value": item.get("val"),
                     "form": item.get("form"),
                     "accn": item.get("accn"),
+                    # The source duration this ranking already read (`_duration_penalty`,
+                    # `_classify_duration` above) but used to discard. Selection and precedence are
+                    # unchanged: a lone short-duration point is still KEPT, because an annual filing
+                    # may legitimately disclose one — it is now carried honestly so a consumer can
+                    # refuse it for an annual claim instead of mistaking it for a year.
+                    **_source_duration(item.get("start")),
                     **({"raw_tag": raw_tag} if raw_tag is not None else {}),
                 })
 
@@ -1035,7 +1054,7 @@ class EdgarXBRLService:
                     "value": entry.get("value"),
                     "form": entry.get("form"),
                     "currency": entry.get("currency"),
-                    **{key: entry[key] for key in ("fiscal_year", "fiscal_period")
+                    **{key: entry[key] for key in ("fiscal_year", "fiscal_period", "period_start")
                        if entry.get(key) is not None},
                     # raw_tag rides through so financial_fact records which XBRL concept a value came
                     # from (audit trail) and the change report can detect a concept that flips

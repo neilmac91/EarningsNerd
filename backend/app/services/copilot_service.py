@@ -223,16 +223,35 @@ def _fact_identity(fact: dict) -> str:
     return json.dumps({key: fact.get(key) for key in keys}, sort_keys=True, separators=(",", ":"))
 
 
+def _without_source_durations(xbrl_data: Any) -> Any:
+    """``xbrl_data`` with each metric point's ``period_start`` removed — model-facing projection."""
+    if not isinstance(xbrl_data, dict):
+        return xbrl_data
+    return {
+        key: [{k: v for k, v in point.items() if k != "period_start"}
+              if isinstance(point, dict) else point for point in value]
+        if isinstance(value, list) else value
+        for key, value in xbrl_data.items()
+    }
+
+
 def _compact_xbrl_block(xbrl_data: Any) -> str:
     """Render the filing's XBRL JSON compactly for context, or "" when absent/oversized.
 
     Numeric tools provide exact accession-scoped facts independently. This compact reference
     cannot crowd out the section excerpt.
+
+    Source durations are dropped here even though extraction now preserves them: this block is
+    truncated at a fixed cap, so every key added displaces excerpt content the model would
+    otherwise see, and the tools already hand the model exact period provenance. Keeping the
+    projection stable also keeps the prompt bytes — and their cache — unchanged. Widening what
+    the model sees is a prompt change, gated on its own evidence.
     """
     if not xbrl_data:
         return ""
     try:
-        rendered = json.dumps(xbrl_data, default=str, separators=(",", ":"))
+        rendered = json.dumps(_without_source_durations(xbrl_data), default=str,
+                              separators=(",", ":"))
     except (TypeError, ValueError):
         return ""
     # Cap so a pathological XBRL payload can't dominate the context window.

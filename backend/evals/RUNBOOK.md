@@ -621,8 +621,8 @@ byte inserted, and the resolver above still owns numbering and provenance. The l
 server-initiated and carries `_origin = "server_citation_lookup"`, so it never enters model
 tool-call history. `count_uncited_figures` stays advisory and is never consulted.
 
-**Duration is the binding proof, and today most runtime facts lack it — so this layer usually
-abstains.** The annual form and the `FY` label are one signal, not two: `facts_service.
+**Duration is the binding proof. Newly ingested facts now carry it; rows written earlier do not,
+and still abstain.** The annual form and the `FY` label are one signal, not two: `facts_service.
 _fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_service.py`
 only *ranks* the durations sharing a period end, so a lone three-month point ending on the fiscal
 year end is kept and `append_items` drops its `start`; it reaches the fact table labelled `FY` with
@@ -630,8 +630,17 @@ no duration and passes `_valid_fact_provenance`. The selected-instance path does
 (`instance_extractor.duration_in_window`) but records no proof, so the two are indistinguishable
 downstream. Certifying on the label would put a verified chip on a possibly-quarterly figure, so a
 fact without `period_start` abstains — including the retained BABA row that motivated this layer.
-Carrying duration into the fact record is what would make the positive path common; until then,
-report this layer as incomplete rather than as a fix.
+
+Extraction therefore preserves the source duration forward-only: both producers now carry the
+selected fact's own start (`instance_extractor.duration_series_with_starts` and
+`xbrl_service.append_items`), `normalise_series` passes it through and
+`normalize_standardized_to_facts` stores it in the existing nullable column. Selection, precedence
+and upsert skip semantics are unchanged, and a quarterly disclosure inside an annual filing is
+still kept — it simply arrives with its real 90-day duration and is refused for an annual claim.
+**A filing re-ingested after this ships can certify; rows stored before it still abstain, and there
+is no backfill.** Durations are deliberately excluded from the model-facing compact block
+(`_without_source_durations`), so prompt bytes are unchanged — widening what the model sees is a
+prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
 drives that whole transformation through production code.
 

@@ -367,6 +367,69 @@ def _series_from_values(
     return series[:max_items]
 
 
+def duration_series_with_starts(
+    xb: Any,
+    concepts: List[str],
+    form: str,
+    period_of_report: str,
+    max_items: int = 5,
+    *,
+    qualified_concept: bool = False,
+) -> Tuple[List[Tuple[str, float, Optional[str]]], Optional[str], Optional[str]]:
+    """As :func:`duration_series_currency_concept`, but each entry also carries the SOURCE start.
+
+    The duration is what proves a figure covers the year (or quarter) a claim names, and this is
+    the only place that knows it: every candidate here already passed ``duration_in_window``, and
+    that proof used to be discarded at the tuple boundary — leaving downstream consumers unable to
+    tell an annual figure from a quarterly one sharing its period end.
+
+    The start is taken from the exact source fact(s) the value was resolved from — never inferred
+    from the form, the fiscal label, the period end, comparative cadence or value matching. When
+    the equal-valued facts behind one period disagree on their start, or carry none, the start is
+    ``None``: the uncertainty is preserved rather than resolved to a convenient date.
+    """
+    for concept in concepts:
+        candidates: List[Tuple[str, float, Optional[str], float, Optional[str]]] = []
+        records, queried_concept = _fact_records_with_concept(xb, concept)
+        for row in records:
+            if row.get("is_dimensioned"):
+                continue
+            end = _iso_date(row.get("period_end"))
+            value = _numeric(row.get("numeric_value"))
+            if end is None or value is None or end > period_of_report:
+                continue
+            if not duration_in_window(row.get("period_start"), end, form):
+                continue
+            candidates.append((end, value, _currency(row), _parse_decimals(row.get("decimals")),
+                               _iso_date(row.get("period_start"))))
+        currency = _reporting_currency([(e, v, c, d) for e, v, c, d, _s in candidates],
+                                       period_of_report)
+        values_by_end: Dict[str, List[Tuple[float, float]]] = {}
+        # Every start seen for a given (period end, resolved-precision value). One unanimous
+        # non-null start is the selected fact's; anything else stays unknown.
+        starts_by_entry: Dict[Tuple[str, float], set] = {}
+        for end, value, ccy, dec, start in candidates:
+            if currency is not None and ccy != currency:
+                continue
+            rounded = round(value, 4)
+            values_by_end.setdefault(end, []).append((rounded, dec))
+            starts_by_entry.setdefault((end, rounded), set()).add(start)
+        series = _series_from_values(values_by_end, period_of_report, max_items)
+        if series:
+            dated = [(end, value, _unanimous_start(starts_by_entry.get((end, round(value, 4)))))
+                     for end, value in series]
+            return dated, currency, queried_concept if qualified_concept else concept
+    return [], None, None
+
+
+def _unanimous_start(starts: Optional[set]) -> Optional[str]:
+    """The one start every equal-valued source fact agreed on, or None when they did not."""
+    if not starts or len(starts) != 1:
+        return None
+    only = next(iter(starts))
+    return only if isinstance(only, str) else None
+
+
 def duration_series_currency_concept(
     xb: Any,
     concepts: List[str],
@@ -387,31 +450,14 @@ def duration_series_currency_concept(
     currency, and concept is the winning us-gaap/ifrs candidate (recorded as a ``raw_tag`` so
     downstream can detect a concept that flips between filings). Set qualified_concept to retain
     the exact successful namespace query; the default preserves the historical bare-name API.
-    Both are None when nothing resolves.
+    Both are None when nothing resolves. Selection, currency filtering and precedence live in
+    :func:`duration_series_with_starts`; this drops the per-entry source start so the long-standing
+    ``(end, value)`` shape every existing consumer reads is unchanged.
     """
-    for concept in concepts:
-        candidates: List[Tuple[str, float, Optional[str], float]] = []
-        records, queried_concept = _fact_records_with_concept(xb, concept)
-        for row in records:
-            if row.get("is_dimensioned"):
-                continue
-            end = _iso_date(row.get("period_end"))
-            value = _numeric(row.get("numeric_value"))
-            if end is None or value is None or end > period_of_report:
-                continue
-            if not duration_in_window(row.get("period_start"), end, form):
-                continue
-            candidates.append((end, value, _currency(row), _parse_decimals(row.get("decimals"))))
-        currency = _reporting_currency(candidates, period_of_report)
-        values_by_end: Dict[str, List[Tuple[float, float]]] = {}
-        for end, value, ccy, dec in candidates:
-            if currency is not None and ccy != currency:
-                continue
-            values_by_end.setdefault(end, []).append((round(value, 4), dec))
-        series = _series_from_values(values_by_end, period_of_report, max_items)
-        if series:
-            return series, currency, queried_concept if qualified_concept else concept
-    return [], None, None
+    dated, currency, concept = duration_series_with_starts(
+        xb, concepts, form, period_of_report, max_items, qualified_concept=qualified_concept,
+    )
+    return [(end, value) for end, value, _start in dated], currency, concept
 
 
 def duration_series_with_currency(
