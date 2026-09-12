@@ -4741,8 +4741,10 @@ The first ready evaluation `34688285251` completed18/scored18/errors0, passing17
 
 - [x] Publish consolidated provenance head131523498c6858b7c516ba4690cb0f718a0b7f64 after committed full gate:2878passed/29warnings88.48s; ready once for the first Copilot evaluation.
 - [x] Retain failed first Copilot output and return#808 to draft while resolving the mismatch.
-- [ ] Reuse the canonical verifier minimum in the actual Copilot request instruction; preserve contiguous-only citations, existing fact markers, verifier threshold and hard veto. Clarify the scorer diagnostic to distinguish failed verification from proof of absence.
+- [x] Reuse the canonical verifier minimum in the actual Copilot request instruction; preserve contiguous-only citations, existing fact markers, verifier threshold and hard veto. Clarify the scorer diagnostic to distinguish failed verification from proof of absence.
 - [ ] Extend the existing actual-message wiring gate, retain one committed mutation proof for the new minimum-delivery invariant, and run the full committed gate and three review lenses. This proves instruction delivery, not universal model compliance.
 - [ ] Perform the authorized second confirmed-finding assessment only after that correction; record actual three-draw Copilot and summary outcomes before release. Reason for second paid run: first live assessment exposed the undisclosed citation-length contract, not a retry to seek a green badge.
 
 No source snapping, threshold relaxation, invalid-citation deletion, production flag, provider/model change or baseline re-pin is part of this correction. The shared summary baseline does not measure this Copilot-only instruction. Universe-wide pregeneration and general financial-quality acceptance remain held.
+
+#808 correction proof checkpoint: reviewed implementationd32c150ecf5e694841813f12d9cefcd8ce1eae71; committed mutation4faa93bf removes only the delivered minimum and yields1failed/6deselected/2warnings2.31s. Restoration3f4a02343b9c2e7a8cd1860239ee7db17e8e84f2 yields1passed/6deselected/2warnings1.26s. A first invocation from the repository root failed collection before app import; it is retained separately and is not the mutation proof. Independent review found no surviving correction defect after two refutations. Full committed gate and actual second assessment remain pending.
