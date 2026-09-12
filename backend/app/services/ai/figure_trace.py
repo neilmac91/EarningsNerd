@@ -22,7 +22,7 @@ Scope + precision decisions (measured on the golden corpus, see the PR readout):
   (a summed "total debt", a netted "net cash") the pipeline should compute — the T5 signal.
 * **Police model prose only.** The v2 renderer injects XBRL figures into the ``results_that_matter``
   table by construction, so tables, verbatim quotes, and machine-authored ``cash_flow`` /
-  ``working_capital`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
+  ``working_capital`` / ``leverage`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
   One table column IS policed: ``segments[].commentary`` carries a model-written driver merged onto the
   machine rows (T5.2b); its machine half is %-only, invisible to this dollar gate.
 
@@ -80,7 +80,7 @@ _COMMA_SCALES = (1.0, 1e3, 1e6)
 # that is no longer an assumption: the T5.4 forward_quote_gate verifies each one against the
 # filing text at generation time, so an unverbatim "quote" is counted, and dropped when the gate
 # is armed, before it could ever reach this scan), and the fields machine-authored from XBRL by
-# the filler — balance_sheet_liquidity.cash_flow / .working_capital,
+# the filler — balance_sheet_liquidity.cash_flow / .working_capital / .leverage,
 # earnings_quality.cash_conversion, and value_drivers.shareholder_returns / .returns_on_capital
 # (numbers from code, already grounded in XBRL at authoring time, so re-policing them as if the
 # model wrote them is category-wrong).
@@ -89,7 +89,7 @@ _PROSE_STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "earnings_quality": ("operating_vs_one_time",),
     "value_drivers": ("capital_allocation",),
     "forward_signals": ("guidance",),
-    "balance_sheet_liquidity": ("leverage", "liquidity"),
+    "balance_sheet_liquidity": ("liquidity",),
 }
 _PROSE_LIST_FIELDS: dict[str, tuple[str, ...]] = {
     "the_print": ("key_takeaways",),

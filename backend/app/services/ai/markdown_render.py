@@ -15,6 +15,11 @@ from typing import Any, Dict, List, Optional
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
+from app.services.ai.debt_scope import (
+    build_debt_scope_view,
+    leverage_statement,
+    model_leverage_is_admissible,
+)
 from app.services.ai.xbrl_narrative import cash_flow_basis, return_ratio_basis, returns_ratio_in_band
 
 
@@ -405,6 +410,37 @@ class _MarkdownRenderMixin:
             bsl["cash_flow"] = "Cash flow — " + ", ".join(
                 f"{label} {val}" for label, val in cash_legs if val
             ) + "."
+        # balance_sheet_liquidity.leverage: CODE-OWNED, from source-qualified debt evidence.
+        #
+        # This field's own schema description is "<total debt vs cash / equity; net position>" — it
+        # is a numeric scope claim end to end, and the retained outcomes show the model cannot make
+        # it safely: "Total debt was $38.2B" against a filing whose only verifiable balance is
+        # $34,624M of NONCURRENT debt (short-term borrowings still missing), "cash ... exceed total
+        # debt" on a scope short two components, a current-plus-noncurrent concept relabelled
+        # "long-term debt" with a separate current figure added beside it, and a "cash net of debt"
+        # read mixing a finance subsidiary with the consolidated entity. A correct block beside that
+        # prose is not a fix, so ownership is an invariant here exactly as it is for
+        # `cash_conversion`: the field is machine-authored or absent, never model-authored.
+        #
+        # Model prose is not discarded wholesale, though. Leverage text that makes NO debt or
+        # leverage claim (an equity / asset / cash read the source statement does not cover) is
+        # genuine analysis and is kept verbatim after the source statement; `debt_scope` judges the
+        # whole field, so no sentence is rewritten and no clause is relabelled. And the replacement
+        # is never silent: the statement names the scope the filing DOES establish and the bands it
+        # does not, so missing debt reads as unknown rather than zero or net cash.
+        #
+        # A section is not CREATED merely to say debt is unverifiable: with no debt evidence and an
+        # otherwise empty §8 there is nothing to qualify, and authoring anyway would flip an empty
+        # section to "covered" on that sentence alone.
+        debt_view = build_debt_scope_view(xbrl_metrics)
+        if debt_view.has_evidence or bsl:
+            model_leverage = bsl.get("leverage")
+            bsl["leverage"] = leverage_statement(
+                debt_view,
+                format_currency,
+                model_leverage if model_leverage_is_admissible(model_leverage) else None,
+            )
+
         if bsl:
             sections["balance_sheet_liquidity"] = bsl
 

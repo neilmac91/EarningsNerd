@@ -128,10 +128,16 @@ def test_apply_structured_fallbacks_surfaces_cashflow_and_working_capital_v2():
 
 
 def test_apply_structured_fallbacks_preserves_model_liquidity_commentary():
-    """The deterministic surfacing OWNS the figure fields (working_capital, cash_flow) but must leave
-    the model's qualitative `leverage` + `liquidity` prose untouched — numbers from code, words from
-    the model. The figure fields are authored even when the model wrote an unrelated "$" nearby (a
-    plain presence check would wrongly suppress the specific facts)."""
+    """The deterministic surfacing OWNS the figure fields (working_capital, cash_flow, and — since
+    the debt-scope slice — `leverage`) while the model's qualitative `liquidity` prose stays
+    untouched: numbers from code, words from the model. The figure fields are authored even when the
+    model wrote an unrelated "$" nearby (a plain presence check would wrongly suppress the specific
+    facts).
+
+    `leverage` moved to code because it is a scope claim end to end. Here the model asserts a NET
+    DEBT multiple for a filing whose standardized data carries no debt balance at all, which is the
+    class that must not survive; the replacement says so explicitly rather than silently dropping
+    it, and `liquidity` — which makes no debt claim — is still preserved verbatim beside it."""
     sections = {"balance_sheet_liquidity": {
         "leverage": "Net debt/EBITDA held at 1.2x.",
         "liquidity": "Ample liquidity — $12.7B in cash and an undrawn revolver.",
@@ -146,8 +152,11 @@ def test_apply_structured_fallbacks_preserves_model_liquidity_commentary():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     bsl = sections["balance_sheet_liquidity"]
-    # Model qualitative fields preserved verbatim.
-    assert bsl["leverage"] == "Net debt/EBITDA held at 1.2x."
+    # The model's unsupported net-debt multiple does not survive, and its absence is stated.
+    assert "1.2x" not in bsl["leverage"]
+    assert "reports no debt balance" in bsl["leverage"]
+    assert "not zero debt and not a net cash position" in bsl["leverage"]
+    # Model qualitative prose that makes no debt claim is still preserved verbatim.
     assert bsl["liquidity"] == "Ample liquidity — $12.7B in cash and an undrawn revolver."
     # Figure fields authored from XBRL (the model's number-free working_capital is replaced).
     assert "$30.6B" in bsl["working_capital"] and "$24.3B" in bsl["working_capital"]
