@@ -213,3 +213,13 @@ Stop when the audit PR and the reconciled candidates are merged or blocked on a 
 prerequisite, and every remaining item is listed in `tasks/todo.md` with its blocker. Then give
 the founder one message: what merged, what is blocked on what, the DeepSeek balance, and the
 single most useful decision they could make next.
+
+## September 12, post-audit correction — current continuation state
+
+The [completed migration audit](audit-astra-2026-09-11.md) and this section supersede the pre-audit instructions above. Audit #816 merged as `2e2cfabd690e8e6abeaa3db01ef6c5eec442995f`. Usage-conservation #818 is merged as `3ea7fc27455418716c9819836d26ce9d59646158` and production-verified: main CI 34686557889, migrations 0/39, revision `earningsnerd-backend-00330-24t` at 100%, healthy CI and independent detailed health. Do not repeat that fix, its completed full gates, or either accepted assessment (summary 34686113163; first ready Copilot 34686148069).
+
+Current-main audit gates completed: backend 2,870 tests with all four PostgreSQL lanes/performance; frontend lint, TypeScript, 592 tests and production build. #818's committed integration passed 2,875 tests, its one mutation proof and independent review. The read-only balance prerequisite completed once in run 34685968538, reporting USD 89.17 at 09:29 UTC before the paid assessments. That point-in-time balance is historical evidence, not an instruction to repeat the readout or an invoice. Failed historical usage remains unknown.
+
+Eval-error-outcome #796, reported-metric d #799 and preview #803 were already merged and verified; do not repeat their releases or consume a third #799/#803 assessment. #805 remains held after its first failed financial acceptance. #808's exact T9 two-row/docstring exception was approved September 9 and reconciled September 12. Its consolidated local integration `047696da8e2807476f5a77bd9080255f3f52436e` passed 2,878 tests; integrate subsequent documentation without losing ledger history, verify committed state, then publish and inspect current-Flash acceptance. It has not yet been pushed or production-verified. Continue the independent cash-basis, source-backed explanation and bounded source-coverage work in serial reviewable slices.
+
+DeepSeek's [official notice](https://api-docs.deepseek.com/quick_start/pricing), retrieved September 12, says V4 Pro continues after September 14 with unchanged billing. This supersedes the retirement premise without changing approved Flash routing or disabled thinking. Pricing-estimator findings remain recorded. Original founder-held prerequisites, every other locked contract, and the universe-wide pregeneration/historical-replay hold remain in force.

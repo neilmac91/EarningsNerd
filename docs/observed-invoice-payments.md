@@ -80,3 +80,13 @@ Account exports (`GET /api/users/export`) include every retained observation att
 requesting account in `billing_payments`, including live and test modes and optional unknown
 fields. Other accounts and unattributed allocations are excluded. UTC payment/observation times
 are serialized with `Z`; this export does not change the report's revenue exclusions.
+
+## September 12, 2026 — observed production configuration
+
+At 10:06:49 UTC, after the founder explicitly approved the exact event addition, independent readback confirmed that the enabled live endpoint `https://api.earningsnerd.io/api/subscriptions/webhook` subscribes to `invoice_payment.paid` on API version `2025-10-29.clover`. Its six existing checkout/subscription/dunning events, URL, status and all other fields were unchanged. The earlier observation found that event absent; the initial approval rejection caused no mutation. The later exact approval resolved that specific boundary and authorized the successful addition, not broader account changes.
+
+Selected events are now `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `customer.subscription.trial_will_end` and `invoice_payment.paid`.
+
+Stripe's [event introduction](https://docs.stripe.com/changelog/basil/2025-05-28/partial-payments), [versioned event types](https://docs.stripe.com/api/events/types?api-version=2025-10-29.clover) and [InvoicePayment object](https://docs.stripe.com/api/invoice-payment/object?api-version=2025-10-29.clover) match the existing paid-event validator. Enrichment already accepts current and legacy subscription/price references; no code or endpoint-version change was required.
+
+This completes configuration readiness. Successful delivery, signature acceptance and application attribution of a naturally occurring future payment remain unverified. No test event, historical replay or customer/payment lookup was performed. Configuration alone does not prove collected revenue, historical completeness or current recurring revenue.

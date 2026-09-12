@@ -67,3 +67,9 @@ the model id is still written in nine places until the single-source change land
 
 **Later opportunity (parked):** `deepseek-flash` accepts image input natively; filings are text
 and iXBRL, so no near-term use. Revisit for scanned 6-K/20-F exhibits.
+
+## September 12 factual correction
+
+[DeepSeek's current official pricing notice](https://api-docs.deepseek.com/quick_start/pricing), retrieved September12, now states that V4 Pro service continues after September14 with unchanged billing. This supersedes the retirement premise recorded above. It does not reverse this accepted model choice: production remains Flash with thinking off. Current Flash off-peak prices and2× peak schedule match the configuration; Pro retains its own $0.022/$0.66/$1.98 tariff per million tokens.
+
+The frozen Flash report's forward fidelity and financial-depth means are0.9103 and0.9316 (also reproduced from its rows), correcting0.923 and0.936 above. Its source SHA records HEAD but does not establish a clean measured working tree: the report includes observer fields introduced after that commit. The generation code comparison found no prompt difference; a different working tree is not evidence of different generation. See the [September12 audit](../../tasks/audit-astra-2026-09-11.md) for bounded measurement and historical cost/gate evidence.
