@@ -28,10 +28,10 @@ def instance_xml(*, current=2904, prior=1959, older=-267, prior_start="2024-01-0
             f'<context id="{ref}"><entity><identifier scheme="http://www.sec.gov/CIK">'
             f'{entity}</identifier>{segment}</entity><period><startDate>{start}</startDate>'
             f'<endDate>{year}-12-31</endDate></period>{scenario}</context>')
-    return (f'<xbrl xmlns="http://www.xbrl.org/2003/instance" '
-            f'xmlns:us-gaap="http://fasb.org/us-gaap/2025" '
-            f'xmlns:iso4217="http://www.xbrl.org/2003/iso4217" '
-            f'xmlns:xbrldi="http://xbrl.org/2006/xbrldi">'
+    return ('<xbrl xmlns="http://www.xbrl.org/2003/instance" '
+            'xmlns:us-gaap="http://fasb.org/us-gaap/2025" '
+            'xmlns:iso4217="http://www.xbrl.org/2003/iso4217" '
+            'xmlns:xbrldi="http://xbrl.org/2006/xbrldi">'
             + ''.join(contexts)
             + '<unit id="usd"><measure>iso4217:USD</measure></unit>'
             + f'<unit id="priorunit"><measure>iso4217:{prior_currency}</measure></unit>'
