@@ -5118,3 +5118,16 @@ No further #825 assessment is required by this record. World-class quality and u
 - [ ] Continue source completeness, financial relationship explanations and ASML/general citation residuals. Broad quality acceptance, strong-judge prerequisites, historical replay and universe-wide pregeneration remain held.
 
 This dated correction supersedes earlier candidate-only debt status without rewriting historical records. Both external agents are finished; Codex owns the release queue.
+
+
+## September 13 local / September 12 UTC — A+B release milestone complete
+
+- [x] Agent A source-qualified debt is released in #829 and production-verified; #830 preserves its actual assessment and deployment record.
+- [x] Agent B source-duration/citation implementation is released in #831, merge `9d3b8b472502fd27c70980ba8b5b73e6b130d2e8`. Full combined local gate: 3,071 tests on PostgreSQL 15, four lanes and performance; three invariant mutation proofs retained. The approved T9 exception changes only seven expected dictionaries.
+- [x] Actual B assessment accepted within scope: 52 summaries without errors/retries/hard vetoes, 18 correct requested Copilot answers, all debt outputs preserved. General ASML citations and historical undated rows remain unresolved.
+- [x] Main CI `34722282522` and deploy `103630629427` succeeded, migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00336-47r` at 100%, CI and independent detailed health healthy. See [release evidence](citation-duration-release-2026-09-12.md).
+- [x] Both external agents' implementation reviews are complete. Codex integrated their changes and verified deployments serially; branches can remain unchanged.
+- [ ] Implement the next [financial relationship slice](financial-relationship-next-2026-09-13.md), beginning with source-qualified financing comparison. Current assessment still demonstrates AAPL distribution/OCF, MELI financing-direction and derived/issuer FCF interpretation defects.
+- [ ] Continue source completeness and general citation work, then scoped independent quality acceptance. A deterministic PASS is not world-class quality clearance.
+
+This dated correction supersedes earlier B publication/deployment-pending status. Earlier failures and assessments remain intact. Notable waits for the review-week retain decision through September 15; Analysis still needs warm-up/live acceptance; W3-7 needs its prescribed strong-judge artifact/decision, followed by serial W3-8 work under the existing timing rule. E06 awaits natural payment delivery evidence; E09 remains proposal-only. Major dependencies, D8/#270 and other founder-held settings remain held. Universe-wide pregeneration and historical replay remain held.
