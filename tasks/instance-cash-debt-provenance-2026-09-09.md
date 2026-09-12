@@ -15,11 +15,15 @@ split above was prepared while that decision was held; draft #808 now incorporat
 companyfacts remainder under the same winning-concept propagation invariant. Earlier validation
 records remain historical, and old Pro measurements are not current Flash acceptance.
 
-- [ ] Carry the prepared companyfacts winning concept through its existing raw_tag standardizer.
-- [ ] Add only the two approved cash-row raw_tag expectations and bucket-record docstring clarification in T9.
-- [ ] Preserve all other locked assertions and source-selection/value behavior; retain the sole original proof.
+- [x] Carry the prepared companyfacts winning concept through its existing raw_tag standardizer.
+- [x] Add only the two approved cash-row raw_tag expectations and bucket-record docstring clarification in T9.
+- [x] Preserve all other locked assertions and source-selection/value behavior; retain the sole original proof.
 - [ ] Complete fresh committed integration gates, current Flash assessment and serial release verification.
 
 This preserves observed concept identity only: it does not prove total borrowings, unrestricted
 cash, accounting basis, complete source coverage or world-class narrative quality. Tagless stored
 records stay unknown; no replay or refresh is performed.
+
+Read-only comparison confirms the extractor, XBRL service and complete invariant match original
+full candidate `5521f00b` byte-for-byte. Ten other locks and the recorded fixture are unchanged;
+T9 matches only the exact approved patch. No new test or mutation run is claimed by this preparation.

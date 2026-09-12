@@ -4621,9 +4621,9 @@ minimal bucket-record docstring clarification proposed on September 9. This is t
 other assertions and the recorded fixture remain unchanged. The earlier pending-decision records
 remain historical. Consolidate the original full preparation into the existing draft #808.
 
-- [ ] Integrate current main and restore only the prepared companyfacts remainder alongside the instance metadata.
-- [ ] Apply the exact approved T9 two-row/docstring extension; verify all other locked anchors unchanged.
-- [ ] Retain the original single propagation proof, without repeating it; review the restored complete invariant.
+- [x] Integrate current main and restore only the prepared companyfacts remainder alongside the instance metadata.
+- [x] Apply the exact approved T9 two-row/docstring extension; verify all other locked anchors unchanged.
+- [x] Retain the original single propagation proof, without repeating it; review the restored complete invariant.
 - [ ] Integrate verified M3, run full committed gates and actual Flash assessment before release.
 
 No new source fetch, historical replay, prompt/model/flag change or paid run is authorized by this
