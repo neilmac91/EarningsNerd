@@ -4714,3 +4714,22 @@ The founder subsequently approved the exact addition of `invoice_payment.paid`. 
 - [x] Record the founder's exact approval, fresh prerequisite read, successful one-event update and independent readback.
 - [x] Complete E06 endpoint observation, schema compatibility reconciliation and forward event-selection configuration. The old pending-approval entries are superseded.
 - [ ] Observe a naturally occurring future invoice-payment delivery and application attribution before claiming operational payment coverage. No test event, replay, customer read or account test was performed. Historical completeness, MRR and net revenue are not established by this configuration.
+
+## September 12 — current-Flash review archive preparation
+
+- [x] Archive all three current-Flash review reports and the priority, explanation and source-unit design notes verbatim; append corrections separately.
+- [x] Reconcile current continuation and quality priorities without changing historical records or founder holds.
+- [x] Check documentation links/anchors and docs-only scope: eight snapshots byte-identical; twelve local links/anchors checked with zero failures.
+- [ ] Publish only after root authorization and #808 production verification; final release evidence is still pending.
+
+### September 12 — provenance and financial-quality continuation
+
+This dated continuation supersedes older pending-release wording without rewriting it. [#819](https://github.com/neilmac91/EarningsNerd/pull/819) and E06 endpoint/schema/event-selection reconciliation are complete. E06 still requires a naturally occurring invoice-payment delivery before operational attribution can be claimed; no replay or live test is authorized by this record.
+
+- [x] Preserve the [current-Flash review archive](review-evidence/current-flash-2026-09-12/README.md), including source-coverage limits and the dated ASML principal-versus-carrying correction.
+- [x] Accept #808's first metadata/data-conservation assessment only. First Copilot17/18 failed on present-but-too-short citations; retain the failed assessment and correction instead of calling it a flake.
+- [ ] Complete #808's second assessment for correction `0e6b076b3e1112c7e11fb3170b64c941d880a18f` (local gate2,878/29 in83.93s), then normal merge and serial production verification. No merge/deploy completion is claimed here.
+- [ ] Publish the separately gated cash-basis candidate `e9dbe8b991cfd393033f88e277c434d9e3540cc5` (2,885 passes/29 warnings in85.80s) only after the prerequisite release is verified and root authorizes publication; it is currently local.
+- [ ] Implement source-qualified standalone units and a narrow semantic registry/projection, then restricted numerical comparisons and scoped guidance coverage. Use the [priority snapshot](review-evidence/current-flash-2026-09-12/flash-quality-priority-plan-20260912.md) with the archive's dated corrections. Metadata retention alone is not an output fix; a tax bridge does not solve all unusual-item prose.
+
+All original master-plan founder holds remain. #805 is rejected/held; model, flags, prices, legal/account boundaries, locked tests and baseline are not changed by these plans. Universe-wide pregeneration remains held until output quality earns founder confidence. Historical replay remains held.
