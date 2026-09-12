@@ -513,7 +513,7 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
-            # Preview has no owned source context; never display a model-authored unit badge.
+            # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
             restore_authored_plan_units(sections, capital_plan)
             completed_keys = tuple(
