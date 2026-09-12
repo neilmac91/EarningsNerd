@@ -1,6 +1,6 @@
 # Astra migration audit — September 12, 2026
 
-Audit of `a811faf6cb11c74c0ffc12a4b0c93d385c194fdd` (#807) through `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815), including the backend portion of #814. The audit confirms three must-fix findings: wrong production attribution, instructions to repeat merged work, and lost evaluation usage on failures/retries. The first two have dated documentation corrections. The third is fixed by merged, production-verified [#818](https://github.com/neilmac91/EarningsNerd/pull/818). Audit investigation and required code remediation are complete; publication through audit PR #816 remains pending. Successful technical gates do not clear financial quality.
+Audit of `a811faf6cb11c74c0ffc12a4b0c93d385c194fdd` (#807) through `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815), including the backend portion of #814. The audit confirms three must-fix findings: wrong production attribution, instructions to repeat merged work, and lost evaluation usage on failures/retries. The first two have dated documentation corrections. The third is fixed by merged, production-verified [#818](https://github.com/neilmac91/EarningsNerd/pull/818). Audit investigation and required code remediation are complete; audit PR #816 merged as `2e2cfabd690e8e6abeaa3db01ef6c5eec442995f`. A subsequent docs-only correction synchronizes its continuation instructions with that completed state. Successful technical gates do not clear financial quality.
 
 ## Verification and current release state
 

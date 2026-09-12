@@ -4692,3 +4692,5 @@ Two refutations were attempted. First, following the audit link yields the corre
 - [x] Merge audit #816; correct the stale current continuation state in this follow-up.
 - [ ] Resume #808 after this correction: its approved T9 consolidation passes 2,878 local tests but needs final documentation integration, committed verification and current-Flash hosted acceptance.
 - [ ] Continue cash-flow basis, source-qualified explanations, bounded source coverage and remaining original master-plan items; no broad pregeneration or historical replay.
+
+Independent follow-up review found the same stale action in the migration coordination correction, and an audit introduction still describing its own publication as pending. Following the audit link did not remove those explicit current-state conflicts; actual merged release records refuted unfinished work. Both current September 12 sections are corrected in this same follow-up; earlier September 10/11 records are preserved.
