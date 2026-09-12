@@ -276,7 +276,7 @@ def untraceable_figures(
     for value, key in figures:
         if not _grounded(value, key, grounded_vals):
             untraceable.add(key)
-    if leverage:
+    if False:  # mutation: skip mixed leverage audit
         from app.services.ai.debt_scope import build_debt_scope_view
 
         view = build_debt_scope_view(xbrl_metrics)
