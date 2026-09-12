@@ -2401,8 +2401,7 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
-```
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s =```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
 The existing asynchronous Yahoo-client shutdown logging diagnostic follows the passing
@@ -4613,6 +4612,21 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 
 - [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).
 
+## September 12 — approved cash concept contract extension in #808
+
+The founder approved retaining the selected cash concept in the two T9 expected records and the
+minimal bucket-record docstring clarification proposed on September 9. This is the narrow
+`test_companyfacts_fixture.py` exception only; amounts, dates, forms, accession, full equality,
+other assertions and the recorded fixture remain unchanged. The earlier pending-decision records
+remain historical. Consolidate the original full preparation into the existing draft #808.
+
+- [x] Integrate current main and restore only the prepared companyfacts remainder alongside the instance metadata.
+- [x] Apply the exact approved T9 two-row/docstring extension; verify all other locked anchors unchanged.
+- [x] Retain the original single propagation proof, without repeating it; review the restored complete invariant.
+- [ ] Integrate verified M3, run full committed gates and actual Flash assessment before release.
+
+No new source fetch, historical replay, prompt/model/flag change or paid run is authorized by this
+local preparation. The ordinary review and serial production verification remain required.
 ## September 12 — migration audit and quality continuation (dated correction)
 
 This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
@@ -4740,3 +4754,23 @@ All original master-plan founder holds remain. #805 is rejected/held; model, fla
 - [ ] Complete separate summary CI34691090937 (two summary repeats per filing), then merge and production verification. Verified synthetic source `c0999c8df55751a8a7a5d3e2941e312ed7aa541d` equals the final correction tree; that execution identity is not a deployment record.
 
 This supersedes only the prior Copilot-pending status. Financial-quality, pregeneration and original founder holds remain unchanged.
+
+### September 12 — #808 pre-publication integration checkpoint
+
+The approved T9 consolidation now incorporates verified #818 and documentation releases #816/#819, preserving both sides of the appended-ledger conflict. Extraction code and the complete source-propagation invariant are unchanged from reviewed `c5b1eb698c6f26bdaf183a60407d633889f39d1c`; the only locked difference remains the exact approved T9 two rows/docstring. The previous integrated gate at `047696da8e2807476f5a77bd9080255f3f52436e` passed 2,878 tests; run the final committed publication gate after this documentation integration. Retain the original single proof and historical Pro readout. The current-Flash summary assessment and first ready Copilot evaluation follow under standing authorization; publication/acceptance/deployment outcomes belong in the PR and subsequent dated release record. Read remote PR state before any repeat action.
+
+### 2026-09-12 — #808 first current-Flash Copilot finding and bounded correction
+
+The first ready evaluation `34688285251` completed18/scored18/errors0, passing17. ASML repeat0 has correct EUR figures with valid fact citations, but adds two present source excerpts shorter than the shared verifier's24-normalized-character minimum. Exact retained-source matching refutes fabrication; replay through the product verifier/scorer retains the hard rejection. The prompt requests the shortest contiguous span without communicating that minimum. This is not a provider failure or a reason for a blind retry. The original failed artifact remains unchanged.
+
+- [x] Publish consolidated provenance head131523498c6858b7c516ba4690cb0f718a0b7f64 after committed full gate:2878passed/29warnings88.48s; ready once for the first Copilot evaluation.
+- [x] Retain failed first Copilot output and return#808 to draft while resolving the mismatch.
+- [x] Reuse the canonical verifier minimum in the actual Copilot request instruction; preserve contiguous-only citations, existing fact markers, verifier threshold and hard veto. Clarify the scorer diagnostic to distinguish failed verification from proof of absence.
+- [ ] Extend the existing actual-message wiring gate, retain one committed mutation proof for the new minimum-delivery invariant, and run the full committed gate and three review lenses. This proves instruction delivery, not universal model compliance.
+- [ ] Perform the authorized second confirmed-finding assessment only after that correction; record actual three-draw Copilot and summary outcomes before release. Reason for second paid run: first live assessment exposed the undisclosed citation-length contract, not a retry to seek a green badge.
+
+No source snapping, threshold relaxation, invalid-citation deletion, production flag, provider/model change or baseline re-pin is part of this correction. The shared summary baseline does not measure this Copilot-only instruction. Universe-wide pregeneration and general financial-quality acceptance remain held.
+
+#808 correction proof checkpoint: reviewed implementationd32c150ecf5e694841813f12d9cefcd8ce1eae71; committed mutation4faa93bf removes only the delivered minimum and yields1failed/6deselected/2warnings2.31s. Restoration3f4a02343b9c2e7a8cd1860239ee7db17e8e84f2 yields1passed/6deselected/2warnings1.26s. A first invocation from the repository root failed collection before app import; it is retained separately and is not the mutation proof. Independent review found no surviving correction defect after two refutations. Full committed gate and actual second assessment remain pending.
+
+The first correction full gate stopped at Bandit B608 before pytest: its SQL heuristic matched the English “select ... from” inside the existing prompt f-string. The prompt has no SQL execution path. Changing the instruction to “choose a longer contiguous source span” preserves the same behavior without suppressing Bandit; the canonical minimum and its existing proof are unchanged. Re-run the complete gate on the corrected commit.
