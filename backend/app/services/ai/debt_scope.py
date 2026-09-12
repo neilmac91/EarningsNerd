@@ -244,7 +244,7 @@ def build_debt_scope_view(xbrl_metrics: Optional[Dict[str, Any]]) -> DebtScopeVi
         # A subtotal needs BOTH a complete partition and no overlapping pair inside it. The
         # partition table already excludes overlaps, but checking pairwise keeps the two rules
         # independent, so widening one table can never silently license a double count.
-        if not _any_overlap(frozen):  # MUTATION: closure requirement removed
+        if is_complete_borrowing_partition(scopes) and not _any_overlap(frozen):
             subtotal = sum(obs.value for obs in frozen)
     return DebtScopeView(
         observations=frozen,
