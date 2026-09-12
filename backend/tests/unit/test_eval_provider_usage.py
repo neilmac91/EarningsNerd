@@ -159,3 +159,90 @@ def test_compare_reports_pairs_by_identity_and_excludes_errors_from_means(tmp_pa
     out = capsys.readouterr().out
     assert "2 paired attempts, gates lost 0" in out and "TimeoutError" in out and "n/a" in out
     assert json.loads((tmp_path / "out.json").read_text())["harness"]["b"] == {"model": "deepseek-flash"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endings", [
+    ("timeout", "success"), ("timeout", "timeout", "success"),
+    ("application_error",), ("exception",), ("unknown_only",),
+])
+async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, endings):
+    """One conservation invariant: terminal/retried failures cannot erase incurred usage."""
+    monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
+    observed = []
+    generation = 0
+
+    async def fake_summary(*args, stream_cb=None, **kwargs):
+        nonlocal generation
+        index = generation
+        generation += 1
+        if endings[index] != "unknown_only":
+            observed.append(ai_metrics.record_ai_call(
+                operation="summary_primary", provider="primary", actual_model="deepseek-flash",
+                usage={"prompt_tokens": 100 + index, "completion_tokens": 20 + index,
+                       "prompt_cache_hit_tokens": 70, "prompt_cache_miss_tokens": 30 + index},
+                outcome="success",
+            ))
+        if endings[index] != "success":
+            observed.append(ai_metrics.record_ai_call(
+                operation="section_recovery", provider="primary", actual_model=None,
+                usage=None, outcome="timeout",
+            ))
+        await stream_cb(f"generation {index}")
+        if endings[index] == "timeout":
+            raise TimeoutError("fixture timeout")
+        if endings[index] in {"exception", "unknown_only"}:
+            raise ValueError("fixture terminal error")
+        if endings[index] == "application_error":
+            return {"status": "error", "raw_summary": {"error": "fixture_failure"}}
+        return {"status": "complete", "raw_summary": {"sections": {}}, "summary": "ok"}
+
+    class Score:
+        def __init__(self):
+            self.schema_valid = True
+            self.repaired = False
+            self.passed_gates = True
+
+        def aggregate(self):
+            return 1.0
+
+    monkeypatch.setattr(openai_service, "summarize_filing", fake_summary)
+    monkeypatch.setattr(runner, "_baseline_to_canonical", lambda summary: {"executive_summary": "ok"})
+    monkeypatch.setattr(runner, "score_summary", lambda *a, **k: Score())
+    monkeypatch.setattr(runner, "measure_figures", lambda *a, **k: {})
+    filing = GoldenFiling("FIX", "1", "accession", "10-K", "https://example.test", "Fixture")
+    result = await runner._run_one(
+        "baseline", filing, {"filing_text": "raw", "excerpt": "chosen", "xbrl_metrics": {}},
+        transient_retries=2, retry_delay=0,
+    )
+    retry_count = len(endings) - 1
+    known_generations = 0 if endings == ("unknown_only",) else len(endings)
+    unknown_calls = sum(ending != "success" for ending in endings)
+    expected_tokens = sum(20 + index for index in range(known_generations)) if known_generations else None
+    incurred = result["incurred_provider_usage"]
+    assert incurred["calls"] == known_generations + unknown_calls == len(observed)
+    assert incurred["unknown_calls"] == unknown_calls
+    assert incurred["completion_tokens"] == expected_tokens
+    assert incurred["prompt_tokens"] == (sum(100 + i for i in range(known_generations)) if known_generations else None)
+    assert incurred["cache_hit_tokens"] == (70 * known_generations if known_generations else None)
+    assert incurred["cache_miss_tokens"] == (sum(30 + i for i in range(known_generations)) if known_generations else None)
+    assert incurred["reasoning_tokens"] is None
+    assert result["retried"] == retry_count
+    assert len(result["retry_provider_attempts"]) == retry_count
+    for index, attempt in enumerate(result["retry_provider_attempts"]):
+        assert attempt["attempt"] == index and "TimeoutError" in attempt["error"]
+        assert attempt["provider_usage"]["completion_tokens"] == 20 + index
+        assert attempt["provider_usage"]["unknown_calls"] == 1
+        assert attempt["latency_seconds"] >= 0
+    assert result["provider_usage"]["completion_tokens"] == (20 + retry_count if known_generations else None)
+    assert result["preview_frames"] == [f"generation {retry_count}"]
+    assert result["incurred_latency_seconds"] >= result["latency_seconds"]
+    assert (result["error"] is None) == (endings[-1] == "success")
+    assert ai_metrics._observer.get() is None
+    stats = runner._summarize([result])["baseline"]
+    assert stats["incurred_usage_attempts"] == 1
+    assert stats["incurred_provider_usage"] == incurred
+    assert stats["total_completion_tokens"] == result["provider_usage"]["completion_tokens"]
+    # Older reports remain readable, but missing incurred evidence is unavailable, not free.
+    legacy = runner._usage_stats([{"error": "old failure"}])
+    assert legacy["incurred_usage_attempts"] == 0 and legacy["incurred_provider_usage"] is None
