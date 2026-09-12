@@ -4733,3 +4733,10 @@ This dated continuation supersedes older pending-release wording without rewriti
 - [ ] Implement source-qualified standalone units and a narrow semantic registry/projection, then restricted numerical comparisons and scoped guidance coverage. Use the [priority snapshot](review-evidence/current-flash-2026-09-12/flash-quality-priority-plan-20260912.md) with the archive's dated corrections. Metadata retention alone is not an output fix; a tax bridge does not solve all unusual-item prose.
 
 All original master-plan founder holds remain. #805 is rejected/held; model, flags, prices, legal/account boundaries, locked tests and baseline are not changed by these plans. Universe-wide pregeneration remains held until output quality earns founder confidence. Historical replay remains held.
+
+### September 12 — second Copilot assessment completed; summary pending
+
+- [x] Preserve the [second #808 Copilot acceptance](review-evidence/current-flash-2026-09-12/pr808-second-copilot-acceptance.md) and [integrity evidence](review-evidence/current-flash-2026-09-12/pr808-second-copilot-integrity.json):18/18 under the existing gate, three draws per six pinned questions. ASML draws0 and2 remain uncited despite correct requested figures; do not describe all three ASML answers as repaired citation adherence.
+- [ ] Complete separate summary CI34691090937 (two summary repeats per filing), then merge and production verification. Verified synthetic source `c0999c8df55751a8a7a5d3e2941e312ed7aa541d` equals the final correction tree; that execution identity is not a deployment record.
+
+This supersedes only the prior Copilot-pending status. Financial-quality, pregeneration and original founder holds remain unchanged.
