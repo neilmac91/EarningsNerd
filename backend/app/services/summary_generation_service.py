@@ -151,7 +151,7 @@ MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
 # The v2 sections a machine-authored XBRL field can flip to "covered" with ZERO model contribution
 # (mirrors `_apply_structured_fallbacks` in ai/markdown_render.py): §3 `cash_conversion`,
 # §4 `shareholder_returns`/`returns_on_capital`, §7 `segments` (whole table), §8 `cash_flow`/
-# `working_capital`. Four sections — exactly the full bar — so a model-collapsed-but-parseable run
+# `working_capital`/`leverage`. Four sections — exactly the full bar — so a model-collapsed-but-parseable run
 # on an XBRL filer can tier "full" on machine content alone (T5.3 conscious ack, #621 staff
 # review). Update alongside any new machine-authored field; the T5.1/T5.2/T5.3 render tests pin
 # each field's authorship, and test_quality_assessment pins this set's effect on the counter.

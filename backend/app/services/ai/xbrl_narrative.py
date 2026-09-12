@@ -10,6 +10,11 @@ from typing import Any, Optional
 
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import _is_no_total_bank
+from app.services.ai.debt_scope import (
+    build_debt_scope_view,
+    debt_balance_label,
+    debt_grounding_lines,
+)
 
 # ±200% plausibility band for the ROE/ROA returns read, shared by BOTH model-facing surfaces — the
 # grounding narrative here and the machine-authored §4 line (markdown_render's `_ratio_clause`
@@ -91,6 +96,9 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Working Capital", "working_capital", "usd"),
     ("Current Ratio", "current_ratio", "ratio"),
     ("Cash & Equivalents", "cash_and_equivalents", "usd"),
+    # Label is OVERRIDDEN per filing by `debt_scope.debt_balance_label`: the winning concept
+    # decides the maturity scope, so no fixed label can be correct for every filer. This literal
+    # is only the fallback ordering key.
     ("Long-term Debt", "long_term_debt", "usd"),
     ("Shareholders' Equity", "shareholders_equity", "usd"),
 ]
@@ -138,6 +146,11 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     """
     if not isinstance(xbrl_metrics, dict):
         return ""
+    # One shared debt-scope owner for BOTH model-facing surfaces (the
+    # arch-guard-every-model-facing-surface lesson): the label the model reads here and the visible
+    # §8 leverage statement markdown_render authors come from this same view, so the model can
+    # never be fed a scope the render has just refused.
+    debt_view = build_debt_scope_view(xbrl_metrics)
     rows: list[str] = []
     for label, key, kind in _XBRL_NARRATIVE_SPEC:
         # Defensive: the metrics dict is produced by extract_standardized_metrics (always dict-shaped),
@@ -155,6 +168,11 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
             if derived_current is not None:
                 current, prior = derived_current, _working_capital_fallback(xbrl_metrics, "prior")
                 label = "Working Capital (Current Assets - Current Liabilities)"
+
+        # The selected debt balance is labelled by its own concept's scope, never by a fixed
+        # "Long-term Debt" that a noncurrent-only and a current-plus-noncurrent concept would share.
+        if key == "long_term_debt":
+            label = debt_balance_label(debt_view)
 
         if not isinstance(current, dict) or current.get("value") is None:
             continue
@@ -176,6 +194,14 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         rows.append(line)
     if not rows:
         return ""
+    # Source-qualified debt evidence and the explicit scope limit. Appended after the metric rows
+    # so the model reads each observation's own concept/instant/currency/context identity next to
+    # the figure, plus what this filing does NOT establish.
+    # Amounts use this block's own formatter, so they read like every other row here and the
+    # non-USD relabel below rewrites them with the reporting currency.
+    rows.extend(debt_grounding_lines(
+        debt_view, lambda value: _format_xbrl_metric_value(value, "usd"),
+    ))
     header = "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):"
     body = header + "\n" + "\n".join(rows)
     # Financial institutions need separate components, with a reported total preserved only
