@@ -4801,3 +4801,7 @@ CI detailed health passed at 11:46:44 UTC (database 5.68 ms). Independent `curl 
 - [ ] Continue source-unit ownership, compatible accounting/explanation relationships, typed numerical comparisons and scoped guidance coverage. Current reviews still contain material financial findings.
 
 E06 event-selection configuration is complete under the exact approval; naturally occurring delivery and attribution remain unobserved. No test event or replay was sent. Notable retain review through September 15, Analysis warm-up/live acceptance, the exact W3-7 strong-judge readout/arm decision, serial W3-8 re-pins, E09 proposal decisions, major dependencies, D8/#270, CI-only DeepSeek key and other named founder prerequisites remain as recorded. Universe-wide pregeneration and historical replay remain held; Flash with thinking off is unchanged.
+
+### September 12 — cash candidate made recoverable before handover
+
+The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now preserved on the remote [codex/wave3-standalone-cash-basis branch](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis). A fresh checkout can fetch that branch; its implementation is no longer dependent on a local worktree. This supersedes earlier “unpublished” only for branch publication: no cash PR, hosted assessment or production release is claimed yet. Subsequent documentation integration and its committed gate precede the draft PR.

@@ -56,3 +56,7 @@ E06 event-selection configuration is complete under the exact approval; naturall
 ### Local archive merge correction
 
 During integration of main, a local conflict cleanup briefly shortened one historical pytest separator line. The original line was restored before publication. The final integrated `tasks/todo.md` diff against main was checked as additions only; no earlier published ledger text is replaced. This was a local preparation error, not a released test result or a gate failure. The earlier cash-worktree incident remains separately recorded.
+
+### September 12 — cash candidate made recoverable before handover
+
+The fully gated cash candidate `37401e996c980fbdf01306fcb1472601b31c2eed` is now preserved on the remote [codex/wave3-standalone-cash-basis branch](https://github.com/neilmac91/EarningsNerd/tree/codex/wave3-standalone-cash-basis). A fresh checkout can fetch that branch; its implementation is no longer dependent on a local worktree. This supersedes earlier “unpublished” only for branch publication: no cash PR, hosted assessment or production release is claimed yet. Subsequent documentation integration and its committed gate precede the draft PR.
