@@ -132,3 +132,110 @@ async def test_only_code_owned_outer_envelope_authorizes_read_and_export(monkeyp
     for displayed in (web, pdf, csv, markdown):
         assert ('Source units:' in displayed) is (case == 'new_envelope')
     assert raw['sections']['forward_signals']['quotes'][0]['quote'] == QUOTE
+
+
+GUIDANCE = ('The Company stated it is its current intention to spend approximately $6,500 '
+            'on capital expenditures during fiscal 2026, and plans to open 13 additional '
+            'new warehouses, including one relocation, in the remainder of fiscal 2026.')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('case', [
+    'matching', 'lowercase_company', 'wrong_year', 'wrong_action', 'wrong_scope',
+    'past_amount', 'wrong_amount', 'already_scaled', 'billions', 'conditional',
+    'quoted', 'duplicate_plan', 'source_year', 'source_action', 'source_conditional',
+    'source_wrong_scope', 'source_duplicate', 'missing_source', 'recovered',
+])
+async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(monkeypatch, case):
+    from app.services.ai.source_units import capital_plan_proposition
+
+    source, guidance = SOURCE, GUIDANCE
+    changes = {
+        'lowercase_company': ('The Company', 'The company'),
+        'wrong_year': ('during fiscal 2026', 'during fiscal 2027'),
+        'wrong_action': ('to spend', 'to borrow'),
+        'wrong_scope': ('on capital expenditures', 'on share repurchases'),
+        'past_amount': ('$6,500', '$4,228'),
+        'wrong_amount': ('$6,500', '$6,501'),
+        'already_scaled': ('$6,500', '$6,500 million'),
+        'billions': ('$6,500', '$6.5 billion'),
+        'conditional': ('The Company', 'If approved, the Company'),
+    }
+    if case in changes:
+        guidance = guidance.replace(*changes[case])
+    elif case == 'quoted':
+        guidance = '"' + guidance + '"'
+    elif case == 'duplicate_plan':
+        guidance += ' The Company has another intention to spend $6,500.'
+    elif case == 'source_year':
+        source = source.replace('during fiscal 2026', 'during fiscal 2027')
+    elif case == 'source_action':
+        source = source.replace('intention to spend', 'intention to borrow')
+    elif case == 'source_conditional':
+        source = source.replace('and it is our', 'and if approved, it is our')
+    elif case == 'source_wrong_scope':
+        source = source.replace('Capital Expenditure Plans', 'Share Repurchase Plans')
+    elif case == 'source_duplicate':
+        source += '\n\n' + QUOTE
+    elif case == 'missing_source':
+        source = ''
+    sections = {'forward_signals': {'guidance': guidance, 'quotes': [{'quote': QUOTE}]}}
+    structured = {'sections': deepcopy(sections), 'metadata': {}}
+    if case == 'recovered':
+        structured['_recovered_sections'] = ['forward_signals']
+
+    async def generated(*args, **kwargs):
+        return deepcopy(structured)
+
+    service = OpenAIService()
+    monkeypatch.setattr(service, 'generate_structured_summary', generated)
+    result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q', filing_excerpt=source)
+    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company') else guidance
+    final = result['raw_summary']['sections']['forward_signals']
+    assert final['guidance'] == expected
+    assert final['quotes'][0]['quote'] == QUOTE
+    assert expected in result['business_overview']
+    # Recovered text does not stream as primary preview; only primary supported forms are corrected.
+    if case != 'recovered':
+        plan = capital_plan_proposition(source, service._SECTION_LAYOUT['10-Q'])
+        preview = service._partial_markdown_preview(json.dumps(structured), None, capital_plan=plan)
+        assert expected in preview
+        assert 'Source units:' not in preview  # Existing quote trust policy unchanged.
+        # A second projection is idempotent and preserves unrelated model text.
+        structured['sections']['forward_signals']['guidance'] = expected
+        repeated = service._partial_markdown_preview(json.dumps(structured), None, capital_plan=plan)
+        assert expected in repeated and 'million million' not in repeated
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('supplied', [True, False])
+async def test_authored_units_use_supplied_source_through_real_stream_and_final(monkeypatch, supplied):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    service = OpenAIService()
+    sections = {'forward_signals': {'guidance': GUIDANCE, 'quotes': [{'quote': QUOTE}]}}
+    # Padding ensures the real stream collector emits its complete-section preview.
+    encoded = json.dumps({'sections': sections, 'metadata': {'padding': 'x' * 1600}})
+
+    async def chunks():
+        yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=encoded))])
+
+    service.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=AsyncMock(return_value=chunks()))))
+    service.fallback_client = None
+    monkeypatch.setattr(service, '_recover_missing_sections', AsyncMock(return_value={}))
+    frames = []
+
+    async def receive(markdown):
+        frames.append(markdown)
+
+    result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q',
+                                            filing_excerpt=SOURCE if supplied else None, stream_cb=receive)
+    expected = GUIDANCE.replace('$6,500', '$6,500 million', 1) if supplied else GUIDANCE
+    assert result['raw_summary']['sections']['forward_signals']['guidance'] == expected
+    assert expected in result['business_overview']
+    assert frames and all(expected in frame for frame in frames)
+    assert all('Source units:' not in frame for frame in frames)
+    request = service.client.chat.completions.create.call_args.kwargs
+    assert 'capital_plan' not in request  # Private evidence never enters provider arguments.

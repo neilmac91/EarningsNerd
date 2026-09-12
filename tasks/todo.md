@@ -4916,3 +4916,10 @@ The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, 
 - [ ] Record the marker-trust lesson against the existing read/export guard and completed proof, then commit for parent review before the final integrated gate. Retain both existing source-association and persisted-trust proofs without repetition. No paid call, push or release before the previous backend deployment is verified.
 
 Integration prepared: no backend text conflict required manual resolution; main's cash-basis helper/render/qualified capex propagation was inherited, while source-unit association and exact envelope gating remain unchanged. Version allocation checked current main and the prepared source-unit candidate, plus the recent version-file history through d/f; no prior g ownership was found in that bounded check. `summary-2026-09-g` is newly allocated here, not a claim about an existing release. The existing `test_summary_version_stamps.py` mechanism governs current/stale identity; no mirror version test or repeated proof was added. Final committed gate awaits parent review.
+
+### September 12 — authored capital-plan guidance units (local plan)
+
+- [ ] Reuse the existing owned MD&A declaration/first capital-plan paragraph to restore ` million` only for one exact matched source/action/amount/year proposition in authored guidance, preserving all other bytes and quote/trust behavior.
+- [ ] Deliver the same pure correction in final and completed previews using supplied `filing_excerpt` ownership only; absent supplied context and recovered final guidance abstain. No model field, prompt, issuer branch or source call.
+- [ ] Add actual final/preview controls including action/year/scope collisions and missing/ambiguous/already-scaled inputs. Commit and run focused development verification for root review before one new mutation proof/full gate; retain #823 proofs unchanged.
+- [ ] Allocate unused content stamp h after released g; integrate forthcoming release documentation before final committed gate. No remote/paid action is claimed.
