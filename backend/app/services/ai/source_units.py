@@ -86,7 +86,7 @@ _SPEND_PLAN = re.compile(
 )
 _AUTHORED_PLAN = re.compile(
     r"\AThe [Cc]ompany stated it is its current intention to spend approximately "
-    rf"(?P<amount>{_NUMBER}) on capital expenditures during fiscal (?P<year>\d{{4}})(?=[,.])"
+    rf"(?P<amount>{_NUMBER}) on capital expenditures during fiscal (?P<year>\d{{4}})(?=[,.]| and plans to )"
 )
 _AMBIGUOUS_PLAN = re.compile(
     r'["“”]|\b(?:not|never|if|unless|conditional|subsidiary|segment)\b', re.I

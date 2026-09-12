@@ -4985,3 +4985,10 @@ Restoration `7125e8aef331628088b448033ac08ddbb3170b58`, run with fresh bytecode 
 ```
 
 Both older quote/trust proofs remain retained without repetition. Integrated docs-only main `8dd880d977dd8484acb50466dacbe1fcc9e62052` (#824), retaining both complete ledgers; the only conflict joined independent additions. The first merge attempt found that commit unavailable locally, before any mutation; fetching main supplied it. Final committed Ruff/Bandit/full pytest with performance and four PostgreSQL lanes is next. Parent owns actual-corpus review and publication; no paid call or remote write is claimed here.
+
+
+### September 12 — #825 first assessment found a punctuation-boundary miss
+
+First CI `34701847075` and Copilot `34701858130` passed their numerical gates. Actual summary artifact `10300630658` retained 52 outcomes with unchanged sources/XBRL; scoped acceptance is withheld. COST run 0 says `fiscal 2026 and plans to` without a comma, so the authored matcher leaves `$6,500` unscaled in guidance and actual final rendering; run 1's comma form is corrected. Two independent refutations establish identical source ownership and no substantive action/amount/year ambiguity. Correct only the authored year boundary to accept the explicit coordinated continuation, with a case in the existing final/preview invariant. Source grammar, quotes, other prose and all locked anchors stay unchanged.
+
+The original first artifact and failure review remain retained. The single existing authored-unit mutation proof remains the proof for this invariant; do not repeat it for a punctuation variant. After the full committed gate and review, one second paid assessment round is authorized under the founder's confirmed-finding policy for this specific fix. No further unchanged rerun is authorized by this entry. No production merge or unit-finding closure is claimed yet.
