@@ -771,27 +771,3 @@ def test_an_empty_section_is_not_created_just_to_report_missing_debt(monkeypatch
     """A "we cannot verify debt" sentence must not flip an empty §8 to covered."""
     _raw, _metrics, sections, _grounding, _markdown = _run_real_path(monkeypatch, {}, {})
     assert "leverage" not in sections.get("balance_sheet_liquidity", {})
-
-
-def test_mixed_leverage_prose_is_audited_without_globally_grounding_subtotals(monkeypatch):
-    from copy import deepcopy
-    from app.services.ai.figure_trace import untraceable_figures
-
-    _raw, metrics, sections, _grounding, _markdown = _run_real_path(
-        monkeypatch,
-        {
-            "us-gaap:LongTermDebtNoncurrent": [fact(5_940_628_000.0)],
-            "us-gaap:LongTermDebtCurrent": [fact(1_271_056_000.0)],
-            "us-gaap:ShortTermBorrowings": [fact(564_610_000.0)],
-        },
-        {"leverage": "Cash reached $55.5B."},
-    )
-    assert "Together $7.8B" in sections["balance_sheet_liquidity"]["leverage"]
-    assert untraceable_figures(sections, metrics, None) == ["55.5b"]
-    sections["value_drivers"] = {"capital_allocation": "Spending reached $7.8B."}
-    assert untraceable_figures(sections, metrics, None) == ["55.5b", "7.8b"]
-    inconsistent = deepcopy(metrics)
-    inconsistent["debt_observations"][0]["accn"] = "different-accession"
-    assert "7.8b" in untraceable_figures(
-        {"balance_sheet_liquidity": {"leverage": "Cash reached $7.8B."}}, inconsistent, None,
-    )

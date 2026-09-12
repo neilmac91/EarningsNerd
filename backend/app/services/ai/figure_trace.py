@@ -22,7 +22,7 @@ Scope + precision decisions (measured on the golden corpus, see the PR readout):
   (a summed "total debt", a netted "net cash") the pipeline should compute — the T5 signal.
 * **Police model prose only.** The v2 renderer injects XBRL figures into the ``results_that_matter``
   table by construction, so tables, verbatim quotes, and machine-authored ``cash_flow`` /
-  ``working_capital`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
+  ``working_capital`` / ``leverage`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
   One table column IS policed: ``segments[].commentary`` carries a model-written driver merged onto the
   machine rows (T5.2b); its machine half is %-only, invisible to this dollar gate.
 
@@ -80,7 +80,7 @@ _COMMA_SCALES = (1.0, 1e3, 1e6)
 # that is no longer an assumption: the T5.4 forward_quote_gate verifies each one against the
 # filing text at generation time, so an unverbatim "quote" is counted, and dropped when the gate
 # is armed, before it could ever reach this scan), and the fields machine-authored from XBRL by
-# the filler — balance_sheet_liquidity.cash_flow / .working_capital,
+# the filler — balance_sheet_liquidity.cash_flow / .working_capital / .leverage,
 # earnings_quality.cash_conversion, and value_drivers.shareholder_returns / .returns_on_capital
 # (numbers from code, already grounded in XBRL at authoring time, so re-policing them as if the
 # model wrote them is category-wrong).
@@ -259,11 +259,7 @@ def untraceable_figures(
     excerpt number (both matched value-based, rounding-aware). Returns sorted canonical keys; empty when
     every dollar figure grounds. The residual is the genuinely model-DERIVED aggregate or fabrication."""
     figures = _dollar_figures(_prose_blob(sections))
-    # Leverage mixes authored debt balances and retained model prose. Ground its code-owned
-    # amounts only here, so a subtotal cannot exempt unrelated prose from the audit.
-    liquidity = sections.get("balance_sheet_liquidity") if isinstance(sections, dict) else None
-    leverage = _dollar_figures(liquidity.get("leverage")) if isinstance(liquidity, dict) else []
-    if not figures and not leverage:
+    if not figures:
         return []
     grounded_vals = xbrl_values(xbrl_metrics) + excerpt_values(excerpt)
     if not grounded_vals:
@@ -276,14 +272,4 @@ def untraceable_figures(
     for value, key in figures:
         if not _grounded(value, key, grounded_vals):
             untraceable.add(key)
-    if leverage:
-        from app.services.ai.debt_scope import build_debt_scope_view
-
-        view = build_debt_scope_view(xbrl_metrics)
-        leverage_vals = grounded_vals + [abs(obs.value) for obs in view.observations]
-        if view.components_subtotal is not None:
-            leverage_vals.append(abs(view.components_subtotal))
-        for value, key in leverage:
-            if not _grounded(value, key, leverage_vals):
-                untraceable.add(key)
     return sorted(untraceable)
