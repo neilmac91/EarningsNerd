@@ -610,6 +610,7 @@ reused as year labels on gross-profit/net-income figures).
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
 | Filing origin | fact `[Fn]` | trusted viewed accession and native reporting currency bind every tool query; each returned fact and derived operand retains origin | unavailable tool result, no verified marker |
 | Currency adjacency | fact `[Fn]` | explicit ISO/symbol and supported textual currency labels, including inline emphasis/code formatting, must match the adjacent fact | occurrence stripped, counted as misplaced |
+| Computed scope consistency | fact `[Fn]` | `copilot_tools._scope_matches_duration`: a derived metric's operands must not carry a fiscal label that contradicts their own reported duration (an `FY`-labelled three-month figure, say) | `basis_unavailable` — no derived value is returned |
 | Uncited-claim repair | fact `[Fn]` | `_repair_uncited_fact_claim`: an answer that cites NOTHING and states one complete reported annual figure (subject, full fiscal end date, native currency, amount) gets a server-initiated DB lookup on the viewed accession; the marker is attached only when the filing's own fact matches concept, `period_end`, the filing's period of report, currency, value at the stated display precision, and carries its OWN reported duration inside the annual window (320–390 days) | abstains — the answer ships unchanged and still uncited |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
@@ -625,11 +626,10 @@ tool-call history. `count_uncited_figures` stays advisory and is never consulted
 and still abstain.** The annual form and the `FY` label are one signal, not two: `facts_service.
 _fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_service.py`
 only *ranks* the durations sharing a period end, so a lone three-month point ending on the fiscal
-year end is kept and `append_items` drops its `start`; it reaches the fact table labelled `FY` with
-no duration and passes `_valid_fact_provenance`. The selected-instance path does filter duration
-(`instance_extractor.duration_in_window`) but records no proof, so the two are indistinguishable
-downstream. Certifying on the label would put a verified chip on a possibly-quarterly figure, so a
-fact without `period_start` abstains — including the retained BABA row that motivated this layer.
+year end is kept and still reaches the fact table labelled `FY`, passing `_valid_fact_provenance`.
+Certifying on the label would put a verified chip on a possibly-quarterly figure, so a fact whose
+own duration does not span the claimed year abstains — as does one with no `period_start` at all,
+including the retained BABA row that motivated this layer.
 
 Extraction preserves the source duration forward-only through the per-filing instance and
 companyfacts fallback paths. `duration_series_with_starts` retains the instance fact's start;
@@ -637,7 +637,19 @@ companyfacts fallback paths. `duration_series_with_starts` retains the instance 
 `normalize_standardized_to_facts` stores it in the existing nullable column. The founder approved
 the T9 expected-dictionary additions on 2026-09-12. Selection, precedence and upsert skip semantics
 are unchanged. Newly inserted facts with proven annual duration can certify; existing undated
-rows still abstain, and there is no backfill. Durations are deliberately excluded from the model-facing compact block
+rows still abstain, and there is no backfill.
+
+Preserving those dates also unblocked `compute_metric`, which had been inert on mislabelled rows
+only because they carried no duration. Two three-month figures labelled `FY` from the form computed
+a 25% growth rate carrying `fiscal_period: "FY"`, accepted by `_valid_fact_provenance` — a
+quarter-over-quarter change presented as annual. The annual certifier guards only the
+uncited-repair path and `_prior_comparable` is satisfied by Q4-versus-Q4, so neither caught it.
+`copilot_tools._scope_matches_duration` now refuses a computed claim whose fiscal label contradicts
+its own reported duration, on every operand backing the result (current, yoy prior, margin
+denominator). Stored rows, selection, numeric precedence and direct `get_financial_fact` lookups
+are unchanged: legitimately quarterly facts still compute, labelled as the quarters they are.
+
+Durations are deliberately excluded from the model-facing compact block
 (`_without_source_durations`), so prompt bytes are unchanged — widening what the model sees is a
 prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`

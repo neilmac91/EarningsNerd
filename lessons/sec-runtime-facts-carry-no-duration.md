@@ -38,12 +38,25 @@ forward-only, so the first sentence above describes existing rows, not new ones.
 path carries the selected fact's own start: `instance_extractor.duration_series_with_starts` (the
 proof `duration_in_window` already applied, no longer discarded at the tuple boundary),
 `normalise_series` passes the key through and `normalize_standardized_to_facts` stores it in the
-existing nullable column. The companyfacts fallback still drops its start — the locked T9 anchor
-pins those emitted points by full-dict equality, so carrying it there is a contract change needing
-pre-approval; those facts keep an unknown duration and keep abstaining.
+existing nullable column. The companyfacts fallback initially kept dropping its start, because the
+locked T9 anchor pins those emitted points by full-dict equality; the founder then approved that
+contract change, so it preserves the start too.
 Selection, precedence and the upsert's skip semantics are unchanged, and a short-duration point in
 an annual filing is still KEPT — annual filings legitimately disclose quarters — but now carries
 its real duration so a consumer can refuse it for an annual claim. The rule is unchanged and now
 has teeth: a start is taken only from the selected source fact, never inferred, and equal-valued
 facts that disagree on their start leave it NULL. Rows written before this still carry NULL and
 still abstain; there is no backfill.
+
+**Second correction (2026-09-12, integration review):** preserving the fallback's dates had a
+consequence the citation work did not cover. `compute_metric` refuses to derive anything without a
+duration, so mislabelled rows were previously inert; once dated, two three-month figures that the
+writer labels `FY` from the FORM computed a 25% growth rate carrying `fiscal_period: "FY"`, and
+`_valid_fact_provenance` accepted it — a quarter-over-quarter change handed to the model as annual.
+The annual certifier did not catch it because it guards only the uncited-repair path, and
+`_prior_comparable` did not because Q4-versus-Q4 satisfies its relative endpoint and duration
+tests. **The general rule: unblocking a consumer by supplying data it was missing is a behaviour
+change in that consumer, and every reader of the new field needs its own audit — not just the one
+you added the field for.** `copilot_tools._scope_matches_duration` now refuses a computed claim
+whose fiscal label contradicts its own reported duration, while stored rows, selection, numeric
+precedence and direct lookups are untouched.

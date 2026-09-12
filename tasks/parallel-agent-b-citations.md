@@ -180,7 +180,12 @@ change was needed, because `_fact_provenance` already exposes `period_start`; it
 `facts_service.py`, the shared XBRL files, database identity and migrations are untouched, per the
 Agent A reservation; the ingestion change they would need is the interface proposal above.
 
-## Status
+> **Superseded 2026-09-12** by the dated follow-ups below: Codex later allocated those files, so
+> `facts_service.normalize_standardized_to_facts`, `edgar/instance_extractor.py`,
+> `edgar/xbrl_service.py` and `copilot_tools.py` ARE now edited. Database identity and migrations
+> remain untouched. The record above stands as written at the time.
+
+## Status (superseded — see the dated follow-ups below for current state)
 
 `READY FOR INTEGRATION`, with the citation slice reported as **incomplete**: the mechanism is
 correct and demonstrated, but the retained BABA defect still abstains because its row carries no
@@ -224,6 +229,10 @@ site in code. **Consequence:** facts from the fallback keep an unknown duration 
 — safe, but they cannot certify even when the source fact is genuinely annual. Authorizing the
 one-key contract change would close that; the required edit is three expected-dict literals in the
 anchor.
+
+> **Superseded 2026-09-12:** the founder approved exactly that contract change. `append_items` now
+> preserves the selected fallback fact's start and the anchor carries the added key. See the
+> integration follow-up below for the consequence that surfaced on the computed path.
 
 **What deliberately does not.** Instant facts (no duration by definition), the dividend component
 SUM (a computed aggregate), and statement-derived `fin_metrics` (its helper returns no starts).
@@ -273,3 +282,45 @@ Integration gate on `a87b602bd0748284a59ed4802abd68119b8c9a62`: PostgreSQL 15.15
 full pytest including performance: `2998 passed, 29 warnings in 98.47s (0:01:38)`,
 exit 0. First attempt was blocked by sandbox access to localhost before tests began;
 the complete rerun with local database access passed. No push, assessment or deployment.
+
+## Dated follow-up — 2026-09-12: newly enabled quarterly calculation labelled FY
+
+Imported Codex's integrated bundle (`c09adcd`, verified; my `c444df06` confirmed an ancestor, so a
+clean fast-forward) carrying the founder-approved T9 fallback-date exception and the PostgreSQL 15
+full gate. This appends to the records above; earlier entries stand, including the ones the
+exception superseded.
+
+**The blocker, reproduced independently.** Codex's `b-duration-derived-review.py` runs unchanged
+here: two Q4 revenue figures (2024-12-29→2025-03-29 value 100, 2023-12-30→2024-03-30 value 80),
+both labelled `FY` by `facts_service._fiscal_period` from the FORM, returned
+`yoy_growth 0.25` carrying `fiscal_period: "FY"`, and `_valid_fact_provenance` accepted it.
+Removing the starts returned `basis_unavailable` — so preserving the durations is precisely what
+unblocked it. The annual certifier missed it because it guards only the uncited-repair path;
+`_prior_comparable` missed it because Q4-versus-Q4 satisfies its relative endpoint and duration
+tests.
+
+**Correction.** `copilot_tools._scope_matches_duration` refuses a computed claim whose fiscal label
+contradicts its own reported duration, applied to every operand that backs the result: the current
+fact, the yoy prior and the margin denominator. It reuses the existing `basis_unavailable` error
+rather than adding model-visible vocabulary, and the two windows are the ones
+`facts_service._CF_ANNUAL_WINDOW`/`_CF_QUARTER_WINDOW` and `instance_extractor.DURATION_WINDOWS`
+already own, gated against drift.
+
+**What is deliberately unchanged.** Stored rows are not relabelled, re-selected or rejected;
+ingestion is untouched; nothing is replayed or backfilled; citation provenance is not weakened;
+`get_financial_fact` still returns the mislabelled row exactly as stored, with its real duration,
+and the citation certifier refuses it on that duration as before. Legitimately quarterly facts
+still compute — `Q4` versus prior `Q4` returns its growth rate labelled `Q4`. Legitimate annual
+comparisons are preserved, including the pre-existing `test_compute_metric_yoy_growth` and
+`test_compute_metric_margin`, whose fixtures carry real 363-day durations.
+
+**Derived-reader audit.** Every `period_start` reader was traced against what the per-filing ingest
+path can reach. `process_filing_facts` calls `normalize_standardized_to_facts` and `upsert_facts`
+only; it never reaches `normalize_companyfacts`, `derive_q4_facts`, `derive_q4_eps_facts` or
+`_collect_companyfacts_values`, which are companyfacts-backfill functions operating on API records
+that always carried starts and therefore gain nothing new. `trend_analysis_service`,
+`peers_service`, `data_quality_service` and `get_filing_fundamentals` read `fiscal_period` and
+never `period_start`, so they are unaffected — a quarterly point labelled `FY` already reached
+those readers before any of this work, unchanged by it. The only readers that newly gain data are
+`copilot_tools._has_duration`, `_prior_comparable` and the margin `period_start` equality, all on
+the computed path corrected here.

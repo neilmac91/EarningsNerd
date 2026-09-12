@@ -306,6 +306,34 @@ def _has_duration(fact: FinancialFact) -> bool:
     return fact.period_start is not None and fact.period_start < fact.period_end
 
 
+# What each fiscal label ASSERTS about the fact's own reported duration, in days. The same two
+# windows `facts_service._CF_ANNUAL_WINDOW`/`_CF_QUARTER_WINDOW` and
+# `instance_extractor.DURATION_WINDOWS` already own; `tests/unit/test_copilot_tools.py` asserts
+# they stay equal, so widening one cannot silently widen what a derived metric will compute.
+_SCOPE_DURATION_DAYS: dict[str, tuple[int, int]] = {
+    "FY": (320, 390), "Q1": (75, 105), "Q2": (75, 105), "Q3": (75, 105), "Q4": (75, 105),
+}
+
+
+def _scope_matches_duration(fact: FinancialFact) -> bool:
+    """False when a fact's fiscal label contradicts the duration it actually reports.
+
+    The label is not independent evidence: `facts_service._fiscal_period` derives "FY" from the
+    FORM, so a three-month figure disclosed inside a 10-K is stored labelled FY. That was invisible
+    while durations were dropped at ingestion; now that the source duration survives, the
+    contradiction is checkable — and a derived metric must never compute an "FY" growth rate from
+    two quarters and hand the model an annual-looking result.
+
+    Falsification-only, and applied ONLY to computed claims: a fact with no duration or an
+    unrecognised label is unchanged (`_has_duration` still governs), legitimately quarterly facts
+    with a quarterly label pass, and nothing here relabels, re-selects or rejects a stored row.
+    """
+    window = _SCOPE_DURATION_DAYS.get(fact.fiscal_period or "")
+    if window is None or not _has_duration(fact):
+        return True
+    return window[0] <= (fact.period_end - fact.period_start).days <= window[1]
+
+
 def _prior_comparable(current: FinancialFact, prior: FinancialFact) -> bool:
     if not _has_duration(prior):
         return False
@@ -330,7 +358,9 @@ def _run_compute_metric(
                           args.get("fiscal_period"), reporting_currency=currency)
     if current is None:
         return _missing(db, company_id, accession, "not_disclosed")
-    if not _has_duration(current):
+    # A declared scope that contradicts the reported duration leaves the basis unestablished, the
+    # same answer as no duration at all — never a computed figure wearing the wrong period label.
+    if not _has_duration(current) or not _scope_matches_duration(current):
         return {"error": "basis_unavailable", "concept": concept}
     if kind == "yoy_growth":
         rows = _bounded_rows(_scope(db, company_id, accession).filter(
@@ -340,6 +370,8 @@ def _run_compute_metric(
         prior = _select_fact(comparable, currency)
         if prior is None:
             return {"error": "basis_unavailable" if any(not _has_duration(r) for r in rows) else "no_prior_period", "concept": concept}
+        if not _scope_matches_duration(prior):
+            return {"error": "basis_unavailable", "concept": concept}
         if canonical_unit(current.unit) != canonical_unit(prior.unit):
             return {"error": "incompatible_units", "concept": concept}
         if float(prior.value) == 0:
@@ -357,7 +389,8 @@ def _run_compute_metric(
                               reporting_currency=currency, period_end=current.period_end)
     if denominator is None:
         return {"error": "denominator_not_disclosed", "denominator_concept": denominator_concept}
-    if not _has_duration(denominator) or current.period_start != denominator.period_start:
+    if (not _has_duration(denominator) or not _scope_matches_duration(denominator)
+            or current.period_start != denominator.period_start):
         return {"error": "basis_unavailable", "concept": concept}
     if canonical_unit(current.unit) != canonical_unit(denominator.unit):
         return {"error": "incompatible_units", "concept": concept}

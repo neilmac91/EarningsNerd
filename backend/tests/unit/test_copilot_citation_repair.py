@@ -122,9 +122,9 @@ INGESTED_ACCESSION = '0000320193-25-000079'
 def _ingest_via_companyfacts(start):
     """Source companyfacts item -> stored row -> runtime tool result, all production code.
 
-    This is the path whose emitted points the locked T9 anchor pins by full-dict equality, so it
-    still carries NO duration (see the PR body's conflict report) — the point of this helper is to
-    show what that costs, not to assert it is fine.
+    Under the approved T9 contract exception this path now preserves the source duration too, so a
+    quarterly disclosure inside an annual filing arrives labelled `FY` by the writer WITH its real
+    90-day duration — the shape both the citation certifier and the computed path must refuse.
     """
     from app.models.financial_fact import FinancialFact
     from app.services.edgar.xbrl_service import EdgarXBRLService
@@ -245,6 +245,48 @@ def test_a_source_point_with_no_start_stays_unknown_through_ingestion():
     assert row['period_start'] is None and runtime['period_start'] is None
     assert runtime['fiscal_period'] == 'FY'
     assert not service._fact_certifies_claim(runtime, claim, view)
+
+
+def test_preserved_fallback_durations_do_not_enable_an_annual_growth_rate():
+    """Codex's integration finding, reproduced through the whole real chain.
+
+    Preserving the fallback's dates unblocked `compute_metric` on rows the existing writer labels
+    `FY` from the FORM. Two Q4 figures then produced a 25% growth rate carrying `fiscal_period:
+    "FY"`, which `_valid_fact_provenance` accepted — a quarter-over-quarter change presented to the
+    model as annual. The scope/duration consistency check on the computed path refuses it, while
+    the rows themselves stay exactly as ingested.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.models.financial_fact import FinancialFact
+    from app.services.copilot_tools import _run_compute_metric
+    from app.services.edgar.xbrl_service import EdgarXBRLService
+    from app.services.facts_service import normalize_standardized_to_facts
+
+    items = [{'start': s, 'end': e, 'val': v, 'form': '10-K', 'accn': INGESTED_ACCESSION,
+              'filed': '2025-05-02', 'fy': 2025, 'fp': 'FY'}
+             for s, e, v in [('2024-12-29', '2025-03-29', 100), ('2023-12-30', '2024-03-30', 80)]]
+    svc = EdgarXBRLService.__new__(EdgarXBRLService)
+    standardized = svc.extract_standardized_metrics(svc._parse_company_facts(
+        {'facts': {'us-gaap': {'Revenues': {'units': {'USD': items}}}}}, INGESTED_ACCESSION))
+    rows = normalize_standardized_to_facts(9, 7, INGESTED_ACCESSION, '10-K', standardized)
+
+    # The fallback really does preserve both durations and really does label them FY.
+    revenue_rows = [r for r in rows if r['concept'] == 'revenue']
+    assert all(r['period_start'] is not None and r['fiscal_period'] == 'FY' for r in revenue_rows)
+
+    engine = create_engine('sqlite:///:memory:')
+    FinancialFact.__table__.create(engine)
+    with Session(engine) as db:
+        db.add_all([FinancialFact(**r) for r in rows])
+        db.flush()
+        result = _run_compute_metric(
+            db, 9, INGESTED_ACCESSION,
+            {'kind': 'yoy_growth', 'concept': 'revenue', 'fiscal_period': 'FY'}, 'USD')
+
+    assert result == {'error': 'basis_unavailable', 'concept': 'revenue'}
+    assert not service._valid_fact_provenance(result, INGESTED_ACCESSION, 'USD')
 
 
 def test_preserved_durations_never_reach_the_model_prompt():
