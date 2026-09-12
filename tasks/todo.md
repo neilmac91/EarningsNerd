@@ -4916,3 +4916,46 @@ The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, 
 - [ ] Record the marker-trust lesson against the existing read/export guard and completed proof, then commit for parent review before the final integrated gate. Retain both existing source-association and persisted-trust proofs without repetition. No paid call, push or release before the previous backend deployment is verified.
 
 Integration prepared: no backend text conflict required manual resolution; main's cash-basis helper/render/qualified capex propagation was inherited, while source-unit association and exact envelope gating remain unchanged. Version allocation checked current main and the prepared source-unit candidate, plus the recent version-file history through d/f; no prior g ownership was found in that bounded check. `summary-2026-09-g` is newly allocated here, not a claim about an existing release. The existing `test_summary_version_stamps.py` mechanism governs current/stale identity; no mirror version test or repeated proof was added. Final committed gate awaits parent review.
+
+
+### September 12 — cash-basis #821 merged; production verification pending
+
+[PR #821](https://github.com/neilmac91/EarningsNerd/pull/821) merged as `929995d4b9190785e732e4d889cd193e9ce271f7` at 2026-09-12T14:31:29Z. This dated entry supersedes earlier unpublished or assessment-pending wording without rewriting those records. Main CI `34699536585` is running; no serving revision, migration result or healthy deployment is claimed yet.
+
+The [assessment archive](review-evidence/cash-basis-2026-09-12/README.md) preserves both rounds separately. The corrected second summary has 52 outcomes, unchanged source/operands except 38 intended qualified capex identities, 523 retained preview frames and reconciled usage for 52 successful Flash calls. Independent cash-prose review accepts only the changed machine-owned calculation basis and capex identity propagation. Second Copilot run `34698883776` accepts 18/18 within the existing gate, with inherited citation-scope advisories. The first failed capex-provenance evidence and its unknown-usage provider call remain retained.
+
+Newly sampled AAPL numerical comparison and MELI direction failures, repeated WMT/MELI debt scope, expanded COST unit loss and previous issuer-versus-derived cash-flow findings remain open. Their presence is not proof that the capex metadata correction caused them; absence of prior failures in two new draws does not close those findings. Universe-wide pregeneration and historical replay remain held.
+
+- [x] Complete bounded #821 assessment and merge the reviewed candidate.
+- [ ] Verify main CI, actual migration tail, revision at 100%, and CI plus independent detailed health before the next backend merge.
+
+
+### September 12 — cash-basis #821 production verification complete
+
+This dated record supersedes the preceding production-pending entry without rewriting it. Main CI `34699536585` succeeded for merge `929995d4b9190785e732e4d889cd193e9ce271f7`. Deploy job `103569199353` reported `apply_migrations: applied=0 skipped=39` at 2026-09-12T14:36:52.0425759Z. Revision `earningsnerd-backend-00332-p9k` serves 100% of traffic, explicitly confirmed at 14:37:34.8124744Z. CI detailed health was healthy at 14:38:13.2213219Z with database latency 7.24 ms; independent detailed health was healthy with database latency 9.11 ms and server timestamp `1789223987.8105648`. Redis remained disabled and the SEC circuit was closed. Private evidence is retained in `work/pr821-main-deploy.log` and `work/pr821-independent-health.json`.
+
+- [x] Verify #821 main CI, migration tail, serving traffic, and both detailed-health checks before the next backend merge.
+- [ ] Carry the separately prepared source-unit quote-context candidate through its own assessment and serial release. Its local gate is not production acceptance.
+
+The [cash-basis archive](review-evidence/cash-basis-2026-09-12/README.md) retains the two assessment rounds, open financial narrative findings and bounded acceptance. The founder reported USD89.17; the separate live balance read returned USD88.49 at 14:13 UTC. No account debit is attributed to an individual run from that difference. This documentation record remains unpublished until the planned combined release documentation; pregeneration and historical replay remain held.
+
+
+## September 12, after #823 merge — current continuation correction
+
+This dated correction supersedes older instructions to publish or assess #808, cash basis or source-unit quote context; retain those records as history and do not repeat completed paid assessments. #821 is merged and production-verified: main CI `34699536585`, migration tail `applied=0 skipped=39`, revision `earningsnerd-backend-00332-p9k` at 100%, and healthy CI/independent detailed checks. The [cash-basis archive](review-evidence/cash-basis-2026-09-12/README.md) retains both assessment rounds and exact deployment evidence.
+
+#823 merged as `d2c176f6019b3dbef431b44f55a7c635f8cf4a36` at 2026-09-12T14:54:28Z after the final 2,906-test gate and accepted bounded summary/Copilot assessments. [Source-unit evidence](review-evidence/source-unit-2026-09-12/README.md) preserves both original mutation proofs, 52 summary outcomes and 18 Copilot answers. Main CI `34700643792` is running; verify its migration tail, serving revision and both health checks before another backend merge. No #823 production result is claimed yet.
+
+The next quality work is actual authored-guidance unit preservation, source-qualified debt scope and a finite capital-allocation relationship consumer that corrects false comparisons while preserving valid program/highlight text. Source metadata alone or a correct paragraph beside contradictory prose is not a closed finding. Instance duration/context feasibility is under review; do not reconstruct missing starts or broaden locked contracts. COST authored guidance, broader accounting/issuer cash-flow explanations, and previously sampled numerical failures remain open. #805 stays held; no wholesale revival is authorized. E06 awaits natural payment delivery only. Existing master-plan founder prerequisites and universe-wide pregeneration/historical replay holds remain unchanged.
+
+
+## September 12, after #823 production verification — current continuation
+
+This dated correction supersedes the preceding production-pending instruction. Main CI `34700643792` and deploy job `103572015821` succeeded. Migrations reported `applied=0 skipped=39` at 14:59:08.2960343Z; revision `earningsnerd-backend-00333-56s` serves 100% of traffic. CI detailed health was healthy at 15:00:48.5214041Z (database 6.52 ms); independent detailed health was healthy (database 6.27 ms, server timestamp `1789225367.402431`; Redis disabled, SEC circuit closed). The independent response is retained privately in `work/pr823-independent-health.json`. [Source-unit release evidence](review-evidence/source-unit-2026-09-12/README.md) retains bounded acceptance and original proofs. Both #821 and #823 are now merged and production-verified; do not repeat their assessments or releases.
+
+Continue actual authored-guidance unit correction, source-qualified debt scope and the finite capital-allocation relationship consumer, preserving valid analytical and program text. No parallel correct paragraph beside contradictory prose counts as completion. Source-side descriptor feasibility is design evidence, not a shipped numerical fix. Previous findings, original master-plan prerequisites, #805 hold, natural E06 delivery observation and universe-wide pregeneration/historical replay holds remain unchanged.
+
+
+### September 12 — E09 live capacity observation limitation
+
+Read-only Cloud Run inspection could not reach production project `earnings-nerd` through the available personal browser account; the existing production-account session requires reauthentication. No settings were altered. Live capacity remains unverified; the E09 proposal continues from repository evidence and must distinguish configured source settings from effective production capacity.

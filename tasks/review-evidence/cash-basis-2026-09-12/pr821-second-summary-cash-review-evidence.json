@@ -1,0 +1,1674 @@
+{
+  "sha256": "cd078f4371c17c8dfb342996364ef368e7065579411079cacbe29e54959a6a90",
+  "source_sha": "ac9a02c96b9e54351aa0ade75d57a1d9ea249691",
+  "rows": [
+    {
+      "index": 0,
+      "ticker": "AAPL",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 1,
+      "ticker": "AAPL",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 2,
+      "ticker": "MSFT",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 3,
+      "ticker": "MSFT",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 4,
+      "ticker": "NVDA",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 8,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 5,
+      "ticker": "NVDA",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 6,
+      "ticker": "JPM",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 14,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [],
+      "capex_owner_preview_frames": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 7,
+      "ticker": "JPM",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 13,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [],
+      "capex_owner_preview_frames": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 8,
+      "ticker": "KO",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 9,
+      "ticker": "KO",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 10,
+      "ticker": "TSLA",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 11,
+      "ticker": "TSLA",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 12,
+      "ticker": "AMZN",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 13,
+      "ticker": "AMZN",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 14,
+      "ticker": "XOM",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 7,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 15,
+      "ticker": "XOM",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 16,
+      "ticker": "PFE",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 17,
+      "ticker": "PFE",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 18,
+      "ticker": "F",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 19,
+      "ticker": "F",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 20,
+      "ticker": "WMT",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 21,
+      "ticker": "WMT",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 22,
+      "ticker": "COST",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [],
+      "capex_owner_preview_frames": [],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 23,
+      "ticker": "COST",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 8,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [],
+      "capex_owner_preview_frames": [],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 24,
+      "ticker": "BA",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 25,
+      "ticker": "BA",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 26,
+      "ticker": "INTC",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 27,
+      "ticker": "INTC",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 28,
+      "ticker": "PLTR",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 8,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 29,
+      "ticker": "PLTR",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 7,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 30,
+      "ticker": "RIVN",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 31,
+      "ticker": "RIVN",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 32,
+      "ticker": "COIN",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 33,
+      "ticker": "COIN",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 34,
+      "ticker": "BYND",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 35,
+      "ticker": "BYND",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 36,
+      "ticker": "BABA",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 37,
+      "ticker": "BABA",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 38,
+      "ticker": "ASML",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 39,
+      "ticker": "ASML",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 40,
+      "ticker": "TSM",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 11,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 41,
+      "ticker": "TSM",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 42,
+      "ticker": "JD",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 43,
+      "ticker": "JD",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 44,
+      "ticker": "SE",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 45,
+      "ticker": "SE",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 7,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 46,
+      "ticker": "NVO",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 6,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 47,
+      "ticker": "NVO",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 6,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "capex_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 48,
+      "ticker": "PDD",
+      "run": 0,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 12,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "capex_owner_preview_frames": [],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 49,
+      "ticker": "PDD",
+      "run": 1,
+      "capex_tag": null,
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 7,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "capex_owner_preview_frames": [],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 50,
+      "ticker": "MELI",
+      "run": 0,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 9,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "raw_tag_customer_leak": false
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "capex_tag": "us-gaap:PaymentsToAcquireProductiveAssets",
+      "machine_cash_identical_to_first": true,
+      "machine_returns_identical_to_first": true,
+      "preview_count": 10,
+      "truncated": false,
+      "association": "not_observed",
+      "cash_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "capex_owner_preview_frames": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "raw_tag_customer_leak": false
+    }
+  ],
+  "findings": [
+    {
+      "index": 1,
+      "ticker": "AAPL",
+      "run": 1,
+      "path": "raw_sections.value_drivers.capital_allocation",
+      "text": "Capital allocation remained weighted toward shareholder returns, with share repurchases and dividends exceeding operating cash flow and funded alongside debt repayments and commercial paper activity. In May 2025, the Company announced a new share repurchase program of up to $100 billion and raised its quarterly dividend from $0.25 to $0.26 per share beginning in May 2025.",
+      "preview_indices": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 20,
+      "ticker": "WMT",
+      "run": 0,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total debt was $38.2B as of January 31, 2026, up from $36.0B, with long-term debt of $34.6B and short-term borrowings of $6.6B. Cash and cash equivalents were $10.7B, resulting in a net debt position of approximately $27.5B. Total shareholders' equity was $105.9B.",
+      "preview_indices": [
+        10,
+        11
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 21,
+      "ticker": "WMT",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Total debt was $38.2B as of January 31, 2026, up from $36.0B, with long-term debt of $34.6B and short-term borrowings of $6.6B. Cash and cash equivalents were $10.7B. Total shareholders' equity was $105.9B.",
+      "preview_indices": [
+        9,
+        10
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 50,
+      "ticker": "MELI",
+      "run": 0,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Long-term debt rose to $9,193M from $5,715M and total liabilities to $35,919M from $20,845M, against shareholders' equity of $6,748M (up from $4,351M) and cash and cash equivalents of $3,670M (up from $2,635M); restricted cash and cash equivalents rose to $9,867M from $2,064M.",
+      "preview_indices": [
+        8
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "path": "raw_sections.balance_sheet_liquidity.leverage",
+      "text": "Long-term debt rose to $9,193M from $5,715M and total loans payable and other financial liabilities reached $9,193M (current $4,623M plus non-current $4,570M), against cash and cash equivalents of $3,670M and total equity of $6,748M; the company also holds $9,867M of restricted cash and cash equivalents and $2,629M of short-term investments.",
+      "preview_indices": [
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "path": "raw_sections.value_drivers.capital_allocation",
+      "text": "Capital was directed primarily at funding the lending book and logistics/property build-out rather than shareholder returns; the filing shows only nominal common stock repurchases and no dividend. Financing cash flow turned positive as loan payable proceeds exceeded payments, indicating the fintech and credit expansion is partly debt-funded.",
+      "preview_indices": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 51,
+      "ticker": "MELI",
+      "run": 1,
+      "path": "raw_sections.the_print.key_takeaways.2",
+      "text": "Operating cash flow of $12.1B (+53.0% YoY) and free cash flow of $10.8B, while total assets grew 69.3% to $42.7B.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "payload_fields": [
+        "executive_summary",
+        "management_discussion"
+      ]
+    },
+    {
+      "index": 23,
+      "ticker": "COST",
+      "run": 1,
+      "path": "raw_sections.value_drivers.capital_allocation",
+      "text": "Capital allocation remained focused on funding new warehouse openings, remodels, depot network expansion, and digitally-enabled businesses through cash from operations, cash and cash equivalents, and short-term investments. The company continued returning capital to shareholders through dividends and share repurchases under its existing $4,000 authorization, which expires in January 2027.",
+      "preview_indices": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "payload_fields": [
+        "executive_summary",
+        "notable_footnotes"
+      ]
+    },
+    {
+      "index": 15,
+      "ticker": "XOM",
+      "run": 1,
+      "path": "raw_sections.earnings_quality.red_flags.0",
+      "text": "Cash and cash equivalents declined to $10.7B from $23.0B, a reduction of $12.5B, while short-term debt (notes and loans payable) increased to $9.3B from $5.0B.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "payload_fields": [
+        "executive_summary",
+        "management_discussion"
+      ]
+    },
+    {
+      "index": 24,
+      "ticker": "BA",
+      "run": 0,
+      "path": "raw_sections.the_print.what_changed",
+      "text": "Boeing swung from a $11.8B net loss in 2024 to $2.2B net earnings in 2025, with operating cash flow turning positive, supported by the Digital Aviation Solutions divestiture gain and lower BDS reach-forward charges.",
+      "preview_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    },
+    {
+      "index": 9,
+      "ticker": "KO",
+      "run": 1,
+      "path": "raw_sections.value_drivers.capital_allocation",
+      "text": "The filing states capital allocation priorities as investing to support business operations, continuing to grow the dividend payment, enhancing the beverage portfolio through consumer-centric acquisitions, and using excess cash to repurchase shares over time; the quarter's shareholder returns were funded from operating cash flow, which turned positive after a prior-year outflow.",
+      "preview_indices": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "payload_fields": [
+        "executive_summary"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,840 @@
+{
+  "candidate_sha256": "d92eb5508c80eca8074c7ce36b7b6a6b54020b299aad6005949f4b71bd8d5ab6",
+  "reference_sha256": "6889a3dde5ef17decb030b9c53cb7c087cb0850a0727714da4e8d8a9d2c9ffc6",
+  "issues": [],
+  "outcomes": [
+    {
+      "index": 0,
+      "identity": [
+        "AAPL",
+        "10-K",
+        0,
+        "0000320193-25-000079"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $98.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $15.4B (prior $15.2B), share repurchases $90.7B (prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 1,
+      "identity": [
+        "AAPL",
+        "10-K",
+        1,
+        "0000320193-25-000079"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $98.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $15.4B (prior $15.2B), share repurchases $90.7B (prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 2,
+      "identity": [
+        "MSFT",
+        "10-K",
+        0,
+        "0000950170-25-100235"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion); free cash flow of $71.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $24.1B (prior $21.8B), share repurchases $18.4B (prior $17.3B); capital expenditures $64.6B (prior $44.5B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 3,
+      "identity": [
+        "MSFT",
+        "10-K",
+        1,
+        "0000950170-25-100235"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion); free cash flow of $71.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $24.1B (prior $21.8B), share repurchases $18.4B (prior $17.3B); capital expenditures $64.6B (prior $44.5B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 4,
+      "identity": [
+        "NVDA",
+        "10-Q",
+        0,
+        "0001045810-26-000052"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.9x net income (cash conversion); free cash flow of $48.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $243.0M (prior $244.0M), share repurchases $19.3B (prior $14.1B); capital expenditures $1.8B (prior $1.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 5,
+      "identity": [
+        "NVDA",
+        "10-Q",
+        1,
+        "0001045810-26-000052"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.9x net income (cash conversion); free cash flow of $48.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $243.0M (prior $244.0M), share repurchases $19.3B (prior $14.1B); capital expenditures $1.8B (prior $1.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 6,
+      "identity": [
+        "JPM",
+        "10-K",
+        0,
+        "0001628280-26-008131"
+      ],
+      "fi_component_suppression": true,
+      "cash_conversion": "",
+      "shareholder_returns": "Capital returned — dividends paid $16.6B (prior $14.8B), share repurchases $31.6B (prior $18.8B).",
+      "preview_count": 15,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 7,
+      "identity": [
+        "JPM",
+        "10-K",
+        1,
+        "0001628280-26-008131"
+      ],
+      "fi_component_suppression": true,
+      "cash_conversion": "",
+      "shareholder_returns": "Capital returned — dividends paid $16.6B (prior $14.8B), share repurchases $31.6B (prior $18.8B).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 8,
+      "identity": [
+        "KO",
+        "10-Q",
+        0,
+        "0001628280-26-028802"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $1.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $2.3B (prior $89.0M), share repurchases $477.0M (prior $370.0M); capital expenditures $266.0M (prior $309.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 9,
+      "identity": [
+        "KO",
+        "10-Q",
+        1,
+        "0001628280-26-028802"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $1.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $2.3B (prior $89.0M), share repurchases $477.0M (prior $370.0M); capital expenditures $266.0M (prior $309.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 10,
+      "identity": [
+        "TSLA",
+        "10-K",
+        0,
+        "0001628280-26-003952"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 3.9x net income (cash conversion); free cash flow of $6.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $8.5B (prior $11.3B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 7,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 11,
+      "identity": [
+        "TSLA",
+        "10-K",
+        1,
+        "0001628280-26-003952"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 3.9x net income (cash conversion); free cash flow of $6.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $8.5B (prior $11.3B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 12,
+      "identity": [
+        "AMZN",
+        "10-K",
+        0,
+        "0001018724-26-000004"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.8x net income (cash conversion); free cash flow of $7.7B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $131.8B (prior $83.0B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 13,
+      "identity": [
+        "AMZN",
+        "10-K",
+        1,
+        "0001018724-26-000004"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.8x net income (cash conversion); free cash flow of $7.7B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $131.8B (prior $83.0B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 14,
+      "identity": [
+        "XOM",
+        "10-K",
+        0,
+        "0000034088-26-000045"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.8x net income (cash conversion); free cash flow of $23.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $17.2B (prior $16.7B), share repurchases $20.3B (prior $19.6B); capital expenditures $28.4B (prior $24.3B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 15,
+      "identity": [
+        "XOM",
+        "10-K",
+        1,
+        "0000034088-26-000045"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.8x net income (cash conversion); free cash flow of $23.6B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $17.2B (prior $16.7B), share repurchases $20.3B (prior $19.6B); capital expenditures $28.4B (prior $24.3B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 5,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 16,
+      "identity": [
+        "PFE",
+        "10-Q",
+        0,
+        "0000078003-26-000054"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $2.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $2.4B (prior $2.4B); capital expenditures $436.0M (prior $564.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 13,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 17,
+      "identity": [
+        "PFE",
+        "10-Q",
+        1,
+        "0000078003-26-000054"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $2.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $2.4B (prior $2.4B); capital expenditures $436.0M (prior $564.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 18,
+      "identity": [
+        "F",
+        "10-Q",
+        0,
+        "0000037996-26-000086"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $-1.1B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $607.0M (prior $1.2B), share repurchases $311.0M; capital expenditures $2.4B (prior $1.8B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 19,
+      "identity": [
+        "F",
+        "10-Q",
+        1,
+        "0000037996-26-000086"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $-1.1B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $607.0M (prior $1.2B), share repurchases $311.0M; capital expenditures $2.4B (prior $1.8B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 3,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 20,
+      "identity": [
+        "WMT",
+        "10-K",
+        0,
+        "0000104169-26-000055"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.9x net income (cash conversion); free cash flow of $14.9B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $7.5B (prior $6.7B), share repurchases $8.1B (prior $4.5B); capital expenditures $26.6B (prior $23.8B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 21,
+      "identity": [
+        "WMT",
+        "10-K",
+        1,
+        "0000104169-26-000055"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.9x net income (cash conversion); free cash flow of $14.9B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $7.5B (prior $6.7B), share repurchases $8.1B (prior $4.5B); capital expenditures $26.6B (prior $23.8B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 22,
+      "identity": [
+        "COST",
+        "10-Q",
+        0,
+        "0000909832-26-000051"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "",
+      "shareholder_returns": "",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 23,
+      "identity": [
+        "COST",
+        "10-Q",
+        1,
+        "0000909832-26-000051"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "",
+      "shareholder_returns": "",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 24,
+      "identity": [
+        "BA",
+        "10-K",
+        0,
+        "0001628280-26-004357"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $-1.9B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $331.0M; capital expenditures $2.9B (prior $2.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 25,
+      "identity": [
+        "BA",
+        "10-K",
+        1,
+        "0001628280-26-004357"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.5x net income (cash conversion); free cash flow of $-1.9B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid $331.0M; capital expenditures $2.9B (prior $2.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 26,
+      "identity": [
+        "INTC",
+        "10-Q",
+        0,
+        "0000050863-26-000079"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was positive despite a net loss; free cash flow of $-2.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $3.6B (prior $5.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 27,
+      "identity": [
+        "INTC",
+        "10-Q",
+        1,
+        "0000050863-26-000079"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was positive despite a net loss; free cash flow of $-2.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $3.6B (prior $5.2B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 28,
+      "identity": [
+        "PLTR",
+        "10-Q",
+        0,
+        "0001321655-26-000028"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $891.8M (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $7.4M (prior $6.2M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 29,
+      "identity": [
+        "PLTR",
+        "10-Q",
+        1,
+        "0001321655-26-000028"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.0x net income (cash conversion); free cash flow of $891.8M (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $7.4M (prior $6.2M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 30,
+      "identity": [
+        "RIVN",
+        "10-K",
+        0,
+        "0001874178-26-000008"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Free cash flow of $-2.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $1.7B (prior $1.1B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 13,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 31,
+      "identity": [
+        "RIVN",
+        "10-K",
+        1,
+        "0001874178-26-000008"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Free cash flow of $-2.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $1.7B (prior $1.1B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 32,
+      "identity": [
+        "COIN",
+        "10-Q",
+        0,
+        "0001679788-26-000054"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was positive despite a net loss.",
+      "shareholder_returns": "Capital returned — share repurchases $1.1B.",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 33,
+      "identity": [
+        "COIN",
+        "10-Q",
+        1,
+        "0001679788-26-000054"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was positive despite a net loss.",
+      "shareholder_returns": "Capital returned — share repurchases $1.1B.",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 34,
+      "identity": [
+        "BYND",
+        "10-Q",
+        0,
+        "0001655210-26-000037"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Free cash flow of $-7.6M (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $2.5M (prior $4.5M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 35,
+      "identity": [
+        "BYND",
+        "10-Q",
+        1,
+        "0001655210-26-000037"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Free cash flow of $-7.6M (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital expenditures $2.5M (prior $4.5M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 36,
+      "identity": [
+        "BABA",
+        "20-F",
+        0,
+        "0001193125-26-231755"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.7x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid CNY 33.7B (prior CNY 29.1B), share repurchases CNY 7.6B (prior CNY 86.7B).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 37,
+      "identity": [
+        "BABA",
+        "20-F",
+        1,
+        "0001193125-26-231755"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.7x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid CNY 33.7B (prior CNY 29.1B), share repurchases CNY 7.6B (prior CNY 86.7B).",
+      "preview_count": 13,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 38,
+      "identity": [
+        "ASML",
+        "20-F",
+        0,
+        "0001628280-26-011378"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion); free cash flow of EUR 11.1B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid EUR 2.6B (prior EUR 2.5B), share repurchases EUR 6.0B (prior EUR 500.0M); capital expenditures EUR 1.6B (prior EUR 2.1B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 11,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 39,
+      "identity": [
+        "ASML",
+        "20-F",
+        1,
+        "0001628280-26-011378"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion); free cash flow of EUR 11.1B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid EUR 2.6B (prior EUR 2.5B), share repurchases EUR 6.0B (prior EUR 500.0M); capital expenditures EUR 1.6B (prior EUR 2.1B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 8,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 40,
+      "identity": [
+        "TSM",
+        "20-F",
+        0,
+        "0001628280-26-025362"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid TWD 466.8B (prior TWD 363.1B).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 41,
+      "identity": [
+        "TSM",
+        "20-F",
+        1,
+        "0001628280-26-025362"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.3x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid TWD 466.8B (prior TWD 363.1B).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 42,
+      "identity": [
+        "JD",
+        "20-F",
+        0,
+        "0001193125-26-157870"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.8x net income (cash conversion); free cash flow of CNY 11.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid CNY 10.4B (prior CNY 8.3B), share repurchases CNY 21.4B (prior CNY 25.9B); capital expenditures CNY 7.8B (prior CNY 5.4B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 43,
+      "identity": [
+        "JD",
+        "20-F",
+        1,
+        "0001193125-26-157870"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 0.8x net income (cash conversion); free cash flow of CNY 11.2B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — dividends paid CNY 10.4B (prior CNY 8.3B), share repurchases CNY 21.4B (prior CNY 25.9B); capital expenditures CNY 7.8B (prior CNY 5.4B) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 44,
+      "identity": [
+        "SE",
+        "20-F",
+        0,
+        "0001140361-26-015366"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 3.2x net income (cash conversion); free cash flow of $4.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — share repurchases $14.0M; capital expenditures $513.8M (prior $318.2M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 45,
+      "identity": [
+        "SE",
+        "20-F",
+        1,
+        "0001140361-26-015366"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 3.2x net income (cash conversion); free cash flow of $4.5B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — share repurchases $14.0M; capital expenditures $513.8M (prior $318.2M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 7,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 46,
+      "identity": [
+        "NVO",
+        "20-F",
+        0,
+        "0000353278-26-000012"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.2x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid DKK 51.8B (prior DKK 44.1B), share repurchases DKK 1.4B (prior DKK 20.2B).",
+      "preview_count": 6,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 47,
+      "identity": [
+        "NVO",
+        "20-F",
+        1,
+        "0000353278-26-000012"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.2x net income (cash conversion).",
+      "shareholder_returns": "Capital returned — dividends paid DKK 51.8B (prior DKK 44.1B), share repurchases DKK 1.4B (prior DKK 20.2B).",
+      "preview_count": 7,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 48,
+      "identity": [
+        "PDD",
+        "20-F",
+        0,
+        "0001104659-26-050727"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.1x net income (cash conversion).",
+      "shareholder_returns": "",
+      "preview_count": 12,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 49,
+      "identity": [
+        "PDD",
+        "20-F",
+        1,
+        "0001104659-26-050727"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 1.1x net income (cash conversion).",
+      "shareholder_returns": "",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 50,
+      "identity": [
+        "MELI",
+        "10-K",
+        0,
+        "0001099590-26-000006"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 6.1x net income (cash conversion); free cash flow of $10.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — share repurchases $1.0M (prior $1.0M); capital expenditures $1.3B (prior $860.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 9,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    },
+    {
+      "index": 51,
+      "identity": [
+        "MELI",
+        "10-K",
+        1,
+        "0001099590-26-000006"
+      ],
+      "fi_component_suppression": false,
+      "cash_conversion": "Operating cash flow was 6.1x net income (cash conversion); free cash flow of $10.8B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure).",
+      "shareholder_returns": "Capital returned — share repurchases $1.0M (prior $1.0M); capital expenditures $1.3B (prior $860.0M) (selected cash-flow amount, not necessarily total capital investment).",
+      "preview_count": 10,
+      "previews_truncated": false,
+      "preview_scope": "summary_call_including_internal_retries",
+      "issues": []
+    }
+  ],
+  "limitations": "Not model-prose acceptance; no actual web/PDF/CSV or grounding-request capture check. Source differences require adjudication. No candidate acceptance implied by preparing this utility."
+}
