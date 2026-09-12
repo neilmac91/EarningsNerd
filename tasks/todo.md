@@ -4612,3 +4612,19 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 ## Measurement implementation — archived
 
 - [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).
+
+## September 12 — approved cash concept contract extension in #808
+
+The founder approved retaining the selected cash concept in the two T9 expected records and the
+minimal bucket-record docstring clarification proposed on September 9. This is the narrow
+`test_companyfacts_fixture.py` exception only; amounts, dates, forms, accession, full equality,
+other assertions and the recorded fixture remain unchanged. The earlier pending-decision records
+remain historical. Consolidate the original full preparation into the existing draft #808.
+
+- [ ] Integrate current main and restore only the prepared companyfacts remainder alongside the instance metadata.
+- [ ] Apply the exact approved T9 two-row/docstring extension; verify all other locked anchors unchanged.
+- [ ] Retain the original single propagation proof, without repeating it; review the restored complete invariant.
+- [ ] Integrate verified M3, run full committed gates and actual Flash assessment before release.
+
+No new source fetch, historical replay, prompt/model/flag change or paid run is authorized by this
+local preparation. The ordinary review and serial production verification remain required.
