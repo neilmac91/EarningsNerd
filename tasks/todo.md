@@ -4970,6 +4970,35 @@ Continue actual authored-guidance unit correction, source-qualified debt scope a
 Read-only Cloud Run inspection could not reach production project `earnings-nerd` through the available personal browser account; the existing production-account session requires reauthentication. No settings were altered. Live capacity remains unverified; the E09 proposal continues from repository evidence and must distinguish configured source settings from effective production capacity.
 
 
+## September 12 — #824 documentation verified; #825 assessment pending
+
+#824 merged as `8dd880d977dd8484acb50466dacbe1fcc9e62052` at 15:11:21Z. Main CI `34701471681` succeeded; job `103574296028` explicitly reported “No backend changes - skipping deploy.” at 15:14:34.4069220Z. The preceding #823 production verification remains complete; no new deployment is attributed to the documentation release.
+
+The [#825 preparatory archive](review-evidence/authored-guidance-2026-09-12/README.md) retains the 2,927-test integrated gate, one new red/green proof, copy-only 52-outcome check and first 18/18 Copilot acceptance. Fresh summary acceptance, merge and deployment remain pending. The proposed numerical-relationship contract remains design-only because unrestricted analytical text can repeat false relations; no implementation or founder decision follows yet. Preserve debt/comparison findings and the existing pregeneration/replay holds.
+
+
+### September 12 — #825 first summary held for punctuation-boundary correction
+
+The [first functional assessment](review-evidence/authored-guidance-2026-09-12/pr825-first-guidance-review.md) found one COST draw still unscaled because its fiscal-year continuation omitted a comma. Source/metadata and usage checks pass, but scoped summary acceptance is withheld; accepted Copilot results are separate. Root committed correction `604a457c` and is running the full gate after a preserved sandbox PostgreSQL startup denial. The original invariant proof remains valid and is not repeated for this variant. The second confirmed-finding assessment is authorized but not yet triggered by this record. No merge, release or general quality clearance is claimed.
+
+
+### September 12 — #825 second functional hold; no additional paid assessment yet
+
+The [second functional review](review-evidence/authored-guidance-2026-09-12/pr825-second-guidance-review.md) confirms another supported COST reporting-introduction variant remains unscaled in final guidance and three retained previews. Metadata/usage and separate Copilot acceptance do not close this functional failure. #825 is a draft; production remains verified #823 `earningsnerd-backend-00333-56s`. Root prepared local correction `d19c782b`; its full gate is running. Both authorized paid rounds are used, so another assessment requires explicit approval after local gate and independent review. No third run, push, merge or release is claimed. Preserve both failed rounds and the single existing invariant proof.
+
+
+### September 12 — #825 local reporting correction verified; assessment approval pending
+
+Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit and the full four-PostgreSQL-lane/performance gate: **2,929 passed, 29 warnings in 119.95s**, exit 0. [Verification and patch](review-evidence/authored-guidance-2026-09-12/README.md#latest-local-correction-gated-and-awaiting-assessment-authorization) retain the exact correction and gate hash. Offline comparison of 104 outcomes corrects only the two previously missed strings; this does not replace actual acceptance. Independent review cleared the delta, all eleven locks are unchanged, and the original proof is not repeated.
+
+#825 remains a draft at published `604a457c4e755e27cdf8d7f1b1ca6f403f315b38`. Both authorized assessment rounds are used; no third round or additional code push is approved. The local fix is concrete and reviewable for an additional-assessment decision. No merge/deployment is claimed; production remains verified #823 `earningsnerd-backend-00333-56s`. Previous pending local-gate entries are historical.
+
+
+### September 12 — #826 documentation whitespace verification correction
+
+Pre-merge automated review identified that the earlier clean-worktree `git diff --check` did not inspect the committed archive. The actual committed range reports two intentional context-space lines in the immutable correction patch. The range check passes excluding only that patch, whose original hash is preserved; the [archive verification correction](review-evidence/authored-guidance-2026-09-12/README.md#documentation-verification-correction) records the exact command and two refutations. No merge preceded this correction.
+
+
 ### September 12 — authored-unit proof and #824 integration
 
 The sole new authored-unit mutation `c510be6605f9c5617279db22c4d7049f9b53d319` disabled only the shared insertion. Actual final/preview plus source/action/year/scope negative controls yielded:
@@ -4999,3 +5028,14 @@ The original first artifact and failure review remain retained. The single exist
 Second CI `34702770441` and Copilot `34702770437` pass their bounded metadata/fact checks. Actual second summary `10300970920` still has one missed COST guidance sentence: `The company states its current intention` does not match the older `stated it is its` introduction. Both source excerpts are identical and provide the same amount/action/year/million scope. Independent refutations reject a source mismatch and confirm the error in actual final output plus three preview frames. Extend only that anchored reporting introduction to cover the observed equivalent form; financial predicate, source ownership and ambiguity guards remain unchanged. The original invariant proof is retained without repetition.
 
 PR #825 is now held as a draft. Two authorized paid assessment rounds have been consumed. Finish the committed local correction gate and review before requesting one additional assessment; no new paid run, push or release is authorized by this record. Broader paraphrase coverage, debt/comparison explanations and citation adherence remain open. Production remains on the verified #823 revision; no incomplete candidate is released.
+
+
+### September 12 — founder approves one additional #825 assessment
+
+The founder explicitly approved one additional assessment round for the verified reporting-introduction correction: 52 summary outcomes and 18 Copilot answers. This supersedes the preceding additional-assessment hold only. Both failed rounds and the original single mutation proof remain retained. Integrate verified docs-only #826, gate the committed integrated state, publish once and mark ready once; inspect actual final/preview guidance and independent source/usage/Copilot evidence before any merge. Approval does not authorize another unchanged retry, broader generation, historical replay or production settings.
+
+#826 merged as `b36039e8a1af020c3d7310c7fd447b9544dbe458`; main CI `34704558305` succeeded and deploy job `103582557985` explicitly skipped backend deployment at 16:16:17.2460461Z. Production remains verified #823 revision `earningsnerd-backend-00333-56s`.
+
+- [x] Record explicit additional-assessment approval.
+- [ ] Gate and publish the integrated correction; perform the one approved assessment round.
+- [ ] Review actual outcome evidence, then merge and verify deployment only if accepted.

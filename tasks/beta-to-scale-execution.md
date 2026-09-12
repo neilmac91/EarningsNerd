@@ -779,3 +779,27 @@ The next quality work is actual authored-guidance unit preservation, source-qual
 This dated correction supersedes the preceding production-pending instruction. Main CI `34700643792` and deploy job `103572015821` succeeded. Migrations reported `applied=0 skipped=39` at 14:59:08.2960343Z; revision `earningsnerd-backend-00333-56s` serves 100% of traffic. CI detailed health was healthy at 15:00:48.5214041Z (database 6.52 ms); independent detailed health was healthy (database 6.27 ms, server timestamp `1789225367.402431`; Redis disabled, SEC circuit closed). The independent response is retained privately in `work/pr823-independent-health.json`. [Source-unit release evidence](review-evidence/source-unit-2026-09-12/README.md) retains bounded acceptance and original proofs. Both #821 and #823 are now merged and production-verified; do not repeat their assessments or releases.
 
 Continue actual authored-guidance unit correction, source-qualified debt scope and the finite capital-allocation relationship consumer, preserving valid analytical and program text. No parallel correct paragraph beside contradictory prose counts as completion. Source-side descriptor feasibility is design evidence, not a shipped numerical fix. Previous findings, original master-plan prerequisites, #805 hold, natural E06 delivery observation and universe-wide pregeneration/historical replay holds remain unchanged.
+
+
+## September 12 — #824 documentation verified; #825 assessment pending
+
+#824 merged as `8dd880d977dd8484acb50466dacbe1fcc9e62052` at 15:11:21Z. Main CI `34701471681` succeeded; job `103574296028` explicitly reported “No backend changes - skipping deploy.” at 15:14:34.4069220Z. The preceding #823 production verification remains complete; no new deployment is attributed to the documentation release.
+
+The [#825 preparatory archive](review-evidence/authored-guidance-2026-09-12/README.md) retains the 2,927-test integrated gate, one new red/green proof, copy-only 52-outcome check and first 18/18 Copilot acceptance. Fresh summary acceptance, merge and deployment remain pending. The proposed numerical-relationship contract remains design-only because unrestricted analytical text can repeat false relations; no implementation or founder decision follows yet. Preserve debt/comparison findings and the existing pregeneration/replay holds.
+
+
+### September 12 — #825 first summary held for punctuation-boundary correction
+
+The [first functional assessment](review-evidence/authored-guidance-2026-09-12/pr825-first-guidance-review.md) found one COST draw still unscaled because its fiscal-year continuation omitted a comma. Source/metadata and usage checks pass, but scoped summary acceptance is withheld; accepted Copilot results are separate. Root committed correction `604a457c` and is running the full gate after a preserved sandbox PostgreSQL startup denial. The original invariant proof remains valid and is not repeated for this variant. The second confirmed-finding assessment is authorized but not yet triggered by this record. No merge, release or general quality clearance is claimed.
+
+
+### September 12 — #825 second functional hold; no additional paid assessment yet
+
+The [second functional review](review-evidence/authored-guidance-2026-09-12/pr825-second-guidance-review.md) confirms another supported COST reporting-introduction variant remains unscaled in final guidance and three retained previews. Metadata/usage and separate Copilot acceptance do not close this functional failure. #825 is a draft; production remains verified #823 `earningsnerd-backend-00333-56s`. Root prepared local correction `d19c782b`; its full gate is running. Both authorized paid rounds are used, so another assessment requires explicit approval after local gate and independent review. No third run, push, merge or release is claimed. Preserve both failed rounds and the single existing invariant proof.
+
+
+### September 12 — #825 local reporting correction verified; assessment approval pending
+
+Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit and the full four-PostgreSQL-lane/performance gate: **2,929 passed, 29 warnings in 119.95s**, exit 0. [Verification and patch](review-evidence/authored-guidance-2026-09-12/README.md#latest-local-correction-gated-and-awaiting-assessment-authorization) retain the exact correction and gate hash. Offline comparison of 104 outcomes corrects only the two previously missed strings; this does not replace actual acceptance. Independent review cleared the delta, all eleven locks are unchanged, and the original proof is not repeated.
+
+#825 remains a draft at published `604a457c4e755e27cdf8d7f1b1ca6f403f315b38`. Both authorized assessment rounds are used; no third round or additional code push is approved. The local fix is concrete and reviewable for an additional-assessment decision. No merge/deployment is claimed; production remains verified #823 `earningsnerd-backend-00333-56s`. Previous pending local-gate entries are historical.

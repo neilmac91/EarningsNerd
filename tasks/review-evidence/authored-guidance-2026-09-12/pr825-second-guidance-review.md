@@ -1,0 +1,9 @@
+# PR #825 second summary — functional hold
+
+Second summary metadata checks pass; functional acceptance remains withheld. COST run 0 has the correct `$6,500 million` in final guidance and three of seven retained previews. COST run 1 uses “The company states its current intention” and retains the unscaled `$6,500` in raw guidance, actual executive-summary/outlook rendering and three of seven retained preview frames; none of those seven contains the corrected amount.
+
+**Must-fix before release:** `backend/app/services/ai/source_units.py:88` accepts only the “stated it is its” reporting introduction. It rejects the same financial predicate introduced by “states its.” Refutation 1: the unchanged source provides the same unique current-intention, capex amount, fiscal year and million scope; source omission does not explain the miss. Refutation 2: the actual rendered final text and retained previews contain the defect, with no ambiguity/quotation guard applicable. A correct quotation or successful metadata gate does not repair that separate authored sentence.
+
+The first comma-boundary correction is retained and correctly supports its tested form. This second failure demonstrates the bounded reporting-introduction coverage, not a source or numerical regression. Expand only that introduction to cover the observed equivalent present-tense form, preserving the exact financial predicate and all source/ambiguity guards; include the actual comma-free present-tense sentence in the existing invariant. The original proof remains the single proof for this invariant.
+
+Both authorized paid assessment rounds have been used. The PR is held as a draft. Prepare the local correction, full committed gate and independent review before requesting an additional assessment; do not silently trigger another paid round. Neither this report nor passing tests establishes general paraphrase coverage or world-class output. Original artifacts remain immutable.

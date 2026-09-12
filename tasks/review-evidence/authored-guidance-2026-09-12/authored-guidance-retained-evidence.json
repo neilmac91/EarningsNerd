@@ -1,0 +1,482 @@
+{
+  "source_report_sha256": "b77191f0634d49f823bf763abbc39a66cacfc01acd99af8e7bf1ab32b3069dcb",
+  "outcomes": 52,
+  "changed": 2,
+  "results": [
+    {
+      "ticker": "AAPL",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No forward financial guidance is provided in the 10-K; the filing states that future gross margins will be subject to volatility and downward pressure and that the ultimate impact of tariffs remains uncertain.",
+      "corrected_guidance": "No forward financial guidance is provided in the 10-K; the filing states that future gross margins will be subject to volatility and downward pressure and that the ultimate impact of tariffs remains uncertain."
+    },
+    {
+      "ticker": "AAPL",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue, margin, or EPS guidance. Management states that future gross margins can be impacted by a variety of factors and that the Company believes, in general, gross margins will be subject to volatility and downward pressure.",
+      "corrected_guidance": "The filing does not provide quantitative revenue, margin, or EPS guidance. Management states that future gross margins can be impacted by a variety of factors and that the Company believes, in general, gross margins will be subject to volatility and downward pressure."
+    },
+    {
+      "ticker": "MSFT",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No financial guidance is provided in the filing. The filing states we expect existing cash, cash equivalents, short-term investments, cash flows from operations, and access to capital markets to continue to be sufficient to fund our operating activities and cash commitments for investing and financing activities for at least the next 12 months and thereafter for the foreseeable future.",
+      "corrected_guidance": "No financial guidance is provided in the filing. The filing states we expect existing cash, cash equivalents, short-term investments, cash flows from operations, and access to capital markets to continue to be sufficient to fund our operating activities and cash commitments for investing and financing activities for at least the next 12 months and thereafter for the foreseeable future."
+    },
+    {
+      "ticker": "MSFT",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No financial guidance was provided in the filing. Management stated that the investments being made in cloud and AI infrastructure and devices will continue to increase operating costs and may decrease operating margins.",
+      "corrected_guidance": "No financial guidance was provided in the filing. Management stated that the investments being made in cloud and AI infrastructure and devices will continue to increase operating costs and may decrease operating margins."
+    },
+    {
+      "ticker": "NVDA",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states that the Rubin platform is expected to start shipping in the second half of fiscal year 2027.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states that the Rubin platform is expected to start shipping in the second half of fiscal year 2027."
+    },
+    {
+      "ticker": "NVDA",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No financial guidance (revenue, margin, or EPS) is provided in this 10-Q; the filing states product-timing expectations only, including that the Rubin platform is expected to start shipping in the second half of fiscal year 2027.",
+      "corrected_guidance": "No financial guidance (revenue, margin, or EPS) is provided in this 10-Q; the filing states product-timing expectations only, including that the Rubin platform is expected to start shipping in the second half of fiscal year 2027."
+    },
+    {
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Management provided full-year 2026 outlook on January 13, 2026: net interest income of approximately $103B and net interest income excluding Markets of approximately $95B, market dependent; adjusted expense of approximately $105B, market dependent; and a Card Services net charge-off rate of approximately 3.4%.",
+      "corrected_guidance": "Management provided full-year 2026 outlook on January 13, 2026: net interest income of approximately $103B and net interest income excluding Markets of approximately $95B, market dependent; adjusted expense of approximately $105B, market dependent; and a Card Services net charge-off rate of approximately 3.4%."
+    },
+    {
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Management provided full-year 2026 outlook on January 13, 2026: net interest income of approximately $103 billion and net interest income excluding Markets of approximately $95 billion, market dependent; adjusted expense of approximately $105 billion, market dependent; and a Card Services net charge-off rate of approximately 3.4%.",
+      "corrected_guidance": "Management provided full-year 2026 outlook on January 13, 2026: net interest income of approximately $103 billion and net interest income excluding Markets of approximately $95 billion, market dependent; adjusted expense of approximately $105 billion, market dependent; and a Card Services net charge-off rate of approximately 3.4%."
+    },
+    {
+      "ticker": "KO",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that, based on current spot rates and hedging coverage in place, foreign currency exchange rate fluctuations are expected to have a favorable impact on full year 2026 net operating revenues and on full year 2026 operating income; 2026 capital expenditures are expected to be approximately $2.2 billion; and the 2026 effective tax rate is expected to be approximately 19.9% before considering the potential impact of any significant operating and nonoperating items.",
+      "corrected_guidance": "The filing states that, based on current spot rates and hedging coverage in place, foreign currency exchange rate fluctuations are expected to have a favorable impact on full year 2026 net operating revenues and on full year 2026 operating income; 2026 capital expenditures are expected to be approximately $2.2 billion; and the 2026 effective tax rate is expected to be approximately 19.9% before considering the potential impact of any significant operating and nonoperating items."
+    },
+    {
+      "ticker": "KO",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that, based on current spot rates and hedging coverage in place, foreign currency exchange rate fluctuations are expected to have a favorable impact on full year 2026 net operating revenues and on full year 2026 operating income. The company states its effective tax rate in 2026 is expected to be approximately 19.9% before considering the potential impact of any significant operating and nonoperating items, and that this rate does not include the impact of the ongoing IRS tax litigation if the company were not to prevail. The company states it currently expects 2026 capital expenditures to be approximately $2.2 billion.",
+      "corrected_guidance": "The filing states that, based on current spot rates and hedging coverage in place, foreign currency exchange rate fluctuations are expected to have a favorable impact on full year 2026 net operating revenues and on full year 2026 operating income. The company states its effective tax rate in 2026 is expected to be approximately 19.9% before considering the potential impact of any significant operating and nonoperating items, and that this rate does not include the impact of the ongoing IRS tax litigation if the company were not to prevail. The company states it currently expects 2026 capital expenditures to be approximately $2.2 billion."
+    },
+    {
+      "ticker": "TSLA",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Management stated it currently expects capital expenditures to exceed $20 billion in 2026, driven by AI initiatives including investments in compute infrastructure and data centers, the expansion and ramp of manufacturing and R&D production lines and facilities, and growth in the fleet of company-operated AI-enabled assets and retail, service and charging footprint. The filing also states that changes in trade policy may necessitate adjustments to project timelines, potentially impacting capital expenditure expectations. No revenue or earnings guidance was provided.",
+      "corrected_guidance": "Management stated it currently expects capital expenditures to exceed $20 billion in 2026, driven by AI initiatives including investments in compute infrastructure and data centers, the expansion and ramp of manufacturing and R&D production lines and facilities, and growth in the fleet of company-operated AI-enabled assets and retail, service and charging footprint. The filing also states that changes in trade policy may necessitate adjustments to project timelines, potentially impacting capital expenditure expectations. No revenue or earnings guidance was provided."
+    },
+    {
+      "ticker": "TSLA",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Tesla states it currently expects capital expenditures to be in excess of $20 billion in 2026, driven by AI initiatives, including investments in compute infrastructure and data centers, the expansion and ramp of manufacturing and R&D production lines and facilities, and growth in its fleet of company-operated AI-enabled assets and its retail, service and charging footprint. No revenue or earnings guidance is provided.",
+      "corrected_guidance": "Tesla states it currently expects capital expenditures to be in excess of $20 billion in 2026, driven by AI initiatives, including investments in compute infrastructure and data centers, the expansion and ramp of manufacturing and R&D production lines and facilities, and growth in its fleet of company-operated AI-enabled assets and its retail, service and charging footprint. No revenue or earnings guidance is provided."
+    },
+    {
+      "ticker": "AMZN",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Q1 2026 guidance: net sales expected between $173.5B and $178.5B, or growth of 11% to 15% YoY, anticipating a favorable ~180 bps FX impact; operating income expected between $16.5B and $21.5B, compared with $18.4B in Q1 2025, including ~$1B of higher year-over-year Amazon Leo costs and investment in quick commerce and sharper prices in international stores.",
+      "corrected_guidance": "Q1 2026 guidance: net sales expected between $173.5B and $178.5B, or growth of 11% to 15% YoY, anticipating a favorable ~180 bps FX impact; operating income expected between $16.5B and $21.5B, compared with $18.4B in Q1 2025, including ~$1B of higher year-over-year Amazon Leo costs and investment in quick commerce and sharper prices in international stores."
+    },
+    {
+      "ticker": "AMZN",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "First quarter 2026 guidance: net sales expected between $173.5B and $178.5B, or growth of 11% to 15% versus first quarter 2025, anticipating a favorable impact of approximately 180 basis points from foreign exchange rates; operating income expected between $16.5B and $21.5B, compared with $18.4B in first quarter 2025, including approximately $1B of higher year-over-year Amazon Leo costs and investment in quick commerce and sharper prices in the international stores business.",
+      "corrected_guidance": "First quarter 2026 guidance: net sales expected between $173.5B and $178.5B, or growth of 11% to 15% versus first quarter 2025, anticipating a favorable impact of approximately 180 basis points from foreign exchange rates; operating income expected between $16.5B and $21.5B, compared with $18.4B in first quarter 2025, including approximately $1B of higher year-over-year Amazon Leo costs and investment in quick commerce and sharper prices in the international stores business."
+    },
+    {
+      "ticker": "XOM",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific earnings or revenue guidance was provided. Management stated it expects to increase Permian production to approximately 2.5 Moebd by 2030 and anticipates eight FPSO vessels in operation on the Stabroek Block by year-end 2030.",
+      "corrected_guidance": "No specific earnings or revenue guidance was provided. Management stated it expects to increase Permian production to approximately 2.5 Moebd by 2030 and anticipates eight FPSO vessels in operation on the Stabroek Block by year-end 2030."
+    },
+    {
+      "ticker": "XOM",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No explicit earnings or revenue guidance provided; the filing discusses long-term outlook and project timelines.",
+      "corrected_guidance": "No explicit earnings or revenue guidance provided; the filing discusses long-term outlook and project timelines."
+    },
+    {
+      "ticker": "PFE",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No full-year financial guidance is stated in the provided excerpts. The filing states that in 2026 Pfizer continues to expect an unfavorable revenue impact from patent-based or regulatory exclusivity expiries of approximately $1.5 billion.",
+      "corrected_guidance": "No full-year financial guidance is stated in the provided excerpts. The filing states that in 2026 Pfizer continues to expect an unfavorable revenue impact from patent-based or regulatory exclusivity expiries of approximately $1.5 billion."
+    },
+    {
+      "ticker": "PFE",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Not disclosed\u2014the filing does not provide explicit forward guidance; it states expectations for certain items such as patent-based or regulatory exclusivity expiries and cost-reduction program costs.",
+      "corrected_guidance": "Not disclosed\u2014the filing does not provide explicit forward guidance; it states expectations for certain items such as patent-based or regulatory exclusivity expiries and cost-reduction program costs."
+    },
+    {
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that in the second half of 2026 Ford expects to partially recover the production lost to the Novelis fires, that it expects to recognize pre-tax special item charges of about $3.5 billion upon closing of the BOSK transactions expected in the second quarter of 2026, and that it anticipates recognizing a tax benefit of up to $350 million in the second quarter of 2026 from U.S. Qualified Opportunity Zone tax incentives; no full-year earnings guidance is provided in the excerpts.",
+      "corrected_guidance": "The filing states that in the second half of 2026 Ford expects to partially recover the production lost to the Novelis fires, that it expects to recognize pre-tax special item charges of about $3.5 billion upon closing of the BOSK transactions expected in the second quarter of 2026, and that it anticipates recognizing a tax benefit of up to $350 million in the second quarter of 2026 from U.S. Qualified Opportunity Zone tax incentives; no full-year earnings guidance is provided in the excerpts."
+    },
+    {
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide full-year 2026 revenue, EPS, or EBIT guidance in the excerpts provided. It states that in the second half of 2026, Ford expects to partially recover the production lost to date from the Novelis fires, and that it expects to recognize pre-tax special item charges of about $3.5 billion upon closing of the BOSK JVDA transactions (expected in the second quarter of 2026).",
+      "corrected_guidance": "The filing does not provide full-year 2026 revenue, EPS, or EBIT guidance in the excerpts provided. It states that in the second half of 2026, Ford expects to partially recover the production lost to date from the Novelis fires, and that it expects to recognize pre-tax special item charges of about $3.5 billion upon closing of the BOSK JVDA transactions (expected in the second quarter of 2026)."
+    },
+    {
+      "ticker": "WMT",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "For the fiscal year ending January 31, 2027, the company projects capital expenditures will be approximately $25 billion to $27 billion, with a focus on technology, supply chain and customer-facing initiatives.",
+      "corrected_guidance": "For the fiscal year ending January 31, 2027, the company projects capital expenditures will be approximately $25 billion to $27 billion, with a focus on technology, supply chain and customer-facing initiatives."
+    },
+    {
+      "ticker": "WMT",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "For fiscal 2027, the company projects capital expenditures will be approximately $25 billion to $27 billion, with a focus on technology, supply chain and customer-facing initiatives. No other earnings or revenue guidance was provided in the filing.",
+      "corrected_guidance": "For fiscal 2027, the company projects capital expenditures will be approximately $25 billion to $27 billion, with a focus on technology, supply chain and customer-facing initiatives. No other earnings or revenue guidance was provided in the filing."
+    },
+    {
+      "ticker": "COST",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": [
+        "$6,500",
+        "2026"
+      ],
+      "changed": true,
+      "original_guidance": "The Company stated it is its current intention to spend approximately $6,500 on capital expenditures during fiscal 2026, and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance was provided.",
+      "corrected_guidance": "The Company stated it is its current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026, and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026. No earnings or revenue guidance was provided."
+    },
+    {
+      "ticker": "COST",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": [
+        "$6,500",
+        "2026"
+      ],
+      "changed": true,
+      "original_guidance": "The company stated it is its current intention to spend approximately $6,500 on capital expenditures during fiscal 2026, and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026.",
+      "corrected_guidance": "The company stated it is its current intention to spend approximately $6,500 million on capital expenditures during fiscal 2026, and plans to open 13 additional new warehouses, including one relocation, in the remainder of fiscal 2026."
+    },
+    {
+      "ticker": "BA",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No formal financial guidance is provided in the filing. Management states production-rate and certification expectations: the 737 program plans to increase the production rate from 42 to 47 per month in 2026 with FAA concurrence, and first delivery of the 777-9 is expected in 2027.",
+      "corrected_guidance": "No formal financial guidance is provided in the filing. Management states production-rate and certification expectations: the 737 program plans to increase the production rate from 42 to 47 per month in 2026 with FAA concurrence, and first delivery of the 777-9 is expected in 2027."
+    },
+    {
+      "ticker": "BA",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide company-wide revenue or EPS guidance. Program-level statements include: the 737 program plans to increase the production rate from 42 to 47 per month in 2026 with FAA concurrence, and is planning additional increases beyond 47 per month as well as adding a 737 production line; the 767 commercial program is expected to complete production by 2027; first delivery of the 777-9 is expected in 2027, with the 777-8 Freighter approximately two years later and the 777-8 passenger aircraft not expected before 2030; and 737-7 and 737-10 certification is expected in 2026.",
+      "corrected_guidance": "The filing does not provide company-wide revenue or EPS guidance. Program-level statements include: the 737 program plans to increase the production rate from 42 to 47 per month in 2026 with FAA concurrence, and is planning additional increases beyond 47 per month as well as adding a 737 production line; the 767 commercial program is expected to complete production by 2027; first delivery of the 777-9 is expected in 2027, with the 777-8 Freighter approximately two years later and the 777-8 passenger aircraft not expected before 2030; and 737-7 and 737-10 certification is expected in 2026."
+    },
+    {
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or EPS guidance. Management states it expects supply constraints to persist throughout 2026 and that total R&D and MG&A expenses are expected to decrease in 2026 relative to recent historical periods.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or EPS guidance. Management states it expects supply constraints to persist throughout 2026 and that total R&D and MG&A expenses are expected to decrease in 2026 relative to recent historical periods."
+    },
+    {
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or EPS guidance. Management states it expects supply constraints to persist throughout 2026 and that total R&D and MG&A expenses are expected to decrease in 2026 relative to recent historical periods.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or EPS guidance. Management states it expects supply constraints to persist throughout 2026 and that total R&D and MG&A expenses are expected to decrease in 2026 relative to recent historical periods."
+    },
+    {
+      "ticker": "PLTR",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific revenue or EPS guidance was provided in the filing; management stated it believes it has sufficient liquidity to meet operating requirements for at least the next twelve months and thereafter for the foreseeable future.",
+      "corrected_guidance": "No specific revenue or EPS guidance was provided in the filing; management stated it believes it has sufficient liquidity to meet operating requirements for at least the next twelve months and thereafter for the foreseeable future."
+    },
+    {
+      "ticker": "PLTR",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific financial guidance was provided in the filing; management stated it believes it has sufficient liquidity to meet operating requirements for at least the next twelve months and thereafter for the foreseeable future.",
+      "corrected_guidance": "No specific financial guidance was provided in the filing; management stated it believes it has sufficient liquidity to meet operating requirements for at least the next twelve months and thereafter for the foreseeable future."
+    },
+    {
+      "ticker": "RIVN",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects customer deliveries of the R2 to begin in the second quarter of 2026 and that it expects to receive up to an additional $2.5 billion from Volkswagen Group, subject to certain conditions including the achievement of certain milestones and obtaining relevant regulatory clearances.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects customer deliveries of the R2 to begin in the second quarter of 2026 and that it expects to receive up to an additional $2.5 billion from Volkswagen Group, subject to certain conditions including the achievement of certain milestones and obtaining relevant regulatory clearances."
+    },
+    {
+      "ticker": "RIVN",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No quantitative financial guidance provided. Management states it expects customer deliveries of the R2 to begin in the second quarter of 2026 and expects to receive up to an additional $2.5B from Volkswagen Group subject to milestone achievement.",
+      "corrected_guidance": "No quantitative financial guidance provided. Management states it expects customer deliveries of the R2 to begin in the second quarter of 2026 and expects to receive up to an additional $2.5B from Volkswagen Group subject to milestone achievement."
+    },
+    {
+      "ticker": "COIN",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that, including reflecting the impact of the Restructuring Plan, in the second quarter of 2026, the company expects the aggregate of technology and development and general and administrative expenses to generally be lower than the first quarter of 2026, and expects sales and marketing expenses to be roughly in line with or lower than those of the first quarter of 2026.",
+      "corrected_guidance": "The filing states that, including reflecting the impact of the Restructuring Plan, in the second quarter of 2026, the company expects the aggregate of technology and development and general and administrative expenses to generally be lower than the first quarter of 2026, and expects sales and marketing expenses to be roughly in line with or lower than those of the first quarter of 2026."
+    },
+    {
+      "ticker": "COIN",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The company provided limited forward guidance: 'Including reflecting the impact of the Restructuring Plan, in the second quarter of 2026, we expect the aggregate of technology and development and general and administrative expenses to generally be lower than the first quarter of 2026. Additionally, we expect sales and marketing expenses to be roughly in line with or lower than those of the first quarter of 2026, also reflecting the Restructuring Plan and the anticipated timing and scope of marketing opportunities.'",
+      "corrected_guidance": "The company provided limited forward guidance: 'Including reflecting the impact of the Restructuring Plan, in the second quarter of 2026, we expect the aggregate of technology and development and general and administrative expenses to generally be lower than the first quarter of 2026. Additionally, we expect sales and marketing expenses to be roughly in line with or lower than those of the first quarter of 2026, also reflecting the Restructuring Plan and the anticipated timing and scope of marketing opportunities.'"
+    },
+    {
+      "ticker": "BYND",
+      "form": "10-Q",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects to continue to operate at a loss for the foreseeable future and that it expects research and development expenses in 2026 to decrease compared to 2025 levels.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects to continue to operate at a loss for the foreseeable future and that it expects research and development expenses in 2026 to decrease compared to 2025 levels."
+    },
+    {
+      "ticker": "BYND",
+      "form": "10-Q",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects to continue to operate at a loss for the foreseeable future, expects research and development expenses in 2026 to decrease compared to 2025 levels, expects interest expense to increase from current levels in 2026, and expects to elect the PIK option through the term of the 2030 Notes.",
+      "corrected_guidance": "The filing does not provide quantitative revenue or earnings guidance. Management states it expects to continue to operate at a loss for the foreseeable future, expects research and development expenses in 2026 to decrease compared to 2025 levels, expects interest expense to increase from current levels in 2026, and expects to elect the PIK option through the term of the 2030 Notes."
+    },
+    {
+      "ticker": "BABA",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No quantitative guidance was provided. The company stated it has been and will continue investing at scale in cloud computing and AI capabilities as well as consumption, including quick commerce, and that it expects to fund additional investments through cash generated from operations and through debt and equity financing.",
+      "corrected_guidance": "No quantitative guidance was provided. The company stated it has been and will continue investing at scale in cloud computing and AI capabilities as well as consumption, including quick commerce, and that it expects to fund additional investments through cash generated from operations and through debt and equity financing."
+    },
+    {
+      "ticker": "BABA",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No quantitative guidance given. The filing states the company has been and will continue investing at scale in cloud computing and AI capabilities as well as consumption, including quick commerce, and that it expects to fund additional investments through cash generated from operations and through debt and equity financing when opportunities arise.",
+      "corrected_guidance": "No quantitative guidance given. The filing states the company has been and will continue investing at scale in cloud computing and AI capabilities as well as consumption, including quick commerce, and that it expects to fund additional investments through cash generated from operations and through debt and equity financing when opportunities arise."
+    },
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "For 2026, ASML expects total net sales between EUR 34 billion and EUR 39 billion and gross margin between 51% and 53%. For Q1 2026, total net sales are expected between EUR 8.2 billion and EUR 8.9 billion, gross margin between 51% and 53%, R&D costs of around EUR 1.2 billion, and SG&A costs of around EUR 0.3 billion.",
+      "corrected_guidance": "For 2026, ASML expects total net sales between EUR 34 billion and EUR 39 billion and gross margin between 51% and 53%. For Q1 2026, total net sales are expected between EUR 8.2 billion and EUR 8.9 billion, gross margin between 51% and 53%, R&D costs of around EUR 1.2 billion, and SG&A costs of around EUR 0.3 billion."
+    },
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "For 2026, ASML anticipates total net sales of between EUR 34 billion and EUR 39 billion and a gross margin between 51% and 53%, alongside an annualized effective tax rate of around 17%. For Q1 2026, total net sales of between EUR 8.2 billion and EUR 8.9 billion, gross margin between 51% and 53%, R&D costs of around EUR 1.2 billion and SG&A costs of around EUR 0.3 billion. For 2030, an expected revenue opportunity between EUR 44 billion and EUR 60 billion with a gross margin expected between 56% and 60%.",
+      "corrected_guidance": "For 2026, ASML anticipates total net sales of between EUR 34 billion and EUR 39 billion and a gross margin between 51% and 53%, alongside an annualized effective tax rate of around 17%. For Q1 2026, total net sales of between EUR 8.2 billion and EUR 8.9 billion, gross margin between 51% and 53%, R&D costs of around EUR 1.2 billion and SG&A costs of around EUR 0.3 billion. For 2030, an expected revenue opportunity between EUR 44 billion and EUR 60 billion with a gross margin expected between 56% and 60%."
+    },
+    {
+      "ticker": "TSM",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Capital expenditures for 2026 are expected to be between US$52 billion and US$56 billion, which, depending on market conditions, may be adjusted later. The company also states it plans to continue its investment in technology research and development in 2026.",
+      "corrected_guidance": "Capital expenditures for 2026 are expected to be between US$52 billion and US$56 billion, which, depending on market conditions, may be adjusted later. The company also states it plans to continue its investment in technology research and development in 2026."
+    },
+    {
+      "ticker": "TSM",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "Capital expenditures for 2026 are expected to be between US$52 billion and US$56 billion, which, depending on market conditions, may be adjusted later. The company stated it plans to continue its investment in technology research and development in 2026. No revenue or earnings guidance was provided in the excerpts.",
+      "corrected_guidance": "Capital expenditures for 2026 are expected to be between US$52 billion and US$56 billion, which, depending on market conditions, may be adjusted later. The company stated it plans to continue its investment in technology research and development in 2026. No revenue or earnings guidance was provided in the excerpts."
+    },
+    {
+      "ticker": "JD",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No quantitative financial guidance was provided in the filing. The company states it believes it has sufficient working capital for present requirements and for at least the next 12 months from the date of the annual report, taking into account cash and cash equivalents on hand, operating cash flows, and available bank facilities.",
+      "corrected_guidance": "No quantitative financial guidance was provided in the filing. The company states it believes it has sufficient working capital for present requirements and for at least the next 12 months from the date of the annual report, taking into account cash and cash equivalents on hand, operating cash flows, and available bank facilities."
+    },
+    {
+      "ticker": "JD",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific financial guidance was provided in the filing. Management stated that they believe they have sufficient working capital for present requirements and for at least the next 12 months from the date of the annual report, taking into account cash and cash equivalents on hand, operating cash flows, and available bank facilities.",
+      "corrected_guidance": "No specific financial guidance was provided in the filing. Management stated that they believe they have sufficient working capital for present requirements and for at least the next 12 months from the date of the annual report, taking into account cash and cash equivalents on hand, operating cash flows, and available bank facilities."
+    },
+    {
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific financial guidance was provided in the filing. The company states it does not have any present plan to pay cash dividends in the foreseeable future.",
+      "corrected_guidance": "No specific financial guidance was provided in the filing. The company states it does not have any present plan to pay cash dividends in the foreseeable future."
+    },
+    {
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific financial guidance was provided in the filing. Management discusses historical results and factors affecting operations without issuing forward-looking numerical targets.",
+      "corrected_guidance": "No specific financial guidance was provided in the filing. Management discusses historical results and factors affecting operations without issuing forward-looking numerical targets."
+    },
+    {
+      "ticker": "NVO",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that for 2026, continued pricing pressure within Obesity and Diabetes Care is expected, and that research and development costs are expected to gradually increase as a percentage of sales, with the company currently expecting to modestly expand upon the current expenditure level of around 15-17% of sales.",
+      "corrected_guidance": "The filing states that for 2026, continued pricing pressure within Obesity and Diabetes Care is expected, and that research and development costs are expected to gradually increase as a percentage of sales, with the company currently expecting to modestly expand upon the current expenditure level of around 15-17% of sales."
+    },
+    {
+      "ticker": "NVO",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The filing states that for 2026, continued pricing pressure within Obesity and Diabetes Care is expected. No specific numerical guidance is provided in the excerpts.",
+      "corrected_guidance": "The filing states that for 2026, continued pricing pressure within Obesity and Diabetes Care is expected. No specific numerical guidance is provided in the excerpts."
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No financial guidance was provided in the filing. Management states it expects costs and expenses to continue to increase as it grows its businesses and attracts and retains buyers and merchants, and expects to continue sales and marketing spending in the foreseeable future.",
+      "corrected_guidance": "No financial guidance was provided in the filing. Management states it expects costs and expenses to continue to increase as it grows its businesses and attracts and retains buyers and merchants, and expects to continue sales and marketing spending in the foreseeable future."
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "No specific financial guidance was provided. The company stated it expects costs and expenses to continue to increase as it grows its businesses and attracts and retains buyers and merchants.",
+      "corrected_guidance": "No specific financial guidance was provided. The company stated it expects costs and expenses to continue to increase as it grows its businesses and attracts and retains buyers and merchants."
+    },
+    {
+      "ticker": "MELI",
+      "form": "10-K",
+      "run": 0,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The company does not provide earnings guidance. Management stated: 'Although we discuss long-term trends in our business, it is our policy not to provide earnings guidance in the traditional sense.'",
+      "corrected_guidance": "The company does not provide earnings guidance. Management stated: 'Although we discuss long-term trends in our business, it is our policy not to provide earnings guidance in the traditional sense.'"
+    },
+    {
+      "ticker": "MELI",
+      "form": "10-K",
+      "run": 1,
+      "eligible_source_proposition": null,
+      "changed": false,
+      "original_guidance": "The company does not provide earnings guidance; management states it is policy not to provide earnings guidance in the traditional sense.",
+      "corrected_guidance": "The company does not provide earnings guidance; management states it is policy not to provide earnings guidance in the traditional sense."
+    }
+  ],
+  "limits": "Offline transformation of retained primary sections only. Does not prove new model output, recovered-source eligibility, live persisted state or general guidance equivalence."
+}

@@ -1,0 +1,59 @@
+diff --git a/backend/app/services/ai/source_units.py b/backend/app/services/ai/source_units.py
+index 1d0b490b..b0250356 100644
+--- a/backend/app/services/ai/source_units.py
++++ b/backend/app/services/ai/source_units.py
+@@ -85,7 +85,7 @@ _SPEND_PLAN = re.compile(
+     rf"(?P<amount>{_NUMBER}) during fiscal (?P<year>\d{{4}})(?=[,.])"
+ )
+ _AUTHORED_PLAN = re.compile(
+-    r"\AThe [Cc]ompany stated it is its current intention to spend approximately "
++    r"\AThe [Cc]ompany (?:stated it is its|states its) current intention to spend approximately "
+     rf"(?P<amount>{_NUMBER}) on capital expenditures during fiscal (?P<year>\d{{4}})(?=[,.]| and plans to )"
+ )
+ _AMBIGUOUS_PLAN = re.compile(
+diff --git a/backend/tests/unit/test_source_unit_quote_context.py b/backend/tests/unit/test_source_unit_quote_context.py
+index 50996744..4107c237 100644
+--- a/backend/tests/unit/test_source_unit_quote_context.py
++++ b/backend/tests/unit/test_source_unit_quote_context.py
+@@ -141,7 +141,7 @@ GUIDANCE = ('The Company stated it is its current intention to spend approximate
+ 
+ @pytest.mark.asyncio
+ @pytest.mark.parametrize('case', [
+-    'matching', 'lowercase_company', 'coordinated_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
++    'matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan', 'wrong_year', 'wrong_action', 'wrong_scope',
+     'past_amount', 'wrong_amount', 'already_scaled', 'billions', 'conditional',
+     'quoted', 'duplicate_plan', 'source_year', 'source_action', 'source_conditional',
+     'source_wrong_scope', 'source_duplicate', 'missing_source', 'recovered',
+@@ -164,6 +164,8 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
+     }
+     if case in changes:
+         guidance = guidance.replace(*changes[case])
++    elif case == 'present_tense_plan':
++        guidance = guidance.replace('The Company stated it is its', 'The company states its').replace('2026, and plans', '2026 and plans')
+     elif case == 'quoted':
+         guidance = '"' + guidance + '"'
+     elif case == 'duplicate_plan':
+@@ -191,7 +193,7 @@ async def test_authored_plan_units_preserve_other_bytes_in_final_and_preview(mon
+     service = OpenAIService()
+     monkeypatch.setattr(service, 'generate_structured_summary', generated)
+     result = await service.summarize_filing(SOURCE, 'Example Company', '10-Q', filing_excerpt=source)
+-    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan') else guidance
++    expected = guidance.replace('$6,500', '$6,500 million', 1) if case in ('matching', 'lowercase_company', 'coordinated_plan', 'present_tense_plan') else guidance
+     final = result['raw_summary']['sections']['forward_signals']
+     assert final['guidance'] == expected
+     assert final['quotes'][0]['quote'] == QUOTE
+diff --git a/tasks/todo.md b/tasks/todo.md
+index 296a651e..4efc7b6b 100644
+--- a/tasks/todo.md
++++ b/tasks/todo.md
+@@ -4992,3 +4992,10 @@ Both older quote/trust proofs remain retained without repetition. Integrated doc
+ First CI `34701847075` and Copilot `34701858130` passed their numerical gates. Actual summary artifact `10300630658` retained 52 outcomes with unchanged sources/XBRL; scoped acceptance is withheld. COST run 0 says `fiscal 2026 and plans to` without a comma, so the authored matcher leaves `$6,500` unscaled in guidance and actual final rendering; run 1's comma form is corrected. Two independent refutations establish identical source ownership and no substantive action/amount/year ambiguity. Correct only the authored year boundary to accept the explicit coordinated continuation, with a case in the existing final/preview invariant. Source grammar, quotes, other prose and all locked anchors stay unchanged.
+ 
+ The original first artifact and failure review remain retained. The single existing authored-unit mutation proof remains the proof for this invariant; do not repeat it for a punctuation variant. After the full committed gate and review, one second paid assessment round is authorized under the founder's confirmed-finding policy for this specific fix. No further unchanged rerun is authorized by this entry. No production merge or unit-finding closure is claimed yet.
++
++
++### September 12 — #825 second functional hold and local reporting-introduction correction
++
++Second CI `34702770441` and Copilot `34702770437` pass their bounded metadata/fact checks. Actual second summary `10300970920` still has one missed COST guidance sentence: `The company states its current intention` does not match the older `stated it is its` introduction. Both source excerpts are identical and provide the same amount/action/year/million scope. Independent refutations reject a source mismatch and confirm the error in actual final output plus three preview frames. Extend only that anchored reporting introduction to cover the observed equivalent form; financial predicate, source ownership and ambiguity guards remain unchanged. The original invariant proof is retained without repetition.
++
++PR #825 is now held as a draft. Two authorized paid assessment rounds have been consumed. Finish the committed local correction gate and review before requesting one additional assessment; no new paid run, push or release is authorized by this record. Broader paraphrase coverage, debt/comparison explanations and citation adherence remain open. Production remains on the verified #823 revision; no incomplete candidate is released.
