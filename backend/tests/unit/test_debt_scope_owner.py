@@ -48,7 +48,6 @@ from app.services.ai.debt_scope import (
     debt_balance_label,
     debt_grounding_lines,
     leverage_statement,
-    model_leverage_is_admissible,
 )
 from app.services.summary_sections import (
     render_sections,
@@ -58,6 +57,11 @@ from app.services.summary_sections import (
 
 PERIOD = "2026-01-31"
 ACCN = "0000104169-26-000055"
+
+
+def grounding(view):
+    """`debt_grounding_lines` with the grounding block's own formatter, as xbrl_narrative passes."""
+    return debt_grounding_lines(view, lambda v: f"${v:,.0f}")
 
 
 def money(value):
@@ -483,40 +487,47 @@ def test_a_legacy_row_whose_concept_is_unknown_is_labelled_unavailable_not_long_
 
 
 # ---------------------------------------------------------------------------
-# Model prose: admitted whole or replaced whole, never rewritten.
+# Model prose: never carried into the leverage slot at all.
 
 
 @pytest.mark.parametrize("prose", [
-    "Total debt was $38.2B as of January 31, 2026.",                    # WMT
-    "Cash of EUR 12,916.0M exceed total debt.",                          # ASML net-cash comparison
-    "Company cash net of debt (excluding finance leases) was $3.3B.",    # Ford, cross-entity
-    "Long-term debt rose to $9,193M from $5,715M.",                      # MELI mislabel
-    "Total debt increased with short-term debt of CNY 8.0B.",            # JD
+    # The review counterexample: an amount-free relationship claim. No denylist of debt words
+    # catches "bonds"/"bank loans" without becoming unbounded, and no figure gate sees a claim
+    # that carries no figure.
+    "Cash exceeded outstanding bonds and bank loans.",
+    "Liquidity comfortably covers all outstanding notes and credit facilities.",
+    # The claims the first revision did catch — still gone.
+    "Total debt was $38.2B as of January 31, 2026.",
+    "Cash of EUR 12,916.0M exceed total debt.",
+    "Company cash net of debt (excluding finance leases) was $3.3B.",
+    "Long-term debt rose to $9,193M from $5,715M.",
     "Net debt/EBITDA held at 1.2x.",
-    "Leverage improved on lower indebtedness.",
-    "The company refinanced its notes payable.",
-    "Borrowings were reduced during the period.",
-])
-def test_a_model_debt_claim_is_never_admitted(prose):
-    assert model_leverage_is_admissible(prose) is False
-
-
-@pytest.mark.parametrize("prose", [
-    # NVO run 0's actual leverage paragraph: valid analysis the correction must not delete.
+    # And the formerly ADMITTED neutral prose: dropped too, because separating it from the first
+    # two entries needs the sentence's meaning, not a word list. The loss is accepted and stated.
     "Total assets increased to DKK 542.9B from DKK 465.6B. Shareholders' equity rose to "
     "DKK 194.0B from DKK 143.5B. Cash and equivalents increased to DKK 26.5B from DKK 15.7B.",
-    "Total liabilities of $15.37B against total assets of $28.85B.",
     "Equity rose on retained earnings.",
 ])
-def test_model_prose_making_no_debt_claim_is_kept_verbatim(prose):
-    assert model_leverage_is_admissible(prose) is True
-    view = build_debt_scope_view({})
-    assert leverage_statement(view, money, prose).endswith(prose)
+def test_no_model_leverage_prose_reaches_the_statement(prose):
+    """`leverage_statement` has no channel for model text — the field is machine-authored or absent."""
+    for metrics in ({}, {"long_term_debt": {"current": {
+        "value": 34_624_000_000.0, "period": PERIOD, "currency": "USD",
+        "raw_tag": "us-gaap:LongTermDebtNoncurrent",
+    }}}):
+        text = leverage_statement(build_debt_scope_view(metrics), money)
+        assert prose not in text
+        for token in ("bonds", "bank loans", "credit facilities", "EBITDA", "DKK", "retained"):
+            assert token not in text
 
 
-@pytest.mark.parametrize("prose", ["", "   ", None, 42, [], {"a": 1}])
-def test_empty_or_non_string_prose_is_not_admitted(prose):
-    assert model_leverage_is_admissible(prose) is False
+def test_leverage_statement_takes_no_prose_argument():
+    """A regression guard on the seam itself: re-adding a prose channel must be a visible change."""
+    import inspect
+
+    from app.services.ai import debt_scope as module
+
+    assert list(inspect.signature(leverage_statement).parameters) == ["view", "format_currency"]
+    assert not hasattr(module, "model_leverage_is_admissible")
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +545,7 @@ def test_the_grounding_label_and_the_visible_statement_come_from_one_module():
 
 def test_the_grounding_carries_each_observations_own_source_identity_and_the_scope_limit():
     view = view_of(obs("us-gaap:LongTermDebtNoncurrent", 34_624_000_000.0, context_ref="c-nc"))
-    lines = debt_grounding_lines(view)
+    lines = grounding(view)
     body = "\n".join(lines)
     assert "concept: us-gaap:LongTermDebtNoncurrent" in body
     assert "basis: carrying amount" in body
@@ -546,10 +557,40 @@ def test_the_grounding_carries_each_observations_own_source_identity_and_the_sco
     assert "do NOT add them into a total" in body
 
 
+def test_grounding_amounts_carry_the_reporting_currency_for_a_foreign_filer():
+    """The new amounts ride the grounding block's own "$" -> "<CUR> " relabel.
+
+    That relabel is the seam a DKK filer was once rendered through as dollars — a ~7x distortion
+    the currency-agnostic scorers cannot catch — so a figure newly added to this block has to be
+    checked through the real `build_xbrl_narrative_section`, not the formatter in isolation.
+    """
+    from app.services.ai.xbrl_narrative import build_xbrl_narrative_section
+
+    grounding_text = build_xbrl_narrative_section({
+        "reporting_currency": "EUR",
+        "long_term_debt": {"current": {
+            "value": 2_709_000_000.0, "period": "2025-12-31", "currency": "EUR",
+            "raw_tag": "us-gaap:LongTermDebtNoncurrent",
+        }},
+        "debt_observations": [
+            obs("us-gaap:LongTermDebtNoncurrent", 2_709_000_000.0,
+                instant="2025-12-31", currency="EUR"),
+            obs("us-gaap:ShortTermBorrowings", 691_700_000.0,
+                instant="2025-12-31", currency="EUR"),
+        ],
+    })
+    debt_lines = [line for line in grounding_text.splitlines() if "Debt" in line]
+    assert debt_lines, "the debt rows must be present at all"
+    for line in debt_lines:
+        assert "$" not in line, line
+    assert "- Debt — noncurrent long-term debt: EUR 2,709,000,000" in grounding_text
+    assert "- Debt component — short-term borrowings: EUR 691,700,000 (" in grounding_text
+
+
 def test_a_filing_with_no_debt_evidence_adds_no_grounding_prose():
     """Render ownership already guarantees the outcome; the prompt gains nothing."""
-    assert debt_grounding_lines(build_debt_scope_view({})) == []
-    assert debt_grounding_lines(build_debt_scope_view({"revenue": {"current": {"value": 1}}})) == []
+    assert grounding(build_debt_scope_view({})) == []
+    assert grounding(build_debt_scope_view({"revenue": {"current": {"value": 1}}})) == []
 
 
 # ---------------------------------------------------------------------------
@@ -687,6 +728,98 @@ def test_a_complete_partition_reaches_the_page_as_components_with_a_subtotal(mon
     assert "total debt" not in leverage.lower()
     assert "Together $7.8B" in markdown
     assert "the components above cover every borrowing" in grounding
+
+
+def test_the_selected_balance_is_labelled_by_its_own_source_not_a_larger_observation(monkeypatch):
+    """Integrated source-to-grounding counterexample for the review blocker.
+
+    The extractor selects `us-gaap:LongTermDebtNoncurrent` ($34,624M) for `long_term_debt`, and the
+    component pass separately observes a LARGER `DebtLongtermAndShorttermCombinedAmount`
+    ($40,000M). Labelling the printed row from the component set read the $34,624M noncurrent
+    balance as a combined TOTAL. Each balance is labelled from its own concept, and the
+    supplementary total instruction carries its own amount instead of pointing at "above".
+    """
+    _raw, metrics, _sections, grounding, _markdown = _run_real_path(
+        monkeypatch,
+        {
+            "us-gaap:LongTermDebtNoncurrent": [fact(34_624_000_000.0, context_ref="c-nc")],
+            "us-gaap:DebtLongtermAndShorttermCombinedAmount": [
+                fact(40_000_000_000.0, context_ref="c-tot"),
+            ],
+        },
+        {"leverage": "Total debt was $34.6B."},
+    )
+    # Extractor precedence is untouched: the selected balance is still the noncurrent concept.
+    assert metrics["long_term_debt"]["current"]["raw_tag"] == "us-gaap:LongTermDebtNoncurrent"
+
+    printed = "- Debt — noncurrent long-term debt: $34,624,000,000 (period: 2026-01-31)"
+    assert printed in grounding
+    assert "- Debt — combined short-term and long-term debt: $34,624,000,000" not in grounding
+
+    # Every supplementary line carries its own source-qualified amount.
+    assert (
+        "- Debt component — combined short-term and long-term debt: $40,000,000,000 "
+        "(concept: us-gaap:DebtLongtermAndShorttermCombinedAmount;"
+    ) in grounding
+    assert (
+        "- Debt component — noncurrent long-term debt: $34,624,000,000 "
+        "(concept: us-gaap:LongTermDebtNoncurrent;"
+    ) in grounding
+    assert (
+        "the issuer's own combined short-term and long-term debt total is $40,000,000,000"
+    ) in grounding
+    assert "shown above" not in grounding
+    assert "do not describe any other balance above" in grounding
+
+    # The view keeps the two apart by construction.
+    view = build_debt_scope_view(metrics)
+    assert view.selected_balance.concept == "us-gaap:LongTermDebtNoncurrent"
+    assert view.selected_balance.scope == SCOPE_NONCURRENT
+    assert view.reported_total.value == 40_000_000_000.0
+    assert debt_balance_label(view) == "Debt — noncurrent long-term debt"
+
+
+def test_an_amount_free_debt_relationship_claim_reaches_no_visible_surface(monkeypatch):
+    """Integrated source-to-render counterexample for the review blocker.
+
+    "Cash exceeded outstanding bonds and bank loans" names no figure, so no figure gate can see it,
+    and it uses none of the debt words a denylist would carry. It must not survive on any surface,
+    with or without debt evidence.
+    """
+    from types import SimpleNamespace
+
+    from app.services.export_service import ExportService
+
+    claim = "Cash exceeded outstanding bonds and bank loans."
+    for debt_frames in (
+        {},
+        {"us-gaap:LongTermDebtNoncurrent": [fact(34_624_000_000.0)]},
+    ):
+        _raw, _metrics, sections, grounding, markdown = _run_real_path(
+            monkeypatch, debt_frames, {"leverage": claim, "liquidity": "Cash of $10.7B."},
+        )
+        stored = {"schema_version": 2, "sections": sections}
+        web = " ".join(
+            str(block.get("text", ""))
+            for section in render_sections_json(stored) for block in section.get("blocks", [])
+        )
+        service = ExportService()
+        summary = SimpleNamespace(raw_summary=stored)
+        filing = SimpleNamespace(
+            filing_date=None, period_end_date=None, filing_type="10-K",
+            company=SimpleNamespace(name="Test Co"), sec_url="https://www.sec.gov/x/",
+        )
+        for surface, text in (
+            ("markdown", markdown), ("web", web),
+            ("pdf_html", service.generate_pdf_html(summary, filing)),
+            ("csv", service.generate_csv(summary, filing)),
+            ("grounding", grounding),
+        ):
+            assert "bonds" not in text, surface
+            assert "bank loans" not in text, surface
+            assert claim not in text, surface
+        # The model's other §8 field is untouched — this slice owns `leverage` alone.
+        assert sections["balance_sheet_liquidity"]["liquidity"] == "Cash of $10.7B."
 
 
 def test_preview_and_final_show_the_same_authored_leverage(monkeypatch):
