@@ -134,3 +134,28 @@ async def test_recovered_passages_use_the_actual_recovery_context(monkeypatch):
     monkeypatch.setattr(service, "_build_section_context", lambda *a: recovery_quote)
     result = await service.summarize_filing(SOURCE, "Issuer", "10-K", filing_excerpt=SOURCE)
     assert result["raw_summary"]["sections"]["value_drivers"][OWNED_FIELD]["filing_statements"] == [recovery_quote]
+
+
+@pytest.mark.asyncio
+async def test_actual_apple_program_preserves_per_share_denominations_and_dates(monkeypatch):
+    # Exact retained #831 AAPL source: authorization and per-share dividend share one sentence.
+    program = ("In May 2025, the Company announced a new share repurchase program of up to $100 billion "
+               "and raised its quarterly dividend from $0.25 to $0.26 per share beginning in May 2025.")
+    dated = "As of September\xa027, 2025, the Company’s quarterly cash dividend was $0.26 per share."
+    source = program + "\n\n" + dated + "\n\n" + UNSCALED
+    candidate = structured()
+    candidate["sections"]["value_drivers"] = {
+        "capital_allocation": {"filing_statements": [program, dated, UNSCALED]},
+    }
+    service = OpenAIService()
+
+    async def request(*args, **kwargs):
+        return json.dumps(candidate)
+
+    monkeypatch.setattr(service, "_request_content", request)
+    result = await service.summarize_filing(source, "Apple", "10-K", filing_excerpt=source)
+    passages = result["raw_summary"]["sections"]["value_drivers"][OWNED_FIELD]["filing_statements"]
+    assert passages == [program, dated]
+    assert "$100 billion" in result["business_overview"]
+    assert "$0.25 to $0.26 per share" in result["business_overview"]
+    assert "$6,500" not in result["business_overview"]

@@ -19,9 +19,22 @@ OWNED_FIELD = "capital_allocation_verified"
 _NUMBER = re.compile(r"(?<![\w])\d[\d,]*(?:\.\d+)?")
 _SCALE = re.compile(r"\s*(?:%|percent\b|thousand\b|million\b|billion\b|trillion\b)", re.I)
 
+_PER_SHARE = re.compile(
+    r"[$€£¥]\s*\d[\d,]*(?:\.\d+)?"
+    r"(?:\s+(?:to|and)\s+[$€£¥]\s*\d[\d,]*(?:\.\d+)?)?"
+    r"\s+per\s+(?:common\s+)?share\b", re.I,
+)
+_CALENDAR_DATE = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)"
+    r"\s+(?:[12]?\d|3[01]),?\s+(?:19|20)\d{2}\b", re.I,
+)
+
 
 def _self_contained_numbers(text: str) -> bool:
+    denominated = [m.span() for pattern in (_PER_SHARE, _CALENDAR_DATE) for m in pattern.finditer(text)]
     for match in _NUMBER.finditer(text):
+        if any(start <= match.start() and match.end() <= end for start, end in denominated):
+            continue
         if _SCALE.match(text[match.end():]):
             continue
         token = match[0]
