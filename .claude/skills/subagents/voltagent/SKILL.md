@@ -1,6 +1,6 @@
 ---
 name: voltagent
-description: Collection of 126+ specialized Claude Code subagents
+description: Find a specialist subagent brief when selecting a role for delegated work.
 version: 1.0.0
 author: voltagent
 source: https://github.com/VoltAgent/awesome-claude-code-subagents

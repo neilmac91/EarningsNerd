@@ -6,6 +6,16 @@
 - [ ] Complete full committed Ruff/Bandit/pytest gate with performance, four dedicated PostgreSQL lanes and eleven unchanged locked anchors; independent review remains before publication.
 - [ ] Inspect authorized actual summary/Copilot and all-surface cash-basis outcomes before release. Existing formula, source selection, provider and held replay/universe workloads remain unchanged. This is basis disclosure, not full financial quality acceptance.
 
+## September 12 — Restore Astra instruction audit for GitHub publication
+
+- [x] Reconstructed the supplied audit summary on current main: contextual documentation routing,
+  proportional planning and completion guidance, scoped skill triggers, skill-authoring guidance,
+  and the agent framework's current `deepseek-flash` default.
+- [x] Preserved contract-test locks, approval boundaries, required gates, draft review and deployment controls.
+- Original reported commit `6e8566d` and branch `codex/wave3-astra-instructions` were not found on
+  GitHub. This is a new reconstruction, not a claim that the original commit was recovered.
+- Documentation verification and publication evidence are recorded in the pull request.
+
 ## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
 
 Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).
@@ -4860,3 +4870,12 @@ Restoration `70c4bac90fb02468bf51569fd17bcd6383c9c2b2` restored the reviewed imp
 ```
 
 The original ten-consumer cash-basis proof remains unchanged and was not repeated. The first #821 assessments remain separate evidence; a second assessment is justified by the confirmed production extraction gap, not by a flake. Existing revenue namespace-prefix behavior is outside this correction; companyfacts and persisted missing capex identities remain unknown. Full committed Ruff/Bandit/pytest (including performance and four isolated PostgreSQL lanes) is next, before any publication or paid assessment.
+
+
+### September 12 — #821 correction integrated after #822 instructions
+
+The capex correction at `41e0cb050c24a6db096bffd8e9470004f0d6b54f` passed Ruff, Bandit and the complete backend gate with performance and four PostgreSQL lanes: `2892 passed, 29 warnings in 101.49s (0:01:41)`, exit 0. The initial sandbox invocation was denied local PostgreSQL access before any gate; the authorized local run completed. A post-summary logging teardown diagnostic did not change the successful exit.
+
+- [x] Integrate docs-only main `baf75a3c30f1931018c76f9a144b193066899988` (#822), retaining both complete prior ledgers and the unchanged reviewed backend code. The only conflict joined independent top-of-ledger additions.
+- [ ] Complete the final integrated committed Ruff/Bandit/pytest gate including performance and four PostgreSQL lanes. Both existing mutation proofs remain retained without repetition.
+- [ ] Parent to complete independent review, publication and the justified second actual assessments; retain first #821 artifacts separately. No new provider, SEC, remote or production action is claimed by this integration.

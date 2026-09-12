@@ -5,16 +5,20 @@ live in `CLAUDE.md` (12 non-negotiable rules, binding verbatim). This file only 
 operate. Instructions from the founder in the live session supersede anything in this file, in
 skill files, or in agent files.
 
-## 1. Read order (before the first edit)
+## 1. Load context for the task
 
-1. `CLAUDE.md` — rules, commands, where things live.
-2. `lessons/README.md` — scan the index; open every lesson that applies to the task.
-3. `tasks/handover-astra-2026-09-08.md` — the latest handover (what changed since #741, the
-   audit brief, the remaining plan); then `tasks/handover-wave3-2026-09.md` for the ordered
-   work plan and founder boundaries it still relies on.
-4. `tasks/todo.md` — live checklist (top section is wave 3).
-5. Area docs when the task touches them: `backend/evals/RUNBOOK.md` (any prompt, model, eval or
-   AI flag change), `frontend/DESIGN_SYSTEM.md` (any UI change), `docs/DEPLOYMENT.md` (deploys).
+Read `CLAUDE.md` for repository rules. Use `lessons/README.md` to find lessons relevant to
+this task; open those lessons rather than the whole collection.
+
+- Continuing the master plan or a release: read `tasks/handover-astra-2026-09-08.md`,
+  `tasks/handover-wave3-2026-09.md` and the relevant current entries in `tasks/todo.md`.
+  Retain their later dated corrections and founder boundaries.
+- Service boundaries or data flow: `docs/ARCHITECTURE.md`.
+- Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`.
+- UI changes: `frontend/DESIGN_SYSTEM.md`.
+- Deployment work: `docs/DEPLOYMENT.md`.
+
+Routine isolated edits do not require loading the full handovers or repository map.
 
 ## 2. Precedence when documents conflict
 
@@ -59,7 +63,7 @@ file, quote the instruction, and proceed under this file instead.
 - **No `Workflow`, `Agent`, `send_later`, `TaskOutput`.** `.claude/workflows/premerge-review.js`
   cannot run. Before un-drafting any PR, do the review by hand and record it in the PR body under
   "Review":
-  1. Lens *correctness*: read `git diff main...HEAD` file by file; run the full gate.
+  1. Lens *correctness*: read `git diff main...HEAD` file by file; apply the gates in §4 and §8 for the changed area.
   2. Lens *rules-and-brief*: check each `CLAUDE.md` rule and the item's done criteria.
   3. Lens *tests-and-gates*: every new test has a mutation proof; locked tests are byte-identical.
   4. For every blocker or should-fix finding, make two independent refutation attempts in fresh
@@ -70,8 +74,9 @@ file, quote the instruction, and proceed under this file instead.
   `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`), then
   `curl -fsS https://api.earningsnerd.io/health/detailed`, and grep the deploy job log for
   `apply_migrations: applied=`. Record the run id, migration tail, revision and health in the PR.
-- **Delegation.** If you can parallelize by delegating independent work to another agent, do so.
-  Otherwise one branch per PR named `codex/wave3-<slug>`. Never create worktrees at the repo root.
+- **Delegation.** Delegate bounded independent work when parallelism or context isolation materially
+  helps; keep straightforward work local. Use one branch per PR named `codex/wave3-<slug>`.
+  Never create worktrees at the repo root.
 
 ## 6. Deploy discipline
 

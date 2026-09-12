@@ -1,6 +1,6 @@
 ---
 name: cloudflare-agents-sdk
-description: Build AI agents on Cloudflare Workers with the Agents SDK
+description: Build or modify agents using the Cloudflare Agents SDK on Workers.
 version: 1.0.0
 author: cloudflare
 source: https://github.com/cloudflare/skills/tree/main/agents-sdk
