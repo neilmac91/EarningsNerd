@@ -1,3 +1,13 @@
+## September 12 — Restore Astra instruction audit for GitHub publication
+
+- [x] Reconstructed the supplied audit summary on current main: contextual documentation routing,
+  proportional planning and completion guidance, scoped skill triggers, skill-authoring guidance,
+  and the agent framework's current `deepseek-flash` default.
+- [x] Preserved contract-test locks, approval boundaries, required gates, draft review and deployment controls.
+- Original reported commit `6e8566d` and branch `codex/wave3-astra-instructions` were not found on
+  GitHub. This is a new reconstruction, not a claim that the original commit was recovered.
+- Documentation verification and publication evidence are recorded in the pull request.
+
 ## September 10 — Landing page revamp (design export in `frontend/design/landing-redesign/`)
 
 Spec: `frontend/design/landing-redesign/RATIONALE.md` + `Landing (redesign).dc.html`. Branch `claude/new-session-krjvf0` (harness-designated; the brief said main).

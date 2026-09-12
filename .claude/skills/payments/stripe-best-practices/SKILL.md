@@ -1,6 +1,6 @@
 ---
 name: stripe-best-practices
-description: Best practices for Stripe API integrations
+description: Implement or review Stripe API integrations, Checkout, subscriptions, and webhooks.
 version: 1.0.0
 author: stripe
 source: https://github.com/stripe/ai/tree/main/skills/stripe-best-practices

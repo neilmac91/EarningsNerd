@@ -1,6 +1,6 @@
 ---
 name: llm-council
-description: "Run any question, idea, or decision through a council of 5 AI advisors who independently analyze it, peer-review each other anonymously, and synthesize a final verdict. Based on Karpathy's LLM Council methodology. MANDATORY TRIGGERS: 'council this', 'run the council', 'war room this', 'pressure-test this', 'stress-test this', 'debate this'. STRONG TRIGGERS (use when combined with a real decision or tradeoff): 'should I X or Y', 'which option', 'what would you do', 'is this the right move', 'validate this', 'get multiple perspectives', 'I can't decide', 'I'm torn between'. Do NOT trigger on simple yes/no questions, factual lookups, or casual 'should I' without a meaningful tradeoff (e.g. 'should I use markdown' is not a council question). DO trigger when the user presents a genuine decision with stakes, multiple options, and context that suggests they want it pressure-tested from multiple angles."
+description: Pressure-test a consequential decision with independent advisors when the user requests a council or multi-perspective debate.
 ---
 
 # LLM Council
@@ -15,7 +15,8 @@ This is adapted from Andrej Karpathy's LLM Council. He dispatches queries to mul
 
 ## when to run the council
 
-The council is for questions where being wrong is expensive.
+Use the council when the user requests this multi-advisor workflow for a consequential decision.
+A routine tradeoff or incidental question does not require a council.
 
 Good council questions:
 - "Should I launch a $97 workshop or a $497 course?"

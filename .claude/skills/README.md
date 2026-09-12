@@ -69,8 +69,14 @@ Some skills (like `vercel-deploy`) have side effects and require manual invocati
    author: your-name
    ---
    ```
-3. Include instructions and reference content
-4. Optionally add supporting files in subdirectories
+3. Keep the description short and specific about when the workflow applies; avoid broad or
+   competing mandatory triggers.
+4. Keep shared purpose and constraints in `SKILL.md`. Link substantial workflow-specific
+   references with a sentence explaining when to read each; do not require loading them all.
+5. Include only guidance that changes decisions. Preserve operational invariants and approval
+   boundaries, while leaving routine choices to the agent. Consider all models used by contributors.
+6. Add deterministic scripts when reusable automation improves reliability; validate changed
+   scripts and reference links. A short skill needs no extra router or supporting directories.
 
 ## Skill Frontmatter Reference
 
