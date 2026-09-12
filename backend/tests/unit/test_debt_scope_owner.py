@@ -349,6 +349,31 @@ def test_a_complete_partition_may_be_added_but_is_never_called_total_debt():
     assert "total debt" not in text.lower()
 
 
+def test_noncurrent_plus_current_portion_alone_is_never_summed():
+    """The retained WMT defect, at the composition seam.
+
+    Its two long-term bands ARE disjoint, so nothing about overlap stops them being added — only
+    the requirement that a partition CLOSE does. 34,624 + 3,542 = 38,166 is exactly the figure the
+    retained outcome published as "total debt" while $6,596M of short-term borrowings was still
+    missing, so that sum must not appear as a figure of any kind.
+    """
+    view = view_of(
+        obs("us-gaap:LongTermDebtNoncurrent", 34_624_000_000.0),
+        obs("us-gaap:LongTermDebtCurrent", 3_542_000_000.0),
+    )
+    assert not scopes_overlap(SCOPE_NONCURRENT, SCOPE_CURRENT_PORTION)  # not overlap — closure
+    assert view.components_subtotal is None
+    assert view.reported_total is None
+    assert not view.scope_is_complete
+    assert view.missing_scopes == (SCOPE_PHRASE[SCOPE_SHORT_TERM],)
+    text = leverage_statement(view, money)
+    assert "38.2" not in text and "38,166" not in text and "38.166" not in text
+    assert "Together" not in text
+    assert "noncurrent long-term debt of $34.6B" in text
+    assert "current portion of long-term debt of $3.5B" in text
+    assert "Total debt, net debt and debt-to-equity are therefore not stated." in text
+
+
 def test_an_aggregate_and_its_own_parts_are_never_added_together():
     """The retained MELI shape: LongTermDebt (current AND noncurrent) beside a current figure."""
     view = view_of(
