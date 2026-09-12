@@ -4613,6 +4613,46 @@ Founder execution and live data evidence remain unchecked above and in the ledge
 
 - [x] #700 merged, actual gates and deployment verified; [plan and retained evidence](archive/ws6-measurement-implementation-2026-09.md).
 
+## September 12 — migration audit and quality continuation (dated correction)
+
+This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
+
+- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
+- [x] Confirm #796 error-outcome and #799 reported-metric d are already merged and verified. Do not reimplement either or launch a third #799 assessment. #805 is the genuinely unfinished explanation candidate, held after its first failed financial assessment.
+- [x] Verify current official Flash prices and peak schedule. DeepSeek now states V4 Pro continues after September14 at its own unchanged rates; the old retirement premise is superseded. Flash with thinking off remains the approved configuration.
+- [ ] Finish clean current-main backend (four PostgreSQL lanes/performance) and frontend lint/TypeScript/Vitest/build gates. Local database recovery and cold file reads delayed startup; no partial pass is claimed.
+- [ ] Fix and review lost provider usage on failed generations/outer retries before another paid cohort. Retain all known usage and explicit unknown counts; distinguish final-output metrics from incurred work. Preserve frozen reports and append historical-cost limitations.
+- [ ] Publish the completed audit with dated ledger corrections; merge only after its own link/anchor check and hosted prerequisites.
+- [ ] Integrate #808 and independent cash-basis/source-diagnostic preparations against current Flash main, preserve original mutation evidence, gate committed state and inspect actual accepted artifacts before serial release. Historical Pro assessments are bounded historical evidence.
+- [ ] Continue the source-qualified accounting registry and narrow explanation correction for #805, then bounded source inclusion and measurement-only workflow. No second #805 assessment has launched.
+- [ ] Retain original founder prerequisites: Notable review through September15/retain decision; Analysis recorded warm-up/live acceptance; W3-7 readout and ordered W3-8 repins; E09 proposal; E06 Stripe observation; major dependencies; D8/#270; legal/account settings; CI-only DeepSeek key. The narrow T9 metadata decision remains pending. Universe-wide pregeneration and historical replay remain held.
+
+Pricing telemetry should-fix findings and historical provenance/gate limitations remain in the audit; none authorizes provider, flag, baseline or account-setting changes.
+
+### September 12 committed-state process correction
+
+During this resumed audit, Codex edited only audit/ledger documents in `work/flash-migration-audit` while its frontend gate was active. This violated the committed-state verification procedure even though frontend source bytes were unchanged. The run was invalidated and the founder was informed immediately; no push, ready, merge or paid run followed it. The draft documentation was preserved in the separate `work/flash-audit-report` worktree. Restore the original audit worktree to clean main and run the entire frontend gate again before recording a pass. The backend gate uses its own unchanged detached worktree and is unaffected.
+
+### September 12 approval reconciliation — exact T9 metadata exception
+
+The founder's September9 message “Approved. Please proceed” is the approval of the sole outstanding concrete T9 proposal described in the preceding work: add the selected cash `raw_tag` to the two existing companyfacts expected rows, preserving their values and assertions, with the proposed clarifying docstring. Current-task history was re-read to reconcile that reply; earlier pending-only entries above are superseded. The founder has been informed that this narrow approval is recorded. It grants no other locked-test changes, provider/flag changes or broad regeneration. The engineering integration and its documented contract exception/full gate remain to be completed in the appropriate source-provenance PR.
+
+### September 12 verified gates and next prerequisite
+
+Current-main backend verification completed on unchanged `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f`: Ruff/Bandit and2,870 tests/29warnings in776.99s, exit0, with performance and all four named PostgreSQL lanes. The separately committed usage-conservation fix at `76df994ce3f623ddbc612d5520aedbad89b31304` passes Ruff/Bandit and2,875 tests/29warnings in93.27s, exit0; its single mutation is5failures→5passes and independent review finds no surviving blocker. Neither is a deployed fix yet. Frontend's symlink-related build failure is environmental; exact locked dependencies have been installed locally and the complete gate is rerunning.
+
+Before the next paid assessment, retrieve the configured DeepSeek account's current balance. The key is available only to Actions, not the current local process. Prepare a manual read-only balance workflow using that existing secret; it must expose only validated balance fields, make no model/SEC request and change no key or account setting. Review and verify this small workflow before its real readout. Then publish the gated usage correction, inspect actual assessment evidence and verify its serial backend deployment before completing the audit or releasing the remaining quality candidates.
+
+Frontend's full restored gate is now complete on clean8e9: lint/TypeScript,106 files/592 tests, production build and27/27 static pages, exit0. The read-only balance workflow is [draft #817](https://github.com/neilmac91/EarningsNerd/pull/817), published through the already-connected GitHub app after the CLI credential's workflow-scope rejection. Its published commit `bbad4b429b1ed004b95610367ab7f294fa0d1ec9` is tree-identical to local preparation and passed its required gates:123 Python tests and3 Node tests, YAML/embedded-Python parsing. No key/scope setting changed, and no actual balance/model request has yet run.
+
+### September 12, 09:29 UTC — balance prerequisite completed
+
+- [x] Complete current-main backend and frontend gates on clean `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f`: backend 2,870 tests/Ruff/Bandit/four PostgreSQL lanes/performance; frontend lint/TypeScript/592 tests/full build and27/27 static pages. Earlier pending-gate entries are superseded; the invalidated frontend run remains excluded.
+- [x] Merge workflow-only [#817](https://github.com/neilmac91/EarningsNerd/pull/817) as `bf0ff3bf2dbbacef25f97945d470430ce0b5e26b`; main CI34685717503 passed and deploy job103532610441 skipped actual migration/deployment/health steps. No new backend revision.
+- [x] Read the existing Actions-configured DeepSeek balance once through run34685968538: at2026-09-12T09:29:11.8595978Z, available=true, USD89.17 total/topped up, USD0.00 granted. No inference or account/key change. The point-in-time result satisfies the immediate balance-read prerequisite, not future spending or repeated readouts.
+- [ ] Finish the separately integrated usage-conservation gate and release sequence before the next quality cohort. Preserve the prior mutation proof and all historical unknown-usage qualifications. Audit #816 and the code correction are not merged by this record.
+
+See the [dated audit update](audit-astra-2026-09-11.md#usage-correction-and-balance-prerequisite). The narrow T9 exception is already approved; source-provenance implementation and verification remain outstanding. Original founder boundaries and the universe-wide pregeneration/historical-replay hold remain in force.
 
 ## September 12 — conserve evaluation provider usage (migration audit M3)
 
@@ -4628,3 +4668,15 @@ not complete spend; no retrospective usage is invented.
 Local targeted verification: 101 passed, 2 warnings. The sole conservation mutation
 (discard failed-generation usage) failed all five scenarios, then the exact restored code passed
 all five. Full gate and hosted release remain pending; no provider calls were made.
+
+## September 12 — migration audit remediation and #818 production verification
+
+This dated record supersedes earlier pending assessment/release entries without altering their history. The audit investigation and all must-fix remediation are complete; audit documentation PR #816 is not yet merged. Wrong #812 production attribution and instructions to redo merged #796/#799 have dated corrections. The new usage-loss defect is fixed by [#818](https://github.com/neilmac91/EarningsNerd/pull/818).
+
+Reviewed head `208767ff4ae2016b55cb834316b88a3eb18649be` passed Ruff/Bandit, all four PostgreSQL lanes/performance and 2,875 tests (29 warnings, 89.86s, exit 0), with 11 locked anchors unchanged. The single mutation proof remains five failures followed by five passes. Actual synthetic merge `f2c8a635c681fe106bb84d88d036d51a6713083f` has base `bf0ff3bf2dbbacef25f97945d470430ce0b5e26b` and that head as parents; root verified whole-tree equality to the gated head.
+
+First CI 34686113163 accepted all 52 expected summary outcomes; 52 calls with no errors/unknown calls reconcile exactly to the provider log. First paid Copilot run 34686148069 accepted 18/18, retaining seven reported uncited figures as advisory. Initial draft run 34686113173 skipped; no additional assessment ran. The [summary](review-evidence/migration-audit-2026-09-12/pr818-summary-acceptance.md) and [Copilot](review-evidence/migration-audit-2026-09-12/pr818-copilot-acceptance.md) reports retain full verification limits. No live retry occurred; failure conservation is covered by the committed invariant tests/proof, not invented live evidence.
+
+#818 squash `3ea7fc27455418716c9819836d26ce9d59646158` merged at 2026-09-12T09:42:37Z. Main CI 34686557889 passed. Deploy job 103534841757 reported `apply_migrations: applied=0 skipped=39` at 09:48:22.4327398Z; revision `earningsnerd-backend-00330-24t` serves 100% at 09:49:10.0902820Z, with explicit traffic confirmation at 09:49:11.1367937Z. CI detailed health was healthy at 09:49:42.9211120Z (database 6.54 ms); independent saved health was healthy (database 6.18 ms, timestamp 1789206591.1288583; Redis disabled, SEC closed). The previous backend release was verified before this merge.
+
+Historical omitted provider usage remains unknown. This accounting release changes no prompt, model, source acquisition, frontend or baseline. It does not clear financial-quality findings or release universe-wide pregeneration/historical replay. The exact T9 metadata exception is approved; #808 local integration `047696da` passes 2,878 tests/29 warnings in 95.27s, but remains unpublished and requires current-model acceptance. Original founder-held rollout, legal, account and dependency prerequisites remain.
