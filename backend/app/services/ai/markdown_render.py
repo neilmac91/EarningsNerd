@@ -433,13 +433,9 @@ class _MarkdownRenderMixin:
         # otherwise empty §8 there is nothing to qualify, and authoring anyway would flip an empty
         # section to "covered" on that sentence alone.
         debt_view = build_debt_scope_view(xbrl_metrics)
-        if debt_view.has_evidence or bsl:
-            model_leverage = bsl.get("leverage")
-            bsl["leverage"] = leverage_statement(
-                debt_view,
-                format_currency,
-                model_leverage if model_leverage_is_admissible(model_leverage) else None,
-            )
+        # MUTATION: the model keeps the slot whenever it wrote anything (pre-change behavior).
+        if (debt_view.has_evidence or bsl) and not bsl.get("leverage"):
+            bsl["leverage"] = leverage_statement(debt_view, format_currency, None)
 
         if bsl:
             sections["balance_sheet_liquidity"] = bsl
