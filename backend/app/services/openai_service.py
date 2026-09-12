@@ -32,6 +32,7 @@ from app.services.ai.copilot_chat import (
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
+from app.services.ai.source_units import attach_quote_unit_context
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
@@ -503,6 +504,8 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
+            # Preview has no owned source context; never display a model-authored unit badge.
+            attach_quote_unit_context(sections)
             completed_keys = tuple(
                 key for key in sections
                 if key != "the_print" or not self._section_is_empty(sections[key])
@@ -642,6 +645,14 @@ Rules:
             settings.EVIDENCE_SNAP_MIN_SCORE,
             settings.AI_EVIDENCE_SNAP,
             recovered_keys,
+        )
+
+        # Final primary quotes only: use the same supplied excerpt's cleaned representation.
+        # Recovery windows and previews are not certified by the primary source context.
+        layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
+        attach_quote_unit_context(
+            sections_info, filing_excerpt or "", layout,
+            recovered="forward_signals" in recovered_keys,
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)

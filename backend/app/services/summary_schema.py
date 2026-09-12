@@ -120,6 +120,8 @@ class ManagementQuote(_V2Base):
     speaker: str = ""
     quote: str = ""
     context: str = ""
+    # Code-owned exact unit declaration; generated values are discarded at the boundary.
+    source_unit_context: str = ""
 
 
 class RiskItem(_V2Base):
