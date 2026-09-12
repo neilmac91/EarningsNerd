@@ -46,3 +46,7 @@ the background pregenerate path with its own budget — a separate, re-pinned ch
 No further spend is planned on this question.
 
 Spend for this measurement: about $0.60 (79 provider calls, ~$0.0072 per summary).
+
+## September 12 audit qualification — retained usage is not complete spend
+
+The [migration audit](../../audit-astra-2026-09-11.md) found that the runner omitted observer usage on failed generations and discarded earlier outer-attempt usage on retry. The frozen report has78 outcomes,76 scored,11 outer retries and79 recorded provider calls; two terminal errors have no usage row, while three recorded calls have unknown usage. Consequently the recorded call/cost totals cannot establish complete billing. The36.779-second mean describes final attempts and excludes earlier timeout/backoff time. No missing calls, tokens or charges are invented, and the frozen JSON and original readout above remain unchanged. Future incurred-work accounting is being corrected separately. This limitation does not reverse the decision to leave thinking off.
