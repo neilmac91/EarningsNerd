@@ -4999,6 +4999,7 @@ Local unpublished `d19c782bf488463d93e26c33d76ded6a07cc003e` passed Ruff/Bandit 
 Pre-merge automated review identified that the earlier clean-worktree `git diff --check` did not inspect the committed archive. The actual committed range reports two intentional context-space lines in the immutable correction patch. The range check passes excluding only that patch, whose original hash is preserved; the [archive verification correction](review-evidence/authored-guidance-2026-09-12/README.md#documentation-verification-correction) records the exact command and two refutations. No merge preceded this correction.
 
 
+<<<<<<< HEAD
 ### September 12 — authored-unit proof and #824 integration
 
 The sole new authored-unit mutation `c510be6605f9c5617279db22c4d7049f9b53d319` disabled only the shared insertion. Actual final/preview plus source/action/year/scope negative controls yielded:
@@ -5048,3 +5049,31 @@ The approved third round ran once: summary CI `34707231389` / job `103589365066`
 The local correction separates the financial proposition from a bounded affirmative reporting grammar for the company, management or selected filing. Unknown subjects, denial, modals and prior sentences abstain. Source ownership, amount/year/action correspondence, quote/recovery safeguards and exact preservation remain unchanged. The actual third failure and representative attribution/polarity controls extend the existing consumer invariant; its original mutation proof is not repeated. Complete the committed gate, all retained-output comparison and independent review before presenting further assessment for approval.
 
 Metadata checks preserve all 52 identities/source/XBRL/coverage and deterministic cash fields, with 496 retained previews. One SE error and internal retry retain unknown usage and final-preview association `not_observed`; 2,364,849 tokens are known totals, not complete spend. Copilot accepts the 18 requested financial answers within its existing gate; inherited citation advisories and historical failures stay open. None of these bounded passes overrides the COST functional hold.
+=======
+## September 12 — #826 verified and one additional #825 assessment approved
+
+#826 merged as `b36039e8a1af020c3d7310c7fd447b9544dbe458` at 16:13:10Z. Main CI `34704558305` passed; deploy job `103582557985` explicitly reported “No backend changes - skipping deploy.” at 16:16:17.2460461Z. It published the guidance hold evidence only; production remained verified #823 `earningsnerd-backend-00333-56s`.
+
+The founder subsequently approved exactly one additional #825 assessment. This supersedes the earlier unapproved-third-round records only for that specific assessment, not broader spending or generation. Published ready head `03f0df37711b90e2ba3f8b24e77256bae28bc62d` passed the full committed gate, including Ruff/Bandit, four PostgreSQL lanes and performance: **2,929 passed, 29 warnings in 98.10s**, exit 0. Gate SHA-256: `fe9d73605c13c9d25da8ef18bfeb328da854e248f72631b0c810c5636dc12e77`. CI `34707231389` and Copilot `34707255553` are running. No actual third-round acceptance, merge or deployment is claimed. Both failed rounds remain immutable.
+
+
+## September 12 — read-only production capacity observation
+
+The [retained console observation](review-evidence/cloud-run-capacity-2026-09-12/observation.md) supersedes the earlier inability to inspect the production account: authenticated read-only access succeeded without changing settings. Service `earningsnerd-backend` in project `earnings-nerd`, region `us-west1`, showed revision `earningsnerd-backend-00333-56s` at 100%. Revision overrides are minimum 1 / maximum 2; service scaling is separately minimum 0 / maximum 20. Observed container settings are 1 vCPU, 1 GiB, concurrency 40, timeout 600 seconds, instance-based billing, startup CPU boost enabled and database pool 12 plus overflow 8. The outbound VPC option was unchecked and ingress was All. These are observations, not proposed edits.
+
+Assuming one process per instance, the simple serving-revision estimate is 40 potential database connections (2 × (12 + 8)); worker/process count was not observed. This excludes jobs, other services and old revisions and is not measured database headroom. Another `earningsnerd` service in `us-central1` was listed but not reconciled. Job task/parallelism limits, scheduler overlap, full fleet ownership, database headroom, outbound IP identity and budget remain unresolved. Prior-day CPU/memory charts are not a load test. An unchecked VPC option does not establish stable shared egress. E09 remains proposal-only; no capacity, scheduler, cost or generation activation is authorized. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 12 — approved third #825 assessment consumed; functional hold
+
+The [third assessment archive](review-evidence/authored-guidance-third-2026-09-12/README.md) supersedes earlier third-round-running wording: CI `34707231389` and Copilot `34707255553` completed, but COST's “The filing states a current intention” variant remains unscaled in actual final guidance and five previews. Metadata/Copilot acceptance is separate. One SE failed call has unknown usage; its retained frames cannot be associated with the final response. #825 is a draft at published `03f0df37711b90e2ba3f8b24e77256bae28bc62d`; no fourth paid round is approved.
+
+Local bounded-grammar correction `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` has independent scope review and its full gate is running. Wait for the gate and offline 156-outcome comparison before any new assessment proposal; do not repeat the consumed third round. Production remains verified #823.
+
+
+## September 12 — grammar correction verified; fourth assessment unapproved
+
+This supersedes the prior local-gate-pending entry. Local unpublished `07c549cb9ead90634393cb5eeb2d2ca5b311aa88` passed Ruff/Bandit, all four PostgreSQL lanes and performance: **2,936 passed, 29 warnings in 87.85s**, exit 0. Gate SHA-256 `9ebd13f100fcebafe64da8e5368b74c2b36e597ac89314c298acc6c76ab7d150`. The [verified correction archive](review-evidence/authored-guidance-third-2026-09-12/README.md#verified-local-correction-awaiting-an-assessment-decision) retains independent clearance, eleven unchanged locked anchors and offline replay of 156 outcomes correcting exactly the three missed COST strings. This is not a fourth model run or general paraphrase acceptance.
+
+The specifically approved third assessment is consumed and functionally held. #825 remains a draft at published `03f0df37711b90e2ba3f8b24e77256bae28bc62d`; another paid assessment and new code push require the next specific authorization. No merge or release is claimed; production remains verified #823.
+>>>>>>> 82421c9807937f7b7d9a92cd362d1ef6e75ffcf4
