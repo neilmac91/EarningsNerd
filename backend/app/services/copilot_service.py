@@ -618,7 +618,7 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
 
 
 # ---------------------------------------------------------------------------------------------
-# Server-owned repair for a wholly uncited, explicit single-fact answer.
+# Server-owned repair for wholly uncited, explicitly supported annual claim shapes.
 #
 # The guards above only ever REMOVE a marker the model placed wrongly. They cannot help the other
 # failure shape the field reports keep surfacing: an answer that states one complete reported
@@ -630,8 +630,8 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
 #
 # Everything here is POSITIVE certification, which is the opposite of the falsification guards: an
 # absent or ambiguous signal abstains. Amount coincidence is never enough, and neither is an
-# annual-looking label — the fact must carry its own reported duration. Today most runtime facts
-# do not, so this abstains far more often than it fires; that is the intended direction.
+# annual-looking label — the fact must carry its own reported duration. Historical rows may
+# still lack it and must abstain; fresh duration propagation does not prove every stored row.
 # ---------------------------------------------------------------------------------------------
 
 # Marks a fact this module looked up on the server's own initiative, so a diagnostic reading
@@ -846,7 +846,7 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
 
 def _repair_uncited_fact_claim(answer: str, *, filing: Any, accession: Optional[str],
                                currency: Optional[str], register: Callable[[dict], str]) -> str:
-    """Attach one source-owned fact marker to a certified uncited claim; otherwise abstain.
+    """Attach source-owned markers to supported certified uncited claims; otherwise abstain.
 
     Inserts the marker and nothing else — every other byte of the answer, punctuation included,
     survives. The existing resolver still owns numbering, placement and citation provenance.
@@ -1252,11 +1252,9 @@ async def answer_filing_question(
             # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
         )
-        # An answer that states one complete reported annual figure and cites NOTHING is the gap
-        # the placement guards cannot close — they only ever remove a wrong marker, and this shape
-        # reaches the end of the stream having called no tool at all. Look the figure up in the
-        # viewed filing and attach a marker only when the filing's own fact certifies every
-        # identity the sentence asserts; the prose keeps every other byte either way.
+        # Supported uncited annual claims need positive certification, beyond marker removal.
+        # Look up each claimed figure in the viewed filing and attach separate markers only
+        # after every operand certifies; preserve every other byte of the answer.
         full_answer = _repair_uncited_fact_claim(
             full_answer, filing=filing, accession=accession, currency=currency,
             register=_register_fact,

@@ -40,3 +40,12 @@ All tests used fresh external bytecode/application SQLite paths and per-test fac
 Read-only self-review found no surviving blocker. Refuted cross-period attribution by the individual annual certifiers plus actual start/end equality; refuted one-chip-for-two-claims by exact distinct rendered citation assertions and separate insertion offsets. The signed/unit/accession controls traverse production persistence and run_tool rather than fabricated successful lookup dictionaries. The only code diff is Copilot service; all eleven locked anchors and shared extraction/tools are untouched. Independent three-lens release review remains root-owned.
 
 Environment follow-up: local venv setup without pip completed successfully at `work/copilot-paired-venv`, with read-only dependency imports from the existing SDK environment. On committed `310a07ea5ea619ff9fe9148dde9c53b243be2b1d`, a final focused run in that isolated interpreter and fresh writable paths passed **77 passed, 2 warnings in 4.54s**. This repeat resolves the earlier environment-isolation limitation; no packages were installed or fetched. Independently compared every one of the eleven locked files' committed bytes against the base: all identical.
+
+
+## Root integration review
+
+Candidate `1a7bbc90820238408135561ba3c78fb70faa9b97` passed the root full PostgreSQL 15 gate with four isolated lanes and performance: **3,116 passed, 29 warnings in 97.78s**, exit 0, Ruff clean and Bandit zero medium/high findings. Independent correctness and tests/rules lenses found no blocker; all eleven locks are byte-identical. A stale single-claim wrapper/call-site comment is corrected in the final integration, along with the already noted duration-writer explanation.
+
+Mutation evidence was retained in agent tool output, not filesystem logs: reproduction session98949/chunk73ee6c; mutation session15295/chunk211e96; restoration session95568/chunkb8c75f; final isolated focused session87442/chunk75d2de. The committed ledger contains their exact tails. Root independently verified feature/restoration tree equality and ran the full gate. No additional mutation was introduced.
+
+Integrated Outlook main `d91dbdde45014021940162ae46c9fda26e071e0b` without conflicts. Its production verification remains pending; this citation branch stays unpublished. Combined final committed gate and actual assessment remain required.
