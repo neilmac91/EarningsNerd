@@ -135,7 +135,7 @@ def _table_source(table: Any, report: date) -> dict | None:
             continue
         if label in _HEADINGS and not any(c["text"] for c in cells[1:]):
             continue
-        if False:  # mutation: admit unknown numeric bridge rows
+        if label not in _COMPONENTS:
             return None
         component_rows.append(index)
     if not component_rows or len({labels[i] for i in component_rows}) != len(component_rows):
