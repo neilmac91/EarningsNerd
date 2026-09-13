@@ -364,8 +364,11 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   6-K goldens have no XBRL facts, and an entry left without ground truth scores **1.0, not zero**,
   on both numeric dimensions: `score_numeric_accuracy` returns 1.0 for an empty truth set
   (`evals/scorers.py:161`) and `score_numeric_precision` returns 1.0 when nothing is checkable
-  (`evals/scorers.py:272,296`). Both are deliberate, so the risk is vacuous success inflating the
-  bar, not a depressed score. Hand-fill `ground_truth` from the press release (judge-off) before
+  (`evals/scorers.py:272,296`). Both are deliberate, and the practical risk is neither a depressed
+  score nor an inflated one — the pinned numeric means are already 1.0, so a vacuous entry cannot
+  lift them. It dilutes the evidence behind them, and since every numeric `_HARD_GATES` entry in
+  `evals/regression_gate.py` is a `decrease` gate, that dilution can only **loosen** the regression
+  gate, cushioning a later real regression. Hand-fill `ground_truth` from the press release (judge-off) before
   adding entries; `pin_baseline.py` refuses a report whose verified golden entries carry no ground
   truth (`test_pin_refuses_a_verified_entry_measured_on_no_ground_truth`). Gates: classifier unit
   test over fixture exhibits; eval gate PASS on the re-pinned set. Rule 1 (one orchestrator) and
