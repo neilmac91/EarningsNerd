@@ -742,6 +742,63 @@ def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
     }
 
 
+# Reuse the existing annual revenue clause verbatim; only this explicit second clause is admitted.
+_PAIRED_ANNUAL_CLAIM = re.compile(
+    _ANNUAL_FIGURE_CLAIM.pattern.removesuffix(r"\.\Z")
+    + r"(?P<separator>, and net income was )"
+    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")\s*"
+    + r"(?P<income_amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    + r"(?:\s*(?P<income_scale>billion|million|thousand))?\.\Z", re.IGNORECASE,
+)
+
+
+def _repair_paired_annual_claim(answer: str, *, filing: Any, accession: Optional[str],
+                                currency: Optional[str], register: Callable[[dict], str]) -> str:
+    """Certify both distinct annual operands before registering either; preserve prose bytes."""
+    match = _PAIRED_ANNUAL_CLAIM.fullmatch(answer)
+    if match is None:
+        return answer
+    first = _plan_uncited_fact_citation(answer[:match.start("separator")] + ".")
+    # Parse the second explicit amount using the unchanged scalar grammar. This temporary
+    # string is a parser input only, never user-visible prose or evidence for annual duration.
+    second = _plan_uncited_fact_citation(
+        f"Revenue for the year ended {match['month']} {match['day']}, {match['year']} was "
+        f"{match['income_currency']}{match['income_amount']} {match['income_scale'] or ''}".rstrip() + "."
+    )
+    if first is None or second is None:
+        return answer
+    second.update(concept="net_income", insert_at=len(answer) - 1)
+    claims = [first, second]
+    facts = []
+    previous = 0
+    for claim in claims:
+        fact = copilot_tools.run_tool("get_financial_fact", {"concept": claim["concept"]},
+                                     getattr(filing, "company_id", None),
+                                     accession_number=accession, reporting_currency=currency)
+        if (not isinstance(fact, dict) or "error" in fact
+                or not _valid_fact_provenance(fact, accession, currency)
+                or not _fact_certifies_claim(fact, claim, filing)):
+            return answer
+        window = _adjacency_window(answer[:claim["insert_at"]] + " ", claim["insert_at"] + 1, previous)
+        if not (_fact_matches_adjacent_number(fact, window)
+                and _fact_matches_adjacent_concept(fact, window)
+                and _fact_matches_adjacent_currency(fact, window)):
+            return answer
+        facts.append(fact)
+        previous = claim["insert_at"]
+    if any(facts[0].get(key) != facts[1].get(key) for key in ("period_start", "period_end", "unit", "accession")):
+        return answer
+    # No registration until every operand and the relationship have certified.
+    markers = []
+    for fact in facts:
+        fact["_origin"] = _SERVER_LOOKUP_ORIGIN
+        markers.append(register(fact))
+    for claim, marker in reversed(list(zip(claims, markers))):
+        offset = claim["insert_at"]
+        answer = f"{answer[:offset]} [{marker}]{answer[offset:]}"
+    return answer
+
+
 def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
     """True only when the viewed filing's own fact carries EVERY identity the claim asserts.
 
@@ -752,11 +809,9 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
       annual-form test and the ``FY`` label are one signal wearing two hats, not two signals.
     * The **companyfacts fallback** cannot. ``edgar/xbrl_service.py``'s ``filter_and_sort`` only
       *ranks* the durations sharing a period end and keeps the best one; a sole quarterly point is
-      not rejected, and ``append_items`` then drops its ``start`` entirely. A three-month revenue
-      figure ending on the fiscal year end therefore reaches the fact table labelled ``FY`` with no
-      duration at all. (The selected-instance path does filter — ``instance_extractor``'s
-      ``duration_in_window`` — but that proof is consumed at extraction and never recorded, so the
-      two are indistinguishable downstream.)
+      not rejected. Both fallback and selected-instance paths now retain the selected source
+      start, so an FY-labelled quarterly point can be rejected by its actual duration. Older
+      persisted rows may still have NULL starts and must continue to abstain.
     * **Comparative cadence** cannot: matching period ends a year apart are consistent with a
       quarterly point sitting among annual ones.
 
@@ -798,7 +853,8 @@ def _repair_uncited_fact_claim(answer: str, *, filing: Any, accession: Optional[
     """
     claim = _plan_uncited_fact_citation(answer)
     if claim is None:
-        return answer
+        return _repair_paired_annual_claim(answer, filing=filing, accession=accession,
+                                           currency=currency, register=register)
     # The existing DB-only, accession-bound owner, called with its plainest existing selector. It
     # opens and closes its own session, reaches no SEC endpoint and runs no model.
     fact = copilot_tools.run_tool("get_financial_fact", {"concept": claim["concept"]},
