@@ -878,3 +878,10 @@ New capital-allocation output is a code-owned financing comparison plus exact pr
 Before accepting this slice, inspect actual MELI source/current/prior descriptors and visible final/preview direction, plus retained AAPL program/per-share disclosures. Green aggregate scores do not establish those semantics. Unknown sources, broader financial explanations and issuer-adjusted FCF remain open. See [implementation evidence](../../tasks/financing-comparison-2026-09-13.md). No baseline floor is changed by this record.
 
 Second-assessment correction: inspect explanation preservation in every draw, including when the model supplies nonempty table labels or program quotations. The source-owned internal passage is selected independently; table labels followed by numeric cells are rejected. Exact source matching and aggregate PASS alone do not prove useful explanation. Prior-period passages retain their dates and generic filing attribution.
+
+
+## Selected Outlook source acceptance
+
+A fresh selected MD&A can append one complete heading-delimited Outlook supplement, with a separate wrapper-inclusive 6,000-character allowance. The existing primary excerpt remains byte-identical before the addition; only forward recovery receives the complete supplement beyond its existing 30,000-character allocation. Cached excerpts are not invalidated. The content stamp advances to `summary-2026-09-j`, without scheduling regeneration.
+
+Actual acceptance must verify Ford's complete source block reaches both primary and any forward recovery, inspect adjusted EBIT/FCF ranges with their labels and assumptions, and check all other source and financing/debt outputs for unintended displacement. Existing nonqualifying forms and incorporated exhibits remain outside this narrow boundary grammar. No baseline change or quality clearance follows from source availability alone.

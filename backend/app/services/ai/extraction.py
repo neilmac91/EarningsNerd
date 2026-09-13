@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 
+from app.services.ai.outlook_source import outlook_supplement
+
 logger = logging.getLogger(__name__)
 
 
@@ -522,7 +524,13 @@ class _ExtractionMixin:
             f"{filing_type_key} extraction: {len(parts)} sections via edgartools, "
             f"{len(excerpt):,} chars (precise)"
         )
-        return excerpt[:320000]
+        # Preserve every previously selected byte before adding a bounded, complete
+        # Outlook block from this same MD&A. Legacy cached excerpts never enter here.
+        excerpt = excerpt[:320000]
+        mda_cap = next((cap for key, _label, cap in layout if key == "mda"), 0)
+        return excerpt + outlook_supplement(
+            (sections.get("mda") or "").strip(), excerpt, mda_cap,
+        )
 
     def extract_financial_data(self, text_content: str) -> Dict[str, list]:
         """Extract specific financial figures from filing text"""

@@ -7,10 +7,15 @@ from typing import Sequence
 
 from bs4 import BeautifulSoup, Comment
 
+from app.services.ai.outlook_source import (
+    MAX_OUTLOOK_SUPPLEMENT_CHARS, OUTLOOK_FAMILY, OUTLOOK_LABEL,
+)
+
 MAX_RECOVERY_CHARS = 30_000
 _MARKUP = re.compile(r"<(?:/?[A-Za-z][\w:.-]*(?:\s[^<>]*?)?\s*/?>|!--|!DOCTYPE|\?)", re.I)
 _HIDDEN_STYLE = re.compile(r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\s*(?:!important\s*)?(?:;|$)", re.I)
 _RECOVERED_LABELS = {
+    OUTLOOK_LABEL: (OUTLOOK_FAMILY,),
     "FINANCIAL DATA": ("financials",),
     "FINANCIAL STATEMENTS CONTEXT (recovered from filing)": ("financials",),
     "MD&A CONTEXT (recovered from filing)": ("mda",),
@@ -131,11 +136,20 @@ def build_recovery_context(section: str, blocks: tuple[RecoveryBlock, ...], samp
                 families.setdefault(family, []).append(block)
                 seen.add(block.text)
     if not families:
-        if not sample.strip():
-            return ""
-        families = {"filing": [RecoveryBlock("Filing excerpt", sample.strip(), ("filing",))]}
+        # The dedicated supplement must not enter the legacy fallback allocator.
+        legacy_sample = sample.split(f"\n\n{OUTLOOK_LABEL}:\n", 1)[0]
+        if legacy_sample.strip():
+            families = {"filing": [RecoveryBlock("Filing excerpt", legacy_sample.strip(), ("filing",))]}
     groups = list(families.values())
     # Reserve separators uniformly, then remove exactly the final separator.
     shares = _shares([sum(_cost(block) for block in group) for group in groups], MAX_RECOVERY_CHARS + 2)
     rendered = "".join(_render_family(group, share) for group, share in zip(groups, shares))
-    return rendered[:-2] if rendered else ""
+    rendered = rendered[:-2] if rendered else ""
+    supplements = [block for block in blocks if OUTLOOK_FAMILY in block.families]
+    if section == "forward_signals" and len(supplements) == 1:
+        block = supplements[0]
+        extra = f"\n\n{OUTLOOK_LABEL}:\n{block.text}"
+        # Separate budget: never reallocate or truncate the original recovery text.
+        if len(extra) <= MAX_OUTLOOK_SUPPLEMENT_CHARS and block.text not in rendered:
+            rendered += extra
+    return rendered
