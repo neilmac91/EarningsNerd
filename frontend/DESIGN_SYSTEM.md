@@ -142,8 +142,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
-                 verified, fragment_url } — `verified` drives the Verified/Cited trust badge; never ship
-                 a renderer that drops it.
+                 verified, fragment_url } — `verified` drives source attribution: checked sources show
+                 “Source match found” with its scope (not whole-answer verification); unmatched sources
+                 stay “Cited”. Numeric/text visual grouping is a display convention, not a separate
+                 attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
                  which implements the same contract plus viewer deep-linking, popovers, streaming-perf
