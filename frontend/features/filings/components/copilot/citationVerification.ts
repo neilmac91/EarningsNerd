@@ -6,5 +6,5 @@ export const EXCERPT_MATCH_SCOPE =
 /** Describe the existing source check, never semantic support for the surrounding answer. */
 export function citationVerificationLabel(citation: CopilotCitation): string {
   if (!citation.verified) return 'Cited'
-  return isXbrlCitation(citation) ? 'Numeric source verified' : 'Excerpt found in filing'
+  return (isXbrlCitation(citation) || citation.verified) ? 'Numeric source verified' : 'Excerpt found in filing'
 }
