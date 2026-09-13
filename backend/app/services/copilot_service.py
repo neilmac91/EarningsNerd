@@ -1265,13 +1265,14 @@ async def answer_filing_question(
         # match — so the answer text and the returned citations list can never disagree, and a
         # declared-but-never-cited source can never leak into the Sources panel.
         filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
+        before_resolution = full_answer
         full_answer, verified_citations, grounded, misplaced = _resolve_citations(
             full_answer, text_citations_by_marker, used_facts, filing_url
         )
         # Unresolvable model F-markers can have hidden an otherwise eligible claim from
         # the first repair. Certify only the final visible, wholly uncited prose; never
         # reinterpret surviving citations or reuse a rejected marker as evidence.
-        if not verified_citations:
+        if not verified_citations and full_answer != before_resolution:
             repaired = _repair_uncited_fact_claim(
                 full_answer, filing=filing, accession=accession, currency=currency,
                 register=_register_fact,
