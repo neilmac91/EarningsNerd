@@ -71,15 +71,10 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const gap = 8
     const anchor = trigger.getBoundingClientRect()
     const bounds = card.getBoundingClientRect()
-    const aboveSpace = Math.max(0, anchor.top - gap - margin)
-    const belowSpace = Math.max(0, window.innerHeight - margin - anchor.bottom - gap)
-    // Keep the trigger reachable: viewport clamping alone can put a tall portal over it.
-    // Prefer a full card above, then below; otherwise scroll within the larger side.
-    const placeAbove = bounds.height <= aboveSpace ||
-      (bounds.height > belowSpace && aboveSpace >= belowSpace)
-    card.style.maxHeight = `${placeAbove ? aboveSpace : belowSpace}px`
-    const fittedHeight = card.getBoundingClientRect().height
-    const top = placeAbove ? anchor.top - gap - fittedHeight : anchor.bottom + gap
+    const above = anchor.top - gap - bounds.height
+    const below = anchor.bottom + gap
+    const preferredTop = above >= margin ? above : below
+    const top = Math.max(margin, Math.min(preferredTop, window.innerHeight - bounds.height - margin))
     const left = Math.max(margin + bounds.width / 2,
       Math.min(anchor.left + anchor.width / 2, window.innerWidth - margin - bounds.width / 2))
     // DOM placement avoids a second React render and stays paired with this measured card.
