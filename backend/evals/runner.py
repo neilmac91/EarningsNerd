@@ -133,7 +133,7 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         document_url=filing.document_url, form=form,
     )
     return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
-            "statement_source": statement_source,
+            **({"statement_source": statement_source} if statement_source else {}),
             "source_provenance": source_provenance,
             "coverage_inventory": excerpt_provenance(
                 excerpt, accession=filing.accession_number, source=source, sections=sections,
