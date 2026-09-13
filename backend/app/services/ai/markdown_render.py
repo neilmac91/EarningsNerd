@@ -447,8 +447,9 @@ class _MarkdownRenderMixin:
         # OCF/NI dollar levels (their homes are §8 cash_flow / §2 results). Suppressed for financial
         # institutions — NI-vs-CFO and a capex-based FCF are meaningless there (unclassified balance sheet,
         # lending/deposit-driven cash flow). Both cash owners require affirmative nonfinancial
-        # classification and retain the bank-components veto; unknown classification abstains. The model keeps operating_vs_one_time +
-        # red_flags (qualitative, no standardized feed).
+        # classification and retain the bank-components veto; unknown classification abstains.
+        # The model keeps red_flags and unsupported operating_vs_one_time disclosures;
+        # supported statement context separately owns the latter slot.
         #
         # Field OWNERSHIP is an invariant, not a tendency: strip any stray model-provided cash_conversion
         # FIRST, on every path. The empty-section filter is section-level (T3.1 decision #1 — the model

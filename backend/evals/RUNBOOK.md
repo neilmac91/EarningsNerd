@@ -950,3 +950,18 @@ python -m pytest tests/unit/test_statement_relationship_source.py tests/unit/tes
 See [implementation and proof evidence](../../tasks/operating-pretax-source-local.md). Full
 committed gates, actual source/output acceptance and serial production verification remain
 required; local source eligibility does not establish world-class analysis quality.
+
+## Derived cash-card applicability correction — September 13, 2026
+
+The earlier cash-lead record's open financial-profile gap is addressed for new generation.
+Both conventional cash owners now require affirmative nonfinancial classification and retain
+the bank-components veto. Financial and unknown inputs withhold the derived cash-conversion
+card, after stripping any model-authored replacement. Basic reported cash flows and source-owned
+financing/statement explanations remain. Content stamp is `summary-2026-09-m`; schema remains 2.
+No replay or regeneration is scheduled.
+
+Actual assessment must confirm COIN's previously admitted card is absent, JPM remains absent,
+and other eligible cohort cards and all source-owned fields are preserved. Classification is
+not certification of economic meaning: MELI customer funds, adjusted FCF and the usefulness of
+its ratio remain separate unresolved work. Unknown historical inputs are not retroactively
+classified. See [implementation and mutation evidence](../../tasks/cash-card-applicability-local.md).
