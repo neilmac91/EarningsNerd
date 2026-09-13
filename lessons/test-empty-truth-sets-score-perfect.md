@@ -19,10 +19,16 @@ recall half of the behavior was already pinned by
 prose drifted the opposite way from both.
 
 **Rule**: Never reason about a scorer's empty-input behavior from prose — read the early-return.
-When "nothing to check" is a deliberate 1.0, the danger is inflation, not a visible zero, so put
-the guard at the decision boundary that consumes the score (the pin, the gate, the go/no-go),
-not in the scorer, whose lenient return other filings depend on. A design note that asserts a
-scorer's behavior must cite the file:line it read.
+When "nothing to check" is a deliberate 1.0, the cost is not a visible zero but a number that
+reads as measured and is not, so the guard belongs at a boundary that *consumes* the score,
+never in the scorer, whose lenient return other filings depend on. Such a score usually has
+more than one consumer: enumerate them and say which you actually guarded. Here
+`pin_baseline.build_baseline` refuses a ground-truth-less entry, but `evals/regression_gate.py`
+compares candidate means to the pin without ever checking the golden set they were measured on
+(no `golden_set_sha256` anywhere in it; `golden_set_size` appears only in a print at `:279`),
+so a vacuous entry can still be *measured* and pull a candidate run toward 1.0. Every numeric
+`_HARD_GATES` entry is a `decrease` gate, so that dilution only ever loosens the gate. A design
+note that asserts a scorer's behavior must cite the file:line it read.
 
 **Evidence**: `tasks/handover-wave3-2026-09.md` W3-8b (corrected in the same PR as this lesson);
 `backend/scripts/pin_baseline.py` vacuous-entry refusal;
