@@ -49,7 +49,7 @@ const SKIP_DIRS = new Set([
 ])
 
 const PYTHON_TEST = /^(test_.*\.py|.*_test\.py)$/
-const JS_TEST = /\.(spec|test)\.(ts|tsx|js|jsx|mts|cts)$/
+const JS_TEST = /\.(spec|test)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$/
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {

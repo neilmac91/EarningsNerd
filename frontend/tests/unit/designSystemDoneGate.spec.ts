@@ -97,6 +97,22 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
 
 // --------------------------------------------------------------------------- item 3
 describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font variable', () => {
+  /** Stacks and :root vars that must LEAD with the named next/font variable. */
+  const VAR_LED_STACKS: Record<string, string> = {
+    heading: '--font-inter',
+    editorial: '--font-newsreader',
+    data: '--font-geist-mono',
+    mono: '--font-geist-mono',
+  }
+  const VAR_LED_CSS_VARS: Record<string, string> = {
+    '--font-heading': '--font-inter',
+    '--font-editorial': '--font-newsreader',
+    '--font-data': '--font-geist-mono',
+  }
+  /** The four sanctioned exceptions, each pinned to its exact shape at the end of this block. */
+  const SANCTIONED_STACKS = ['body', 'sans']
+  const SANCTIONED_CSS_VARS = ['--font-body', '--font-active']
+
   /** `key: [...]` out of tailwind.config.js's fontFamily block. */
   const stack = (key: string): string => {
     const m = tailwindConfig.match(new RegExp(`\\n\\s*${key}: \\[([^\\]]*)\\]`))
@@ -110,25 +126,45 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     return m[1].trim()
   }
 
+  /** The fontFamily block, delimited by the indentation of its own opening line, so a brace that
+   *  later appears inside one of its comments cannot throw the scan off. */
+  const fontFamilyBlock = (): string => {
+    const m = tailwindConfig.match(/\n(\s*)fontFamily: \{\n([\s\S]*?)\n\1\},/)
+    if (!m) throw new Error('tailwind.config.js has no fontFamily block')
+    return m[2]
+  }
+
+  // A fixed table of names checks only the stacks that existed when it was written, so a stack or
+  // var added by a later theme change is simply never looked at — the same "gate narrower than the
+  // rule it enforces" defect as an extension allowlist. These two tests close that: every declared
+  // name must be classified as var-led or sanctioned, so adding one without deciding which fails.
+  it('classifies every fontFamily stack, so a new one cannot slip past ungated', () => {
+    const declared = [...fontFamilyBlock().matchAll(/\n\s*([A-Za-z_$][\w$]*): \[/g)].map((m) => m[1])
+    expect(declared.slice().sort()).toEqual(
+      [...Object.keys(VAR_LED_STACKS), ...SANCTIONED_STACKS].sort(),
+    )
+  })
+
+  it('classifies every :root font variable, so a new one cannot slip past ungated', () => {
+    const declared = [...globalsCss.matchAll(/\n\s*(--font-[a-z-]+):/g)].map((m) => m[1])
+    expect(declared.slice().sort()).toEqual(
+      [...Object.keys(VAR_LED_CSS_VARS), ...SANCTIONED_CSS_VARS].sort(),
+    )
+  })
+
   it('declares the three next/font variables in layout.tsx', () => {
     // If a variable is renamed here, every stack below points at nothing.
     for (const v of NEXT_FONT_VARS) expect(layout).toContain(`variable: '${v}'`)
   })
 
-  it.each([
-    ['heading', '--font-inter'],
-    ['editorial', '--font-newsreader'],
-    ['data', '--font-geist-mono'],
-    ['mono', '--font-geist-mono'],
-  ])('tailwind fontFamily.%s leads with var(%s)', (key, expected) => {
-    expect(stack(key).split(',')[0].trim()).toBe(`'var(${expected})'`)
-  })
+  it.each(Object.entries(VAR_LED_STACKS))(
+    'tailwind fontFamily.%s leads with var(%s)',
+    (key, expected) => {
+      expect(stack(key).split(',')[0].trim()).toBe(`'var(${expected})'`)
+    },
+  )
 
-  it.each([
-    ['--font-heading', '--font-inter'],
-    ['--font-editorial', '--font-newsreader'],
-    ['--font-data', '--font-geist-mono'],
-  ])('globals.css %s leads with var(%s)', (name, expected) => {
+  it.each(Object.entries(VAR_LED_CSS_VARS))('globals.css %s leads with var(%s)', (name, expected) => {
     expect(cssVar(name).split(',')[0].trim()).toBe(`var(${expected})`)
   })
 
