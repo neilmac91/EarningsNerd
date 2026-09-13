@@ -16,8 +16,8 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    components/AskFilingAnswer.tsx, the DS reference implementation) — panel
    card chrome, mono answer register (.copilot-answer — DS type roles put
    Ask-this-Filing output in the data face), brand-tint bracket markers,
-   footnote evidence rows with the Verified/Cited trust badge, and the
-   citations · verified compliance counts. The MACHINERY here (streaming fast
+   footnote evidence rows with scoped source-check labels, and the
+   citation and source-check counts. The MACHINERY here (streaming fast
    path, citation-chip injection, viewer deep-links, follow-ups) is
    the shipped contract pinned by the copilot test suites — restyle only.
    The assistant's background tool activity is deliberately never surfaced:
@@ -460,8 +460,7 @@ export default function CopilotMessage({
           {message.status === 'done' && (
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
-                // The compliance row (v2.2 footer-counts treatment): grounding
-                // on the left, citations · verified tally on the right.
+                // Source-check counts describe located evidence, not verified answer claims.
                 <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
                   <span className="flex items-center gap-1.5">
                     <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
