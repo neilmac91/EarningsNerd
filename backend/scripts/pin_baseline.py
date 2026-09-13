@@ -101,12 +101,15 @@ def build_baseline(
     harness = report.get("harness") or {}
     if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
         raise ValueError("Report golden-set provenance is missing or differs from the committed set")
-    # An entry with no ground truth is scored 1.0, not 0, by both numeric dimensions
+    # An entry with no ground truth is scored 1.0, not 0, on both numeric dimensions
     # (`score_numeric_accuracy` returns 1.0 for an empty truth set; `score_numeric_precision`
-    # returns 1.0 when nothing is checkable). Those are deliberate — a filer that legitimately
-    # omits a line must not be penalised — but they make a ground-truth-less entry raise the
-    # pinned bar while measuring nothing. Completeness of the set is checked below; this checks
-    # that each measured entry was checkable at all.
+    # returns 1.0 when `ground_truth` is empty). Those returns are deliberate — a filer that
+    # legitimately omits a line must not be penalised — but they let an entry that verifies
+    # nothing be counted as a measured filing, so the pinned means and `golden_set_size` rest
+    # on less evidence than they claim. Completeness of the SET is checked below; this rejects
+    # the entry-level case. It does not prove an entry is fully checkable: precision also
+    # returns 1.0 when a non-empty ground truth carries no labeled financial field
+    # (`scorers.py:296`), which only the eventual 6-K scorer contract can settle.
     vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in runnable if not f.get("ground_truth"))
     if vacuous:
         raise ValueError(

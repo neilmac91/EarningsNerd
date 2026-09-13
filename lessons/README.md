@@ -54,8 +54,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-contract-tests-are-locked.md`](./test-contract-tests-are-locked.md) — Contract anchors are locked: never edit them in the same PR as the code they guard
 - [`test-deselected-markers-need-ci-paths.md`](./test-deselected-markers-need-ci-paths.md) — Give every deselected pytest marker an explicit CI execution path
 - [`test-deterministic-guards-for-scorer-blind-spots.md`](./test-deterministic-guards-for-scorer-blind-spots.md) — Add a dedicated deterministic guard for every error class invisible to existing scorers
-- [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
+- [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI

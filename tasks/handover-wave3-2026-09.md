@@ -395,7 +395,7 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** job created, smoke-tested and seeded by the founder on 2026-09-08 (`--days 7`:
   838 raw hits, 270 upserted; scheduler `notable-filings-scan` live at 08:30/18:30 ET); after
-  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in the service `--update-env-vars` (`ci.yml:585`; the pregenerate job carries its own at `:597`) and updates the W3-2 pin
+  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in **both** the service `--update-env-vars` (`ci.yml:585`) and the pregenerate job's own map (`:597`) — `test_prod_flag_visibility.py:72-73` asserts the two agree, so flipping only the service line fails the backend gate — and updates the W3-2 pin
   table (that test edit makes the PR deploy). Verify the deploy ran, `GET /api/notable_filings?limit=8`
   is non-empty, and the homepage section renders in both themes after ISR. **The homepage section is
   not currently mounted:** the September 10 landing revamp dropped it from the route deliberately,

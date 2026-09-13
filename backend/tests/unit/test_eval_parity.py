@@ -173,8 +173,8 @@ def test_pin_rejects_unrepresentative_or_incomplete_measurement(pin_report, defe
 def test_pin_refuses_a_verified_entry_measured_on_no_ground_truth(monkeypatch, tmp_path, pin_report):
     # A 6-K carries no XBRL facts, so an entry added without hand-filled ground truth scores 1.0
     # on both numeric dimensions rather than 0. Every other pin check passes for it — the set is
-    # complete, three runs, no errors, no vetoes — so only this guard keeps a vacuous entry from
-    # raising the committed bar.
+    # complete, three runs, no errors, no vetoes — so only this guard keeps the pin from counting
+    # an entry that verified nothing as one of the measured filings behind the committed means.
     filings = json.loads(runner.GOLDEN_PATH.read_text())['filings']
     vacuous = dict(filings[0], ticker='SIXK', filing_type='6-K', ground_truth=[], verified=True)
     golden = tmp_path/'golden_set.json'

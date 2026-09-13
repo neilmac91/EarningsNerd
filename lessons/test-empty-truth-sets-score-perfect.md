@@ -10,10 +10,13 @@ when `ground_truth` is empty and when no labeled field is checkable
 (`backend/evals/scorers.py:272,296`). Those returns are deliberate: a filer that legitimately
 omits a line must not be penalised. `pin_baseline.py` checked the *completeness* of the verified
 set but never the *content* of an entry, so a hand-filled entry marked `verified` with no facts
-would have been scored a perfect 1.0 on both dimensions and pinned as the new bar — raising the
-committed baseline while measuring nothing. The recall half of the behavior was already pinned
-by `test_numeric_accuracy_no_ground_truth_is_not_penalized`; the precision half was not, and the
-plan prose drifted the opposite way from both.
+would have been scored a perfect 1.0 on both dimensions and pinned. The harm is not a number
+going up — `mean_numeric_accuracy` and `mean_numeric_precision` are already pinned at 1.0 by 26
+genuinely checked filings — it is that the pinned means and `golden_set_size` would then rest on
+less evidence than they claim, with one entry counted as measured that verified nothing. The
+recall half of the behavior was already pinned by
+`test_numeric_accuracy_no_ground_truth_is_not_penalized`; the precision half was not, and the plan
+prose drifted the opposite way from both.
 
 **Rule**: Never reason about a scorer's empty-input behavior from prose — read the early-return.
 When "nothing to check" is a deliberate 1.0, the danger is inflation, not a visible zero, so put
