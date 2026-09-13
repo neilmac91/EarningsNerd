@@ -873,3 +873,14 @@ This dated correction supersedes earlier candidate-only debt status without rewr
 - [ ] Continue source completeness and general citation work, then scoped independent quality acceptance. A deterministic PASS is not world-class quality clearance.
 
 This dated correction supersedes earlier B publication/deployment-pending status. Earlier failures and assessments remain intact. Notable waits for the review-week retain decision through September 15; Analysis still needs warm-up/live acceptance; W3-7 needs its prescribed strong-judge artifact/decision, followed by serial W3-8 work under the existing timing rule. E06 awaits natural payment delivery evidence; E09 remains proposal-only. Major dependencies, D8/#270 and other founder-held settings remain held. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 13 — financing repair production-verified
+
+- [x] PR #833 merged as `b517cc5890187841b979c872c359e68b28a68f98`, with the full 3,099-test gate, unchanged locked anchors, three invariant proofs and independently accepted actual outputs. Two prior semantic holds remain recorded.
+- [x] Main CI `34727422054`, deploy `103644287681`, migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00337-fss` at 100%, CI and independent detailed health healthy. [Release evidence](financing-release-2026-09-13.md).
+- [ ] Next: complete bounded Outlook source delivery. Local implementation integrated financing, passed 3,107 tests and preserves existing source context; publication and actual assessment remain pending.
+- [ ] Continue issuer-defined FCF versus conventional FCF ownership and unchecked prominent takeaways, then general citation/source completeness. ASML citation-free answers and AAPL supplemental table attribution remain actual unresolved findings.
+- [ ] E09 remains proposal-only: [staged decision package](e09-proposal-next-2026-09-13.md) separates generation ownership from fleet SEC admission and lists missing fleet/database/egress evidence. Eight observed jobs do not prove concurrency, successful execution or paused schedules.
+
+No world-class quality clearance, universe-wide pregeneration or historical replay. Existing Notable review-week decision, Analysis warm-up/live acceptance, W3-7 strong-judge artifact/decision and serial W3-8 work, natural Stripe evidence, major dependencies, D8/#270 and other founder-held decisions remain as recorded. Chrome later reported the Mac locked; further authenticated observations wait without inventing evidence or using live tests.
