@@ -12,6 +12,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
 
 - [`arch-sitemap-page-eligibility.md`](./arch-sitemap-page-eligibility.md) — Match sitemap eligibility to the existing page predicates

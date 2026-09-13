@@ -22,3 +22,8 @@ Root-owned integration before publication: review candidate, integrate current m
 Implementation `f6830a20daa8d62be67f29e8c931ae4fd1edfb1a` passed 40 focused source/recovery tests. The one invariant mutation `21b1d4923c1f4b50db8110be6fc38b739dfcb339` suppressed the supplement: **1 failed, 39 passed, 2 warnings in 6.15s**. Restoration `db94c1aa76a8343bf4b13e6e5a14d8ba7ec31e38` is tree-identical: **40 passed, 2 warnings in 2.68s**.
 
 Full committed gate on the restored base candidate: Ruff clean, Bandit zero medium/high findings, PostgreSQL 15 with four isolated lanes and performance; **3,079 passed, 29 warnings in 94.83s**, exit 0. This is pre-integration verification, not a claim that the later combined release state is gated. No PR, assessment or deployment is associated with these local checks.
+
+
+## Integration with financing release
+
+Integrated main `b517cc5890187841b979c872c359e68b28a68f98` without textual conflicts. Financing #833 is merged; its deployment verification is still pending, so this branch remains unpublished. The content version advances from `summary-2026-09-i` to `summary-2026-09-j` because fresh generation receives additional source. This marks content provenance only and does not invalidate persisted excerpts or initiate historical replay. Existing source-delivery mutation proof remains unchanged; the combined committed gate is required before publication.
