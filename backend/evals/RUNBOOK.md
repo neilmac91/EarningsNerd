@@ -889,6 +889,6 @@ Actual acceptance must verify Ford's complete source block reaches both primary 
 
 ## Paired annual Copilot claim acceptance
 
-The finite annual revenue/net-sales plus net-income sentence may receive two server-owned chips only after both facts independently certify and share actual annual dates, currency and accession. The original one-claim grammar is unchanged. Unsupported, partly cited or differently qualified text abstains; no model retry or historical backfill is added.
+The finite annual revenue/net-sales plus net-income sentence may receive two server-owned chips only after both facts independently certify and share actual annual dates, currency and accession. The original one-claim grammar is unchanged. Unsupported, surviving partly cited or differently qualified text abstains. When the resolver removes invalid markers and leaves wholly uncited visible prose, the same positive certification may repair that visible claim. Rejected markers never supply evidence; original strip telemetry is retained. No model retry or historical backfill is added.
 
 Actual acceptance checks the retained ASML wording, separate concept-correct chips and unchanged prose, alongside all other requested answers. Net-income raw-tag/accounting-basis provenance remains incomplete and must not be advertised as US-GAAP certification. Generic table-overclaim and quote-fidelity defects remain separate.
