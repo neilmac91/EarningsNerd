@@ -71,6 +71,16 @@ def _amount(cells: list[dict], start: int, end: int, scale: int) -> dict | None:
     if any(c["text"] and c not in owned and c["column"] < end and c["column"] + c["colspan"] > start for c in cells):
         return None
     tokens = [c["text"] for c in owned if c["text"]]
+    amounts = [text for text in tokens if re.search(r"\d", text) or text in {"—", "–", "-"}]
+    if len(amounts) != 1:
+        return None  # adjacent numeric subcolumns must never become one invented amount
+    number = amounts[0]
+    if number not in {"—", "–", "-"} and not re.fullmatch(
+        r"\$?\s*\(?\s*(?:\d{1,3}(?:,\d{3})+|\d+)\s*\)?", number
+    ):
+        return None
+    if any(text not in {"$", "(", ")"} for text in tokens if text not in amounts):
+        return None
     lexical = " ".join(tokens)
     compact = re.sub(r"\s+", "", lexical)
     if compact.startswith("$"):
