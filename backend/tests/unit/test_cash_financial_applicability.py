@@ -174,6 +174,7 @@ async def test_cash_card_applicability_preserves_basic_flows_across_surfaces(mon
     eligible = case == "nonfinancial"
     supplied = {"metadata": {}, "sections": {
         "earnings_quality": {"cash_conversion": "UNTRUSTED MODEL CARD", "red_flags": ["Preserved disclosure."]},
+        "balance_sheet_liquidity": {"liquidity": "Preserved liquidity disclosure."},
     }}
     service = OpenAIService()
 
