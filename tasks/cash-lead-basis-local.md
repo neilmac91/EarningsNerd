@@ -60,3 +60,10 @@ Review refutations: the exact asset suffix preservation assertions and deliberat
 ### Latest retained wording before publication
 
 The second #837 assessment uses two additional complete current/prior forms: `was ... , up from ...` with `OCF minus capex`, and `reached ... versus ...` with `OCF less capex`. Root extends only these scalar connectors in the same complete grammar; all source and amount checks remain unchanged. Two exact retained controls qualify them and reject a changed FCF amount. This is the existing cash-qualification invariant, not a new semantic inference or permission to rewrite arbitrary prose. Final integrated gate and re-established proof remain pending.
+
+
+### Combined release verification
+
+Merged citation main `14cc30c1256f26babdb0b8393554236ccb23d324`; the only conflict was appended RUNBOOK sections, both retained. Combined feature `d78e7e5c2114ddad957e3811f83d4fa3fb0e8dc3` passes all 29 focused cash controls. Root re-established the same qualification proof after the final connector extension: mutation `f1b42fd0142eb0fd435a6cd1c0658dde6a25c36a` omitted the common binding and produced **13 failed, 16 passed, 2 warnings in 2.01s**; restore `b4fa1571bff8b019c3604ea24d1c1459fb269244` produced **29 passed, 2 warnings in 1.95s**. Feature/restore tree `bb0bb4d6652dac14520c85ec1e0b97a983bcb318` is identical. Full logs are `outputs/cash-lead-basis-local/final-connectors-{red,restored}.log`. Earlier proofs remain historical iterations of one invariant.
+
+The prior code-only candidate at `821f148328cf3cde84118f1417c7e92ec2f87173` passed 3,134 tests on PostgreSQL 15. The combined final committed full gate and actual assessment are still required; its earlier result is not substituted. Root's offline replay over the first #837 52-summary artifact changed only the two intended MELI cash leads and preserved the assets suffixes/unrelated lead text. The final connector controls cover both second-assessment variants, whose component metadata is unchanged. No universal freeform-claim coverage is claimed.
