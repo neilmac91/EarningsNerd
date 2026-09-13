@@ -885,3 +885,10 @@ Second-assessment correction: inspect explanation preservation in every draw, in
 A fresh selected MD&A can append one complete heading-delimited Outlook supplement, with a separate wrapper-inclusive 6,000-character allowance. The existing primary excerpt remains byte-identical before the addition; only forward recovery receives the complete supplement beyond its existing 30,000-character allocation. Cached excerpts are not invalidated. The content stamp advances to `summary-2026-09-j`, without scheduling regeneration.
 
 Actual acceptance must verify Ford's complete source block reaches both primary and any forward recovery, inspect adjusted EBIT/FCF ranges with their labels and assumptions, and check all other source and financing/debt outputs for unintended displacement. Existing nonqualifying forms and incorporated exhibits remain outside this narrow boundary grammar. No baseline change or quality clearance follows from source availability alone.
+
+
+## Conventional cash claims in lead text
+
+Supported whole OCF/FCF current/prior sentences and the two retained mixed cash/assets forms receive source-owned dated cash values and the existing conventional selected-capex basis. Both selected components must supply matching dates/currencies and reproduce the derived FCF amount. An explicit OCF YoY percentage additionally needs comparable actual annual durations and matching signed growth. The assets suffix is preserved as model prose, not newly certified. Financial-institution suppression remains controlling.
+
+Acceptance must inspect actual lead wording, not just the already-qualified cash-conversion field. Preserve unrelated headline/takeaway text and assets suffixes, and verify both final and preview output. Unsupported paraphrases remain uncorrected; this is not a universal cash-claim or issuer-adjusted FCF gate. The content stamp advances to `summary-2026-09-k`; schema remains 2, with no automatic regeneration or historical replay.
