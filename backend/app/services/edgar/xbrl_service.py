@@ -54,6 +54,7 @@ from .instance_extractor import (
     normalize_form,
     segment_series_by_member,
 )
+from .financing_source import financing_comparison_source
 from .models import MetricChange
 
 logger = logging.getLogger(__name__)
@@ -409,9 +410,17 @@ def _extract_from_filing_instance_sync(
                 for end, value, start in series
             ]
         else:
+            financing_sources = [] if metric == "financing_cash_flow" else None
             series, currency, _concept = duration_series_with_starts(
-                xb, concepts, base_form, period_of_report
+                xb, concepts, base_form, period_of_report, selected_sources=financing_sources
             )
+            if financing_sources:
+                source = financing_comparison_source(
+                    filing, financing_sources, accession=accession_number, form=form,
+                    period_of_report=period_of_report, cik=cik_padded,
+                )
+                if source is not None:
+                    result["financing_comparison_source"] = source
             result[metric] = [
                 {"period": end, "value": value, "form": form, "accn": accession_number,
                  "currency": currency, **_source_duration(start)}
@@ -1281,6 +1290,9 @@ class EdgarXBRLService:
                 for point in entry.get("series", []):
                     if point["period"] in labels and not point.get("fiscal_period"):
                         point.update(labels[point["period"]])
+        source = xbrl_data.get("financing_comparison_source")
+        if isinstance(source, dict):
+            metrics["financing_comparison_source"] = source
         return metrics
 
 

@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
+from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, OWNED_FIELD
 from app.services import metric_delta_service
 from app.services.summary_schema import SECTION_META, SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
 
@@ -617,7 +618,7 @@ def _v2_earnings_quality(sections: dict) -> Section:
     return section
 
 
-def _v2_value_drivers(sections: dict) -> Section:
+def _v2_value_drivers(sections: dict, *, capital_owned: bool = False) -> Section:
     section = Section(SECTION_META["value_drivers"]["title"])
     data = sections.get("value_drivers")
     if not isinstance(data, dict):
@@ -627,10 +628,19 @@ def _v2_value_drivers(sections: dict) -> Section:
     for key, alt in (("shareholder_returns", "shareholderReturns"),
                      ("capital_allocation", "capitalAllocation"),
                      ("returns_on_capital", "returnsOnCapital")):
+        if capital_owned and key == "capital_allocation":
+            owned = data.get(OWNED_FIELD)
+            if isinstance(owned, dict):
+                comparison = _clean(owned.get("comparison"))
+                if comparison:
+                    section.blocks.append(Block("paragraph", text=comparison))
+                for passage in _str_list(owned.get("filing_statements")):
+                    section.blocks.append(Block("quote", text=_WS_COLLAPSE.sub(" ", passage), speaker="Filing statement"))
+            continue
         text = _clean(data.get(key) or data.get(alt))
         if text and not is_placeholder(text):
             section.blocks.append(Block("paragraph", text=text))
-    highlights = [h for h in _str_list(data.get("highlights")) if not is_placeholder(h)]
+    highlights = [] if capital_owned else [h for h in _str_list(data.get("highlights")) if not is_placeholder(h)]
     if highlights:
         section.blocks.append(Block("bullets", items=highlights))
     return section
@@ -804,11 +814,15 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
         return []
     marker = raw_summary.get(SOURCE_UNIT_CONTEXT_KEY)
     source_units_owned = type(marker) is int and marker == SOURCE_UNIT_CONTEXT_VERSION
+    capital_marker = raw_summary.get(CAPITAL_CONTEXT_KEY)
+    capital_owned = type(capital_marker) is int and capital_marker == CAPITAL_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
             builder(sections, source_units_owned=source_units_owned)
-            if builder is _v2_forward_signals else builder(sections)
+            if builder is _v2_forward_signals else
+            builder(sections, capital_owned=capital_owned)
+            if builder is _v2_value_drivers else builder(sections)
         )
         if section.has_content:
             rendered.append(section)

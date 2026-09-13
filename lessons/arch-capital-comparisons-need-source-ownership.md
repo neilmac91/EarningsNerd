@@ -1,0 +1,20 @@
+# Own capital comparisons and attributed passages in code
+
+Date: 2026-09-13 · Area: financial source integrity
+
+Correct XBRL amounts did not prevent a model from describing two positive financing periods as a negative-to-positive transition. A separate correct cash-flow sentence left the contradiction visible. Parsed SDK dimensions also omitted scenario qualifiers, so an empty map could not establish source scope.
+
+New financing comparisons preserve the existing selected source rows, confirm context/unit identity from already-cached instance XML, and use only current and immediate selected prior. Unknown evidence abstains. The new capital-allocation representation contains code-authored comparison plus source-matched passages; it has no unchecked sibling inference/highlight channel. Final and preview use the same owner, and only the explicit application envelope enables the new read/export representation. Legacy payloads remain legacy.
+
+Verbatim extraction must preserve legitimate denomination. The first filter dropped Apple's valid $100 billion program combined with $0.25-to-$0.26 per-share dividend. Exact retained controls now preserve per-share amounts and calendar dates, while unscaled detached amounts remain unqualified.
+
+Existing gates: `backend/tests/unit/test_financing_source.py` and `test_financing_comparison.py`. Two committed proofs separately substitute an older operand and admit unverified passages; both fail the integrated path and restore green. Full tails and real MELI source evidence are in `tasks/financing-comparison-2026-09-13.md`. These enforce this bounded ownership, not universal narrative correctness.
+
+
+September 13 assessment correction: both actual MELI draws omitted available financing explanation even after the comparison was corrected. Source qualification alone does not ensure selection. A bounded fallback may choose one complete, unique paragraph from identified MD&A/financial context when no offered passage qualifies; relevance ranking does not establish causality. Keep exact-source and denomination checks, defer preview quotations without source, and inspect actual choices before assessment. Risk/unlabelled text is ineligible. The first assessment and missing pre-binding evidence remain recorded rather than assigning an unsupported cause.
+
+
+Boundary correction before publication: independent review found both extraction caps and recovery allocation can append synthetic separators after a cut line. The fallback now excludes first and last nonempty lines of every source block. It selects an internal verbatim source passage; this is not proof of an original HTML paragraph or complete surrounding context. Actual MELI selection remains internal. The pre-correction committed gate passed 3,096 tests; that pass did not refute the subsequently confirmed boundary defect. Final corrected gates and actual assessment remain required.
+
+
+September 13 second-assessment correction: a nonempty model quote list can contain bare table labels or unrelated program quotes, so emptiness cannot own explanation preservation. Select the qualifying internal source passage independently, then containment-deduplicate it with legitimate quotations. Reject whole-line labels followed by numeric cells structurally; a sentence-ending requirement would discard valid fragments. Source-exact attribution still does not certify causality or make a prior-period passage current. This supersedes the empty-only fallback above.

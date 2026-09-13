@@ -5131,3 +5131,58 @@ This dated correction supersedes earlier candidate-only debt status without rewr
 - [ ] Continue source completeness and general citation work, then scoped independent quality acceptance. A deterministic PASS is not world-class quality clearance.
 
 This dated correction supersedes earlier B publication/deployment-pending status. Earlier failures and assessments remain intact. Notable waits for the review-week retain decision through September 15; Analysis still needs warm-up/live acceptance; W3-7 needs its prescribed strong-judge artifact/decision, followed by serial W3-8 work under the existing timing rule. E06 awaits natural payment delivery evidence; E09 remains proposal-only. Major dependencies, D8/#270 and other founder-held settings remain held. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 13 — financing comparison implementation started
+
+Founder authorizes continued implementation and necessary bounded assessment spend within the existing DeepSeek budget. No universe-wide pregeneration or historical replay. Base main `fcffd060dc3cacb92a71f01ff15136807e872143`; previous backend #831 is production-verified.
+
+- [ ] Preserve the winning financing facts' source descriptors without changing selected values or performing extra SEC fetches. Parsed empty dimensions alone do not prove scope; inspect already-loaded context XML, otherwise abstain.
+- [ ] Replace newly generated capital-allocation inference with a source-qualified financing comparison and exact source-attributed passages through the existing final/preview/shared-render owners. Legacy rows remain legacy. No unsupported sibling analysis may bypass the new representation.
+- [ ] Prove source-to-visible ownership with integrated positive/adversarial controls, unchanged locked anchors and one mutation proof per new invariant; run full committed gates.
+- [ ] Independently review, assess actual outputs and release serially; retain unsupported scope and other financial-interpretation findings.
+
+AAPL distributions/OCF and issuer-adjusted FCF remain separate accounting follow-ups. Preserve useful source explanation instead of replacing the field with metadata alone. Unknown source context is unavailable, not consolidated.
+
+
+### September 13 — financing correction ready for bounded assessment
+
+Source acquisition, shared final/preview ownership, actual MELI source availability and committed local verification are complete. Full gate: 3,091 passed on PostgreSQL 15 with performance/four lanes; eleven locked anchors unchanged. Two mutation proofs restored byte-identical. The exact AAPL per-share/date preservation defect found in review is corrected. [Implementation and evidence](financing-comparison-2026-09-13.md) retain failures and scope limits.
+
+- [x] Source descriptors and new source-owned capital-allocation representation.
+- [x] Integrated controls, independent lenses, full committed gate and two mutation proofs.
+- [ ] First authorized actual summary/Copilot assessment, then serial production verification if accepted.
+
+DeepSeek read-only balance is USD87.04 before this assessment. The new approval permits necessary bounded evaluations; it does not activate broad generation or historical replay. No release is claimed by a local gate.
+
+
+### September 13 — first financing assessment held for explanation preservation
+
+PR #833 at `bde9730eb124bc2f692d5e6bb338e54f65006b88` completed CI `34724865936` and Copilot `34724877046`. The actual summary regression passed (52 scored, no errors/retries/repairs/vetoes), but semantic acceptance is held. All 52 prior source/excerpt/XBRL/debt identities remain unchanged; 50 source-qualified comparisons are correct. Both MELI outputs now compare positive 2025/2024 flows correctly, and both AAPL outputs preserve the repurchase/dividend program. However, neither MELI output retains its useful available financing explanation. Two refutations establish that the exact 597-character source paragraph is available and passes the existing qualification guard; pre-binding candidates were not retained, so the cause of omission cannot be assigned to selection versus matching.
+
+PR #833 returned to draft without merging. A bounded, source-section-owned fallback is being prepared; one complete attributed paragraph may be selected only when the model offers no qualifying explanation. No extra SEC or model call is part of that fallback. Offline selection review precedes any second assessment, whose reason is this confirmed preservation failure under the founder’s necessary-spend authorization.
+
+Automated review separately confirmed a coverage limit: persisted-first XBRL can lack the new descriptor even during summary refresh. Comparison coverage requires qualifying fresh extraction, not merely fresh generation. Missing descriptors abstain while source quotations remain eligible. No automatic invalidation, historical replay or universal refresh claim is introduced.
+
+
+### Preservation correction verified locally
+
+Committed boundary-corrected code `6386b7ab690d75354c0527b76c8abf93b095b5d2` passed Ruff, Bandit and the full PostgreSQL 15 gate with all four lanes and performance: **3,097 passed, 29 warnings in 90.12s**, exit 0. Independent correctness/rules review found no remaining blocker. All eleven locked anchors remain byte-identical. Final offline review of all 52 sources retains the same two MELI internal passages; 16 other empty cases abstain.
+
+The third invariant's single committed mutation `59b43cac18a7662172381a5a33e7d8222764fa6c` disables source fallback: **1 failed, 12 passed, 2 warnings in 2.89s**. Restoration `5eaff0bc5529ac37674aa5ec955ff49d4594fc8a` is tree-identical to the gated code: **13 passed, 2 warnings in 2.47s**. Original two proofs remain unchanged. The [first held assessment](review-evidence/financing-comparison-2026-09-13/assessment-1.md) and [final offline inventory](review-evidence/financing-comparison-2026-09-13/preservation-inventory.json) are retained.
+
+Second bounded assessment is authorized for the confirmed preservation correction. No unchanged retry is requested. Actual new output acceptance and serial deployment remain pending.
+
+
+### September 13 — second assessment held; explanation selection corrected
+
+PR #833 at `beee66fcb68ac433c27d91c7eb44dbaba17ee2c7` passed CI `34725981746` and Copilot `34725989451`. The 52-summary assessment again had zero errors, retries, repairs or vetoes. MELI attempt 50 retained the explanation, but attempt 51 offered two bare table labels, which suppressed the fallback. Exact source matching alone does not make a table label an explanation; the available 597-character passage independently refutes source absence. The PR returned to draft without merging.
+
+The correction selects a source-owned explanation independently of model program quotations, deduplicates contained passages, and rejects whole-line labels immediately followed by numeric table cells. It preserves prose fragments rather than requiring terminal punctuation. Independent offline replay preserves all 60 legitimate quotations and all 52 comparisons, removes only the two MELI labels, and adds 12 relevant source passages. All resulting 72 quotations are unique, exact source substrings. Prior-period passages retain generic filing attribution and their original dates; no causal or current-period claim is inferred.
+
+A third bounded assessment is necessary to verify this confirmed preservation fix and is covered by the founder's necessary-spend authorization. It is not an unchanged retry. Full committed verification and re-establishment of the existing preservation mutation proof precede publication. No baseline, production setting, historical replay or locked test changes.
+
+
+### Third correction local verification
+
+Code `8854577bd7e3b474ad0e930c595feea039f5244c` passed Ruff, Bandit and the full PostgreSQL 15 gate, all four lanes and performance: **3,099 passed, 29 warnings in 93.92s**, exit 0. The same preservation invariant was re-established after its control changed: mutation `48fe1cd62cdbd8cf7a0fd48df3bb8e04a7538372` gave **3 failed, 12 passed, 2 warnings in 3.06s**; restore `59c9a2395c6952f2f99c88acd6d07a68f286346e` gave **15 passed, 2 warnings in 2.69s**, byte-identical to the code gate. Original operand and source-qualification proofs remain unchanged. Third actual assessment and deployment are pending.
