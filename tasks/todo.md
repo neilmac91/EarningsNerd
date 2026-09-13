@@ -1,3 +1,40 @@
+## September 13 — Dependency majors: WeasyPrint 70 (#840) and the frontend test stack (#852)
+
+- [x] #840 WeasyPrint 69.0 -> 70.0. Branch was 10 commits behind a backend that had moved 20+ files,
+  so its green CI was stale; updated from main and re-ran before trusting it (3222 passed / 39 skipped
+  on the rebased run, up from 3088 on the stale one). Un-drafted, which fired the paid `copilot-eval`
+  — `success` in 2m42s, job 103777863312. The only paid measurement across both PRs.
+- [x] #840 merged `812a49d3`; main CI 34777738357 green; `deploy-backend` job 103779316952 success in
+  3m40s. Migrations step was a pure ledger skip (no new SQL file). Health verified twice and
+  independently: the job's own probe at 19:34:35 (DB 8.47 ms) and mine at 19:36:45 (DB 8.02 ms), both
+  `healthy`, EDGAR breaker `closed` with 0 requests — i.e. a freshly started revision. Closes
+  Dependabot alert #284 / CVE-2026-55073 by removing the affected package, not by dismissing it.
+- [x] #852 vitest 4.1.11 -> 5.0.0, jsdom 29.1.1 -> 30.0.1 (+ @types/jsdom 30), jest-dom 6.9.1 -> 7.0.1,
+  applied together rather than as three stale Dependabot branches: one lockfile resolution, one gate
+  run, and it proves they compose. Merged `99c9a922`; frontend-only, so `deploy-backend` ran and
+  correctly skipped every step — production stayed on the revision verified above.
+- [x] Correction recorded in the #852 body: these three are version currency, NOT a security fix.
+  `npm audit --package-lock-only` reports the same 6 high-severity findings before and after, all
+  dev-only under `@lhci/utils`, 0 in production dependencies. An earlier claim that they closed open
+  alerts was wrong.
+- [x] #749 / #750 / #751 closed as superseded, each with its own reasoning rather than a bare close.
+- [ ] `engines.node` left at `"22.x"` while jsdom 30's real floor is `^22.22.2`. `.nvmrc` and every CI
+  `node-version` are on 22.23.2 so nothing is broken, but the declared range is looser than the truth.
+  Narrowing it means changing the string `nodeVersionLockstep.spec.ts` pins; not done here.
+- [ ] 6 dev-only high-severity findings under `@lhci/utils` remain. `npm audit fix --force` wants a
+  breaking Lighthouse-CI major — its own PR and its own decision, not a ride-along.
+
+### Follow-up landed in the same wave
+
+- [x] `overrides.jsdom` -> `undici ^7.28.0` was a stale ceiling: it raised a floor under jsdom 29 and
+  inverted into a ceiling under jsdom 30, holding undici a major behind. Removed rather than bumped;
+  undici now 8.10.2. Found by Codex in review after I noticed it and failed to write it down.
+- [x] Both halves recorded as lessons and, where possible, gated:
+  `lessons/frontend-overrides-rot-when-the-constrained-package-moves.md` +
+  `frontend/tests/unit/overrideDirectionGate.spec.ts` (CLAUDE.md rule 12), and
+  `lessons/ops-write-down-the-second-anomaly-before-chasing-the-first.md`, which stays prose because
+  no gate can check whether an observation reached a written list.
+
 ## September 9 standalone selected cash-flow basis — local candidate
 
 - [x] Reuse only the reviewed cash-basis helper, grounding/render calls and existing unlocked consumer tests from local `b8de2057`, on actual main `a811faf6`; retain the original ten-case mutation proof without repetition.
