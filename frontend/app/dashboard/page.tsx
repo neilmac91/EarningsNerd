@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { CheckCircleIcon, CircleNotchIcon, SparkleIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import TrialBanner from '@/features/subscriptions/components/TrialBanner'
@@ -249,7 +249,7 @@ export default function DashboardPage() {
                             {formatCompanyName(item.company.name)} - {item.filing.filing_type}
                           </Link>
                           <p className="text-sm text-text-secondary-light mt-1 dark:text-text-secondary-dark">
-                            {item.filing.filing_date && format(new Date(item.filing.filing_date), 'MMM dd, yyyy')}
+                            {formatLocalDate(item.filing.filing_date, 'MMM dd, yyyy')}
                           </p>
                           {item.notes && (
                             <p className="text-sm text-text-secondary-light mt-2 bg-panel-light p-2 rounded dark:bg-background-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">

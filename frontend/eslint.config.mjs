@@ -54,6 +54,36 @@ const RAW_FETCH_RULES = [
   },
 ]
 
+// CLAUDE.md/lessons: a calendar date from the API (filing_date, period_end_date, earnings_date) is
+// serialised as a UTC-midnight INSTANT ('2025-08-05T00:00:00+00:00'), so building a Date from it and
+// formatting it renders the PREVIOUS day for every viewer behind UTC — which is every US user.
+// lib/format.ts::formatLocalDate exists precisely for this and its docblock says so, yet the rule had
+// rotted at six sites. CI cannot catch it by accident: CI runs in UTC, where the bug is invisible.
+//
+// SCOPE, stated honestly: these two selectors catch the two mechanical shapes that actually occurred.
+// They do NOT catch the indirect form (`const d = new Date(x)` on one line, `format(d, …)` on the
+// next) — after this change no such helper remains in app code, but a new one would slip past. The
+// load-bearing gate is the behavioural one, tests/unit/filing-date-local-day.spec.tsx, which pins the
+// rendered output with TZ set to a US zone. Do not read this lint rule as more than it is.
+const LOCAL_DATE_MESSAGE =
+  'Do not format a Date built from an API value — an API calendar date is a UTC-midnight instant, so ' +
+  'this renders the previous day for viewers behind UTC. Use formatLocalDate from lib/format.ts. ' +
+  '(A genuine timestamp — created_at, updated_at — should be assigned to a variable first, which ' +
+  'documents that the local-time render is intended.)'
+const DATE_RULES = [
+  {
+    // format(new Date(x), …). `new Date()` with no argument (meaning "now") is deliberately allowed.
+    selector: "CallExpression[callee.name='format'] > NewExpression[callee.name='Date'][arguments.length=1]",
+    message: LOCAL_DATE_MESSAGE,
+  },
+  {
+    selector: "MemberExpression[property.name='toLocaleDateString']",
+    message:
+      'toLocaleDateString renders in the viewer timezone, so an API calendar date shows the previous ' +
+      'day for viewers behind UTC. Use formatLocalDate from lib/format.ts.',
+  },
+]
+
 const config = [
   // Global ignores. Flat config does NOT skip dot-dirs like eslintrc did, so
   // the generated build output must be ignored explicitly or eslint lints it.
@@ -87,17 +117,17 @@ const config = [
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: [...TEST_FILES, 'lib/queryKeys.ts', ...RAW_FETCH_ALLOWLIST],
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES] },
   },
   // The query-key registry defines keys as literals, so only the fetch gate applies to it.
   {
     files: ['lib/queryKeys.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES] },
   },
   // The sanctioned raw-fetch sites still get the query-key gate.
   {
     files: RAW_FETCH_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES] },
   },
 ]
 

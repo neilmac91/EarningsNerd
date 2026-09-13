@@ -5,7 +5,8 @@ import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { format, formatDistanceToNowStrict } from 'date-fns'
+import { formatDistanceToNowStrict } from 'date-fns'
+import { formatLocalDate } from '@/lib/format'
 import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
@@ -39,13 +40,6 @@ function formatRelative(dateLike?: string | null) {
   const date = new Date(dateLike)
   if (Number.isNaN(date.getTime())) return 'Unknown'
   return `${formatDistanceToNowStrict(date, { addSuffix: true })}`
-}
-
-function formatDate(dateLike?: string | null) {
-  if (!dateLike) return '—'
-  const date = new Date(dateLike)
-  if (Number.isNaN(date.getTime())) return '—'
-  return format(date, 'MMM dd, yyyy')
 }
 
 export default function WatchlistDashboardPage() {
@@ -165,11 +159,11 @@ export default function WatchlistDashboardPage() {
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <CalendarDotsIcon className="h-4 w-4" />
-                            <span>{formatDate(latest.filing_date)}</span>
+                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy', '—')}</span>
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <ClockIcon className="h-4 w-4" />
-                            <span>Period end: {formatDate(latest.period_end_date)}</span>
+                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy', '—')}</span>
                           </div>
                         </>
                       ) : (

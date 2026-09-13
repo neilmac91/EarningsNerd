@@ -3,7 +3,7 @@
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { formatLocalDate } from '@/lib/format'
 import { getCompany, type Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, type Filing } from '@/features/filings/api/filings-api'
 import { CircleNotchIcon } from '@/lib/icons'
@@ -120,7 +120,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                       <div>
                         <p className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">{filing.filing_type}</p>
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                          {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
+                          {formatLocalDate(filing.filing_date, 'MMM dd, yyyy', 'Date TBD')}
                         </p>
                       </div>
                       <Link href={`/filing/${filing.id}`} aria-label={`Generate AI summary for ${filing.filing_type} ${filing.accession_number}`}>

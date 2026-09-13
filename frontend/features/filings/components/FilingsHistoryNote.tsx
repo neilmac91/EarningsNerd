@@ -1,5 +1,5 @@
-import { format, isValid, parseISO } from 'date-fns'
 import { ArrowSquareOutIcon } from '@/lib/icons'
+import { formatLocalDate } from '@/lib/format'
 
 interface FilingsHistoryNoteProps {
   oldestFilingDate: string | null
@@ -12,14 +12,18 @@ interface FilingsHistoryNoteProps {
 // even after the history backfill (P1-6), the pre-2001 tail stays external.
 export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHistoryNoteProps) {
   if (!oldestFilingDate || !cik) return null
-  // parseISO, not new Date(): a date-only string parses as UTC midnight in new Date() and
-  // renders as the PREVIOUS day for any viewer behind UTC.
-  const parsedDate = parseISO(oldestFilingDate)
-  if (!isValid(parsedDate)) return null
+  // formatLocalDate, not parseISO: `oldestFilingDate` is reduced from `filing.filing_date`, which
+  // the API serialises as a full ISO datetime ('2001-03-31T00:00:00+00:00'). parseISO honours that
+  // offset and yields a UTC-midnight INSTANT, so date-fns rendered the PREVIOUS day for every
+  // viewer behind UTC — the exact bug the old comment claimed parseISO prevented, which only holds
+  // for a date-only string. This note is also server-rendered (page.tsx seeds initialFilings), so
+  // the mismatch showed up as a hydration error too.
+  const filedSince = formatLocalDate(oldestFilingDate, 'MMM d, yyyy')
+  if (!filedSince) return null
   const edgarUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=10-K&dateb=&owner=include&count=40`
   return (
     <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-      Showing filings since {format(parsedDate, 'MMM d, yyyy')}.{' '}
+      Showing filings since {filedSince}.{' '}
       <a
         href={edgarUrl}
         target="_blank"
