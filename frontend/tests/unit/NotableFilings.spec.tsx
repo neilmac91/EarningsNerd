@@ -92,4 +92,25 @@ describe('NotableFilings', () => {
     })
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledTimes(1)
   })
+
+  it('anchors the filed-ago label to the response timestamp, not the viewer clock', () => {
+    // NotableFilingCard is a client component server-rendered into an ISR page. Before this was
+    // anchored, the label came from the live clock, so HTML generated just before a UTC date
+    // boundary and hydrated just after it rendered two different strings — a hydration mismatch
+    // and a visible text swap. Same payload, two clocks either side of the boundary, one label.
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-07-06T23:50:00Z'))
+      const first = render(<NotableFilings data={RESPONSE} />)
+      const generated = screen.getByTestId('notable-filing-AAPL').textContent
+      expect(generated).toContain('12 hours ago')
+      first.unmount()
+
+      vi.setSystemTime(new Date('2026-07-09T00:10:00Z'))
+      render(<NotableFilings data={RESPONSE} />)
+      expect(screen.getByTestId('notable-filing-AAPL').textContent).toBe(generated)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

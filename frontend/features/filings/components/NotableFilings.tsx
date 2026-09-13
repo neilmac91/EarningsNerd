@@ -36,7 +36,11 @@ export default function NotableFilings({
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {filings.map((filing) => (
-              <NotableFilingCard key={`${filing.ticker}-${filing.filed_date}`} filing={filing} />
+              <NotableFilingCard
+                key={`${filing.ticker}-${filing.filed_date}`}
+                filing={filing}
+                asOf={data?.timestamp ?? ''}
+              />
             ))}
           </div>
         </SectionImpression>

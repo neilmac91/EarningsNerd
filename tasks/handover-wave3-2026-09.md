@@ -408,10 +408,13 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   future redesign has to drop it deliberately. It stays invisible until the flag flips — the API
   answers 200 with an empty list while `NOTABLE_FILINGS_ENABLED` is off
   (`app/services/notable_filings_service.py:454`) and the section self-omits on empty. So the flip
-  PR is now purely backend/CI. Two things it still owns: drop `fetchNotableFilings` back to 900 s if
-  15-minute freshness is wanted (it is pinned at 3600 so re-mounting could not cut the homepage's
-  own ISR window, which Next derives as the minimum over the route's fetches), and verify the
-  section in both themes on preview, which is only observable once the flag is on.
+  PR is now purely backend/CI. Leave `fetchNotableFilings` at 3600: re-mounting it at its old 900
+  would have cut the homepage's own ISR window (Next derives it as the minimum over the route's
+  fetches, measured both ways), and `notable-filings-scan` only runs 08:30/18:30 ET, so sub-hourly
+  polling buys no freshness once the flag is on either. What the flip PR still owns is verifying
+  the section in both themes on preview, which is only observable once it renders, plus the
+  deferred card polish noted in PR #849 (the meta line uppercases the whole string, the ticker
+  wants `font-data`, and the card keeps a hover lift the revamp deleted everywhere else).
 - **Analysis:** after the founder records the effective Vercel value and the warm-up evidence, PR
   adds `NEXT_PUBLIC_ENABLE_ANALYSIS: "true"` to `frontend/vercel.json` `env`; full frontend gate;
   Playwright with no backend; both-theme preview; production Pro-account smoke.
