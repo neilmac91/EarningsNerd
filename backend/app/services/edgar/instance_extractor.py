@@ -971,7 +971,7 @@ def _concept_local(concept: Any) -> str:
     return text.split("_", 1)[1] if "_" in text else text
 
 
-def cash_financial_classification(company, sic, profile_key=None) -> dict:
+def cash_financial_classification(company: Any, sic: Any, profile_key: Optional[str] = None) -> dict:
     """Internal cash eligibility from the selected company's already available metadata.
 
     EdgarTools business_category is a cached_property; never invoke that lazy property here.
@@ -980,7 +980,8 @@ def cash_financial_classification(company, sic, profile_key=None) -> dict:
     """
     from edgar.entity.categorization import BusinessCategory
 
-    category = getattr(company, "__dict__", {}).get("business_category")
+    cached_category = getattr(company, "__dict__", {}).get("business_category")
+    category = cached_category if isinstance(cached_category, str) else None
     token = str(sic).strip() if sic is not None and not isinstance(sic, bool) else ""
     # SIC 9995/9999 are non-operating/unclassified, not affirmative operating-industry evidence.
     code = int(token) if token.isascii() and token.isdigit() and 3 <= len(token) <= 4 else None

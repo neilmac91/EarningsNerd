@@ -120,9 +120,12 @@ async def test_selected_source_to_final_preview_rejects_financial_and_unknown(mo
     # The pre-existing cash card is unchanged; classification governs only the new lead qualifier.
     absent = {key: value for key, value in metrics.items() if key != "financial_classification"}
     assert filled(metrics)["earnings_quality"] == filled(absent)["earnings_quality"]
+    with_classification = requests[:]
+    requests.clear()
     await service.summarize_filing("Selected source.", "Controlled company", "10-K",
                                    xbrl_metrics=absent, filing_excerpt="Selected source.")
-    assert requests[0] == requests[1]
+    assert len(requests) > 1  # Both generator and ordinary missing-section recovery were exercised.
+    assert with_classification == requests
     assert _xbrl_to_text(metrics) == _xbrl_to_text(absent)
     assert _compact_xbrl_block(raw) == _compact_xbrl_block({k: v for k, v in raw.items() if k != "financial_classification"})
 
