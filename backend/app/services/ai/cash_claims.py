@@ -12,11 +12,12 @@ _AMOUNT = r"(?:\$|[A-Z]{3}\s+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| bi
 _VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
 _FCF = r"free cash flow(?: \(OCF (?:less|minus) capex\))? " + _VERB
 _PRIOR = r"(?: from | versus |, (?:up|down) from )"
+_PRIOR_YEAR = r"(?: in (?P<prior_year>\d{4}))?"
 _PAIR = re.compile(
     rf"Operating cash flow {_VERB} (?P<ocf_current>{_AMOUNT}){_PRIOR}(?P<ocf_prior>{_AMOUNT}), "
     rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT})\.", re.I,
 )
-_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT})\.", re.I)
+_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", re.I)
 # Two observed whole mixed sentences. The asset suffix is preserved, never certified.
 _MIXED = re.compile(
     rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) and free cash flow of (?P<fcf_current>{_AMOUNT})"
@@ -115,10 +116,17 @@ def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[flo
         if match is None:
             return text
         groups = match.groupdict()
+        if groups.get("prior_year"):
+            prior = selected["prior"]
+            year = int(groups["prior_year"])
+            if (prior["start"].year != year or prior["end"].year != year
+                    or (prior["start"].month, prior["start"].day) != (1, 1)
+                    or (prior["end"].month, prior["end"].day) != (12, 31)):
+                return text
         if groups.get("ocf_growth") and not _matches_annual_growth(groups["ocf_growth"], selected):
             return text
         for key, token in groups.items():
-            if key in ("suffix", "ocf_growth"):
+            if key in ("suffix", "ocf_growth", "prior_year"):
                 continue
             metric, period = key.split("_")
             if not _matches(token, selected[period][metric], selected["currency"]):

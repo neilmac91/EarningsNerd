@@ -158,3 +158,26 @@ def test_latest_retained_current_prior_connectors(claim):
     assert_owned(filled(lead={"headline": claim})["the_print"]["headline"])
     wrong = claim.replace("$10.8B", "$11.8B")
     assert filled(lead={"headline": wrong})["the_print"]["headline"] == wrong
+
+
+LATEST_YEAR_CLAIM = ("Operating cash flow rose to $12.1B from $7.9B, and free cash flow "
+                     "(OCF less capex) reached $10.8B versus $7.1B in 2024.")
+
+
+def test_actual_retained_prior_year_is_owned_with_calendar_source_coverage():
+    assert_owned(filled(lead={"headline": LATEST_YEAR_CLAIM})["the_print"]["headline"])
+
+
+@pytest.mark.parametrize("change", ["wrong_year", "quarter", "noncalendar_annual", "extra_prose"])
+def test_explicit_prior_year_never_uses_end_year_alone(change):
+    metrics = copy.deepcopy(METRICS)
+    claim = LATEST_YEAR_CLAIM
+    if change == "wrong_year":
+        claim = claim.replace("in 2024.", "in 2023.")
+    elif change == "extra_prose":
+        claim += " This is discretionary cash."
+    else:
+        start = "2024-10-01" if change == "quarter" else "2023-12-31"
+        for key in ("operating_cash_flow", "capital_expenditures"):
+            metrics[key]["prior"]["period_start"] = start
+    assert filled(metrics, {"headline": claim})["the_print"]["headline"] == claim
