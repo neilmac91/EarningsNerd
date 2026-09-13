@@ -60,9 +60,10 @@ const RAW_FETCH_RULES = [
 // lib/format.ts::formatLocalDate exists precisely for this and its docblock says so, yet the rule had
 // rotted at six sites. CI cannot catch it by accident: CI runs in UTC, where the bug is invisible.
 //
-// SCOPE, stated honestly: these two selectors catch the two mechanical shapes that actually occurred.
-// They do NOT catch the indirect form (`const d = new Date(x)` on one line, `format(d, …)` on the
-// next) — after this change no such helper remains in app code, but a new one would slip past. The
+// SCOPE, stated honestly: these selectors catch the mechanical shapes that actually occurred plus
+// the inline parseISO one. They do NOT catch the indirect form (`const d = new Date(x)` or
+// `parseISO(x)` on one line, `format(d, …)` on the next) — after this change no such helper remains
+// in app code, but a new one would slip past. The
 // load-bearing gate is the behavioural one, tests/unit/filing-date-local-day.spec.tsx, which pins the
 // rendered output with TZ set to a US zone. Do not read this lint rule as more than it is.
 const LOCAL_DATE_MESSAGE =
@@ -74,6 +75,14 @@ const DATE_RULES = [
   {
     // format(new Date(x), …). `new Date()` with no argument (meaning "now") is deliberately allowed.
     selector: "CallExpression[callee.name='format'] > NewExpression[callee.name='Date'][arguments.length=1]",
+    message: LOCAL_DATE_MESSAGE,
+  },
+  {
+    // format(parseISO(x), …). parseISO honours an offset, so it returns the UTC instant for a full
+    // ISO datetime — the exact shape FilingsHistoryNote shipped. The indirect form
+    // (const d = parseISO(x)) is still not caught; features/marketing/HeroExample.tsx uses that
+    // form deliberately after slicing to a date-only string, which is safe.
+    selector: "CallExpression[callee.name='format'] > CallExpression[callee.name='parseISO']",
     message: LOCAL_DATE_MESSAGE,
   },
   {

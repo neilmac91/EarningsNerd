@@ -223,5 +223,17 @@ export const formatLocalDate = (
   const [year, month, day] = value.slice(0, 10).split('-').map(Number)
   if (!year || !month || !day) return fallback
   const date = new Date(year, month - 1, day)
-  return Number.isNaN(date.getTime()) ? fallback : format(date, pattern)
+  // Round-trip, because the Date constructor silently rolls over: (2025, 12, 1) is Jan 2026 and a
+  // two-digit year maps into 1900+y, so '2025-13-01' and '0025-08-05' would otherwise render a
+  // fabricated day rather than the fallback. Three call sites migrated onto this helper had their
+  // own isValid/isNaN guard before, so the shared one has to be at least as strict.
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return fallback
+  }
+  return format(date, pattern)
 }

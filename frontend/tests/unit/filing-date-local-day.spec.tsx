@@ -1,11 +1,17 @@
-// TZ must be set BEFORE anything imports date-fns or the components under test, because the
-// runtime resolves the local zone once. This is why the pin lives here and not in
-// vitest.config.mts: a global pin would silently move unrelated date assertions across the suite.
+// Node re-reads process.env.TZ on assignment, so setting it here is enough even though ESM hoists
+// the imports below above this line — measured: with ambient TZ=UTC an imported module still
+// evaluates at offset 0, yet getTimezoneOffset() is 240 immediately after this assignment. (An
+// earlier version of this comment claimed the pin had to precede the imports because the runtime
+// resolved the zone once. Both halves were false; the control test below is what actually makes
+// the pin safe to rely on.) The pin is per-file rather than in vitest.config.mts because vitest
+// isolates each file, so a global pin would silently move unrelated date assertions suite-wide.
 process.env.TZ = 'America/New_York'
 
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
+import { buildFilename } from '@/features/summaries/hooks/useSummaryExports'
+import type { Filing } from '@/features/filings/api/filings-api'
 import { formatLocalDate } from '@/lib/format'
 
 /**
@@ -38,8 +44,11 @@ describe('filing dates render as the filed calendar day, not a UTC instant', () 
 
   it('names the export file after the filed day, not the day before', () => {
     // The export filename is the one place the wrong day leaves the app and lands on a user's
-    // disk, where it cannot be corrected by a later render fix.
-    expect(formatLocalDate(WIRE, 'yyyyMMdd', 'summary')).toBe('20250805')
+    // disk, where it cannot be corrected by a later render fix — so assert the real builder,
+    // not just the helper it calls.
+    const filing = { filing_date: WIRE, filing_type: '10-Q' } as Filing
+    expect(buildFilename(filing, 'pdf')).toBe('10-Q_20250805.pdf')
+    expect(buildFilename({ ...filing, filing_date: null } as unknown as Filing, 'csv')).toBe('10-Q_summary.csv')
   })
 
   it('renders the server-seeded filings-history note on the filed day', () => {
@@ -53,6 +62,11 @@ describe('filing dates render as the filed calendar day, not a UTC instant', () 
   it('falls back rather than rendering an invalid date', () => {
     expect(formatLocalDate(null, 'MMM d, yyyy', 'Date TBD')).toBe('Date TBD')
     expect(formatLocalDate('not-a-date', 'MMM d, yyyy', '—')).toBe('—')
+    // The Date constructor rolls these over instead of rejecting them, which would render a
+    // fabricated day. Three sites migrated onto formatLocalDate had their own guard before.
+    expect(formatLocalDate('2025-13-01', 'MMM d, yyyy', '—')).toBe('—')
+    expect(formatLocalDate('2025-02-30T00:00:00+00:00', 'MMM d, yyyy', '—')).toBe('—')
+    expect(formatLocalDate('0025-08-05T00:00:00+00:00', 'yyyy', '—')).toBe('—')
     const { container } = render(<FilingsHistoryNote oldestFilingDate={'not-a-date'} cik="19617" />)
     expect(container).toBeEmptyDOMElement()
   })

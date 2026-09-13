@@ -10,7 +10,7 @@ import { downloadBlob } from '@/lib/downloadBlob'
 
 type ExportKind = 'pdf' | 'csv'
 
-function buildFilename(filing: Filing, kind: ExportKind): string {
+export function buildFilename(filing: Filing, kind: ExportKind): string {
   const base = sanitizeFilename(filing.filing_type, 'filing')
   const date = formatLocalDate(filing.filing_date, 'yyyyMMdd', 'summary')
   return `${base}_${date}.${kind}`
