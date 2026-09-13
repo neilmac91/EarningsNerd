@@ -5238,3 +5238,11 @@ Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:2
 - [ ] Existing cash-card applicability: actual COIN receives the older derived card despite explicit financial classification; a bounded follow-up will use the existing affirmative nonfinancial guard, retaining basic reported cash flows/explanations. Unknown metadata will abstain during new generation, with no historical replay. MELI's economic cash-conversion interpretation remains separate.
 - [ ] WeasyPrint70 draft #840 has green local/Linux/native tests; the exact major-version merge question was sent once and awaits the founder. No approval, merge or alert dismissal is inferred.
 - [ ] Strong-judge/holdout, ordered re-pins, Notable retain through September 15, Analysis warm-up/acceptance, natural Stripe evidence and E09 fleet/egress/headroom prerequisites remain open. Chrome became unavailable during the renewed account check; no additional console verification is claimed. Universe pregeneration and historical replay remain held.
+
+
+## September 13 — citation labels released; plan prerequisites reconciled
+
+- [x] Citation #843 merged d374232091e3540c22054776b73f0682444f2ddb, mainCI34736423269 green, backend deploy skipped; Vercel production6417415019 successful. Actual short-screen pointer/light-dark check and597-test gate passed. [Release and evidence](citation-label-release-2026-09-13.md).
+- [x] Unpaid W3-7/W3-8 reconciliation and supplemental-source contract proposal recorded with source/code limits. The weekly0/24 unavailable artifact still blocks prescribed readout; no early re-pin exception is established.
+- [ ] Cash-card #845:3261-test fullPG15 gate passed; actual summary acceptance and serial production verification pending.
+- [ ] WeasyPrint#840 major approval remains pending; question already asked once. Universe pregeneration/replay and other named founder boundaries remain held.
