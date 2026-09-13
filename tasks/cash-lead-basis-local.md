@@ -55,3 +55,8 @@ Restore `7663180759ab12e1d160c6fc3436452b79d717fb` equals the extended feature t
 ```
 
 Review refutations: the exact asset suffix preservation assertions and deliberately changed-assets control refute accidental suffix ownership; the wrong-growth/sign controls and quarterly/same-end-different-start controls refute silently accepting contradictory or nonannual OCF growth. Full root gate and independent release review remain pending on the extended state.
+
+
+### Latest retained wording before publication
+
+The second #837 assessment uses two additional complete current/prior forms: `was ... , up from ...` with `OCF minus capex`, and `reached ... versus ...` with `OCF less capex`. Root extends only these scalar connectors in the same complete grammar; all source and amount checks remain unchanged. Two exact retained controls qualify them and reject a changed FCF amount. This is the existing cash-qualification invariant, not a new semantic inference or permission to rewrite arbitrary prose. Final integrated gate and re-established proof remain pending.

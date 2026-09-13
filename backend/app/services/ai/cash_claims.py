@@ -9,13 +9,14 @@ from typing import Any, Callable
 from .xbrl_narrative import cash_flow_basis
 
 _AMOUNT = r"(?:\$|[A-Z]{3}\s+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
-_VERB = r"(?:increased to|decreased to|rose to|fell to|was)"
-_FCF = r"free cash flow(?: \(OCF less capex\))? " + _VERB
+_VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
+_FCF = r"free cash flow(?: \(OCF (?:less|minus) capex\))? " + _VERB
+_PRIOR = r"(?: from | versus |, (?:up|down) from )"
 _PAIR = re.compile(
-    rf"Operating cash flow {_VERB} (?P<ocf_current>{_AMOUNT}) from (?P<ocf_prior>{_AMOUNT}), "
-    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}) from (?P<fcf_prior>{_AMOUNT})\.", re.I,
+    rf"Operating cash flow {_VERB} (?P<ocf_current>{_AMOUNT}){_PRIOR}(?P<ocf_prior>{_AMOUNT}), "
+    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT})\.", re.I,
 )
-_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}) from (?P<fcf_prior>{_AMOUNT})\.", re.I)
+_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT})\.", re.I)
 # Two observed whole mixed sentences. The asset suffix is preserved, never certified.
 _MIXED = re.compile(
     rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) and free cash flow of (?P<fcf_current>{_AMOUNT})"

@@ -147,3 +147,14 @@ def test_preserved_assets_suffix_is_not_claimed_as_certified():
         output = filled(lead={"headline": claim})["the_print"]["headline"]
         assert_owned(output)
         assert output.endswith(claim[claim.index(", while "):])
+
+
+@pytest.mark.parametrize("claim", [
+    "Operating cash flow was $12.1B, up from $7.9B, and free cash flow (OCF minus capex) was $10.8B, up from $7.1B.",
+    "Operating cash flow rose to $12.1B from $7.9B, and free cash flow (OCF less capex) reached $10.8B versus $7.1B.",
+])
+def test_latest_retained_current_prior_connectors(claim):
+    # Exact second PR837 MELI takeaway text; operands equal the retained METRICS above.
+    assert_owned(filled(lead={"headline": claim})["the_print"]["headline"])
+    wrong = claim.replace("$10.8B", "$11.8B")
+    assert filled(lead={"headline": wrong})["the_print"]["headline"] == wrong
