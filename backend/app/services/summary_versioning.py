@@ -88,6 +88,8 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   A distinct code-owned envelope governs eligibility; no historical regeneration.
 # summary-2026-09-j: bounded complete MD&A Outlook source supplement on fresh extraction.
 #   Existing cached excerpts and historical summaries are not regenerated.
+# summary-2026-09-k: qualify supported conventional cash claims in prominent lead slots.
+#   Existing historical summaries are not regenerated.
 # summary-2026-09-l: source-owned operating-to-pretax relationships and supported complete
 #   disclosures on eligible fresh primary documents; legacy cached content is unchanged.
 SUMMARY_PROMPT_VERSION: str = "summary-2026-09-l"

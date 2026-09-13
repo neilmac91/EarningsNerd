@@ -231,7 +231,8 @@ def _without_source_durations(xbrl_data: Any) -> Any:
         key: [{k: v for k, v in point.items() if k != "period_start"}
               if isinstance(point, dict) else point for point in value]
         if isinstance(value, list) else value
-        for key, value in xbrl_data.items() if key != "financing_comparison_source"
+        for key, value in xbrl_data.items()
+        if key not in {"financing_comparison_source", "financial_classification"}
     }
 
 
@@ -618,7 +619,7 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
 
 
 # ---------------------------------------------------------------------------------------------
-# Server-owned repair for a wholly uncited, explicit single-fact answer.
+# Server-owned repair for wholly uncited, explicitly supported annual claim shapes.
 #
 # The guards above only ever REMOVE a marker the model placed wrongly. They cannot help the other
 # failure shape the field reports keep surfacing: an answer that states one complete reported
@@ -630,8 +631,8 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
 #
 # Everything here is POSITIVE certification, which is the opposite of the falsification guards: an
 # absent or ambiguous signal abstains. Amount coincidence is never enough, and neither is an
-# annual-looking label — the fact must carry its own reported duration. Today most runtime facts
-# do not, so this abstains far more often than it fires; that is the intended direction.
+# annual-looking label — the fact must carry its own reported duration. Historical rows may
+# still lack it and must abstain; fresh duration propagation does not prove every stored row.
 # ---------------------------------------------------------------------------------------------
 
 # Marks a fact this module looked up on the server's own initiative, so a diagnostic reading
@@ -742,6 +743,63 @@ def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
     }
 
 
+# Reuse the existing annual revenue clause verbatim; only this explicit second clause is admitted.
+_PAIRED_ANNUAL_CLAIM = re.compile(
+    _ANNUAL_FIGURE_CLAIM.pattern.removesuffix(r"\.\Z")
+    + r"(?P<separator>, and net income was )"
+    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")\s*"
+    + r"(?P<income_amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    + r"(?:\s*(?P<income_scale>billion|million|thousand))?\.\Z", re.IGNORECASE,
+)
+
+
+def _repair_paired_annual_claim(answer: str, *, filing: Any, accession: Optional[str],
+                                currency: Optional[str], register: Callable[[dict], str]) -> str:
+    """Certify both distinct annual operands before registering either; preserve prose bytes."""
+    match = _PAIRED_ANNUAL_CLAIM.fullmatch(answer)
+    if match is None:
+        return answer
+    first = _plan_uncited_fact_citation(answer[:match.start("separator")] + ".")
+    # Parse the second explicit amount using the unchanged scalar grammar. This temporary
+    # string is a parser input only, never user-visible prose or evidence for annual duration.
+    second = _plan_uncited_fact_citation(
+        f"Revenue for the year ended {match['month']} {match['day']}, {match['year']} was "
+        f"{match['income_currency']}{match['income_amount']} {match['income_scale'] or ''}".rstrip() + "."
+    )
+    if first is None or second is None:
+        return answer
+    second.update(concept="net_income", insert_at=len(answer) - 1)
+    claims = [first, second]
+    facts = []
+    previous = 0
+    for claim in claims:
+        fact = copilot_tools.run_tool("get_financial_fact", {"concept": claim["concept"]},
+                                     getattr(filing, "company_id", None),
+                                     accession_number=accession, reporting_currency=currency)
+        if (not isinstance(fact, dict) or "error" in fact
+                or not _valid_fact_provenance(fact, accession, currency)
+                or not _fact_certifies_claim(fact, claim, filing)):
+            return answer
+        window = _adjacency_window(answer[:claim["insert_at"]] + " ", claim["insert_at"] + 1, previous)
+        if not (_fact_matches_adjacent_number(fact, window)
+                and _fact_matches_adjacent_concept(fact, window)
+                and _fact_matches_adjacent_currency(fact, window)):
+            return answer
+        facts.append(fact)
+        previous = claim["insert_at"]
+    if any(facts[0].get(key) != facts[1].get(key) for key in ("period_start", "period_end", "unit", "accession")):
+        return answer
+    # No registration until every operand and the relationship have certified.
+    markers = []
+    for fact in facts:
+        fact["_origin"] = _SERVER_LOOKUP_ORIGIN
+        markers.append(register(fact))
+    for claim, marker in reversed(list(zip(claims, markers))):
+        offset = claim["insert_at"]
+        answer = f"{answer[:offset]} [{marker}]{answer[offset:]}"
+    return answer
+
+
 def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
     """True only when the viewed filing's own fact carries EVERY identity the claim asserts.
 
@@ -752,11 +810,9 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
       annual-form test and the ``FY`` label are one signal wearing two hats, not two signals.
     * The **companyfacts fallback** cannot. ``edgar/xbrl_service.py``'s ``filter_and_sort`` only
       *ranks* the durations sharing a period end and keeps the best one; a sole quarterly point is
-      not rejected, and ``append_items`` then drops its ``start`` entirely. A three-month revenue
-      figure ending on the fiscal year end therefore reaches the fact table labelled ``FY`` with no
-      duration at all. (The selected-instance path does filter — ``instance_extractor``'s
-      ``duration_in_window`` — but that proof is consumed at extraction and never recorded, so the
-      two are indistinguishable downstream.)
+      not rejected. Both fallback and selected-instance paths now retain the selected source
+      start, so an FY-labelled quarterly point can be rejected by its actual duration. Older
+      persisted rows may still have NULL starts and must continue to abstain.
     * **Comparative cadence** cannot: matching period ends a year apart are consistent with a
       quarterly point sitting among annual ones.
 
@@ -791,14 +847,15 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
 
 def _repair_uncited_fact_claim(answer: str, *, filing: Any, accession: Optional[str],
                                currency: Optional[str], register: Callable[[dict], str]) -> str:
-    """Attach one source-owned fact marker to a certified uncited claim; otherwise abstain.
+    """Attach source-owned markers to supported certified uncited claims; otherwise abstain.
 
     Inserts the marker and nothing else — every other byte of the answer, punctuation included,
     survives. The existing resolver still owns numbering, placement and citation provenance.
     """
     claim = _plan_uncited_fact_citation(answer)
     if claim is None:
-        return answer
+        return _repair_paired_annual_claim(answer, filing=filing, accession=accession,
+                                           currency=currency, register=register)
     # The existing DB-only, accession-bound owner, called with its plainest existing selector. It
     # opens and closes its own session, reaches no SEC endpoint and runs no model.
     fact = copilot_tools.run_tool("get_financial_fact", {"concept": claim["concept"]},
@@ -1196,11 +1253,9 @@ async def answer_filing_question(
             # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
         )
-        # An answer that states one complete reported annual figure and cites NOTHING is the gap
-        # the placement guards cannot close — they only ever remove a wrong marker, and this shape
-        # reaches the end of the stream having called no tool at all. Look the figure up in the
-        # viewed filing and attach a marker only when the filing's own fact certifies every
-        # identity the sentence asserts; the prose keeps every other byte either way.
+        # Supported uncited annual claims need positive certification, beyond marker removal.
+        # Look up each claimed figure in the viewed filing and attach separate markers only
+        # after every operand certifies; preserve every other byte of the answer.
         full_answer = _repair_uncited_fact_claim(
             full_answer, filing=filing, accession=accession, currency=currency,
             register=_register_fact,
@@ -1211,9 +1266,23 @@ async def answer_filing_question(
         # match — so the answer text and the returned citations list can never disagree, and a
         # declared-but-never-cited source can never leak into the Sources panel.
         filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
+        before_resolution = full_answer
         full_answer, verified_citations, grounded, misplaced = _resolve_citations(
             full_answer, text_citations_by_marker, used_facts, filing_url
         )
+        # Unresolvable model F-markers can have hidden an otherwise eligible claim from
+        # the first repair. Certify only the final visible, wholly uncited prose; never
+        # reinterpret surviving citations or reuse a rejected marker as evidence.
+        if not verified_citations and full_answer != before_resolution:
+            repaired = _repair_uncited_fact_claim(
+                full_answer, filing=filing, accession=accession, currency=currency,
+                register=_register_fact,
+            )
+            if repaired != full_answer:
+                full_answer, verified_citations, grounded, additional_misplaced = _resolve_citations(
+                    repaired, {}, used_facts, filing_url,
+                )
+                misplaced += additional_misplaced
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.

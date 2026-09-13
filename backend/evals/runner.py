@@ -76,13 +76,18 @@ def _grounding_user_prompt(
 _XBRL_TEXT_CHAR_CAP = 40_000
 
 
+def _model_metrics(metrics: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Internal applicability metadata never consumes model grounding budget."""
+    return {key: value for key, value in metrics.items() if key != "financial_classification"} if metrics else metrics
+
+
 def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:
     if not metrics:
         return ""
     try:
-        return json.dumps(metrics, default=str)[:_XBRL_TEXT_CHAR_CAP]
+        return json.dumps(_model_metrics(metrics), default=str)[:_XBRL_TEXT_CHAR_CAP]
     except (TypeError, ValueError):
-        return str(metrics)[:_XBRL_TEXT_CHAR_CAP]
+        return str(_model_metrics(metrics))[:_XBRL_TEXT_CHAR_CAP]
 
 
 async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
@@ -170,7 +175,7 @@ async def _maybe_judge(
         return None
     # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
     from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
-    xbrl_text = json.dumps(grounding["xbrl_metrics"], default=str) if grounding["xbrl_metrics"] else ""
+    xbrl_text = json.dumps(_model_metrics(grounding["xbrl_metrics"]), default=str) if grounding["xbrl_metrics"] else ""
     judge_excerpt = grounding["excerpt"] or ""
     statement_evidence = grounding.get("statement_source")
     if statement_evidence:

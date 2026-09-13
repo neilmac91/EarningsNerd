@@ -13,6 +13,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
+from app.services.ai.cash_claims import qualify_cash_lead
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
@@ -460,6 +461,7 @@ class _MarkdownRenderMixin:
         if isinstance(eq, dict):
             eq.pop("cash_conversion", None)
         if not fi_components_present(xbrl_metrics):
+            qualify_cash_lead(sections, xbrl_metrics or {}, format_currency)
             ni_v = raw_current("net_income")
             ocf_v = raw_current("operating_cash_flow")
             fcf = format_currency(raw_current("free_cash_flow"))
@@ -638,4 +640,3 @@ class _MarkdownRenderMixin:
                 })
             if authored:
                 sections["segments"] = authored
-

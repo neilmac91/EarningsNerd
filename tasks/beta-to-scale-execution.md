@@ -894,3 +894,14 @@ No world-class quality clearance, universe-wide pregeneration or historical repl
 - [ ] Issuer-defined FCF versus conventional FCF, unchecked prominent takeaways and general citation/source completeness remain open. The AMZN quotation substitution is a should-fix under the existing advisory forward-quote gate; its founder-held enforcement decision remains separate. No new filter bypasses that flag.
 
 Notable review-week decision, Analysis warm-up/live acceptance, W3-7 formal readout/decision and ordered W3-8 work, E06 natural payment evidence, E09 proposal decisions, major dependencies and D8/#270 retain their named prerequisites. Source delivery does not establish world-class analysis. Universe-wide pregeneration and historical replay remain held.
+
+
+## September 13 — paired citation repair production-verified
+
+- [x] PR #837 merged as `14cc30c1256f26babdb0b8393554236ccb23d324`, full 3,129-test gate and all eleven locked anchors unchanged. First actual ASML acceptance was held; the corrected second assessment supplies two correct chips in all three draws.
+- [x] Main CI `34730518462`, deploy `103652743453`, migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00339-shd` at 100%, CI and independent health healthy. [Release evidence](paired-citation-release-2026-09-13.md).
+- [ ] Next: publish/assess the combined-gated conventional cash-lead correction. Latest retained wording variants are covered; unrelated assets commentary remains unmodified, not newly certified.
+- [ ] Correct source-qualified operating-versus-pretax placement while preserving valid provision, settlement, tax and presentation disclosures. Source acquisition is locally implemented and reviewed, but product integration is incomplete.
+- [ ] General source/citation coverage, formal W3-7 readout/decision and ordered W3-8 work remain. Existing Notable review-week, Analysis, E06 natural payment evidence, E09 proposal decisions, major dependency and D8/#270 prerequisites are unchanged.
+
+Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:27 UTC. No broad quality clearance or universe-wide pregeneration; historical replay and founder-held production settings remain held.
