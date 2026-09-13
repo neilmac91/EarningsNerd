@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
+import { citationVerificationLabel, EXCERPT_MATCH_SCOPE } from './citationVerification'
 import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
@@ -241,14 +242,12 @@ function TagIcon({ className }: { className?: string }) {
   )
 }
 
-/** The trust marker (v2.2): Verified = the excerpt re-matched the filing
-    server-side (brand tint — trust reads as evidence, not success-green);
-    Cited = linked, not machine-verified (quiet pill). */
-function TrustBadge({ verified }: { verified: boolean }) {
-  return verified ? (
+/** Attribute the existing source check; excerpt matching is not whole-answer verification. */
+function TrustBadge({ citation }: { citation: CopilotCitation }) {
+  return citation.verified ? (
     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[10.5px] font-semibold ${CHIP}`}>
       <CheckCircleIcon className="h-2.5 w-2.5" aria-hidden="true" />
-      Verified
+      {citationVerificationLabel(citation)}
     </span>
   ) : (
     <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
@@ -268,6 +267,11 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
+      {citations.some((c) => c.verified && !isXbrlCitation(c)) && (
+        <p className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+          {EXCERPT_MATCH_SCOPE}
+        </p>
+      )}
       <ol className="space-y-3">
         {citations.map((c, i) => {
           const isFact = isXbrlCitation(c)
@@ -302,7 +306,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
                     ) : null}
-                    <TrustBadge verified={c.verified} />
+                    <TrustBadge citation={c} />
                   </div>
                 </div>
               ) : (
@@ -320,7 +324,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                     ) : (
                       <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">Excerpt {c.n}</span>
                     )}
-                    <TrustBadge verified={c.verified} />
+                    <TrustBadge citation={c} />
                   </div>
                 </div>
               )}
@@ -461,11 +465,11 @@ export default function CopilotMessage({
                 <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
                   <span className="flex items-center gap-1.5">
                     <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
-                    Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
+                    {message.grounded} matched source{message.grounded === 1 ? '' : 's'}
                   </span>
                   {!!citations?.length && (
                     <span className="ml-auto font-data">
-                      {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} verified
+                      {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} source checks
                     </span>
                   )}
                 </p>

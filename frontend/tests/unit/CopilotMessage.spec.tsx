@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 
 // Mirror the existing AskCopilotRail test's mock for next/link (CopilotMessage uses it in the
 // error/paywall branch).
@@ -99,6 +99,35 @@ describe('CopilotMessage citation chips', () => {
     render(<CopilotMessage message={msg} />)
     const chip = screen.getByRole('link', { name: /citation f1/i })
     expect(chip).toHaveTextContent('[F1]') // normalized to the canonical marker
+  })
+
+  it('distinguishes matched supplemental excerpts from numeric sources without losing either chip', () => {
+    const excerpt: CopilotCitation = { ...verifiedCitation, n: 3,
+      excerpt: 'Total net sales416,161 391,035 383,285',
+      section_ref: 'Item 8 — Consolidated Statements of Operations' }
+    const fact: CopilotCitation = { n: 1, excerpt: 'Revenue = $416.16B USD (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      verified: true, fragment_url: 'https://www.sec.gov/filing' }
+    render(<CopilotMessage message={doneMessage({
+      content: 'Total net sales were $416,161 million [1]. The statement presents sales and gross margin [3].',
+      citations: [fact, excerpt], grounded: 2,
+    })} />)
+    expect(screen.getByText('Numeric source verified')).toBeInTheDocument()
+    expect(screen.getByText('Excerpt found in filing')).toBeInTheDocument()
+    expect(screen.getByText(/does not verify every claim in the answer/)).toBeInTheDocument()
+    expect(screen.getByText(excerpt.excerpt)).toBeInTheDocument()
+    expect(screen.getByText('2 matched sources')).toBeInTheDocument()
+    const textChip = screen.getByRole('link', { name: /citation 3:/i })
+    expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
+    fireEvent.focus(textChip)
+    const textPopover = screen.getByRole('group', { name: /citation 3:/i })
+    expect(within(textPopover).getByText('Excerpt found in filing')).toBeInTheDocument()
+    expect(within(textPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
+    expect(within(textPopover).getByText(excerpt.excerpt)).toBeInTheDocument()
+    fireEvent.focus(screen.getByRole('link', { name: /citation 1:/i }))
+    const factPopover = screen.getByRole('group', { name: /citation 1:/i })
+    expect(within(factPopover).getByText('Numeric source verified')).toBeInTheDocument()
+    expect(within(factPopover).queryByText(/does not verify every claim/)).not.toBeInTheDocument()
   })
 
   it('leaves an unmatched [2] as plain text (no chip / no anchor)', () => {
