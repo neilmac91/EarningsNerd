@@ -81,6 +81,17 @@ def _rate_note(chain: list, ids: dict, entity: str, report: date) -> dict | None
     text = _text(paragraph)
     if len(text) > 1500 or not text.endswith("."):
         raise _Unavailable("incomplete rate disclosure")
+    owner = _unique([part for part in chain if paragraph.getparent() is part])
+    if any(_text(n) for n in paragraph.itersiblings()):
+        raise _Unavailable("unbounded rate paragraph")
+    index = chain.index(owner)
+    if index + 1 >= len(chain):
+        raise _Unavailable("missing rate continuation boundary")
+    following = [n for n in chain[index + 1] if _text(n)]
+    if (not following or not _text(following[0]).startswith("Deferred tax assets and liabilities are recognized ")
+            or not any(n.get("name") == "us-gaap:ScheduleOfDeferredTaxAssetsAndLiabilitiesTableTextBlock"
+                       for n in following[0].iter())):
+        raise _Unavailable("rate caveat or unknown following subsection")
     facts = [n for n in paragraph.iter() if _tag(n) == "nonfraction"]
     if len(facts) != 2:
         raise _Unavailable("incomplete rate facts")

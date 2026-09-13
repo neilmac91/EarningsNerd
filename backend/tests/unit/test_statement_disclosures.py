@@ -154,7 +154,7 @@ def test_actual_se_other_tax_layout_and_no_reclassification_subsection_are_unava
                       'status': {'tax_disclosure': 'unsupported_layout', 'presentation_disclosure': 'no_supported_subsection'}}
 
 
-@pytest.mark.parametrize('change', ['missing_rate', 'wrong_rate_context', 'rate_unit', 'truncated_rate'])
+@pytest.mark.parametrize('change', ['missing_rate', 'wrong_rate_context', 'rate_unit', 'truncated_rate', 'rate_continuation_caveat'])
 def test_actual_comparative_rate_never_loses_source_qualification(change):
     root = document()
     fact = node(root, 'f-2128')
@@ -164,6 +164,10 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
         fact.set('contextref', 'c-16')
     elif change == 'rate_unit':
         fact.set('unitref', 'usd')
+    elif change == 'rate_continuation_caveat':
+        caveat = html.Element('div')
+        caveat.text = 'The preceding effective-rate comparison excludes another adjustment.'
+        node(root, 'f-1930-4').insert(0, caveat)
     else:
         paragraph = next(n for n in fact.iterancestors() if n.tag == 'div')
         last = list(paragraph.iter())[-1]
