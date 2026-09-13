@@ -67,3 +67,30 @@ The second #837 assessment uses two additional complete current/prior forms: `wa
 Merged citation main `14cc30c1256f26babdb0b8393554236ccb23d324`; the only conflict was appended RUNBOOK sections, both retained. Combined feature `d78e7e5c2114ddad957e3811f83d4fa3fb0e8dc3` passes all 29 focused cash controls. Root re-established the same qualification proof after the final connector extension: mutation `f1b42fd0142eb0fd435a6cd1c0658dde6a25c36a` omitted the common binding and produced **13 failed, 16 passed, 2 warnings in 2.01s**; restore `b4fa1571bff8b019c3604ea24d1c1459fb269244` produced **29 passed, 2 warnings in 1.95s**. Feature/restore tree `bb0bb4d6652dac14520c85ec1e0b97a983bcb318` is identical. Full logs are `outputs/cash-lead-basis-local/final-connectors-{red,restored}.log`. Earlier proofs remain historical iterations of one invariant.
 
 The prior code-only candidate at `821f148328cf3cde84118f1417c7e92ec2f87173` passed 3,134 tests on PostgreSQL 15. The combined final committed full gate and actual assessment are still required; its earlier result is not substituted. Root's offline replay over the first #837 52-summary artifact changed only the two intended MELI cash leads and preserved the assets suffixes/unrelated lead text. The final connector controls cover both second-assessment variants, whose component metadata is unchanged. No universal freeform-claim coverage is claimed.
+
+
+### 2026-09-13 — #839 assessment hold and explicit prior-year correction
+
+The actual #839 assessment (`outputs/pr839-summary/eval_20260913T014640Z.json`) preserves all 52 source inputs but MELI result 50 adds `in 2024` to the current/prior sentence. Its complete lead was `Operating cash flow rose to $12.1B from $7.9B, and free cash flow (OCF less capex) reached $10.8B versus $7.1B in 2024.` The prior grammar abstained, leaving the conventional basis unlabeled. Acceptance is held pending the corrected full gate and assessment; earlier fixture success is not evidence that this new actual wording was repaired. The independent report is `outputs/pr839-summary-acceptance.md`.
+
+Feature `1850ae603f8a460a05d834e6573cc8d8480e2e90` admits only an optional terminal prior calendar year in the complete current/prior paired or single-FCF grammar. The selected prior components must cover January 1 through December 31 of that exact year. An end-year match alone is insufficient. Existing amount, currency, arithmetic, source-period and whole-string guards remain unchanged; no arbitrary prose or issuer-adjusted measure is admitted. Five shared-binding controls include the exact retained positive and wrong-year, quarterly, noncalendar-annual and appended-prose abstentions. The first implementation commit `a541c6df712f0e5e414dde7e0693c46b43647b79` accidentally added the suffix only to the single-FCF branch and its committed focused run correctly failed (1 failed, 33 passed); the feature commit above corrected the paired branch before the successful gate.
+
+Ruff on the changed application/test files: `All checks passed!`. Committed focused feature log `outputs/cash-year-green2.log`:
+
+```text
+34 passed, 2 warnings in 4.23s
+```
+
+The same existing basis-ownership invariant was re-established, not counted as another invariant. Mutation `6b88ae91a6cc06943da8c9492731bfe5454adc66` disables the common owner internally and fails the retained integrated controls, including the new actual prior-year sentence. Log `outputs/cash-year-mutation.log`:
+
+```text
+14 failed, 20 passed, 2 warnings in 4.54s
+```
+
+Restore `0cd2967ff43cd112c082394300bc7d7fb983aed8` is byte-identical to the complete feature tree `b62e682f8258a215e19529dd6fc347df6447e02b`. Restored committed log `outputs/cash-year-restored.log`:
+
+```text
+34 passed, 2 warnings in 4.28s
+```
+
+All runs use fresh isolated SQLite and bytecode paths with no provider calls. Only the owner, its unlocked test file and this dated lane note changed. Root owns the full PostgreSQL 15 gate, final review, publication and further assessment. No push, paid call, replay or production setting change occurred in this correction.
