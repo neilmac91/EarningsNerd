@@ -91,3 +91,8 @@ Optional judges receive a separately labelled complete source descriptor in addi
 - [ ] Actual corpus assessment, other-issuer preservation review and serial release.
 
 No publication, provider request, paid run, production database change, historical replay, flag change or backfill occurred in this subtask. Universe-wide pregeneration remains held.
+
+
+## September 13 combined-main gate correction
+
+The first full combined gate on `e4d6813435b44efaab6b2a8769371246bbf753aa` failed two ordinary `test_filing_only_inputs.py` signature assertions: both entrypoints intentionally acquired optional current-filing `statement_source`, while the exact parameter inventory still described the previous signature. The run was **2 failed, 3254 passed, 29 warnings in 120.71s**, exit 1; it is not a pass or a flake. The retired cross-filing scan and forwarding controls passed. The unlocked signature inventory now includes the optional source input and verifies its default and binding while preserving all prior assertions. The named eleven contract anchors remain untouched. Full gate rerun is required.
