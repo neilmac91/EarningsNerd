@@ -57,6 +57,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
 - [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
+- [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
