@@ -77,3 +77,49 @@ The new viewport-fit invariant has an integrated component control using the obs
 The follow-up agent's PATH prefix referenced a nonexistent `~/.nvm/versions/node/v22.14.0/bin`, so its neutral-scope/viewport focused checks and later lint/tsc/Vitest commands actually inherited Node18.20.8. Those outputs are genuine but the preceding claim that those follow-ups used Node22.14.0 was incorrect. `/usr/local/bin/node --version` directly confirms v22.14.0. No publication occurred. The required committed checks and the same two invariant proofs will be re-established under the verified `/usr/local/bin` runtime; the earlier logs remain retained and are not final Node22 gate evidence.
 
 Default, escalated and network-permission build attempts failed at Turbopack's local worker port binding; they are not successful build evidence. No application/configuration/dependency changes were made to work around those environmental failures.
+
+## Final Node22 verification and handoff
+
+The directly verified runtime is `/usr/local/bin/node` v22.14.0 with npm10.9.2. The final application head `1f4bdf110fe758aace29e8e1d91b47722ef0ecd6` has tree `ce56956a705c4ad4a8df0dcdfe7aa7ee17dcad14`, identical to corrected feature `1bfd4cba6528d8c3373197326da51d231a6b27b0`. Only this dated evidence record is appended afterward.
+
+Final full lint and TypeScript exited zero (`outputs/citation-node22-final-lint.log`, `outputs/citation-node22-final-tsc.log`). Full Vitest (`outputs/citation-node22-final-vitest.log`):
+
+```text
+ Test Files  106 passed (106)
+      Tests  595 passed (595)
+   Duration  51.06s (transform 5.43s, setup 9.29s, import 203.59s, tests 18.99s, environment 91.54s)
+```
+
+The final unchanged `npm run build` passed at that exact head under Node22 after archiving only generated `.next` to `work/citation-next-failed-20260913` and using the previously successful launcher. The preceding worker-port failures remain environmental failures; the exact cause was not established, and successful rebuilding does not prove cache corruption. A independently performed the successful build; root verified its result. Full log: `outputs/citation-final-build-fresh-next.log`.
+
+```text
+✓ Compiled successfully in 8.8s
+✓ Generating static pages using 7 workers (27/27) in 1614ms
+  Finalizing page optimization ...
+```
+
+Exactly two final invariants/proofs are retained for the final implementation; the earlier Node18 attempts and superseded wording remain historical evidence above. For source-match scope, mutation `f6bdb1dc756358c7728886813a36ab8ff71dac8b` falsely claims every answer claim is verified. The mixed-source/model-labelled-XBRL control fails; restoration `7128b59635e2606bd284cf3fd708ffad9509f78d` restores the full feature tree byte-identically. Logs: `outputs/citation-node22-scope-red.log`, `outputs/citation-node22-scope-green.log`.
+
+```text
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Duration  2.65s (transform 159ms, setup 70ms, import 1.66s, tests 194ms, environment 610ms)
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Duration  2.64s (transform 156ms, setup 60ms, import 1.68s, tests 210ms, environment 576ms)
+```
+
+For viewport fit and reachable source actions, mutation `bf8cc56cae7d231be9e6c2eae4023374ecfe2bfc` restores the fixed-height placement heuristic. Both the observed clipped geometry and oversized narrow viewport fail. Restoration `1f4bdf110fe758aace29e8e1d91b47722ef0ecd6` restores the full feature tree byte-identically. Logs: `outputs/citation-node22-viewport-red.log`, `outputs/citation-node22-viewport-green.log`.
+
+```text
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Duration  2.51s (transform 85ms, setup 74ms, import 1.60s, tests 131ms, environment 598ms)
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Duration  2.35s (transform 84ms, setup 68ms, import 1.46s, tests 135ms, environment 595ms)
+```
+
+All eleven locked anchors match main `5c050cc3d7efabe9360927abf5aecb214f9bc34c` byte-for-byte (`outputs/citation-labels-locked-anchors.json`); diff whitespace checks pass. Independent review and two-refutation findings are in `outputs/citation-labels-independent-review.md`. Both scoped findings are corrected. Root's actual-component visual evidence is `outputs/citation-labels-root-visual-review.md`: the previously clipped card is now top279/bottom591/height312 inside an863px viewport; light/dark and320px labels/scope were checked, along with keyboard viewer highlighting and the original link. This is a local Vite harness with fallback fonts, not a signed-in Vercel assessment or exact production-font fit. The unchanged long XBRL tag link can still overflow a narrow source row; this pre-existing limitation and the underlying supplemental-citation entailment defect remain outside this PR. No backend changes, model calls, publication or production settings occurred. Root owns PR publication and subsequent deployment/preview acceptance.
