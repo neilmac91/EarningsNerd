@@ -96,7 +96,8 @@ def build_baseline(
     summary = report.get("summary") or {}
     results = [r for r in report.get("results", []) if r.get("candidate") == "baseline"]
     golden = json.loads(GOLDEN_PATH.read_text())["filings"]
-    expected = {(f["ticker"], f["filing_type"]) for f in golden if f.get("verified") and f.get("document_url")}
+    runnable = [f for f in golden if f.get("verified") and f.get("document_url")]
+    expected = {(f["ticker"], f["filing_type"]) for f in runnable}
     harness = report.get("harness") or {}
     if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
         raise ValueError("Report golden-set provenance is missing or differs from the committed set")
@@ -116,6 +117,21 @@ def build_baseline(
     observed = {(r.get("ticker"), r.get("filing_type")) for r in results}
     if observed != expected:
         raise ValueError("A baseline pin requires the complete verified golden set")
+    # The set is complete; now check each entry was worth measuring. An entry with no ground
+    # truth is scored 1.0, not 0, on both numeric dimensions (`score_numeric_accuracy` returns
+    # 1.0 for an empty truth set; `score_numeric_precision` returns 1.0 when `ground_truth` is
+    # empty). Those returns are deliberate — a filer that legitimately omits a line must not be
+    # penalised — but they let an entry that verifies nothing be counted as a measured filing,
+    # so the pinned means and `golden_set_size` rest on less evidence than they claim. This sits
+    # after the report-level checks so it cannot mask a more fundamental defect. It does not
+    # prove an entry is fully checkable: precision also returns 1.0 when a non-empty ground
+    # truth carries no labeled financial field (`scorers.py:296`), which only the eventual 6-K
+    # scorer contract can settle.
+    vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in runnable if not f.get("ground_truth"))
+    if vacuous:
+        raise ValueError(
+            "Cannot pin: the numeric scorers score these verified golden entries 1.0 on no "
+            f"ground truth, which measures nothing: {', '.join(vacuous)}")
     runs = max(r.get("run", 0) for r in results) + 1
     if runs < 3:
         raise ValueError("A baseline pin requires at least three measured runs per filing")
