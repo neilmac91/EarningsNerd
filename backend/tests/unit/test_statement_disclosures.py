@@ -34,10 +34,13 @@ def test_original_audited_tax_and_complete_presentation_disclosure():
     assert tax['columns'][0]['rows'][5]['period_start'] == '2025-01-01'
     assert tax['columns'][1]['rows'][5]['value'] == -243_000_000
     assert tax['columns'][2]['rows'][5]['value'] == -284_000_000
-    assert tax['text'] == ('Income-tax disclosure, year ended 2025-12-31 (USD millions): '
+    assert tax['text'].startswith('Income-tax disclosure, year ended 2025-12-31 (USD millions): '
                            'current income tax expense/(benefit) 1,314; '
                            'deferred income tax expense/(benefit) (469); '
                            'income tax expense/(benefit) 845.')
+    assert 'Prior-year income tax expense/(benefit), 2024: 521.' in tax['text']
+    assert 'increased from 21.4 % to 29.7 %' in tax['rate_note']['text']
+    assert {r['period_end'] for r in tax['rate_note']['facts']} == {'2024-12-31', '2025-12-31'}
     note = result['presentation_disclosure']
     assert note['heading'] == 'Reclassification of 2023 results'
     assert len(note['paragraphs']) == 2
@@ -149,3 +152,21 @@ def test_actual_se_other_tax_layout_and_no_reclassification_subsection_are_unava
     )
     assert result == {'tax_disclosure': None, 'presentation_disclosure': None,
                       'status': {'tax_disclosure': 'unsupported_layout', 'presentation_disclosure': 'no_supported_subsection'}}
+
+
+@pytest.mark.parametrize('change', ['missing_rate', 'wrong_rate_context', 'rate_unit', 'truncated_rate'])
+def test_actual_comparative_rate_never_loses_source_qualification(change):
+    root = document()
+    fact = node(root, 'f-2128')
+    if change == 'missing_rate':
+        fact.getparent().remove(fact)
+    elif change == 'wrong_rate_context':
+        fact.set('contextref', 'c-16')
+    elif change == 'rate_unit':
+        fact.set('unitref', 'usd')
+    else:
+        paragraph = next(n for n in fact.iterancestors() if n.tag == 'div')
+        last = list(paragraph.iter())[-1]
+        last.tail = (last.tail or '').rstrip('.')
+        last.text = (last.text or '').rstrip('.')
+    assert extract(root) is None

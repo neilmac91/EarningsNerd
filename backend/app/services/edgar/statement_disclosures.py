@@ -71,6 +71,44 @@ def _chain(root: Any, ids: dict, incoming: dict) -> list:
     return result
 
 
+def _rate_note(chain: list, ids: dict, entity: str, report: date) -> dict | None:
+    candidates = {n for part in chain for n in part.iter() if _tag(n) in {"div", "p"}
+                  and not n.xpath(".//div|.//p|.//table")
+                  and "consolidated effective tax rate" in _text(n).casefold()}
+    if not candidates:
+        return None
+    paragraph = _unique(list(candidates))
+    text = _text(paragraph)
+    if len(text) > 1500 or not text.endswith("."):
+        raise _Unavailable("incomplete rate disclosure")
+    facts = [n for n in paragraph.iter() if _tag(n) == "nonfraction"]
+    if len(facts) != 2:
+        raise _Unavailable("incomplete rate facts")
+    periods = {report.isoformat(), report.replace(year=report.year - 1).isoformat()}
+    rates = []
+    for fact in facts:
+        if (fact.get("name") != "us-gaap:EffectiveIncomeTaxRateContinuingOperations"
+                or fact.get("scale") != "-2" or fact.get("decimals") != "3"
+                or fact.get("sign") or fact.get("continuedat") or fact.get("xsi:nil")
+                or fact.get("format", "") not in {"", "ixt:num-dot-decimal"}
+                or not re.fullmatch(r"\d+\.\d", _text(fact))):
+            raise _Unavailable("unsupported rate fact")
+        _unique(ids.get(fact.get("id"), []))
+        node = _unique(ids.get(fact.get("contextref"), []))
+        end = _text(_unique([n for n in node.iter() if _tag(n) == "enddate"]))
+        if end not in periods:
+            raise _Unavailable("rate period mismatch")
+        context = _context(ids, fact.get("contextref"), entity, end)
+        unit = _unique(ids.get(fact.get("unitref"), []))
+        if _tag(unit) != "unit" or [_text(n) for n in unit.iter() if _tag(n) == "measure"] != ["xbrli:pure"]:
+            raise _Unavailable("rate unit mismatch")
+        rates.append({"fact_id": fact.get("id"), "concept": fact.get("name"),
+                      "percent_lexical": _text(fact), "scale": -2, **context})
+    if {r["period_end"] for r in rates} != periods:
+        raise _Unavailable("missing comparative rate")
+    return {"text": text, "path": paragraph.getroottree().getpath(paragraph), "facts": rates}
+
+
 def _tax(chain: list, ids: dict, entity: str, report: date) -> dict:
     tables = {n for root in chain for n in root.iter() if _tag(n) == "table"
               and any(x.get("name") == "us-gaap:DeferredIncomeTaxExpenseBenefit" for x in n.iter())}
@@ -148,7 +186,14 @@ def _tax(chain: list, ids: dict, entity: str, report: date) -> dict:
             f"current income tax expense/(benefit) {formatted(current[2]['value'])}; "
             f"deferred income tax expense/(benefit) {formatted(current[5]['value'])}; "
             f"income tax expense/(benefit) {formatted(current[6]['value'])}.")
-    return {"text": text, "table_path": table.getroottree().getpath(table),
+    prior_expense = columns[1]['rows'][6]['value']
+    text += f" Prior-year income tax expense/(benefit), {report.year - 1}: {formatted(prior_expense)}."
+    rate_note = _rate_note(chain, ids, entity, report)
+    if rate_note:
+        text += " Filing disclosure: " + rate_note["text"]
+    return {"text": text, "rate_note": rate_note,
+            "rate_status": "validated" if rate_note else "no_supported_rate_paragraph",
+            "table_path": table.getroottree().getpath(table),
             "currency": "USD", "scale": 1_000_000, "columns": columns}
 
 
