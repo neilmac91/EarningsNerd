@@ -22,6 +22,13 @@ def original(ticker):
     return raw
 
 
+def set_text(cell, text):
+    attributes = dict(cell.attrib)
+    cell.clear()
+    cell.attrib.update(attributes)
+    cell.text = text
+
+
 def extract(raw, ticker):
     return extract_operating_to_pretax_source(raw, accession=SOURCES[ticker][0],
                                              document_url="https://example.test/selected-primary.htm",
@@ -66,12 +73,10 @@ def test_original_statement_mutations_abstain(ticker, change):
     rows = table.xpath("./tr|./tbody/tr")
     component, endpoint = (18, 21) if ticker == "meli" else (23, 28)
     if change == "unknown_row":
-        rows[component][0].clear()
-        rows[component][0].text = "Unclassified reported item"
+        set_text(rows[component][0], "Unclassified reported item")
     elif change == "bad_arithmetic":
         cell = rows[component][1 if ticker == "meli" else 12]
-        cell.clear()
-        cell.text = "999"
+        set_text(cell, "999")
     elif change == "missing_component":
         rows[component].getparent().remove(rows[component])
     elif change == "missing_endpoint":
@@ -117,3 +122,18 @@ def test_missing_explicit_unit_does_not_default_to_usd(ticker):
             node.text = "Amounts in reporting currency"
             break
     assert extract(html.tostring(document), ticker) is None
+
+
+def test_original_header_variant_never_emits_invalid_comparative_date():
+    document = html.fromstring(original("meli"))
+    rows = document.xpath("//table")[54].xpath("./tr|./tbody/tr")
+    set_text(rows[1][1], "Year Ended February 29,")
+    for cell in rows[2]:
+        text = " ".join(cell.itertext())
+        for before, after in (("2025", "2024"), ("2024", "2023"), ("2023", "2022")):
+            if before in text:
+                set_text(cell, text.replace(before, after))
+                break
+    assert extract_operating_to_pretax_source(html.tostring(document), accession=SOURCES["meli"][0],
+                                              document_url="https://example.test/selected-primary.htm",
+                                              period_of_report="2024-02-29") is None
