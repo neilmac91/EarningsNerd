@@ -171,8 +171,16 @@ async def _maybe_judge(
     # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
     from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
     xbrl_text = json.dumps(grounding["xbrl_metrics"], default=str) if grounding["xbrl_metrics"] else ""
+    judge_excerpt = grounding["excerpt"] or ""
+    statement_evidence = grounding.get("statement_source")
+    if statement_evidence:
+        # Independent application evidence, not a claim that the model saw these passages.
+        judge_excerpt += ("\n\n[APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE; "
+                          "independent of the generator excerpt]\n"
+                          + json.dumps(statement_evidence, ensure_ascii=False, sort_keys=True)
+                          + "\n[END APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE]")
     lengths = {"summary_chars": len(json.dumps(payload, indent=2)),
-               "excerpt_chars": len(grounding["excerpt"] or ""), "xbrl_chars": len(xbrl_text)}
+               "excerpt_chars": len(judge_excerpt), "xbrl_chars": len(xbrl_text)}
     if (lengths["summary_chars"] > _JUDGE_SUMMARY_CHAR_CAP or lengths["excerpt_chars"] > _JUDGE_EXCERPT_CHAR_CAP
             or lengths["xbrl_chars"] > _JUDGE_XBRL_CHAR_CAP):
         return {"passed": False, "verdict": "FAIL", "mean_dimension": None, "gate_failures": [],
@@ -180,7 +188,7 @@ async def _maybe_judge(
                 "input_complete": False, "input_lengths": lengths}
     verdict = await judge_summary(
         payload, filing.company_name, filing.filing_type,
-        grounding["excerpt"], xbrl_text, model_id=judge_model,
+        judge_excerpt, xbrl_text, model_id=judge_model,
     )
     return {"passed": verdict.passed, "verdict": verdict.verdict,
             "mean_dimension": verdict.mean_dimension, "gate_failures": verdict.gate_failures,

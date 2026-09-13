@@ -245,3 +245,29 @@ def test_missing_expense_boundary_never_authorizes_partial_disclosure():
     for node in heading.iter():
         node.attrib.pop('style', None)
     assert source("meli", html.tostring(document).decode()) is None
+
+
+@pytest.mark.asyncio
+async def test_judge_receives_independent_owned_evidence_or_fails_full_coverage(monkeypatch):
+    from evals import runner
+    from evals.judge import _JUDGE_EXCERPT_CHAR_CAP
+    judge = AsyncMock(return_value=SimpleNamespace(passed=True, verdict="PASS", mean_dimension=4,
+                                                  gate_failures=[], dimensions={}, error=None))
+    monkeypatch.setattr(runner, "judge_summary", judge)
+    context = source("meli")
+    assert context is not None
+    filing = SimpleNamespace(company_name="Issuer", filing_type="10-K")
+    grounding = {"excerpt": "MODEL EXCERPT", "xbrl_metrics": None, "statement_source": context}
+    verdict = await runner._maybe_judge("offline-judge", {"management_discussion": "Owned statement"}, filing, grounding)
+    assert verdict["input_complete"] is True
+    received = judge.call_args.args[3]
+    assert received.startswith("MODEL EXCERPT")
+    assert "independent of the generator excerpt" in received
+    assert context["document_sha256"] in received
+    assert '"value": -469000000' in received
+    assert "previously reported net income, earnings per share" in received
+    grounding["excerpt"] = "x" * _JUDGE_EXCERPT_CHAR_CAP
+    verdict = await runner._maybe_judge("offline-judge", {}, filing, grounding)
+    assert verdict["input_complete"] is False
+    assert verdict["error"] == "Judge input exceeds full-coverage bounds"
+    assert judge.await_count == 1
