@@ -28,6 +28,8 @@ interface LockNode {
   version?: string
   link?: boolean
   dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   peerDependenciesMeta?: Record<string, { optional?: boolean }>
 }
@@ -41,6 +43,18 @@ interface Backward {
   resolved: string
 }
 
+/**
+ * An override key may carry a version qualifier — npm documents `"undici@^8": "7.29.1"` as valid —
+ * and the dependency edges it has to be matched against are named by the bare package. Recording
+ * the literal key would mean `targets.has('undici')` never matches and the override is silently
+ * never scanned, which is the exact "gate narrower than its rule" failure this file exists to
+ * avoid. The last `@` at a non-zero index starts the qualifier; at index 0 it is a scope.
+ */
+const packageNameOf = (key: string): string => {
+  const at = key.lastIndexOf('@')
+  return at > 0 ? key.slice(0, at) : key
+}
+
 /** Every package name used as an override target, at any nesting depth. */
 const overrideTargets = (overrides: unknown): Set<string> => {
   const names = new Set<string>()
@@ -48,13 +62,22 @@ const overrideTargets = (overrides: unknown): Set<string> => {
     if (!node || typeof node !== 'object') return
     for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
       // npm's nested form allows a "." key meaning "the parent itself"; it names no new package.
-      if (key !== '.') names.add(key)
+      if (key !== '.') names.add(packageNameOf(key))
       walk(value)
     }
   }
   walk(overrides)
   return names
 }
+
+/**
+ * Every field that declares a real dependency edge. `devDependencies` appears only on the root
+ * node (npm strips it from installed packages) and carrying it matters: `@lhci/cli` is an override
+ * target reachable through nothing else, so omitting the field left it entirely unexamined.
+ * `optionalDependencies` are genuine edges too — an absent platform-specific package is already
+ * tolerated below, where an unresolved or unparseable version is skipped.
+ */
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'] as const
 
 /**
  * Node resolution: from `dependent`, look in ./node_modules/<name>, then walk up the nesting
@@ -76,15 +99,16 @@ const resolveFrom = (nodes: LockPackages, dependent: string, name: string): Lock
 const scanOverrides = (
   pkg: { overrides?: unknown },
   lock: { packages: LockPackages },
-): { backward: Backward[]; forward: Backward[] } => {
+): { backward: Backward[]; forward: Backward[]; unmatched: string[] } => {
   const targets = overrideTargets(pkg.overrides)
   const backward: Backward[] = []
   const forward: Backward[] = []
+  const matched = new Set<string>()
 
   for (const [dependent, node] of Object.entries(lock.packages)) {
     if (node.link) continue
     const declared: Array<[string, string]> = [
-      ...Object.entries(node.dependencies ?? {}),
+      ...DEPENDENCY_FIELDS.flatMap((field) => Object.entries(node[field] ?? {})),
       // Optional peers are allowed to be absent or mismatched; they are not a promise.
       ...Object.entries(node.peerDependencies ?? {}).filter(
         ([name]) => !node.peerDependenciesMeta?.[name]?.optional,
@@ -93,6 +117,7 @@ const scanOverrides = (
 
     for (const [name, range] of declared) {
       if (!targets.has(name)) continue
+      matched.add(name)
       const hit = resolveFrom(lock.packages, dependent, name)
       const resolved = hit?.version
       if (!resolved || !semver.valid(resolved) || !semver.validRange(range)) continue
@@ -110,7 +135,7 @@ const scanOverrides = (
     }
   }
 
-  return { backward, forward }
+  return { backward, forward, unmatched: [...targets].filter((t) => !matched.has(t)).sort() }
 }
 
 const describeRows = (rows: Backward[]): string =>
@@ -125,7 +150,7 @@ describe('no override holds a package below what its dependents declare', () => 
   const lock = JSON.parse(readFileSync(path.join(frontendDir, 'package-lock.json'), 'utf8')) as {
     packages: LockPackages
   }
-  const { backward, forward } = scanOverrides(pkg, lock)
+  const { backward, unmatched } = scanOverrides(pkg, lock)
 
   it('has no backward override in the committed lockfile', () => {
     expect(
@@ -138,15 +163,20 @@ describe('no override holds a package below what its dependents declare', () => 
     ).toEqual([])
   })
 
-  it('is actually scanning a tree that contains overrides', () => {
-    // Without this the first assertion passes vacuously the moment the overrides block is emptied
-    // or a rename makes every target name miss. Forward overrides are the deliberate kind, and
-    // this repo has several, so their presence proves the scan reached real data.
+  it('matches every override target against a real dependency edge', () => {
+    // The control this file needs is NOT "at least one forward override survives" — dependency
+    // upgrades can legitimately retire every one of them, and a tree with no overrides cannot hold
+    // a stale ceiling, so failing there would block correct cleanup (Codex, #853).
+    //
+    // The failure actually worth catching is an override that EXISTS while the scan silently fails
+    // to match it: a version-qualified key, a renamed package, a lockfile shape change. That is
+    // vacuous success with real risk behind it, and it is what this asserts.
     expect(
-      forward.length,
-      'No forward override found at all. Either the overrides block is empty or the scan is no ' +
-        'longer matching the lockfile — in both cases the backward assertion above proves nothing.',
-    ).toBeGreaterThan(0)
+      unmatched,
+      'These override targets matched no dependency edge anywhere in the lockfile, so the ' +
+        'backward-override assertion never examined them and passes vacuously for each. Either ' +
+        'the override is dead and should be deleted, or the scan is failing to match it.',
+    ).toEqual([])
   })
 
   it('catches the #852 stale ceiling it was written for', () => {
@@ -169,5 +199,24 @@ describe('no override holds a package below what its dependents declare', () => 
         resolved: '7.29.1',
       },
     ])
+  })
+
+  it('still sees the override when its key carries a version qualifier', () => {
+    // npm accepts `"undici@^8": "7.29.1"` as an override key. Recording the literal key would put
+    // `undici@^8` in the target set while every dependency edge is named `undici`, so the scan
+    // would skip the override entirely and report a clean tree (Codex, #853).
+    const historical = {
+      packages: {
+        '': { dependencies: { jsdom: '^30.0.1' } },
+        'node_modules/jsdom': { version: '30.0.1', dependencies: { undici: '^8.9.0' } },
+        'node_modules/jsdom/node_modules/undici': { version: '7.29.1' },
+      } as LockPackages,
+    }
+    const found = scanOverrides({ overrides: { 'undici@^8': '7.29.1' } }, historical)
+
+    expect(found.backward.map((r) => `${r.name} ${r.floor} -> ${r.resolved}`)).toEqual([
+      'undici 8.9.0 -> 7.29.1',
+    ])
+    expect(found.unmatched, 'a normalised key must count as matched').toEqual([])
   })
 })
