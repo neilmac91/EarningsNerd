@@ -32,6 +32,8 @@ _HEADINGS = {"Other income (expenses):"}
 
 
 def _text(node: Any) -> str:
+    if not isinstance(node.tag, str):
+        return ""  # HTML comments are not statement text
     return " ".join(" ".join(node.itertext()).split())
 
 
@@ -42,8 +44,9 @@ def _nearby(table: Any) -> list[Any]:
         nodes = list(table.getparent().itersiblings(preceding=True))[:8]
     bounded = []
     for node in nodes:
-        if node.tag == "table" or node.xpath(".//table"):
-            break  # never borrow a heading or unit across another table
+        text = _text(node)
+        if (node.tag == "table" or node.xpath(".//table")) and not (_TITLE.fullmatch(text) or _UNIT.fullmatch(text)):
+            break  # a heading may itself use a layout table; a financial table is a boundary
         bounded.append(node)
     return bounded
 
@@ -151,8 +154,12 @@ def _table_source(table: Any, report: date) -> dict | None:
             records.append({"row": row, "label": labels[row], **amount})
         if records[0]["value"] + sum(r["value"] for r in records[1:-1]) != records[-1]["value"]:
             return None
+        try:
+            period_end = date(year["year"], report.month, report.day).isoformat()
+        except ValueError:
+            return None
         columns.append({**year, "column_end": end,
-                        "period_end": f"{year['year']:04d}-{report.month:02d}-{report.day:02d}",
+                        "period_end": period_end,
                         "operating": records[0], "components": records[1:-1], "pretax": records[-1]})
     current = [c for c in columns if c["period_end"] == report.isoformat()]
     prior = [c for c in columns if c["year"] == report.year - 1]
