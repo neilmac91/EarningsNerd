@@ -16,7 +16,7 @@ ANSWER = ("Total net sales for the year ended December 31, 2025 were €32,667.3
           "and net income was €9,609.4 million.")
 
 
-async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_changes=None, source=None):
+async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_changes=None, source=None, call_revenue=False):
     # Exact current points from retained PR833 third Copilot input; net income has no raw tag.
     points = {
         "revenue": [{"period": "2025-12-31", "value": 32667300000.0, "form": "20-F",
@@ -42,6 +42,8 @@ async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_ch
     monkeypatch.setattr(service.copilot_tools, "SessionLocal", sessions)
 
     async def stream(*args, **kwargs):
+        if call_revenue:
+            args[2]("get_financial_fact", {"concept": "revenue"})
         yield answer  # model made no tool calls in all three retained ASML draws
 
     monkeypatch.setattr(service.openai_service, "stream_chat_with_tools", stream)
@@ -144,3 +146,20 @@ async def test_existing_verified_text_citation_survives_without_repair(monkeypat
     assert result["answer"] == answer and len(result["citations"]) == 1
     assert result["citations"][0]["verified"] is True
     assert result["registered_markers"] == []
+
+
+@pytest.mark.asyncio
+async def test_surviving_fact_citation_is_not_reinterpreted(monkeypatch, tmp_path):
+    answer = ANSWER.replace("million,", "million [F1],").replace("million.", "million [F88].")
+    result = await complete(monkeypatch, tmp_path, answer=answer, call_revenue=True)
+    assert result["answer"] == ANSWER.replace("million,", "million [1],")
+    assert len(result["citations"]) == 1 and result["citations"][0]["concept"] == "revenue"
+
+
+@pytest.mark.asyncio
+async def test_repair_preserves_original_misplacement_telemetry(monkeypatch, tmp_path):
+    answer = ANSWER.replace("million.", "million [F1].")
+    result = await complete(monkeypatch, tmp_path, answer=answer, call_revenue=True)
+    assert result["answer"] == ANSWER.replace("million,", "million [1],").replace("million.", "million [2].")
+    assert result["misplaced_fact_markers"] == 1
+    assert result["grounded"] == 2 and result["uncited_figures"] == 0
