@@ -60,3 +60,6 @@ change in that consumer, and every reader of the new field needs its own audit â
 you added the field for.** `copilot_tools._scope_matches_duration` now refuses a computed claim
 whose fiscal label contradicts its own reported duration, while stored rows, selection, numeric
 precedence and direct lookups are untouched.
+
+
+**Paired-claim correction (2026-09-13):** a sentence with annual revenue and net income requires two independently certified facts with matching actual start/end, currency and accession. Do not register either marker until both pass; partial evidence cannot certify a two-claim repair. Preserve separate adjacent markers and unchanged prose. The integrated `test_copilot_paired_claims` controls traverse normalization, persistence, tools and final resolution; the single new invariant mutation prematurely registers an operand and fails eleven controls. Missing accounting-basis metadata remains unknown even when standardized numeric identity is grounded.
