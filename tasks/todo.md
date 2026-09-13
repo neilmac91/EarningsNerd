@@ -5218,3 +5218,13 @@ Notable review-week decision, Analysis warm-up/live acceptance, W3-7 formal read
 - [ ] General source/citation coverage, formal W3-7 readout/decision and ordered W3-8 work remain. Existing Notable review-week, Analysis, E06 natural payment evidence, E09 proposal decisions, major dependency and D8/#270 prerequisites are unchanged.
 
 Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:27 UTC. No broad quality clearance or universe-wide pregeneration; historical replay and founder-held production settings remain held.
+
+
+## September 13 — cash-lead correction production-verified
+
+- [x] [Cash-lead #839](https://github.com/neilmac91/EarningsNerd/pull/839) merged as `8ba04fe118b69ec87dd97ec6de5e94a204af677f`. Main CI `34734224727`, deploy `103662909335`, migrations 0/39, revision `earningsnerd-backend-00340-brr` at 100%, CI and independent detailed health healthy. [Release and acceptance evidence](cash-lead-release-2026-09-13.md).
+- [x] Third actual assessment verifies fresh classification across 26 filings and correct MELI dated cash-lead activation, with unchanged source context and preserved ASML paired chips. The prior two holds and applicability correction remain recorded.
+- [ ] Next accounting owner: operating-to-pretax source interpretation. Combined gate initially failed two ordinary optional-input signature assertions; corrected full gate passes 3,256 tests on PostgreSQL15 with four lanes/performance. Actual assessment and deployment remain pending.
+- [ ] Citation source labels: neutral source-match scope and corrected viewport fit are locally implemented; final frontend gate/visual review/publication remains in progress. They clarify assurance without claiming to solve semantic entailment.
+- [ ] [WeasyPrint70 draft #840](https://github.com/neilmac91/EarningsNerd/pull/840) is reviewable after local native/full gates and green PR checks. Its evaluation job explicitly skipped model execution. Major-version merge still requires the founder's decision; no merge or production fix is claimed.
+- [ ] Quality residuals: finite mixed cash grammar, MELI growth-direction reversal, broad financial cash-card applicability and supplemental citation scope. The operating/FX error is assigned to the prepared next owner. Strong-judge/holdout, ordered W3-8, Notable retain after September15, Analysis warm-up, natural Stripe evidence, E09 proposal prerequisites and other founder-held items remain open. Universe pregeneration and historical replay remain held.
