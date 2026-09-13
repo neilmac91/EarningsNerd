@@ -105,7 +105,8 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
 
 def conventional_cash_applicable(metrics: dict) -> bool:
     """Require affirmative nonfinancial evidence; bank components remain a veto."""
-    return not fi_components_present(metrics)
+    return (metrics.get("financial_classification", {}).get("is_financial") is False
+            and not fi_components_present(metrics))
 
 
 def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[float], str]) -> None:
