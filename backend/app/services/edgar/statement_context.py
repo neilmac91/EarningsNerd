@@ -185,4 +185,6 @@ def acquire_statement_context(source_html: str, *, accession: str, document_url:
     if disclosures is None:
         return None
     return {**source, "operating_disclosures": rows, "expense_notes": notes,
-            "comparative_notes": adjacent, "additional_disclosures": [r for r in disclosures.values() if r]}
+            "comparative_notes": adjacent,
+            "disclosure_status": disclosures["status"],
+            "additional_disclosures": [disclosures[k] for k in ("tax_disclosure", "presentation_disclosure") if disclosures[k]]}

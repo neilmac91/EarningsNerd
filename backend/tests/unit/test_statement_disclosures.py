@@ -120,7 +120,8 @@ def test_uncertain_present_disclosure_refuses_ownership(change):
 
 def test_absent_supported_roots_is_explicitly_unavailable_without_invented_disclosure():
     result = extract(html.fromstring('<html><body><p>No supported audited source.</p></body></html>'))
-    assert result == {'tax_disclosure': None, 'presentation_disclosure': None}
+    assert result == {'tax_disclosure': None, 'presentation_disclosure': None,
+                      'status': {'tax_disclosure': 'no_supported_root', 'presentation_disclosure': 'no_supported_root'}}
 
 
 def test_matching_cash_flow_number_cannot_replace_missing_tax_table():
@@ -146,4 +147,5 @@ def test_actual_se_other_tax_layout_and_no_reclassification_subsection_are_unava
         report_period='2025-12-31', source_sha256=SOURCES['se'][1],
         entity_identifier='0001703399',
     )
-    assert result == {'tax_disclosure': None, 'presentation_disclosure': None}
+    assert result == {'tax_disclosure': None, 'presentation_disclosure': None,
+                      'status': {'tax_disclosure': 'unsupported_layout', 'presentation_disclosure': 'no_supported_subsection'}}

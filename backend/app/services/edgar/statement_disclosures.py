@@ -207,7 +207,8 @@ def extract_statement_disclosures(root: Any, *, accession: str, document_url: st
                 incoming[target] = incoming.get(target, 0) + 1
             if node.get('id'):
                 ids.setdefault(node.get('id'), []).append(node)
-        result = {'tax_disclosure': None, 'presentation_disclosure': None}
+        result = {'tax_disclosure': None, 'presentation_disclosure': None,
+                  'status': {'tax_disclosure': 'no_supported_root', 'presentation_disclosure': 'no_supported_root'}}
         for concept, key in [(_TAX, 'tax_disclosure'), (_POLICY, 'presentation_disclosure')]:
             matches = [n for n in root.iter() if n.get('name') == concept]
             if not matches:
@@ -222,8 +223,10 @@ def extract_statement_disclosures(root: Any, *, accession: str, document_url: st
             supported = (_text(node) == 'INCOME TAXES'
                          or {'us-gaap:' + c for c in _CONCEPTS}.issubset(concepts))
             if key == 'tax_disclosure' and not supported:
+                result['status'][key] = 'unsupported_layout'
                 continue
             record = _tax(chain, ids, entity_identifier, report) if key == 'tax_disclosure' else _presentation(chain)
+            result['status'][key] = 'validated' if record is not None else 'no_supported_subsection'
             if record is not None:
                 result[key] = {**record, **context, 'accession': accession, 'document_url': document_url,
                                'source_sha256': source_sha256, 'root_concept': concept,
