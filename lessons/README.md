@@ -82,6 +82,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
+- [`frontend-overrides-rot-when-the-constrained-package-moves.md`](./frontend-overrides-rot-when-the-constrained-package-moves.md) — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - [`frontend-no-surface-fighting-global-colors.md`](./frontend-no-surface-fighting-global-colors.md) — Never set a global element-level color that surfaces must opt out of
 - [`frontend-preview-both-themes-before-done.md`](./frontend-preview-both-themes-before-done.md) — Eyeball the deployed preview in both themes before declaring visual work done
 - [`frontend-query-keys-registry.md`](./frontend-query-keys-registry.md) — React Query keys come from lib/queryKeys.ts — inline key literals are a stale-cache bug class
@@ -108,6 +109,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-deploy-owned-state-needs-a-distinctive-name.md`](./ops-deploy-owned-state-needs-a-distinctive-name.md) — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
+- [`ops-write-down-the-second-anomaly-before-chasing-the-first.md`](./ops-write-down-the-second-anomaly-before-chasing-the-first.md) — Write down the second anomaly before chasing the first — a parked finding is a lost finding
 - [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool
 - [`ops-repin-binds-advisory-dims-sync-doc.md`](./ops-repin-binds-advisory-dims-sync-doc.md) — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
 - [`ops-run-full-backend-gate-before-push.md`](./ops-run-full-backend-gate-before-push.md) — Run the full local gate (ruff + bandit + pytest) before any backend push
