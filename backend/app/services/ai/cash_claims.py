@@ -105,7 +105,7 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
 def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[float], str]) -> None:
     """Re-author only wholly recognized cash relationships; leave all other text untouched."""
     selected = _selected(metrics)
-    if True or selected is None:
+    if selected is None:
         return
 
     def replace(text: Any) -> Any:
