@@ -31,7 +31,7 @@ PyJWT[crypto]>=2.10,<3
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
 stripe==15.6.1
-weasyprint==69.0
+weasyprint==70.0
 # Branded Excel workbook export (analysis xlsx endpoint) — openpyxl over xlsxwriter: it also
 # READS workbooks (the pytest read-back verification), and images/styles ride the pinned pillow.
 openpyxl>=3.1,<4
