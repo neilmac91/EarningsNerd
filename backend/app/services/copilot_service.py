@@ -1268,6 +1268,19 @@ async def answer_filing_question(
         full_answer, verified_citations, grounded, misplaced = _resolve_citations(
             full_answer, text_citations_by_marker, used_facts, filing_url
         )
+        # Unresolvable model F-markers can have hidden an otherwise eligible claim from
+        # the first repair. Certify only the final visible, wholly uncited prose; never
+        # reinterpret surviving citations or reuse a rejected marker as evidence.
+        if not verified_citations:
+            repaired = _repair_uncited_fact_claim(
+                full_answer, filing=filing, accession=accession, currency=currency,
+                register=_register_fact,
+            )
+            if repaired != full_answer:
+                full_answer, verified_citations, grounded, additional_misplaced = _resolve_citations(
+                    repaired, {}, used_facts, filing_url,
+                )
+                misplaced += additional_misplaced
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
