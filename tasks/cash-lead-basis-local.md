@@ -102,3 +102,23 @@ The existing bank-component predicate does not identify insurer, BDC or generic 
 Historical persisted/L1/Redis metrics and companyfacts fallback without classification remain unknown. Exact retained MELI metrics have no classification evidence, so they now abstain; positive presentation controls explicitly represent forward extraction and do not claim retrospective repair. No backfill, replay or forced refresh was performed. Internal metadata is excluded before model serialization and Copilot's fixed context cap. The eval runner projection overlaps the pending operating-source candidate's judge evidence code: root must preserve both this exclusion and independently labelled statement evidence when integrating.
 
 Focused committed gate and one additional financial-applicability mutation proof are pending. Existing source/basis and annual-duration proofs remain recorded above; this is the separate institution-applicability invariant.
+
+Financial-applicability feature `d85ca6fa0b192a500820fc4ce71719a84dae92bd` passed changed-file Ruff and the committed focused gate (`outputs/cash-financial-applicability/final2-feature-green.log`):
+
+```text
+71 passed, 2 warnings in 5.78s
+```
+
+One additional invariant: the new visible cash-lead qualifier must abstain unless selected extraction metadata affirmatively classifies the issuer as nonfinancial. Mutation `c4ea72555ee0fb00efcd651d487afc0ab2184dce` disables only that eligibility guard. Original source-shaped cash facts then incorrectly qualify insurer, BDC, generic financial and unknown cases through real extraction → standardization → final presentation; the exact historical unknown control also fails. Full output: `outputs/cash-financial-applicability/mutation-red.log`.
+
+```text
+7 failed, 19 passed, 2 warnings in 5.63s
+```
+
+Restoration `11dbcf9349e9fb0093262aa60afe489ab9de68ff` has the identical full tree `e2ca0fec3d5e814fde2fb49f8875f185c970817a` as the feature. Full focused restoration output (`outputs/cash-financial-applicability/restored-green.log`):
+
+```text
+71 passed, 2 warnings in 6.28s
+```
+
+The controls compare entire generator plus missing-section recovery request sequences byte-for-byte, along with eval/Copilot projections and the unchanged older cash card. All eleven anchors match base `cab4b78cc83b302f9f01d8053e409d889e256e68` byte-for-byte; hashes are in `outputs/cash-financial-applicability/locked-anchors.json`. An intermediate ordinary test compared generation against its own recovery request instead of the corresponding second generation sequence and failed; that test indexing was corrected before the successful gate/proof. No result from that failed run is a pass claim. The optional Ruff executable was absent from the isolated venv; the installed module invocation passed without dependency changes. No publication, network, model, live DB, replay or spending action occurred.
