@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,8 +39,56 @@ const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const read = (rel: string) => readFileSync(path.join(frontendDir, rel), 'utf8')
 
 const designSystem = read('DESIGN_SYSTEM.md')
-const globalsCss = read('app/globals.css')
-const layout = read('app/layout.tsx')
+const globalsCssRaw = read('app/globals.css')
+const layoutRaw = read('app/layout.tsx')
+
+/** Source with comments removed, so a matcher can never be satisfied by code that is switched off.
+ *  Quote-aware, because `//` inside a string literal is not a comment. Two separate findings on this
+ *  PR were this one defect: a next/font variable renamed in the live option while the old name
+ *  survived in a comment above it, and a `--font-heading` wrapped in `/* … *\/` — each left every
+ *  assertion green while the browser had no such variable at all. `lineComments` is off for CSS,
+ *  which has no `//` form and where an unquoted `url(https://…)` would otherwise be eaten. */
+const stripComments = (src: string, { lineComments = true } = {}): string => {
+  let out = ''
+  let i = 0
+  while (i < src.length) {
+    const c = src[i]
+    if (c === '"' || c === "'" || c === '`') {
+      out += c
+      i += 1
+      while (i < src.length && src[i] !== c) {
+        if (src[i] === '\\') {
+          out += src[i]
+          i += 1
+        }
+        if (i < src.length) {
+          out += src[i]
+          i += 1
+        }
+      }
+      out += src[i] ?? ''
+      i += 1
+      continue
+    }
+    if (lineComments && c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1
+      continue
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    out += c
+    i += 1
+  }
+  return out
+}
+
+/** Every matcher below reads the comment-free view, never the raw file. */
+const globalsCss = stripComments(globalsCssRaw, { lineComments: false })
+const layout = stripComments(layoutRaw)
 
 /** The three next/font variables. next/font self-hosts under hashed family names exposed ONLY as
  *  these vars, so a literal-only stack silently never resolves. */
@@ -54,22 +103,26 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
     return new RegExp(m[1])
   }
 
-  const SKIP = new Set(['node_modules', '.next', '__pycache__', 'dist', 'coverage'])
   /** `grep -rnE` reads every file under the directories it is pointed at and skips only binaries.
    *  This scanner does the same instead of allowlisting source extensions: an allowlist quietly
    *  narrows the gate below the rule it claims to enforce, so a legacy token in
    *  `features/analysis/demo/demo-analysis.json` — or in any data/asset file added later — would
-   *  pass CI and still fail the founder's own §12 grep. */
+   *  pass CI and still fail the founder's own §12 grep.
+   *
+   *  The file set comes from `git ls-files`, not from walking the filesystem with a skip list. A
+   *  skip list is a guess at what git already knows exactly: the first version of this walk skipped
+   *  any directory named `dist` or `coverage`, none of which is gitignored here, so a tracked
+   *  `features/dist/` would have been invisible to the gate. */
   const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp4|webm|pdf|zip)$/i
-  const walk = (dir: string, acc: string[] = []): string[] => {
-    for (const entry of readdirSync(dir)) {
-      if (SKIP.has(entry)) continue
-      const full = path.join(dir, entry)
-      if (statSync(full).isDirectory()) walk(full, acc)
-      else if (!BINARY.test(entry)) acc.push(full)
-    }
-    return acc
-  }
+  const trackedUnder = (dirs: string[]): string[] =>
+    execFileSync('git', ['ls-files', '-z'], {
+      cwd: frontendDir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\0')
+      .filter((f) => f && dirs.some((d) => f.startsWith(`${d}/`)) && !BINARY.test(f))
+      .map((f) => path.join(frontendDir, f))
 
   it('reads its pattern from the doc rule 11 actually names', () => {
     const pattern = legacyPattern()
@@ -82,7 +135,7 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
 
   it('returns zero hits across app, components and features', () => {
     const pattern = legacyPattern()
-    const files = ['app', 'components', 'features'].flatMap((d) => walk(path.join(frontendDir, d)))
+    const files = trackedUnder(['app', 'components', 'features'])
     expect(files.length).toBeGreaterThan(100)
 
     const hits: string[] = []
@@ -159,9 +212,23 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     )
   })
 
-  it('declares the three next/font variables in layout.tsx', () => {
-    // If a variable is renamed here, every stack below points at nothing.
-    for (const v of NEXT_FONT_VARS) expect(layout).toContain(`variable: '${v}'`)
+  /** The variables the next/font loaders actually emit, read from each call's OPTIONS rather than
+   *  from the file's text. A whole-file substring search passes on a stale mention. */
+  const emittedFontVars = (): string[] => {
+    const imported = layout.match(/import \{([^}]*)\} from 'next\/font\/google'/)
+    if (!imported) throw new Error('app/layout.tsx no longer imports from next/font/google')
+    const loaders = imported[1].split(',').map((n) => n.trim()).filter(Boolean)
+    return loaders.flatMap((loader) =>
+      [...layout.matchAll(new RegExp(`\\b${loader}\\(\\{([^{}]*)\\}\\)`, 'g'))].flatMap((call) =>
+        [...call[1].matchAll(/variable:\s*'([^']+)'/g)].map((v) => v[1]),
+      ),
+    )
+  }
+
+  it('emits exactly the three next/font variables from layout.tsx', () => {
+    // Bidirectional: renaming a live option fails, and so does adding a fourth loader without
+    // classifying it. If a variable is renamed here, every stack below points at nothing.
+    expect(emittedFontVars().sort()).toEqual([...NEXT_FONT_VARS].sort())
   })
 
   it.each(Object.entries(VAR_LED_STACKS))(

@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -43,25 +44,22 @@ const FRONTEND_TEST_HOMES = ['frontend/tests/unit', 'frontend/tests/e2e'] as con
 /** Collected-by-nothing boundaries: the roots the runners are actually pointed at. */
 const COLLECTED_ROOTS = ['backend/tests', 'frontend/tests'] as const
 
-const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.next', '.venv', 'venv', '__pycache__', 'dist', 'build',
-  'coverage', 'playwright-report', 'test-results', '.turbo', '.vercel', '.pytest_cache',
-])
-
 const PYTHON_TEST = /^(test_.*\.py|.*_test\.py)$/
 const JS_TEST = /\.(spec|test)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$/
 
-function walk(dir: string, acc: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) continue
-    const full = path.join(dir, entry)
-    if (statSync(full).isDirectory()) walk(full, acc)
-    else acc.push(path.relative(repoRoot, full).split(path.sep).join('/'))
-  }
-  return acc
-}
-
-const allFiles = walk(repoRoot)
+/** The repo's TRACKED files, straight from git, rather than a filesystem walk past a hand-written
+ *  skip list. The skip list was itself the narrowing defect this gate exists to catch: it excluded
+ *  every directory named `build`, which is NOT gitignored here, so a committed
+ *  `frontend/build/orphan.spec.mjs` was invisible while `node_modules` and `.next` were only
+ *  skipped by coincidence of also being gitignored. Git knows exactly which files are in the repo;
+ *  guessing at that list is how the orphan gets back in. */
+const allFiles = execFileSync('git', ['ls-files', '-z'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+  maxBuffer: 64 * 1024 * 1024,
+})
+  .split('\0')
+  .filter(Boolean)
 const under = (file: string, roots: readonly string[]) => roots.some((r) => file.startsWith(`${r}/`))
 
 describe('tests live in exactly one home per stack', () => {
