@@ -86,7 +86,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-09-h: restore source-owned million units in a uniquely matched authored capital plan.
 # summary-2026-09-i: source-owned financing comparison and verified capital-allocation passages.
 #   A distinct code-owned envelope governs eligibility; no historical regeneration.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-i"
+# summary-2026-09-j: bounded complete MD&A Outlook source supplement on fresh extraction.
+#   Existing cached excerpts and historical summaries are not regenerated.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-j"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
