@@ -205,7 +205,9 @@ def test_previews_respect_final_numeric_ownership_and_guarded_quotes(monkeypatch
     assert "MODEL RETURNS" not in thin and "## Segments" not in thin
     # These conditional fields survive final processing when XBRL is absent; preserve that policy.
     assert "MODEL WORKING CAPITAL" in thin and "MODEL CASH FLOWS" in thin
-    assert "A retained earnings explanation." in thin and "A retained capital decision." in thin
+    assert "A retained earnings explanation." in thin
+    # New capital-allocation prose requires source binding; previews have no excerpt.
+    assert "A retained capital decision." not in thin
 
     bank = {"net_interest_income": metric(100_000_000), "noninterest_income": metric(50_000_000)}
     bank_text = json.dumps({"sections": {

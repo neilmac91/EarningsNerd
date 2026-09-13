@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
+
 - [`arch-sitemap-page-eligibility.md`](./arch-sitemap-page-eligibility.md) — Match sitemap eligibility to the existing page predicates
 - [`arch-payments-need-allocation-evidence.md`](./arch-payments-need-allocation-evidence.md) — Measure canonical allocations with explicit attribution, coverage and deletion limits
 
