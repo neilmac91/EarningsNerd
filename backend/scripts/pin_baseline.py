@@ -100,6 +100,18 @@ def build_baseline(
     harness = report.get("harness") or {}
     if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
         raise ValueError("Report golden-set provenance is missing or differs from the committed set")
+    # An entry with no ground truth is scored 1.0, not 0, by both numeric dimensions
+    # (`score_numeric_accuracy` returns 1.0 for an empty truth set; `score_numeric_precision`
+    # returns 1.0 when nothing is checkable). Those are deliberate — a filer that legitimately
+    # omits a line must not be penalised — but they make a ground-truth-less entry raise the
+    # pinned bar while measuring nothing. Completeness of the set is checked below; this checks
+    # that each measured entry was checkable at all.
+    vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in golden
+                     if f.get("verified") and f.get("document_url") and not f.get("ground_truth"))
+    if vacuous:
+        raise ValueError(
+            "Cannot pin: the numeric scorers score these verified golden entries 1.0 on no "
+            f"ground truth, which measures nothing: {', '.join(vacuous)}")
     if not harness.get("model") or "judge" not in harness:
         raise ValueError("Report must record the requested model and judge configuration")
     if any(harness.get(key) != "" for key in ("fallback_model", "fallback_base_url")):

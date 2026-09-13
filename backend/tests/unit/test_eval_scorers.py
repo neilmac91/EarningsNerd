@@ -220,6 +220,17 @@ def test_numeric_precision_absent_value_is_not_a_contradiction():
     assert precision == 1.0 and contradictions == []  # absent → coverage's concern, not G1
 
 
+def test_numeric_precision_with_nothing_checkable_is_perfect_not_zero():
+    # Both entry points into "nothing to check" return 1.0, the mirror of
+    # test_numeric_accuracy_no_ground_truth_is_not_penalized. Deliberate — a filer that omits a
+    # line must not be penalised — but it means an entry carrying no ground truth is scored
+    # vacuously perfect, which is why pin_baseline refuses to pin one.
+    assert score_numeric_precision(_payload(), []) == (1.0, [])
+    fh = {"revenue": "Not disclosed", "net_income": "Not disclosed", "eps": "Not disclosed",
+          "key_metrics": []}
+    assert score_numeric_precision(_payload(financial_highlights=fh), [REVENUE, NET_INCOME]) == (1.0, [])
+
+
 def test_hygiene_detects_leaked_notices_and_placeholders():
     payload = _payload(
         executive_summary="As an AI language model, I cannot provide financial advice. TODO: fill in.",

@@ -170,6 +170,25 @@ def test_pin_rejects_unrepresentative_or_incomplete_measurement(pin_report, defe
         pin_baseline.build_baseline(pin_report, Path('eval_20260905T100000Z.json'))
 
 
+def test_pin_refuses_a_verified_entry_measured_on_no_ground_truth(monkeypatch, tmp_path, pin_report):
+    # A 6-K carries no XBRL facts, so an entry added without hand-filled ground truth scores 1.0
+    # on both numeric dimensions rather than 0. Every other pin check passes for it — the set is
+    # complete, three runs, no errors, no vetoes — so only this guard keeps a vacuous entry from
+    # raising the committed bar.
+    filings = json.loads(runner.GOLDEN_PATH.read_text())['filings']
+    vacuous = dict(filings[0], ticker='SIXK', filing_type='6-K', ground_truth=[], verified=True)
+    golden = tmp_path/'golden_set.json'
+    golden.write_text(json.dumps({'filings': filings + [vacuous]}))
+    monkeypatch.setattr(pin_baseline, 'GOLDEN_PATH', golden)
+    pin_report['harness']['golden_set_sha256'] = hashlib.sha256(golden.read_bytes()).hexdigest()
+    pin_report['results'] += [{'candidate': 'baseline', 'ticker': 'SIXK', 'filing_type': '6-K',
+                               'run': run, 'score': {'schema_valid': True, 'gate_failures': []},
+                               'passed_gates': True, 'error': None} for run in range(3)]
+    pin_report['summary']['baseline']['n'] = len(pin_report['results'])
+    with pytest.raises(ValueError, match='no ground truth'):
+        pin_baseline.build_baseline(pin_report, Path('eval_20260905T100000Z.json'))
+
+
 def test_committed_jpm_components_rearm_g5():
     data = json.loads(runner.GOLDEN_PATH.read_text())
     filing = GoldenFiling.from_dict(next(f for f in data['filings'] if f['ticker'] == 'JPM'))

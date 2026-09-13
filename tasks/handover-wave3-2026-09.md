@@ -361,10 +361,15 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   `summary_pipeline.py`'s 6-K branch. Design: a deterministic pre-classifier over the EX-99 text
   (earnings / governance / press-release; keyword and XBRL-presence heuristics, no model call)
   that selects among three 6-K prompt variants, and records `raw_summary["sixk_class"]` for audit.
-  6-K goldens have no XBRL facts, so the recall/precision scorers score zero: add a 6-K scorer
-  contract (hand-filled `ground_truth` from the press release, judge-off) before adding entries,
-  or the pin tool refuses the report. Gates: classifier unit test over fixture exhibits; eval gate
-  PASS on the re-pinned set. Rule 1 (one orchestrator) and rule 2 (filing-only) apply unchanged.
+  6-K goldens have no XBRL facts, and an entry left without ground truth scores **1.0, not zero**,
+  on both numeric dimensions: `score_numeric_accuracy` returns 1.0 for an empty truth set
+  (`evals/scorers.py:161`) and `score_numeric_precision` returns 1.0 when nothing is checkable
+  (`evals/scorers.py:272,296`). Both are deliberate, so the risk is vacuous success inflating the
+  bar, not a depressed score. Hand-fill `ground_truth` from the press release (judge-off) before
+  adding entries; `pin_baseline.py` refuses a report whose verified golden entries carry no ground
+  truth (`test_pin_refuses_a_verified_entry_measured_on_no_ground_truth`). Gates: classifier unit
+  test over fixture exhibits; eval gate PASS on the re-pinned set. Rule 1 (one orchestrator) and
+  rule 2 (filing-only) apply unchanged.
 
 ### W3-9 — Historical reconciliation-flag audit/repair (backend: deploys; founder executes)
 - **Goal:** a bounded, dry-run-by-default capability to re-evaluate reconciliation flags on
