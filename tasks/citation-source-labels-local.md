@@ -128,3 +128,30 @@ All eleven locked anchors match main `5c050cc3d7efabe9360927abf5aecb214f9bc34c` 
 ## September 13 short-viewport reachability correction
 
 PR review found that whole-viewport clamping let a tall portal cover its own trigger in the 320 × 260 control (card 8–252, trigger 128–146). Portal z-index makes this a real pointer obstruction; a JSDOM `fireEvent.click` bypasses browser hit-testing and did not refute it. The corrected placement chooses a side that fits, or the larger available side, and bounds the whole scrollable card to that side with an eight-pixel trigger gap. Existing viewport controls now assert non-overlap after hover, including both edge placements. Browser hit-testing remains a separate root acceptance step. This extends the existing viewport-fit/reachable-actions invariant; its single mutation proof will be re-established on the final source rather than counted as a third invariant.
+
+Final correction application `d0b479ef2164116560695e5ce9d462af76cb2bec`, tree `2eb676644f46896ffb362b421b2aac5b34846625`, is byte-identical to feature `b46d91aa`. Verified `/usr/local/bin/node` v22.14.0. Lint and the required `npx tsc -p tsconfig.ci.json` both exited zero. An earlier generic `tsc --noEmit` invocation selected the wrong configuration and reported unrelated test typing errors; that log is retained, not treated as the configured gate. No code was changed to hide those errors.
+
+Full gate logs: `outputs/citation-side-fit-lint.log`, `outputs/citation-side-fit-tsc-ci.log`, `outputs/citation-side-fit-vitest.log`, `outputs/citation-side-fit-build.log`. The unchanged escalated build succeeded without archiving generated files this time.
+
+```text
+ Test Files  106 passed (106)
+      Tests  597 passed (597)
+   Duration  54.09s (transform 4.85s, setup 9.70s, import 214.87s, tests 20.70s, environment 99.81s)
+
+✓ Compiled successfully in 5.1s
+✓ Generating static pages using 7 workers (27/27) in 1479ms
+```
+
+The existing viewport-fit/reachable-actions proof is superseded by this final correction proof, not counted as an additional invariant. Mutation `0feae17a9ae5dacf356da1894d6fc7b63562fb22` restores the prior viewport clamp, causing all three short-viewport non-overlap cases to fail. Restoration `d0b479ef2164116560695e5ce9d462af76cb2bec` restores the complete feature tree byte-identically. Full logs are `outputs/citation-side-fit-mutation-red.log` and `outputs/citation-side-fit-mutation-green.log`.
+
+```text
+ Test Files  1 failed (1)
+      Tests  3 failed | 4 passed (7)
+   Duration  2.55s (transform 85ms, setup 69ms, import 1.57s, tests 165ms, environment 633ms)
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Duration  2.34s (transform 89ms, setup 59ms, import 1.46s, tests 157ms, environment 558ms)
+```
+
+The unrelated source-match wording/proof remains unchanged. Root owns browser pointer acceptance on the short viewport and publication; this local result is not browser hit-testing evidence.
