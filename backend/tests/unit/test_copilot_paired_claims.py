@@ -1,4 +1,6 @@
 """Retained ASML answer through normalization, isolated persistence and real tool resolution."""
+from datetime import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import pytest
@@ -14,7 +16,7 @@ ANSWER = ("Total net sales for the year ended December 31, 2025 were €32,667.3
           "and net income was €9,609.4 million.")
 
 
-async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_changes=None):
+async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_changes=None, source=None):
     # Exact current points from retained PR833 third Copilot input; net income has no raw tag.
     points = {
         "revenue": [{"period": "2025-12-31", "value": 32667300000.0, "form": "20-F",
@@ -51,7 +53,11 @@ async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_ch
         return original_resolve(answer, text_citations, used_facts, filing_url)
 
     monkeypatch.setattr(service, "_resolve_citations", resolve)
-    view = filing(accession_number=ACC, period_of_report="2025-12-31", xbrl_data=points)
+    view = filing(accession_number=ACC, period_of_report="2025-12-31",
+                  period_end_date=datetime(2025, 12, 31), xbrl_data=points)
+    if source is not None:
+        view.content_cache.critical_excerpt = source
+    view = service.snapshot_filing(view)
     try:
         events = [event async for event in service.answer_filing_question(filing=view, question="Annual sales and income?")]
         result = next(event for event in events if event["type"] == "complete")
@@ -108,3 +114,33 @@ async def test_wrong_fact_identity_never_certifies_pair(monkeypatch, tmp_path, r
 async def test_unsupported_pair_never_adds_a_fact_marker(monkeypatch, tmp_path, answer):
     result = await complete(monkeypatch, tmp_path, answer=answer)
     assert result["registered_markers"] == [] and result["citations"] == []
+
+
+UNRESOLVED_PAIR = ANSWER.replace("million,", "million [F81],").replace("million.", "million [F82].")
+
+
+@pytest.mark.asyncio
+async def test_final_visible_pair_repairs_after_unresolved_markers(monkeypatch, tmp_path):
+    result = await complete(monkeypatch, tmp_path, answer=UNRESOLVED_PAIR)
+    assert result["answer"] == ANSWER.replace("million,", "million [1],").replace("million.", "million [2].")
+    assert result["grounded"] == 2 and result["uncited_figures"] == 0
+    assert result["misplaced_fact_markers"] == 0
+    assert [c["concept"] for c in result["citations"]] == ["revenue", "net_income"]
+
+
+@pytest.mark.asyncio
+async def test_final_visible_pair_missing_operand_still_abstains(monkeypatch, tmp_path):
+    result = await complete(monkeypatch, tmp_path, answer=UNRESOLVED_PAIR, changes={"period_start": None})
+    assert result["answer"] == ANSWER
+    assert result["citations"] == [] and result["registered_markers"] == []
+
+
+@pytest.mark.asyncio
+async def test_existing_verified_text_citation_survives_without_repair(monkeypatch, tmp_path):
+    source = "Total net sales for the year ended December 31, 2025 were €32,667.3 million."
+    answer = ANSWER.replace("million,", "million [1],")
+    payload = answer + '\n===CITATIONS===\n' + '[{"n": 1, "excerpt": "' + source + '", "section": "Financial statements"}]'
+    result = await complete(monkeypatch, tmp_path, answer=payload, source=source)
+    assert result["answer"] == answer and len(result["citations"]) == 1
+    assert result["citations"][0]["verified"] is True
+    assert result["registered_markers"] == []
