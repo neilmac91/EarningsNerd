@@ -785,7 +785,6 @@ def _repair_paired_annual_claim(answer: str, *, filing: Any, accession: Optional
                 and _fact_matches_adjacent_currency(fact, window)):
             return answer
         facts.append(fact)
-        register(fact)  # mutation: register before the other operand certifies
         previous = claim["insert_at"]
     if any(facts[0].get(key) != facts[1].get(key) for key in ("period_start", "period_end", "unit", "accession")):
         return answer
