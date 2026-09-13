@@ -461,7 +461,7 @@ class _MarkdownRenderMixin:
         if isinstance(eq, dict):
             eq.pop("cash_conversion", None)
         if not fi_components_present(xbrl_metrics):
-            # Mutation: omit shared lead qualification.
+            qualify_cash_lead(sections, xbrl_metrics or {}, format_currency)
             ni_v = raw_current("net_income")
             ocf_v = raw_current("operating_cash_flow")
             fcf = format_currency(raw_current("free_cash_flow"))
