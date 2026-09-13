@@ -221,14 +221,20 @@ def test_numeric_precision_absent_value_is_not_a_contradiction():
 
 
 def test_numeric_precision_with_nothing_checkable_is_perfect_not_zero():
-    # Both entry points into "nothing to check" return 1.0, the mirror of
+    # All three routes into "nothing to check" return 1.0, the mirror of
     # test_numeric_accuracy_no_ground_truth_is_not_penalized. Deliberate — a filer that omits a
     # line must not be penalised — but it means an entry carrying no ground truth is scored
     # vacuously perfect, which is why pin_baseline refuses to pin one.
-    assert score_numeric_precision(_payload(), []) == (1.0, [])
+    assert score_numeric_precision(_payload(), []) == (1.0, [])  # empty ground truth
     fh = {"revenue": "Not disclosed", "net_income": "Not disclosed", "eps": "Not disclosed",
           "key_metrics": []}
+    # nothing numeric in the payload's labeled fields
     assert score_numeric_precision(_payload(financial_highlights=fh), [REVENUE, NET_INCOME]) == (1.0, [])
+    # ground truth carries facts, but none of them is a labeled metric. pin_baseline's guard
+    # does NOT reject this one — it only rejects an empty ground truth — so a hand-filled entry
+    # of this shape stays vacuous on precision until the 6-K scorer contract defines the metrics.
+    unlabeled = GroundTruthFact(metric="operating_income", value=114_301_000_000.0, unit="USD")
+    assert score_numeric_precision(_payload(), [unlabeled]) == (1.0, [])
 
 
 def test_hygiene_detects_leaked_notices_and_placeholders():
