@@ -50,12 +50,12 @@ def _context(ids: dict, context_id: str, entity: str, end: str) -> dict:
     return {"context_id": context_id, "entity": entity, "period_start": start, "period_end": end}
 
 
-def _chain(root: Any, ids: dict) -> list:
+def _chain(root: Any, ids: dict, incoming: dict) -> list:
     result, seen = [], set()
     node = root
     while node is not None:
         ident = node.get("id")
-        if not ident or ident in seen or len(result) >= 100 or len(ids.get(ident, [])) != 1:
+        if not ident or ident in seen or len(result) >= 512 or len(ids.get(ident, [])) != 1:
             raise _Unavailable("broken continuation")
         seen.add(ident)
         if node.get("xsi:nil") or node.get("nil"):
@@ -63,9 +63,7 @@ def _chain(root: Any, ids: dict) -> list:
         result.append(node)
         next_id = node.get("continuedat")
         if next_id:
-            incoming = [n for n in root.getroottree().getroot().iter()
-                        if n.get('continuedat') == next_id]
-            if len(incoming) != 1:
+            if incoming.get(next_id, 0) != 1:
                 raise _Unavailable('shared continuation target')
         node = _unique(ids.get(next_id, [])) if next_id else None
         if node is not None and _tag(node) != "continuation":
@@ -202,7 +200,11 @@ def extract_statement_disclosures(root: Any, *, accession: str, document_url: st
                 or not re.fullmatch(r'\d{10}', entity_identifier)):
             return None
         ids: dict[str, list] = {}
+        incoming: dict[str, int] = {}
         for node in root.iter():
+            if node.get('continuedat'):
+                target = node.get('continuedat')
+                incoming[target] = incoming.get(target, 0) + 1
             if node.get('id'):
                 ids.setdefault(node.get('id'), []).append(node)
         result = {'tax_disclosure': None, 'presentation_disclosure': None}
@@ -212,7 +214,15 @@ def extract_statement_disclosures(root: Any, *, accession: str, document_url: st
                 continue
             node = _unique(matches)
             context = _context(ids, node.get('contextref'), entity_identifier, report_period)
-            chain = _chain(node, ids)
+            chain = _chain(node, ids, incoming)
+            # Either the exact audited heading or complete concept vocabulary
+            # declares the supported layout. Losing only one signal cannot hide
+            # malformed supported content. Other tax layouts stay unavailable.
+            concepts = {n.get('name') for part in chain for n in part.iter()}
+            supported = (_text(node) == 'INCOME TAXES'
+                         or {'us-gaap:' + c for c in _CONCEPTS}.issubset(concepts))
+            if key == 'tax_disclosure' and not supported:
+                continue
             record = _tax(chain, ids, entity_identifier, report) if key == 'tax_disclosure' else _presentation(chain)
             if record is not None:
                 result[key] = {**record, **context, 'accession': accession, 'document_url': document_url,

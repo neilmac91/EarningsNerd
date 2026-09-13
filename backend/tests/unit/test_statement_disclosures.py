@@ -55,11 +55,15 @@ def test_original_audited_tax_and_complete_presentation_disclosure():
     'broken_chain', 'cyclic_chain', 'duplicate_root', 'missing_paragraph',
     'oversize_paragraph', 'extra_paragraph', 'incomplete_paragraph',
     'next_continuation_caveat', 'missing_following_boundary', 'shared_continuation',
+    'changed_heading_malformed_supported_table',
 ])
 def test_uncertain_present_disclosure_refuses_ownership(change):
     root = document()
     fact = node(root, 'f-1947')
-    if change == 'wrong_sign':
+    if change == 'changed_heading_malformed_supported_table':
+        node(root, 'f-1930').text = 'Taxation'
+        fact.set('scale', '3')
+    elif change == 'wrong_sign':
         fact.attrib.pop('sign')
     elif change == 'wrong_scale':
         fact.set('scale', '3')
@@ -133,3 +137,13 @@ def test_matching_cash_flow_number_cannot_replace_missing_tax_table():
 ])
 def test_missing_or_conflicting_supplied_identity_abstains(changes):
     assert extract(document(), **changes) is None
+
+
+def test_actual_se_other_tax_layout_and_no_reclassification_subsection_are_unavailable():
+    root = html.fromstring(original('se'))
+    result = extract_statement_disclosures(
+        root, accession=SOURCES['se'][0], document_url='https://example.test/se.htm',
+        report_period='2025-12-31', source_sha256=SOURCES['se'][1],
+        entity_identifier='0001703399',
+    )
+    assert result == {'tax_disclosure': None, 'presentation_disclosure': None}
