@@ -15,7 +15,7 @@ _PRIOR = r"(?: from | versus |, (?:up|down) from )"
 _PRIOR_YEAR = r"(?: in (?P<prior_year>\d{4}))?"
 _PAIR = re.compile(
     rf"Operating cash flow {_VERB} (?P<ocf_current>{_AMOUNT}){_PRIOR}(?P<ocf_prior>{_AMOUNT}), "
-    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT})\.", re.I,
+    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", re.I,
 )
 _SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", re.I)
 # Two observed whole mixed sentences. The asset suffix is preserved, never certified.
