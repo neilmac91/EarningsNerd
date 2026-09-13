@@ -16,6 +16,16 @@ _PAIR = re.compile(
     rf"and {_FCF} (?P<fcf_current>{_AMOUNT}) from (?P<fcf_prior>{_AMOUNT})\.", re.I,
 )
 _SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}) from (?P<fcf_prior>{_AMOUNT})\.", re.I)
+# Two observed whole mixed sentences. The asset suffix is preserved, never certified.
+_MIXED = re.compile(
+    rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) and free cash flow of (?P<fcf_current>{_AMOUNT})"
+    rf"(?P<suffix>, while total assets grew to {_AMOUNT} from {_AMOUNT}\.)", re.I,
+)
+_MIXED_GROWTH = re.compile(
+    rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) \((?P<ocf_growth>[+-]?\d+(?:\.\d+)?)% YoY\) "
+    rf"and free cash flow of (?P<fcf_current>{_AMOUNT})"
+    rf"(?P<suffix>, while total assets grew [+-]?\d+(?:\.\d+)?% to {_AMOUNT}\.)", re.I,
+)
 _SCALES = {"b": 10**9, "m": 10**6, "k": 10**3,
            "billion": 10**9, "million": 10**6, "thousand": 10**3}
 
@@ -73,6 +83,23 @@ def _matches(token: str, value: float, currency: str) -> bool:
     return abs(Decimal(raw) * scale - _number(value)) <= tolerance
 
 
+def _matches_annual_growth(token: str, selected: dict) -> bool:
+    current, prior = selected["current"], selected["prior"]
+    # YoY needs the operands' actual comparable annual coverage, not a form/FY label.
+    if any(not 320 <= (p["end"] - p["start"]).days <= 390 for p in (current, prior)):
+        return False
+    for key in ("start", "end"):
+        a, b = current[key], prior[key]
+        if a.year != b.year + 1 or (a.month, a.day) != (b.month, b.day):
+            return False
+    denominator = _number(prior["ocf"])
+    if denominator <= 0:
+        return False
+    growth = (_number(current["ocf"]) - denominator) / denominator * 100
+    tolerance = Decimal("0.5") * Decimal(10) ** -len(token.partition(".")[2])
+    return abs(Decimal(token) - growth) <= tolerance
+
+
 def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[float], str]) -> None:
     """Re-author only wholly recognized cash relationships; leave all other text untouched."""
     selected = _selected(metrics)
@@ -82,10 +109,16 @@ def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[flo
     def replace(text: Any) -> Any:
         if not isinstance(text, str):
             return text
-        match = _PAIR.fullmatch(text) or _SINGLE.fullmatch(text)
+        match = (_PAIR.fullmatch(text) or _SINGLE.fullmatch(text)
+                 or _MIXED.fullmatch(text) or _MIXED_GROWTH.fullmatch(text))
         if match is None:
             return text
-        for key, token in match.groupdict().items():
+        groups = match.groupdict()
+        if groups.get("ocf_growth") and not _matches_annual_growth(groups["ocf_growth"], selected):
+            return text
+        for key, token in groups.items():
+            if key in ("suffix", "ocf_growth"):
+                continue
             metric, period = key.split("_")
             if not _matches(token, selected[period][metric], selected["currency"]):
                 return text
@@ -96,8 +129,10 @@ def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[flo
                     f"compared with {format_money(prior[metric])} for {prior['start']} to {prior['end']}")
 
         prefix = "Operating cash flow was " + comparison("ocf") + ". " if "ocf_current" in match.groupdict() else ""
-        return (prefix + "Conventional free cash flow was " + comparison("fcf")
-                + " (" + cash_flow_basis("free_cash_flow") + ").")
+        owned = (prefix + "Conventional free cash flow was " + comparison("fcf")
+                 + " (" + cash_flow_basis("free_cash_flow") + ")")
+        # Keep the exact model-authored asset clause; its figures are outside this certification.
+        return owned + groups.get("suffix", ".")
 
     lead = sections.get("the_print")
     if isinstance(lead, str):
