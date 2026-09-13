@@ -54,6 +54,8 @@ describe('CitationChip with an in-app filing viewer', () => {
   it.each([
     { height: 863, width: 1024, chipTop: 253, naturalHeight: 312 },
     { height: 260, width: 320, chipTop: 128, naturalHeight: 500 },
+    { height: 260, width: 320, chipTop: 30, naturalHeight: 500 },
+    { height: 260, width: 320, chipTop: 218, naturalHeight: 500 },
   ])('keeps the measured card inside $width × $height and scrollable without losing actions', ({ height, width, chipTop, naturalHeight }) => {
     vi.stubGlobal('innerHeight', height)
     vi.stubGlobal('innerWidth', width)
@@ -76,13 +78,17 @@ describe('CitationChip with an in-app filing viewer', () => {
     try {
       render(<FilingViewerProvider><CitationChip citation={citation} /><RequestProbe /></FilingViewerProvider>)
       const chip = screen.getByRole('button', { name: /citation 1:/i })
-      fireEvent.focus(chip)
+      fireEvent.mouseEnter(chip)
       const card = screen.getByRole('group', { name: /citation 1:/i })
       const bounds = card.getBoundingClientRect()
       expect(bounds.top).toBeGreaterThanOrEqual(8)
       expect(bounds.bottom).toBeLessThanOrEqual(height - 8)
       expect(bounds.left).toBeGreaterThanOrEqual(8)
       expect(bounds.right).toBeLessThanOrEqual(width - 8)
+      const triggerBounds = chip.getBoundingClientRect()
+      // A portal above the trigger's z-index must not intercept its pointer target.
+      // JSDOM has no hit testing; real-browser pointer acceptance is recorded separately.
+      expect(bounds.bottom <= triggerBounds.top - 8 || bounds.top >= triggerBounds.bottom + 8).toBe(true)
       expect(card).toHaveStyle({ overflowY: 'auto' })
       fireEvent.scroll(card)
       expect(card).toBeInTheDocument()
