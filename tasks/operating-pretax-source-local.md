@@ -1,0 +1,7 @@
+# Pure operating-to-pretax source adapter
+
+Base `cab4b78cc83b302f9f01d8053e409d889e256e68`. Implements only pure acquisition from already-provided original primary HTML, no transport/pipeline/render/schema/database changes. Root owns end-to-end integration. Runtime selection uses explicit nearby consolidated-statement title and USD unit declaration, annual year headers, operating/pretax endpoints and complete supported intervening rows. Actual source cells preserve positions, spans, lexical parentheses and exact scaled integers; arithmetic corroborates source row ordering rather than assigning classification from amounts.
+
+One invariant: only an unambiguous, source-owned complete signed reported bridge is emitted. Original whole MELI/SE source fixtures and competing recast/segment/percentage tables exercise the actual layouts. Missing/unknown rows, broken signs/units/endpoints and duplicates abstain. Do not infer recurrence, adjusted earnings, causation, accounting basis or annual fact duration beyond the literal statement period label.
+
+Interface: `extract_operating_to_pretax_source(source_html, *, accession, document_url, period_of_report) -> dict | None`. Descriptor carries source hash/URL/accession, title/unit/table paths, explicit USD scale, all labelled year columns and their raw cell bands, current/prior operating/components/pretax values and labels. No issuer names, table ordinals or desired values participate in runtime eligibility.
