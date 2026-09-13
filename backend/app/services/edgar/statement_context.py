@@ -24,7 +24,7 @@ _NOTE_HEADINGS = {"general and administrative expenses", "provision for doubtful
 def source_report_period(document: Any) -> str | None:
     """Validate the actual inline DEI date and its unqualified context; no year inference."""
     facts = [n for n in document.iter() if isinstance(n.tag, str)
-             and n.get("name", "").lower() == "dei:documentperiodenddate"]
+             and (n.get("name") or "").lower() == "dei:documentperiodenddate"]
     dates = set()
     entities = set()
     for fact in facts:
@@ -157,7 +157,7 @@ def acquire_statement_context(source_html: str, *, accession: str, document_url:
         if first is None or first.xpath(".//table") or not _text(first).startswith("(1) ") or len(_text(first)) > 1500:
             return None
         adjacent.append({"path": document.getroottree().getpath(first), "text": _text(first)})
-    dei = next(n for n in document.iter() if n.get("name", "").lower() == "dei:documentperiodenddate")
+    dei = next(n for n in document.iter() if (n.get("name") or "").lower() == "dei:documentperiodenddate")
     context = next(n for n in document.iter() if n.get("id") == dei.get("contextref"))
     entity = next(_text(n) for n in context.iter() if isinstance(n.tag, str)
                   and n.tag.lower().split(":")[-1] == "identifier")
