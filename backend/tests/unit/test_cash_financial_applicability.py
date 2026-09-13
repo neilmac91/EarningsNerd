@@ -13,6 +13,9 @@ from app.services.edgar import xbrl_service
 from app.services.edgar.instance_extractor import cash_financial_classification
 from app.services.copilot_service import _compact_xbrl_block
 from app.services.openai_service import OpenAIService
+from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.export_service import ExportService
+from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 from evals.runner import _xbrl_to_text
 from tests.unit.test_financing_source import ACC, CIK, instance_xml, parsed_filing
 from tests.unit.test_cash_claims import LEADS, METRICS, RETAINED_METRICS, assert_owned, filled
@@ -117,9 +120,10 @@ async def test_selected_source_to_final_preview_rejects_financial_and_unknown(mo
     else:
         assert actual == LEADS[1]["key_takeaways"][2]
         assert "Conventional free cash flow was" not in preview
-    # The pre-existing cash card is unchanged; classification governs only the new lead qualifier.
+    # Both derived cash owners now require affirmative nonfinancial classification.
     absent = {key: value for key, value in metrics.items() if key != "financial_classification"}
-    assert filled(metrics)["earnings_quality"] == filled(absent)["earnings_quality"]
+    assert ("cash_conversion" in filled(metrics).get("earnings_quality", {})) is eligible
+    assert "cash_conversion" not in filled(absent).get("earnings_quality", {})
     with_classification = requests[:]
     requests.clear()
     await service.summarize_filing("Selected source.", "Controlled company", "10-K",
@@ -133,7 +137,8 @@ async def test_selected_source_to_final_preview_rejects_financial_and_unknown(mo
 def test_exact_retained_metrics_remain_unknown_without_retrofitted_evidence():
     assert "financial_classification" not in RETAINED_METRICS
     assert filled(RETAINED_METRICS)["the_print"] == LEADS[1]
-    assert filled(RETAINED_METRICS)["earnings_quality"] == filled(METRICS)["earnings_quality"]
+    assert "cash_conversion" not in filled(RETAINED_METRICS).get("earnings_quality", {})
+    assert "cash_conversion" in filled(METRICS)["earnings_quality"]
 
 
 @pytest.mark.asyncio
@@ -149,3 +154,55 @@ async def test_persisted_preclassification_metrics_return_without_fetch(monkeypa
     raw = await service.get_xbrl_data(ACC, CIK)
     assert raw is payload
     assert "financial_classification" not in service.extract_standardized_metrics(raw)
+
+
+# Exact selected current rows/classification from PR842 results 6 (JPM) and 32 (COIN).
+RETAINED_FINANCIAL = {'JPM': {'net_income': {'current': {'period': '2025-12-31', 'value': 57048000000.0, 'form': '10-K', 'currency': 'USD', 'period_start': '2025-01-01', 'raw_tag': None}}, 'operating_cash_flow': {'current': {'period': '2025-12-31', 'value': -147782000000.0, 'form': '10-K', 'currency': 'USD', 'period_start': '2025-01-01', 'raw_tag': None}}, 'investing_cash_flow': {'current': {'period': '2025-12-31', 'value': -265565000000.0, 'form': '10-K', 'currency': 'USD', 'period_start': '2025-01-01', 'raw_tag': None}}, 'financing_cash_flow': {'current': {'period': '2025-12-31', 'value': 269533000000.0, 'form': '10-K', 'currency': 'USD', 'period_start': '2025-01-01', 'raw_tag': None}}, 'net_interest_income': {'current': {'period': '2025-12-31', 'value': 95443000000.0, 'form': '10-K', 'currency': None, 'raw_tag': 'us-gaap:InterestIncomeExpenseNet'}}, 'noninterest_income': {'current': {'period': '2025-12-31', 'value': 87004000000.0, 'form': '10-K', 'currency': None, 'raw_tag': 'us-gaap:NoninterestIncome'}}, 'reporting_currency': 'USD', 'financial_classification': {'is_financial': True, 'sic': '6021', 'profile': 'bank', 'business_category': 'Bank'}}, 'COIN': {'net_income': {'current': {'period': '2026-03-31', 'value': -394117000.0, 'form': '10-Q', 'currency': 'USD', 'fiscal_year': 2026, 'fiscal_period': 'Q1', 'period_start': '2026-01-01', 'raw_tag': None}}, 'operating_cash_flow': {'current': {'period': '2026-03-31', 'value': 182744000.0, 'form': '10-Q', 'currency': 'USD', 'fiscal_year': 2026, 'fiscal_period': 'Q1', 'period_start': '2026-01-01', 'raw_tag': None}}, 'investing_cash_flow': {'current': {'period': '2026-03-31', 'value': -239064000.0, 'form': '10-Q', 'currency': 'USD', 'fiscal_year': 2026, 'fiscal_period': 'Q1', 'period_start': '2026-01-01', 'raw_tag': None}}, 'financing_cash_flow': {'current': {'period': '2026-03-31', 'value': -864907000.0, 'form': '10-Q', 'currency': 'USD', 'fiscal_year': 2026, 'fiscal_period': 'Q1', 'period_start': '2026-01-01', 'raw_tag': None}}, 'reporting_currency': 'USD', 'financial_classification': {'is_financial': True, 'sic': '6199', 'profile': 'financial_generic', 'business_category': 'Operating Company'}}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["COIN", "JPM", "nonfinancial", "unknown", "bank_veto"])
+async def test_cash_card_applicability_preserves_basic_flows_across_surfaces(monkeypatch, case):
+    metrics = copy.deepcopy(RETAINED_FINANCIAL[case if case in RETAINED_FINANCIAL else "COIN"])
+    if case == "nonfinancial" or case == "bank_veto":
+        # Controlled eligibility only; never relabel the actual retained COIN observation.
+        metrics["financial_classification"] = {"is_financial": False}
+    elif case == "unknown":
+        metrics.pop("financial_classification")
+    if case == "bank_veto":
+        metrics["net_interest_income"] = {"current": {"value": 1}}
+    eligible = case == "nonfinancial"
+    supplied = {"metadata": {}, "sections": {
+        "earnings_quality": {"cash_conversion": "UNTRUSTED MODEL CARD", "red_flags": ["Preserved disclosure."]},
+        "balance_sheet_liquidity": {"liquidity": "Preserved liquidity disclosure."},
+    }}
+    service = OpenAIService()
+
+    async def request(*args, **kwargs):
+        return json.dumps(supplied)
+
+    monkeypatch.setattr(service, "_request_content", request)
+    result = await service.summarize_filing("Selected source.", case, "10-Q",
+        xbrl_metrics=metrics, filing_excerpt="Selected source.")
+    raw = result["raw_summary"]
+    eq = raw["sections"]["earnings_quality"]
+    assert ("cash_conversion" in eq) is eligible
+    assert eq["red_flags"] == ["Preserved disclosure."]
+    raw["schema_version"] = SUMMARY_SCHEMA_VERSION
+    summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],
+        financial_highlights={}, risk_factors=[], management_discussion="", key_changes="",
+        schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None)
+    filing = SimpleNamespace(company=SimpleNamespace(name=case), filing_type="10-Q",
+        filing_date=None, period_end_date=None, sec_url="", document_url="")
+    rendered = render_sections(raw)
+    exporter = ExportService()
+    texts = [service._partial_markdown_preview(json.dumps(supplied), metrics),
+        sections_to_markdown(rendered), exporter.generate_pdf_html(summary, filing),
+        exporter.generate_csv(summary, filing), json.dumps([s.to_dict() for s in rendered])]
+    for text in texts:
+        assert "UNTRUSTED MODEL CARD" not in text
+        assert ("Operating cash flow was positive despite a net loss." in text) is eligible
+        assert "Preserved disclosure." in text
+        for amount in (("$-147.8B", "$-265.6B", "$269.5B") if case == "JPM"
+                       else ("$182.7M", "$-239.1M", "$-864.9M")):
+            assert amount in text

@@ -13,7 +13,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
-from app.services.ai.cash_claims import qualify_cash_lead
+from app.services.ai.cash_claims import conventional_cash_applicable, qualify_cash_lead
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
@@ -446,9 +446,10 @@ class _MarkdownRenderMixin:
         # ONE-HOME: state the RATIO (or, on a loss, the cash-vs-loss read) + FCF here, never re-quote the
         # OCF/NI dollar levels (their homes are §8 cash_flow / §2 results). Suppressed for financial
         # institutions — NI-vs-CFO and a capex-based FCF are meaningless there (unclassified balance sheet,
-        # lending/deposit-driven cash flow) — gated on the SAME predicate as the bank grounding NOTE
-        # (xbrl_narrative) so instruction and output stay aligned. The model keeps operating_vs_one_time +
-        # red_flags (qualitative, no standardized feed).
+        # lending/deposit-driven cash flow). Both cash owners require affirmative nonfinancial
+        # classification and retain the bank-components veto; unknown classification abstains.
+        # The model keeps red_flags and unsupported operating_vs_one_time disclosures;
+        # supported statement context separately owns the latter slot.
         #
         # Field OWNERSHIP is an invariant, not a tendency: strip any stray model-provided cash_conversion
         # FIRST, on every path. The empty-section filter is section-level (T3.1 decision #1 — the model
@@ -460,7 +461,7 @@ class _MarkdownRenderMixin:
         eq = sections.get("earnings_quality")
         if isinstance(eq, dict):
             eq.pop("cash_conversion", None)
-        if not fi_components_present(xbrl_metrics):
+        if conventional_cash_applicable(xbrl_metrics or {}):
             qualify_cash_lead(sections, xbrl_metrics or {}, format_currency)
             ni_v = raw_current("net_income")
             ocf_v = raw_current("operating_cash_flow")

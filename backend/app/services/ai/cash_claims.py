@@ -7,6 +7,7 @@ import re
 from typing import Any, Callable
 
 from .xbrl_narrative import cash_flow_basis
+from .fi_signals import fi_components_present
 
 _AMOUNT = r"(?:\$|[A-Z]{3}\s+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
 _VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
@@ -102,9 +103,15 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
     return abs(Decimal(token) - growth) <= tolerance
 
 
+def conventional_cash_applicable(metrics: dict) -> bool:
+    """Require affirmative nonfinancial evidence; bank components remain a veto."""
+    return (metrics.get("financial_classification", {}).get("is_financial") is False
+            and not fi_components_present(metrics))
+
+
 def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[float], str]) -> None:
     """Re-author only wholly recognized cash relationships; leave all other text untouched."""
-    if metrics.get("financial_classification", {}).get("is_financial") is not False:
+    if not conventional_cash_applicable(metrics):
         return
     selected = _selected(metrics)
     if selected is None:

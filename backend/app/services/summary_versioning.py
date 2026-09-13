@@ -92,7 +92,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   Existing historical summaries are not regenerated.
 # summary-2026-09-l: source-owned operating-to-pretax relationships and supported complete
 #   disclosures on eligible fresh primary documents; legacy cached content is unchanged.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-l"
+# summary-2026-09-m: both conventional cash owners require affirmative nonfinancial
+# applicability, retaining the bank-components veto; unknown fresh inputs abstain.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-m"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
