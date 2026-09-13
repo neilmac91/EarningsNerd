@@ -241,7 +241,7 @@ def test_expense_caveat_stays_inside_complete_source_owned_block():
 def test_missing_expense_boundary_never_authorizes_partial_disclosure():
     document = html.fromstring(original("meli"))
     heading = document.xpath('/html/body/div[742]')[0]
-    # A clipped or changed boundary must not let a selector call its prefix complete.
-    for following in list(heading.itersiblings()):
-        following.getparent().remove(following)
+    # Keep the face table and every paragraph; remove only the demonstrated heading boundary.
+    for node in heading.iter():
+        node.attrib.pop('style', None)
     assert source("meli", html.tostring(document).decode()) is None
