@@ -96,7 +96,8 @@ def build_baseline(
     summary = report.get("summary") or {}
     results = [r for r in report.get("results", []) if r.get("candidate") == "baseline"]
     golden = json.loads(GOLDEN_PATH.read_text())["filings"]
-    expected = {(f["ticker"], f["filing_type"]) for f in golden if f.get("verified") and f.get("document_url")}
+    runnable = [f for f in golden if f.get("verified") and f.get("document_url")]
+    expected = {(f["ticker"], f["filing_type"]) for f in runnable}
     harness = report.get("harness") or {}
     if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
         raise ValueError("Report golden-set provenance is missing or differs from the committed set")
@@ -106,8 +107,7 @@ def build_baseline(
     # omits a line must not be penalised — but they make a ground-truth-less entry raise the
     # pinned bar while measuring nothing. Completeness of the set is checked below; this checks
     # that each measured entry was checkable at all.
-    vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in golden
-                     if f.get("verified") and f.get("document_url") and not f.get("ground_truth"))
+    vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in runnable if not f.get("ground_truth"))
     if vacuous:
         raise ValueError(
             "Cannot pin: the numeric scorers score these verified golden entries 1.0 on no "
