@@ -892,3 +892,30 @@ Actual acceptance must verify Ford's complete source block reaches both primary 
 The finite annual revenue/net-sales plus net-income sentence may receive two server-owned chips only after both facts independently certify and share actual annual dates, currency and accession. The original one-claim grammar is unchanged. Unsupported, surviving partly cited or differently qualified text abstains. When the resolver removes invalid markers and leaves wholly uncited visible prose, the same positive certification may repair that visible claim. Rejected markers never supply evidence; original strip telemetry is retained. No model retry or historical backfill is added.
 
 Actual acceptance checks the retained ASML wording, separate concept-correct chips and unchanged prose, alongside all other requested answers. Net-income raw-tag/accounting-basis provenance remains incomplete and must not be advertised as US-GAAP certification. Generic table-overclaim and quote-fidelity defects remain separate.
+
+
+## Conventional cash claims in lead text
+
+Supported whole OCF/FCF current/prior sentences and the two retained mixed cash/assets forms receive source-owned dated cash values and the existing conventional selected-capex basis. Both selected components must supply matching dates/currencies and reproduce the derived FCF amount. An explicit OCF YoY percentage additionally needs comparable actual annual durations and matching signed growth. The assets suffix is preserved as model prose, not newly certified. Financial-institution suppression remains controlling.
+
+Acceptance must inspect actual lead wording, not just the already-qualified cash-conversion field. Preserve unrelated headline/takeaway text and assets suffixes, and verify both final and preview output. Unsupported paraphrases remain uncorrected; this is not a universal cash-claim or issuer-adjusted FCF gate. The content stamp advances to `summary-2026-09-k`; schema remains 2, with no automatic regeneration or historical replay.
+
+September 13 applicability correction: the new lead qualifier additionally requires affirmative
+nonfinancial classification from the selected instance's existing company metadata. Positive
+financial profile/category/SIC evidence dominates; absent bank components do not qualify an
+issuer. Missing, malformed, unclassified or uncached classification remains unknown and abstains.
+This internal sidecar is excluded before model/eval/Copilot context caps and is not a financial
+fact. No extra fetch or classifier call is added. The older bank-only cash-conversion behavior is
+unchanged; its broader financial-profile applicability gap remains separately open.
+
+Historical persisted/cache metrics and companyfacts fallback lack this evidence and remain
+unqualified. Earlier retained-input proofs predate this added prerequisite: forward-classified
+controls must be labelled as such, while exact historical rows remain unchanged. Actual
+assessment must inspect fresh classification and confirm all other source/metric bytes remain
+identical after removing only the new metadata. Do not retrofit classification into retained
+evidence or treat aggregate PASS as universal lead coverage. The optional explicit prior-year
+suffix additionally requires actual January 1–December 31 coverage of that year.
+
+```bash
+python -m pytest tests/unit/test_cash_claims.py tests/unit/test_cash_financial_applicability.py
+```

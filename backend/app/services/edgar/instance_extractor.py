@@ -971,6 +971,41 @@ def _concept_local(concept: Any) -> str:
     return text.split("_", 1)[1] if "_" in text else text
 
 
+def cash_financial_classification(company: Any, sic: Any, profile_key: Optional[str] = None) -> dict:
+    """Internal cash eligibility from the selected company's already available metadata.
+
+    EdgarTools business_category is a cached_property; never invoke that lazy property here.
+    The existing statement classifier may already have populated it. Missing metadata is not
+    evidence of a nonfinancial issuer, even when the old bank-component predicate is false.
+    """
+    from edgar.entity.categorization import BusinessCategory
+
+    cached_category = getattr(company, "__dict__", {}).get("business_category")
+    category = cached_category if isinstance(cached_category, str) else None
+    token = str(sic).strip() if sic is not None and not isinstance(sic, bool) else ""
+    # SIC 9995/9999 are non-operating/unclassified, not affirmative operating-industry evidence.
+    code = int(token) if token.isascii() and token.isdigit() and 3 <= len(token) <= 4 else None
+    if code is not None and not 100 <= code < 9000:
+        code = None
+    profile = profile_key if profile_key in {p["key"] for p in FINANCIAL_PROFILES} else None
+    financial_categories = {
+        BusinessCategory.BANK.value, BusinessCategory.INSURANCE_COMPANY.value,
+        BusinessCategory.INVESTMENT_MANAGER.value, BusinessCategory.BDC.value,
+        BusinessCategory.REIT.value, BusinessCategory.ETF.value,
+        BusinessCategory.MUTUAL_FUND.value, BusinessCategory.CLOSED_END_FUND.value,
+    }
+    if profile or category in financial_categories or (
+        code is not None and FINANCIAL_SIC_LOW <= code <= FINANCIAL_SIC_HIGH
+    ):
+        classified = True
+    elif code is not None and category == BusinessCategory.OPERATING_COMPANY.value:
+        classified = False
+    else:
+        classified = None
+    return {"is_financial": classified, "sic": f"{code:04d}" if code is not None else None,
+            "profile": profile, "business_category": category if isinstance(category, str) else None}
+
+
 def is_financial_institution(company: Any, sic: Optional[str]) -> bool:
     """True when the filer is a bank/insurer/investment-manager/BDC.
 
