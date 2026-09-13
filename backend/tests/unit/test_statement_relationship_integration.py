@@ -225,3 +225,23 @@ async def test_eval_reuses_existing_primary_fetch_and_same_source_owner(monkeypa
     assert grounding["statement_source"] == source("meli")
     assert grounding["xbrl_metrics"] is None
     assert grounding["source_provenance"] == {"selected": "primary"}
+
+
+def test_expense_caveat_stays_inside_complete_source_owned_block():
+    document = html.fromstring(original("meli"))
+    paragraph = document.xpath('/html/body/div[740]')[0]
+    caveat = html.Element('div')
+    caveat.text = 'This comparison includes a change in the underlying product mix.'
+    paragraph.addnext(caveat)
+    result = source("meli", html.tostring(document).decode())
+    assert result is not None
+    assert caveat.text in [n['text'] for n in result['expense_notes']]
+
+
+def test_missing_expense_boundary_never_authorizes_partial_disclosure():
+    document = html.fromstring(original("meli"))
+    heading = document.xpath('/html/body/div[742]')[0]
+    # A clipped or changed boundary must not let a selector call its prefix complete.
+    for following in list(heading.itersiblings()):
+        following.getparent().remove(following)
+    assert source("meli", html.tostring(document).decode()) is None
