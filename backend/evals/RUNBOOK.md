@@ -886,7 +886,6 @@ A fresh selected MD&A can append one complete heading-delimited Outlook suppleme
 
 Actual acceptance must verify Ford's complete source block reaches both primary and any forward recovery, inspect adjusted EBIT/FCF ranges with their labels and assumptions, and check all other source and financing/debt outputs for unintended displacement. Existing nonqualifying forms and incorporated exhibits remain outside this narrow boundary grammar. No baseline change or quality clearance follows from source availability alone.
 
-
 ## Paired annual Copilot claim acceptance
 
 The finite annual revenue/net-sales plus net-income sentence may receive two server-owned chips only after both facts independently certify and share actual annual dates, currency and accession. The original one-claim grammar is unchanged. Unsupported, surviving partly cited or differently qualified text abstains. When the resolver removes invalid markers and leaves wholly uncited visible prose, the same positive certification may repair that visible claim. Rejected markers never supply evidence; original strip telemetry is retained. No model retry or historical backfill is added.
@@ -919,3 +918,35 @@ suffix additionally requires actual January 1–December 31 coverage of that yea
 ```bash
 python -m pytest tests/unit/test_cash_claims.py tests/unit/test_cash_financial_applicability.py
 ```
+
+## Reported operating-to-pretax relationships
+
+Eligible fresh primary HTML supplies a separate application-owned statement context. A unique
+complete statement, explicit dates/units, individual numeric cells and signed reconciliation
+qualify the reported operating-to-pretax rows. The shared preview/final owner replaces only the
+operating-versus-one-time slot and preserves supported complete expense, comparative, tax and
+presentation disclosures. Statement position does not establish recurring or one-time status.
+The content stamp is `summary-2026-09-l`; schema remains 2, and no regeneration is scheduled.
+
+The ordinary pipeline and eval reuse their already-fetched selected primary document. The
+context never enters generator/recovery messages or standardized XBRL and creates no additional
+SEC/model call. Cached-only and unsupported sources remain legacy. A fresh document can coexist
+with an older cached excerpt: its independent source evidence must not be described as text the
+generator saw. Unsupported disclosure status is not evidence that no disclosure exists.
+
+Before acceptance, inspect eligibility across every actual cohort source, signed MELI/SE rows,
+complete preserved explanations and preview/final/export agreement. The 26 retained-source
+offline inventory qualifies only MELI and SE; that does not predict every production request.
+Optional judges receive the full separate descriptor before cap checks. MELI's retained excerpt
+already exceeds the 200,000-character cap without the descriptor, so that review is explicitly
+incomplete; do not truncate or infer a pass. No judge cap or baseline is changed.
+
+Offline controls (no provider call), from `backend/`:
+
+```bash
+python -m pytest tests/unit/test_statement_relationship_source.py tests/unit/test_statement_disclosures.py tests/unit/test_statement_relationship_integration.py tests/unit/test_eval_measurement.py
+```
+
+See [implementation and proof evidence](../../tasks/operating-pretax-source-local.md). Full
+committed gates, actual source/output acceptance and serial production verification remain
+required; local source eligibility does not establish world-class analysis quality.

@@ -88,7 +88,8 @@ def test_actual_entrypoint_signatures_bind_only_current_filing_inputs(method):
 
     signature = inspect.signature(getattr(OpenAIService, method))
     assert list(signature.parameters) == [
-        "self", "filing_text", "company_name", "filing_type", "xbrl_metrics", "filing_excerpt", "stream_cb"
+        "self", "filing_text", "company_name", "filing_type", "xbrl_metrics", "filing_excerpt", "stream_cb",
+        "statement_source"
     ]
     metrics = {"current": {"revenue": 120}, "prior": {"revenue": 100}}
     callback = object()
@@ -96,6 +97,13 @@ def test_actual_entrypoint_signatures_bind_only_current_filing_inputs(method):
     assert bound.arguments["xbrl_metrics"] is metrics
     assert bound.arguments["filing_excerpt"] == "chosen excerpt"
     assert bound.arguments["stream_cb"] is callback
+    assert signature.parameters["statement_source"].default is None
+    statement_source = {"source": "selected primary document"}
+    with_statement = signature.bind(
+        object(), "chosen filing", "Company", "10-K", metrics, "chosen excerpt", callback,
+        statement_source=statement_source,
+    )
+    assert with_statement.arguments["statement_source"] is statement_source
 
 
 @pytest.mark.asyncio
