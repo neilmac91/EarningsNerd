@@ -170,7 +170,7 @@ module.exports = {
         // Editorial serif — opt-in, long-form filing reading only.
         editorial: ['var(--font-newsreader)', 'Newsreader', '"New York"', 'ui-serif', 'Georgia', 'serif'],
         // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
-        data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        data: ['"Geist Mono"', 'var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         // fontFamily.system / .grotesque were PURGED at the v2 cutover (zero usage, confirmed by
         // scan) — do not reintroduce. The v2.1 export resurrected them; #497 re-removed them.

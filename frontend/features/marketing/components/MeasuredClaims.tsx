@@ -20,7 +20,7 @@ const CLAIMS = [
  */
 export default function MeasuredClaims() {
   return (
-    <section aria-label="Measured claims" className="border-y border-border-light dark:border-white/10">
+    <section aria-label="Measured claims" className="text-emerald-500 border-y border-border-light dark:border-white/10">
       <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
         <SectionImpression section="measured_claims">
           <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
