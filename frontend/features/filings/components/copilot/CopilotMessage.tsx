@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
-import { citationVerificationLabel, EXCERPT_MATCH_SCOPE } from './citationVerification'
+import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
@@ -267,9 +267,9 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
-      {citations.some((c) => c.verified && !isXbrlCitation(c)) && (
+      {citations.some((c) => c.verified) && (
         <p className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          {EXCERPT_MATCH_SCOPE}
+          {SOURCE_MATCH_SCOPE}
         </p>
       )}
       <ol className="space-y-3">

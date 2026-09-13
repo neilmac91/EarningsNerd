@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
-import { citationVerificationLabel, EXCERPT_MATCH_SCOPE } from './citationVerification'
+import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
 // malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
@@ -174,9 +174,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 Cited
               </span>
             )}
-            {verified && !isFact && (
+            {verified && (
               <span className="mt-1.5 block text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {EXCERPT_MATCH_SCOPE}
+                {SOURCE_MATCH_SCOPE}
               </span>
             )}
             {viewer && isHttpUrl(fragment_url) && (
