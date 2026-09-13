@@ -56,6 +56,8 @@ async def test_original_primary_to_real_stream_final_and_exports_owns_classifica
     result = await service.summarize_filing("UNCHANGED SOURCE EXCERPT", "Issuer", "10-K",
                                           filing_excerpt="UNCHANGED SOURCE EXCERPT", stream_cb=receive,
                                           statement_source=context)
+    assert "Reported consolidated statement" in result["business_overview"]
+    assert frames and all("Reported consolidated statement" in frame for frame in frames)
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     assert raw[CONTEXT_KEY] == 1
