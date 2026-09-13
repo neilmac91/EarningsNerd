@@ -108,8 +108,10 @@ def build_baseline(
     # that each measured entry was checkable at all.
     vacuous = sorted(f"{f['ticker']} {f['filing_type']}" for f in golden
                      if f.get("verified") and f.get("document_url") and not f.get("ground_truth"))
-    if False:
-        raise ValueError(f"unreachable {vacuous}")
+    if vacuous:
+        raise ValueError(
+            "Cannot pin: the numeric scorers score these verified golden entries 1.0 on no "
+            f"ground truth, which measures nothing: {', '.join(vacuous)}")
     if not harness.get("model") or "judge" not in harness:
         raise ValueError("Report must record the requested model and judge configuration")
     if any(harness.get(key) != "" for key in ("fallback_model", "fallback_base_url")):
