@@ -400,12 +400,21 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   838 raw hits, 270 upserted; scheduler `notable-filings-scan` live at 08:30/18:30 ET); after
   one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in **both** the service `--update-env-vars` (`ci.yml:585`) and the pregenerate job's own map (`:597`) — `test_prod_flag_visibility.py:72-73` asserts the two agree, so flipping only the service line fails the backend gate — and updates the W3-2 pin
   table (that test edit makes the PR deploy). Verify the deploy ran, `GET /api/notable_filings?limit=8`
-  is non-empty, and the homepage section renders in both themes after ISR. **The homepage section is
-  not currently mounted:** the September 10 landing revamp dropped it from the route deliberately,
-  keeping the component and fetcher for reinstatement (`frontend/lib/serverApi.ts:164`,
-  `features/filings/components/NotableFilings.tsx`), so `frontend/app/page.tsx` renders no Notable
-  section and `fetchNotableFilings` has no caller. The flip PR must re-mount it, or that last
-  criterion cannot pass.
+  is non-empty, and the homepage section renders in both themes after ISR. **The re-mount is already
+  done** (founder-approved 2026-09-13): the September 10 landing revamp had dropped the section from
+  the route deliberately, so `fetchNotableFilings` sat with no caller and that last criterion was
+  unsatisfiable. `frontend/app/page.tsx` now mounts `<NotableFilings />` after `<ReportingThisWeek />`,
+  and `frontend/tests/unit/landing-sections-mounted.spec.ts` pins the mount at source level so a
+  future redesign has to drop it deliberately. It stays invisible until the flag flips — the API
+  answers 200 with an empty list while `NOTABLE_FILINGS_ENABLED` is off
+  (`app/services/notable_filings_service.py:454`) and the section self-omits on empty. So the flip
+  PR is now purely backend/CI. Leave `fetchNotableFilings` at 3600: re-mounting it at its old 900
+  would have cut the homepage's own ISR window (Next derives it as the minimum over the route's
+  fetches, measured both ways), and `notable-filings-scan` only runs 08:30/18:30 ET, so sub-hourly
+  polling buys no freshness once the flag is on either. What the flip PR still owns is verifying
+  the section in both themes on preview, which is only observable once it renders, plus the
+  deferred card polish noted in PR #849 (the meta line uppercases the whole string, the ticker
+  wants `font-data`, and the card keeps a hover lift the revamp deleted everywhere else).
 - **Analysis:** after the founder records the effective Vercel value and the warm-up evidence, PR
   adds `NEXT_PUBLIC_ENABLE_ANALYSIS: "true"` to `frontend/vercel.json` `env`; full frontend gate;
   Playwright with no backend; both-theme preview; production Pro-account smoke.

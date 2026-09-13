@@ -159,11 +159,18 @@ export interface NotableFilingsResponse {
 }
 
 /** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
- * when the list is empty, so there is no client query. ISR 15 min, matching the backend's own
- * serve-cache TTL. Dormant since the 2026-09 landing redesign dropped the section from `/`
- * (NOTABLE_FILINGS_ENABLED is off in production); kept with NotableFilings.tsx for reinstatement. */
+ * when the list is empty, so there is no client query. Mounted on `/` again (W3-10); renders
+ * nothing until NOTABLE_FILINGS_ENABLED is on, because the API answers 200 with an empty list.
+ *
+ * Revalidate is 3600, NOT the backend's 15-min serve-cache TTL, for two independent reasons.
+ * First, `/` declares no route-level `revalidate`, so Next takes the MINIMUM over its fetches:
+ * a 900 here would silently cut the whole homepage from 3600 to 900. Measured, not assumed —
+ * `/`'s `initialRevalidateSeconds` in `.next/prerender-manifest.json` reads 900 with this at 900
+ * and 3600 with it at 3600. Second, the data only moves twice a day: `notable-filings-scan` runs
+ * 08:30 and 18:30 America/New_York (docs/DEPLOYMENT.md §12), so sub-hourly polling buys no
+ * freshness at any flag state. Do not "restore" 900 when the section goes live. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
-  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 900)
+  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 3600)
 
 export interface ReportingCompany {
   ticker: string

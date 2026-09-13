@@ -18,11 +18,15 @@ export default function NotableFilings({
   if (filings.length === 0) return null
 
   return (
-    <section id="notable-filings" className="py-20 sm:py-24">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+    <section
+      id="notable-filings"
+      aria-labelledby="notable-h"
+      className="border-t border-border-light py-20 dark:border-white/10 sm:py-24"
+    >
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <SectionImpression section="notable_filings">
           <div className="mb-8">
-            <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
+            <h2 id="notable-h" className="text-2xl">
               Notable filings
             </h2>
             <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -32,7 +36,11 @@ export default function NotableFilings({
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {filings.map((filing) => (
-              <NotableFilingCard key={`${filing.ticker}-${filing.filed_date}`} filing={filing} />
+              <NotableFilingCard
+                key={`${filing.ticker}-${filing.filed_date}`}
+                filing={filing}
+                asOf={data?.timestamp ?? ''}
+              />
             ))}
           </div>
         </SectionImpression>

@@ -9,11 +9,12 @@ import ProDepth from '@/features/marketing/components/ProDepth'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import ReaderQuoteSlot from '@/features/marketing/components/ReaderQuoteSlot'
 import ReportingThisWeek from '@/features/calendar/components/ReportingThisWeek'
+import NotableFilings from '@/features/filings/components/NotableFilings'
 import CtaBanner from '@/features/marketing/components/CtaBanner'
 import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
-import { fetchExampleData, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
+import { fetchExampleData, fetchNotableFilings, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -95,9 +96,10 @@ export default async function Home() {
   // to static content. The signup config drives the ONE access decision
   // (account CTAs + access line + beta pricing line) and fails closed to the
   // invite copy when the backend is unreachable.
-  const [example, reportingThisWeek, signup] = await Promise.all([
+  const [example, reportingThisWeek, notableFilings, signup] = await Promise.all([
     fetchExampleData(),
     fetchReportingThisWeek(),
+    fetchNotableFilings(),
     fetchSignupConfig(),
   ])
   const accessMode = resolveAccessMode(signup)
@@ -136,7 +138,11 @@ export default async function Home() {
         {/* 8. Reporting this week — omits itself entirely when there is no live data */}
         <ReportingThisWeek data={reportingThisWeek} />
 
-        {/* 9. Final CTA */}
+        {/* 9. Notable filings — same contract: renders nothing while NOTABLE_FILINGS_ENABLED
+            is off, because the API answers 200 with an empty list and the section self-omits. */}
+        <NotableFilings data={notableFilings} />
+
+        {/* 10. Final CTA */}
         <CtaBanner accessMode={accessMode} />
       </main>
     </div>
