@@ -104,7 +104,7 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
 
 def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[float], str]) -> None:
     """Re-author only wholly recognized cash relationships; leave all other text untouched."""
-    if False:  # mutation: disable affirmative nonfinancial eligibility
+    if metrics.get("financial_classification", {}).get("is_financial") is not False:
         return
     selected = _selected(metrics)
     if selected is None:
