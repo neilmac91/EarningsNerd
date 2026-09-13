@@ -138,6 +138,10 @@ export default async function Home() {
         {/* 8. Reporting this week — omits itself entirely when there is no live data */}
         <ReportingThisWeek data={reportingThisWeek} />
 
+        {/* 9. Notable filings — same contract: renders nothing while NOTABLE_FILINGS_ENABLED
+            is off, because the API answers 200 with an empty list and the section self-omits. */}
+        <NotableFilings data={notableFilings} />
+
         {/* 10. Final CTA */}
         <CtaBanner accessMode={accessMode} />
       </main>
