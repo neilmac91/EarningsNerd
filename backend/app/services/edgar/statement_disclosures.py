@@ -219,9 +219,13 @@ def extract_statement_disclosures(root: Any, *, accession: str, document_url: st
             # Either the exact audited heading or complete concept vocabulary
             # declares the supported layout. Losing only one signal cannot hide
             # malformed supported content. Other tax layouts stay unavailable.
-            concepts = {n.get('name') for part in chain for n in part.iter()}
+            def declared_table(table):
+                labels = {_text(row[0]) for row in table.xpath('./tr|./tbody/tr') if len(row)}
+                concepts = {n.get('name') for n in table.iter()}
+                return ({'Income Tax:', 'Current:', 'Deferred:', 'U.S.', 'Non-U.S.'}.issubset(labels)
+                        and {'us-gaap:' + c for c in _CONCEPTS}.issubset(concepts))
             supported = (_text(node) == 'INCOME TAXES'
-                         or {'us-gaap:' + c for c in _CONCEPTS}.issubset(concepts))
+                         or any(declared_table(n) for part in chain for n in part.iter() if _tag(n) == 'table'))
             if key == 'tax_disclosure' and not supported:
                 result['status'][key] = 'unsupported_layout'
                 continue
