@@ -5186,3 +5186,14 @@ A third bounded assessment is necessary to verify this confirmed preservation fi
 ### Third correction local verification
 
 Code `8854577bd7e3b474ad0e930c595feea039f5244c` passed Ruff, Bandit and the full PostgreSQL 15 gate, all four lanes and performance: **3,099 passed, 29 warnings in 93.92s**, exit 0. The same preservation invariant was re-established after its control changed: mutation `48fe1cd62cdbd8cf7a0fd48df3bb8e04a7538372` gave **3 failed, 12 passed, 2 warnings in 3.06s**; restore `59c9a2395c6952f2f99c88acd6d07a68f286346e` gave **15 passed, 2 warnings in 2.69s**, byte-identical to the code gate. Original operand and source-qualification proofs remain unchanged. Third actual assessment and deployment are pending.
+
+
+## September 13 — financing repair production-verified
+
+- [x] PR #833 merged as `b517cc5890187841b979c872c359e68b28a68f98`, with the full 3,099-test gate, unchanged locked anchors, three invariant proofs and independently accepted actual outputs. Two prior semantic holds remain recorded.
+- [x] Main CI `34727422054`, deploy `103644287681`, migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00337-fss` at 100%, CI and independent detailed health healthy. [Release evidence](financing-release-2026-09-13.md).
+- [ ] Next: complete bounded Outlook source delivery. Local implementation integrated financing, passed 3,107 tests and preserves existing source context; publication and actual assessment remain pending.
+- [ ] Continue issuer-defined FCF versus conventional FCF ownership and unchecked prominent takeaways, then general citation/source completeness. ASML citation-free answers and AAPL supplemental table attribution remain actual unresolved findings.
+- [ ] E09 remains proposal-only: [staged decision package](e09-proposal-next-2026-09-13.md) separates generation ownership from fleet SEC admission and lists missing fleet/database/egress evidence. Eight observed jobs do not prove concurrency, successful execution or paused schedules.
+
+No world-class quality clearance, universe-wide pregeneration or historical replay. Existing Notable review-week decision, Analysis warm-up/live acceptance, W3-7 strong-judge artifact/decision and serial W3-8 work, natural Stripe evidence, major dependencies, D8/#270 and other founder-held decisions remain as recorded. Chrome later reported the Mac locked; further authenticated observations wait without inventing evidence or using live tests.
