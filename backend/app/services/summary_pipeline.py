@@ -743,7 +743,7 @@ async def stream_filing_summary(
                 statement_source = await run_in_threadpool(
                     acquire_statement_context, filing_text, accession=filing_accession_number,
                     document_url=filing_document_url, form=filing_type,
-                    report_period=report_period.isoformat(),
+                    report_period=report_period.date().isoformat(),
                 )
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,

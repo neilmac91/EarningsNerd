@@ -98,7 +98,7 @@ def _operating_rows(table: Any, source: dict) -> list[dict] | None:
 
 
 def _expense_heading(node: Any) -> bool:
-    if node.xpath(".//div|.//p|.//table") or len(_text(node)) > 100:
+    if node.xpath("ancestor::table|.//div|.//p|.//table") or len(_text(node)) > 100:
         return False
     # The demonstrated DOM layouts style the complete heading itself or its sole span.
     styled = node if not list(node) else list(node)[0] if len(node) == 1 else None
@@ -114,9 +114,15 @@ def _expense_notes(document: Any, table: Any) -> list[dict] | None:
             continue
         if _text(heading).casefold() not in _NOTE_HEADINGS:
             continue
+        following = list(heading.itersiblings())[:12]
+        # Expense-definition sections are not the period-change disclosure being preserved.
+        # Selection does not certify a cause; admission still retains the entire bounded block.
+        if not any(re.match(r"(?:Our general and administrative expenses (?:increased|decreased) |For the year ended )", _text(n))
+                   for n in following[:6] if not n.xpath(".//div|.//p|.//table")):
+            continue
         bounded = False
         paragraphs = []
-        for node in list(heading.itersiblings())[:12]:
+        for node in following:
             text = _text(node)
             if not text:
                 continue
