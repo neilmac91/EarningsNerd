@@ -94,3 +94,11 @@ Restore `0cd2967ff43cd112c082394300bc7d7fb983aed8` is byte-identical to the comp
 ```
 
 All runs use fresh isolated SQLite and bytecode paths with no provider calls. Only the owner, its unlocked test file and this dated lane note changed. Root owns the full PostgreSQL 15 gate, final review, publication and further assessment. No push, paid call, replay or production setting change occurred in this correction.
+
+## September 13 correction: explicit financial applicability
+
+The existing bank-component predicate does not identify insurer, BDC or generic financial profiles. The new lead qualifier now requires explicit nonfinancial classification carried from the selected company extraction; financial and unknown classifications abstain. The older cash-conversion branch and all bank predicates remain unchanged. Positive selected financial profiles, cached SDK categories and financial SIC dominate; a valid nonzero operating-industry SIC plus an already available Operating Company classification is required for false. No new lazy classifier, SEC fetch or company resolution is added. SDK `business_category` is a cached_property, verified against the installed implementation and an ordinary control.
+
+Historical persisted/L1/Redis metrics and companyfacts fallback without classification remain unknown. Exact retained MELI metrics have no classification evidence, so they now abstain; positive presentation controls explicitly represent forward extraction and do not claim retrospective repair. No backfill, replay or forced refresh was performed. Internal metadata is excluded before model serialization and Copilot's fixed context cap. The eval runner projection overlaps the pending operating-source candidate's judge evidence code: root must preserve both this exclusion and independently labelled statement evidence when integrating.
+
+Focused committed gate and one additional financial-applicability mutation proof are pending. Existing source/basis and annual-duration proofs remain recorded above; this is the separate institution-applicability invariant.
