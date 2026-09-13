@@ -126,7 +126,14 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         metrics = xbrl_service.extract_standardized_metrics(xbrl) if xbrl else None
     except Exception:  # noqa: BLE001
         metrics = None
+    from fastapi.concurrency import run_in_threadpool
+    from app.services.edgar.statement_context import acquire_statement_context
+    statement_source = await run_in_threadpool(
+        acquire_statement_context, text or "", accession=filing.accession_number,
+        document_url=filing.document_url, form=form,
+    )
     return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
+            "statement_source": statement_source,
             "source_provenance": source_provenance,
             "coverage_inventory": excerpt_provenance(
                 excerpt, accession=filing.accession_number, source=source, sections=sections,
@@ -365,6 +372,7 @@ async def _attempt(
                     grounding["filing_text"], filing.company_name, filing.filing_type,
                     xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                     stream_cb=stream_cb,
+                    **({"statement_source": grounding["statement_source"]} if grounding.get("statement_source") else {}),
                 )
             finally:
                 ai_metrics.stop_observing(observer_token)
@@ -400,6 +408,7 @@ async def _attempt(
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    "statement_source": grounding.get("statement_source"),
                     "grounding_excerpt": grounding["excerpt"],
                     "source_provenance": grounding.get("source_provenance"),
                     "coverage_inventory": grounding.get("coverage_inventory"),
