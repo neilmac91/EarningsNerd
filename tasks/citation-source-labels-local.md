@@ -46,3 +46,21 @@ Self-review refutations: unchanged citation payloads and existing navigation tes
 The initial wording gave a numeric assurance based on a section-label convention. Backend `_verify_citations` accepts model-supplied section labels, and `_resolve_citations` renumbers both real numeric facts and text sources. Requiring an F# marker would therefore misclassify actual numeric citations too. The bounded frontend correction now labels every verified citation “Source match found” and states “A source match does not verify every claim in the answer.” Existing visual grouping, answers, chips, excerpts and links remain unchanged. The regression includes an ordinary text citation with an XBRL-prefixed section label, plus a real reindexed numeric fact; neither receives a stronger kind-dependent assurance.
 
 This supersedes the earlier numeric/text wording and mutation interpretation, preserving the original evidence record. The one new invariant is scoped source attribution rather than whole-answer verification. Its final committed proof will replace the earlier proof's interpretation, not claim an additional independent invariant. Root is addressing the separate expanded-popover placement issue; full frontend gating waits for that layout correction.
+
+Neutral feature `01492a7deb9f7741bced40fa0fac51862ede05bc` passes the focused committed attribution test: 15 passed in 2.71s (`outputs/citation-attribution-neutral-feature.log`). Its single updated invariant proof changes the shared scope from limited source matching to whole-answer assurance. Mutation `764f13efc8118457a45fb005c4d3690acb6a59a2` fails the visible mixed-source regression (`outputs/citation-attribution-neutral-mutation.log`):
+
+```text
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Duration  2.62s (transform 153ms, setup 69ms, import 1.64s, tests 195ms, environment 608ms)
+```
+
+Restoration `f5e502e345132a47b2164c0048c5632eb49d64b5` is byte-identical to the complete feature tree `d1278a4c718d1f2eb756d5d9326bca053e925c89`. Restored focused gate (`outputs/citation-attribution-neutral-restored.log`):
+
+```text
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Duration  2.68s (transform 168ms, setup 67ms, import 1.70s, tests 213ms, environment 601ms)
+```
+
+These are focused controls on committed state with Node22.14.0, not a replacement for the final full frontend gate after root's layout/preview adjudication. No publication, model call or account action occurred. The application tree is handed back to root unchanged after restoration.
