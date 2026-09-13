@@ -10,7 +10,7 @@ Production is verified on `earningsnerd-backend-00342-bmf` at 100%. Main CI 3473
 
 ## 1. Standing mandate and boundaries
 
-Founder authorized overnight engineering, bounded necessary DeepSeek evaluations, direct authorized account checks, draft/ready/serial exact-head squash merges and production verification. Do not ask again for routine engineering. Each confirmed fix round needs a recorded reason for additional paid measurement. The most recent observed balance before #845 was USD 85.71 from read-only workflow 34736188237 at 2026-09-13T03:44:56.7265761Z; it is not the balance after #845.
+Founder authorized overnight engineering, bounded necessary DeepSeek evaluations, direct authorized account checks, draft/ready/serial exact-head squash merges and production verification. Do not ask again for routine engineering. Each confirmed fix round needs a recorded reason for additional paid measurement. The balance before #845 was USD 85.71 from read-only workflow 34736188237 at 2026-09-13T03:44:56.7265761Z. A later read-only check, workflow 34737324323 at 2026-09-13T04:12:01.4240532Z, observed USD 85.58 after the assessment.
 
 Universe-wide pregeneration waits for the founder's explicit world-class quality confidence. Historical replay remains held separately. Flags, capacity, prices/trial/promo/registration, provider changes, destructive history/data, legal decisions, unapproved locked-anchor changes and live jobs/email/accounts as tests remain held. DeepSeek stays. Existing specific T4-retention and T9 duration-fixture approvals are historical scoped exceptions, not permission to change other anchors. Major-version merge approvals remain specific; the WeasyPrint #840 question was asked once and is pending. Do not repeat it while the founder is asleep.
 
@@ -21,6 +21,8 @@ External Agent A's debt scope is released in #829; external Agent B's annual-dur
 For this continuation's final code release, see [cash-card release](cash-card-release-2026-09-13.md). It removes only the two actual COIN cards, preserves all other 50 card fields, complete SE/MELI statements, cash/debt/financing comparisons and correct Copilot numeric sources. 3261 full PostgreSQL 15 tests pass; 52 summary attempts and 18 Copilot cases were actually assessed.
 
 Citation #843 passed 597 frontend tests. Actual pointer and original-link access were also verified in a 320 × 260 viewport, in light and dark themes. It is merged at d374232091e3540c22054776b73f0682444f2ddb, main CI 34736423269 is green, backend job 103669033573 explicitly skipped, and Vercel production deployment 6417415019 succeeded; the deployed page loaded. The local component harness proves changed-component interaction; no fresh signed-in production Copilot answer was generated as a test. Public landing mock/source claims remain outside that release.
+
+PR #805 remains open in draft at b6a3272e03ea397e3b434bfeba1e764ff91b099e after its rejected first financial assessment. It is not superseded wholesale or cleared by the later narrow fixes. Its reserved e prompt never shipped; do not revive it or launch a second assessment without a coherent correction and review. Broader causal, signed-item and measure-basis findings remain in its original readout and current todo.
 
 ## 2a. What the next session should doubt first
 

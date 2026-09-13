@@ -5255,3 +5255,6 @@ Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:2
 - [x] Citation release record #846 merged as 08b90047f33f6b60d8309abdd258dab47a1da140; its main documentation CI 34737171389 is pending at this record.
 - [x] [Overnight handover and current master-plan map](handover-astra-2026-09-13.md) records completed work, exact limits, remaining prerequisites and what to doubt first. E09 remains a proposal with explicit evidence gaps.
 - [ ] Prescribed strong-judge readout/arm decision, Analysis warm-up and Pro acceptance, Notable retain decision through September 15, natural Stripe attribution, held major approvals, D8/#270 and universe-wide quality approval remain open as listed in the handover. No replay, live test execution, provider or production-setting change is implied.
+
+
+September 13 closing correction: #805 remains open and held at b6a3272e03ea397e3b434bfeba1e764ff91b099e after its rejected first financial assessment. Broader signed-item, causal and measure-basis work is not closed by the narrower releases above. No wholesale revival or second #805 assessment occurred. Latest read-only DeepSeek balance: USD 85.58, workflow 34737324323, 2026-09-13T04:12:01.4240532Z.
