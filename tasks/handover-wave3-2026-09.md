@@ -395,9 +395,14 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** job created, smoke-tested and seeded by the founder on 2026-09-08 (`--days 7`:
   838 raw hits, 270 upserted; scheduler `notable-filings-scan` live at 08:30/18:30 ET); after
-  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` line 510 and updates the W3-2 pin
+  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in the service `--update-env-vars` (`ci.yml:585`; the pregenerate job carries its own at `:597`) and updates the W3-2 pin
   table (that test edit makes the PR deploy). Verify the deploy ran, `GET /api/notable_filings?limit=8`
-  is non-empty, and the homepage section renders in both themes after ISR.
+  is non-empty, and the homepage section renders in both themes after ISR. **The homepage section is
+  not currently mounted:** the September 10 landing revamp dropped it from the route deliberately,
+  keeping the component and fetcher for reinstatement (`frontend/lib/serverApi.ts:164`,
+  `features/filings/components/NotableFilings.tsx`), so `frontend/app/page.tsx` renders no Notable
+  section and `fetchNotableFilings` has no caller. The flip PR must re-mount it, or that last
+  criterion cannot pass.
 - **Analysis:** after the founder records the effective Vercel value and the warm-up evidence, PR
   adds `NEXT_PUBLIC_ENABLE_ANALYSIS: "true"` to `frontend/vercel.json` `env`; full frontend gate;
   Playwright with no backend; both-theme preview; production Pro-account smoke.
