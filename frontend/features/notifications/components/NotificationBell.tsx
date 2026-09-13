@@ -5,18 +5,12 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { BellIcon } from '@/lib/icons'
+import { formatLocalDate } from '@/lib/format'
 import {
   getNotifications,
   markNotificationsSeen,
   type NotificationList,
 } from '@/features/notifications/api/notifications-api'
-
-function formatDate(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 /**
  * In-app notification bell: shows recent SEC-filing alerts for the signed-in user with an unread
@@ -132,7 +126,7 @@ export default function NotificationBell() {
                       </span>
                       <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
                         {item.company_name}
-                        {item.filing_date ? ` · ${formatDate(item.filing_date)}` : ''}
+                        {item.filing_date ? ` · ${formatLocalDate(item.filing_date, 'MMM d, yyyy')}` : ''}
                       </span>
                     </span>
                   </Link>

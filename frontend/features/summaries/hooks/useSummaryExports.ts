@@ -1,19 +1,18 @@
 'use client'
 
 import { useCallback } from 'react'
-import { format } from 'date-fns'
 import { exportSummaryPdf, exportSummaryCsv } from '../api/summaries-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import analytics from '@/lib/analytics'
 import { getErrorStatus } from '@/lib/api/types'
-import { sanitizeFilename } from '@/lib/format'
+import { formatLocalDate, sanitizeFilename } from '@/lib/format'
 import { downloadBlob } from '@/lib/downloadBlob'
 
 type ExportKind = 'pdf' | 'csv'
 
-function buildFilename(filing: Filing, kind: ExportKind): string {
+export function buildFilename(filing: Filing, kind: ExportKind): string {
   const base = sanitizeFilename(filing.filing_type, 'filing')
-  const date = filing.filing_date ? format(new Date(filing.filing_date), 'yyyyMMdd') : 'summary'
+  const date = formatLocalDate(filing.filing_date, 'yyyyMMdd', 'summary')
   return `${base}_${date}.${kind}`
 }
 
