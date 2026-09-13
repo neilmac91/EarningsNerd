@@ -1,0 +1,22 @@
+{
+  "source_sha": "8b470ab6503734aee5d5ed015fd6041f42dfe792",
+  "report_sha256": "da9f529092094f771e94c94fb1c8a75f7e929c8942d6db2ef00d11d831589c29",
+  "changed_excerpts": [
+    {
+      "index": 18,
+      "ticker": "F",
+      "delta": 3161,
+      "prefix_preserved": true
+    },
+    {
+      "index": 19,
+      "ticker": "F",
+      "delta": 3161,
+      "prefix_preserved": true
+    }
+  ],
+  "all_sources_unchanged": true,
+  "all_xbrl_unchanged": true,
+  "all_leverage_unchanged": true,
+  "all_financing_comparisons_unchanged": true
+}

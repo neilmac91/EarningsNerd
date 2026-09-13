@@ -1,0 +1,15 @@
+# PR #835 Copilot acceptance
+
+Reviewed 2026-09-13 using `outputs/pr835-copilot/copilot-fidelity-34728002039`, against PR #833's third Copilot assessment. All 18 planned attempts completed and passed, with zero errors or recorded failures. No newly attributable regression was found in this cohort. Ford is not among these six accessions, so this assessment verifies compatibility rather than the new Outlook source coverage.
+
+All 24 source files independently match their recorded hash and byte count and are byte-identical to the preceding assessment. All 18 recorded inputs are identical. The source-manifest hash, golden hash, planned attempts, requested model and requested flags are unchanged. The prepared database artifact matches its recorded hash; it was not opened or queried. Root retains responsibility for merge-ref ancestry verification.
+
+Every answer was read. Requested numeric values, report periods and currencies remain correct for AAPL, TSLA, MSFT, both BABA accessions and ASML. All 26 numeric chips match an actual tool result on concept, value, unit, accession, period start and period end. All nine text chips occur in the corresponding whitespace-normalized source excerpt. Historical BABA remains bound to its viewed 2025 accession and RMB996,347 million; current BABA remains RMB1,023,670 million for 2026.
+
+Existing limitations persist. ASML has no chips in attempts 16 and 17; attempt 15 now has two correct numeric chips and one table-row text chip. The previous third assessment had no chips in all three attempts. Refutation one confirmed source and input identity, excluding a cohort-source change. Refutation two compared the identical citation-free answers in the previous assessment and the earlier PR #833 second assessment's mixed outcomes. This is existing intermittent citation coverage, not a new Outlook regression or a solved quality issue.
+
+AAPL attempts 0 and 2, and ASML attempt 15, append a sentence describing two metrics but attach a text chip containing only the revenue row. The requested figures themselves have their own correct numeric chips. Refutation one inspected the actual excerpt: the supplemental chip does not support the entire second metric claim. Refutation two compared prior artifacts: the same AAPL pattern and earlier ASML table-overclaim pattern predate this change. This remains an open citation-support limitation despite harness acceptance.
+
+BABA's redundant corroboration and convenience USD translation also remain. Refutation one verified the native amount and supporting text; no currency substitution occurred. Refutation two found the same redundant pattern in the preceding assessment. No additional correction belongs in this bounded Outlook source PR on that evidence.
+
+Acceptance is limited to unchanged Copilot sources/prompts, correct requested numbers and verified chips in this actual cohort. It is not full citation-quality clearance. This review used local artifact reads only: no model calls, network requests, database queries, tests or repository edits.
