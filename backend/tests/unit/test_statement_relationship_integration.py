@@ -81,6 +81,8 @@ async def test_original_primary_to_real_stream_final_and_exports_owns_classifica
         if ticker == "meli":
             assert "3,091" in visible and "originations growth at 61%" in visible
             assert "Recast for consistency" in visible
+            assert "deferred income tax expense/(benefit) (469)" in visible
+            assert "previously reported net income, earnings per share" in visible
         else:
             assert "1,372,616" in visible and "settlement of two securities class actions in 2024" in visible
     request = create.call_args.kwargs

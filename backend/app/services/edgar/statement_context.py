@@ -7,6 +7,7 @@ from typing import Any
 
 from lxml import html
 
+from .statement_disclosures import extract_statement_disclosures
 from .statement_relationship_source import (
     _amount, _cells, _text, extract_operating_to_pretax_source,
 )
@@ -156,5 +157,15 @@ def acquire_statement_context(source_html: str, *, accession: str, document_url:
         if first is None or first.xpath(".//table") or not _text(first).startswith("(1) ") or len(_text(first)) > 1500:
             return None
         adjacent.append({"path": document.getroottree().getpath(first), "text": _text(first)})
+    dei = next(n for n in document.iter() if n.get("name", "").lower() == "dei:documentperiodenddate")
+    context = next(n for n in document.iter() if n.get("id") == dei.get("contextref"))
+    entity = next(_text(n) for n in context.iter() if isinstance(n.tag, str)
+                  and n.tag.lower().split(":")[-1] == "identifier")
+    disclosures = extract_statement_disclosures(
+        document, accession=accession, document_url=document_url, report_period=period,
+        source_sha256=source["document_sha256"], entity_identifier=entity,
+    )
+    if disclosures is None:
+        return None
     return {**source, "operating_disclosures": rows, "expense_notes": notes,
-            "comparative_notes": adjacent, "additional_disclosures": []}
+            "comparative_notes": adjacent, "additional_disclosures": [r for r in disclosures.values() if r]}

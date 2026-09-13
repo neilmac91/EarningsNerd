@@ -1,0 +1,205 @@
+"""Bounded audited disclosures from an already parsed, selected primary document.
+
+These are neutral tax/presentation disclosures, never operating classifications.
+Missing supported roots are normal; malformed present roots fail preservation closed.
+"""
+from __future__ import annotations
+
+from datetime import date
+import re
+from typing import Any
+
+from .statement_relationship_source import _amount, _cells, _text
+
+_TAX = "us-gaap:IncomeTaxDisclosureTextBlock"
+_POLICY = "us-gaap:SignificantAccountingPoliciesTextBlock"
+_CONCEPTS = (
+    "CurrentFederalTaxExpenseBenefit", "CurrentForeignTaxExpenseBenefit", "CurrentIncomeTaxExpenseBenefit",
+    "DeferredFederalIncomeTaxExpenseBenefit", "DeferredForeignIncomeTaxExpenseBenefit",
+    "DeferredIncomeTaxExpenseBenefit", "IncomeTaxExpenseBenefit",
+)
+
+
+class _Unavailable(ValueError):
+    """The supported source cannot establish a complete disclosure."""
+
+
+def _tag(node: Any) -> str:
+    return node.tag.lower().split(":")[-1] if isinstance(node.tag, str) else ""
+
+
+def _unique(nodes: list) -> Any:
+    if len(nodes) != 1:
+        raise _Unavailable("ambiguous or missing source")
+    return nodes[0]
+
+
+def _context(ids: dict, context_id: str, entity: str, end: str) -> dict:
+    node = _unique(ids.get(context_id, []))
+    if _tag(node) != "context":
+        raise _Unavailable("not a context")
+    if any(_tag(n) in {"segment", "scenario", "explicitmember", "typedmember"} for n in node.iter()):
+        raise _Unavailable("qualified context")
+    identifier = _unique([n for n in node.iter() if _tag(n) == "identifier"])
+    if _text(identifier) != entity or identifier.get("scheme") != "http://www.sec.gov/CIK":
+        raise _Unavailable("entity mismatch")
+    start = _text(_unique([n for n in node.iter() if _tag(n) == "startdate"]))
+    actual_end = _text(_unique([n for n in node.iter() if _tag(n) == "enddate"]))
+    if actual_end != end or not 320 <= (date.fromisoformat(end) - date.fromisoformat(start)).days <= 390:
+        raise _Unavailable("period mismatch")
+    return {"context_id": context_id, "entity": entity, "period_start": start, "period_end": end}
+
+
+def _chain(root: Any, ids: dict) -> list:
+    result, seen = [], set()
+    node = root
+    while node is not None:
+        ident = node.get("id")
+        if not ident or ident in seen or len(result) >= 100 or len(ids.get(ident, [])) != 1:
+            raise _Unavailable("broken continuation")
+        seen.add(ident)
+        if node.get("xsi:nil") or node.get("nil"):
+            raise _Unavailable("nil disclosure")
+        result.append(node)
+        next_id = node.get("continuedat")
+        node = _unique(ids.get(next_id, [])) if next_id else None
+        if node is not None and _tag(node) != "continuation":
+            raise _Unavailable("invalid continuation target")
+    return result
+
+
+def _tax(chain: list, ids: dict, entity: str, report: date) -> dict:
+    tables = {n for root in chain for n in root.iter() if _tag(n) == "table"
+              and any(x.get("name") == "us-gaap:DeferredIncomeTaxExpenseBenefit" for x in n.iter())}
+    table = _unique(list(tables))
+    rows = table.xpath("./tr|./tbody/tr")
+    matrix = [_cells(row) for row in rows]
+    if any(c is None for c in matrix) or table.xpath('.//table'):
+        raise _Unavailable("unsupported table")
+    # Exact supported header/group layout; no table index or issuer selector.
+    labels = [c[0]["text"] if c else "" for c in matrix]
+    if len(rows) != 14 or labels[4:] != ["Income Tax:", "Current:", "U.S.", "Non-U.S.", "", "Deferred:", "U.S.", "Non-U.S.", "", "Income tax expense"]:
+        raise _Unavailable("incomplete tax groups")
+    if [c['text'] for c in matrix[1] if c['text']] != [f"Year Ended {report.strftime('%B')} {report.day},"]:
+        raise _Unavailable("missing period header")
+    if [c['text'] for c in matrix[3] if c['text']] != ["(In millions)"]:
+        raise _Unavailable("missing unit header")
+    headers = [c for c in matrix[2] if c['text']]
+    if [c['text'] for c in headers] != [str(report.year - i) for i in range(3)]:
+        raise _Unavailable("column years")
+    width = max(c['column'] + c['colspan'] for row in matrix for c in row)
+    numeric_rows = [6, 7, 8, 10, 11, 12, 13]
+    all_facts = [n for n in table.iter() if _tag(n) == "nonfraction"]
+    if len(all_facts) != 21:
+        raise _Unavailable("extra/missing numeric facts")
+    columns = []
+    for j, header in enumerate(headers):
+        year = report.year - j
+        end = report.replace(year=year).isoformat()
+        first, last = header['column'], headers[j + 1]['column'] if j < 2 else width
+        values = []
+        for row_index, concept in zip(numeric_rows, _CONCEPTS):
+            amount = _amount(matrix[row_index], first, last, 1_000_000)
+            if amount is None:
+                raise _Unavailable("invalid displayed amount")
+            nodes = [n for n in rows[row_index].iter() if _tag(n) == "nonfraction"]
+            if len(nodes) != 3:
+                raise _Unavailable("missing column fact")
+            fact = nodes[j]
+            if not fact.get('id') or len(ids.get(fact.get('id'), [])) != 1:
+                raise _Unavailable('ambiguous fact identity')
+            if fact.get("name") != "us-gaap:" + concept or fact.get("scale") != "6" or fact.get("decimals") != "-6":
+                raise _Unavailable("concept or scale mismatch")
+            if fact.get("continuedat") or fact.get("xsi:nil") or fact.get("nil") or fact.get("sign", "") not in {"", "-"}:
+                raise _Unavailable("unsupported fact")
+            if fact.get("format", "") not in {"", "ixt:num-dot-decimal"}:
+                raise _Unavailable("unsupported number format")
+            lexical = _text(fact)
+            if not re.fullmatch(r"\d{1,3}(?:,\d{3})+|\d+", lexical):
+                raise _Unavailable("unsupported numeric text")
+            value = int(lexical.replace(',', '')) * 1_000_000 * (-1 if fact.get('sign') == '-' else 1)
+            if value != amount['value']:
+                raise _Unavailable("displayed sign or amount differs")
+            # Ensure the tagged fact belongs to this header's actual cell group.
+            cells = rows[row_index].xpath('./td|./th')
+            owner = next((i for i, c in enumerate(cells) if fact in c.iter()), None)
+            if owner is None or not first <= matrix[row_index][owner]['column'] < last:
+                raise _Unavailable("fact outside selected column")
+            unit = _unique(ids.get(fact.get('unitref'), []))
+            if _tag(unit) != 'unit' or [_text(n) for n in unit.iter() if _tag(n) == 'measure'] != ['iso4217:USD'] or any(_tag(n) == 'divide' for n in unit.iter()):
+                raise _Unavailable("unknown currency")
+            context = _context(ids, fact.get('contextref'), entity, end)
+            values.append({"concept": 'us-gaap:' + concept, "value": value,
+                           "fact_id": fact.get('id'), "row": row_index, **context})
+        amounts = [v['value'] for v in values]
+        if amounts[0] + amounts[1] != amounts[2] or amounts[3] + amounts[4] != amounts[5] or amounts[2] + amounts[5] != amounts[6]:
+            raise _Unavailable("tax subtotal mismatch")
+        if len({v['period_start'] for v in values}) != 1:
+            raise _Unavailable("mixed annual durations")
+        columns.append({"year": year, "rows": values})
+    current = columns[0]['rows']
+    def formatted(value: int) -> str:
+        number = f"{abs(value) // 1_000_000:,}"
+        return f"({number})" if value < 0 else number
+    text = (f"Income-tax disclosure, year ended {report.isoformat()} (USD millions): "
+            f"current income tax expense/(benefit) {formatted(current[2]['value'])}; "
+            f"deferred income tax expense/(benefit) {formatted(current[5]['value'])}; "
+            f"income tax expense/(benefit) {formatted(current[6]['value'])}.")
+    return {"text": text, "table_path": table.getroottree().getpath(table),
+            "currency": "USD", "scale": 1_000_000, "columns": columns}
+
+
+def _presentation(chain: list) -> dict | None:
+    headings = [n for root in chain for n in root.iter() if _tag(n) in {'div', 'p'}
+                and not n.xpath('.//div|.//p|.//table')
+                and re.fullmatch(r'Reclassification of \d{4} results', _text(n))]
+    if not headings:
+        return None
+    heading = _unique(headings)
+    siblings = [n for n in heading.itersiblings() if _text(n)]
+    if len(siblings) != 2:
+        raise _Unavailable('incomplete presentation subsection')
+    paragraphs = [_text(n) for n in siblings]
+    if any(_tag(n) not in {'div', 'p'} or n.xpath('.//div|.//p|.//table') for n in siblings):
+        raise _Unavailable('nonparagraph disclosure')
+    year = re.search(r'\d{4}', _text(heading))[0]
+    if (not paragraphs[0].startswith('According to the Accounting Standards Codification')
+            or f'{year} results have been reclassified' not in paragraphs[0]
+            or not paragraphs[1].startswith('This reclassification did not have an impact on previously reported ')
+            or any(not p.endswith('.') for p in paragraphs)
+            or sum(map(len, paragraphs)) > 1500):
+        raise _Unavailable('unsupported complete disclosure')
+    return {'heading': _text(heading), 'paragraphs': paragraphs,
+            'paths': [n.getroottree().getpath(n) for n in [heading, *siblings]],
+            'text': 'Filing disclosure — ' + _text(heading) + ': ' + ' '.join(paragraphs)}
+
+
+def extract_statement_disclosures(root: Any, *, accession: str, document_url: str,
+                                 report_period: str, source_sha256: str,
+                                 entity_identifier: str) -> dict | None:
+    """Supplied identity is the caller's validated source binding; never refetch HTML."""
+    try:
+        report = date.fromisoformat(report_period)
+        if (not accession or not document_url or not re.fullmatch(r'[0-9a-f]{64}', source_sha256)
+                or not re.fullmatch(r'\d{10}', entity_identifier)):
+            return None
+        ids: dict[str, list] = {}
+        for node in root.iter():
+            if node.get('id'):
+                ids.setdefault(node.get('id'), []).append(node)
+        result = {'tax_disclosure': None, 'presentation_disclosure': None}
+        for concept, key in [(_TAX, 'tax_disclosure'), (_POLICY, 'presentation_disclosure')]:
+            matches = [n for n in root.iter() if n.get('name') == concept]
+            if not matches:
+                continue
+            node = _unique(matches)
+            context = _context(ids, node.get('contextref'), entity_identifier, report_period)
+            chain = _chain(node, ids)
+            record = _tax(chain, ids, entity_identifier, report) if key == 'tax_disclosure' else _presentation(chain)
+            if record is not None:
+                result[key] = {**record, **context, 'accession': accession, 'document_url': document_url,
+                               'source_sha256': source_sha256, 'root_concept': concept,
+                               'root_id': node.get('id')}
+        return result
+    except (ValueError, TypeError, AttributeError, KeyError, StopIteration):
+        return None
