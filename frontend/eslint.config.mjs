@@ -42,6 +42,7 @@ const QUERY_KEY_RULES = [
 // file's call count and keeps the list shrink-only); adding one is a reviewed
 // decision, not a disable comment. Rule-12 gate for "never raw fetch again".
 const RAW_FETCH_ALLOWLIST = RAW_FETCH_ALLOWLIST_FILES
+const CALENDAR_SORT_ALLOWLIST = ['features/filings/lib/recommendedFiling.ts']
 const RAW_FETCH_MESSAGE =
   'Raw fetch() is forbidden — route HTTP through the shared axios client (lib/api/client.ts). ' +
   'SSE readers and Next server/ISR fetches are the only exceptions, allow-listed in eslint.rawFetchAllowlist.mjs.'
@@ -60,10 +61,11 @@ const RAW_FETCH_RULES = [
 // lib/format.ts::formatLocalDate exists precisely for this and its docblock says so, yet the rule had
 // rotted at six sites. CI cannot catch it by accident: CI runs in UTC, where the bug is invisible.
 //
-// SCOPE, stated honestly: these selectors catch the mechanical shapes that actually occurred plus
-// the inline parseISO one. They do NOT catch the indirect form (`const d = new Date(x)` or
-// `parseISO(x)` on one line, `format(d, …)` on the next) — after this change no such helper remains
-// in app code, but a new one would slip past. The
+// SCOPE: the shape selectors below catch the mechanical forms that actually occurred. They cannot
+// see the INDIRECT form (`const d = new Date(x)` on one line, `format(d, …)` on the next), which is
+// the shape that recreates the production defect while a gate reports success — so
+// CALENDAR_FIELD_RULES closes it from the other end, by forbidding construction of a Date (or a
+// parseISO) from a known calendar-date field at all, however the result is later used. The
 // load-bearing gate is the behavioural one, tests/unit/filing-date-local-day.spec.tsx, which pins the
 // rendered output with TZ set to a US zone. Do not read this lint rule as more than it is.
 const LOCAL_DATE_MESSAGE =
@@ -71,6 +73,32 @@ const LOCAL_DATE_MESSAGE =
   'this renders the previous day for viewers behind UTC. Use formatLocalDate from lib/format.ts. ' +
   '(A genuine timestamp — created_at, updated_at — should be assigned to a variable first, which ' +
   'documents that the local-time render is intended.)'
+/** The API's calendar-date fields. Each is a UTC-midnight instant on the wire, so constructing a
+ *  Date from one is the root of the whole defect class — banning the construction catches the
+ *  indirect form that no shape-based selector can see. Adding a new calendar-date field to the API
+ *  means adding it here.
+ *
+ *  Descendant match, not a direct child: `new Date(filing.filing_date as string)` wraps the member
+ *  in a TSAsExpression, and a parenthesised expression or a `?? ''` fallback wraps it too, so `>`
+ *  silently missed exactly the shape this rule exists to catch. Measured, not assumed. */
+const CALENDAR_DATE_FIELDS =
+  'filing_date|filed_date|period_end_date|earnings_date|event_date|transaction_date|last_transaction_date|report_date'
+const CALENDAR_FIELD_MESSAGE =
+  'Do not build a Date from an API calendar-date field — it is a UTC-midnight instant, so any ' +
+  'later render shows the previous day for viewers behind UTC. Pass the raw string to ' +
+  'formatLocalDate from lib/format.ts instead. (Comparing two of them as instants is fine; ' +
+  'features/filings/lib/recommendedFiling.ts is allow-listed for exactly that.)'
+const CALENDAR_FIELD_RULES = [
+  {
+    selector: `NewExpression[callee.name='Date'] MemberExpression[property.name=/^(${CALENDAR_DATE_FIELDS})$/]`,
+    message: CALENDAR_FIELD_MESSAGE,
+  },
+  {
+    selector: `CallExpression[callee.name='parseISO'] MemberExpression[property.name=/^(${CALENDAR_DATE_FIELDS})$/]`,
+    message: CALENDAR_FIELD_MESSAGE,
+  },
+]
+
 const DATE_RULES = [
   {
     // format(new Date(x), …). `new Date()` with no argument (meaning "now") is deliberately allowed.
@@ -125,18 +153,32 @@ const config = [
   // still apply to them.
   {
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: [...TEST_FILES, 'lib/queryKeys.ts', ...RAW_FETCH_ALLOWLIST],
+    ignores: [...TEST_FILES, 'lib/queryKeys.ts', ...RAW_FETCH_ALLOWLIST, ...CALENDAR_SORT_ALLOWLIST],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...QUERY_KEY_RULES,
+        ...RAW_FETCH_RULES,
+        ...DATE_RULES,
+        ...CALENDAR_FIELD_RULES,
+      ],
+    },
+  },
+  // Sorting compares two filing dates AS INSTANTS and never renders them, which is the one correct
+  // reason to build a Date from a calendar-date field. Every other gate still applies here.
+  {
+    files: CALENDAR_SORT_ALLOWLIST,
     rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES] },
   },
   // The query-key registry defines keys as literals, so only the fetch gate applies to it.
   {
     files: ['lib/queryKeys.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES] },
   },
   // The sanctioned raw-fetch sites still get the query-key gate.
   {
     files: RAW_FETCH_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES] },
   },
 ]
 
