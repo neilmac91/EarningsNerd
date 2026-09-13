@@ -74,7 +74,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const above = anchor.top - gap - bounds.height
     const below = anchor.bottom + gap
     const preferredTop = above >= margin ? above : below
-    const top = anchor.top > 220 ? above : below // mutation: restore fixed-height placement
+    const top = Math.max(margin, Math.min(preferredTop, window.innerHeight - bounds.height - margin))
     const left = Math.max(margin + bounds.width / 2,
       Math.min(anchor.left + anchor.width / 2, window.innerWidth - margin - bounds.width / 2))
     // DOM placement avoids a second React render and stays paired with this measured card.
