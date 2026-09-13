@@ -147,3 +147,81 @@ async def test_unavailable_and_legacy_paths_keep_original_prose(monkeypatch):
                "structured": {CONTEXT_KEY: 1}, CONTEXT_KEY: marker}
         text = sections_to_markdown(render_sections(raw))
         assert FALSE in text and "FORGED SOURCE" not in text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cache_mode", ["fresh", "valid", "stale"])
+async def test_real_pipeline_only_acquires_from_already_fetched_primary(tmp_path, monkeypatch, cache_mode):
+    from datetime import date, timedelta
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app import database
+    from app.models import Base, Filing, FilingContentCache
+    from app.services import summary_pipeline as pipeline
+    from app.utils.datetimes import utcnow
+    from tests.support.summary_stream_harness import stream_boundaries, seed_company_filing, reset_inflight
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'pipeline.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    fid = seed_company_filing()
+    with database.SessionLocal() as db:
+        filing = db.get(Filing, fid)
+        filing.period_end_date = date(2025, 12, 31)
+        filing.accession_number = SOURCES["meli"][0]
+        filing.company.cik = "0001099590"
+        if cache_mode != "fresh":
+            when = utcnow() - timedelta(days=2 if cache_mode == "stale" else 0)
+            db.add(FilingContentCache(filing_id=fid, critical_excerpt="UNCHANGED CACHED EXCERPT",
+                                      created_at=when, updated_at=when))
+        db.commit()
+    reset_inflight()
+    fetch = AsyncMock(return_value=original("meli").decode())
+    observed = []
+    acquire = pipeline.acquire_statement_context
+
+    def inspect_acquire(*args, **kwargs):
+        observed.append((args, kwargs))
+        return acquire(*args, **kwargs)
+
+    with stream_boundaries() as summarize:
+        monkeypatch.setattr(pipeline.sec_edgar_service, "get_filing_document", fetch)
+        monkeypatch.setattr(pipeline, "acquire_statement_context", inspect_acquire)
+        events = [e async for e in pipeline.stream_filing_summary(
+            filing_id=fid, current_user=None, user_id=None, telemetry_distinct_id="offline",
+            telemetry_entry_point="offline", telemetry_ctx={},
+        )]
+        assert not any(e["type"] == "error" for e in events)
+        kwargs = summarize.call_args.kwargs
+        if cache_mode == "valid":
+            assert observed == []
+            assert "statement_source" not in kwargs
+            assert summarize.call_args.args[0] == ""
+        else:
+            assert len(observed) == 1
+            assert fetch.await_count == 1
+            assert kwargs["statement_source"]["document_sha256"] == SOURCES["meli"][1]
+            assert kwargs["statement_source"]["period_of_report"] == "2025-12-31"
+            assert observed[0][1]["report_period"] == "2025-12-31"
+            assert kwargs["filing_excerpt"] == "EXCERPT"  # Independent existing model selection.
+    reset_inflight()
+    engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_eval_reuses_existing_primary_fetch_and_same_source_owner(monkeypatch):
+    from evals.runner import _get_grounding
+    from app.services.edgar.compat import sec_edgar_service, xbrl_service
+    from app.config import settings
+
+    fetch = AsyncMock(return_value=(original("meli").decode(), {"selected": "primary"}))
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", False)
+    filing = SimpleNamespace(filing_type="10-K", ticker="MELI", cik="0001099590",
+                             accession_number=SOURCES["meli"][0], document_url="https://example.test/primary.htm")
+    grounding = await _get_grounding(filing)
+    assert fetch.await_count == 1
+    assert grounding["statement_source"] == source("meli")
+    assert grounding["xbrl_metrics"] is None
+    assert grounding["source_provenance"] == {"selected": "primary"}
