@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
@@ -49,6 +49,56 @@ describe('CitationChip with an in-app filing viewer', () => {
     // not hold focusable content.
     expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it.each([
+    { height: 863, width: 1024, chipTop: 253, naturalHeight: 312 },
+    { height: 260, width: 320, chipTop: 128, naturalHeight: 500 },
+  ])('keeps the measured card inside $width × $height and scrollable without losing actions', ({ height, width, chipTop, naturalHeight }) => {
+    vi.stubGlobal('innerHeight', height)
+    vi.stubGlobal('innerWidth', width)
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('role') === 'group') {
+        // JSDOM has no layout. Supply the observed natural source height and browser-style
+        // max-height/max-width sizing, then read the component's actual positioned coordinates.
+        const maxHeight = Number.parseFloat(this.style.maxHeight) || Infinity
+        const maxWidth = Number.parseFloat(this.style.maxWidth) || Infinity
+        const cardHeight = Math.min(naturalHeight, maxHeight)
+        const cardWidth = Math.min(256, maxWidth)
+        const top = Number.parseFloat(this.style.top) || 0
+        const left = (Number.parseFloat(this.style.left) || 0) - cardWidth / 2
+        return { top, left, bottom: top + cardHeight, right: left + cardWidth,
+          width: cardWidth, height: cardHeight, x: left, y: top, toJSON: () => ({}) } as DOMRect
+      }
+      return { top: chipTop, bottom: chipTop + 18, left: width - 40, right: width - 22,
+        width: 18, height: 18, x: width - 40, y: chipTop, toJSON: () => ({}) } as DOMRect
+    })
+    try {
+      render(<FilingViewerProvider><CitationChip citation={citation} /><RequestProbe /></FilingViewerProvider>)
+      const chip = screen.getByRole('button', { name: /citation 1:/i })
+      fireEvent.focus(chip)
+      const card = screen.getByRole('group', { name: /citation 1:/i })
+      const bounds = card.getBoundingClientRect()
+      expect(bounds.top).toBeGreaterThanOrEqual(8)
+      expect(bounds.bottom).toBeLessThanOrEqual(height - 8)
+      expect(bounds.left).toBeGreaterThanOrEqual(8)
+      expect(bounds.right).toBeLessThanOrEqual(width - 8)
+      expect(card).toHaveStyle({ overflowY: 'auto' })
+      fireEvent.scroll(card)
+      expect(card).toBeInTheDocument()
+      fireEvent.scroll(screen.getByText(citation.excerpt))
+      expect(card).toBeInTheDocument()
+      const original = screen.getByRole('link', { name: /open original/i })
+      fireEvent.focus(original)
+      expect(original).toHaveAttribute('href', citation.fragment_url)
+      fireEvent.click(chip)
+      expect(screen.getByTestId('probe')).toHaveTextContent('req:1')
+      fireEvent.scroll(window)
+      expect(screen.queryByRole('group', { name: /citation 1:/i })).toBeNull()
+    } finally {
+      rectSpy.mockRestore()
+      vi.unstubAllGlobals()
+    }
   })
 
   it('falls back to a SEC-jump link when no viewer is mounted', () => {

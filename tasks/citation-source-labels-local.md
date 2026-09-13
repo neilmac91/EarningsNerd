@@ -64,3 +64,10 @@ Restoration `f5e502e345132a47b2164c0048c5632eb49d64b5` is byte-identical to the 
 ```
 
 These are focused controls on committed state with Node22.14.0, not a replacement for the final full frontend gate after root's layout/preview adjudication. No publication, model call or account action occurred. The application tree is handed back to root unchanged after restoration.
+
+
+## September 13 viewport correction
+
+Root's read-only browser measurement confirmed the neutral card clipped above the viewport: citation 9 card top −67, bottom 245, height 312 with chip top 253 and viewport height 863. Placement now measures the actual card before paint, clamps its bounds to an eight-pixel viewport margin, and bounds the whole card's width/height with internal scrolling. Scroll events from the card or its excerpt no longer dismiss it; surrounding-page scrolling and resize still do. Portal, focused access, viewer highlight and original-source links remain unchanged.
+
+The new viewport-fit invariant has an integrated component control using the observed dimensions plus a narrow/short viewport with oversized content. JSDOM does not render layout: its geometry shim supplies natural content size and max-size behavior, then asserts the component's actual final bounds and reachable scroll/link/highlight behavior. This is an offline control, not a substitute for root's final real-browser acceptance.
