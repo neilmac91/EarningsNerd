@@ -1,0 +1,99 @@
+{
+  "report_sha256": "3e840e887280ed3699948e2a75b993abd0e530e33258e637cafc1507dccecaab",
+  "actual_count": 52,
+  "issues": [],
+  "provider_calls": 52,
+  "provider_outcomes": {
+    "success": 52
+  },
+  "summary_attempts": 52,
+  "summary_outcomes": {
+    "complete": 52
+  },
+  "usage": {
+    "prompt_tokens": {
+      "known_total": 2179026,
+      "known_calls": 52,
+      "unknown_calls": 0
+    },
+    "completion_tokens": {
+      "known_total": 193952,
+      "known_calls": 52,
+      "unknown_calls": 0
+    },
+    "total_tokens": {
+      "known_total": 2372978,
+      "known_calls": 52,
+      "unknown_calls": 0
+    },
+    "cache_hit_tokens": {
+      "known_total": 2168832,
+      "known_calls": 52,
+      "unknown_calls": 0
+    },
+    "cache_miss_tokens": {
+      "known_total": 10194,
+      "known_calls": 52,
+      "unknown_calls": 0
+    }
+  },
+  "source_sha": "146d7e4b2480941a91755a0f073d0f5d1f188071",
+  "all_source_excerpt_xbrl_unchanged": true,
+  "locked_anchors": [
+    {
+      "file": "backend/tests/integration/test_summary_stream_contract.py",
+      "identical": true,
+      "sha256": "4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a"
+    },
+    {
+      "file": "backend/tests/unit/test_background_generation_characterization.py",
+      "identical": true,
+      "sha256": "5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9"
+    },
+    {
+      "file": "backend/tests/unit/test_generation_requires_account.py",
+      "identical": true,
+      "sha256": "1360430fb3a884800ddb962651d6c9369198b89fdcd0ef671d1726934389f22a"
+    },
+    {
+      "file": "backend/tests/unit/test_subscription_webhook_sync.py",
+      "identical": true,
+      "sha256": "a00853b94d4bb7127a82d987af8f9a57395fa2789ff638ed9c4febaaf78aaf02"
+    },
+    {
+      "file": "backend/tests/unit/test_expired_trial_gating.py",
+      "identical": true,
+      "sha256": "6daf082a0a098431cd664730418277e1c237adaf50c614fb48654587d6be8413"
+    },
+    {
+      "file": "backend/tests/unit/test_filing_scan.py",
+      "identical": true,
+      "sha256": "fab53148fcdac656dd8b28dffa976420cec2b655d2b1186843599a2e065cc5b1"
+    },
+    {
+      "file": "backend/tests/unit/test_refresh_replay.py",
+      "identical": true,
+      "sha256": "b57d1f662628e1febbe7d9eeef1928da80c177422fb5584e65b59d29a430e6c3"
+    },
+    {
+      "file": "backend/tests/unit/test_companyfacts_fixture.py",
+      "identical": true,
+      "sha256": "a2b20e66828f605bbabbd6b604a001d22943c1044a83776d4445e04c3e644794"
+    },
+    {
+      "file": "frontend/tests/unit/summaryStream.contract.spec.ts",
+      "identical": true,
+      "sha256": "4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf"
+    },
+    {
+      "file": "backend/tests/unit/test_auth_flow.py",
+      "identical": true,
+      "sha256": "4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9"
+    },
+    {
+      "file": "backend/tests/unit/test_stripe_webhook.py",
+      "identical": true,
+      "sha256": "ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78"
+    }
+  ]
+}
