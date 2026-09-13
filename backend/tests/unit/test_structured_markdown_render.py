@@ -247,7 +247,8 @@ def test_apply_structured_fallbacks_authors_cash_conversion():
     income — a derived relationship in no single XBRL magnitude) plus free cash flow. ONE-HOME: the
     ratio + FCF, never the OCF/NI dollar levels (those live in §8 / §2)."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
@@ -264,7 +265,8 @@ def test_apply_structured_fallbacks_authors_cash_conversion():
 def test_apply_structured_fallbacks_cash_conversion_ratio_only_when_fcf_absent():
     """FCF may be underivable (no capex tag); the ratio alone still grounds the accrual read."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
     }
@@ -279,7 +281,8 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
     business generated cash despite the loss (non-cash charges/impairments). Stated qualitatively (a
     conversion multiple against a negative denominator is meaningless); FCF still appended."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 3_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 2_000_000_000, "period": "FY2025"}},
@@ -294,7 +297,8 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
 def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf_no_fcf():
     """The cash-despite-a-loss read stands alone when FCF is underivable (no capex tag)."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 3_000_000_000, "period": "FY2025"}},
     }
@@ -308,7 +312,8 @@ def test_apply_structured_fallbacks_cash_conversion_loss_and_cash_burn_authors_n
     read to surface here (the model's operating_vs_one_time / red_flags cover it) — author nothing,
     never an empty stub. Pins the deliberate drop (rule 12)."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": -3_000_000_000, "period": "FY2025"}},
     }
@@ -321,7 +326,8 @@ def test_apply_structured_fallbacks_cash_conversion_negative_ocf_positive_ni():
     """A negative operating cash flow against a POSITIVE net income is a real accrual red flag — the
     negative multiple is authored, not suppressed. Pins the documented behavior (rule 12)."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": -4_000_000_000, "period": "FY2025"}},
     }
@@ -336,7 +342,8 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
     through to FCF-only without raising."""
     # net_income + free_cash_flow, NO operating_cash_flow.
     s1: dict = {}
-    openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {"financial_classification": {"is_financial": False}, 
+    openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
@@ -344,7 +351,8 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
 
     # operating_cash_flow + free_cash_flow, NO net_income.
     s2: dict = {}
-    openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {"financial_classification": {"is_financial": False}, 
+    openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {
+        "financial_classification": {"is_financial": False},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
@@ -361,7 +369,8 @@ def test_apply_structured_fallbacks_cash_conversion_strips_stray_model_text_for_
         # Fabricated figure + an OBJECTIVITY-banned adjective — exactly what must not survive.
         "cash_conversion": "Cash conversion was robust at $77.7B of operating cash flow.",
     }}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_interest_income": {"current": {"value": 5_000_000_000, "period": "FY2025"}},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
@@ -388,7 +397,8 @@ def test_apply_structured_fallbacks_cash_conversion_near_breakeven_is_qualitativ
     = 250x) and reads as noise, so above the ±10x band the read is stated qualitatively — the signal
     (cash far exceeding income) without an absurd multiple."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 10_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 2_500_000_000, "period": "FY2025"}},
     }
@@ -403,14 +413,16 @@ def test_apply_structured_fallbacks_cash_conversion_ratio_band_boundary():
     """The ±10x band is inclusive: exactly 10.0x still prints the multiple; just beyond flips to the
     qualitative read."""
     s1: dict = {}
-    openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {"financial_classification": {"is_financial": False}, 
+    openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 1_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 10_000_000_000, "period": "FY2025"}},
     })
     assert s1["earnings_quality"]["cash_conversion"] == "Operating cash flow was 10.0x net income (cash conversion)."
 
     s2: dict = {}
-    openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {"financial_classification": {"is_financial": False}, 
+    openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 1_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 11_000_000_000, "period": "FY2025"}},
     })
@@ -779,7 +791,8 @@ def test_apply_structured_fallbacks_cash_conversion_large_negative_ratio_is_qual
     """A large operating cash OUTFLOW against a small positive income (NI $10M / OCF -$2.5B = -250x) is
     the same denominator-noise problem on the negative side — stated qualitatively as the red flag it is."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 10_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": -2_500_000_000, "period": "FY2025"}},
     }
@@ -795,7 +808,8 @@ def test_apply_structured_fallbacks_cash_conversion_suppressed_for_banks():
     balance sheet, lending/deposit-driven cash flow). Gated on the SAME predicate as the bank
     grounding NOTE — presence of a bank revenue component suppresses the field entirely."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_interest_income": {"current": {"value": 5_000_000_000, "period": "FY2025"}},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
@@ -819,7 +833,8 @@ def test_apply_structured_fallbacks_cash_conversion_uses_reporting_currency():
     """FCF is a monetary figure; a foreign issuer's must carry the ISO prefix, never a bare '$'. The
     unitless ratio is currency-agnostic."""
     sections: dict = {}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "reporting_currency": "EUR",
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
@@ -839,7 +854,8 @@ def test_apply_structured_fallbacks_cash_conversion_overwrites_model_text():
         "operating_vs_one_time": "Reported net income included a $2.1B unrealized equity gain.",
         "cash_conversion": "The company generated strong cash flow of $99B this period.",
     }}
-    xbrl = {"financial_classification": {"is_financial": False}, 
+    xbrl = {
+        "financial_classification": {"is_financial": False},
         "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
         "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
