@@ -137,3 +137,21 @@ def test_original_header_variant_never_emits_invalid_comparative_date():
     assert extract_operating_to_pretax_source(html.tostring(document), accession=SOURCES["meli"][0],
                                               document_url="https://example.test/selected-primary.htm",
                                               period_of_report="2024-02-29") is None
+
+
+def test_original_statement_numeric_subcolumns_cannot_fuse_into_reconciled_values():
+    document = html.fromstring(original("meli"))
+    rows = document.xpath("//table")[54].xpath("./tr|./tbody/tr")
+    # Retain original title, unit, year bands, row identities and cell positions.
+    # Two numeric cells per band previously fused 1|10, 2|20, 3|30 into
+    # 110 + 220 + 0 + 0 = 330, so bridge arithmetic alone did not refute it.
+    for row_index, pair in ((15, ("1", "10")), (18, ("2", "20")),
+                            (19, ("0", "0")), (20, ("0", "0")), (21, ("3", "30"))):
+        column = 0
+        for cell in rows[row_index]:
+            span = int(cell.get("colspan", "1"))
+            if column >= 3:
+                offset = (column - 3) % 6
+                set_text(cell, pair[0] if offset == 0 else pair[1] if offset == 2 else "")
+            column += span
+    assert extract(html.tostring(document), "meli") is None
