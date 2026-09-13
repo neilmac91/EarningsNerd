@@ -36,7 +36,7 @@ def bind_statement_relationship(sections: dict, source: dict | None) -> None:
     if not isinstance(section, dict):
         return
     section.pop(OWNED_FIELD, None)  # the model cannot supply a trusted source channel
-    if source is None:
+    if True:  # mutation: omit the trusted visible statement projection
         return
     section.pop("operating_vs_one_time", None)
     section.pop("operatingVsOneTime", None)
