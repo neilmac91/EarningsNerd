@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -37,7 +38,6 @@ const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const read = (rel: string) => readFileSync(path.join(frontendDir, rel), 'utf8')
 
 const designSystem = read('DESIGN_SYSTEM.md')
-const tailwindConfig = read('tailwind.config.js')
 const globalsCss = read('app/globals.css')
 const layout = read('app/layout.tsx')
 
@@ -113,25 +113,31 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   const SANCTIONED_STACKS = ['body', 'sans']
   const SANCTIONED_CSS_VARS = ['--font-body', '--font-active']
 
-  /** `key: [...]` out of tailwind.config.js's fontFamily block. */
-  const stack = (key: string): string => {
-    const m = tailwindConfig.match(new RegExp(`\\n\\s*${key}: \\[([^\\]]*)\\]`))
-    if (!m) throw new Error(`tailwind.config.js has no fontFamily.${key} stack`)
-    return m[1]
+  /** The fontFamily object Tailwind itself will consume, obtained by EVALUATING the config rather
+   *  than parsing it. Two regex attempts at this were each narrower than the rule: the first read a
+   *  fixed table of names, the second matched only bare-identifier keys and so ignored a valid
+   *  quoted one like `'display-alt'`. Text matching keeps losing to JavaScript syntax; the loaded
+   *  object cannot, and it also covers keys built by a spread or a helper. */
+  const fontFamilies = (): Record<string, string[]> => {
+    const required = createRequire(import.meta.url)
+    const config = required(path.join(frontendDir, 'tailwind.config.js')) as {
+      theme?: { extend?: { fontFamily?: Record<string, string[]> } }
+    }
+    const families = config.theme?.extend?.fontFamily
+    if (!families) throw new Error('tailwind.config.js exposes no theme.extend.fontFamily')
+    return families
   }
-  /** `--name: <value>;` out of globals.css. */
+  const stack = (key: string): string[] => {
+    const value = fontFamilies()[key]
+    if (!value) throw new Error(`tailwind.config.js has no fontFamily.${key} stack`)
+    return value
+  }
+  /** `--name: <value>;` out of globals.css. CSS custom properties cannot be quoted or computed, so
+   *  reading the text is sound here in a way it is not for the JavaScript config. */
   const cssVar = (name: string): string => {
     const m = globalsCss.match(new RegExp(`\\n\\s*${name}: ([^;]*);`))
     if (!m) throw new Error(`app/globals.css has no ${name}`)
     return m[1].trim()
-  }
-
-  /** The fontFamily block, delimited by the indentation of its own opening line, so a brace that
-   *  later appears inside one of its comments cannot throw the scan off. */
-  const fontFamilyBlock = (): string => {
-    const m = tailwindConfig.match(/\n(\s*)fontFamily: \{\n([\s\S]*?)\n\1\},/)
-    if (!m) throw new Error('tailwind.config.js has no fontFamily block')
-    return m[2]
   }
 
   // A fixed table of names checks only the stacks that existed when it was written, so a stack or
@@ -139,14 +145,15 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   // rule it enforces" defect as an extension allowlist. These two tests close that: every declared
   // name must be classified as var-led or sanctioned, so adding one without deciding which fails.
   it('classifies every fontFamily stack, so a new one cannot slip past ungated', () => {
-    const declared = [...fontFamilyBlock().matchAll(/\n\s*([A-Za-z_$][\w$]*): \[/g)].map((m) => m[1])
-    expect(declared.slice().sort()).toEqual(
+    expect(Object.keys(fontFamilies()).sort()).toEqual(
       [...Object.keys(VAR_LED_STACKS), ...SANCTIONED_STACKS].sort(),
     )
   })
 
   it('classifies every :root font variable, so a new one cannot slip past ungated', () => {
-    const declared = [...globalsCss.matchAll(/\n\s*(--font-[a-z-]+):/g)].map((m) => m[1])
+    // [\w-] rather than [a-z-]: a variable named --font-UI or --font-ui2 is just as much a font
+    // stack, and a gate that cannot see it is the same defect one layer down.
+    const declared = [...globalsCss.matchAll(/\n\s*(--font-[\w-]+):/g)].map((m) => m[1])
     expect(declared.slice().sort()).toEqual(
       [...Object.keys(VAR_LED_CSS_VARS), ...SANCTIONED_CSS_VARS].sort(),
     )
@@ -160,7 +167,7 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   it.each(Object.entries(VAR_LED_STACKS))(
     'tailwind fontFamily.%s leads with var(%s)',
     (key, expected) => {
-      expect(stack(key).split(',')[0].trim()).toBe(`'var(${expected})'`)
+      expect(stack(key)[0]).toBe(`var(${expected})`)
     },
   )
 
@@ -173,10 +180,10 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   // next/font var one hop later. Pinning them means neither "fixing" them to lead with a
   // next/font var nor breaking the indirection can pass.
   it('tailwind fontFamily.body stays system-first with the var ahead of the webfont', () => {
-    const parts = stack('body').split(',').map((s) => s.trim())
-    expect(parts[0]).toBe("'-apple-system'")
-    const varAt = parts.indexOf("'var(--font-inter)'")
-    const interAt = parts.indexOf("'Inter'")
+    const parts = stack('body')
+    expect(parts[0]).toBe('-apple-system')
+    const varAt = parts.indexOf('var(--font-inter)')
+    const interAt = parts.indexOf('Inter')
     expect(varAt).toBeGreaterThan(-1)
     expect(varAt).toBeLessThan(interAt)
   })
@@ -191,7 +198,7 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   })
 
   it('tailwind fontFamily.sans stays the --font-body role indirection', () => {
-    expect(stack('sans').split(',')[0].trim()).toBe("'var(--font-body)'")
+    expect(stack('sans')[0]).toBe('var(--font-body)')
   })
 
   it('globals.css --font-active stays the --font-body back-compat alias', () => {
@@ -201,6 +208,7 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   it('keeps the purged legacy families out of the config', () => {
     // tailwind.config.js: "fontFamily.system / .grotesque were PURGED at the v2 cutover … The
     // v2.1 export resurrected them; #497 re-removed them." Third time is not the charm.
-    expect(tailwindConfig).not.toMatch(/\n\s*(system|grotesque): \[/)
+    expect(Object.keys(fontFamilies())).not.toContain('system')
+    expect(Object.keys(fontFamilies())).not.toContain('grotesque')
   })
 })
