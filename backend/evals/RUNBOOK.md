@@ -655,7 +655,7 @@ prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
 drives that whole transformation through production code.
 
-**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py -q`
+**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py tests/unit/test_copilot_paired_claims.py -q`
 — covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
 which re-runs the SAME production matcher + window rule over the final answer, so a resolver
 regression can't hide from the harness).
@@ -885,3 +885,10 @@ Second-assessment correction: inspect explanation preservation in every draw, in
 A fresh selected MD&A can append one complete heading-delimited Outlook supplement, with a separate wrapper-inclusive 6,000-character allowance. The existing primary excerpt remains byte-identical before the addition; only forward recovery receives the complete supplement beyond its existing 30,000-character allocation. Cached excerpts are not invalidated. The content stamp advances to `summary-2026-09-j`, without scheduling regeneration.
 
 Actual acceptance must verify Ford's complete source block reaches both primary and any forward recovery, inspect adjusted EBIT/FCF ranges with their labels and assumptions, and check all other source and financing/debt outputs for unintended displacement. Existing nonqualifying forms and incorporated exhibits remain outside this narrow boundary grammar. No baseline change or quality clearance follows from source availability alone.
+
+
+## Paired annual Copilot claim acceptance
+
+The finite annual revenue/net-sales plus net-income sentence may receive two server-owned chips only after both facts independently certify and share actual annual dates, currency and accession. The original one-claim grammar is unchanged. Unsupported, surviving partly cited or differently qualified text abstains. When the resolver removes invalid markers and leaves wholly uncited visible prose, the same positive certification may repair that visible claim. Rejected markers never supply evidence; original strip telemetry is retained. No model retry or historical backfill is added.
+
+Actual acceptance checks the retained ASML wording, separate concept-correct chips and unchanged prose, alongside all other requested answers. Net-income raw-tag/accounting-basis provenance remains incomplete and must not be advertised as US-GAAP certification. Generic table-overclaim and quote-fidelity defects remain separate.
