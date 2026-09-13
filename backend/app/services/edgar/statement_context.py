@@ -25,6 +25,7 @@ def source_report_period(document: Any) -> str | None:
     facts = [n for n in document.iter() if isinstance(n.tag, str)
              and n.get("name", "").lower() == "dei:documentperiodenddate"]
     dates = set()
+    entities = set()
     for fact in facts:
         if fact.get("continuedat") or fact.get("xsi:nil") or fact.get("nil"):
             return None
@@ -47,8 +48,16 @@ def source_report_period(document: Any) -> str | None:
                 and n.tag.lower().split(":")[-1] == "enddate"]
         if ends != [value] or any(t in tags for t in ("segment", "scenario", "explicitmember", "typedmember")):
             return None
+        identifiers = [n for n in context.iter() if isinstance(n.tag, str)
+                       and n.tag.lower().split(":")[-1] == "identifier"]
+        if len(identifiers) != 1 or identifiers[0].get("scheme") != "http://www.sec.gov/CIK":
+            return None
+        entity = _text(identifiers[0])
+        if not re.fullmatch(r"\d{1,10}", entity):
+            return None
+        entities.add(entity)
         dates.add(value)
-    return next(iter(dates)) if len(dates) == 1 else None
+    return next(iter(dates)) if len(dates) == 1 and len(entities) == 1 else None
 
 
 def _operating_rows(table: Any, source: dict) -> list[dict] | None:
@@ -104,7 +113,7 @@ def _expense_notes(document: Any, table: Any) -> list[dict] | None:
                 continue
             if node.xpath(".//div|.//p|.//table") or node.tag == "table":
                 continue
-            if re.match(r"(?:Our general and administrative expenses |For the year ended )", text):
+            if re.match(r"(?:Our general and administrative expenses (?:increased|decreased) |For the year ended )", text):
                 if not text.endswith(".") or len(text) > 1200:
                     return None
                 notes.append({"heading": _text(heading), "path": tree.getpath(node), "text": text})
