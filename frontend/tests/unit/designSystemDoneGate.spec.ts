@@ -55,12 +55,18 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
   }
 
   const SKIP = new Set(['node_modules', '.next', '__pycache__', 'dist', 'coverage'])
+  /** `grep -rnE` reads every file under the directories it is pointed at and skips only binaries.
+   *  This scanner does the same instead of allowlisting source extensions: an allowlist quietly
+   *  narrows the gate below the rule it claims to enforce, so a legacy token in
+   *  `features/analysis/demo/demo-analysis.json` — or in any data/asset file added later — would
+   *  pass CI and still fail the founder's own §12 grep. */
+  const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp4|webm|pdf|zip)$/i
   const walk = (dir: string, acc: string[] = []): string[] => {
     for (const entry of readdirSync(dir)) {
       if (SKIP.has(entry)) continue
       const full = path.join(dir, entry)
       if (statSync(full).isDirectory()) walk(full, acc)
-      else if (/\.(ts|tsx|js|jsx|css|mdx?)$/.test(entry)) acc.push(full)
+      else if (!BINARY.test(entry)) acc.push(full)
     }
     return acc
   }
