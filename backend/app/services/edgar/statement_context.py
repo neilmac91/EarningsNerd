@@ -5,7 +5,7 @@ from datetime import datetime, date
 import re
 from typing import Any
 
-from lxml import html
+from lxml import etree, html
 
 from .statement_disclosures import extract_statement_disclosures
 from .statement_relationship_source import (
@@ -97,33 +97,44 @@ def _operating_rows(table: Any, source: dict) -> list[dict] | None:
     return preserved
 
 
+def _expense_heading(node: Any) -> bool:
+    if node.xpath(".//div|.//p|.//table") or len(_text(node)) > 100:
+        return False
+    # The demonstrated DOM layouts style the complete heading itself or its sole span.
+    styled = node if not list(node) else list(node)[0] if len(node) == 1 else None
+    return styled is not None and bool(re.search(r"font-weight\s*:\s*(?:bold|700)", styled.get("style", "")))
+
+
 def _expense_notes(document: Any, table: Any) -> list[dict] | None:
     tree = document.getroottree()
     notes = []
-    # Only complete DOM leaf paragraphs beneath exact expense headings before the face table.
-    # Matching a topic does not establish a cause: these are attributed source disclosures.
     before = set(table.xpath("preceding::*"))
     for heading in document.xpath("//div|//p"):
-        if heading not in before or heading.xpath(".//div|.//p|.//table"):
+        if heading not in before or not _expense_heading(heading):
             continue
         if _text(heading).casefold() not in _NOTE_HEADINGS:
             continue
-        for node in list(heading.itersiblings())[:6]:
+        bounded = False
+        paragraphs = []
+        for node in list(heading.itersiblings())[:12]:
             text = _text(node)
             if not text:
                 continue
-            if node.xpath(".//div|.//p|.//table") or node.tag == "table":
-                continue
-            if re.match(r"(?:Our general and administrative expenses (?:increased|decreased) |For the year ended )", text):
-                if not text.endswith(".") or len(text) > 1200:
-                    return None
-                notes.append({"heading": _text(heading), "path": tree.getpath(node), "text": text})
+            if _expense_heading(node):
+                bounded = True
                 break
-            # A short heading-like line ends this narrow source block.
-            if len(text) < 100 and not text.endswith(('.', ':')):
-                break
+            if node.xpath(".//table") or node.tag == "table":
+                continue  # table is retained only by the independent face-statement owner
+            if node.xpath(".//div|.//p") or node.tag not in {"div", "p"}:
+                return None
+            if not text.endswith((".", ":")) or len(text) > 1200:
+                return None
+            paragraphs.append({"heading": _text(heading), "path": tree.getpath(node), "text": text})
+        if not bounded or not paragraphs:
+            return None
+        notes.extend(paragraphs)
     unique = {n["path"]: n for n in notes}
-    if len(unique) > 4 or sum(len(n["text"]) for n in unique.values()) > 4000:
+    if len(unique) > 8 or sum(len(n["text"]) for n in unique.values()) > 4000:
         return None
     return list(unique.values())
 
@@ -135,7 +146,7 @@ def acquire_statement_context(source_html: str, *, accession: str, document_url:
         return None
     try:
         document = html.fromstring(source_html.encode("utf-8"), parser=html.HTMLParser(no_network=True))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, etree.ParserError):
         return None
     period = source_report_period(document)
     if period is None or (report_period is not None and period != report_period):

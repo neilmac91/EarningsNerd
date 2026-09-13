@@ -54,6 +54,7 @@ def test_original_audited_tax_and_complete_presentation_disclosure():
     'wrong_column', 'missing_fact', 'duplicate_fact', 'wrong_component',
     'broken_chain', 'cyclic_chain', 'duplicate_root', 'missing_paragraph',
     'oversize_paragraph', 'extra_paragraph', 'incomplete_paragraph',
+    'next_continuation_caveat', 'missing_following_boundary', 'shared_continuation',
 ])
 def test_uncertain_present_disclosure_refuses_ownership(change):
     root = document()
@@ -85,6 +86,17 @@ def test_uncertain_present_disclosure_refuses_ownership(change):
     elif change == 'duplicate_root':
         source = node(root, 'f-1930')
         source.getparent().append(copy.deepcopy(source))
+    elif change == 'shared_continuation':
+        unrelated = html.Element('div', id='unrelated-disclosure', continuedat='f-483-3')
+        unrelated.text = 'An unrelated disclosure.'
+        root.append(unrelated)
+    elif change == 'next_continuation_caveat':
+        continuation = node(root, 'f-483-4')
+        caveat = html.Element('div')
+        caveat.text = 'However, these statements exclude another material presentation adjustment.'
+        continuation.insert(0, caveat)
+    elif change == 'missing_following_boundary':
+        node(root, 'f-483-3').attrib.pop('continuedat')
     else:
         continuation = node(root, 'f-483-3')
         paragraphs = list(continuation)

@@ -62,6 +62,11 @@ def _chain(root: Any, ids: dict) -> list:
             raise _Unavailable("nil disclosure")
         result.append(node)
         next_id = node.get("continuedat")
+        if next_id:
+            incoming = [n for n in root.getroottree().getroot().iter()
+                        if n.get('continuedat') == next_id]
+            if len(incoming) != 1:
+                raise _Unavailable('shared continuation target')
         node = _unique(ids.get(next_id, [])) if next_id else None
         if node is not None and _tag(node) != "continuation":
             raise _Unavailable("invalid continuation target")
@@ -156,6 +161,19 @@ def _presentation(chain: list) -> dict | None:
     if not headings:
         return None
     heading = _unique(headings)
+    # The subsection continues across an inline-XBRL page boundary. Its next
+    # block must be the complete recast-table introduction followed by that
+    # table; an intervening caveat must never be silently omitted.
+    owner = heading.getparent()
+    if owner not in chain or chain.index(owner) + 1 >= len(chain):
+        raise _Unavailable('missing following continuation boundary')
+    following = [n for n in chain[chain.index(owner) + 1] if _text(n)]
+    if (len(following) < 2 or following[0].xpath('.//div|.//p|.//table')
+            or not _text(following[0]).startswith('The following table, recast for the changes summarized above, ')
+            or not _text(following[0]).endswith(':')
+            or len(_text(following[0])) > 1000
+            or len(following[1].xpath('.//table')) != 1):
+        raise _Unavailable('unpreserved cross-continuation disclosure')
     siblings = [n for n in heading.itersiblings() if _text(n)]
     if len(siblings) != 2:
         raise _Unavailable('incomplete presentation subsection')
