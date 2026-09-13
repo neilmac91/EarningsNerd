@@ -32,6 +32,10 @@ from app.services.ai.copilot_chat import (
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
+from app.services.ai.statement_relationship import (
+    CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship,
+)
 from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
 )
@@ -152,6 +156,7 @@ class OpenAIService(
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
+        statement_source: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """Phase 1: Extract structured financial schema from the filing.
 
@@ -378,6 +383,7 @@ Rules:
         content = await self._request_content(
             create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
             xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
+            **({"statement_source": statement_source} if statement_source else {}),
         )
         return await self._assemble_structured_summary(
             content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
@@ -469,6 +475,7 @@ Rules:
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
         *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
+        statement_source: Optional[Dict] = None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -502,6 +509,7 @@ Rules:
                     emitted_at = total
                     preview = self._partial_markdown_preview(
                         "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
+                        **({"statement_source": statement_source} if statement_source else {}),
                     )
                     if preview:
                         try:
@@ -514,6 +522,7 @@ Rules:
 
     def _partial_markdown_preview(
         self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
+        statement_source: Optional[Dict] = None,
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
@@ -543,10 +552,12 @@ Rules:
             forward = sections.get("forward_signals")
             if settings.AI_FORWARD_QUOTE_GATE and isinstance(forward, dict):
                 forward.pop("quotes", None)
+            bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             rendered = render_sections({
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
             })
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
@@ -561,6 +572,7 @@ Rules:
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
+        statement_source: Optional[Dict] = None,
     ) -> Dict:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases.
 
@@ -573,6 +585,7 @@ Rules:
             structured_summary = await self.generate_structured_summary(
                 filing_text, company_name, filing_type,
                 xbrl_metrics=xbrl_metrics, filing_excerpt=filing_excerpt, stream_cb=stream_cb,
+                **({"statement_source": statement_source} if statement_source else {}),
             )
 
         except asyncio.TimeoutError:
@@ -684,6 +697,7 @@ Rules:
             )
 
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
+        bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
@@ -742,7 +756,12 @@ Rules:
         # (and the eval's canonical management_discussion) maps to earnings_quality — the analytical
         # prose that absorbed the MD&A read; `key_changes`/outlook maps to forward_signals.
         management_section_structured = sections_info.get("earnings_quality")
-        management_section = _stringify(management_section_structured)
+        management_for_compat = management_section_structured
+        if statement_source and isinstance(management_section_structured, dict):
+            management_for_compat = dict(management_section_structured)
+            owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
+            management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
+        management_section = _stringify(management_for_compat)
         guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
 
@@ -765,11 +784,13 @@ Rules:
         # only contain their explicit raw-summary keys, never arbitrary model top-level keys.
         structured_summary.pop(SOURCE_UNIT_CONTEXT_KEY, None)
         structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
+        structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
         }
         rendered = render_sections(render_envelope)
         final_markdown = (
@@ -778,6 +799,7 @@ Rules:
         )
 
         raw_summary_payload = {
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             "structured": structured_summary,

@@ -45,6 +45,7 @@ from .instance_extractor import (
     INSTANT_CONCEPTS,
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
+    cash_financial_classification,
     debt_component_observations,
     dividend_component_sum_series,
     duration_series_with_starts,
@@ -370,6 +371,7 @@ def _extract_from_filing_instance_sync(
     # untouched, and any failure falls back to the generic fact-query path below.
     fin_suppress = set()
     fin_metrics = {}
+    profile_key = None
     if settings.USE_STATEMENT_FINANCIALS:
         sic = getattr(company, "sic", None)
         try:
@@ -536,6 +538,9 @@ def _extract_from_filing_instance_sync(
                                 point["period"], period_of_report,
                                 entity.get("fiscal_year"), entity.get("fiscal_period"),
                             ))
+    result["financial_classification"] = cash_financial_classification(
+        company, getattr(company, "sic", None), profile_key
+    )
     return result
 
 
@@ -1293,6 +1298,9 @@ class EdgarXBRLService:
         source = xbrl_data.get("financing_comparison_source")
         if isinstance(source, dict):
             metrics["financing_comparison_source"] = source
+        classification = xbrl_data.get("financial_classification")
+        if isinstance(classification, dict):
+            metrics["financial_classification"] = classification
         return metrics
 
 

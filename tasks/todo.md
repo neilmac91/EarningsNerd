@@ -5218,3 +5218,43 @@ Notable review-week decision, Analysis warm-up/live acceptance, W3-7 formal read
 - [ ] General source/citation coverage, formal W3-7 readout/decision and ordered W3-8 work remain. Existing Notable review-week, Analysis, E06 natural payment evidence, E09 proposal decisions, major dependency and D8/#270 prerequisites are unchanged.
 
 Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:27 UTC. No broad quality clearance or universe-wide pregeneration; historical replay and founder-held production settings remain held.
+
+
+## September 13 — cash-lead correction production-verified
+
+- [x] [Cash-lead #839](https://github.com/neilmac91/EarningsNerd/pull/839) merged as `8ba04fe118b69ec87dd97ec6de5e94a204af677f`. Main CI `34734224727`, deploy `103662909335`, migrations 0/39, revision `earningsnerd-backend-00340-brr` at 100%, CI and independent detailed health healthy. [Release and acceptance evidence](cash-lead-release-2026-09-13.md).
+- [x] Third actual assessment verifies fresh classification across 26 filings and correct MELI dated cash-lead activation, with unchanged source context and preserved ASML paired chips. The prior two holds and applicability correction remain recorded.
+- [ ] Next accounting owner: operating-to-pretax source interpretation. Combined gate initially failed two ordinary optional-input signature assertions; corrected full gate passes 3,256 tests on PostgreSQL15 with four lanes/performance. Actual assessment and deployment remain pending.
+- [ ] Citation source labels: neutral source-match scope and corrected viewport fit are locally implemented; final frontend gate/visual review/publication remains in progress. They clarify assurance without claiming to solve semantic entailment.
+- [ ] [WeasyPrint70 draft #840](https://github.com/neilmac91/EarningsNerd/pull/840) is reviewable after local native/full gates and green PR checks. Its evaluation job explicitly skipped model execution. Major-version merge still requires the founder's decision; no merge or production fix is claimed.
+- [ ] Quality residuals: finite mixed cash grammar, MELI growth-direction reversal, broad financial cash-card applicability and supplemental citation scope. The operating/FX error is assigned to the prepared next owner. Strong-judge/holdout, ordered W3-8, Notable retain after September15, Analysis warm-up, natural Stripe evidence, E09 proposal prerequisites and other founder-held items remain open. Universe pregeneration and historical replay remain held.
+
+
+## September 13 — operating-to-pretax correction production-verified
+
+- [x] [Accounting #842](https://github.com/neilmac91/EarningsNerd/pull/842) merged as `de74f94e0422e72ceff0b20a943ae5ef59069749`. Main CI `34735213574`, deploy `103665687476`, migrations 0/39, revision `earningsnerd-backend-00341-tgw` at 100%, CI and independent health healthy. [Release and actual acceptance](operating-pretax-release-2026-09-13.md). Four actual MELI/SE outputs preserve the correct signed statement relationships and complete required disclosures; all other source and adjacent cash/debt/financing evidence is conserved.
+- [x] Cash release docs #841 main CI `34734772701` passed; job `103664541969` explicitly skipped backend deployment at 03:13:11.4539086Z.
+- [ ] [Citation UI #843](https://github.com/neilmac91/EarningsNerd/pull/843) remains unmerged. Verified Node 22 full gate and public Vercel preview passed, but final review confirmed a short-screen card can cover its trigger and block pointer activation. Side-constrained placement is being corrected; no test or release waiver. The prior incorrect Node 22 attribution and failed build environment attempts remain dated in the lane record.
+- [ ] Existing cash-card applicability: actual COIN receives the older derived card despite explicit financial classification; a bounded follow-up will use the existing affirmative nonfinancial guard, retaining basic reported cash flows/explanations. Unknown metadata will abstain during new generation, with no historical replay. MELI's economic cash-conversion interpretation remains separate.
+- [ ] WeasyPrint70 draft #840 has green local/Linux/native tests; the exact major-version merge question was sent once and awaits the founder. No approval, merge or alert dismissal is inferred.
+- [ ] Strong-judge/holdout, ordered re-pins, Notable retain through September 15, Analysis warm-up/acceptance, natural Stripe evidence and E09 fleet/egress/headroom prerequisites remain open. Chrome became unavailable during the renewed account check; no additional console verification is claimed. Universe pregeneration and historical replay remain held.
+
+
+## September 13 — citation labels released; plan prerequisites reconciled
+
+- [x] Citation #843 merged d374232091e3540c22054776b73f0682444f2ddb, mainCI34736423269 green, backend deploy skipped; Vercel production6417415019 successful. Actual short-screen pointer/light-dark check and597-test gate passed. [Release and evidence](citation-label-release-2026-09-13.md).
+- [x] Unpaid W3-7/W3-8 reconciliation and supplemental-source contract proposal recorded with source/code limits. The weekly0/24 unavailable artifact still blocks prescribed readout; no early re-pin exception is established.
+- [ ] Cash-card #845:3261-test fullPG15 gate passed; actual summary acceptance and serial production verification pending.
+- [ ] WeasyPrint#840 major approval remains pending; question already asked once. Universe pregeneration/replay and other named founder boundaries remain held.
+
+
+## September 13 — cash-card release verified and overnight handover
+
+- [x] Cash-card #845 merged as 8667f9902a3bbe759b22e49e09b7933992e87afe; full committed gate: 3,261 tests, four PostgreSQL 15 lanes and performance. Actual 52-summary assessment removes only two COIN cards and preserves prior owned disclosures; Copilot 18/18 retains all numeric sources.
+- [x] Main CI 34736826776 / deploy 103670068270 verified revision earningsnerd-backend-00342-bmf at 100%, migrations applied=0 skipped=39, CI and independent detailed health healthy. [Release evidence](cash-card-release-2026-09-13.md). This supersedes the preceding pending #845 entry.
+- [x] Citation release record #846 merged as 08b90047f33f6b60d8309abdd258dab47a1da140; its main documentation CI 34737171389 is pending at this record.
+- [x] [Overnight handover and current master-plan map](handover-astra-2026-09-13.md) records completed work, exact limits, remaining prerequisites and what to doubt first. E09 remains a proposal with explicit evidence gaps.
+- [ ] Prescribed strong-judge readout/arm decision, Analysis warm-up and Pro acceptance, Notable retain decision through September 15, natural Stripe attribution, held major approvals, D8/#270 and universe-wide quality approval remain open as listed in the handover. No replay, live test execution, provider or production-setting change is implied.
+
+
+September 13 closing correction: #805 remains open and held at b6a3272e03ea397e3b434bfeba1e764ff91b099e after its rejected first financial assessment. Broader signed-item, causal and measure-basis work is not closed by the narrower releases above. No wholesale revival or second #805 assessment occurred. Latest read-only DeepSeek balance: USD 85.58, workflow 34737324323, 2026-09-13T04:12:01.4240532Z.

@@ -33,6 +33,7 @@ from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
+from app.services.edgar.statement_context import acquire_statement_context
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
 from app.services.posthog_client import (
@@ -304,6 +305,7 @@ async def stream_filing_summary(
                         "filing_type": filing.filing_type,
                         "accession_number": filing.accession_number,
                         "filing_date": filing.filing_date,
+                        "report_period": filing.period_end_date,
                         "cache_excerpt": cache.critical_excerpt if cache else None,
                         "cache_updated_at": cache.updated_at if cache else None,
                         "cache_created_at": cache.created_at if cache else None,
@@ -735,6 +737,14 @@ async def stream_filing_summary(
 
             # Now run AI summarization (with excerpt/XBRL if available)
             # Wrap in task to enable heartbeat loop while waiting
+            statement_source = None
+            report_period = filing_fields.get("report_period")
+            if filing_text and report_period is not None:
+                statement_source = await run_in_threadpool(
+                    acquire_statement_context, filing_text, accession=filing_accession_number,
+                    document_url=filing_document_url, form=filing_type,
+                    report_period=report_period.date().isoformat(),
+                )
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,
@@ -742,6 +752,7 @@ async def stream_filing_summary(
                 xbrl_metrics=xbrl_metrics,
                 filing_excerpt=excerpt,
                 stream_cb=summary_stream_cb,
+                **({"statement_source": statement_source} if statement_source else {}),
             ))
 
             SUMMARIZE_MESSAGES = [

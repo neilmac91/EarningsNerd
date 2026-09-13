@@ -10,6 +10,10 @@ import {
   createPortalSession,
 } from '@/features/subscriptions/api/subscriptions-api'
 import { formatLocalDate } from '@/lib/format'
+// NOTE: current_period_end / trial_end are genuine Stripe INSTANTS, not calendar dates, so
+// formatLocalDate here reports their UTC calendar day. That is the intended read for a billing
+// boundary (it matches what Stripe shows), but it is the mirror image of the filing-date rule —
+// do not cite these two lines as precedent for rendering a calendar date.
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'

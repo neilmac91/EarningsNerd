@@ -166,6 +166,7 @@ def test_previews_respect_final_numeric_ownership_and_guarded_quotes(monkeypatch
         return {"current": {"value": value, "period": "2025-12-31"}}
 
     facts = {
+        "financial_classification": {"is_financial": False},
         "net_income": metric(100_000_000), "operating_cash_flow": metric(200_000_000),
         "free_cash_flow": metric(150_000_000), "current_assets": metric(600_000_000),
         "current_liabilities": metric(300_000_000), "dividends_paid": metric(20_000_000),

@@ -361,10 +361,18 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   `summary_pipeline.py`'s 6-K branch. Design: a deterministic pre-classifier over the EX-99 text
   (earnings / governance / press-release; keyword and XBRL-presence heuristics, no model call)
   that selects among three 6-K prompt variants, and records `raw_summary["sixk_class"]` for audit.
-  6-K goldens have no XBRL facts, so the recall/precision scorers score zero: add a 6-K scorer
-  contract (hand-filled `ground_truth` from the press release, judge-off) before adding entries,
-  or the pin tool refuses the report. Gates: classifier unit test over fixture exhibits; eval gate
-  PASS on the re-pinned set. Rule 1 (one orchestrator) and rule 2 (filing-only) apply unchanged.
+  6-K goldens have no XBRL facts, and an entry left without ground truth scores **1.0, not zero**,
+  on both numeric dimensions: `score_numeric_accuracy` returns 1.0 for an empty truth set
+  (`evals/scorers.py:161`) and `score_numeric_precision` returns 1.0 when nothing is checkable
+  (`evals/scorers.py:272,296`). Both are deliberate, and the practical risk is neither a depressed
+  score nor an inflated one — the pinned numeric means are already 1.0, so a vacuous entry cannot
+  lift them. It dilutes the evidence behind them, and since every numeric `_HARD_GATES` entry in
+  `evals/regression_gate.py` is a `decrease` gate, that dilution can only **loosen** the regression
+  gate, cushioning a later real regression. Hand-fill `ground_truth` from the press release (judge-off) before
+  adding entries; `pin_baseline.py` refuses a report whose verified golden entries carry no ground
+  truth (`test_pin_refuses_a_verified_entry_measured_on_no_ground_truth`). Gates: classifier unit
+  test over fixture exhibits; eval gate PASS on the re-pinned set. Rule 1 (one orchestrator) and
+  rule 2 (filing-only) apply unchanged.
 
 ### W3-9 — Historical reconciliation-flag audit/repair (backend: deploys; founder executes)
 - **Goal:** a bounded, dry-run-by-default capability to re-evaluate reconciliation flags on
@@ -390,9 +398,23 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
 ### W3-10 — Dark-surface flips (held on founder evidence)
 - **Notable:** job created, smoke-tested and seeded by the founder on 2026-09-08 (`--days 7`:
   838 raw hits, 270 upserted; scheduler `notable-filings-scan` live at 08:30/18:30 ET); after
-  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in `ci.yml` line 510 and updates the W3-2 pin
+  one full week of review with a recorded retain decision, PR flips `NOTABLE_FILINGS_ENABLED=true` in **both** the service `--update-env-vars` (`ci.yml:585`) and the pregenerate job's own map (`:597`) — `test_prod_flag_visibility.py:72-73` asserts the two agree, so flipping only the service line fails the backend gate — and updates the W3-2 pin
   table (that test edit makes the PR deploy). Verify the deploy ran, `GET /api/notable_filings?limit=8`
-  is non-empty, and the homepage section renders in both themes after ISR.
+  is non-empty, and the homepage section renders in both themes after ISR. **The re-mount is already
+  done** (founder-approved 2026-09-13): the September 10 landing revamp had dropped the section from
+  the route deliberately, so `fetchNotableFilings` sat with no caller and that last criterion was
+  unsatisfiable. `frontend/app/page.tsx` now mounts `<NotableFilings />` after `<ReportingThisWeek />`,
+  and `frontend/tests/unit/landing-sections-mounted.spec.ts` pins the mount at source level so a
+  future redesign has to drop it deliberately. It stays invisible until the flag flips — the API
+  answers 200 with an empty list while `NOTABLE_FILINGS_ENABLED` is off
+  (`app/services/notable_filings_service.py:454`) and the section self-omits on empty. So the flip
+  PR is now purely backend/CI. Leave `fetchNotableFilings` at 3600: re-mounting it at its old 900
+  would have cut the homepage's own ISR window (Next derives it as the minimum over the route's
+  fetches, measured both ways), and `notable-filings-scan` only runs 08:30/18:30 ET, so sub-hourly
+  polling buys no freshness once the flag is on either. What the flip PR still owns is verifying
+  the section in both themes on preview, which is only observable once it renders, plus the
+  deferred card polish noted in PR #849 (the meta line uppercases the whole string, the ticker
+  wants `font-data`, and the card keeps a hover lift the revamp deleted everywhere else).
 - **Analysis:** after the founder records the effective Vercel value and the warm-up evidence, PR
   adds `NEXT_PUBLIC_ENABLE_ANALYSIS: "true"` to `frontend/vercel.json` `env`; full frontend gate;
   Playwright with no backend; both-theme preview; production Pro-account smoke.

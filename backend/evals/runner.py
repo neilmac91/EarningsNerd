@@ -76,13 +76,18 @@ def _grounding_user_prompt(
 _XBRL_TEXT_CHAR_CAP = 40_000
 
 
+def _model_metrics(metrics: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Internal applicability metadata never consumes model grounding budget."""
+    return {key: value for key, value in metrics.items() if key != "financial_classification"} if metrics else metrics
+
+
 def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:
     if not metrics:
         return ""
     try:
-        return json.dumps(metrics, default=str)[:_XBRL_TEXT_CHAR_CAP]
+        return json.dumps(_model_metrics(metrics), default=str)[:_XBRL_TEXT_CHAR_CAP]
     except (TypeError, ValueError):
-        return str(metrics)[:_XBRL_TEXT_CHAR_CAP]
+        return str(_model_metrics(metrics))[:_XBRL_TEXT_CHAR_CAP]
 
 
 async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
@@ -126,7 +131,14 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         metrics = xbrl_service.extract_standardized_metrics(xbrl) if xbrl else None
     except Exception:  # noqa: BLE001
         metrics = None
+    from fastapi.concurrency import run_in_threadpool
+    from app.services.edgar.statement_context import acquire_statement_context
+    statement_source = await run_in_threadpool(
+        acquire_statement_context, text or "", accession=filing.accession_number,
+        document_url=filing.document_url, form=form,
+    )
     return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
+            **({"statement_source": statement_source} if statement_source else {}),
             "source_provenance": source_provenance,
             "coverage_inventory": excerpt_provenance(
                 excerpt, accession=filing.accession_number, source=source, sections=sections,
@@ -163,9 +175,17 @@ async def _maybe_judge(
         return None
     # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
     from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
-    xbrl_text = json.dumps(grounding["xbrl_metrics"], default=str) if grounding["xbrl_metrics"] else ""
+    xbrl_text = json.dumps(_model_metrics(grounding["xbrl_metrics"]), default=str) if grounding["xbrl_metrics"] else ""
+    judge_excerpt = grounding["excerpt"] or ""
+    statement_evidence = grounding.get("statement_source")
+    if statement_evidence:
+        # Independent application evidence, not a claim that the model saw these passages.
+        judge_excerpt += ("\n\n[APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE; "
+                          "independent of the generator excerpt]\n"
+                          + json.dumps(statement_evidence, ensure_ascii=False, sort_keys=True)
+                          + "\n[END APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE]")
     lengths = {"summary_chars": len(json.dumps(payload, indent=2)),
-               "excerpt_chars": len(grounding["excerpt"] or ""), "xbrl_chars": len(xbrl_text)}
+               "excerpt_chars": len(judge_excerpt), "xbrl_chars": len(xbrl_text)}
     if (lengths["summary_chars"] > _JUDGE_SUMMARY_CHAR_CAP or lengths["excerpt_chars"] > _JUDGE_EXCERPT_CHAR_CAP
             or lengths["xbrl_chars"] > _JUDGE_XBRL_CHAR_CAP):
         return {"passed": False, "verdict": "FAIL", "mean_dimension": None, "gate_failures": [],
@@ -173,7 +193,7 @@ async def _maybe_judge(
                 "input_complete": False, "input_lengths": lengths}
     verdict = await judge_summary(
         payload, filing.company_name, filing.filing_type,
-        grounding["excerpt"], xbrl_text, model_id=judge_model,
+        judge_excerpt, xbrl_text, model_id=judge_model,
     )
     return {"passed": verdict.passed, "verdict": verdict.verdict,
             "mean_dimension": verdict.mean_dimension, "gate_failures": verdict.gate_failures,
@@ -365,6 +385,7 @@ async def _attempt(
                     grounding["filing_text"], filing.company_name, filing.filing_type,
                     xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                     stream_cb=stream_cb,
+                    **({"statement_source": grounding["statement_source"]} if grounding.get("statement_source") else {}),
                 )
             finally:
                 ai_metrics.stop_observing(observer_token)
@@ -400,6 +421,7 @@ async def _attempt(
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    "statement_source": grounding.get("statement_source"),
                     "grounding_excerpt": grounding["excerpt"],
                     "source_provenance": grounding.get("source_provenance"),
                     "coverage_inventory": grounding.get("coverage_inventory"),

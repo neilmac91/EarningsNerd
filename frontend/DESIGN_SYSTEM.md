@@ -142,8 +142,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
-                 verified, fragment_url } — `verified` drives the Verified/Cited trust badge; never ship
-                 a renderer that drops it.
+                 verified, fragment_url } — `verified` drives source attribution: checked sources show
+                 “Source match found” with its scope (not whole-answer verification); unmatched sources
+                 stay “Cited”. Numeric/text visual grouping is a display convention, not a separate
+                 attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
                  which implements the same contract plus viewer deep-linking, popovers, streaming-perf
@@ -275,8 +277,14 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 3. **Font-var gate** (repeat offender — missed in BOTH the v2 and v2.1 exports): every
    `fontFamily` stack in `tailwind.config.js` and every `:root` font var in `globals.css`
    leads with its `next/font` variable (`var(--font-inter)` / `var(--font-geist-mono)` /
-   `var(--font-newsreader)`; body keeps `-apple-system` first, then the var). next/font
-   self-hosts under hashed family names exposed ONLY as these vars — a literal-only stack
-   silently never resolves.
+   `var(--font-newsreader)`). next/font self-hosts under hashed family names exposed ONLY as
+   these vars — a literal-only stack silently never resolves. Four sanctioned exceptions, all
+   of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
+   with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
+   and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later. Do
+   not "fix" those four to lead with a next/font var.
+   Items 2 (first grep) and 3 are enforced by `tests/unit/designSystemDoneGate.spec.ts`, which
+   reads the grep pattern out of this file and pins each exception to its exact shape — so
+   editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.

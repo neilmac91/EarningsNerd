@@ -1,0 +1,31 @@
+# PR845 actual summary acceptance — September 13, 2026
+
+Accept the scoped derived-card applicability correction. Actual output removes only the two intended COIN cards, keeps JPM suppressed, preserves all other existing cards, and retains the complete source-owned statements, debt and financing comparisons. No introduced material defect survived this bounded semantic review.
+
+Reference is PR842's eval_20260913T031402Z.json; candidate is outputs/pr845-summary/eval_20260913T035522Z.json. Root owns run/source ancestry, log and usage verification and supplied report SHA256 ae205ecca56d30c67fe204b768b1390a08dbd0cd178331be043c028a94281e61. This independent review matched all 52 attempts by ticker/run and inspected the actual fields and previews; it did not rely on aggregate scores alone.
+
+## Exact source and output comparison
+
+All 52 source_provenance, coverage_inventory, grounding_excerpt, xbrl_grounding and statement_source objects are identical to PR842, with no projection. All 52 records pass their recorded hard gates and contain no error. The unchanged cohort has 24 nonfinancial issuers and two financial issuers, each twice; no actual unknown classifier case occurs here. Unknown abstention remains supported by committed controls, not an invented live sample.
+
+Cards are exactly as expected: 46 present, six absent. COIN runs 0/1 lose “Operating cash flow was positive despite a net loss.” The other 50 fields compare exactly, including already-absent JPM runs 0/1 and COST runs 0/1. Every retained COIN preview omits that former card. COIN's basic cash-flow statement remains operating $182.7M, investing $−239.1M and financing $−864.9M in both attempts. No derived card is replaced by model text in the owned field.
+
+All 52 debt/leverage strings, basic cash-flow strings and owned financing comparison strings are exactly equal to PR842. All 67 current selected financing passages are contiguous after whitespace normalization in the unchanged grounding excerpt. Selection/count may vary with model wording, so full financing-envelope byte equality is not falsely claimed. AAPL retains the $100B repurchase and $0.25→$0.26 dividend source statement in both attempts. Ford retains full-year adjusted EBIT $8.5–10.5B and adjusted FCF $5–6B guidance in both attempts.
+
+## Statement and preview preservation
+
+Only SE and MELI retain statement_source, exactly as before. All 52 reported_statement_relationship fields compare identically (48 absent, four complete). Thus both repeats preserve SE's signed five-component current/prior bridges, operating provision, zero current/prior goodwill impairment and 2024 settlement disclosure; MELI retains its signed three-component bridges, provision/originations explanation, deferred-tax benefit 469/current total 845/prior 521, complete ETR explanation and complete Note 2 reclassification disclosure. No source interpretation or tax/presentation text was lost in the cash-card change.
+
+SE runs 0/1 have eight retained preview frames: first three before the section, then all eight owned paragraphs in each later frame. MELI run 0 has nine frames, first three without the section then all twelve paragraphs; run 1 has eleven frames, first four without the section then all twelve paragraphs. There is no partial owned paragraph set. Final executive_summary contains every owned paragraph in all four attempts. Final-response association remains not_observed; these are retained preview observations, not a transport-order guarantee or native-export run.
+
+No finite cash-lead qualifier activates in this sample, versus one MELI activation in PR842. This is not a regression claim: input metadata and qualifier code are unchanged and the model produces different whole sentences. MELI run 0 has no prominent FCF sentence; run 1 uses “Operating cash flow of $12.1B versus $7.9B in 2024; free cash flow (OCF less capex) of $10.8B versus $7.1B.” Its values are supported, while this semicolon/no-verb form is outside the finite grammar. The existing lower derived-card disclaimer remains exact. This is the recorded should-fix coverage limitation, not proof of universal lead repair.
+
+## Candidate findings and two refutations
+
+**COIN model-owned red flag is not an owned-card leak.** Run 1 says operating cash flow 182.7M is below Adjusted EBITDA 303.3M and “net loss exceeded operating cash flow.” Refutation 1: the owned cash_conversion field is absent and the former machine sentence is absent from all previews; the text resides in the unchanged model-owned red_flags path. Refutation 2: the stated cash/EBITDA numbers are correct and the loss magnitude 394.1M exceeds 182.7M. The sign wording is economically interpretive/ambiguous, not a verified wrong numeric comparison. Do not overclaim this patch removes every model cash interpretation; no new material bug was retained from this candidate.
+
+**SE's 2025 settlement lead does not contradict its 2024 expense disclosure.** Run 0 says two class actions were settled for 86M in 2025. Refutation 1: unchanged source explicitly says stipulations and final court approvals in 2025 for 40M and 46M. Refutation 2: the preserved operating note says settlement-related expenses were included in 2024; expense recognition and later legal completion are different events. The combined 86M is correct, so this candidate is refuted.
+
+**Remaining should-fix finite cash-lead coverage:** the MELI run 1 sentence above still lacks the full lead disclaimer. Refutation 1 checks actual source amounts and unchanged explicit nonfinancial classification, so it is not missing evidence or financial abstention. Refutation 2 checks the finite whole-sentence grammar and preserved lower disclaimer, showing a known coverage limit rather than dropped code-owned content. No extra paid rerun or phrase-specific patch is requested.
+
+This accepts applicability and preservation, not economic certification of MELI's ratio, broad model red flags, future unknown issuers or world-class coverage. Summary artifacts do not capture raw provider requests; exact source/XBRL parity and unchanged prompt code/local controls support the no-context-change conclusion without claiming raw request evidence. No model/source calls, tests, repository edits or publication were performed during this review.

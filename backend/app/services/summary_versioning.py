@@ -88,7 +88,13 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   A distinct code-owned envelope governs eligibility; no historical regeneration.
 # summary-2026-09-j: bounded complete MD&A Outlook source supplement on fresh extraction.
 #   Existing cached excerpts and historical summaries are not regenerated.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-j"
+# summary-2026-09-k: qualify supported conventional cash claims in prominent lead slots.
+#   Existing historical summaries are not regenerated.
+# summary-2026-09-l: source-owned operating-to-pretax relationships and supported complete
+#   disclosures on eligible fresh primary documents; legacy cached content is unchanged.
+# summary-2026-09-m: both conventional cash owners require affirmative nonfinancial
+# applicability, retaining the bank-components veto; unknown fresh inputs abstain.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-m"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

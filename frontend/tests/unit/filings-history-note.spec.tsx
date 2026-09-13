@@ -8,7 +8,7 @@ import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote
 describe('FilingsHistoryNote', () => {
   it('renders the since-date and a CIK-scoped external EDGAR link', () => {
     const { container } = render(
-      <FilingsHistoryNote oldestFilingDate="2025-08-05" cik="0000019617" />,
+      <FilingsHistoryNote oldestFilingDate="2025-08-05T00:00:00+00:00" cik="0000019617" />,
     )
     expect(container.textContent).toContain('Showing filings since Aug 5, 2025')
 

@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
+import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
 // malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
@@ -19,11 +20,9 @@ interface CitationChipProps {
 
 interface PopoverPos {
   left: number
-  top?: number
-  bottom?: number
+  top: number
 }
 
-const POPOVER_WIDTH = 256 // w-64
 const CLOSE_DELAY_MS = 120
 
 /**
@@ -43,6 +42,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const marker = `[${n}]`
 
   const triggerRef = useRef<HTMLElement | null>(null)
+  const popoverRef = useRef<HTMLSpanElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
 
@@ -58,18 +58,34 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const el = triggerRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    const gap = 8
-    const left = Math.min(
-      Math.max(r.left + r.width / 2, POPOVER_WIDTH / 2 + 8),
-      window.innerWidth - POPOVER_WIDTH / 2 - 8,
-    )
-    // Prefer above; flip below when there isn't room (so it never opens off the top of the viewport).
-    setPos(
-      r.top > 220
-        ? { left, bottom: window.innerHeight - r.top + gap }
-        : { left, top: r.bottom + gap },
-    )
+    // The layout effect measures and places the card before paint. Its initial coordinates
+    // only mount the portal; they do not assume a fixed height for variable source content.
+    setPos({ left: r.left + r.width / 2, top: r.bottom + 8 })
   }, [])
+
+  useLayoutEffect(() => {
+    const card = popoverRef.current
+    const trigger = triggerRef.current
+    if (!pos || !card || !trigger) return
+    const margin = 8
+    const gap = 8
+    const anchor = trigger.getBoundingClientRect()
+    const bounds = card.getBoundingClientRect()
+    const aboveSpace = Math.max(0, anchor.top - gap - margin)
+    const belowSpace = Math.max(0, window.innerHeight - margin - anchor.bottom - gap)
+    // Keep the trigger reachable: viewport clamping alone can put a tall portal over it.
+    // Prefer a full card above, then below; otherwise scroll within the larger side.
+    const placeAbove = bounds.height <= aboveSpace ||
+      (bounds.height > belowSpace && aboveSpace >= belowSpace)
+    card.style.maxHeight = `${placeAbove ? aboveSpace : belowSpace}px`
+    const fittedHeight = card.getBoundingClientRect().height
+    const top = placeAbove ? anchor.top - gap - fittedHeight : anchor.bottom + gap
+    const left = Math.max(margin + bounds.width / 2,
+      Math.min(anchor.left + anchor.width / 2, window.innerWidth - margin - bounds.width / 2))
+    // DOM placement avoids a second React render and stays paired with this measured card.
+    card.style.top = `${top}px`
+    card.style.left = `${left}px`
+  }, [pos, excerpt, header, verified, viewer])
 
   const scheduleClose = useCallback(() => {
     clearCloseTimer()
@@ -81,9 +97,13 @@ export default function CitationChip({ citation }: CitationChipProps) {
 
   // A fixed popover would detach from its chip on scroll/resize → just close it. Scroll doesn't
   // bubble, so capture to catch scrolling in any ancestor (e.g. the rail's scroll container).
+  // Scrolling the portal itself or its excerpt must keep its content/actions reachable.
   useEffect(() => {
     if (!pos) return
-    const dismiss = () => setPos(null)
+    const dismiss = (event: Event) => {
+      if (event.type === 'scroll' && event.target instanceof Node && popoverRef.current?.contains(event.target)) return
+      setPos(null)
+    }
     window.addEventListener('scroll', dismiss, { capture: true, passive: true })
     window.addEventListener('resize', dismiss, { passive: true })
     return () => {
@@ -147,13 +167,16 @@ export default function CitationChip({ citation }: CitationChipProps) {
           <span
             // A labelled group, not role="tooltip": the popover contains an interactive "Open
             // original" link, and a tooltip must not hold focusable/interactive content (ARIA).
+            ref={popoverRef}
             role="group"
             aria-label={ariaLabel}
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
-            style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
+            style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
+              maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
+              overflowY: 'auto' }}
             className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
@@ -165,12 +188,17 @@ export default function CitationChip({ citation }: CitationChipProps) {
             {verified ? (
               <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircleIcon className="h-3 w-3 shrink-0" />
-                Verified in filing
+                {citationVerificationLabel(citation)}
               </span>
             ) : (
               <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Cited
+              </span>
+            )}
+            {verified && (
+              <span className="mt-1.5 block text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {SOURCE_MATCH_SCOPE}
               </span>
             )}
             {viewer && isHttpUrl(fragment_url) && (

@@ -231,7 +231,8 @@ def _without_source_durations(xbrl_data: Any) -> Any:
         key: [{k: v for k, v in point.items() if k != "period_start"}
               if isinstance(point, dict) else point for point in value]
         if isinstance(value, list) else value
-        for key, value in xbrl_data.items() if key != "financing_comparison_source"
+        for key, value in xbrl_data.items()
+        if key not in {"financing_comparison_source", "financial_classification"}
     }
 
 

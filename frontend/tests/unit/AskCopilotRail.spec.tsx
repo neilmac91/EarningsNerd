@@ -153,7 +153,7 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
   })
 
-  it('streams tokens and renders the grounded footer + a source row on complete', async () => {
+  it('streams tokens and renders the source-check footer + a source row on complete', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
       captured = handlers
@@ -195,7 +195,7 @@ describe('AskCopilotRail', () => {
     })
 
     expect(await screen.findByText(/revenue grew 8%/i)).toBeInTheDocument()
-    expect(screen.getByText(/grounded in 1 excerpt/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 matched source/i)).toBeInTheDocument()
 
     const sourceLink = screen.getByRole('link', { name: /MD&A — Results of Operations/i })
     expect(sourceLink).toHaveAttribute('href', 'https://sec.gov/frag#1')
@@ -245,8 +245,8 @@ describe('AskCopilotRail', () => {
     expect(
       screen.getByText(/the filing does not disclose the ceo salary/i),
     ).toBeInTheDocument()
-    // The not-disclosed card must not carry the grounded footer.
-    expect(screen.queryByText(/grounded in/i)).not.toBeInTheDocument()
+    // The not-disclosed card must not carry the source-check footer.
+    expect(screen.queryByText(/matched sources?/i)).not.toBeInTheDocument()
   })
 
   it('shows an upgrade CTA inside the bubble on a paywall error (opens the modal + tracks it)', async () => {

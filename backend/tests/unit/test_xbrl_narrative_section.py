@@ -318,6 +318,7 @@ def test_selected_cash_flow_basis_survives_consumers(surface, tag):
     assert markdown_render.cash_flow_basis is xbrl_narrative.cash_flow_basis
     metrics = {
         "reporting_currency": "CNY",
+        "financial_classification": {"is_financial": False},
         "operating_cash_flow": {"current": {"value": 19_000_000_000, "period": "2025-12-31"}},
         "capital_expenditures": {
             "current": {"value": -8_000_000_000, "raw_tag": tag},
