@@ -5197,3 +5197,13 @@ Code `8854577bd7e3b474ad0e930c595feea039f5244c` passed Ruff, Bandit and the full
 - [ ] E09 remains proposal-only: [staged decision package](e09-proposal-next-2026-09-13.md) separates generation ownership from fleet SEC admission and lists missing fleet/database/egress evidence. Eight observed jobs do not prove concurrency, successful execution or paused schedules.
 
 No world-class quality clearance, universe-wide pregeneration or historical replay. Existing Notable review-week decision, Analysis warm-up/live acceptance, W3-7 strong-judge artifact/decision and serial W3-8 work, natural Stripe evidence, major dependencies, D8/#270 and other founder-held decisions remain as recorded. Chrome later reported the Mac locked; further authenticated observations wait without inventing evidence or using live tests.
+
+
+## September 13 — selected Outlook source production-verified
+
+- [x] PR #835 merged as `d91dbdde45014021940162ae46c9fda26e071e0b`, after 3,107 tests, unchanged locks, one source-delivery mutation proof and actual 52-summary/18-answer review. Only Ford's excerpts gain source; both adjusted guidance ranges are correct.
+- [x] Main CI `34728603843`, deploy `103647511926`, migrations `applied=0 skipped=39`, revision `earningsnerd-backend-00338-fkj` at 100%, both detailed health checks healthy. [Release evidence](outlook-release-2026-09-13.md).
+- [ ] Next paired annual citation repair is locally implemented, independently reviewed and combined-gated at 3,124 tests. It requires both source facts before registering either chip; publication/actual assessment remain pending.
+- [ ] Issuer-defined FCF versus conventional FCF, unchecked prominent takeaways and general citation/source completeness remain open. The AMZN quotation substitution is a should-fix under the existing advisory forward-quote gate; its founder-held enforcement decision remains separate. No new filter bypasses that flag.
+
+Notable review-week decision, Analysis warm-up/live acceptance, W3-7 formal readout/decision and ordered W3-8 work, E06 natural payment evidence, E09 proposal decisions, major dependencies and D8/#270 retain their named prerequisites. Source delivery does not establish world-class analysis. Universe-wide pregeneration and historical replay remain held.
