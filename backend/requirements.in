@@ -16,9 +16,9 @@ sqlalchemy>=2.0.52,<3.0.0
 # Preserve the existing Linux/CI greenlet pin when compiling on macOS arm64,
 # which SQLAlchemy's platform marker omits. This does not enable async database use.
 greenlet==3.5.5
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
 redis==8.1.0
-openai>=3.8.0,<4.0.0
+openai>=3.13.0,<4.0.0
 beautifulsoup4==4.15.0
 # Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
 # in use, full backend suite passes on 3.0.x). lxml is held at
@@ -37,10 +37,10 @@ weasyprint==70.0
 openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.56.0
-posthog==7.47.0
+edgartools>=5.57.0
+posthog==7.51.0
 json-repair>=0.63.4
-sentry-sdk[fastapi]>=2.68.1
+sentry-sdk[fastapi]>=2.69.1
 
 # Testing
 pytest>=9.1.1
