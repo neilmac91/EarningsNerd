@@ -69,7 +69,9 @@ New structural gates, all in `frontend/tests/unit/`:
 `postcssOverrideLockstep.spec.ts`, `overrideDirectionGate.spec.ts`. `eslint.config.mjs` gained
 `DATE_RULES` and `CALENDAR_FIELD_RULES`, appended to all three existing `no-restricted-syntax` blocks
 — ESLint flat config **replaces** rather than merges that option on override, so a new block silently
-disables earlier gates. That trap is warned about at `eslint.config.mjs:83-86`; respect it.
+disables earlier gates. That trap is warned about at `eslint.config.mjs:155-160`; respect it.
+(The comment at `:83-86` is a different point — why the calendar-date selectors match descendants
+rather than direct children, since a `TSAsExpression` wrapper defeated `>`.)
 
 Three new lessons: `test-gates-must-be-as-wide-as-their-rule.md` (#850),
 `frontend-overrides-rot-when-the-constrained-package-moves.md` and
