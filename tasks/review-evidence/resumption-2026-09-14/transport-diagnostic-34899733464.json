@@ -1,0 +1,213 @@
+{
+  "model": "deepseek-flash",
+  "max_inference_requests": 6,
+  "max_tokens": 8,
+  "deadline_seconds": 25,
+  "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load. The unauthenticated probe expects HTTP 401 and performs no inference.",
+  "outcomes": [
+    {
+      "probe": "stream_thinking_off",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "completed",
+      "http_status": 200,
+      "headers_seconds": 1.077,
+      "first_token_seconds": 1.441,
+      "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 1,
+        "total_tokens": 9
+      },
+      "elapsed_seconds": 1.443,
+      "phases": {
+        "connection.connect_tcp.started": 0.394,
+        "connection.connect_tcp.complete": 0.58,
+        "connection.start_tls.started": 0.58,
+        "connection.start_tls.complete": 0.605,
+        "http11.send_request_headers.started": 0.605,
+        "http11.send_request_headers.complete": 0.605,
+        "http11.send_request_body.started": 0.605,
+        "http11.send_request_body.complete": 0.606,
+        "http11.receive_response_headers.started": 0.606,
+        "http11.receive_response_headers.complete": 1.077,
+        "http11.receive_response_body.started": 1.077,
+        "http11.response_closed.started": 1.442,
+        "http11.response_closed.complete": 1.443
+      },
+      "wall_seconds": 2.381
+    },
+    {
+      "probe": "stream_default",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "completed",
+      "http_status": 200,
+      "headers_seconds": 1.007,
+      "first_token_seconds": 1.489,
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 4,
+        "total_tokens": 38
+      },
+      "elapsed_seconds": 1.491,
+      "phases": {
+        "connection.connect_tcp.started": 0.378,
+        "connection.connect_tcp.complete": 0.456,
+        "connection.start_tls.started": 0.456,
+        "connection.start_tls.complete": 0.481,
+        "http11.send_request_headers.started": 0.481,
+        "http11.send_request_headers.complete": 0.482,
+        "http11.send_request_body.started": 0.482,
+        "http11.send_request_body.complete": 0.482,
+        "http11.receive_response_headers.started": 0.482,
+        "http11.receive_response_headers.complete": 1.007,
+        "http11.receive_response_body.started": 1.008,
+        "http11.response_closed.started": 1.49,
+        "http11.response_closed.complete": 1.49
+      },
+      "wall_seconds": 2.407
+    },
+    {
+      "probe": "stream_thinking_off_no_temperature",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "completed",
+      "http_status": 200,
+      "headers_seconds": 0.743,
+      "first_token_seconds": 1.02,
+      "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 1,
+        "total_tokens": 9
+      },
+      "elapsed_seconds": 1.08,
+      "phases": {
+        "connection.connect_tcp.started": 0.393,
+        "connection.connect_tcp.complete": 0.403,
+        "connection.start_tls.started": 0.403,
+        "connection.start_tls.complete": 0.427,
+        "http11.send_request_headers.started": 0.428,
+        "http11.send_request_headers.complete": 0.428,
+        "http11.send_request_body.started": 0.428,
+        "http11.send_request_body.complete": 0.428,
+        "http11.receive_response_headers.started": 0.428,
+        "http11.receive_response_headers.complete": 0.743,
+        "http11.receive_response_body.started": 0.743,
+        "http11.response_closed.started": 1.08,
+        "http11.response_closed.complete": 1.08
+      },
+      "wall_seconds": 1.977
+    },
+    {
+      "probe": "stream_temperature_only",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "empty_stream",
+      "http_status": 200,
+      "headers_seconds": 0.784,
+      "first_token_seconds": null,
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 8,
+        "total_tokens": 42
+      },
+      "elapsed_seconds": 1.315,
+      "phases": {
+        "connection.connect_tcp.started": 0.382,
+        "connection.connect_tcp.complete": 0.391,
+        "connection.start_tls.started": 0.391,
+        "connection.start_tls.complete": 0.415,
+        "http11.send_request_headers.started": 0.415,
+        "http11.send_request_headers.complete": 0.416,
+        "http11.send_request_body.started": 0.416,
+        "http11.send_request_body.complete": 0.416,
+        "http11.receive_response_headers.started": 0.416,
+        "http11.receive_response_headers.complete": 0.784,
+        "http11.receive_response_body.started": 0.785,
+        "http11.response_closed.started": 1.315,
+        "http11.response_closed.complete": 1.315
+      },
+      "wall_seconds": 2.212
+    },
+    {
+      "probe": "stream_reasoning_effort_none",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "completed",
+      "http_status": 200,
+      "headers_seconds": 0.745,
+      "first_token_seconds": 1.308,
+      "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 1,
+        "total_tokens": 9
+      },
+      "elapsed_seconds": 1.433,
+      "phases": {
+        "connection.connect_tcp.started": 0.368,
+        "connection.connect_tcp.complete": 0.398,
+        "connection.start_tls.started": 0.398,
+        "connection.start_tls.complete": 0.422,
+        "http11.send_request_headers.started": 0.422,
+        "http11.send_request_headers.complete": 0.423,
+        "http11.send_request_body.started": 0.423,
+        "http11.send_request_body.complete": 0.423,
+        "http11.receive_response_headers.started": 0.423,
+        "http11.receive_response_headers.complete": 0.745,
+        "http11.receive_response_body.started": 0.745,
+        "http11.response_closed.started": 1.432,
+        "http11.response_closed.complete": 1.432
+      },
+      "wall_seconds": 2.318
+    },
+    {
+      "probe": "stream_reasoning_effort_none_temperature",
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "completed",
+      "http_status": 200,
+      "headers_seconds": 0.751,
+      "first_token_seconds": 1.264,
+      "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 1,
+        "total_tokens": 9
+      },
+      "elapsed_seconds": 1.317,
+      "phases": {
+        "connection.connect_tcp.started": 0.377,
+        "connection.connect_tcp.complete": 0.384,
+        "connection.start_tls.started": 0.384,
+        "connection.start_tls.complete": 0.409,
+        "http11.send_request_headers.started": 0.409,
+        "http11.send_request_headers.complete": 0.41,
+        "http11.send_request_body.started": 0.41,
+        "http11.send_request_body.complete": 0.41,
+        "http11.receive_response_headers.started": 0.41,
+        "http11.receive_response_headers.complete": 0.751,
+        "http11.receive_response_body.started": 0.751,
+        "http11.response_closed.started": 1.317,
+        "http11.response_closed.complete": 1.317
+      },
+      "wall_seconds": 2.217
+    }
+  ]
+}
