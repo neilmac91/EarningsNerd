@@ -161,24 +161,25 @@ warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to c
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
 
-Added September 14: branch protection on `main` requiring a pull-request review before merge,
-**with bypass disabled and administrators included**. That qualifier is the whole point — classic
-branch protection lets administrators bypass it, and the founder is both the administrator and the
-account merges run as, so without it the setting constrains nobody who actually merges here.
+Added September 14, and **not a recommendation** — a decision to make, with a trap named.
 
-It is a PARTIAL mitigation for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`,
-not a gate that closes it. Required approval blocks merging with no review at all, but is satisfied
-by any qualifying approval, so it does not block merging while a review that was just triggered is
-still running — the exact case that caused the #856 incident. No workflow under `.github/workflows/`
-waits on Codex and Codex publishes no check run, so no head-specific status check exists to require
-instead.
+`lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md` has no machine enforcement. The
+obvious candidate is branch protection on `main` requiring a pull-request review before merge, with
+bypass disabled and administrators included (without that qualifier it constrains nobody, since
+merges here run as the administrator).
 
-Building one was considered and **rejected on this repository's own evidence**: the
-[September 11 launch prompt](handover-astra-2026-09-11-prompt.md) records Codex out of credits and
-reviewing no PRs at all. A required check waiting on a current-head Codex review would have blocked
-every merge for that entire period. A gate that deadlocks the repository whenever a third-party bot
-is unavailable is worse than the discipline it replaces, and a bypass for that case reopens the
-hole it was built to close.
+**Do not enable it as stated.** Verified against the API: this repository has exactly one
+collaborator, `neilmac91`, role admin. GitHub does not let a pull-request author approve their own
+pull request, there is no second account, and Codex comments are not approving reviews. Enabling
+required approval with administrator bypass disabled would block every merge until the protection
+was manually weakened again. Provisioning an independent eligible approver is a prerequisite, not a
+detail, and is itself a founder decision.
+
+The alternative is a required status check on the current head that passes on either an observable
+review for that head or an explicitly recorded override with a reason. That is buildable and does
+not deadlock during a review-service outage, because the override branch stays available — and it
+mechanically enforces what the rule actually says, which is "wait, or write down why you did not".
+It is not built here. Building it, and any branch-protection change, are founder decisions.
 
 ## 6. Next practical actions
 

@@ -47,32 +47,30 @@ Measured, not assumed: no file under `.github/workflows/` mentions Codex, and ac
 require today. Closing the remainder would mean building a workflow that blocks on review
 completion for the current head; that does not exist and is not built here.
 
-The setting also has to include administrators and disable bypass, or it constrains nobody: the
-account that merges here is the repository administrator, and classic protection lets an
-administrator straight through.
+**Enforcement: what I got wrong, and where it actually stands.** Six review rounds went into this
+paragraph and every one of them corrected me, so the history is worth more than the conclusion.
 
-**So this is not a rule-12 gated rule, and it should not be presented as one.** Three review rounds
-pushed me toward claiming enforcement I did not have; the honest classification is an operating
-discipline with a partial, setting-level mitigation.
+I claimed the rule could not be gated. Wrong — nothing in the repository can observe merge timing,
+but GitHub operates at a layer that can.
 
-Building the full enforcement — a required check that waits for a review of the current head —
-was considered and rejected on this repository's own evidence. `handover-astra-2026-09-11-prompt.md`
-records the Codex bot out of credits and reviewing nothing. A required check waiting on it would
-have blocked every merge for that whole period, and a bypass for that case reopens the hole. A gate
-that deadlocks the repository when a third-party service is unavailable is worse than the discipline
-it replaces.
+I claimed required-approval branch protection enforces it exactly. Wrong — any qualifying approval
+satisfies it, including one arriving while the triggered review is still in flight.
 
-That is the generalisable part: **rule 12's mechanisms are static checks over the tree** — an ESLint
-rule, an allowlist spec, an AST test, a CI grep. They enforce invariants the repository can see.
-A rule about the order of two events outside the tree is not that kind of invariant, and forcing a
-gate onto it produces either theatre or a deadlock. Say which kind of rule you have written, and if
-it cannot be gated, say that plainly instead of dressing a mitigation up as enforcement
-(`test-gates-must-be-as-wide-as-their-rule.md` — a gate described as complete stops anyone looking
-for the hole).
+I claimed a required current-head check would deadlock during a review-service outage, citing
+`handover-astra-2026-09-11-prompt.md` recording the Codex bot out of credits. Also wrong, and this
+is the interesting one: the rule's own escape clause defeats my objection. A check that passes on
+either an observable review for the head **or** an explicitly recorded override with a reason never
+deadlocks, because the override branch stays open — and it enforces precisely what the rule says,
+"wait, or write down why you did not". Relabelling the rule as an operating discipline did not make
+rule 12 stop applying to it.
 
-The general form is worth keeping: when a rule looks ungateable, check whether the enforcement
-simply lives at a layer you do not control. "No gate is possible" and "the gate is someone else's
-to enable" look identical from inside the repository and are not the same claim.
+Where it stands: that check is buildable, is not built, and is a founder decision along with any
+branch-protection change. The branch-protection route in particular must not be enabled as first
+drafted — this repository has exactly one collaborator, who is the administrator and the author of
+every pull request, so requiring an approval with bypass disabled would lock the repository
+outright. Both are recorded in `tasks/handover-astra-2026-09-14.md` §5.
+
+Until one exists the rule rests on discipline, and that is a gap, not an exemption.
 
 **Evidence**: PR #856 timeline (ready 18:19:34Z, Codex start 18:19:39Z, merge 18:19:45Z,
 finding 18:23:03Z); the corrected pointer in `tasks/handover-astra-2026-09-14.md`; PR #853,
