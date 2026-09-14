@@ -40,6 +40,10 @@ Test Files  2 failed (2)
      Tests  2 failed | 12 skipped (14)
 ```
 
+## Scheduled prerequisite checked without dispatch
+
+The September 14 scheduled [weekly run 34880067441](https://github.com/neilmac91/EarningsNerd/actions/runs/34880067441) completed with measurement failure and a retained `weekly-judged-readout-34880067441` artifact. `readout.json` says `status=unavailable`, `expected=24`, `completed=0`, `scored=0`, `missing=24`, reason: “Generator or strong-judge credential absent; no model calls made.” This supersedes the handover's September 7 latest-observation date, not the outstanding readout requirement. The artifact does not distinguish which credential is absent. Its report job completed separately; successful report delivery is not successful judging. Codex only downloaded existing evidence and did not dispatch either job.
+
 ## Next order and unchanged boundaries
 
 Finish the Node floor correction, then continue unblocked quality and read-only operational evidence work from the existing master plan. The Notable review week runs through September 15; do not request an early retain/kill decision. W3-7 still needs a usable prescribed strong-judge readout and later arm decision. Analysis needs actual warm-up and Pro acceptance evidence. E09 remains an inventory/proposal; E06 needs natural delivery attribution. D8, #270, future dependency majors, #805, historical replay and universe-wide pregeneration retain their respective holds. Earlier specific dependency approvals have been consumed. No fresh clarification is required for the two completed checks or the Node 22 correction.
