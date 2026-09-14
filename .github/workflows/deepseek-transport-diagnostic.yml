@@ -108,7 +108,7 @@ jobs:
                       model=MODEL, messages=TINY, max_tokens=8, stream=True,
                       stream_options={"include_usage": True}, **extra,
                   )
-                  result["headers_seconds"] = round(time.monotonic() - result["_t0"], 3)
+                  result["headers_seconds"] = PHASES.get("http11.receive_response_headers.complete")
                   result["http_status"] = getattr(getattr(stream, "response", None), "status_code", None)
                   async with stream:
                       async for chunk in stream:
@@ -122,11 +122,14 @@ jobs:
           async def sdk_plain(result):
               async with AsyncOpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url=BASE,
                                      max_retries=0, timeout=20, http_client=http_client()) as client:
-                  completion = await client.chat.completions.create(
+                  raw_response = await client.chat.completions.with_raw_response.create(
                       model=MODEL, messages=TINY, max_tokens=8, temperature=0,
                       extra_body={"thinking": {"type": "disabled"}},
                   )
-                  result["headers_seconds"] = round(time.monotonic() - result["_t0"], 3)
+                  # Header arrival comes from the transport trace; create() returns only after the body.
+                  result["headers_seconds"] = PHASES.get("http11.receive_response_headers.complete")
+                  result["http_status"] = raw_response.status_code
+                  completion = raw_response.parse()
                   result["usage"] = usage_of(completion.usage)
                   has_text = any(choice.message.content for choice in completion.choices)
                   result["outcome"] = "completed" if has_text else "empty_completion"
