@@ -1,0 +1,140 @@
+name: Bounded DeepSeek SDK transport diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-transport-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Load AI model configuration
+        shell: bash
+        run: cat .github/ai-model.env >> "$GITHUB_ENV"
+      - name: Prepare isolated SDK environments
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pin shared dependencies to the committed runtime graph; vary only OpenAI.
+          sed '/^openai==/d' backend/requirements.txt > "$RUNNER_TEMP/transport-constraints.txt"
+          for version in 3.8.0 3.13.0; do
+            python -m venv "$RUNNER_TEMP/sdk-$version"
+            "$RUNNER_TEMP/sdk-$version/bin/python" -m pip install \
+              -c "$RUNNER_TEMP/transport-constraints.txt" \
+              "openai==$version" httpx2==2.12.0 httpcore2==2.12.0
+            "$RUNNER_TEMP/sdk-$version/bin/python" -m pip check
+          done
+      - name: Run exactly two bounded requests
+        shell: bash
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import time
+
+          # No credentials, messages, response bodies or raw exceptions enter evidence.
+          child = r'''
+          import asyncio
+          import importlib.metadata
+          import json
+          import os
+          import time
+          from openai import AsyncOpenAI, APIStatusError
+
+          async def main():
+              result = {
+                  "versions": {name: importlib.metadata.version(name)
+                               for name in ("openai", "httpx2", "httpcore2")},
+                  "outcome": "unknown", "first_token_seconds": None, "usage": None,
+              }
+              started = time.monotonic()
+              try:
+                  async with asyncio.timeout(23):
+                      async with AsyncOpenAI(
+                          api_key=os.environ["DEEPSEEK_API_KEY"],
+                          base_url=os.environ["OPENAI_BASE_URL"],
+                          max_retries=0, timeout=20,
+                      ) as client:
+                          stream = await client.chat.completions.create(
+                              model=os.environ["AI_DEFAULT_MODEL"],
+                              messages=[{"role": "user", "content": "Reply with OK."}],
+                              temperature=0, max_tokens=8, stream=True,
+                              stream_options={"include_usage": True},
+                              extra_body={"thinking": {"type": "disabled"}},
+                          )
+                          async with stream:
+                              async for chunk in stream:
+                                  if any(choice.delta.content for choice in chunk.choices):
+                                      if result["first_token_seconds"] is None:
+                                          result["first_token_seconds"] = round(time.monotonic() - started, 3)
+                                  if chunk.usage is not None:
+                                      result["usage"] = {
+                                          field: getattr(chunk.usage, field, None)
+                                          for field in ("prompt_tokens", "completion_tokens", "total_tokens")
+                                      }
+                          result["outcome"] = "completed" if result["first_token_seconds"] is not None else "empty_stream"
+              except APIStatusError as exc:
+                  result["outcome"] = "http_error"
+                  result["http_status"] = exc.status_code
+              except TimeoutError:
+                  result["outcome"] = "deadline"
+              except Exception:
+                  result["outcome"] = "sdk_or_transport_error"
+              result["elapsed_seconds"] = round(time.monotonic() - started, 3)
+              print(json.dumps(result))
+
+          asyncio.run(main())
+          '''
+          import textwrap
+          child = textwrap.dedent(child)
+          outcomes = []
+          if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
+              raise SystemExit("Diagnostic not run: provider key is not configured.")
+          for version in ("3.8.0", "3.13.0"):
+              started = time.monotonic()
+              try:
+                  run = subprocess.run(
+                      [str(Path(os.environ["RUNNER_TEMP"]) / f"sdk-{version}" / "bin/python"), "-c", child],
+                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                      timeout=25, check=False,
+                  )
+                  result = json.loads(run.stdout) if run.returncode == 0 else {"outcome": "process_error"}
+              except subprocess.TimeoutExpired:
+                  result = {"outcome": "process_deadline", "usage": None}
+              except (ValueError, OSError):
+                  result = {"outcome": "invalid_diagnostic_result", "usage": None}
+              result["requested_sdk"] = version
+              result["wall_seconds"] = round(time.monotonic() - started, 3)
+              outcomes.append(result)
+          evidence = {
+              "model": os.environ["AI_DEFAULT_MODEL"],
+              "requests_per_sdk": 1, "max_tokens": 8, "deadline_seconds": 25,
+              "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load.",
+              "outcomes": outcomes,
+          }
+          path = Path("transport-diagnostic.json")
+          path.write_text(json.dumps(evidence, indent=2) + "\n")
+          print(path.read_text())
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deepseek-sdk-transport-${{ github.run_id }}
+          path: transport-diagnostic.json
+          if-no-files-found: ignore
+          retention-days: 14
