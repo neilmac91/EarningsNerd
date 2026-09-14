@@ -748,3 +748,71 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
         standardized = EdgarXBRLService().extract_standardized_metrics(raw)
         assert 'capital_expenditures' not in standardized
         assert 'source concept:' not in build_xbrl_narrative_section(standardized)
+
+
+@pytest.mark.parametrize('qualified,currency', [
+    ('us-gaap:Revenues', 'USD'),
+    ('ifrs-full:Revenue', 'DKK'),
+])
+def test_revenue_source_namespace_survives_fact_and_citation_paths(monkeypatch, qualified, currency):
+    """A citation must name the selected filing's real taxonomy, preserving selection semantics."""
+    from types import SimpleNamespace
+    from app.config import settings
+    from app.models.financial_fact import FinancialFact
+    from app.services.copilot_tools import fact_to_citation
+    from app.services.facts_service import normalize_standardized_to_facts
+
+    period, accession = '2025-12-31', '0001-25-000001'
+    concepts = DURATION_CONCEPTS['revenue']
+    frame = pd.DataFrame([
+        {'period_start': '2025-01-01', 'period_end': period, 'numeric_value': 120},
+        {'period_start': '2024-01-01', 'period_end': '2024-12-31', 'numeric_value': 100},
+        {'period_start': '2025-10-01', 'period_end': period, 'numeric_value': 777},
+    ]).assign(currency=currency, is_dimensioned=False)
+    calls = []
+
+    class Query:
+        def by_concept(self, concept, exact=True):
+            assert exact is True
+            calls.append(concept)
+            self.frame = frame if concept == qualified else pd.DataFrame()
+            return self
+
+        def to_dataframe(self):
+            return self.frame
+
+    xb = SimpleNamespace(facts=SimpleNamespace(query=Query))
+    expected_queries = [f'{ns}:{name}' for name in concepts for ns in ('us-gaap', 'ifrs-full')]
+    expected_queries = expected_queries[:expected_queries.index(qualified) + 1]
+    # The helper's existing bare-concept API and annual/quarter selection stay unchanged.
+    assert duration_series_with_starts(xb, concepts, '20-F', period) == (
+        [(period, 120.0, '2025-01-01'), ('2024-12-31', 100.0, '2024-01-01')],
+        currency, qualified.split(':', 1)[1],
+    )
+    assert calls == expected_queries
+    calls.clear()
+    monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
+    monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
+    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'revenue': concepts})
+    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_module, 'debt_component_observations', lambda *a, **k: [])
+    with _patch_company([FakeFiling('20-F', period, xb)]):
+        raw = _extract_from_filing_instance_sync('0000000001', accession)
+    assert calls == expected_queries  # Namespace preservation adds no source query.
+    standardized = EdgarXBRLService().extract_standardized_metrics(raw)
+    facts = normalize_standardized_to_facts(1, 1, accession, '20-F', standardized)
+    revenue = [point for point in facts if point['concept'] == 'revenue']
+    assert [(str(point['period_end']), point['value'], str(point['period_start']), point['unit'])
+            for point in revenue] == [
+        (period, 120.0, '2025-01-01', currency),
+        ('2024-12-31', 100.0, '2024-01-01', currency),
+    ]
+    assert [point['raw_tag'] for point in raw['revenue']] == [qualified, qualified]
+    for point in revenue:
+        assert FinancialFact(**point).raw_tag == qualified
+        citation = fact_to_citation(point)
+        assert citation['raw_tag'] == qualified
+        assert citation['section_ref'] == f'XBRL · {qualified}'
+        assert citation['verified'] is True

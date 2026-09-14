@@ -393,10 +393,9 @@ def _extract_from_filing_instance_sync(
         if metric == "revenue":
             # Record the winning concept as raw_tag so a revenue concept that FLIPS between filings
             # can be detected downstream (the −53.8% apples-to-oranges class of bug).
-            series, currency, concept = duration_series_with_starts(
-                xb, concepts, base_form, period_of_report
+            series, currency, raw_tag = duration_series_with_starts(
+                xb, concepts, base_form, period_of_report, qualified_concept=True
             )
-            raw_tag = f"us-gaap:{concept}" if concept else None
             result[metric] = [
                 {"period": end, "value": value, "form": form, "accn": accession_number,
                  "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
