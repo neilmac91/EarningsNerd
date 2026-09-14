@@ -15,18 +15,21 @@ time and, by then, every shape completed with nothing changed on our side. Concl
 time-bound provider stall on non-thinking requests, not the SDK. The balance did not move
 across 22 stalled requests, so stalled requests were not billed either.
 
-**Rule**: When a keyed inference call stalls, do not rerun the paid corpus, lengthen
-production deadlines or swap providers. Dispatch `deepseek-transport-diagnostic.yml`
-first: it runs an unauthenticated POST, a keyed free GET, the application's exact request
-shape and the bare default request, and records httpcore phase timestamps (connect, TLS,
-send, response headers) so the stall lands at one layer. Only after the exact production
-shape completes there is a single paid rerun justified, and the reason and expected cost
-go on the PR before the ready transition. Read the balance before and after; an unchanged
-balance across failed requests is evidence about billing, not proof of zero provider load.
+**Rule** (a diagnostic procedure, not a tree invariant): when a keyed inference call
+stalls, dispatch `deepseek-transport-diagnostic.yml` before rerunning a paid corpus. It
+installs the SDK and transport at the committed `requirements.txt` pins, runs the
+unauthenticated POST and the keyed free GET first, then the application's exact request
+shape, the bare default request and one-field variants, and records httpcore phase
+timestamps (connect, TLS, send, response headers) so the stall lands at one layer. A single
+paid rerun is justified once the exact production shape completes there; put the reason
+and the expected cost on the PR before the ready transition, and read the balance before
+and after. An unchanged balance across failed requests is evidence about billing, not
+proof of zero provider load. Lengthening production deadlines or changing provider on the
+strength of one stall is a separate founder decision, not a diagnostic step.
 
-**Enforcement**: the diagnostic is the mechanism, kept under `workflow_dispatch` only with
-`test_retired_model_ids.py` holding it to the shared model configuration. Merge timing and
-spend decisions are not properties of the tree, so this lesson has no tree-level gate;
-the PR comment recording the rerun reason is the reviewable artifact.
+**Enforcement**: the workflow is the mechanism. `test_retired_model_ids.py` holds it to the
+shared model configuration; #869 holds its SDK to the committed pin. Whether a rerun was
+diagnosed first is a review-time judgement recorded on the PR, so no tree-level gate is
+claimed for the sequencing.
 
-**Evidence**: runs 34898642117 and 34899733464; #864, #865; `tasks/review-evidence/resumption-2026-09-14/inference-stall.md`.
+**Evidence**: runs 34898642117 and 34899733464; #864, #865, #869; `tasks/review-evidence/resumption-2026-09-14/inference-stall.md`.
