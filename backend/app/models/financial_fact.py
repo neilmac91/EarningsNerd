@@ -37,7 +37,7 @@ class FinancialFact(Base):
     # Nullable: backfill rows (companyfacts/FSDS) may precede a Filing row for that accession.
     filing_id = Column(Integer, ForeignKey("filings.id"), nullable=True)
     concept = Column(String, nullable=False)  # standardized concept, e.g. "revenue", "net_income"
-    raw_tag = Column(String, nullable=True)  # as-reported us-gaap tag (audit trail)
+    raw_tag = Column(String, nullable=True)  # as-reported XBRL tag, including its namespace (audit trail)
     unit = Column(String, nullable=False)  # USD | USD/shares | shares | pure
     period_start = Column(Date, nullable=True)  # null for instant facts
     period_end = Column(Date, nullable=False, index=True)
