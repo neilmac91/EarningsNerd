@@ -161,15 +161,24 @@ warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to c
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
 
-Added September 14: branch protection on `main` requiring a pull-request review before merge.
-This is the available enforcement for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`
-(CLAUDE.md rule 12 / AGENTS.md §4), and it is a repository setting, so only the founder can land it.
-It is a PARTIAL gate and the lesson says so: required approval blocks merging with no review at
-all, but is satisfied by any qualifying approval, so it does not block merging while a review that
-was just triggered is still running — the exact case that caused the #856 incident. No workflow
-under `.github/workflows/` waits on Codex and Codex publishes no check run, so no head-specific
-status check exists to require instead. The residual gap rests on discipline until someone builds
-one.
+Added September 14: branch protection on `main` requiring a pull-request review before merge,
+**with bypass disabled and administrators included**. That qualifier is the whole point — classic
+branch protection lets administrators bypass it, and the founder is both the administrator and the
+account merges run as, so without it the setting constrains nobody who actually merges here.
+
+It is a PARTIAL mitigation for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`,
+not a gate that closes it. Required approval blocks merging with no review at all, but is satisfied
+by any qualifying approval, so it does not block merging while a review that was just triggered is
+still running — the exact case that caused the #856 incident. No workflow under `.github/workflows/`
+waits on Codex and Codex publishes no check run, so no head-specific status check exists to require
+instead.
+
+Building one was considered and **rejected on this repository's own evidence**: the
+[September 11 launch prompt](handover-astra-2026-09-11-prompt.md) records Codex out of credits and
+reviewing no PRs at all. A required check waiting on a current-head Codex review would have blocked
+every merge for that entire period. A gate that deadlocks the repository whenever a third-party bot
+is unavailable is worse than the discipline it replaces, and a bypass for that case reopens the
+hole it was built to close.
 
 ## 6. Next practical actions
 

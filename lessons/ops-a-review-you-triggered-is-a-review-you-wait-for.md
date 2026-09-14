@@ -47,10 +47,28 @@ Measured, not assumed: no file under `.github/workflows/` mentions Codex, and ac
 require today. Closing the remainder would mean building a workflow that blocks on review
 completion for the current head; that does not exist and is not built here.
 
-So the setting is a PARTIAL gate, and the residual — the exact gap that caused #856 — still rests
-on discipline. Say partial when it is partial: a gate described as complete stops anyone looking
-for the hole, which is the same failure as a gate narrower than its rule
-(`test-gates-must-be-as-wide-as-their-rule.md`).
+The setting also has to include administrators and disable bypass, or it constrains nobody: the
+account that merges here is the repository administrator, and classic protection lets an
+administrator straight through.
+
+**So this is not a rule-12 gated rule, and it should not be presented as one.** Three review rounds
+pushed me toward claiming enforcement I did not have; the honest classification is an operating
+discipline with a partial, setting-level mitigation.
+
+Building the full enforcement — a required check that waits for a review of the current head —
+was considered and rejected on this repository's own evidence. `handover-astra-2026-09-11-prompt.md`
+records the Codex bot out of credits and reviewing nothing. A required check waiting on it would
+have blocked every merge for that whole period, and a bypass for that case reopens the hole. A gate
+that deadlocks the repository when a third-party service is unavailable is worse than the discipline
+it replaces.
+
+That is the generalisable part: **rule 12's mechanisms are static checks over the tree** — an ESLint
+rule, an allowlist spec, an AST test, a CI grep. They enforce invariants the repository can see.
+A rule about the order of two events outside the tree is not that kind of invariant, and forcing a
+gate onto it produces either theatre or a deadlock. Say which kind of rule you have written, and if
+it cannot be gated, say that plainly instead of dressing a mitigation up as enforcement
+(`test-gates-must-be-as-wide-as-their-rule.md` — a gate described as complete stops anyone looking
+for the hole).
 
 The general form is worth keeping: when a rule looks ungateable, check whether the enforcement
 simply lives at a layer you do not control. "No gate is possible" and "the gate is someone else's
