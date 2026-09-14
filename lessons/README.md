@@ -110,6 +110,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-write-down-the-second-anomaly-before-chasing-the-first.md`](./ops-write-down-the-second-anomaly-before-chasing-the-first.md) — Write down the second anomaly before chasing the first — a parked finding is a lost finding
+- [`ops-a-review-you-triggered-is-a-review-you-wait-for.md`](./ops-a-review-you-triggered-is-a-review-you-wait-for.md) — A review you triggered is a review you wait for; merging inside it discards what you asked for
 - [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool
 - [`ops-repin-binds-advisory-dims-sync-doc.md`](./ops-repin-binds-advisory-dims-sync-doc.md) — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
 - [`ops-run-full-backend-gate-before-push.md`](./ops-run-full-backend-gate-before-push.md) — Run the full local gate (ruff + bandit + pytest) before any backend push

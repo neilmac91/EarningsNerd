@@ -69,7 +69,11 @@ New structural gates, all in `frontend/tests/unit/`:
 `postcssOverrideLockstep.spec.ts`, `overrideDirectionGate.spec.ts`. `eslint.config.mjs` gained
 `DATE_RULES` and `CALENDAR_FIELD_RULES`, appended to all three existing `no-restricted-syntax` blocks
 — ESLint flat config **replaces** rather than merges that option on override, so a new block silently
-disables earlier gates. That trap is warned about at `eslint.config.mjs:83-86`; respect it.
+disables earlier gates. That trap is warned about at `eslint.config.mjs:155-160`; respect it.
+(`:81-83` is a different point — why the calendar-date selectors match descendants rather than
+direct children, since a `TSAsExpression` wrapper defeated `>`. `:83-86` is not a range worth
+citing at all: it straddles that note's last sentence, a blank line, and the start of a separate
+KNOWN RESIDUAL comment.)
 
 Three new lessons: `test-gates-must-be-as-wide-as-their-rule.md` (#850),
 `frontend-overrides-rot-when-the-constrained-package-moves.md` and
@@ -156,6 +160,26 @@ retain/kill decision, which falls due after the review week closes on September 
 warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to create and approve pull
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
+
+Added September 14, and **not a recommendation** — a decision to make, with a trap named.
+
+`lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md` has no machine enforcement. The
+obvious candidate is branch protection on `main` requiring a pull-request review before merge, with
+bypass disabled and administrators included (without that qualifier it constrains nobody, since
+merges here run as the administrator).
+
+**Do not enable it as stated.** Verified against the API: this repository has exactly one
+collaborator, `neilmac91`, role admin. GitHub does not let a pull-request author approve their own
+pull request, there is no second account, and Codex comments are not approving reviews. Enabling
+required approval with administrator bypass disabled would block every merge until the protection
+was manually weakened again. Provisioning an independent eligible approver is a prerequisite, not a
+detail, and is itself a founder decision.
+
+The alternative is a required status check on the current head that passes on either an observable
+review for that head or an explicitly recorded override with a reason. That is buildable and does
+not deadlock during a review-service outage, because the override branch stays available — and it
+mechanically enforces what the rule actually says, which is "wait, or write down why you did not".
+It is not built here. Building it, and any branch-protection change, are founder decisions.
 
 ## 6. Next practical actions
 
