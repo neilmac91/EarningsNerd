@@ -23,3 +23,16 @@ behavior before suspecting the code under test.
 **Evidence**: `frontend/tests/unit/filing-content-api.spec.ts` (header comment + the plain-holder
 pattern); PR #568 CI run 28801074636 (the vi.fn variants failing); vitest 4.1.9,
 `frontend/package.json`.
+
+**Verification (2026-09-14, Vitest 5.0.0).** The workaround remains necessary in this
+repository after #852; the version in the original account is historical, not a claim that
+Vitest 5 fixes the behavior. On Node 22.23.2, using the committed lockfile, repository Vitest
+configuration and real `fetchFilingContent` function, all six combinations of
+`mockRejectedValue`, lazy `Promise.reject` and synchronous `throw` with either an awaited
+`rejects` assertion or `try/catch` failed with the raw 404 error. Matching plain-function
+module controls passed all six cases, and the existing filing-content spec passed all three.
+An independently committed variant removed the mock call matcher and still failed all six,
+so call-argument assertions do not explain the result. Deliberately leaving the rejection
+uncaught failed both the mock and plain controls, confirming that the plain control does not
+suppress real test errors. These observations confirm the workaround; they do not establish
+the runner's internal cause. No production code or test behavior was changed.
