@@ -26,14 +26,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Pin shared dependencies to the committed runtime graph; the SDK is main's own version.
-          sed '/^openai==/d' backend/requirements.txt > "$RUNNER_TEMP/transport-constraints.txt"
+          # Install the SDK and transport at exactly the pins the deployed backend carries, with the
+          # rest of the committed runtime graph as constraints, so the probes exercise the same client.
+          grep -E '^(openai|httpx2|httpcore2)==' backend/requirements.txt > "$RUNNER_TEMP/transport-pins.txt"
+          test "$(wc -l < "$RUNNER_TEMP/transport-pins.txt")" -eq 3
           python -m venv "$RUNNER_TEMP/sdk"
           "$RUNNER_TEMP/sdk/bin/python" -m pip install \
-            -c "$RUNNER_TEMP/transport-constraints.txt" \
-            "openai==3.8.0" httpx2==2.12.0 httpcore2==2.12.0
+            -c backend/requirements.txt -r "$RUNNER_TEMP/transport-pins.txt"
           "$RUNNER_TEMP/sdk/bin/python" -m pip check
-      - name: Run at most six bounded inference requests across a one-field-at-a-time parameter matrix
+      - name: Run two free layer probes, then at most six bounded inference requests
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -185,12 +186,12 @@ jobs:
           child = textwrap.dedent(child)
           if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
               raise SystemExit("Diagnostic not run: provider key is not configured.")
-          # Parameter matrix after run 34898642117: path and auth are proven, the application's
-          # thinking-disabled + temperature shape returns 200 headers and no body, and the bare default
-          # request completes. Vary one field at a time around that result.
-          probes = ("stream_thinking_off", "stream_default", "stream_thinking_off_no_temperature",
-                    "stream_temperature_only", "stream_reasoning_effort_none",
-                    "stream_reasoning_effort_none_temperature")
+          # Layered order: the two free probes place path and authentication first (no inference),
+          # then the application's exact shape and the bare default, then one-field variants around
+          # them. Six inference requests at most, eight tokens each.
+          probes = ("unauthenticated_post", "models_get", "stream_thinking_off", "stream_default",
+                    "stream_thinking_off_no_temperature", "stream_temperature_only",
+                    "stream_reasoning_effort_none", "stream_reasoning_effort_none_temperature")
           outcomes = []
           for probe in probes:
               started = time.monotonic()
