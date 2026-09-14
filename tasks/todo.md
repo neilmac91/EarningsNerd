@@ -37,6 +37,8 @@
 - [ ] 6 dev-only high-severity findings under `@lhci/utils` remain. `npm audit fix --force` wants a
   breaking Lighthouse-CI major — its own PR and its own decision, not a ride-along.
 
+**September 14 advisory correction:** a fresh audit still reports six high development-only package entries and zero production advisories. It does not report a complete available fix. The earlier Lighthouse-major remedy above is not established; investigate a concrete supported fix before requesting another major approval. See the dated [resumption review](resumption-review-2026-09-14.md).
+
 ### Follow-up landed in the same wave
 
 - [x] `overrides.jsdom` -> `undici ^7.28.0` was a stale ceiling: it raised a floor under jsdom 29 and
