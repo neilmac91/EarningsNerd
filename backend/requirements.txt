@@ -64,7 +64,9 @@ filelock==3.29.4
 fonttools==4.63.0
     # via weasyprint
 greenlet==3.5.5
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -118,7 +120,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.8.0
+openai==3.13.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -136,9 +138,9 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.47.0
+posthog==7.51.0
     # via -r requirements.in
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
@@ -202,7 +204,7 @@ requests==2.34.2
     #   stripe
 rich==15.0.0
     # via edgartools
-sentry-sdk==2.68.1
+sentry-sdk==2.69.1
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
