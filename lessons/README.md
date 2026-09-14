@@ -57,6 +57,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
 - [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
+- [`test-fresh-bytecode-prefix-before-trusting-local-timing.md`](./test-fresh-bytecode-prefix-before-trusting-local-timing.md) — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
 - [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI
@@ -110,6 +111,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-write-down-the-second-anomaly-before-chasing-the-first.md`](./ops-write-down-the-second-anomaly-before-chasing-the-first.md) — Write down the second anomaly before chasing the first — a parked finding is a lost finding
+- [`ops-place-a-provider-stall-before-paying-again.md`](./ops-place-a-provider-stall-before-paying-again.md) — Place a provider stall at one layer with free probes before paying for another corpus
 - [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool
 - [`ops-repin-binds-advisory-dims-sync-doc.md`](./ops-repin-binds-advisory-dims-sync-doc.md) — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
 - [`ops-run-full-backend-gate-before-push.md`](./ops-run-full-backend-gate-before-push.md) — Run the full local gate (ruff + bandit + pytest) before any backend push
