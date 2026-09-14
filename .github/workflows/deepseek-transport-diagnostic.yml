@@ -22,20 +22,18 @@ jobs:
       - name: Load AI model configuration
         shell: bash
         run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
-      - name: Prepare isolated SDK environments
+      - name: Prepare the committed SDK environment
         shell: bash
         run: |
           set -euo pipefail
-          # Pin shared dependencies to the committed runtime graph; vary only OpenAI.
+          # Pin shared dependencies to the committed runtime graph; the SDK is main's own version.
           sed '/^openai==/d' backend/requirements.txt > "$RUNNER_TEMP/transport-constraints.txt"
-          for version in 3.8.0 3.13.0; do
-            python -m venv "$RUNNER_TEMP/sdk-$version"
-            "$RUNNER_TEMP/sdk-$version/bin/python" -m pip install \
-              -c "$RUNNER_TEMP/transport-constraints.txt" \
-              "openai==$version" httpx2==2.12.0 httpcore2==2.12.0
-            "$RUNNER_TEMP/sdk-$version/bin/python" -m pip check
-          done
-      - name: Run at most two bounded requests
+          python -m venv "$RUNNER_TEMP/sdk"
+          "$RUNNER_TEMP/sdk/bin/python" -m pip install \
+            -c "$RUNNER_TEMP/transport-constraints.txt" \
+            "openai==3.8.0" httpx2==2.12.0 httpcore2==2.12.0
+          "$RUNNER_TEMP/sdk/bin/python" -m pip check
+      - name: Run at most three bounded inference requests across five layered probes
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -47,72 +45,142 @@ jobs:
           import subprocess
           import time
 
-          # No credentials, messages, response bodies or raw exceptions enter evidence.
+          # No credentials, messages, response bodies, headers or raw exceptions enter evidence.
+          # Probes are layered so a failure can be placed at one layer:
+          #   unauthenticated_post  runner -> provider POST path with an invalid key (expects a fast 401; no inference)
+          #   models_get            authenticated GET on the /v1 path (free; auth + routing, no inference)
+          #   stream_thinking_off   the application's exact streaming shape (headers time recorded separately)
+          # Every probe records httpcore phase timestamps so a stall is placed at connect, TLS, send or response.
+          #   nonstream_thinking_off the same request without streaming
+          #   stream_default        streaming with provider-default thinking and no temperature
           child = r'''
           import asyncio
           import importlib.metadata
           import json
           import os
+          import sys
           import time
+          import httpx2
           from openai import AsyncOpenAI, APIStatusError
+
+          PROBE = sys.argv[1]
+          BASE = os.environ["OPENAI_BASE_URL"].rstrip("/")
+          MODEL = os.environ["AI_DEFAULT_MODEL"]
+          TINY = [{"role": "user", "content": "Reply with OK."}]
+          PHASES = {}
+          T0 = time.monotonic()
+
+          async def trace(name, info):
+              # httpcore phase names only (connect_tcp / start_tls / send_request_* / receive_response_*),
+              # each stamped with seconds since the probe started. No request or response data is read.
+              PHASES[name] = round(time.monotonic() - T0, 3)
+
+          class TracedTransport(httpx2.AsyncHTTPTransport):
+              async def handle_async_request(self, request):
+                  request.extensions["trace"] = trace
+                  return await super().handle_async_request(request)
+
+          def http_client():
+              return httpx2.AsyncClient(transport=TracedTransport(), timeout=20)
 
           def token_count(value):
               return value if type(value) is int and value >= 0 else None
 
+          def usage_of(usage):
+              if usage is None:
+                  return None
+              return {field: token_count(getattr(usage, field, None))
+                      for field in ("prompt_tokens", "completion_tokens", "total_tokens")}
+
+          async def raw(method, path, key, body=None):
+              async with http_client() as client:
+                  response = await client.request(
+                      method, BASE + path,
+                      headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+                      content=json.dumps(body) if body is not None else None,
+                  )
+                  return response.status_code
+
+          async def sdk_stream(result, extra):
+              async with AsyncOpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url=BASE,
+                                     max_retries=0, timeout=20, http_client=http_client()) as client:
+                  stream = await client.chat.completions.create(
+                      model=MODEL, messages=TINY, max_tokens=8, stream=True,
+                      stream_options={"include_usage": True}, **extra,
+                  )
+                  result["headers_seconds"] = round(time.monotonic() - result["_t0"], 3)
+                  result["http_status"] = getattr(getattr(stream, "response", None), "status_code", None)
+                  async with stream:
+                      async for chunk in stream:
+                          if any(choice.delta.content for choice in chunk.choices):
+                              if result["first_token_seconds"] is None:
+                                  result["first_token_seconds"] = round(time.monotonic() - result["_t0"], 3)
+                          if chunk.usage is not None:
+                              result["usage"] = usage_of(chunk.usage)
+                  result["outcome"] = "completed" if result["first_token_seconds"] is not None else "empty_stream"
+
+          async def sdk_plain(result):
+              async with AsyncOpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url=BASE,
+                                     max_retries=0, timeout=20, http_client=http_client()) as client:
+                  completion = await client.chat.completions.create(
+                      model=MODEL, messages=TINY, max_tokens=8, temperature=0,
+                      extra_body={"thinking": {"type": "disabled"}},
+                  )
+                  result["headers_seconds"] = round(time.monotonic() - result["_t0"], 3)
+                  result["usage"] = usage_of(completion.usage)
+                  has_text = any(choice.message.content for choice in completion.choices)
+                  result["outcome"] = "completed" if has_text else "empty_completion"
+
           async def main():
-              result = {
-                  "versions": {name: importlib.metadata.version(name)
-                               for name in ("openai", "httpx2", "httpcore2")},
-                  "outcome": "unknown", "first_token_seconds": None, "usage": None,
-              }
-              started = time.monotonic()
+              result = {"probe": PROBE,
+                        "versions": {name: importlib.metadata.version(name)
+                                     for name in ("openai", "httpx2", "httpcore2")},
+                        "outcome": "unknown", "http_status": None, "headers_seconds": None,
+                        "first_token_seconds": None, "usage": None, "_t0": T0}
               try:
                   async with asyncio.timeout(23):
-                      async with AsyncOpenAI(
-                          api_key=os.environ["DEEPSEEK_API_KEY"],
-                          base_url=os.environ["OPENAI_BASE_URL"],
-                          max_retries=0, timeout=20,
-                      ) as client:
-                          stream = await client.chat.completions.create(
-                              model=os.environ["AI_DEFAULT_MODEL"],
-                              messages=[{"role": "user", "content": "Reply with OK."}],
-                              temperature=0, max_tokens=8, stream=True,
-                              stream_options={"include_usage": True},
-                              extra_body={"thinking": {"type": "disabled"}},
-                          )
-                          async with stream:
-                              async for chunk in stream:
-                                  if any(choice.delta.content for choice in chunk.choices):
-                                      if result["first_token_seconds"] is None:
-                                          result["first_token_seconds"] = round(time.monotonic() - started, 3)
-                                  if chunk.usage is not None:
-                                      result["usage"] = {
-                                          field: token_count(getattr(chunk.usage, field, None))
-                                          for field in ("prompt_tokens", "completion_tokens", "total_tokens")
-                                      }
-                          result["outcome"] = "completed" if result["first_token_seconds"] is not None else "empty_stream"
+                      if PROBE == "unauthenticated_post":
+                          result["http_status"] = await raw("POST", "/chat/completions", "invalid", {
+                              "model": MODEL, "messages": TINY, "max_tokens": 8, "stream": True})
+                          result["outcome"] = "responded"
+                      elif PROBE == "models_get":
+                          result["http_status"] = await raw("GET", "/models", os.environ["DEEPSEEK_API_KEY"])
+                          result["outcome"] = "responded"
+                      elif PROBE == "stream_thinking_off":
+                          await sdk_stream(result, {"temperature": 0,
+                                                    "extra_body": {"thinking": {"type": "disabled"}}})
+                      elif PROBE == "nonstream_thinking_off":
+                          await sdk_plain(result)
+                      elif PROBE == "stream_default":
+                          await sdk_stream(result, {})
+                      else:
+                          raise SystemExit(2)
               except APIStatusError as exc:
                   result["outcome"] = "http_error"
                   result["http_status"] = exc.status_code
               except TimeoutError:
                   result["outcome"] = "deadline"
-              except Exception:
+              except Exception as exc:
                   result["outcome"] = "sdk_or_transport_error"
-              result["elapsed_seconds"] = round(time.monotonic() - started, 3)
+                  result["exception_class"] = type(exc).__name__
+              result["elapsed_seconds"] = round(time.monotonic() - result.pop("_t0"), 3)
+              result["phases"] = PHASES
               print(json.dumps(result))
 
           asyncio.run(main())
           '''
           import textwrap
           child = textwrap.dedent(child)
-          outcomes = []
           if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
               raise SystemExit("Diagnostic not run: provider key is not configured.")
-          for version in ("3.8.0", "3.13.0"):
+          probes = ("unauthenticated_post", "models_get", "stream_thinking_off",
+                    "nonstream_thinking_off", "stream_default")
+          outcomes = []
+          for probe in probes:
               started = time.monotonic()
               try:
                   run = subprocess.run(
-                      [str(Path(os.environ["RUNNER_TEMP"]) / f"sdk-{version}" / "bin/python"), "-c", child],
+                      [str(Path(os.environ["RUNNER_TEMP"]) / "sdk" / "bin/python"), "-c", child, probe],
                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
                       timeout=25, check=False,
                   )
@@ -121,13 +189,13 @@ jobs:
                   result = {"outcome": "process_deadline", "usage": None}
               except (ValueError, OSError):
                   result = {"outcome": "invalid_diagnostic_result", "usage": None}
-              result["requested_sdk"] = version
+              result["probe"] = probe
               result["wall_seconds"] = round(time.monotonic() - started, 3)
               outcomes.append(result)
           evidence = {
               "model": os.environ["AI_DEFAULT_MODEL"],
-              "max_requests_per_sdk": 1, "max_tokens": 8, "deadline_seconds": 25,
-              "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load.",
+              "max_inference_requests": 3, "max_tokens": 8, "deadline_seconds": 25,
+              "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load. The unauthenticated probe expects HTTP 401 and performs no inference.",
               "outcomes": outcomes,
           }
           path = Path("transport-diagnostic.json")
