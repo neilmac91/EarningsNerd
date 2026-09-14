@@ -168,3 +168,7 @@ through September 15. Do not force it early. Of the technical gaps above, the vi
 production PDF exercise are the two cheapest to close and the two most likely to be quietly wrong,
 and neither waits on a date. No background execution is implied by this checkpoint, and no quality or universe hold
 has moved.
+
+## September 14 dated resumption correction
+
+The [resumption review](resumption-review-2026-09-14.md) experimentally confirms the Vitest workaround on 5.0.0 and verifies a real five-page production summary export from WeasyPrint 70. Section 5 above repeats two resolved observations: the effective Analysis flag was already true, and GitHub's create/approve-PR setting was already observed enabled in the September 8 CEO record. Warm-up/Pro acceptance and actual changed-membership publication evidence remain open. W3-8a retains the wave-3 more-than-one-week readout-slip exception; this correction does not assert that its timing condition is satisfied. Node floor correction is ordinary engineering: the exact-string test is not a named locked anchor. Historical records above remain intact.

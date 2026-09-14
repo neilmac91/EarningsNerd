@@ -1,3 +1,13 @@
+## September 14 — Resumption review after #856
+
+- [x] Verify GitHub main and align the clean primary checkout to `324589269edde0c524b103e0f071375378934417`.
+- [x] Confirm the handled-error workaround still applies on actual Vitest 5; append dated lesson evidence.
+- [x] Export an existing production Apple summary through the signed-in app; verify WeasyPrint 70 metadata and all five pages. This is rendering acceptance, not analysis-quality clearance.
+- [x] Review all seven September 14 scepticism items and correct duplicated prerequisite observations: see [resumption review](resumption-review-2026-09-14.md).
+- [ ] Narrow the Node 22 support declaration to the dependency floor and verify the frontend gate in a separate PR. No major-version approval is required.
+- [ ] Keep cached Apple cash-flow contradiction in the quality backlog; do not silently regenerate/replay. The web and PDF share it.
+- [ ] Continue named master-plan evidence work; Notable decision is not due before the September 15 review week closes. Universe-wide pregeneration and historical replay remain held.
+
 ## September 13 — Dependency majors: WeasyPrint 70 (#840) and the frontend test stack (#852)
 
 - [x] #840 WeasyPrint 69.0 -> 70.0. Branch was 10 commits behind a backend that had moved 20+ files,
