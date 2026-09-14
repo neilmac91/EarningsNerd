@@ -33,7 +33,7 @@ jobs:
             -c "$RUNNER_TEMP/transport-constraints.txt" \
             "openai==3.8.0" httpx2==2.12.0 httpcore2==2.12.0
           "$RUNNER_TEMP/sdk/bin/python" -m pip check
-      - name: Run at most three bounded inference requests across five layered probes
+      - name: Run at most six bounded inference requests across a one-field-at-a-time parameter matrix
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -156,6 +156,15 @@ jobs:
                           await sdk_plain(result)
                       elif PROBE == "stream_default":
                           await sdk_stream(result, {})
+                      elif PROBE == "stream_thinking_off_no_temperature":
+                          await sdk_stream(result, {"extra_body": {"thinking": {"type": "disabled"}}})
+                      elif PROBE == "stream_temperature_only":
+                          await sdk_stream(result, {"temperature": 0})
+                      elif PROBE == "stream_reasoning_effort_none":
+                          await sdk_stream(result, {"extra_body": {"reasoning_effort": "none"}})
+                      elif PROBE == "stream_reasoning_effort_none_temperature":
+                          await sdk_stream(result, {"temperature": 0,
+                                                    "extra_body": {"reasoning_effort": "none"}})
                       else:
                           raise SystemExit(2)
               except APIStatusError as exc:
@@ -176,8 +185,12 @@ jobs:
           child = textwrap.dedent(child)
           if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
               raise SystemExit("Diagnostic not run: provider key is not configured.")
-          probes = ("unauthenticated_post", "models_get", "stream_thinking_off",
-                    "nonstream_thinking_off", "stream_default")
+          # Parameter matrix after run 34898642117: path and auth are proven, the application's
+          # thinking-disabled + temperature shape returns 200 headers and no body, and the bare default
+          # request completes. Vary one field at a time around that result.
+          probes = ("stream_thinking_off", "stream_default", "stream_thinking_off_no_temperature",
+                    "stream_temperature_only", "stream_reasoning_effort_none",
+                    "stream_reasoning_effort_none_temperature")
           outcomes = []
           for probe in probes:
               started = time.monotonic()
@@ -197,7 +210,7 @@ jobs:
               outcomes.append(result)
           evidence = {
               "model": os.environ["AI_DEFAULT_MODEL"],
-              "max_inference_requests": 3, "max_tokens": 8, "deadline_seconds": 25,
+              "max_inference_requests": 6, "max_tokens": 8, "deadline_seconds": 25,
               "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load. The unauthenticated probe expects HTTP 401 and performs no inference.",
               "outcomes": outcomes,
           }
