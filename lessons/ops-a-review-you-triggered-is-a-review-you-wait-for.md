@@ -30,13 +30,27 @@ Where the review is cheap and already running, waiting costs minutes. Where it i
 spend is already committed the moment you trigger it — merging early wastes the money AND the
 finding.
 
-**Enforcement.** My first draft of this lesson claimed the rule could not be gated, and that was
-wrong — review found it. Nothing in the repository can observe the gap between "review requested"
-and "merged", because merge timing is not a property of the tree; but GitHub branch protection
-requiring a pull-request review before merge enforces it exactly, at the only layer that can see
-it. That is a repository setting, so it is a founder action, recorded in
-`tasks/handover-astra-2026-09-14.md` §5. Until it is enabled the discipline carries the rule —
-which is a gap to close, not an exception to rule 12.
+**Enforcement, and what it does not cover.** This took two rounds of review to state correctly,
+and both corrections are worth keeping.
+
+My first draft claimed the rule could not be gated. Wrong: nothing in the repository can observe
+merge timing, because it is not a property of the tree, but GitHub branch protection requiring a
+pull-request review before merge operates at the layer that can see it. That is a repository
+setting, so it is a founder action, recorded in `tasks/handover-astra-2026-09-14.md` §5.
+
+My second draft claimed that setting enforces the rule *exactly*. Also wrong. Required-approval
+protection is satisfied by ANY qualifying approval — a pre-existing one, or one that arrives while
+the triggered review is still running — so it blocks "merge with no review at all" and not "merge
+while the review I just requested is in flight", which is the incident this lesson exists for.
+Measured, not assumed: no file under `.github/workflows/` mentions Codex, and across #853, #856 and
+#857 Codex never published a check run, so there is no head-specific status check available to
+require today. Closing the remainder would mean building a workflow that blocks on review
+completion for the current head; that does not exist and is not built here.
+
+So the setting is a PARTIAL gate, and the residual — the exact gap that caused #856 — still rests
+on discipline. Say partial when it is partial: a gate described as complete stops anyone looking
+for the hole, which is the same failure as a gate narrower than its rule
+(`test-gates-must-be-as-wide-as-their-rule.md`).
 
 The general form is worth keeping: when a rule looks ungateable, check whether the enforcement
 simply lives at a layer you do not control. "No gate is possible" and "the gate is someone else's

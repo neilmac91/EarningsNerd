@@ -162,9 +162,14 @@ requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service acco
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
 
 Added September 14: branch protection on `main` requiring a pull-request review before merge.
-This is the machine enforcement for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`
-(CLAUDE.md rule 12 / AGENTS.md §4). It is a repository setting, so only the founder can land it —
-that is why the rule ships without a gate in the repository, not because none exists.
+This is the available enforcement for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`
+(CLAUDE.md rule 12 / AGENTS.md §4), and it is a repository setting, so only the founder can land it.
+It is a PARTIAL gate and the lesson says so: required approval blocks merging with no review at
+all, but is satisfied by any qualifying approval, so it does not block merging while a review that
+was just triggered is still running — the exact case that caused the #856 incident. No workflow
+under `.github/workflows/` waits on Codex and Codex publishes no check run, so no head-specific
+status check exists to require instead. The residual gap rests on discipline until someone builds
+one.
 
 ## 6. Next practical actions
 
