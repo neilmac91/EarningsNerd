@@ -9,7 +9,7 @@ seconds into the review I had just requested, and before any finding could exist
 Codex posted its finding at 18:23:03, four minutes after the merge: a P1 on the handover
 document itself. The document told the next agent to read `eslint.config.mjs:83-86` for the
 warning that flat-config overrides REPLACE rather than merge `no-restricted-syntax` options.
-That warning is at `:155-160`; `:83-86` is a different comment about descendant matching. A
+That warning is at `:155-160`. A
 handover whose explicit pointer sends the reader to the wrong invariant is worse than one that
 says nothing, and it had already landed on main.
 
@@ -30,8 +30,17 @@ Where the review is cheap and already running, waiting costs minutes. Where it i
 spend is already committed the moment you trigger it — merging early wastes the money AND the
 finding.
 
-This one stays prose. No gate can see the gap between "review requested" and "merged" from
-inside the repository; the discipline has to carry it.
+**Enforcement.** My first draft of this lesson claimed the rule could not be gated, and that was
+wrong — review found it. Nothing in the repository can observe the gap between "review requested"
+and "merged", because merge timing is not a property of the tree; but GitHub branch protection
+requiring a pull-request review before merge enforces it exactly, at the only layer that can see
+it. That is a repository setting, so it is a founder action, recorded in
+`tasks/handover-astra-2026-09-14.md` §5. Until it is enabled the discipline carries the rule —
+which is a gap to close, not an exception to rule 12.
+
+The general form is worth keeping: when a rule looks ungateable, check whether the enforcement
+simply lives at a layer you do not control. "No gate is possible" and "the gate is someone else's
+to enable" look identical from inside the repository and are not the same claim.
 
 **Evidence**: PR #856 timeline (ready 18:19:34Z, Codex start 18:19:39Z, merge 18:19:45Z,
 finding 18:23:03Z); the corrected pointer in `tasks/handover-astra-2026-09-14.md`; PR #853,

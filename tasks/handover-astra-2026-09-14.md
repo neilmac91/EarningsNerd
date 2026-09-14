@@ -70,8 +70,10 @@ New structural gates, all in `frontend/tests/unit/`:
 `DATE_RULES` and `CALENDAR_FIELD_RULES`, appended to all three existing `no-restricted-syntax` blocks
 — ESLint flat config **replaces** rather than merges that option on override, so a new block silently
 disables earlier gates. That trap is warned about at `eslint.config.mjs:155-160`; respect it.
-(The comment at `:83-86` is a different point — why the calendar-date selectors match descendants
-rather than direct children, since a `TSAsExpression` wrapper defeated `>`.)
+(`:81-83` is a different point — why the calendar-date selectors match descendants rather than
+direct children, since a `TSAsExpression` wrapper defeated `>`. `:83-86` is not a range worth
+citing at all: it straddles that note's last sentence, a blank line, and the start of a separate
+KNOWN RESIDUAL comment.)
 
 Three new lessons: `test-gates-must-be-as-wide-as-their-rule.md` (#850),
 `frontend-overrides-rot-when-the-constrained-package-moves.md` and
@@ -158,6 +160,11 @@ retain/kill decision, which falls due after the review week closes on September 
 warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to create and approve pull
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
+
+Added September 14: branch protection on `main` requiring a pull-request review before merge.
+This is the machine enforcement for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`
+(CLAUDE.md rule 12 / AGENTS.md §4). It is a repository setting, so only the founder can land it —
+that is why the rule ships without a gate in the repository, not because none exists.
 
 ## 6. Next practical actions
 
