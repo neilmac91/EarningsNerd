@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Load AI model configuration
         shell: bash
-        run: cat .github/ai-model.env >> "$GITHUB_ENV"
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - name: Prepare isolated SDK environments
         shell: bash
         run: |
@@ -35,7 +35,7 @@ jobs:
               "openai==$version" httpx2==2.12.0 httpcore2==2.12.0
             "$RUNNER_TEMP/sdk-$version/bin/python" -m pip check
           done
-      - name: Run exactly two bounded requests
+      - name: Run at most two bounded requests
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -55,6 +55,9 @@ jobs:
           import os
           import time
           from openai import AsyncOpenAI, APIStatusError
+
+          def token_count(value):
+              return value if type(value) is int and value >= 0 else None
 
           async def main():
               result = {
@@ -84,7 +87,7 @@ jobs:
                                           result["first_token_seconds"] = round(time.monotonic() - started, 3)
                                   if chunk.usage is not None:
                                       result["usage"] = {
-                                          field: getattr(chunk.usage, field, None)
+                                          field: token_count(getattr(chunk.usage, field, None))
                                           for field in ("prompt_tokens", "completion_tokens", "total_tokens")
                                       }
                           result["outcome"] = "completed" if result["first_token_seconds"] is not None else "empty_stream"
@@ -123,7 +126,7 @@ jobs:
               outcomes.append(result)
           evidence = {
               "model": os.environ["AI_DEFAULT_MODEL"],
-              "requests_per_sdk": 1, "max_tokens": 8, "deadline_seconds": 25,
+              "max_requests_per_sdk": 1, "max_tokens": 8, "deadline_seconds": 25,
               "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load.",
               "outcomes": outcomes,
           }
@@ -131,7 +134,7 @@ jobs:
           path.write_text(json.dumps(evidence, indent=2) + "\n")
           print(path.read_text())
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deepseek-sdk-transport-${{ github.run_id }}
