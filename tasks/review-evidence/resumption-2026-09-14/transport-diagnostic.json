@@ -1,0 +1,35 @@
+{
+  "model": "deepseek-flash",
+  "max_requests_per_sdk": 1,
+  "max_tokens": 8,
+  "deadline_seconds": 25,
+  "note": "Missing usage or timeout does not establish zero provider cost. Sequential single calls cannot isolate transient provider load.",
+  "outcomes": [
+    {
+      "versions": {
+        "openai": "3.8.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "deadline",
+      "first_token_seconds": null,
+      "usage": null,
+      "elapsed_seconds": 23.008,
+      "requested_sdk": "3.8.0",
+      "wall_seconds": 23.637
+    },
+    {
+      "versions": {
+        "openai": "3.13.0",
+        "httpx2": "2.12.0",
+        "httpcore2": "2.12.0"
+      },
+      "outcome": "deadline",
+      "first_token_seconds": null,
+      "usage": null,
+      "elapsed_seconds": 23.011,
+      "requested_sdk": "3.13.0",
+      "wall_seconds": 23.642
+    }
+  ]
+}
