@@ -85,7 +85,7 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > `frontend/`, so there is **no** `cd frontend` prefix.
 >
 > **Node.js version moves in lockstep.** The runtime is pinned in
-> `frontend/.nvmrc` (exact), `frontend/package.json` `engines.node` (major line), and every
+> `frontend/.nvmrc` (exact), `frontend/package.json` `engines.node` (supported range within the major line), and every
 > `node-version:` entry in `.github/workflows/*.yml` or `*.yaml`, including `ci.yml` and
 > `prod-smoke.yml`. The **Vercel project setting**
 > (Project → Settings → Build and Deployment → *Node.js Version*) must match the major line too;
@@ -97,7 +97,8 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > (20 → 22 in Sept 2026), the founder switches the Vercel setting to the same major alongside the
 > merge, so the dashboard states the truth and nothing depends on the override. A gate
 > (`frontend/tests/unit/nodeVersionLockstep.spec.ts`) keeps all repository Node pins in step and requires CI pins to remain present; the
-> console setting is the one it cannot see.
+> console setting is the one it cannot see. The declared range must also fit the Node requirements
+> of every pinned direct dependency; jsdom 30 requires at least Node 22.22.2 on the 22 line.
 >
 > **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`

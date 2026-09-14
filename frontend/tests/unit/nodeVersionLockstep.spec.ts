@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import semver from 'semver'
 
 /**
  * Structural gate for the Node runtime pin (CLAUDE.md rule 12: rules become gates).
@@ -18,7 +19,15 @@ const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const read = (rel: string) => readFileSync(path.join(frontendDir, rel), 'utf8')
 
 const nvmrc = read('.nvmrc').trim()
-const engines = (JSON.parse(read('package.json')) as { engines?: { node?: string } }).engines?.node
+const pkg = JSON.parse(read('package.json')) as {
+  engines: { node: string }
+  dependencies: Record<string, string>
+  devDependencies: Record<string, string>
+}
+const engines = pkg.engines.node
+const lock = JSON.parse(read('package-lock.json')) as {
+  packages: Record<string, { engines?: { node?: string } }>
+}
 const workflowDir = path.resolve(frontendDir, '../.github/workflows')
 const workflowVersions = readdirSync(workflowDir)
   .filter((file) => /\.ya?ml$/.test(file))
@@ -39,10 +48,24 @@ describe('Node runtime is pinned in lockstep (nvmrc / engines / CI / Vercel)', (
     expect(Number(nvmrc.split('.')[0]), `frontend/.nvmrc is on Node ${nvmrc} — ${SITES}`).toBe(EXPECTED_NODE_MAJOR)
   })
 
-  it(`package.json engines.node is "${EXPECTED_NODE_MAJOR}.x"`, () => {
-    expect(engines, `frontend/package.json engines.node is ${JSON.stringify(engines)} — ${SITES}`).toBe(
-      `${EXPECTED_NODE_MAJOR}.x`,
-    )
+  it('declares only Node releases supported by the pinned direct dependencies', () => {
+    expect(semver.validRange(engines), 'engines.node must be a valid semver range').not.toBeNull()
+    expect(semver.subset(engines, `${EXPECTED_NODE_MAJOR}.x`), SITES).toBe(true)
+    expect(semver.satisfies(nvmrc, engines), '.nvmrc must satisfy engines.node').toBe(true)
+    expect(lock.packages[''].engines?.node, 'lockfile root engine must match package.json').toBe(engines)
+
+    // A major-only pin admitted Node 22.10 even after jsdom 30 required 22.22.2.
+    // Read installed package requirements so the gate follows future dependency floors.
+    const requirements = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+      .map((name) => ({ name, range: lock.packages[`node_modules/${name}`]?.engines?.node }))
+      .filter((entry): entry is { name: string; range: string } => Boolean(entry.range))
+    expect(requirements.length, 'No direct dependency Node requirements were found').toBeGreaterThan(0)
+    for (const { name, range } of requirements) {
+      expect(
+        semver.subset(engines, range),
+        `engines.node ${engines} admits releases unsupported by ${name} (${range})`,
+      ).toBe(true)
+    }
   })
 
   it('every workflow node-version equals .nvmrc exactly', () => {

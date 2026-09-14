@@ -5,7 +5,7 @@
 - [x] Export an existing production Apple summary through the signed-in app; verify WeasyPrint 70 metadata and all five pages. This is rendering acceptance, not analysis-quality clearance.
 - [x] Review all seven September 14 scepticism items and correct duplicated prerequisite observations: see [resumption review](resumption-review-2026-09-14.md).
 - [x] Read the September 14 scheduled weekly artifact: [34880067441](https://github.com/neilmac91/EarningsNerd/actions/runs/34880067441), still unavailable/0 of 24, missing credential, no model calls. No dispatch; W3-7 remains blocked.
-- [ ] Narrow the Node 22 support declaration to the dependency floor and verify the frontend gate in a separate PR. No major-version approval is required.
+- [x] Narrow the Node 22 support declaration to `>=22.22.2 <23` in [#859](https://github.com/neilmac91/EarningsNerd/pull/859). Full frontend gate passed (640 tests and production build), with a negative/restored mutation proof; the ordinary lockstep gate checks pinned direct dependency requirements. No major-version approval is required.
 - [ ] Keep cached Apple cash-flow contradiction in the quality backlog; do not silently regenerate/replay. The web and PDF share it.
 - [ ] Continue named master-plan evidence work; Notable decision is not due before the September 15 review week closes. Universe-wide pregeneration and historical replay remain held.
 
@@ -32,8 +32,12 @@
 - [ ] `engines.node` left at `"22.x"` while jsdom 30's real floor is `^22.22.2`. `.nvmrc` and every CI
   `node-version` are on 22.23.2 so nothing is broken, but the declared range is looser than the truth.
   Narrowing it means changing the string `nodeVersionLockstep.spec.ts` pins; not done here.
+**September 14 completion correction:** the Node-floor item immediately above is historical. [#859](https://github.com/neilmac91/EarningsNerd/pull/859) narrows the declared range to `>=22.22.2 <23`, updates the ordinary gate and passes the full frontend gate. The exact CI/.nvmrc pin remains 22.23.2; no Vercel setting change is needed.
+
 - [ ] 6 dev-only high-severity findings under `@lhci/utils` remain. `npm audit fix --force` wants a
   breaking Lighthouse-CI major — its own PR and its own decision, not a ride-along.
+
+**September 14 advisory correction:** a fresh audit still reports six high development-only package entries and zero production advisories. It does not report a complete available fix. The earlier Lighthouse-major remedy above is not established; investigate a concrete supported fix before requesting another major approval. See the dated [resumption review](resumption-review-2026-09-14.md).
 
 ### Follow-up landed in the same wave
 
