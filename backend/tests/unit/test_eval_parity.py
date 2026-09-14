@@ -146,7 +146,8 @@ def test_pin_cli_preserves_note_and_measured_configuration(monkeypatch, tmp_path
     assert baseline['note'] == 'Keep this measured-history note.'
     assert baseline['harness'] == pin_report['harness']
     assert baseline['runs_per_candidate'] == 3
-    assert baseline['golden_set_size'] == 26
+    verified = json.loads(runner.GOLDEN_PATH.read_text())['filings']
+    assert baseline['golden_set_size'] == sum(1 for f in verified if f['verified'] and f['document_url'])
     assert baseline['source_report'] == report.name
 
 
