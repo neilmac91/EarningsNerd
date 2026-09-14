@@ -139,7 +139,7 @@ Unchanged from September 13 except the Dependencies row.
 
 | Item | What remains |
 | --- | --- |
-| W3-10 Notable | Retain decision after review week through September 15, then owned flag PR. **Due now.** Provisioning/seed already done; do not rerun. |
+| W3-10 Notable | Retain decision after review week through September 15, then owned flag PR. As of September 14 the review week has **not** closed, so the decision is not yet due; it falls due once September 15 passes. Provisioning/seed already done; do not rerun. |
 | W3-10 Analysis | Effective Vercel flag true already observed. Warm-up cohort/count/error evidence and actual Pro frontend acceptance remain. |
 | W3-7 | September 7 weekly artifact still unavailable, 0/24. Blocked on the founder's `ANTHROPIC_API_KEY` and a `data-quality-weekly.yml` dispatch. |
 | W3-8a then 8b | Unpaid breadth/classifier/scorer preparation exists. Missing REIT/utility/insurer/additional small caps and 6-K coverage; BRK.B unverified. Never two re-pin PRs. |
@@ -152,7 +152,7 @@ Unchanged from September 13 except the Dependencies row.
 
 Enumerated for the founder in this session and still outstanding:
 `ANTHROPIC_API_KEY` plus a `data-quality-weekly.yml` dispatch (blocks W3-7, W3-8a, W3-8b); the Notable
-retain/kill decision due September 15; Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS` and the companyfacts
+retain/kill decision, which falls due after the review week closes on September 15; Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS` and the companyfacts
 warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to create and approve pull
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
@@ -163,7 +163,8 @@ Read GitHub main and open PR state first. #805 remains open, in draft, **held** 
 prompt never shipped, only its first paid assessment round has run, and it still needs a coherent
 correction and review decision. Do not revive it or launch a second assessment.
 
-The Notable retain/kill decision is the nearest dated item. Of the technical gaps above, the vitest 4
-lesson and a production PDF exercise are the two cheapest to close and the two most likely to be
-quietly wrong. No background execution is implied by this checkpoint, and no quality or universe hold
+The Notable retain/kill decision is the nearest dated item but is not yet due — the review week runs
+through September 15. Do not force it early. Of the technical gaps above, the vitest 4 lesson and a
+production PDF exercise are the two cheapest to close and the two most likely to be quietly wrong,
+and neither waits on a date. No background execution is implied by this checkpoint, and no quality or universe hold
 has moved.
