@@ -80,3 +80,33 @@ class TestSectionConfig:
         assert "ITEM 3.D - RISK FACTORS" in excerpt
         # Must NOT mislabel with 10-K item numbers.
         assert "ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA" not in excerpt
+
+
+class TestSixKVariantSelection:
+    """W3-8b: the deterministic 6-K class selects a class variant prompt; the generic 6-K prompt
+    remains the fallback for a missing or unknown class and for every other form."""
+
+    def test_each_class_selects_its_own_variant(self):
+        seen = {}
+        for cls in ("earnings", "governance", "press_release"):
+            p = prompt_loader.get_prompt("6-K", sixk_class=cls)
+            assert p is prompt_loader._PROMPTS[f"6-K:{cls}"]
+            assert p is not prompt_loader._PROMPTS["6-K"]
+            assert "pre-classified" in p.raw and "6-K" in p.raw
+            seen[cls] = p
+        assert len({id(p) for p in seen.values()}) == 3
+
+    def test_missing_or_unknown_class_falls_back_to_generic_6k(self):
+        assert prompt_loader.get_prompt("6-K") is prompt_loader._PROMPTS["6-K"]
+        assert prompt_loader.get_prompt("6-K", sixk_class=None) is prompt_loader._PROMPTS["6-K"]
+        assert prompt_loader.get_prompt("6-K", sixk_class="regulatory") is prompt_loader._PROMPTS["6-K"]
+
+    def test_class_is_ignored_for_other_forms(self):
+        assert prompt_loader.get_prompt("20-F", sixk_class="earnings") is prompt_loader._PROMPTS["20-F"]
+
+    def test_variants_keep_the_shared_6k_rules(self):
+        base = prompt_loader._PROMPTS["6-K"].raw
+        for cls in ("earnings", "governance", "press_release"):
+            raw = prompt_loader._PROMPTS[f"6-K:{cls}"].raw
+            for rule in ("report AS FILED", "Grounding discipline", "Per-ADS vs per-share", "Output Format"):
+                assert rule in raw and rule in base, (cls, rule)

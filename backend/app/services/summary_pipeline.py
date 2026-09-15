@@ -33,6 +33,7 @@ from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
+from app.services.edgar.sixk_classifier import classify_sixk_text
 from app.services.edgar.statement_context import acquire_statement_context
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
@@ -471,6 +472,7 @@ async def stream_filing_summary(
             # EX-99.x exhibits. It takes a separate grounding path below (the SixK exhibit extractor),
             # NOT the XBRL fetch or edgartools section parse, both of which are 10-K/10-Q/20-F only.
             is_six_k = bool(filing_type and filing_type.upper().split("/")[0] == "6-K")
+            sixk_class, sixk_class_audit = None, None
             xbrl_task = None
             # 20-F XBRL is now currency-aware end-to-end (the extractor captures the issuer's
             # reporting currency, e.g. CNY, instead of the USD convenience translation), so it is
@@ -597,8 +599,12 @@ async def stream_filing_summary(
                 if not filing_text:
                     yield {'type': 'error', 'message': 'Unable to retrieve this 6-K at the moment — please try again shortly.'}
                     return
+                # W3-8b: deterministic pre-classification of the exhibit text selects the 6-K prompt
+                # variant and is recorded on the stored summary for audit. No model call.
+                sixk = classify_sixk_text(filing_text)
+                sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
                 mark_stage("fetch_document")
-                yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
+                yield {'type': 'progress', 'stage': 'fetching', 'message': f'6-K exhibits fetched ({sixk_class.replace("_", " ")})', 'percent': 15}
             else:
                 # Fetch filing document with heartbeat to prevent UI stall at 10%
                 FETCH_MESSAGES = [
@@ -753,6 +759,7 @@ async def stream_filing_summary(
                 filing_excerpt=excerpt,
                 stream_cb=summary_stream_cb,
                 **({"statement_source": statement_source} if statement_source else {}),
+                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
             ))
 
             SUMMARIZE_MESSAGES = [

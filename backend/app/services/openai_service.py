@@ -157,6 +157,7 @@ class OpenAIService(
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
         statement_source: Optional[Dict] = None,
+        sixk_class: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Phase 1: Extract structured financial schema from the filing.
 
@@ -186,7 +187,9 @@ class OpenAIService(
         del parsing_result
 
         config = self._get_type_config(filing_type_key)
-        prompt_template = get_prompt(filing_type_key)
+        # W3-8b: a 6-K carries the deterministic pre-classifier's class so the class variant prompt
+        # is used; other forms ignore it.
+        prompt_template = get_prompt(filing_type_key, sixk_class=sixk_class)
 
         # Roadmap 2.6 Phase B: the grounding block is built by the module-level
         # `build_xbrl_narrative_section` (testable, behavior-preserving). It now also surfaces the
@@ -573,6 +576,8 @@ Rules:
         filing_excerpt: Optional[str] = None,
         stream_cb: Optional[Any] = None,
         statement_source: Optional[Dict] = None,
+        sixk_class: Optional[str] = None,
+        sixk_class_audit: Optional[Dict] = None,
     ) -> Dict:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases.
 
@@ -586,6 +591,7 @@ Rules:
                 filing_text, company_name, filing_type,
                 xbrl_metrics=xbrl_metrics, filing_excerpt=filing_excerpt, stream_cb=stream_cb,
                 **({"statement_source": statement_source} if statement_source else {}),
+                **({"sixk_class": sixk_class} if sixk_class else {}),
             )
 
         except asyncio.TimeoutError:
@@ -816,6 +822,11 @@ Rules:
             raw_summary_payload["writer_fallback_reason"] = writer_fallback_reason
         if writer_error:
             raw_summary_payload["writer_error"] = writer_error[:500]
+        if sixk_class:
+            # W3-8b audit: which pre-classified 6-K variant produced this summary, and why.
+            raw_summary_payload["sixk_class"] = sixk_class
+            if sixk_class_audit:
+                raw_summary_payload["sixk_class_audit"] = sixk_class_audit
 
         # Build new format response
         metadata = structured_summary.get("metadata", {})
