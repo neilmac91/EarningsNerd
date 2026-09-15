@@ -865,18 +865,19 @@ API-credit model. CI has no subscription session, so the measurement runs in two
 Generator identity in the handoff is the configured/requested model, not yet response-model
 telemetry. Do not trigger the live email workflow during development, arm evidence-snap from
 unavailable or partial data, or raise the judge input bounds or edit the golden set to make a
-verdict fit. Known bound: MELI's retained excerpt with its statement descriptor already exceeds the
-200,000-character judge excerpt bound (see "Reported operating-to-pretax relationships"), so its
-three attempts are expected to be explicit judge errors and the readout partial until that bound
-is revisited for the 1M-context judge under its own evidence; a partial readout is reported as
+verdict fit. Bound history: the first readout (2026-09-15, run 35012740718) judged 15 of 24 because
+ASML (260k), MELI (250k with its statement descriptor) and BABA (231k) exceeded the 200,000-character
+excerpt bound inherited from the Opus judge; with the founder's approval the bound is 400,000
+characters for the 1M-context contract judge (`judge.py::_JUDGE_EXCERPT_CHAR_CAP`), and an attempt
+over it is still an explicit judge error, never a truncation. A partial readout is reported as
 partial. The judge subprocess replaces Claude Code's default system prompt with the judge framing,
 disables tools and settings-defined MCP servers, persists no session and runs outside the
 repository so no `CLAUDE.md` enters its context (`judge.py::_judge_via_cli`). The separate
 `requirements-eval.txt` pins the optional API-credit judge SDK for a local Opus agreement check;
 CI no longer installs it, and it is not a production runtime dependency.
 
-Judge input includes full canonical JSON (100k-character bound), source excerpt (200k) and
-XBRL serialization (40k). Bounds are checked before truncation; overflow is an explicit judge
+Judge input includes full canonical JSON (100k-character bound), source excerpt (400k since
+2026-09-15; 200k before) and XBRL serialization (40k). Bounds are checked before truncation; overflow is an explicit judge
 error, and per-result input lengths/completeness are recorded. This fixes the observed BABA
 22,020-character payload whose footnote evidence was previously silently cut at 20k. No model
 prompt or deterministic score/weight changes accompany this measurement correction.

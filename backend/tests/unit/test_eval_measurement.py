@@ -148,7 +148,7 @@ async def test_oversized_judge_input_is_error_before_transport(monkeypatch, surf
     monkeypatch.setattr(runner, "judge_summary", transport)
     payload = {"executive_summary": "x" * 100001 if surface == "summary" else "Summary"}
     grounding = {
-        "excerpt": "x" * 200001 if surface == "excerpt" else "Grounding",
+        "excerpt": "x" * (judge._JUDGE_EXCERPT_CHAR_CAP + 1) if surface == "excerpt" else "Grounding",
         "xbrl_metrics": {"raw": "x" * 40001} if surface == "xbrl" else {},
     }
     result = await runner._maybe_judge(JUDGE_MODEL, payload, GoldenFiling("F", "1", "a", "10-K", "u", "F"), grounding)
