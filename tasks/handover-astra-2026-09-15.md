@@ -52,10 +52,10 @@ Workspace root: `/Users/neilmacaogain/Documents/Codex/2026-09-08/goal-you-are-th
 | Quality | Cached analysis defects (Apple cash-flow sentence) and the ASML supplemental-scope sentence remain; historical regeneration held. |
 | EdgarTools | 5.58.0 adopted in #872 with thirteen-filing parity and a passing generated-output measurement; nothing pending. |
 | W3-10 Notable | Founder retain/kill decision after September 15 closes; then owned flag PR. |
-| W3-10 Analysis | Warm-up cohort/count/error evidence and Pro frontend acceptance remain; both need console or log access. |
+| W3-10 Analysis | The warm-up script `scripts/sync_companyfacts.py` has never run as a job (the September 8 backfill-facts runs were the W3-9 audit; the warm-up script writes no job-outcome record). Founder-executed warm-up with retained counters, then Pro frontend acceptance, remain. |
 | W3-7 | Judge credential `ANTHROPIC_API_KEY` absent; weekly artifact unusable. Founder prerequisite unchanged. |
 | W3-8a then 8b | W3-8a delivered in #873 under the readout-slip exception (timing basis in the ledger). W3-8b delivered in [#880](https://github.com/neilmac91/EarningsNerd/pull/880): deterministic pre-classifier, three prompt variants, audit field, harness parity, three hand-filled earnings-class 6-K goldens and a re-pin (details in the ledger). Both re-pins are merged; W3-7 re-pins again when its readout exists. |
-| E09 | Read-only inventory blocked on console access this session; proposal-only. |
+| E09 | Read-only inventory now covers job templates, schedulers, Cloud SQL tier/flags/backups and seven-day peaks ([September 15 record](review-evidence/resumption-2026-09-14/cloud-run-observations-2026-09-15.md)); egress ownership and the database job-outcome table remain unread. Proposal-only; three founder findings recorded (backups off, stopped spare instance, scheduled Monday overlap configured at 50 connections against a 25 default). |
 | E06 | Natural payment evidence still needed; no test payment or replay. |
 | Dependencies | Six dev-only advisories have no supported forward fix (npm's only offer is a downgrade to `@lhci/cli` 0.12.0). #270 and D8 held. |
 
