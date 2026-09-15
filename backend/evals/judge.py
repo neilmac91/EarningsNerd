@@ -58,8 +58,11 @@ _BILLING_ENV = frozenset({"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_C
 # hallucinations. The generator grounds on the full critical-sections excerpt (filing_sample =
 # filing_excerpt), which runs ~120–165k chars; a smaller cap truncates capital-return/obligations/
 # segment disclosures (which sit late in a 10-K) out of the judge's view, tanking faithfulness.
-# 200k chars (~50k tokens) covers observed excerpts and fits the judge model's context comfortably.
-_JUDGE_EXCERPT_CHAR_CAP = 200_000
+# 200k chars (~50k tokens) covered the domestic excerpts and fit the Opus judge comfortably; the first
+# subscription readout (2026-09-15, run 35012740718) retained ASML 260k, MELI 250k (with statement
+# evidence) and BABA 231k, so the bound is 400k (~100k tokens) for the 1M-context contract judge
+# (founder-approved judge-bound change). It still bounds a corrupted/oversized excerpt.
+_JUDGE_EXCERPT_CHAR_CAP = 400_000
 _JUDGE_SUMMARY_CHAR_CAP = 100_000
 _JUDGE_XBRL_CHAR_CAP = 40_000
 _anthropic_client: Any = None  # shared lazily across calls to reuse the connection pool
