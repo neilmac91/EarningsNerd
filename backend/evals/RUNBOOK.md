@@ -439,9 +439,11 @@ python -m evals.runner --candidates baseline --runs 3            # full verified
 python scripts/pin_baseline.py evals/reports/eval_<stamp>.json   # rewrite baseline_scores.json
 ```
 Then commit the new `baseline_scores.json` in the same PR as the change it protects, so the diff
-shows both the code change and the new bar. **BRK.B is `verified: false`** (no consolidated EPS
-fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
-is hand-filled.
+shows both the code change and the new bar. BRK.B has no consolidated EPS fact in its XBRL, so the
+builder leaves it `verified: false`; since the September 15 re-pin its EPS is hand-filled from the
+filing's statement of earnings and it is verified and pinned. If the builder is re-run in place, it
+will re-resolve every entry and drop that hand-filled fact; restore the committed entry rather than
+accepting the rewrite.
 
 The dimension history below records the July 2026 pins and their measured variance. The
 current committed bar and source report are always `baseline_scores.json`; a later honest
