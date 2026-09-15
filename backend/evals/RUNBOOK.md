@@ -428,7 +428,18 @@ A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a fr
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
-**September 15, 2026 re-pin (W3-8b 6-K classifier and 6-K goldens).** `baseline_scores.json` now binds
+**September 15, 2026 re-pin (armed guard: `AI_EVIDENCE_SNAP=true`).** `baseline_scores.json` now binds
+`eval_20260915T204745Z.json`: 35 verified filings × 3 runs (105/105 scored, 0 errors, PASS with the standing
+untraceable-dollar advisory), run 35020462848 on source `e44f8046`, EdgarTools 5.58.0, DeepSeek V4.1 Flash with
+thinking off and an empty fallback, measured with evidence auto-snap armed exactly as the service and pregenerate
+deploy env now pin it (founder decision after the first complete strong-judge readout, W3-7/D5). Listed trigger:
+armed-guard change. Against the W3-8b pin below: citation fidelity 0.9272 → 0.9706 (the armed snap replacing
+non-verifying P&L-takeaway/footnote evidence with matched filing sentences), citation checked 7.28 → 7.09,
+financial depth 0.771 → 0.794, redundancy 0.902 → 0.912, delta consistency 0.830 → 0.844, forward-quote fidelity
+1.0 → 0.995 and coverage 1.0 → 0.998 (one filing-run each, within the known bands), aggregate 1.0 → 0.9995 with
+stdev 0.0049. Measure later work against this pin.
+
+**September 15, 2026 re-pin (W3-8b 6-K classifier and 6-K goldens).** `baseline_scores.json` previously bound
 `eval_20260915T060846Z.json`: 35 verified filings × 3 runs (105/105 scored, 0 errors, PASS with the standing
 untraceable-dollar advisory), run 34934705614 on source `30e1e193`, EdgarTools 5.58.0, DeepSeek V4.1 Flash
 with thinking off and an empty fallback. Listed triggers: a prompt change (the three class-specific 6-K
@@ -512,6 +523,7 @@ mis-score legitimate evidence. Same never-in-`compute_gate_failures` posture as 
 dim; **pinned from `eval_20260713T201101Z` at 0.6887 (the UNARMED evidence-snap default — the
 model's measured prompt floor), so the −0.05 WARN binds (floor ≈ 0.639). Arming
 `AI_EVIDENCE_SNAP` raises this dim to the measured ~0.86 ceiling — re-pin upward in that PR.**
+(Done 2026-09-15: armed and re-pinned at 0.9706 on the 35-filing set; see the re-pin paragraphs.)
 The promised companion landed with the same re-pin: `mean_citation_checked` is recorded (6.27)
 and WARN-gated at an absolute 2.0 drop (~30% — decrease direction; a volume signal, not a
 quality bar), so an evidence-emission collapse (model stops emitting evidence → hollow-perfect
