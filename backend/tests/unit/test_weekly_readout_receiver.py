@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app import database
 from app.models import Base
 from app.services import data_quality_service, email_service, job_run_service, resend_service
-from app.services.ai_readout import encode_readout, unavailable_readout
+from app.services.ai_readout import JUDGE_MODEL, encode_readout, unavailable_readout
 from scripts import data_quality_report
 
 
@@ -61,7 +61,7 @@ def test_real_cli_receives_complete_negative_judgments_without_sending(receiver,
         assert "deterministic vetoes" in rendered
         assert "faithfulness" in rendered and "4.0" in rendered
         assert "configured generator model" in rendered and "deepseek-v4-pro" in rendered
-        assert "configured judge model" in rendered and "claude-opus-4-8" in rendered
+        assert "configured judge model" in rendered and JUDGE_MODEL in rendered and "claude-opus-4-8" not in rendered
         assert readout["artifact_url"] in rendered
         assert "This report never activates guards" in rendered
 

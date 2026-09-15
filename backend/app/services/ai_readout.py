@@ -8,7 +8,10 @@ import math
 import re
 
 EXPECTED = 24
-JUDGE_MODEL = "claude-opus-4-8"
+# The strong judge is Fable 5.1 through the founder's Claude subscription (`claude -p`, the harness's
+# `cli` backend), not an API-credit model; the receiver accepts no other judge identity or backend.
+JUDGE_MODEL = "claude-fable-5-1"
+JUDGE_BACKEND = "cli"
 DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
 MAX_ENCODED_BYTES = 8192
 _URL = re.compile(r"https://github\.com/neilmac91/EarningsNerd/actions/runs/[0-9]+(?:/artifacts/[0-9]+|#artifacts)?")
@@ -20,7 +23,7 @@ def unavailable_readout(reason: str = "Weekly judged readout unavailable") -> di
         "version": 1, "status": "unavailable", "reason": reason[:300],
         "source_sha": None, "cohort_sha256": None, "golden_set_sha256": None,
         "run_url": None, "artifact_url": None, "generator_model": None,
-        "judge_model": JUDGE_MODEL, "judge_backend": "anthropic", "expected": EXPECTED,
+        "judge_model": JUDGE_MODEL, "judge_backend": JUDGE_BACKEND, "expected": EXPECTED,
         "completed": 0, "scored": 0, "errors": 0, "missing": EXPECTED,
         "negative_judgments": 0, "deterministic_vetoes": 0,
         "dimensions": dict.fromkeys(DIMENSIONS),
@@ -37,7 +40,7 @@ def validate_readout(value: object) -> dict:
         raise ValueError("Invalid weekly readout status")
     if not isinstance(value["reason"], str) or len(value["reason"]) > 300:
         raise ValueError("Invalid weekly readout reason")
-    if value["judge_model"] != JUDGE_MODEL or value["judge_backend"] != "anthropic":
+    if value["judge_model"] != JUDGE_MODEL or value["judge_backend"] != JUDGE_BACKEND:
         raise ValueError("An authoritative strong judge is required")
     for key in _COUNTS:
         if type(value[key]) is not int or not 0 <= value[key] <= EXPECTED:

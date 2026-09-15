@@ -17,6 +17,7 @@ from app.services.ai_readout import DIMENSIONS, decode_readout, unavailable_read
         "denominator",
         "completion",
         "weak-judge",
+        "wrong-backend",
         "source",
         "link",
         "model",
@@ -51,6 +52,8 @@ def test_external_readout_rejects_invalid_measurement(defect):
         value.update(scored=23, errors=1)
     elif defect == "weak-judge":
         value["judge_model"] = "cheap-judge"
+    elif defect == "wrong-backend":
+        value["judge_backend"] = "anthropic"  # the contract judge runs on the subscription CLI, not API credits
     elif defect == "source":
         value["source_sha"] = "unknown"
     elif defect == "link":

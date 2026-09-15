@@ -20,7 +20,8 @@ The judge dispatches on the model id so a run can trade cost for authority witho
   * ``cli:sonnet`` / ``cli:opus`` (``cli:<alias>``) → **subscription CLI** (`claude -p --output-format
     json`) with ``ANTHROPIC_API_KEY`` unset in the child env, so it authenticates via the logged-in
     Claude subscription (OAuth) instead of API credits. For local/manual gates only — there is no
-    OAuth session in CI.
+    OAuth session in CI. ``cli:claude-fable-5-1`` is the weekly readout's contract judge
+    (``app.services.ai_readout.JUDGE_MODEL``; see ``evals.judge_readout``).
   * ``glm-5.2`` (or ``openai:<model>``) → **OpenAI-compatible** chat API (e.g. Zhipu GLM via z.ai),
     reading ``JUDGE_OPENAI_BASE_URL``/``JUDGE_OPENAI_API_KEY`` (falling back to ``OPENAI_BASE_URL``/
     ``OPENAI_API_KEY``). The cheap CI/fallback judge.
@@ -34,6 +35,7 @@ import asyncio
 import json
 import os
 import statistics
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
@@ -48,6 +50,10 @@ DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulnes
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
 _CLI_TIMEOUT_SECONDS = 300  # subscription CLI can be slow on a 200k-char excerpt + reasoning
+# Every credential/routing variable through which `claude -p` could bill something other than the
+# logged-in subscription; all are removed from the judge child's environment.
+_BILLING_ENV = frozenset({"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
+                          "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY"})
 # The judge MUST see the same source the model grounded on, or it false-flags real facts as
 # hallucinations. The generator grounds on the full critical-sections excerpt (filing_sample =
 # filing_excerpt), which runs ~120–165k chars; a smaller cap truncates capital-return/obligations/
@@ -292,22 +298,30 @@ async def _judge_via_cli(
     child env, so it authenticates via the logged-in Claude subscription (OAuth) instead of
     billing API credits. Manual/local only — CI has no OAuth session.
 
-    The judge framing goes via ``--append-system-prompt`` and the (large) source+summary via
-    stdin. ``--output-format json`` wraps the reply in ``{"result": "..."}``; we hand ``result``
-    to the same `parse_judge_response` used by every backend."""
+    The judge framing REPLACES Claude Code's default system prompt (``--system-prompt``) and the
+    (large) source+summary goes via stdin, so the model sees the anthropic backend's two messages
+    plus only a small CLI wrapper (measured ~700 cached tokens versus ~27k with the default
+    prompt): no tools (``--tools ""``), no settings-defined MCP servers
+    (``--strict-mcp-config``), no persisted session, and a temporary working directory so no
+    CLAUDE.md is auto-discovered into the judge's context. ``--bare`` is deliberately NOT used:
+    it disables OAuth/keychain auth. ``--output-format json`` wraps the reply in
+    ``{"result": "..."}``; we hand ``result`` to the same `parse_judge_response` used by every
+    backend."""
     alias = model_id.split(":", 1)[1].strip() if ":" in model_id else ""
     model = alias or "sonnet"
-    # Force subscription/OAuth auth: an inherited ANTHROPIC_API_KEY would bill API credits instead.
-    child_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    # Force subscription/OAuth auth: an inherited API key, auth token or cloud-provider routing
+    # would bill credits (or a gateway) instead of the subscription.
+    child_env = {k: v for k, v in os.environ.items() if k not in _BILLING_ENV}
 
     async def call_once() -> str:
         proc = await asyncio.create_subprocess_exec(
             "claude", "-p", "--model", model, "--output-format", "json",
-            "--append-system-prompt", system,
+            "--system-prompt", system, "--tools", "", "--strict-mcp-config", "--no-session-persistence",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=child_env,
+            cwd=tempfile.gettempdir(),
         )
         try:
             out, err = await asyncio.wait_for(

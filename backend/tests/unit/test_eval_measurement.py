@@ -183,7 +183,7 @@ def weekly_evidence():
         for run in range(3)
     ]
     harness = {
-        "judge": JUDGE_MODEL,
+        "judge": weekly_readout.JUDGE_ID,
         "source_sha": "a" * 40,
         "model": "deepseek-v4-pro",
         "golden_set_sha256": hashlib.sha256(weekly_readout.GOLDEN_PATH.read_bytes()).hexdigest(),
@@ -245,30 +245,65 @@ def test_weekly_rejects_wrong_provenance_or_duplicate_grid(weekly_evidence, defe
     elif defect == "golden-hash":
         harness["golden_set_sha256"] = "b" * 64
     else:
-        harness["judge"] = "cheap-judge"
+        harness["judge"] = JUDGE_MODEL  # the bare model id: the contract binds the subscription CLI backend too
     with pytest.raises(ValueError):
         weekly_readout.build_readout(rows, filings, harness)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("missing", ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"])
-async def test_missing_either_credential_prevents_all_generation(monkeypatch, missing):
+@pytest.mark.parametrize("absent", ["generator-credential", "judge-cli"])
+async def test_missing_generator_credential_or_judge_cli_prevents_all_generation(monkeypatch, absent):
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-judge")
-    monkeypatch.delenv(missing)
+    monkeypatch.setattr(weekly_readout, "judge_available", lambda: True)
+    if absent == "generator-credential":
+        monkeypatch.delenv("OPENAI_API_KEY")
+    else:
+        monkeypatch.setattr(weekly_readout, "judge_available", lambda: False)
     monkeypatch.setenv("GITHUB_SHA", "a" * 40)
     monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
     process = AsyncMock()
     monkeypatch.setattr(runner, "_process_filing", process)
     readout, report = await weekly_readout.measure()
     assert readout["status"] == "unavailable" and readout["missing"] == 24 and report["results"] == []
+    assert "no model calls made" in readout["reason"]
     process.assert_not_awaited()
+
+
+@pytest.mark.parametrize("outcome", ["logged-in", "not-logged-in", "nonzero-exit", "garbage", "missing-binary", "timeout"])
+def test_judge_availability_is_a_real_login_probe_not_a_presence_check(monkeypatch, outcome):
+    """An expired subscription login must be caught before 24 generations are paid for."""
+    import subprocess
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-must-not-reach-the-probe")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "gateway-must-not-reach-the-probe")
+    monkeypatch.setattr(weekly_readout.shutil, "which", lambda name: None if outcome == "missing-binary" else "/usr/local/bin/claude")
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        if outcome == "timeout":
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        stdout = {"logged-in": json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "OK"}),
+                  "not-logged-in": json.dumps({"type": "result", "subtype": "error", "is_error": True, "result": "Not logged in"}),
+                  "nonzero-exit": json.dumps({"is_error": False, "result": "OK"}),
+                  "garbage": "Invalid API key · Please run /login"}[outcome]
+        return subprocess.CompletedProcess(argv, 1 if outcome == "nonzero-exit" else 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(weekly_readout.subprocess, "run", fake_run)
+    assert weekly_readout.judge_available() is (outcome == "logged-in")
+    if outcome == "missing-binary":
+        assert calls == []
+        return
+    argv, kwargs = calls[0]
+    assert argv[:4] == ["claude", "-p", "--model", JUDGE_MODEL] and "--tools" in argv and "--strict-mcp-config" in argv
+    assert not {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"} & set(kwargs["env"])  # the probe authenticates like the judge
+    assert kwargs["timeout"] == weekly_readout.JUDGE_PROBE_TIMEOUT_SECONDS and kwargs["stdin"] is subprocess.DEVNULL
 
 
 @pytest.mark.asyncio
 async def test_missing_source_provenance_prevents_generation(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-judge")
+    monkeypatch.setattr(weekly_readout, "judge_available", lambda: True)
     monkeypatch.delenv("GITHUB_SHA", raising=False)
     monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", True)
     process = AsyncMock()
@@ -279,7 +314,7 @@ async def test_missing_source_provenance_prevents_generation(monkeypatch):
 
 
 def test_weekly_cli_emits_unavailable_artifact_without_credentials(monkeypatch, tmp_path):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     assert weekly_readout.main(["--output-dir", str(tmp_path)]) == 1
     report = json.loads((tmp_path / "report.json").read_text())
     assert report["results"] == [] and report["readout"]["scored"] == 0
@@ -287,40 +322,77 @@ def test_weekly_cli_emits_unavailable_artifact_without_credentials(monkeypatch, 
     assert "missing 24" in (tmp_path / "readout.md").read_text()
 
 
-def test_weekly_workflow_preserves_failure_evidence_and_operational_report():
-    workflow = yaml.load((ROOT / ".github/workflows/data-quality-weekly.yml").read_text(), Loader=yaml.BaseLoader)
+def test_weekly_workflow_generates_only_and_delivers_a_judged_readout_without_generating():
+    text = (ROOT / ".github/workflows/data-quality-weekly.yml").read_text()
+    assert "ANTHROPIC_API_KEY" not in text  # the judge is the founder's subscription CLI, never an API credit in CI
+    workflow = yaml.load(text, Loader=yaml.BaseLoader)
     assert workflow["on"]["schedule"][0]["cron"] == "0 13 * * 1"
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["readout_b64"]["required"] == "false"
     jobs = workflow["jobs"]
     measure = jobs["measure"]
     report = jobs["report"]
     assert report["needs"] == "measure" and report["if"] == "always()"
+    credentials = next(s for s in measure["steps"] if s.get("id") == "credentials")
+    assert credentials["env"]["OPENAI_API_KEY"] == "${{ secrets.DEEPSEEK_API_KEY }}"
+    assert credentials["env"]["READOUT_B64_INPUT"] == "${{ inputs.readout_b64 }}"
+    assert '[ -z "$READOUT_B64_INPUT" ]' in credentials["run"]  # a delivery dispatch never installs or generates
     step = next(s for s in measure["steps"] if s.get("id") == "handoff")
     assert step["if"] == "always()" and "unavailable_readout" in step["run"]
+    assert step["env"]["READOUT_B64_INPUT"] == "${{ inputs.readout_b64 }}" and "decode_readout(supplied)" in step["run"]
+    assert "handoff invalid" in step["run"] and "raise SystemExit" in step["run"]  # a botched delivery goes red, not green
     upload = next(s for s in measure["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
     assert upload["if"] == "always()"
-    generation = next(s for s in measure["steps"] if s.get("run") == "python -m evals.weekly_readout")
-    assert generation["env"]["ANTHROPIC_API_KEY"] == "${{ secrets.ANTHROPIC_API_KEY }}"
+    generation = next(s for s in measure["steps"] if s.get("run") == "python -m evals.weekly_readout --generate-only")
+    assert "ANTHROPIC_API_KEY" not in generation["env"]
     production = pin_baseline.production_env()
     for key in pin_baseline.AI_GUARD_ENV:
         assert generation["env"].get(key) == production[key]
     for key in ("AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL"):
         assert generation["env"].get(key) == ""
-    assert "steps.dependencies.outcome" in generation["if"]
+    assert "steps.dependencies.outcome" in generation["if"] and "!inputs.readout_b64" in generation["if"]
     sender = report["steps"][-1]
     assert sender["env"]["READOUT_B64"] == "${{ needs.measure.outputs.readout }}"
     assert "--weekly-readout-b64,$READOUT_B64" in sender["run"] and '--args="$ARGS"' in sender["run"]
+
+
+def test_generate_only_retains_attempts_and_reports_pending_judgments(monkeypatch, weekly_evidence, tmp_path):
+    rows, _, harness = weekly_evidence
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
+    monkeypatch.setenv("GITHUB_RUN_ID", "34950000001")
+    monkeypatch.setattr(weekly_readout, "judge_available", lambda: False)  # CI has no subscription session
+    harness.update(judge=False, use_statement_financials=True, stream_section_reveal=True, use_structured_output=False)
+    monkeypatch.setattr(runner, "_harness_metadata", lambda judge: {**harness, "judge": judge or False})
+
+    async def process(filing, candidates, runs, judge_model, transient_retries):
+        assert judge_model is None  # generation only: no verdict is produced or paid for in CI
+        selected = deepcopy([r for r in rows if r["ticker"] == filing.ticker])
+        for r in selected:
+            r["judge"] = None
+            r["score"]["repaired"] = False
+            r["aggregate"] = 1.0
+        return selected
+
+    monkeypatch.setattr(runner, "_process_filing", process)
+    assert weekly_readout.main(["--output-dir", str(tmp_path), "--generate-only"]) == 0
+    report = json.loads((tmp_path / "report.json").read_text())
+    assert report["phase"] == "generation" and len(report["results"]) == 24 and report["harness"]["judge"] is False
+    assert report["run_url"] == "https://github.com/neilmac91/EarningsNerd/actions/runs/34950000001"
+    assert all(r["judge"] is None for r in report["results"])
+    readout = decode_readout((tmp_path / "readout.b64").read_text())
+    assert readout["status"] == "unavailable" and readout["scored"] == 0 and readout["missing"] == 24
+    assert readout["reason"].startswith("24 of 24 attempts generated") and "judge_readout" in readout["reason"]
 
 
 @pytest.mark.asyncio
 async def test_validation_failure_preserves_actual_attempt_evidence(monkeypatch, weekly_evidence):
     rows, _, harness = weekly_evidence
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-judge")
+    monkeypatch.setattr(weekly_readout, "judge_available", lambda: True)
     harness.update(use_statement_financials=True, stream_section_reveal=True, use_structured_output=False)
     monkeypatch.setattr(runner, "_harness_metadata", lambda _: harness)
 
     async def process(filing, candidates, runs, judge_model, transient_retries):
-        assert candidates == ["baseline"] and runs == 3 and judge_model == JUDGE_MODEL
+        assert candidates == ["baseline"] and runs == 3 and judge_model == weekly_readout.JUDGE_ID
         assert transient_retries == runner.TRANSIENT_RETRIES  # the readout passes its recorded policy
         selected = deepcopy([r for r in rows if r["ticker"] == filing.ticker])
         for r in selected:

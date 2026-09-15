@@ -374,10 +374,15 @@ provenance and artifact links. Missing or invalid handoffs still allow the ordin
 report to run, with the judged section explicitly unavailable. A complete measurement can contain
 negative judgments; neither it nor this receiver automatically activates any guard.
 
-No usable strong-judge credential was available when this change was implemented. An unavailable,
-partial, simulated or empty report does not meet D5's first-judged-readout prerequisite. Existing
-scheduled delivery is preserved; development verification uses mocked email transport and makes
-no live send or job dispatch.
+No usable strong-judge credential was available when this change was implemented. Since
+2026-09-15 (W3-7) the strong judge is the founder's Claude subscription (`claude-fable-5-1` over
+the subscription CLI): the Monday workflow only generates and retains the 24 attempts, the founder
+judges them locally with `python -m evals.judge_readout` (the `/judge-readout` skill), and a manual
+dispatch of the same workflow with `readout_b64` delivers the judged readout through this receiver
+without generating anything (`backend/evals/RUNBOOK.md`, "Weekly strong-judge measurement"). An
+unavailable, partial, simulated or empty report does not meet D5's first-judged-readout
+prerequisite. Existing scheduled delivery is preserved; development verification uses mocked email
+transport and makes no live send or job dispatch.
 
 ### Scheduled job outcomes and universe coverage (WS-7)
 
