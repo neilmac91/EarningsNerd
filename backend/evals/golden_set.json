@@ -639,6 +639,14 @@
           ]
         },
         {
+          "metric": "eps",
+          "value": 31.04,
+          "unit": "USD_per_share",
+          "alt_values": [
+            46563.0
+          ]
+        },
+        {
           "metric": "operating_cash_flow",
           "value": 45969000000.0,
           "unit": "USD"
@@ -654,11 +662,8 @@
           "unit": "USD"
         }
       ],
-      "verified": false,
-      "notes": "financial conglomerate, complex/insurance statements",
-      "verification_problems": [
-        "eps: no consolidated fact for period 2025-12-31"
-      ]
+      "verified": true,
+      "notes": "financial conglomerate, complex/insurance statements; eps hand-filled per RUNBOOK Step 2 from the filing's Consolidated Statements of Earnings (R4): $31.04 per average equivalent Class B share (primary, matches the ticker), $46,563 per Class A share (alternate); revenue $371,444M and attributable net earnings $66,968M confirmed on the same page"
     },
     {
       "ticker": "XOM",
