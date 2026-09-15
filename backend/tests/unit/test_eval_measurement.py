@@ -366,11 +366,18 @@ async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatc
     fetch = AsyncMock(return_value=("cover document", {"representation": "httpx_decoded_response_text_utf8"}))
     monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
     monkeypatch.setattr(sixk_extractor, "get_sixk_text", AsyncMock(return_value=exhibit_text))
-    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
-    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", False)
+    xbrl = AsyncMock(return_value={"facts": "never used for a 6-K"})
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", xbrl)
+    sections = AsyncMock(return_value={"mda": "never parsed for a 6-K"})
+    monkeypatch.setattr(xbrl_service, "get_filing_sections", sections)
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", True)
     monkeypatch.setattr(openai_service, "extract_critical_sections", lambda text, form: text)
     filing = GoldenFiling("FPI", "1577552", "0001193125-26-347753", "6-K", "https://sec.example/6k", "Fixture")
     grounding = await runner._get_grounding(filing)
+    # Production creates the XBRL task and parses edgartools sections for 10-K/10-Q/20-F only.
+    xbrl.assert_not_awaited()
+    sections.assert_not_awaited()
+    assert grounding["xbrl_metrics"] is None
     if exhibit_text:
         fetch.assert_not_awaited()
         assert grounding["filing_text"] == exhibit_text and grounding["source_provenance"] is None

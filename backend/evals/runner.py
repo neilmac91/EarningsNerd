@@ -104,7 +104,8 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
 
     form = filing.filing_type.upper()
     text, source_provenance = None, None
-    if form.split("/")[0] == "6-K" and filing.cik and filing.accession_number:
+    is_six_k = form.split("/")[0] == "6-K"
+    if is_six_k and filing.cik and filing.accession_number:
         # Production grounds a 6-K on its EX-99 exhibit text (summary_pipeline's 6-K branch) and
         # reads the primary document only when no exhibit body exists; the harness must measure
         # the same text users receive, not the cover document.
@@ -118,7 +119,9 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     excerpt = None
     source = "regex_fallback"
     sections = None
-    if settings.USE_EDGARTOOLS_SECTIONS and filing.cik and filing.accession_number:
+    # Production parses edgartools sections and fetches XBRL for 10-K/10-Q/20-F only; a 6-K has
+    # neither, so the harness must not enrich it with grounding users never receive.
+    if settings.USE_EDGARTOOLS_SECTIONS and filing.cik and filing.accession_number and not is_six_k:
         try:
             sections = await xbrl_service.get_filing_sections(filing.accession_number, filing.cik, form)
         except Exception:  # noqa: BLE001
@@ -134,11 +137,12 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     print(f"    excerpt[{filing.ticker} {form}]: {len(excerpt):,} chars (source={source})")
 
     metrics = None
-    try:
-        xbrl = await xbrl_service.get_xbrl_data(filing.accession_number, filing.cik)
-        metrics = xbrl_service.extract_standardized_metrics(xbrl) if xbrl else None
-    except Exception:  # noqa: BLE001
-        metrics = None
+    if not is_six_k:
+        try:
+            xbrl = await xbrl_service.get_xbrl_data(filing.accession_number, filing.cik)
+            metrics = xbrl_service.extract_standardized_metrics(xbrl) if xbrl else None
+        except Exception:  # noqa: BLE001
+            metrics = None
     from fastapi.concurrency import run_in_threadpool
     from app.services.edgar.statement_context import acquire_statement_context
     statement_source = await run_in_threadpool(
