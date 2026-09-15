@@ -12,8 +12,9 @@ from an old rollout example.
 
 Verified AI checkpoint (2026-09-05): hygiene #702 and Copilot #703 are merged. Copilot merge
 `d7a2a269` passed [production deployment](https://github.com/neilmac91/EarningsNerd/actions/runs/33986181022)
-with the evidence below. The sole #698 baseline pin remains unchanged. The first actual
-strong-judge readout and readout-dependent evidence-snap activation remain held.
+with the evidence below. The sole #698 baseline pin remains unchanged. (Historical: the first
+strong-judge readout was produced on 2026-09-15 and `AI_EVIDENCE_SNAP` armed the same day; see
+"Weekly strong-judge measurement" and the re-pin paragraphs.)
 
 | Verified checkpoint | Actual result |
 | --- | --- |
@@ -51,7 +52,7 @@ export OPENAI_BASE_URL=https://api.deepseek.com/v1
 export AI_DEFAULT_MODEL=deepseek-flash
 export AI_FALLBACK_MODEL=       # leave empty for every eval and pin
 export AI_FALLBACK_BASE_URL=    # leave empty for every eval and pin
-export AI_EVIDENCE_SNAP=false
+export AI_EVIDENCE_SNAP=true   # armed in production since 2026-09-15; pins must match the deploy env
 export AI_FIGURE_TRACE_GATE=false
 export AI_FORWARD_QUOTE_GATE=false
 export USE_STRUCTURED_OUTPUT=false
