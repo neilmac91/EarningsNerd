@@ -103,12 +103,13 @@ def test_raising_press_releases_is_defensive(monkeypatch):
     assert out == "Board appointed a new CFO. No financial results."
 
 
-def test_cover_metadata_only_when_no_body(monkeypatch):
+def test_no_body_returns_none_so_the_pipeline_falls_back_to_the_primary_document(monkeypatch):
+    """A cover header alone is not grounding: TSM monthly-revenue and dividend 6-Ks have no EX-99
+    body, and a truthy header-only string used to stop summary_pipeline falling back to the
+    primary document (the one-line "Reporting month: ..." reached the model)."""
     six_k = _FakeSixK(content_description="Notice of annual general meeting", press=None, full_text=None)
     _patch(monkeypatch, six_k)
-    out = sx._extract_sixk_text_sync("0000000003", "acc-4")
-    assert out is not None
-    assert "annual general meeting" in out
+    assert sx._extract_sixk_text_sync("0000000003", "acc-4") is None
 
 
 def test_empty_filing_returns_none(monkeypatch):

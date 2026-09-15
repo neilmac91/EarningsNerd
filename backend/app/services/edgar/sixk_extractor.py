@@ -9,7 +9,7 @@ edgartools attribute names + return types drift across versions (cf. the ``Secti
 property handling in ``xbrl_service`` and the Form 4 defenses in ``ownership_extractor``), and the
 known edge case where ``SixK.text`` raises — so every access goes through getattr + callable() +
 try/except and the whole extraction NEVER raises: a malformed 6-K degrades to whatever text we could
-get (cover metadata at minimum), or ``None``.
+get, or ``None`` when no exhibit body exists so the pipeline falls back to the primary document.
 """
 from __future__ import annotations
 
@@ -94,7 +94,11 @@ def _extract_sixk_text_sync(cik_padded: str, accession_number: str) -> Optional[
         full = _safe(six_k, "text")
         body = full.strip() if isinstance(full, str) and full.strip() else None
 
-    if not body and not header_bits:
+    if not body:
+        # A cover header alone ("Reporting month: ...") is not grounding. Return None so the
+        # pipeline falls back to the primary document, which for exhibit-less 6-Ks (monthly revenue
+        # reports, dividend notices) IS the content; a truthy header-only string used to defeat that
+        # fallback and the model was asked to summarise one line.
         return None
 
     combined = "\n\n".join([*header_bits, body or ""]).strip()
