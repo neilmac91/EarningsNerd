@@ -66,7 +66,7 @@ async def test_weekly_report_declares_fixed_plan_even_when_all_results_are_missi
     from evals import weekly_readout
 
     monkeypatch.setenv('OPENAI_API_KEY', 'offline-fixture')
-    monkeypatch.setenv('ANTHROPIC_API_KEY', 'offline-fixture')
+    monkeypatch.setattr(weekly_readout, 'judge_available', lambda: True)
     monkeypatch.setenv('GITHUB_SHA', 'a' * 40)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', True)
     monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', True)

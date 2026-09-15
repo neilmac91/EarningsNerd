@@ -7,6 +7,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 | Category | Skill | Description |
 |----------|-------|-------------|
 | **Meta** | [llm-council](./meta/llm-council/) | Run a decision through 5 AI advisors who peer-review each other, then a chairman synthesizes a verdict |
+| **Meta** | [judge-readout](./meta/judge-readout/) | Produce the weekly strong-judge readout (W3-7) from a Monday generation artifact through the founder's Claude subscription; manual only |
 | **Payments** | [stripe-best-practices](./payments/stripe-best-practices/) | Stripe API integration patterns and best practices |
 | **Infrastructure** | [cloudflare-agents-sdk](./infrastructure/cloudflare-agents-sdk/) | Building AI agents on Cloudflare Workers |
 | **Frontend** | [react-best-practices](./frontend/react-best-practices/) | React/Next.js performance optimization (57 rules) |
@@ -19,6 +20,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 ### Meta (`/meta`)
 Skills for reasoning and decision-making workflows:
 - **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this".
+- **judge-readout** - In a fresh chat, download the Monday `data-quality-weekly` generation artifact, judge its 24 retained attempts with `evals.judge_readout` over the subscription CLI, report and record the readout, and deliver it only after asking. Manual invocation only (`disable-model-invocation: true`).
 
 ### Payments (`/payments`)
 Skills for payment processing integrations:

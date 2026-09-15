@@ -168,18 +168,27 @@ cost for authority without touching code:
 
 | `--judge` value | Backend | Auth / env | When |
 |---|---|---|---|
-| `claude-opus-4-8` (default) | anthropic SDK | `ANTHROPIC_API_KEY` (API credits) | Authoritative audits, re-pinning baseline |
-| `cli:sonnet` / `cli:opus` | subscription CLI (`claude -p`) | logged-in Claude subscription (OAuth); `ANTHROPIC_API_KEY` is stripped from the child env | Local/manual gates — **no OAuth in CI** |
-| `glm-5.2` / `openai:<model>` | OpenAI-compatible chat | `JUDGE_OPENAI_BASE_URL` + `JUDGE_OPENAI_API_KEY` (falls back to `OPENAI_*`) | Cheap CI/fallback judge |
+| `claude-opus-4-8` (bake-off default) | anthropic SDK | `ANTHROPIC_API_KEY` (API credits; `requirements-eval.txt`) | Bake-off audits on credits; the Opus agreement reference |
+| `cli:claude-fable-5-1` | subscription CLI (`claude -p`) | logged-in Claude subscription (OAuth); `ANTHROPIC_API_KEY` is stripped from the child env | **The weekly readout's contract judge** (`ai_readout.JUDGE_MODEL`, W3-7); local only — **no OAuth in CI** |
+| `cli:sonnet` / `cli:opus` | subscription CLI (`claude -p`) | as above | Local/manual gates |
+| `glm-5.2` / `openai:<model>` | OpenAI-compatible chat | `JUDGE_OPENAI_BASE_URL` + `JUDGE_OPENAI_API_KEY` (falls back to `OPENAI_*`) | Cheap fallback judge |
 
-**Agreement check before trusting a cheaper backend as the gate.** The default stays Opus so a
+**Agreement check before trusting a cheaper backend as the gate.** The bake-off default stays Opus so a
 cheaper judge can never *silently* weaken the bar — but before you rely on one, run the same
 `--forms <form> --runs 3` set through both it and `claude-opus-4-8` and confirm the verdicts and
 per-dimension means agree within noise. (Wiring smoke on a synthetic G3-hallucination case:
 `cli:sonnet` matched Opus exactly `{faith2,insight2,clarity4,spec3}`; `glm-5.2` was within 1 pt —
 both fired the same G3 gate.) For `cli:*`, unset `ANTHROPIC_API_KEY` in your shell first, or it
 will still route through the subscription (the child env strips it) — but confirm you are logged in
-(`claude -p --model sonnet -p "ok"`).
+(`claude -p --model claude-fable-5-1 --output-format json --tools "" "Reply with exactly: OK"` must
+answer with `"is_error":false`; the standalone CLI needs its own one-time `/login`, and `--bare`
+disables subscription auth). The weekly readout contract moved to `cli:claude-fable-5-1` on
+2026-09-15 at the founder's direction (subscription, not API credits). Fable 5.1 is not a cheaper
+judge than Opus 4.8, and an Opus agreement check for it would itself spend API credits, so that
+check is recorded as deferred pending the founder's decision, not performed; a local
+`python -m evals.judge_readout <report.json> --judge claude-opus-4-8` on an already generated
+weekly report is the cheapest way to run it later (its verdicts are retained; the readout stays
+unavailable for any non-contract judge).
 
 ---
 
@@ -822,17 +831,42 @@ added measurement dimensions without changing that pin. The first actual weekly 
 readout remains credential-held and is still required before evidence-snap activation.
 
 
-## Weekly strong-judge measurement (WS-6 step 2)
+## Weekly strong-judge measurement (WS-6 step 2; two-phase since W3-7, 2026-09-15)
 
 `data-quality-weekly.yml` measures the committed `weekly_cohort.json`: AAPL/JPM annual,
 NVDA/KO/BYND quarterly, ASML/BABA 20-F and MELI annual, exact verified accessions, three repeats
-and 24 required identities. It uses the configured `claude-opus-4-8` Anthropic judge; generator
-identity in the handoff is the configured/requested model, not yet response-model telemetry.
-Both credentials are checked before generation. The current founder credential is absent: no
-first judged readout is claimed. Do not substitute a cheaper judge without its agreement study,
-trigger the live email workflow during development, or arm evidence-snap from unavailable data.
-The separate `requirements-eval.txt` pins the judge SDK and additional transport dependencies;
-they are not production runtime dependencies.
+and 24 required identities. The strong judge is `cli:claude-fable-5-1` (`app/services/ai_readout.py`
+`JUDGE_MODEL` / `JUDGE_BACKEND`): Fable 5.1 through the founder's Claude subscription CLI, not an
+API-credit model. CI has no subscription session, so the measurement runs in two phases:
+
+1. **Generate (CI, Mondays 13:00 UTC).** `python -m evals.weekly_readout --generate-only` produces
+   the 24 attempts with the CI-only generator credential and retains every attempt's judge inputs
+   (canonical payload, grounding excerpt, XBRL grounding, application-owned statement evidence) in the
+   `weekly-judged-readout-<run_id>` artifact. Its handoff is an explicit `unavailable … pending`
+   readout, so that Monday's email says exactly that. `ANTHROPIC_API_KEY` appears nowhere in the workflow.
+2. **Judge (founder's Mac, a fresh chat, `/judge-readout`).** `python -m evals.judge_readout
+   <artifact>/report.json` replays exactly the retained inputs through `runner._maybe_judge` (same
+   excerpt, statement evidence, XBRL serialization and full-coverage bounds; nothing is re-fetched or
+   regenerated) with `claude -p` on the subscription, then builds the readout through the same
+   cohort/golden/identity validation. Outputs land under `evals/reports/weekly-judged/<stamp>/`.
+   `--judge` accepts another id only for an agreement check: its verdicts are retained in the judged
+   report and the readout stays unavailable.
+3. **Deliver (live email; ask the founder first).** `gh workflow run data-quality-weekly.yml -f
+   readout_b64="$(cat …/readout.b64)"` re-sends the data-quality email with the judged readout and
+   retains it as that run's artifact; the dispatch installs nothing and generates nothing.
+
+Generator identity in the handoff is the configured/requested model, not yet response-model
+telemetry. Do not trigger the live email workflow during development, arm evidence-snap from
+unavailable or partial data, or raise the judge input bounds or edit the golden set to make a
+verdict fit. Known bound: MELI's retained excerpt with its statement descriptor already exceeds the
+200,000-character judge excerpt bound (see "Reported operating-to-pretax relationships"), so its
+three attempts are expected to be explicit judge errors and the readout partial until that bound
+is revisited for the 1M-context judge under its own evidence; a partial readout is reported as
+partial. The judge subprocess replaces Claude Code's default system prompt with the judge framing,
+disables tools and settings-defined MCP servers, persists no session and runs outside the
+repository so no `CLAUDE.md` enters its context (`judge.py::_judge_via_cli`). The separate
+`requirements-eval.txt` pins the optional API-credit judge SDK for a local Opus agreement check;
+CI no longer installs it, and it is not a production runtime dependency.
 
 Judge input includes full canonical JSON (100k-character bound), source excerpt (200k) and
 XBRL serialization (40k). Bounds are checked before truncation; overflow is an explicit judge

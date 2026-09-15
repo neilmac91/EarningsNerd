@@ -6,6 +6,7 @@ construction and verdict logic are provable without a model call. The backend-di
 offline: they assert routing and graceful-degradation without any model call."""
 import asyncio
 import json
+from pathlib import Path
 
 import pytest
 
@@ -236,6 +237,7 @@ async def test_cli_backend_unsets_api_key_and_parses_result(monkeypatch):
     async def fake_exec(*args, **kwargs):
         captured["args"] = args
         captured["env"] = kwargs.get("env", {})
+        captured["cwd"] = kwargs.get("cwd")
         return _FakeProc(cli_wrapper)
 
     monkeypatch.setattr(judge_mod.asyncio, "create_subprocess_exec", fake_exec)
@@ -243,8 +245,17 @@ async def test_cli_backend_unsets_api_key_and_parses_result(monkeypatch):
 
     assert v.verdict == "PASS" and v.mean_dimension == 4.5 and v.error is None
     assert "ANTHROPIC_API_KEY" not in captured["env"]  # forced onto subscription auth
-    assert "--model" in captured["args"] and "sonnet" in captured["args"]
-    assert "--output-format" in captured["args"] and "json" in captured["args"]
+    args = list(captured["args"])
+    assert "--model" in args and "sonnet" in args
+    assert "--output-format" in args and "json" in args
+    # The judge sees only the judge framing and the stdin payload: the framing REPLACES Claude Code's
+    # default system prompt, tools and settings-defined MCP servers are off, nothing persists, and the
+    # child runs outside the repository so no CLAUDE.md enters its context. --bare would disable OAuth.
+    assert args[args.index("--system-prompt") + 1] == "sys" and "--append-system-prompt" not in args
+    assert args[args.index("--tools") + 1] == "" and "--strict-mcp-config" in args
+    assert "--no-session-persistence" in args and "--bare" not in args
+    child_cwd = Path(captured["cwd"]).resolve()
+    assert child_cwd.is_dir() and Path.cwd().resolve() not in (child_cwd, *child_cwd.parents)
 
 
 @pytest.mark.asyncio
