@@ -178,11 +178,12 @@ cheaper judge can never *silently* weaken the bar — but before you rely on one
 `--forms <form> --runs 3` set through both it and `claude-opus-4-8` and confirm the verdicts and
 per-dimension means agree within noise. (Wiring smoke on a synthetic G3-hallucination case:
 `cli:sonnet` matched Opus exactly `{faith2,insight2,clarity4,spec3}`; `glm-5.2` was within 1 pt —
-both fired the same G3 gate.) For `cli:*`, unset `ANTHROPIC_API_KEY` in your shell first, or it
-will still route through the subscription (the child env strips it) — but confirm you are logged in
-(`claude -p --model claude-fable-5-1 --output-format json --tools "" "Reply with exactly: OK"` must
-answer with `"is_error":false`; the standalone CLI needs its own one-time `/login`, and `--bare`
-disables subscription auth). The weekly readout contract moved to `cli:claude-fable-5-1` on
+both fired the same G3 gate.) For `cli:*`, the child env strips `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN` and the Bedrock/Vertex/Foundry routing variables, so the judge always runs
+on the subscription; unset the same variables in your shell *before* probing that you are logged
+in (`claude -p --model claude-fable-5-1 --output-format json --tools "" "Reply with exactly: OK"`
+must answer with `"is_error":false`; the standalone CLI needs its own one-time `/login`, and
+`--bare` disables subscription auth). The weekly readout contract moved to `cli:claude-fable-5-1` on
 2026-09-15 at the founder's direction (subscription, not API credits). Fable 5.1 is not a cheaper
 judge than Opus 4.8, and an Opus agreement check for it would itself spend API credits, so that
 check is recorded as deferred pending the founder's decision, not performed; a local
@@ -828,7 +829,9 @@ subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including
 WS-7 #697, in run `33962580838` (artifact `9968531910`). All 78 results had no execution
 errors or hard vetoes. #698 committed the exact measured baseline and deployed; #700 later
 added measurement dimensions without changing that pin. The first actual weekly strong-judge
-readout remains credential-held and is still required before evidence-snap activation.
+readout is still required before evidence-snap activation; since 2026-09-15 it waits on a
+generation artifact and the founder's local `/judge-readout` run (next section), no longer on a
+credential.
 
 
 ## Weekly strong-judge measurement (WS-6 step 2; two-phase since W3-7, 2026-09-15)
@@ -849,11 +852,15 @@ API-credit model. CI has no subscription session, so the measurement runs in two
    excerpt, statement evidence, XBRL serialization and full-coverage bounds; nothing is re-fetched or
    regenerated) with `claude -p` on the subscription, then builds the readout through the same
    cohort/golden/identity validation. Outputs land under `evals/reports/weekly-judged/<stamp>/`.
-   `--judge` accepts another id only for an agreement check: its verdicts are retained in the judged
-   report and the readout stays unavailable.
+   A report whose golden set, cohort or attempt identities differ from this checkout is refused
+   before the first judge call. `--judge` accepts another id only for an agreement check: its
+   verdicts are retained in the judged report and the readout stays unavailable. The per-attempt
+   verdicts are durable only where the skill records them (`tasks/review-evidence/w3-7/…`): the
+   readout links the generation run, whose artifact holds unjudged attempts.
 3. **Deliver (live email; ask the founder first).** `gh workflow run data-quality-weekly.yml -f
    readout_b64="$(cat …/readout.b64)"` re-sends the data-quality email with the judged readout and
-   retains it as that run's artifact; the dispatch installs nothing and generates nothing.
+   retains the bounded readout as that run's artifact; the dispatch installs nothing and generates
+   nothing, and a readout that fails validation turns the run red instead of emailing silently.
 
 Generator identity in the handoff is the configured/requested model, not yet response-model
 telemetry. Do not trigger the live email workflow during development, arm evidence-snap from

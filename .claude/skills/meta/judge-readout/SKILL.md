@@ -9,7 +9,9 @@ allowed-tools: Bash, Read
 
 # /judge-readout — weekly strong-judge readout through the subscription
 
-Run this in a fresh Claude Code chat opened on the EarningsNerd checkout. It turns the Monday
+Run this in a fresh Claude Code chat opened on an EarningsNerd checkout that sits outside any
+iCloud-synced folder (`lessons/ops-keep-worktrees-out-of-icloud-documents.md`; the current
+handover names the clone and virtual environment to use). It turns the Monday
 generation artifact (`data-quality-weekly.yml`, phase `generation`) into the judged weekly readout
 by replaying each retained attempt through `evals.judge_readout`, which spawns `claude -p` with
 the subscription login (no API key, no API credit). Nothing is generated here: the generator
@@ -19,18 +21,24 @@ Read `backend/evals/RUNBOOK.md` ("Weekly strong-judge measurement") before the f
 
 ## 1. Preconditions (check, do not assume)
 
+First remove every credential through which `claude -p` could bill something other than the
+subscription, then probe the subscription login itself (the JSON is about 1.8 KB and `is_error`
+sits near its end, so extract it rather than truncating the output):
+
 ```bash
-claude -p --model claude-fable-5-1 --output-format json --tools "" "Reply with exactly: OK" | head -c 400
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
+claude -p --model claude-fable-5-1 --output-format json --tools "" "Reply with exactly: OK" < /dev/null | grep -oE '"(is_error|result)":[^,]*'
 ```
-The reply must contain `"is_error":false`. If it says not logged in or invalid API key, the
-standalone CLI needs its one-time `/login` in the app's Terminal pane (interactive `claude`,
+Expect `"is_error":false` and `"result":"OK"`. If the reply says not logged in or invalid API key,
+the standalone CLI needs its one-time `/login` in the app's Terminal pane (interactive `claude`,
 `/login`, subscription option, then `/exit`). Do not use `--bare`: it disables subscription auth.
+`evals.judge_readout` strips the same variables from every judge subprocess, so the probe and the
+run authenticate the same way.
 
 ```bash
 gh auth status && git -c core.fsmonitor=false status --short && git -c core.fsmonitor=false log --oneline -1
 ```
-Use a backend virtual environment that matches `backend/requirements.txt`, and unset
-`ANTHROPIC_API_KEY` in the shell so nothing can bill API credits.
+Use a backend virtual environment that matches `backend/requirements.txt`.
 
 ## 2. Find and download the generation run
 
@@ -58,12 +66,17 @@ export SKIP_REDIS_INIT=true SECRET_KEY=local-judge-only-nonproduction-0123456789
   STRIPE_SECRET_KEY=sk_test_local_judge STRIPE_WEBHOOK_SECRET=whsec_local_judge \
   PWNED_PASSWORD_CHECK_ENABLED=false AI_FALLBACK_MODEL= AI_FALLBACK_BASE_URL= \
   OPENAI_API_KEY=local-judge-never-generates
-unset ANTHROPIC_API_KEY
-PYTHONPYCACHEPREFIX=$(mktemp -d) python -m evals.judge_readout /tmp/weekly-<run_id>/report.json --concurrency 2
+OUT=/tmp/weekly-<run_id>/judged
+PYTHONPYCACHEPREFIX=$(mktemp -d) nohup python -m evals.judge_readout /tmp/weekly-<run_id>/report.json \
+  --output-dir "$OUT" --concurrency 2 > /tmp/weekly-<run_id>/judge.log 2>&1 &
 ```
 Expect about 24 subscription calls, each carrying up to roughly 340,000 characters of retained
-source, XBRL and summary; the run takes some minutes. Keep the terminal output. Do not raise the
-judge input bounds or edit the golden set to make a verdict fit.
+source, XBRL and summary, with a 300-second bound per call; the run takes minutes and writes its
+outputs only at the end, which is why it runs detached from the tool's own timeout. Wait for
+`Outputs:` in `judge.log` (poll the file; do not re-run while `pgrep -f evals.judge_readout`
+still finds it), then keep that log. A partial readout exits 1 by design (for example MELI's
+attempts over the excerpt bound); do not re-run for that reason. Do not raise the judge input
+bounds or edit the golden set to make a verdict fit.
 
 ## 4. Report the result to the founder
 
@@ -76,8 +89,11 @@ evidence-snap arm decision is the founder's and follows the wrong-snap rate engi
 ## 5. Record
 
 Copy `readout.json` and `readout.md` into `tasks/review-evidence/w3-7/<YYYY-MM-DD>-run-<run_id>/`
-and append the dated ledger entry in `tasks/todo.md` through an ordinary docs PR. Do not commit
-`report.json` (it carries full excerpts) and do not change `baseline_scores.json` or the golden set.
+and append the dated ledger entry in `tasks/todo.md` through an ordinary docs PR. This copy is the
+only durable record of the per-attempt verdicts: the readout links the generation run, whose
+artifact holds unjudged attempts, and a delivery dispatch retains only the bounded readout. Do not
+commit `report.json` (it carries full excerpts) and do not change `baseline_scores.json` or the
+golden set.
 
 ## 6. Deliver (ask first)
 

@@ -10,10 +10,14 @@ instead of API credits, and then builds the bounded readout the ordinary report 
 
     cd backend && python -m evals.judge_readout <artifact>/report.json [--output-dir DIR] [--concurrency 2]
 
-Nothing is generated here and no generator credential is read. Every verdict is retained in the
-judged ``report.json`` even when no readout can be built: a golden set or cohort that differs from
-the generation run, a foreign attempt identity, or a judge other than the readout contract's
-(``--judge`` exists for agreement checks) yields an unavailable readout, never a fabricated one.
+Nothing is generated here and no generator credential is read. A golden set or cohort that differs
+from the generation run, or a foreign or duplicate attempt identity, is refused before the first
+judge call (no spend, unavailable readout). A judge other than the readout contract's (``--judge``
+exists for agreement checks) still judges every attempt and retains the verdicts in the judged
+``report.json``, but yields an unavailable readout, never a fabricated one. Any ``judge`` a
+generation report already carried is discarded: every verdict comes from this run. Exit status is
+0 only for a complete readout, so a documented partial readout (e.g. attempts over the judge's
+excerpt bound) exits 1 by design; re-running does not change that.
 """
 from __future__ import annotations
 
@@ -43,16 +47,36 @@ def retained_grounding(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "statement_source": row.get("statement_source")}
 
 
+def check_provenance(report: Dict[str, Any], filings: List[Dict[str, Any]]) -> None:
+    """Refuse, before any subscription call, a report this checkout cannot turn into a readout.
+
+    The same golden-set and attempt-identity rules ``build_readout`` applies afterwards; failing
+    them here costs nothing instead of twenty-four judged verdicts."""
+    results = [{**row, "judge": None} for row in report.get("results", [])]
+    build_readout(results, filings, {**report.get("harness", {}), "judge": JUDGE_ID})
+
+
 async def judge_report(report: Dict[str, Any], judge_id: str = JUDGE_ID,
                        concurrency: int = DEFAULT_CONCURRENCY) -> Dict[str, Any]:
     """Return the judged report: every judgeable attempt carries a verdict, plus the readout."""
     from evals import runner
     from evals.schema import GoldenFiling
 
-    cohort = {(f["ticker"], f["filing_type"], f["accession_number"]): GoldenFiling.from_dict(f)
-              for f in load_cohort()}
+    filings = load_cohort()
+    # Every verdict below is produced now, by this judge, from the retained inputs; nothing a
+    # generation report already carried under `judge` survives into the readout.
+    results: List[Dict[str, Any]] = [{**row, "judge": None} for row in report.get("results", [])]
+    harness = {**report.get("harness", {}), "judge": judge_id}
+    try:
+        check_provenance(report, filings)
+    except (ValueError, TypeError, KeyError) as exc:
+        print(f"Refusing to judge: {exc}")
+        readout = unavailable_readout(
+            f"Measurement provenance refused before judging ({type(exc).__name__}); no judge calls made")
+        return {**report, "phase": "judged", "results": results, "summary": runner._summarize(results),
+                "harness": harness, "judged_at": iso_z(utcnow()), "readout": readout}
+    cohort = {(f["ticker"], f["filing_type"], f["accession_number"]): GoldenFiling.from_dict(f) for f in filings}
     semaphore = asyncio.Semaphore(max(1, concurrency))
-    results: List[Dict[str, Any]] = [dict(row) for row in report.get("results", [])]
 
     async def one(row: Dict[str, Any]) -> None:
         filing = cohort.get((row.get("ticker"), row.get("filing_type"), row.get("accession_number")))
@@ -67,9 +91,8 @@ async def judge_report(report: Dict[str, Any], judge_id: str = JUDGE_ID,
               f"{' error=' + str(judge.get('error')) if judge.get('error') else ''}")
 
     await asyncio.gather(*(one(row) for row in results))
-    harness = {**report.get("harness", {}), "judge": judge_id}
     try:
-        readout = build_readout(results, load_cohort(), harness, run_url=report.get("run_url"))
+        readout = build_readout(results, filings, harness, run_url=report.get("run_url"))
     except (ValueError, TypeError, KeyError) as exc:
         readout = unavailable_readout(
             f"Measurement validation failed ({type(exc).__name__}); judged attempt evidence retained")

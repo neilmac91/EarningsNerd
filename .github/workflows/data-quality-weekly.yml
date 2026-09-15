@@ -106,6 +106,9 @@ jobs:
           (directory / 'readout.json').write_text(json.dumps(readout, indent=2))
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('readout=' + encoded + '\n')
+          if supplied and readout['reason'] == 'Weekly judged readout handoff invalid':
+              # The email still says invalid; the run must say so too, not go green.
+              raise SystemExit('supplied readout_b64 failed validation; nothing delivered')
           PYCODE
       - name: Retain full generation evidence, or the delivered readout, and explicit unavailable evidence
         if: always()

@@ -308,6 +308,7 @@ def test_weekly_workflow_generates_only_and_delivers_a_judged_readout_without_ge
     step = next(s for s in measure["steps"] if s.get("id") == "handoff")
     assert step["if"] == "always()" and "unavailable_readout" in step["run"]
     assert step["env"]["READOUT_B64_INPUT"] == "${{ inputs.readout_b64 }}" and "decode_readout(supplied)" in step["run"]
+    assert "handoff invalid" in step["run"] and "raise SystemExit" in step["run"]  # a botched delivery goes red, not green
     upload = next(s for s in measure["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
     assert upload["if"] == "always()"
     generation = next(s for s in measure["steps"] if s.get("run") == "python -m evals.weekly_readout --generate-only")

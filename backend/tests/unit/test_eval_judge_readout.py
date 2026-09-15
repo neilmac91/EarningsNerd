@@ -99,7 +99,9 @@ def test_failed_and_oversized_attempts_stay_errors_without_transport(generation_
     rows = generation_report["results"]
     rows[0].update(error="TimeoutError: cold", score=None, payload=None)  # generation failure retained as-is
     rows[1]["grounding_excerpt"] = "x" * (judge._JUDGE_EXCERPT_CHAR_CAP + 1)  # over the full-coverage bound
-    del rows[2]["grounding_excerpt"]  # legacy attempt without retained judge inputs
+    del rows[2]["grounding_excerpt"]  # legacy attempt without retained judge inputs ...
+    rows[2]["judge"] = {"verdict": "PASS", "passed": True, "error": None, "input_complete": True,
+                        "gate_failures": [], "dimensions": dict.fromkeys(DIMENSIONS, 5)}  # ... carrying a stale verdict
     code, out = _run(generation_report, tmp_path)
     assert code == 1
     readout = json.loads((out / "readout.json").read_text())
@@ -110,23 +112,35 @@ def test_failed_and_oversized_attempts_stay_errors_without_transport(generation_
     assert len(transport) == 21 and all(len(c["excerpt"]) <= judge._JUDGE_EXCERPT_CHAR_CAP for c in transport)
 
 
-@pytest.mark.parametrize("defect", ["golden-hash", "foreign-identity", "non-contract-judge"])
-def test_provenance_or_judge_mismatch_retains_verdicts_but_yields_no_readout(generation_report, transport, tmp_path, defect):
-    extra = []
+@pytest.mark.parametrize("defect", ["golden-hash", "foreign-identity", "duplicate-identity"])
+def test_provenance_mismatch_is_refused_before_any_judge_call(generation_report, transport, tmp_path, defect):
+    rows = generation_report["results"]
     if defect == "golden-hash":
         generation_report["harness"]["golden_set_sha256"] = "b" * 64
     elif defect == "foreign-identity":
-        generation_report["results"][0]["accession_number"] = "0000000000-00-000000"
+        rows[0]["accession_number"] = "0000000000-00-000000"
     else:
-        extra = ["--judge", "cli:claude-opus-4-8"]
-    code, out = _run(generation_report, tmp_path, extra)
+        rows[0] = {**rows[1]}
+    code, out = _run(generation_report, tmp_path)
+    assert code == 1
+    readout = json.loads((out / "readout.json").read_text())
+    assert readout["status"] == "unavailable" and readout["scored"] == 0 and readout["missing"] == 24
+    assert readout["reason"].startswith("Measurement provenance refused before judging") and "no judge calls" in readout["reason"]
+    judged = json.loads((out / "report.json").read_text())
+    assert transport == [] and all(r["judge"] is None for r in judged["results"])
+
+
+def test_non_contract_judge_retains_verdicts_but_yields_no_readout(generation_report, transport, tmp_path):
+    # A stale verdict carried by the generation report must not survive into the readout either.
+    generation_report["results"][0]["judge"] = {"verdict": "PASS", "passed": True, "error": None, "input_complete": True,
+                                                "gate_failures": [], "dimensions": dict.fromkeys(DIMENSIONS, 5)}
+    code, out = _run(generation_report, tmp_path, ["--judge", "cli:claude-opus-4-8"])
     assert code == 1
     readout = json.loads((out / "readout.json").read_text())
     assert readout["status"] == "unavailable" and readout["scored"] == 0 and readout["missing"] == 24
     assert readout["reason"].startswith("Measurement validation failed")
     judged = json.loads((out / "report.json").read_text())
     verdicts = [r["judge"] for r in judged["results"] if isinstance(r.get("judge"), dict)]
-    assert len(verdicts) == len(transport) == (23 if defect == "foreign-identity" else 24)
-    assert judged["harness"]["judge"] == (extra[1] if extra else weekly_readout.JUDGE_ID)
-    if extra:
-        assert {c["model_id"] for c in transport} == {"cli:claude-opus-4-8"}
+    assert len(verdicts) == len(transport) == 24 and {c["model_id"] for c in transport} == {"cli:claude-opus-4-8"}
+    assert judged["harness"]["judge"] == "cli:claude-opus-4-8"
+    assert judged["results"][0]["judge"]["dimensions"] != dict.fromkeys(DIMENSIONS, 5)  # re-judged, not carried over

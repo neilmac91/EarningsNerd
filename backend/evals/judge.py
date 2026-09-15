@@ -50,6 +50,10 @@ DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulnes
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
 _CLI_TIMEOUT_SECONDS = 300  # subscription CLI can be slow on a 200k-char excerpt + reasoning
+# Every credential/routing variable through which `claude -p` could bill something other than the
+# logged-in subscription; all are removed from the judge child's environment.
+_BILLING_ENV = frozenset({"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
+                          "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY"})
 # The judge MUST see the same source the model grounded on, or it false-flags real facts as
 # hallucinations. The generator grounds on the full critical-sections excerpt (filing_sample =
 # filing_excerpt), which runs ~120–165k chars; a smaller cap truncates capital-return/obligations/
@@ -295,8 +299,9 @@ async def _judge_via_cli(
     billing API credits. Manual/local only — CI has no OAuth session.
 
     The judge framing REPLACES Claude Code's default system prompt (``--system-prompt``) and the
-    (large) source+summary goes via stdin, so the model sees the same two messages the anthropic
-    backend sends: no tools (``--tools ""``), no settings-defined MCP servers
+    (large) source+summary goes via stdin, so the model sees the anthropic backend's two messages
+    plus only a small CLI wrapper (measured ~700 cached tokens versus ~27k with the default
+    prompt): no tools (``--tools ""``), no settings-defined MCP servers
     (``--strict-mcp-config``), no persisted session, and a temporary working directory so no
     CLAUDE.md is auto-discovered into the judge's context. ``--bare`` is deliberately NOT used:
     it disables OAuth/keychain auth. ``--output-format json`` wraps the reply in
@@ -304,8 +309,9 @@ async def _judge_via_cli(
     backend."""
     alias = model_id.split(":", 1)[1].strip() if ":" in model_id else ""
     model = alias or "sonnet"
-    # Force subscription/OAuth auth: an inherited ANTHROPIC_API_KEY would bill API credits instead.
-    child_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    # Force subscription/OAuth auth: an inherited API key, auth token or cloud-provider routing
+    # would bill credits (or a gateway) instead of the subscription.
+    child_env = {k: v for k, v in os.environ.items() if k not in _BILLING_ENV}
 
     async def call_once() -> str:
         proc = await asyncio.create_subprocess_exec(
