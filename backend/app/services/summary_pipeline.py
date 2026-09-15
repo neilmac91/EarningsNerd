@@ -599,12 +599,8 @@ async def stream_filing_summary(
                 if not filing_text:
                     yield {'type': 'error', 'message': 'Unable to retrieve this 6-K at the moment — please try again shortly.'}
                     return
-                # W3-8b: deterministic pre-classification of the exhibit text selects the 6-K prompt
-                # variant and is recorded on the stored summary for audit. No model call.
-                sixk = classify_sixk_text(filing_text)
-                sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
                 mark_stage("fetch_document")
-                yield {'type': 'progress', 'stage': 'fetching', 'message': f'6-K exhibits fetched ({sixk_class.replace("_", " ")})', 'percent': 15}
+                yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
             else:
                 # Fetch filing document with heartbeat to prevent UI stall at 10%
                 FETCH_MESSAGES = [
@@ -751,6 +747,13 @@ async def stream_filing_summary(
                     document_url=filing_document_url, form=filing_type,
                     report_period=report_period.date().isoformat(),
                 )
+            if is_six_k:
+                # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
+                # variant and is recorded on the stored summary for audit. Placed after every grounding
+                # branch (fresh exhibit fetch, primary-document fallback, or a valid content cache whose
+                # text arrives as the excerpt) so a cached or regenerated 6-K is classified too.
+                sixk = classify_sixk_text(filing_text or excerpt)
+                sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,

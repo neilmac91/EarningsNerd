@@ -118,16 +118,17 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         # the same text users receive, not the cover document.
         from app.services.edgar.sixk_extractor import get_sixk_text
         text = await get_sixk_text(filing.accession_number, filing.cik)
-    sixk = None
-    if is_six_k:
-        # W3-8b parity: production pre-classifies the 6-K text and hands the class to the summary
-        # service (class variant prompt + raw_summary audit); the harness must measure the same.
-        from app.services.edgar.sixk_classifier import classify_sixk_text
-        sixk = classify_sixk_text(text)
     if not text:
         text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
             filing.document_url, timeout=30.0
         )
+    sixk = None
+    if is_six_k:
+        # W3-8b parity: production pre-classifies the final 6-K grounding (exhibit text, or the
+        # primary document when no exhibit body exists) and hands the class to the summary service;
+        # the harness classifies the same final text.
+        from app.services.edgar.sixk_classifier import classify_sixk_text
+        sixk = classify_sixk_text(text)
 
     excerpt = None
     source = "regex_fallback"
