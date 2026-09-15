@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import subprocess  # noqa: S404 - the subscription judge is a local CLI subprocess by design
 from pathlib import Path
 import statistics
 
@@ -23,11 +24,32 @@ from app.services.ai_readout import DIMENSIONS, EXPECTED, JUDGE_MODEL, encode_re
 COHORT_PATH = Path(__file__).with_name("weekly_cohort.json")
 GOLDEN_PATH = Path(__file__).with_name("golden_set.json")
 JUDGE_ID = f"cli:{JUDGE_MODEL}"  # the `--judge` id the harness records: the contract judge over the subscription CLI
+JUDGE_PROBE_TIMEOUT_SECONDS = 90
 
 
 def judge_available() -> bool:
-    """The subscription judge is the local ``claude`` CLI; its presence is the only credential-free check."""
-    return shutil.which("claude") is not None
+    """Prove the subscription judge can answer before a single generation is paid for.
+
+    The judge is the local ``claude`` CLI on the logged-in subscription, so presence alone proves
+    nothing: an expired login would let all 24 generations run and then fail every verdict. One
+    tiny probe through the same model, flags and billing-stripped environment the judge uses
+    settles it (``True`` only for a clean ``is_error: false`` result)."""
+    from evals.judge import _BILLING_ENV
+
+    if shutil.which("claude") is None:
+        return False
+    env = {k: v for k, v in os.environ.items() if k not in _BILLING_ENV}
+    try:
+        probe = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            ["claude", "-p", "--model", JUDGE_MODEL, "--output-format", "json", "--tools", "",
+             "--strict-mcp-config", "--no-session-persistence", "--system-prompt", "Answer in one word.",
+             "Reply with exactly: OK"],
+            capture_output=True, text=True, timeout=JUDGE_PROBE_TIMEOUT_SECONDS, env=env, stdin=subprocess.DEVNULL,
+        )
+        outer = json.loads(probe.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return probe.returncode == 0 and isinstance(outer, dict) and outer.get("is_error") is False
 
 
 def load_cohort() -> list[dict]:
@@ -101,7 +123,7 @@ async def measure(*, generate_only: bool = False) -> tuple[dict, dict]:
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         return unavailable_readout("Generator credential absent; no model calls made"), {"results": [], "harness": {}}
     if not generate_only and not judge_available():
-        return unavailable_readout("Strong-judge CLI absent; no model calls made"), {"results": [], "harness": {}}
+        return unavailable_readout("Strong-judge CLI absent or not logged in; no model calls made"), {"results": [], "harness": {}}
     from evals import runner
     from evals.schema import GoldenFiling
 

@@ -269,6 +269,37 @@ async def test_missing_generator_credential_or_judge_cli_prevents_all_generation
     process.assert_not_awaited()
 
 
+@pytest.mark.parametrize("outcome", ["logged-in", "not-logged-in", "nonzero-exit", "garbage", "missing-binary", "timeout"])
+def test_judge_availability_is_a_real_login_probe_not_a_presence_check(monkeypatch, outcome):
+    """An expired subscription login must be caught before 24 generations are paid for."""
+    import subprocess
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-must-not-reach-the-probe")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "gateway-must-not-reach-the-probe")
+    monkeypatch.setattr(weekly_readout.shutil, "which", lambda name: None if outcome == "missing-binary" else "/usr/local/bin/claude")
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        if outcome == "timeout":
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        stdout = {"logged-in": json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "OK"}),
+                  "not-logged-in": json.dumps({"type": "result", "subtype": "error", "is_error": True, "result": "Not logged in"}),
+                  "nonzero-exit": json.dumps({"is_error": False, "result": "OK"}),
+                  "garbage": "Invalid API key · Please run /login"}[outcome]
+        return subprocess.CompletedProcess(argv, 1 if outcome == "nonzero-exit" else 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(weekly_readout.subprocess, "run", fake_run)
+    assert weekly_readout.judge_available() is (outcome == "logged-in")
+    if outcome == "missing-binary":
+        assert calls == []
+        return
+    argv, kwargs = calls[0]
+    assert argv[:4] == ["claude", "-p", "--model", JUDGE_MODEL] and "--tools" in argv and "--strict-mcp-config" in argv
+    assert not {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"} & set(kwargs["env"])  # the probe authenticates like the judge
+    assert kwargs["timeout"] == weekly_readout.JUDGE_PROBE_TIMEOUT_SECONDS and kwargs["stdin"] is subprocess.DEVNULL
+
+
 @pytest.mark.asyncio
 async def test_missing_source_provenance_prevents_generation(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-generator")
