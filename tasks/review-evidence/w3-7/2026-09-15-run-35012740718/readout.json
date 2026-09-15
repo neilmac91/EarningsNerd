@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "status": "partial",
+  "reason": "Incomplete generation or judge evidence; not a completed readout",
+  "source_sha": "962f2c7f775df3029d456e4f2ca4226b395c8191",
+  "cohort_sha256": "d7126c022d6365203d8c35c4d371f61a936412ba05cbd3c0945b56f5aa0c6335",
+  "golden_set_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+  "run_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35012740718",
+  "artifact_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35012740718#artifacts",
+  "generator_model": "deepseek-flash",
+  "judge_model": "claude-fable-5-1",
+  "judge_backend": "cli",
+  "expected": 24,
+  "completed": 24,
+  "scored": 15,
+  "errors": 9,
+  "missing": 0,
+  "negative_judgments": 9,
+  "deterministic_vetoes": 0,
+  "dimensions": {
+    "faithfulness": 3.6667,
+    "insight": 3.5333,
+    "clarity": 3.8,
+    "specificity": 4.2667
+  }
+}
