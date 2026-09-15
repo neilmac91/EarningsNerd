@@ -1,6 +1,6 @@
 {
-  "snapshot_date": "2026-09-15T06:08:46Z",
-  "source_report": "eval_20260915T060846Z.json",
+  "snapshot_date": "2026-09-15T20:47:45Z",
+  "source_report": "eval_20260915T204745Z.json",
   "golden_set_size": 35,
   "runs_per_candidate": 3,
   "harness": {
@@ -13,11 +13,11 @@
     "stream_section_reveal": true,
     "use_edgartools_sections": true,
     "richer_financials_enabled": true,
-    "ai_evidence_snap": false,
+    "ai_evidence_snap": true,
     "ai_figure_trace_gate": false,
     "ai_forward_quote_gate": false,
     "judge": false,
-    "source_sha": "30e1e1939ec3a613301895e8bb4b75693bdb3d67",
+    "source_sha": "e44f804645bb90ad294f395176a2775cb7f1a5f5",
     "golden_set_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
     "candidates": [
       "baseline"
@@ -170,7 +170,7 @@
   },
   "candidates": {
     "baseline": {
-      "mean_untraceable_dollar_figures": 2,
+      "mean_untraceable_dollar_figures": 2.1619,
       "figure_trace_measured": 105,
       "figure_trace_unavailable": 0,
       "figure_trace_errors": 0,
@@ -178,23 +178,23 @@
       "scored": 105,
       "errors": 0,
       "retried": 0,
-      "mean_aggregate": 1.0,
-      "aggregate_stdev": 0.0,
+      "mean_aggregate": 0.9995,
+      "aggregate_stdev": 0.0049,
       "pass_rate": 1.0,
       "gate_fail_rate": 0.0,
       "schema_valid_rate": 1.0,
       "repaired_rate": 0.0,
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
-      "mean_coverage": 1.0,
-      "mean_financial_depth": 0.7714,
-      "mean_specificity": 0.996,
+      "mean_coverage": 0.9981,
+      "mean_financial_depth": 0.7937,
+      "mean_specificity": 0.9962,
       "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9018,
-      "mean_delta_consistency": 0.8303,
-      "mean_forward_quote_fidelity": 1.0,
-      "mean_citation_fidelity": 0.9272,
-      "mean_citation_checked": 7.2762,
+      "mean_redundancy": 0.9115,
+      "mean_delta_consistency": 0.8438,
+      "mean_forward_quote_fidelity": 0.9952,
+      "mean_citation_fidelity": 0.9706,
+      "mean_citation_checked": 7.0857,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
       "incurred_usage_attempts": 105,
@@ -208,15 +208,15 @@
           "deepseek-flash"
         ],
         "prompt_tokens": 4077705,
-        "completion_tokens": 383420,
+        "completion_tokens": 381332,
         "cache_hit_tokens": 4057332,
         "cache_miss_tokens": 20373,
         "reasoning_tokens": null
       },
       "usage_attempts": 105,
-      "mean_completion_tokens": 3651.6,
+      "mean_completion_tokens": 3631.7,
       "mean_prompt_tokens": 38835.3,
-      "total_completion_tokens": 383420,
+      "total_completion_tokens": 381332,
       "total_prompt_tokens": 4077705,
       "total_cache_hit_tokens": 4057332,
       "total_cache_miss_tokens": 20373,
@@ -224,8 +224,8 @@
       "actual_models": [
         "deepseek-flash"
       ],
-      "mean_latency_seconds": 13.176
+      "mean_latency_seconds": 12.589
     }
   },
-  "note": "W3-8b 6-K pre-classifier, three 6-K prompt variants and three earnings-class 6-K goldens (ASML, SE, PDD Q2 2026, hand-filled from exhibit tables); 35 verified x 3 runs, run 34934705614, source 30e1e1939ec3a613301895e8bb4b75693bdb3d67, EdgarTools 5.58.0, DeepSeek V4.1 Flash thinking off"
+  "note": "Armed-guard re-pin (AI_EVIDENCE_SNAP=true), 2026-09-15: 35 verified filings x 3 runs, run 35020462848 on source e44f8046, DeepSeek V4.1 Flash thinking off, empty fallback; citation fidelity moves with the armed snap, all other dimensions within their run-to-run bands."
 }

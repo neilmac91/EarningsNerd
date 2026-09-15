@@ -17,7 +17,7 @@ from scripts import pin_baseline
 
 ROOT = Path(__file__).resolve().parents[3]
 PROD_ENV_PINS = {
-    "NOTABLE_FILINGS_ENABLED": "false", "AI_EVIDENCE_SNAP": "false",
+    "NOTABLE_FILINGS_ENABLED": "false", "AI_EVIDENCE_SNAP": "true",
     "AI_FIGURE_TRACE_GATE": "false", "AI_FORWARD_QUOTE_GATE": "false",
     "USE_STRUCTURED_OUTPUT": "false", "USE_STATEMENT_FINANCIALS": "true",
     # Founder-approved W3-1 observation: keep the live service filter, not the old plan's false.
@@ -27,6 +27,9 @@ PROD_ENV_PINS = {
 INTENTIONAL_PROD_OVERRIDES = {
     "ENABLE_FPI_FILINGS", "STREAM_SECTION_REVEAL", "REGISTRATION_MODE",
     "CALENDAR_INDEX_FILTER_ENABLED",
+    # Founder armed evidence auto-snap on 2026-09-15 after the first complete strong-judge readout
+    # (W3-7, D5); the code default stays off so local/dev keeps the advisory audit.
+    "AI_EVIDENCE_SNAP",
 }
 
 
@@ -102,7 +105,7 @@ def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, def
     elif defect == "wrong-command":
         source = source.replace("gcloud run deploy earningsnerd-backend", "echo gcloud run deploy earningsnerd-backend")
     elif defect == "guard-value":
-        source = source.replace("AI_EVIDENCE_SNAP=false", "AI_EVIDENCE_SNAP=0", 1)
+        source = source.replace("AI_EVIDENCE_SNAP=true", "AI_EVIDENCE_SNAP=1", 1)
     path = tmp_path / "ci.yml"
     path.write_text(source)
     monkeypatch.setattr(pin_baseline, "CI_PATH", path)

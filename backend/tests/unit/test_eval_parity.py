@@ -129,7 +129,7 @@ def pin_report():
                for f in filings if f['verified'] and f['document_url'] for run in range(3)]
     return {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True,
                         'stream_section_reveal': True, 'fallback_model': '', 'fallback_base_url': '',
-                        'ai_evidence_snap': False, 'ai_figure_trace_gate': False,
+                        'ai_evidence_snap': True, 'ai_figure_trace_gate': False,  # armed 2026-09-15; pins mirror the deploy env
                         'ai_forward_quote_gate': False, 'use_structured_output': False,
                         'golden_set_sha256': hashlib.sha256(runner.GOLDEN_PATH.read_bytes()).hexdigest()},
             'summary': {'baseline': {'n': len(results), 'errors': 0, 'gate_fail_rate': 0.0, 'pass_rate': 1.0}}, 'results': results}
