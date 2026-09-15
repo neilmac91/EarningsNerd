@@ -417,6 +417,18 @@ A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a fr
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
+**September 15, 2026 re-pin (W3-8a golden breadth).** `baseline_scores.json` now binds
+`eval_20260915T000747Z.json`: 31 verified filings × 3 runs (93/93 scored, 0 errors, PASS with the
+standing untraceable-dollar advisory), run 34911097972 on source `208ba32d`, EdgarTools 5.58.0,
+DeepSeek V4.1 Flash with thinking off and an empty fallback. The set adds PLD (REIT 10-K), NEE
+(regulated utility 10-Q), PGR (insurer 10-K), FIGS (small-cap 10-Q) and GPRO (small-cap 10-K); the
+26 previous entries are byte-identical. WARN floors moved with the set's composition, not with
+code: on this run the previous 26 entries alone read financial depth 0.876 / delta consistency
+0.856 / citation fidelity 0.942, while the five added profiles read 0.778 / 0.656 / 0.844, so the
+pinned means are lower than the September 10 pin. GPRO's delta consistency (0.28), FIGS's financial
+depth (0.56) and PGR's citation fidelity (0.56) are recorded quality findings for those profiles,
+not measurement errors. Measure later work against this pin.
+
 Re-pin only for an explicitly justified model/prompt, structured-output, extraction-library or
 armed-guard change with actual before/after evidence. Adding an advisory dimension or observing
 changed scores alone does not authorize a cosmetic replacement. From `backend/`:
