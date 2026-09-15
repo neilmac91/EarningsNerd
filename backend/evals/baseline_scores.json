@@ -1,7 +1,7 @@
 {
-  "snapshot_date": "2026-09-15T00:07:47Z",
-  "source_report": "eval_20260915T000747Z.json",
-  "golden_set_size": 31,
+  "snapshot_date": "2026-09-15T00:39:46Z",
+  "source_report": "eval_20260915T003946Z.json",
+  "golden_set_size": 32,
   "runs_per_candidate": 3,
   "harness": {
     "model": "deepseek-flash",
@@ -17,8 +17,8 @@
     "ai_figure_trace_gate": false,
     "ai_forward_quote_gate": false,
     "judge": false,
-    "source_sha": "208ba32ddb1717ad10ff2196d516bd4230f909dd",
-    "golden_set_sha256": "5fd17e34c7b5642faf3b2ee7b4fc215e4698aa1d4dd13b85a45774f735046532",
+    "source_sha": "c1a926a850ddcde7637ad2aa928c04bfc03f9bc2",
+    "golden_set_sha256": "65384e7a4a63c526f817c1282167ae0185446a32b23ce720df1e9bb4385f88b0",
     "candidates": [
       "baseline"
     ],
@@ -70,6 +70,10 @@
       },
       {
         "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "BRK.B",
         "filing_type": "10-K"
       },
       {
@@ -154,12 +158,12 @@
   },
   "candidates": {
     "baseline": {
-      "mean_untraceable_dollar_figures": 2.2366,
-      "figure_trace_measured": 93,
+      "mean_untraceable_dollar_figures": 1.8229,
+      "figure_trace_measured": 96,
       "figure_trace_unavailable": 0,
       "figure_trace_errors": 0,
-      "n": 93,
-      "scored": 93,
+      "n": 96,
+      "scored": 96,
       "errors": 0,
       "retried": 0,
       "mean_aggregate": 1.0,
@@ -171,45 +175,45 @@
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.8602,
-      "mean_specificity": 0.9959,
-      "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9143,
-      "mean_delta_consistency": 0.8233,
-      "mean_forward_quote_fidelity": 0.9839,
-      "mean_citation_fidelity": 0.9264,
-      "mean_citation_checked": 7.4516,
+      "mean_financial_depth": 0.8507,
+      "mean_specificity": 0.9943,
+      "mean_currency_consistency": 0.9998,
+      "mean_redundancy": 0.9193,
+      "mean_delta_consistency": 0.8464,
+      "mean_forward_quote_fidelity": 0.9896,
+      "mean_citation_fidelity": 0.9277,
+      "mean_citation_checked": 7.4583,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "incurred_usage_attempts": 93,
+      "incurred_usage_attempts": 96,
       "incurred_provider_usage": {
-        "calls": 93,
+        "calls": 96,
         "unknown_calls": 0,
         "operations": {
-          "summary_primary": 93
+          "summary_primary": 96
         },
         "actual_models": [
           "deepseek-flash"
         ],
-        "prompt_tokens": 3871794,
-        "completion_tokens": 338774,
-        "cache_hit_tokens": 3853440,
-        "cache_miss_tokens": 18354,
+        "prompt_tokens": 3982662,
+        "completion_tokens": 353998,
+        "cache_hit_tokens": 3963648,
+        "cache_miss_tokens": 19014,
         "reasoning_tokens": null
       },
-      "usage_attempts": 93,
-      "mean_completion_tokens": 3642.7,
-      "mean_prompt_tokens": 41632.2,
-      "total_completion_tokens": 338774,
-      "total_prompt_tokens": 3871794,
-      "total_cache_hit_tokens": 3853440,
-      "total_cache_miss_tokens": 18354,
-      "provider_calls": 93,
+      "usage_attempts": 96,
+      "mean_completion_tokens": 3687.5,
+      "mean_prompt_tokens": 41486.1,
+      "total_completion_tokens": 353998,
+      "total_prompt_tokens": 3982662,
+      "total_cache_hit_tokens": 3963648,
+      "total_cache_miss_tokens": 19014,
+      "provider_calls": 96,
       "actual_models": [
         "deepseek-flash"
       ],
-      "mean_latency_seconds": 10.521
+      "mean_latency_seconds": 11.057
     }
   },
-  "note": "W3-8a golden breadth: +PLD (REIT 10-K), NEE (utility 10-Q), PGR (insurer 10-K), FIGS and GPRO (small caps); 31 verified \u00d7 3 runs, run 34911097972, source 208ba32ddb1717ad10ff2196d516bd4230f909dd, EdgarTools 5.58.0, DeepSeek V4.1 Flash thinking off"
+  "note": "W3-8a golden breadth: +PLD (REIT 10-K), NEE (utility 10-Q), PGR (insurer 10-K), FIGS and GPRO (small caps), BRK.B hand-filled EPS; 32 verified x 3 runs, run 34913316907, source c1a926a850ddcde7637ad2aa928c04bfc03f9bc2, EdgarTools 5.58.0, DeepSeek V4.1 Flash thinking off"
 }
