@@ -356,6 +356,29 @@ async def test_grounding_retains_optional_source_observation_outside_model_input
     assert "unchanged excerpt" in prompt and "httpx_decoded" not in prompt
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exhibit_text", ["Exhibit 99.1 Q2 results press release", None])
+async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatch, exhibit_text):
+    """6-K goldens must be measured on the EX-99 exhibit text production serves; the primary
+    document is read only when the extractor finds no exhibit body (summary_pipeline 6-K branch)."""
+    from app.services.edgar import sixk_extractor
+    from app.services.edgar.compat import sec_edgar_service, xbrl_service
+    fetch = AsyncMock(return_value=("cover document", {"representation": "httpx_decoded_response_text_utf8"}))
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
+    monkeypatch.setattr(sixk_extractor, "get_sixk_text", AsyncMock(return_value=exhibit_text))
+    monkeypatch.setattr(xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(settings, "USE_EDGARTOOLS_SECTIONS", False)
+    monkeypatch.setattr(openai_service, "extract_critical_sections", lambda text, form: text)
+    filing = GoldenFiling("FPI", "1577552", "0001193125-26-347753", "6-K", "https://sec.example/6k", "Fixture")
+    grounding = await runner._get_grounding(filing)
+    if exhibit_text:
+        fetch.assert_not_awaited()
+        assert grounding["filing_text"] == exhibit_text and grounding["source_provenance"] is None
+    else:
+        fetch.assert_awaited_once_with(filing.document_url, timeout=30.0)
+        assert grounding["filing_text"] == "cover document"
+
+
 @pytest.mark.parametrize("path", ["legacy_cached_excerpt", "edgartools", "regex_fallback"])
 def test_excerpt_inventory_observes_returned_string_without_reextracting_cache(path, monkeypatch, caplog):
     from types import SimpleNamespace

@@ -103,9 +103,17 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     from app.services.excerpt_provenance import excerpt_provenance
 
     form = filing.filing_type.upper()
-    text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
-        filing.document_url, timeout=30.0
-    )
+    text, source_provenance = None, None
+    if form.split("/")[0] == "6-K" and filing.cik and filing.accession_number:
+        # Production grounds a 6-K on its EX-99 exhibit text (summary_pipeline's 6-K branch) and
+        # reads the primary document only when no exhibit body exists; the harness must measure
+        # the same text users receive, not the cover document.
+        from app.services.edgar.sixk_extractor import get_sixk_text
+        text = await get_sixk_text(filing.accession_number, filing.cik)
+    if not text:
+        text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
+            filing.document_url, timeout=30.0
+        )
 
     excerpt = None
     source = "regex_fallback"
