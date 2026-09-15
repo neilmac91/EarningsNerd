@@ -417,6 +417,18 @@ A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a fr
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
+**September 15, 2026 re-pin (W3-8b 6-K classifier and 6-K goldens).** `baseline_scores.json` now binds
+`eval_20260915T060846Z.json`: 35 verified filings × 3 runs (105/105 scored, 0 errors, PASS with the standing
+untraceable-dollar advisory), run 34934705614 on source `30e1e193`, EdgarTools 5.58.0, DeepSeek V4.1 Flash
+with thinking off and an empty fallback. Listed triggers: a prompt change (the three class-specific 6-K
+variants) and a golden-set change (three earnings-class 6-K entries, ASML/SE/PDD Q2 2026, hand-filled from
+their exhibit tables and grounded on exhibit text through the same pre-classification production uses).
+The 6-K entries score 1.0 on numeric accuracy, precision, coverage and currency on every run; their
+financial depth is 0.22 because a results release carries no cash-flow or balance-sheet figures, which
+pulls the pinned mean to 0.771 (the 32 non-6-K entries alone read 0.823, within their run-to-run band of
+the previous pin). Governance and press-release 6-Ks have no numeric truth and are covered by unit
+fixtures, not goldens. Measure later work against this pin.
+
 **September 15, 2026 re-pin (W3-8a golden breadth).** `baseline_scores.json` now binds
 `eval_20260915T003946Z.json`: 32 verified filings × 3 runs (96/96 scored, 0 errors, PASS with the
 standing untraceable-dollar advisory), run 34913316907 on source `c1a926a8`, EdgarTools 5.58.0,
