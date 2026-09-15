@@ -1,6 +1,96 @@
 {
-  "_README": "Golden set for the summary-quality bake-off. Ground truth is extracted from each filing's OWN XBRL instance (undimensioned facts ending on the filing's period_of_report, full-year duration for 10-Ks / quarter duration for 10-Qs), so it means 'what the filed document reports' \u2014 independent of the product pipeline. Run `python -m evals.build_golden_set` (needs network) to re-resolve the latest filings and regenerate facts; entries pass hard invariants (revenue > 0, sign(eps) == sign(net_income), period/duration match) before `verified` flips to true, and failures are recorded in `verification_problems`. Unverified entries are excluded from runs unless --allow-unverified is passed.",
+  "_README": "Golden set for the summary-quality bake-off. Ground truth is extracted from each filing's OWN XBRL instance (undimensioned facts ending on the filing's period_of_report, full-year duration for 10-Ks / quarter duration for 10-Qs), so it means 'what the filed document reports' \u2014 independent of the product pipeline. Run `python -m evals.build_golden_set` (needs network) to re-resolve the latest filings and regenerate facts; entries pass hard invariants (revenue > 0, sign(eps) == sign(net_income), period/duration match) before `verified` flips to true, and failures are recorded in `verification_problems`. Unverified entries are excluded from runs unless --allow-unverified is passed. 6-K entries have no XBRL instance: their ground_truth is hand-filled from the EX-99 exhibit's own results table (W3-8b), recorded in each entry's notes, and the harness grounds them on the exhibit text as production does; re-running the builder would drop those hand-filled facts, so restore the committed entries rather than accept an in-place rewrite.",
   "filings": [
+    {
+      "ticker": "ASML",
+      "cik": "937966",
+      "company_name": "ASML Holding N.V.",
+      "filing_type": "6-K",
+      "accession_number": "0001628280-26-048235",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026048235/form6-kquarterlyfilings.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 9326000000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "net_income",
+          "value": 2918000000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "eps",
+          "value": 7.59,
+          "unit": "EUR_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "W3-8b 6-K earnings class (FPI IFRS/EUR quarterly release, EX-99.1). Hand-filled from the exhibit's Q2 2026 results table: total net sales \u20ac9,326M, net income \u20ac2,918M, basic EPS \u20ac7.59; no diluted figure in the release. No XBRL; grounding is the exhibit text."
+    },
+    {
+      "ticker": "SE",
+      "cik": "1703399",
+      "company_name": "Sea Limited",
+      "filing_type": "6-K",
+      "accession_number": "0001193125-26-344596",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526344596/d120948d6k.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 7787779000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 458116000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.72,
+          "unit": "USD_per_share",
+          "alt_values": [
+            0.7
+          ]
+        }
+      ],
+      "verified": true,
+      "notes": "W3-8b 6-K earnings class (FPI reporting USD, Q2 2026 release, EX-99.1). Hand-filled from the exhibit's income statement (thousands of US$): total revenue 7,787,779; net income 458,116; EPS basic 0.72 / diluted 0.70. No XBRL; grounding is the exhibit text."
+    },
+    {
+      "ticker": "PDD",
+      "cik": "1737806",
+      "company_name": "PDD Holdings Inc.",
+      "filing_type": "6-K",
+      "accession_number": "0001104659-26-100534",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1737806/000110465926100534/tm2623874d1_6k.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 112358000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "net_income",
+          "value": 27182000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "eps",
+          "value": 4.83,
+          "unit": "CNY_per_share",
+          "alt_values": [
+            4.61,
+            19.32,
+            18.45
+          ]
+        }
+      ],
+      "ads_ratio": 4,
+      "verified": true,
+      "notes": "W3-8b 6-K earnings class (Chinese ADR reporting RMB, Q2 2026 release, EX-99.1; 4 ordinary shares = 1 ADS). Hand-filled from the exhibit's income statement (millions of RMB): revenues 112,358; net income attributable to ordinary shareholders 27,182; EPS per ordinary share basic 4.83 / diluted 4.61, per ADS 19.32 / 18.45. No XBRL; grounding is the exhibit text."
+    },
     {
       "ticker": "PLD",
       "cik": "1045609",

@@ -82,6 +82,15 @@ def summarize_current_filing(xbrl_metrics):
 ''') == []
 
 
+# W3-8b: `sixk_class` / `sixk_class_audit` are derived by the deterministic pre-classifier from
+# the chosen 6-K's own exhibit text (app.services.edgar.sixk_classifier); they carry no other
+# filing's content, so they are current-filing inputs under rule 2.
+_CURRENT_FILING_PARAMS = {
+    "generate_structured_summary": ["sixk_class"],
+    "summarize_filing": ["sixk_class", "sixk_class_audit"],
+}
+
+
 @pytest.mark.parametrize("method", ["generate_structured_summary", "summarize_filing"])
 def test_actual_entrypoint_signatures_bind_only_current_filing_inputs(method):
     from app.services.openai_service import OpenAIService
@@ -89,8 +98,10 @@ def test_actual_entrypoint_signatures_bind_only_current_filing_inputs(method):
     signature = inspect.signature(getattr(OpenAIService, method))
     assert list(signature.parameters) == [
         "self", "filing_text", "company_name", "filing_type", "xbrl_metrics", "filing_excerpt", "stream_cb",
-        "statement_source"
+        "statement_source", *_CURRENT_FILING_PARAMS[method],
     ]
+    for name in _CURRENT_FILING_PARAMS[method]:
+        assert signature.parameters[name].default is None
     metrics = {"current": {"revenue": 120}, "prior": {"revenue": 100}}
     callback = object()
     bound = signature.bind(object(), "chosen filing", "Company", "10-K", metrics, "chosen excerpt", callback)

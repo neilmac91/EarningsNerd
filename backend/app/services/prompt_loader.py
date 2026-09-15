@@ -29,6 +29,15 @@ _PROMPT_FILES = {
 # Schema-first prompts used when USE_STRUCTURED_OUTPUT is enabled (roadmap S1). These keep the
 # extraction/grounding guidance but omit the narrative-format instructions that contradict
 # JSON output.
+# W3-8b: class-specific analyst variants for 6-K, selected by the deterministic pre-classifier
+# (app.services.edgar.sixk_classifier). The generic "6-K" entry above stays the fallback when no
+# classification is supplied (other callers, or a 6-K reached without exhibit text).
+_SIXK_VARIANT_FILES = {
+    "earnings": "6k-earnings-agent.md",
+    "governance": "6k-governance-agent.md",
+    "press_release": "6k-press-release-agent.md",
+}
+
 _STRUCTURED_PROMPT_FILES = {
     "10-K": "10k-structured-agent.md",
     "10-Q": "10q-structured-agent.md",
@@ -55,7 +64,7 @@ def _split_prompt(markdown: str) -> tuple[str, str]:
 def _load_prompts() -> Dict[str, PromptTemplate]:
     prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
     loaded: Dict[str, PromptTemplate] = {}
-    for filing_type, filename in _PROMPT_FILES.items():
+    for filing_type, filename in {**_PROMPT_FILES, **{f"6-K:{k}": v for k, v in _SIXK_VARIANT_FILES.items()}}.items():
         prompt_path = prompts_dir / filename
         raw = prompt_path.read_text(encoding="utf-8")
         system, user = _split_prompt(raw)
@@ -83,8 +92,16 @@ def _normalize_filing_type(filing_type: str) -> str:
     return _HYPHENLESS.get(filing_key, filing_key)
 
 
-def get_prompt(filing_type: str) -> PromptTemplate:
+def get_prompt(filing_type: str, sixk_class: str | None = None) -> PromptTemplate:
+    """Analyst prompt for a form. For a 6-K, ``sixk_class`` (``earnings`` / ``governance`` /
+    ``press_release`` from the deterministic pre-classifier) selects the class variant; an unknown or
+    missing class falls back to the generic 6-K prompt so a classifier gap never breaks generation."""
     key = _normalize_filing_type(filing_type)
+    if key == "6-K" and sixk_class:
+        variant = _PROMPTS.get(f"6-K:{sixk_class}")
+        if variant is not None:
+            return variant
+        logger.warning("No 6-K prompt variant for sixk_class=%r; using the generic 6-K prompt", sixk_class)
     prompt = _PROMPTS.get(key)
     if prompt is None:
         # Explicit, logged fallback — a form without its own prompt (e.g. 6-K before Phase 4) is

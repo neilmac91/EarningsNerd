@@ -37,6 +37,6 @@ When a 6-K has no EX-99 body, `_extract_sixk_text_sync` still returns the cover 
 
 6-K goldens carry no XBRL facts; `score_numeric_accuracy` and `score_numeric_precision` return 1.0 on an empty truth set (`lessons/test-empty-truth-sets-score-perfect.md`), and `pin_baseline.py` refuses a verified entry with no ground truth. For W3-8b, hand-fill `ground_truth` for the earnings-class 6-Ks from the press release (revenue, net income, EPS/ADS where stated, in the reporting currency), keep governance/regulatory/press-release items out of the numeric truth set (or give them a distinct non-numeric contract before adding them), smoke one entry, then the authoritative three-run pin. One re-pin in flight at a time: W3-7's re-pin (when its readout exists) and W3-8b's must not overlap.
 
-## Not done here
+## Delivered
 
-No prompt variants were written, no classifier was wired, no golden entries were added and no paid measurement ran.
+[#880](https://github.com/neilmac91/EarningsNerd/pull/880) implements the classifier (`app/services/edgar/sixk_classifier.py`), the three prompt variants, the `raw_summary["sixk_class"]` audit, harness parity for the pre-classification, three earnings-class 6-K goldens (ASML, SE, PDD Q2 2026) hand-filled from the exhibit tables above, and the re-pin. The fourteen exhibits in this note classify as: earnings ASML/JD/SE/PDD results releases; governance ASML AGM results, SE AGM notice, JD board-meeting notice; press_release Alibaba monthly return (regulatory pin), Alibaba placing completion, and the cover-only TSM/PDD filings.

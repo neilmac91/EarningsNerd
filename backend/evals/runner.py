@@ -90,6 +90,13 @@ def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:
         return str(_model_metrics(metrics))[:_XBRL_TEXT_CHAR_CAP]
 
 
+def _sixk_kwargs(grounding: Dict[str, Any]) -> Dict[str, Any]:
+    """The 6-K class inputs production passes to ``summarize_filing``; empty for every other form."""
+    if not grounding.get("sixk_class"):
+        return {}
+    return {"sixk_class": grounding["sixk_class"], "sixk_class_audit": grounding.get("sixk_class_audit")}
+
+
 async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
     """Fetch filing text + critical excerpt + XBRL metrics using the app's own services.
 
@@ -115,6 +122,13 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         text, source_provenance = await sec_edgar_service.get_filing_document_with_source(
             filing.document_url, timeout=30.0
         )
+    sixk = None
+    if is_six_k:
+        # W3-8b parity: production pre-classifies the final 6-K grounding (exhibit text, or the
+        # primary document when no exhibit body exists) and hands the class to the summary service;
+        # the harness classifies the same final text.
+        from app.services.edgar.sixk_classifier import classify_sixk_text
+        sixk = classify_sixk_text(text)
 
     excerpt = None
     source = "regex_fallback"
@@ -149,7 +163,8 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
         acquire_statement_context, text or "", accession=filing.accession_number,
         document_url=filing.document_url, form=form,
     )
-    return {"filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
+    sixk_fields = {"sixk_class": sixk.sixk_class, "sixk_class_audit": sixk.as_audit()} if sixk else {}
+    return {**sixk_fields, "filing_text": text or "", "excerpt": excerpt, "xbrl_metrics": metrics,
             **({"statement_source": statement_source} if statement_source else {}),
             "source_provenance": source_provenance,
             "coverage_inventory": excerpt_provenance(
@@ -398,6 +413,7 @@ async def _attempt(
                     xbrl_metrics=grounding["xbrl_metrics"], filing_excerpt=grounding["excerpt"],
                     stream_cb=stream_cb,
                     **({"statement_source": grounding["statement_source"]} if grounding.get("statement_source") else {}),
+                    **_sixk_kwargs(grounding),
                 )
             finally:
                 ai_metrics.stop_observing(observer_token)
@@ -433,6 +449,7 @@ async def _attempt(
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    "sixk_class": (summary.get("raw_summary") or {}).get("sixk_class"),
                     "statement_source": grounding.get("statement_source"),
                     "grounding_excerpt": grounding["excerpt"],
                     "source_provenance": grounding.get("source_provenance"),

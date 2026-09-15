@@ -33,6 +33,7 @@ from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
+from app.services.edgar.sixk_classifier import classify_sixk_text
 from app.services.edgar.statement_context import acquire_statement_context
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
@@ -471,6 +472,7 @@ async def stream_filing_summary(
             # EX-99.x exhibits. It takes a separate grounding path below (the SixK exhibit extractor),
             # NOT the XBRL fetch or edgartools section parse, both of which are 10-K/10-Q/20-F only.
             is_six_k = bool(filing_type and filing_type.upper().split("/")[0] == "6-K")
+            sixk_class, sixk_class_audit = None, None
             xbrl_task = None
             # 20-F XBRL is now currency-aware end-to-end (the extractor captures the issuer's
             # reporting currency, e.g. CNY, instead of the USD convenience translation), so it is
@@ -745,6 +747,13 @@ async def stream_filing_summary(
                     document_url=filing_document_url, form=filing_type,
                     report_period=report_period.date().isoformat(),
                 )
+            if is_six_k:
+                # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
+                # variant and is recorded on the stored summary for audit. Placed after every grounding
+                # branch (fresh exhibit fetch, primary-document fallback, or a valid content cache whose
+                # text arrives as the excerpt) so a cached or regenerated 6-K is classified too.
+                sixk = classify_sixk_text(filing_text or excerpt)
+                sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,
@@ -753,6 +762,7 @@ async def stream_filing_summary(
                 filing_excerpt=excerpt,
                 stream_cb=summary_stream_cb,
                 **({"statement_source": statement_source} if statement_source else {}),
+                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
             ))
 
             SUMMARIZE_MESSAGES = [

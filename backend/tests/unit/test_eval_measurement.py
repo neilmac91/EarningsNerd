@@ -363,7 +363,14 @@ async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatc
     document is read only when the extractor finds no exhibit body (summary_pipeline 6-K branch)."""
     from app.services.edgar import sixk_extractor
     from app.services.edgar.compat import sec_edgar_service, xbrl_service
-    fetch = AsyncMock(return_value=("cover document", {"representation": "httpx_decoded_response_text_utf8"}))
+    # The primary document of an exhibit-less 6-K can itself be a results release (TSM monthly
+    # revenue); it is earnings-shaped here so classifying before the fallback fetch (None ->
+    # press_release) is distinguishable from classifying the final text (earnings), as production does.
+    primary_document = ("Results for the quarter ended June 30, 2026: revenue NT$933.8 billion, net income "
+                        "NT$398.3 billion, operating income NT$470.1 billion, earnings per share NT$15.36; "
+                        "gross margin 58.6%; guidance for the fiscal quarter: revenue between US$32.4 billion "
+                        "and US$33.6 billion; cash NT$2,100.0 billion; capex US$11.5 billion; NT$5.0 billion.")
+    fetch = AsyncMock(return_value=(primary_document, {"representation": "httpx_decoded_response_text_utf8"}))
     monkeypatch.setattr(sec_edgar_service, "get_filing_document_with_source", fetch)
     monkeypatch.setattr(sixk_extractor, "get_sixk_text", AsyncMock(return_value=exhibit_text))
     xbrl = AsyncMock(return_value={"facts": "never used for a 6-K"})
@@ -378,12 +385,19 @@ async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatc
     xbrl.assert_not_awaited()
     sections.assert_not_awaited()
     assert grounding["xbrl_metrics"] is None
+    # W3-8b parity: the harness pre-classifies the 6-K text and hands the class to the service.
+    from app.services.edgar.sixk_classifier import classify_sixk_text
+    expected = classify_sixk_text(grounding["filing_text"])
+    assert grounding["sixk_class"] == expected.sixk_class == ("press_release" if exhibit_text else "earnings")
+    assert grounding["sixk_class_audit"] == expected.as_audit()
+    assert runner._sixk_kwargs(grounding) == {"sixk_class": expected.sixk_class, "sixk_class_audit": expected.as_audit()}
+    assert runner._sixk_kwargs({"filing_text": "10-K text"}) == {}
     if exhibit_text:
         fetch.assert_not_awaited()
         assert grounding["filing_text"] == exhibit_text and grounding["source_provenance"] is None
     else:
         fetch.assert_awaited_once_with(filing.document_url, timeout=30.0)
-        assert grounding["filing_text"] == "cover document"
+        assert grounding["filing_text"] == primary_document
 
 
 @pytest.mark.parametrize("path", ["legacy_cached_excerpt", "edgartools", "regex_fallback"])

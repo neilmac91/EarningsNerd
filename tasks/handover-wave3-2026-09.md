@@ -374,6 +374,8 @@ skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin
   test over fixture exhibits; eval gate PASS on the re-pinned set. Rule 1 (one orchestrator) and
   rule 2 (filing-only) apply unchanged.
 
+**September 15, 2026 correction (W3-8b implemented):** the pre-classifier lives in `app/services/edgar/sixk_classifier.py` (deterministic cue counts over the exhibit text, no XBRL-presence heuristic because a 6-K carries no XBRL; exchange periodic returns are pinned to `press_release`), the three variants are `prompts/6k-earnings-agent.md`, `6k-governance-agent.md` and `6k-press-release-agent.md` selected through `prompt_loader.get_prompt("6-K", sixk_class=...)` with the generic 6-K prompt as fallback, and `raw_summary["sixk_class"]` / `["sixk_class_audit"]` are recorded. The eval harness mirrors the pre-classification and 6-K grounding (#877). The 6-K goldens are the three earnings-class releases (ASML, SE, PDD Q2 2026) with ground truth hand-filled from their exhibit tables; governance and press-release 6-Ks are exercised by unit fixtures, not by goldens, because they carry no numeric truth. Re-pinned in the same PR.
+
 ### W3-9 — Historical reconciliation-flag audit/repair (backend: deploys; founder executes)
 - **Goal:** a bounded, dry-run-by-default capability to re-evaluate reconciliation flags on
   existing fact identities, which ordinary backfill and `--force` freshness bypass never touch.
