@@ -6,7 +6,7 @@ Read this alongside the [September 14 resumption handover](handover-astra-2026-0
 
 Took over at verified main `60df4ef66c6e382416882c821dbdd5a198091f83` (#863). Implementation tip at writing is the #867 merge recorded in section 2; the docs PR containing this file follows it. Read GitHub main before resuming.
 
-Production backend at the overnight checkpoint is `earningsnerd-backend-00350-744` (#875); this session it moved through `00345-9t9` (#861), `00346-kz7` (#867), `00347-xwv` (#870), `00348-hbq` (#872) and `00349-hs8` (#873). Every step was verified serially (main CI, `applied=0 skipped=39`, revision at 100%, CI probe and independent curl). Both were verified serially: main CI, `apply_migrations: applied=0 skipped=39`, revision at 100%, CI probe and independent detailed-health curl. No backend deploy is pending.
+Production backend at the overnight checkpoint is `earningsnerd-backend-00351-w74` (#877); this session it moved through `00345-9t9` (#861), `00346-kz7` (#867), `00347-xwv` (#870), `00348-hbq` (#872), `00349-hs8` (#873) and `00350-744` (#875). Every step was verified serially (main CI, `applied=0 skipped=39`, revision at 100%, CI probe and independent curl). Both were verified serially: main CI, `apply_migrations: applied=0 skipped=39`, revision at 100%, CI probe and independent detailed-health curl. No backend deploy is pending.
 
 ## 1. Standing mandate and boundaries
 
@@ -25,6 +25,7 @@ Unchanged. Bounded necessary DeepSeek spend stays authorized within the founder'
 | [#872](https://github.com/neilmac91/EarningsNerd/pull/872) | EdgarTools 5.58.0 after thirteen-filing offline parity (nine annual, four newly acquired 10-Qs); recorded manual eval-baseline 34908921577 PASS 52/52; Copilot 34909529680 18/18; merge `10f7c132`; revision `00348-hbq`. #866 superseded and closed. |
 | [#873](https://github.com/neilmac91/EarningsNerd/pull/873) | W3-8a golden breadth (PLD, NEE, PGR, FIGS, GPRO, BRK.B hand-filled) and re-pin from run 34913316907 (32 × 3, 96/96). PR eval 64/64 PASS, Copilot 34915010028 18/18; merge `5c6a2b7b`; revision `00349-hs8`. |
 | [#875](https://github.com/neilmac91/EarningsNerd/pull/875) | 6-K extractor returns `None` without an exhibit body so the pipeline falls back to the primary document (TSM/PDD one-line groundings found during W3-8b preparation). Full gate 3,265, one mutation proof, eval 64/64, Copilot 34918232294 18/18; merge `a95c99cd`; revision `00350-744`. |
+| [#877](https://github.com/neilmac91/EarningsNerd/pull/877) | Eval harness grounds 6-K goldens on exhibit text first and skips XBRL/section enrichment for 6-K, as production does (W3-8b precondition). Full gate 3,267, two mutation proofs, eval 64/64, Copilot 34921322276 18/18; merge `c3bcb42f`; revision `00351-w74`. |
 
 The diagnosis is recorded in [inference-stall.md](review-evidence/resumption-2026-09-14/inference-stall.md) with both retained diagnostic artifacts beside it. Two lessons were added: `ops-place-a-provider-stall-before-paying-again.md` and `test-fresh-bytecode-prefix-before-trusting-local-timing.md`.
 
@@ -53,7 +54,7 @@ Workspace root: `/Users/neilmacaogain/Documents/Codex/2026-09-08/goal-you-are-th
 | W3-10 Notable | Founder retain/kill decision after September 15 closes; then owned flag PR. |
 | W3-10 Analysis | Warm-up cohort/count/error evidence and Pro frontend acceptance remain; both need console or log access. |
 | W3-7 | Judge credential `ANTHROPIC_API_KEY` absent; weekly artifact unusable. Founder prerequisite unchanged. |
-| W3-8a then 8b | W3-8a delivered in #873 under the readout-slip exception (timing basis in the ledger). W3-8b is next: the [preparation note](w3-8b-classifier-prep-2026-09-15.md) records fourteen real 6-K exhibits, a draft deterministic heuristic (needs a fourth `regulatory` class) and the ground-truth/scorer contract. Still to do: prompt variants, wiring with `sixk_class` audit, hand-filled earnings-class 6-K goldens, smoke, three-run pin. One re-pin in flight at a time; #873's is merged, so nothing blocks W3-8b's start except the design work itself. |
+| W3-8a then 8b | W3-8a delivered in #873 under the readout-slip exception (timing basis in the ledger). W3-8b is next: the [preparation note](w3-8b-classifier-prep-2026-09-15.md) records fourteen real 6-K exhibits, a draft deterministic heuristic (needs a fourth `regulatory` class) and the ground-truth/scorer contract. The harness grounding precondition is done (#877). Still to do: three prompt variants, the deterministic classifier wired with a `sixk_class` audit field (check the summary contract tests before adding the key), hand-filled earnings-class 6-K goldens, smoke, three-run pin. One re-pin in flight at a time; #873's is merged, so nothing blocks W3-8b's start except the design work itself. |
 | E09 | Read-only inventory blocked on console access this session; proposal-only. |
 | E06 | Natural payment evidence still needed; no test payment or replay. |
 | Dependencies | Six dev-only advisories have no supported forward fix (npm's only offer is a downgrade to `@lhci/cli` 0.12.0). #270 and D8 held. |

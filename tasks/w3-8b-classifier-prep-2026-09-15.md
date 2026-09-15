@@ -31,7 +31,7 @@ When a 6-K has no EX-99 body, `_extract_sixk_text_sync` still returns the cover 
 
 ## Harness precondition (review finding on this note)
 
-`backend/evals/runner.py::_get_grounding` fetches `filing.document_url` through the generic excerpt path and never calls `get_sixk_text`, whereas production grounds a 6-K on its EX-99 exhibit text and falls back to the primary document only when no exhibit body exists (`summary_pipeline.py`, the branch #875 fixed). A 6-K golden measured today would therefore be classified and summarised from the cover document, not from what users receive, and a passing pin would validate neither the classifier nor its prompt variants. Before the W3-8b smoke and pin, route 6-K entries in the harness through the same `get_sixk_text` → primary-document fallback the pipeline uses (parity gated like the other harness/production pairs in `test_eval_parity.py`).
+`backend/evals/runner.py::_get_grounding` fetches `filing.document_url` through the generic excerpt path and never calls `get_sixk_text`, whereas production grounds a 6-K on its EX-99 exhibit text and falls back to the primary document only when no exhibit body exists (`summary_pipeline.py`, the branch #875 fixed). A 6-K golden measured today would therefore be classified and summarised from the cover document, not from what users receive, and a passing pin would validate neither the classifier nor its prompt variants. Done in [#877](https://github.com/neilmac91/EarningsNerd/pull/877): 6-K entries are routed through the same `get_sixk_text` → primary-document fallback the pipeline uses, and XBRL enrichment and edgartools section parsing are skipped for 6-K as in production, with a routing test and two mutation proofs.
 
 ## Ground truth and the scorer contract
 
