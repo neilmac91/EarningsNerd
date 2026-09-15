@@ -378,6 +378,13 @@ async def test_sixk_grounding_uses_exhibit_text_first_like_production(monkeypatc
     xbrl.assert_not_awaited()
     sections.assert_not_awaited()
     assert grounding["xbrl_metrics"] is None
+    # W3-8b parity: the harness pre-classifies the 6-K text and hands the class to the service.
+    from app.services.edgar.sixk_classifier import classify_sixk_text
+    expected = classify_sixk_text(grounding["filing_text"])
+    assert grounding["sixk_class"] == expected.sixk_class == "press_release"
+    assert grounding["sixk_class_audit"] == expected.as_audit()
+    assert runner._sixk_kwargs(grounding) == {"sixk_class": "press_release", "sixk_class_audit": expected.as_audit()}
+    assert runner._sixk_kwargs({"filing_text": "10-K text"}) == {}
     if exhibit_text:
         fetch.assert_not_awaited()
         assert grounding["filing_text"] == exhibit_text and grounding["source_provenance"] is None
