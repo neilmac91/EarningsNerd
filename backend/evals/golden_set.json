@@ -2,6 +2,236 @@
   "_README": "Golden set for the summary-quality bake-off. Ground truth is extracted from each filing's OWN XBRL instance (undimensioned facts ending on the filing's period_of_report, full-year duration for 10-Ks / quarter duration for 10-Qs), so it means 'what the filed document reports' \u2014 independent of the product pipeline. Run `python -m evals.build_golden_set` (needs network) to re-resolve the latest filings and regenerate facts; entries pass hard invariants (revenue > 0, sign(eps) == sign(net_income), period/duration match) before `verified` flips to true, and failures are recorded in `verification_problems`. Unverified entries are excluded from runs unless --allow-unverified is passed.",
   "filings": [
     {
+      "ticker": "PLD",
+      "cik": "1045609",
+      "company_name": "Prologis, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001193125-26-051453",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/pld-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 8790127000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 3328231000.0,
+          "unit": "USD",
+          "alt_values": [
+            3565299000.0,
+            3322349000.0,
+            3404122000.0
+          ]
+        },
+        {
+          "metric": "eps",
+          "value": 3.58,
+          "unit": "USD_per_share",
+          "alt_values": [
+            3.56
+          ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 5008434000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -3630447000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -1563619000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": true,
+      "notes": "REIT (W3-8a breadth): rental revenues, FFO-centric reporting, real-estate-heavy balance sheet"
+    },
+    {
+      "ticker": "NEE",
+      "cik": "753308",
+      "company_name": "NextEra Energy, Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0000753308-26-000060",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/753308/000075330826000060/nee-20260630.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 6700000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 3144000000.0,
+          "unit": "USD",
+          "alt_values": [
+            2622000000.0
+          ]
+        },
+        {
+          "metric": "eps",
+          "value": 1.51,
+          "unit": "USD_per_share",
+          "alt_values": [
+            1.5
+          ]
+        },
+        {
+          "metric": "current_assets",
+          "value": 15467000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 28974000000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": true,
+      "notes": "Regulated utility (W3-8a breadth): rate-regulated revenue, heavy capex/debt, 10-Q"
+    },
+    {
+      "ticker": "PGR",
+      "cik": "80661",
+      "company_name": "The Progressive Corporation",
+      "filing_type": "10-K",
+      "accession_number": "0000080661-26-000086",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/80661/000008066126000086/pgr-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 87671000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 11308000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 19.29,
+          "unit": "USD_per_share",
+          "alt_values": [
+            19.23
+          ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 17548000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -14527000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -3037000000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": true,
+      "notes": "Insurer (W3-8a breadth): premiums-driven revenue, combined-ratio economics, investment income"
+    },
+    {
+      "ticker": "FIGS",
+      "cik": "1846576",
+      "company_name": "FIGS, Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0001628280-26-054342",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1846576/000162828026054342/figs-20260630.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 196619000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 28379000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.17,
+          "unit": "USD_per_share",
+          "alt_values": [
+            0.15
+          ]
+        },
+        {
+          "metric": "current_assets",
+          "value": 452926000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 91383000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": true,
+      "notes": "Small cap (W3-8a breadth): recent IPO apparel DTC, 10-Q"
+    },
+    {
+      "ticker": "GPRO",
+      "cik": "1500435",
+      "company_name": "GoPro, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001500435-26-000006",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1500435/000150043526000006/gpro-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 651542000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": -93487000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": -0.59,
+          "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": -20669000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -3362000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -30112000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 252569000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 277171000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": true,
+      "notes": "Small cap (W3-8a breadth): hardware, persistent losses, thin XBRL"
+    },
+    {
       "ticker": "AAPL",
       "cik": "320193",
       "company_name": "Apple Inc.",
@@ -409,6 +639,14 @@
           ]
         },
         {
+          "metric": "eps",
+          "value": 31.04,
+          "unit": "USD_per_share",
+          "alt_values": [
+            46563.0
+          ]
+        },
+        {
           "metric": "operating_cash_flow",
           "value": 45969000000.0,
           "unit": "USD"
@@ -424,11 +662,8 @@
           "unit": "USD"
         }
       ],
-      "verified": false,
-      "notes": "financial conglomerate, complex/insurance statements",
-      "verification_problems": [
-        "eps: no consolidated fact for period 2025-12-31"
-      ]
+      "verified": true,
+      "notes": "financial conglomerate, complex/insurance statements; eps hand-filled per RUNBOOK Step 2 from the filing's Consolidated Statements of Earnings (R4): $31.04 per average equivalent Class B share (primary, matches the ticker), $46,563 per Class A share (alternate); revenue $371,444M and attributable net earnings $66,968M confirmed on the same page"
     },
     {
       "ticker": "XOM",

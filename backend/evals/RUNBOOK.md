@@ -417,6 +417,20 @@ A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a fr
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
+**September 15, 2026 re-pin (W3-8a golden breadth).** `baseline_scores.json` now binds
+`eval_20260915T003946Z.json`: 32 verified filings × 3 runs (96/96 scored, 0 errors, PASS with the
+standing untraceable-dollar advisory), run 34913316907 on source `c1a926a8`, EdgarTools 5.58.0,
+DeepSeek V4.1 Flash with thinking off and an empty fallback. The set adds PLD (REIT 10-K), NEE
+(regulated utility 10-Q), PGR (insurer 10-K), FIGS (small-cap 10-Q) and GPRO (small-cap 10-K), and
+BRK.B is now verified with its EPS hand-filled from the filing's Consolidated Statements of Earnings
+($31.04 per average equivalent Class B share, $46,563 per Class A share as the alternate); the 26
+previously verified entries are byte-identical. WARN floors moved with the set's composition, not
+with code: on this run the previous 26 entries alone read financial depth 0.876 / delta
+consistency 0.854 / citation fidelity 0.932, while the six added profiles read 0.741 /
+0.815 / 0.909, so the pinned means are lower than the September 10 pin. Per-profile
+findings on the added cases are recorded in #873, not treated as measurement errors. Measure
+later work against this pin.
+
 Re-pin only for an explicitly justified model/prompt, structured-output, extraction-library or
 armed-guard change with actual before/after evidence. Adding an advisory dimension or observing
 changed scores alone does not authorize a cosmetic replacement. From `backend/`:
@@ -425,9 +439,11 @@ python -m evals.runner --candidates baseline --runs 3            # full verified
 python scripts/pin_baseline.py evals/reports/eval_<stamp>.json   # rewrite baseline_scores.json
 ```
 Then commit the new `baseline_scores.json` in the same PR as the change it protects, so the diff
-shows both the code change and the new bar. **BRK.B is `verified: false`** (no consolidated EPS
-fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
-is hand-filled.
+shows both the code change and the new bar. BRK.B has no consolidated EPS fact in its XBRL, so the
+builder leaves it `verified: false`; since the September 15 re-pin its EPS is hand-filled from the
+filing's statement of earnings and it is verified and pinned. If the builder is re-run in place, it
+will re-resolve every entry and drop that hand-filled fact; restore the committed entry rather than
+accepting the rewrite.
 
 The dimension history below records the July 2026 pins and their measured variance. The
 current committed bar and source report are always `baseline_scores.json`; a later honest
