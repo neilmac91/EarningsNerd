@@ -54,7 +54,7 @@ Workspace root: `/Users/neilmacaogain/Documents/Codex/2026-09-08/goal-you-are-th
 | W3-10 Notable | Founder retain/kill decision after September 15 closes; then owned flag PR. |
 | W3-10 Analysis | Warm-up cohort/count/error evidence and Pro frontend acceptance remain; both need console or log access. |
 | W3-7 | Judge credential `ANTHROPIC_API_KEY` absent; weekly artifact unusable. Founder prerequisite unchanged. |
-| W3-8a then 8b | W3-8a delivered in #873 under the readout-slip exception (timing basis in the ledger). W3-8b delivered in PLACEHOLDER_W38B_PR: deterministic pre-classifier, three prompt variants, audit field, harness parity, three hand-filled earnings-class 6-K goldens and a re-pin (details in the ledger). Both re-pins are merged; W3-7 re-pins again when its readout exists. |
+| W3-8a then 8b | W3-8a delivered in #873 under the readout-slip exception (timing basis in the ledger). W3-8b delivered in [#880](https://github.com/neilmac91/EarningsNerd/pull/880): deterministic pre-classifier, three prompt variants, audit field, harness parity, three hand-filled earnings-class 6-K goldens and a re-pin (details in the ledger). Both re-pins are merged; W3-7 re-pins again when its readout exists. |
 | E09 | Read-only inventory blocked on console access this session; proposal-only. |
 | E06 | Natural payment evidence still needed; no test payment or replay. |
 | Dependencies | Six dev-only advisories have no supported forward fix (npm's only offer is a downgrade to `@lhci/cli` 0.12.0). #270 and D8 held. |
