@@ -125,3 +125,4 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-verify-plan-gaps-against-code.md`](./ops-verify-plan-gaps-against-code.md) — Re-read the actual code before implementing any plan item marked missing
 
 - [`arch-code-owned-render-eligibility.md`](./arch-code-owned-render-eligibility.md) — Keep application-owned render eligibility separate from model payloads and generation stamps.
+- [evals-test-the-row-shape-the-producer-writes.md](evals-test-the-row-shape-the-producer-writes.md) — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
