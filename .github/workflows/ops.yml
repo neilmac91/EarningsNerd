@@ -185,7 +185,7 @@ jobs:
               "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL", "OPENAI_BASE_URL", "ENVIRONMENT",
               "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN",
               "NOTABLE_FILINGS_ENABLED", "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE",
-              "AI_FORWARD_QUOTE_GATE", "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
+              "AI_FORWARD_QUOTE_GATE", "AI_ATTRIBUTION_GATE", "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
               "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
           }
           # Defaults from app/config.py; never include credentials in this allow-list.
@@ -197,6 +197,7 @@ jobs:
               "AI_EVIDENCE_SNAP": False,
               "AI_FIGURE_TRACE_GATE": False,
               "AI_FORWARD_QUOTE_GATE": False,
+              "AI_ATTRIBUTION_GATE": False,
               "USE_STRUCTURED_OUTPUT": False,
               "CALENDAR_INDEX_FILTER_ENABLED": False,
               "REGISTRATION_MODE": "public",

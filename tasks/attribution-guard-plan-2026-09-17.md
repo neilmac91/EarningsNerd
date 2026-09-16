@@ -33,6 +33,18 @@ separates them).
 | 2. + broader source-side connectives, subject anchoring on the clause's own sentence | 458 / 129 / 45 | 17 of 19 | 28 | 35 of 44 |
 | 3. + "attributable to <owner>" excluded as a measure name, table commentary anchored on its `metric`, framing words dropped from subjects | 482 / 88 / 40 | 15 of 19 | 25 | 31 of 44 |
 
+| 4. Production module (`app/services/ai/attribution_gate.py`, PR): lead-in adverbs in connectives, subject pool widened to the source sentence plus its predecessor (filings name the subject in one sentence and the cause in the next) | 452 / 81 / 35 | 11 of 19 | 24 | 27 of 44 |
+
+The production module trades recall for fewer false drops on purpose: the two-sentence subject
+window is what lets a stated driver verify when the filing splits subject and cause across
+sentences (the KO case), and a gate that will one day drop text must first be trusted not to drop
+a stated driver. Recall is recovered in calibration, not by narrowing the window blind. Run the
+script on any judged artifact:
+
+```bash
+cd backend && python -m scripts.calibrate_attribution_gate <judged.json> --show 2
+```
+
 Read of the residual extras after iteration 3: about half are source-stated drivers the lexical
 match misses because the filing phrases the cause differently ("primarily the result of",
 "operational growth of 2%" versus the summary's "operational increase"), a quarter are drivers the
