@@ -49,7 +49,7 @@ them into the primary schema template and rules in `openai_service.py` and into 
    relationships. That part of #805's ground is covered, and covered better than prose could.
 2. **The residual defect class is confirmed live.** The first complete strong-judge readout
    (2026-09-15, run `35012740718`, 24 attempts, 14 negative;
-   [evidence](review-evidence/w3-7/2026-09-15-run-35012740718-400k/)) found in current production output
+   [evidence](review-evidence/w3-7/2026-09-15-run-35012740718-400k/readout.md)) found in current production output
    exactly what sank #805: NVDA and KO "growth accelerated" without a prior growth rate (the literal
    example inside `FINANCIAL_DRIVER`), AAPL's ex-charge tax basis (one of #805's own controls), KO
    derived segment margins, fabricated comparatives.
