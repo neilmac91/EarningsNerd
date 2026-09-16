@@ -35,7 +35,10 @@ import urllib.request
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
-CODEX_LOGIN_FRAGMENT = "codex"
+# The exact GitHub App identity that publishes the summary (login, account type and immutable id,
+# read from its comments on 2026-09-16). A commenter whose login merely contains "codex" can copy the
+# public table format, so nothing short of this triple is trusted.
+CODEX_BOT = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
 OVERRIDE = re.compile(r"^\s*Review override:\s*(?P<reason>\S.{9,})\s*$", re.IGNORECASE | re.MULTILINE)
 ROW = re.compile(r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]*?)\s*\|\s*`(?P<commit>[0-9a-f]{7,40})`", re.IGNORECASE)
 
@@ -50,6 +53,12 @@ def parse_summary(body: str) -> List[Dict[str, str]]:
         status = re.sub(r"[*\s]+", " ", status).strip()
         rows.append({"status": status, "commit": match.group("commit").lower()})
     return rows
+
+
+def is_codex_bot(user: Any) -> bool:
+    """Only the real Codex GitHub App: exact login, ``Bot`` account type and its immutable id."""
+    return (isinstance(user, dict) and user.get("login") == CODEX_BOT["login"]
+            and user.get("type") == CODEX_BOT["type"] and user.get("id") == CODEX_BOT["id"])
 
 
 def override_reason(body: Optional[str]) -> Optional[str]:
@@ -67,9 +76,8 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
         return "pass", f"review-gate: override recorded in the pull request body: {reason}"
     latest_other: Optional[str] = None
     for comment in comments:
-        login = str(((comment or {}).get("user") or {}).get("login") or "").lower()
         body = str((comment or {}).get("body") or "")
-        if CODEX_LOGIN_FRAGMENT not in login or SUMMARY_MARKER not in body:
+        if not is_codex_bot((comment or {}).get("user")) or SUMMARY_MARKER not in body:
             continue
         for row in parse_summary(body):
             if head.startswith(row["commit"]):

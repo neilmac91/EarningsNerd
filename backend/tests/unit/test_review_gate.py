@@ -11,13 +11,16 @@ ROOT = Path(__file__).resolve().parents[3]
 HEAD = "a834193192d007ed9b5c35e895aa532dcbb757bc"
 
 
-def _summary(status: str, commit: str, login: str = "chatgpt-codex-connector[bot]") -> dict:
+CODEX_USER = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
+
+
+def _summary(status: str, commit: str, user: dict = CODEX_USER) -> dict:
     body = (
         "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\n"
         "| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n"
         f"| 📝 **Code Review** | {status} | `{commit}` | PR opened |\n"
     )
-    return {"user": {"login": login}, "body": body}
+    return {"user": user, "body": body}
 
 
 COMPLETED = '✅ **Completed** <relative-time datetime="2026-09-15T18:54:47Z">2026-09-15T18:54:47Z</relative-time>'
@@ -37,6 +40,8 @@ def test_parse_summary_reads_status_and_commit_through_the_markup():
     ("failed-head", "fail"),
     ("no-summary", "wait"),
     ("summary-from-a-human", "wait"),        # only the Codex bot's summary counts
+    ("summary-from-a-lookalike-login", "wait"),   # a login containing "codex" copying the table format
+    ("summary-from-a-user-with-the-bot-login", "wait"),  # right login, wrong account type and id
     ("override", "pass"),
     ("override-too-short", "wait"),
     ("bad-head", "fail"),
@@ -52,7 +57,11 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
     elif case == "failed-head":
         comments = [_summary("❌ **Failed**", "a834193")]
     elif case == "summary-from-a-human":
-        comments = [_summary(COMPLETED, "a834193", login="neilmac91")]
+        comments = [_summary(COMPLETED, "a834193", user={"login": "neilmac91", "type": "User", "id": 1})]
+    elif case == "summary-from-a-lookalike-login":
+        comments = [_summary(COMPLETED, "a834193", user={"login": "codex-reviewer", "type": "User", "id": 2})]
+    elif case == "summary-from-a-user-with-the-bot-login":
+        comments = [_summary(COMPLETED, "a834193", user={"login": CODEX_USER["login"], "type": "User", "id": 3})]
     elif case == "override":
         body = "Docs only.\n\nReview override: Codex bot out of credits; two independent lenses reviewed the diff.\n"
     elif case == "override-too-short":
