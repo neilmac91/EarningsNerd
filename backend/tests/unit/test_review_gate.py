@@ -118,9 +118,11 @@ def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permi
     workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     assert "pull_request" not in workflow["on"]  # the definition must come from the base branch
     assert set(workflow["on"]["pull_request_target"]["types"]) == {"opened", "synchronize", "reopened", "ready_for_review", "edited"}
+    assert workflow["on"]["issue_comment"]["types"] == ["created"]  # `@codex review` re-runs the gate for an unchanged head
     assert workflow["permissions"] == {"contents": "read", "issues": "read", "pull-requests": "read"}
     job = workflow["jobs"]["review-gate"]
-    assert job["if"] == "github.event.pull_request.draft == false"
+    assert job["if"] == "github.event_name == 'pull_request_target' && github.event.pull_request.draft == false"
+    assert "permissions" not in job  # the polling job keeps the workflow-level read-only token
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
     checkout = job["steps"][0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
@@ -130,3 +132,9 @@ def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permi
     assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"
     assert step["env"]["GITHUB_TOKEN"] == "${{ secrets.GITHUB_TOKEN }}"
     assert int(job["timeout-minutes"]) > int(step["env"]["REVIEW_GATE_TIMEOUT_MINUTES"])
+    rerun = workflow["jobs"]["rerun-on-review-request"]
+    assert "issue_comment" in rerun["if"] and "@codex review" in rerun["if"] and "github.event.issue.pull_request" in rerun["if"]
+    assert rerun["permissions"] == {"actions": "write", "pull-requests": "read"}  # the only write scope, on the re-run job alone
+    script = rerun["steps"][-1]["run"]
+    assert "review-gate.yml/runs?event=pull_request_target" in script and "/rerun" in script
+    assert "actions/checkout" not in str(rerun)  # never checks out or executes pull-request code

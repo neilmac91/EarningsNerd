@@ -17,6 +17,10 @@ on:
   # here because the job never checks out or executes pull-request code and holds only read tokens.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, edited]
+  # `@codex review` on an unchanged head re-triggers Codex but fires no pull-request event, so the
+  # comment itself re-runs this pull request's latest gate run (a new attempt on the same head).
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -24,12 +28,12 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: review-gate-${{ github.event.pull_request.number }}
+  group: review-gate-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   review-gate:
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -52,3 +56,32 @@ jobs:
           REVIEW_GATE_HEAD: ${{ github.event.pull_request.head.sha }}
           REVIEW_GATE_TIMEOUT_MINUTES: '20'
         run: python backend/scripts/review_gate.py
+
+  rerun-on-review-request:
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@codex review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Re-run this pull request's latest review-gate run so it waits for the re-requested review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh api "repos/$REPO/actions/workflows/review-gate.yml/runs?event=pull_request_target&per_page=50" \
+            --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == $PR))][0].id // empty")
+          if [ -z "$run_id" ]; then
+            echo "review-gate: no gate run for pull request #$PR yet (opened before the gate existed?); nothing to re-run"
+            exit 0
+          fi
+          status=$(gh api "repos/$REPO/actions/runs/$run_id" --jq .status)
+          if [ "$status" != "completed" ]; then
+            echo "review-gate: run $run_id is still $status; it will observe the re-requested review itself"
+            exit 0
+          fi
+          gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null
+          echo "review-gate: re-ran run $run_id for pull request #$PR"

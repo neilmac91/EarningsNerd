@@ -352,7 +352,9 @@ request head. It passes only when Codex's "Review Summary" comment reports **Com
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
-twenty minutes, then fails naming the remedy; re-run the failed job once the review lands. Logic in
+twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the pull request's
+latest gate run automatically (the workflow's `issue_comment` job, the only one holding a write
+scope, `actions: write`), so a re-requested review is observed without a manual re-run. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and

@@ -15,7 +15,7 @@ and the repository has no branch protection at all, so no CI check is required a
 commenting `@codex review`, returns for the pull request's current head before you merge, or you
 record why you did not as a line `Review override: <reason>` in the pull request body. After pushing
 commits that address findings, comment `@codex review` immediately: a push alone re-triggers
-nothing here. The `review-gate` check (`.github/workflows/review-gate.yml`,
+nothing here, and that comment also re-runs the gate. The `review-gate` check (`.github/workflows/review-gate.yml`,
 `backend/scripts/review_gate.py`) enforces exactly this once a ruleset on `main` requires it; a
 required status check needs no approver, so it cannot lock a solo-administrator repository, whereas a
 required pull-request review would (authors cannot approve their own pull requests and there is one
