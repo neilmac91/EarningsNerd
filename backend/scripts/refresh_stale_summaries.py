@@ -15,10 +15,12 @@ Run it on the pregenerate job image (it carries the generator credential and the
   gcloud run jobs execute earningsnerd-pregenerate --region us-west1 \
       --args=scripts/refresh_stale_summaries.py                       # dry run: staleness breakdown, no model call
   gcloud run jobs execute earningsnerd-pregenerate --region us-west1 \
-      --args=scripts/refresh_stale_summaries.py,--execute,--limit,30,--max-seconds,1200
+      --args=scripts/refresh_stale_summaries.py,--execute,--limit,15,--max-seconds,1200
 
 Repeat bounded executions until ``stale_total`` reaches zero; rows the keep-better gate keeps stay
-stale and may be re-selected (random order). Each generation is paid provider spend.
+stale and may be re-selected (random order). Each generation is paid provider spend. Keep
+``--limit`` at or below the default on the 1 GiB job: memory grows across sequential regenerations
+in one process and the container is killed (then retried by Cloud Run) when it runs out.
 """
 import argparse
 import asyncio
@@ -33,8 +35,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LIMIT = 30
-DEFAULT_MAX_SECONDS = 1200.0  # well inside the pregenerate job's task timeout
+# The pregenerate job runs with 1 GiB; the first drain (2026-09-16, execution wf8mv) was killed by
+# the container's out-of-memory event after 22 sequential regenerations in one process (Cloud Run
+# then retried the task and the retry finished the rest). Keep one execution well under that and
+# repeat executions instead.
+DEFAULT_LIMIT = 15
+DEFAULT_MAX_SECONDS = 1200.0  # well inside the pregenerate job's 3600 s task timeout
 
 
 async def _run(*, execute: bool, limit: int, max_seconds: float, filing_type: Optional[str],
