@@ -47,9 +47,12 @@ def test_parse_summary_reads_status_and_commit_through_the_markup():
     ("bad-head", "fail"),
     ("short-head", "fail"),                  # only a full 40-hex head is accepted
     ("prefix-collision", "wait"),            # a head minted with the reviewed commit's 7-hex prefix
+    ("prefix-resolves-elsewhere", "wait"),   # the reviewed commit was force-pushed away; the repository still resolves the prefix to it
+    ("prefix-unresolvable", "wait"),         # the repository cannot resolve the prefix uniquely
 ])
 def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_override(case, expected):
     comments, body, head, commits = [], "Ordinary PR body.", HEAD, [HEAD]
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731 - the repository resolves the prefix to the head
     if case == "completed-head":
         comments = [_summary(COMPLETED, "a834193")]
     elif case == "completed-other-head":
@@ -75,7 +78,13 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
     elif case == "prefix-collision":
         comments = [_summary(COMPLETED, "a834193")]
         commits = ["a834193" + "0" * 33, HEAD]  # the reviewed commit and a crafted head share the prefix
-    verdict, message = review_gate.decide(head, comments, body, commits)
+    elif case == "prefix-resolves-elsewhere":
+        comments = [_summary(COMPLETED, "a834193")]
+        resolve = lambda short: "a834193" + "0" * 33  # noqa: E731
+    elif case == "prefix-unresolvable":
+        comments = [_summary(COMPLETED, "a834193")]
+        resolve = lambda short: None  # noqa: E731
+    verdict, message = review_gate.decide(head, comments, body, commits, resolve)
     assert verdict == expected, message
     if case == "completed-other-head":
         assert "7547ef1" in message and "@codex review" in message
@@ -83,6 +92,8 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
         assert "out of credits" in message
     if case == "prefix-collision":
         assert "ambiguous" in message
+    if case in ("prefix-resolves-elsewhere", "prefix-unresolvable"):
+        assert "does not resolve uniquely" in message
 
 
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
@@ -105,13 +116,15 @@ def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatc
 def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permissions():
     path = ROOT / ".github/workflows/review-gate.yml"
     workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-    assert set(workflow["on"]["pull_request"]["types"]) == {"opened", "synchronize", "reopened", "ready_for_review", "edited"}
+    assert "pull_request" not in workflow["on"]  # the definition must come from the base branch
+    assert set(workflow["on"]["pull_request_target"]["types"]) == {"opened", "synchronize", "reopened", "ready_for_review", "edited"}
     assert workflow["permissions"] == {"contents": "read", "issues": "read", "pull-requests": "read"}
     job = workflow["jobs"]["review-gate"]
     assert job["if"] == "github.event.pull_request.draft == false"
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
     checkout = job["steps"][0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
+    assert checkout["with"]["persist-credentials"] == "false"
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
     assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"

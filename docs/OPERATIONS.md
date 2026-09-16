@@ -354,10 +354,13 @@ characters); a completed review of an earlier head is not enough, because a push
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
 twenty minutes, then fails naming the remedy; re-run the failed job once the review lands. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
-workflow checks out the **base** branch and runs the script from there, so a pull request cannot edit
-its own gate; only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is trusted;
-and a reviewed short SHA counts only when it matches the head and no other commit of the pull
-request, so a head minted to share a reviewed prefix stays unreviewed.
+workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
+neither its own gate script nor the workflow definition (the job never executes pull-request code and
+holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
+trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
+no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
+unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
+runs on pull requests opened after it has merged.
 
 The check binds merges only once required. Founder decision: a ruleset on `main` requiring the
 status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse`

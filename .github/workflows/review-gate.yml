@@ -6,13 +6,16 @@
 # it cannot lock a solo-administrator repository. Logic and tests: backend/scripts/review_gate.py,
 # backend/tests/unit/test_review_gate.py. A push does not re-trigger Codex here: after fix commits,
 # comment `@codex review` immediately, and re-run this job if the review lands after the timeout.
-# The script is executed from the base branch's checkout (trusted code), and a reviewed short SHA
-# must match exactly one commit of the pull request, so neither a PR-side edit of the gate nor a
-# crafted prefix collision can pass it.
+# The workflow runs on pull_request_target, so its definition and the gate script come from the base
+# branch, and a reviewed short SHA must resolve repository-wide to the head and match no other commit
+# of the pull request, so neither a PR-side edit of the gate nor a crafted prefix collision can pass.
 name: Review gate
 
 on:
-  pull_request:
+  # pull_request_target: the workflow DEFINITION and the checked-out code both come from the base
+  # branch, so a pull request can edit neither its gate nor this file to let itself through. Safe
+  # here because the job never checks out or executes pull-request code and holds only read tokens.
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, edited]
 
 permissions:
@@ -31,11 +34,13 @@ jobs:
     timeout-minutes: 30
     steps:
       # Trusted code only: the gate script comes from the BASE branch, never from the pull request's
-      # own tree, so a change to review_gate.py cannot let itself through. (On the bootstrap PR that
-      # first adds the script, this step therefore fails; the check is not yet required then.)
+      # own tree (pull_request_target already checks out the base by default; the ref is explicit so
+      # the test can pin it). On the bootstrap PR that first adds the script this step fails; the
+      # check is not required until the ruleset exists.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'

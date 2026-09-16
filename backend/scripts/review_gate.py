@@ -19,9 +19,10 @@ After pushing commits that address findings, comment ``@codex review`` right awa
 re-triggers nothing here, and the gate waits for a review of the new head. If the review finishes
 after the gate timed out, re-run the failed job (``gh run rerun <run-id> --failed``).
 
-The workflow runs this script from the BASE branch's checkout, so a pull request cannot edit its
-own gate; and a reviewed short SHA counts only when it matches the head and no other commit of the
-pull request, so a head minted to share a reviewed prefix stays unreviewed.
+The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
+edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only
+when the repository resolves it uniquely to the head and no other commit of the pull request shares
+it, so a head minted to share a reviewed prefix stays unreviewed while the reviewed object exists.
 
 Environment (set by the workflow): ``GITHUB_TOKEN``, ``REVIEW_GATE_REPO`` (owner/name),
 ``REVIEW_GATE_PR`` (number), ``REVIEW_GATE_HEAD`` (full SHA), optional
@@ -70,13 +71,17 @@ def override_reason(body: Optional[str]) -> Optional[str]:
     return match.group("reason").strip() if match else None
 
 
+Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
+
+
 def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
-           pr_commits: Optional[Iterable[str]] = None) -> Verdict:
+           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None) -> Verdict:
     """Pure decision over the pull request's comments, body and commit list for one head SHA.
 
-    Codex names the reviewed commit by a short SHA. A short SHA only identifies the head when it
-    matches the head AND no other commit of the pull request, so a head deliberately minted with
-    the previously reviewed commit's prefix stays unreviewed."""
+    Codex names the reviewed commit by a short SHA. It identifies the head only when the
+    repository resolves that prefix to exactly the head (so a force-pushed reviewed commit that
+    is still an object in the repository keeps a minted lookalike ambiguous) AND no other commit
+    of the pull request shares it."""
     head = (head_sha or "").lower()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
@@ -94,6 +99,11 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
             if head in matches and len(matches) > 1:
                 return "wait", (f"review-gate: reviewed commit {row['commit']} is ambiguous within this pull request "
                                 f"({len(matches)} commits share the prefix); comment `@codex review` for {head[:12]}")
+            if head in matches and resolve is not None:
+                resolved = resolve(row["commit"])
+                if resolved is None or resolved.lower() != head:
+                    return "wait", (f"review-gate: reviewed commit {row['commit']} does not resolve uniquely to this head "
+                                    f"in the repository; comment `@codex review` for {head[:12]}")
             if head in matches:
                 status = row["status"].lower()
                 if "completed" in status:
@@ -140,7 +150,22 @@ def fetch_state(repo: str, number: str, token: str) -> State:
     return comments, pull.get("body"), commits
 
 
+def repository_resolver(repo: str, token: str) -> Resolver:
+    """Resolve a short SHA through the repository's commit endpoint, which answers only when the
+    prefix is unique among the repository's objects (force-pushed commits included while they
+    exist); anything else, including an ambiguous prefix, resolves to None."""
+    def resolve(short: str) -> Optional[str]:
+        try:
+            commit = _github(f"repos/{repo}/commits/{short}", token)
+        except Exception:  # noqa: BLE001 - 404/422 (unknown or ambiguous) and transport errors all mean "not resolved"
+            return None
+        sha = str(commit.get("sha", "")).lower() if isinstance(commit, dict) else ""
+        return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else None
+    return resolve
+
+
 def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
+         resolve: Optional[Resolver] = None,
          sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
     env = os.environ
     head = env.get("REVIEW_GATE_HEAD", "")
@@ -152,10 +177,11 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
             print("review-gate: REVIEW_GATE_REPO, REVIEW_GATE_PR and GITHUB_TOKEN are required")
             return 1
         fetch = lambda: fetch_state(repo, number, token)  # noqa: E731
+        resolve = resolve or repository_resolver(repo, token)
     started = clock()
     while True:
         comments, body, commits = fetch()
-        verdict, message = decide(head, comments, body, commits)
+        verdict, message = decide(head, comments, body, commits, resolve)
         print(message)
         if verdict == "pass":
             return 0
