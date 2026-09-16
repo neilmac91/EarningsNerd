@@ -69,7 +69,9 @@ New structural gates, all in `frontend/tests/unit/`:
 `postcssOverrideLockstep.spec.ts`, `overrideDirectionGate.spec.ts`. `eslint.config.mjs` gained
 `DATE_RULES` and `CALENDAR_FIELD_RULES`, appended to all three existing `no-restricted-syntax` blocks
 — ESLint flat config **replaces** rather than merges that option on override, so a new block silently
-disables earlier gates. That trap is warned about at `eslint.config.mjs:83-86`; respect it.
+disables earlier gates. That trap is warned about at `eslint.config.mjs:155-160`; respect it.
+(Corrected September 16 from `:83-86`, which straddled the end of a different note. `:81-83` is
+the descendant-matching rationale: a `TSAsExpression` wrapper defeated the `>` child selector.)
 
 Three new lessons: `test-gates-must-be-as-wide-as-their-rule.md` (#850),
 `frontend-overrides-rot-when-the-constrained-package-moves.md` and
@@ -156,6 +158,15 @@ retain/kill decision, which falls due after the review week closes on September 
 warm-up; a `RESEND_WEBHOOK_SECRET` console check; the "Allow GitHub Actions to create and approve pull
 requests" repository setting; `INTERNAL_JOB_TOKEN` for the deployer service account; the W6
 `DEEPSEEK_API_KEY` rotation; and D8 stale-branch deletion approval.
+
+Added September 16 (replacing #857's withdrawn branch-protection paragraph): `main` has no branch
+protection and no ruleset, so no status check is required at merge time. The decision is a ruleset
+on `main` requiring the status checks `backend-tests`, `frontend-tests`, `e2e-tests`,
+`migrations-postgres`, `lighthouse` and `review-gate` (`.github/workflows/review-gate.yml`, the rule-12
+gate for `lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md`), with no bypass actors. A
+required status check needs no approver, so this does not lock the repository. Do **not** require
+pull-request reviews: the repository has one collaborator, `neilmac91` (admin), and GitHub does not
+let an author approve their own pull request, so that setting would block every merge.
 
 ## 6. Next practical actions
 

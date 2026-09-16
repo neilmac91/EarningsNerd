@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""Review gate: pass only when the Codex review for the pull request's CURRENT head has completed,
+or when the pull request body records an explicit override with a reason.
+
+This is the rule-12 machine gate for ``lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md``.
+Codex publishes no check run of its own; the only machine-observable record of a review is its
+"Codex Review Summary" issue comment, whose table row names the reviewed commit (short SHA) and a
+status (Running / Completed / Failed). This script polls that comment for the head under test and
+publishes its verdict through the ``review-gate`` job of ``.github/workflows/review-gate.yml``.
+Requiring that check in a ruleset on ``main`` (a founder decision) makes the rule binding; a
+required status check needs no approver, so it cannot lock a solo-administrator repository.
+
+Override: a line ``Review override: <reason>`` (at least ten characters of reason) in the pull
+request body passes the gate with the reason echoed into the job log. That is the rule's own
+escape clause, "wait, or write down why you did not", and it keeps the gate from deadlocking when
+the review service is unavailable.
+
+After pushing commits that address findings, comment ``@codex review`` right away: a push alone
+re-triggers nothing here, and the gate waits for a review of the new head. If the review finishes
+after the gate timed out, re-run the failed job (``gh run rerun <run-id> --failed``).
+
+The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
+edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only
+when the repository resolves it uniquely to the head and no other commit of the pull request shares
+it, so a head minted to share a reviewed prefix stays unreviewed while the reviewed object exists.
+
+Environment (set by the workflow): ``GITHUB_TOKEN``, ``REVIEW_GATE_REPO`` (owner/name),
+``REVIEW_GATE_PR`` (number), ``REVIEW_GATE_HEAD`` (full SHA), optional
+``REVIEW_GATE_TIMEOUT_MINUTES`` (default 20) and ``REVIEW_GATE_POLL_SECONDS`` (default 20).
+Stdlib only: this runs before any dependency install.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+import time
+import urllib.request
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+
+SUMMARY_MARKER = "codex-pull-request-review-summary"
+# The exact GitHub App identity that publishes the summary (login, account type and immutable id,
+# read from its comments on 2026-09-16). A commenter whose login merely contains "codex" can copy the
+# public table format, so nothing short of this triple is trusted.
+CODEX_BOT = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
+OVERRIDE = re.compile(r"^\s*Review override:\s*(?P<reason>\S.{9,})\s*$", re.IGNORECASE | re.MULTILINE)
+ROW = re.compile(r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]*?)\s*\|\s*`(?P<commit>[0-9a-f]{7,40})`", re.IGNORECASE)
+
+Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
+
+
+def parse_summary(body: str) -> List[Dict[str, str]]:
+    """The review rows of one Codex summary comment: [{"status": ..., "commit": ...}]."""
+    rows = []
+    for match in ROW.finditer(body or ""):
+        status = re.sub(r"<[^>]+>", " ", match.group("status"))
+        status = re.sub(r"[*\s]+", " ", status).strip()
+        rows.append({"status": status, "commit": match.group("commit").lower()})
+    return rows
+
+
+def is_codex_bot(user: Any) -> bool:
+    """Only the real Codex GitHub App: exact login, ``Bot`` account type and its immutable id."""
+    return (isinstance(user, dict) and user.get("login") == CODEX_BOT["login"]
+            and user.get("type") == CODEX_BOT["type"] and user.get("id") == CODEX_BOT["id"])
+
+
+def override_reason(body: Optional[str]) -> Optional[str]:
+    match = OVERRIDE.search(body or "")
+    return match.group("reason").strip() if match else None
+
+
+Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
+
+
+def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
+           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None) -> Verdict:
+    """Pure decision over the pull request's comments, body and commit list for one head SHA.
+
+    Codex names the reviewed commit by a short SHA. It identifies the head only when the
+    repository resolves that prefix to exactly the head (so a force-pushed reviewed commit that
+    is still an object in the repository keeps a minted lookalike ambiguous) AND no other commit
+    of the pull request shares it."""
+    head = (head_sha or "").lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        return "fail", f"review-gate: invalid head SHA {head_sha!r}"
+    reason = override_reason(pr_body)
+    if reason:
+        return "pass", f"review-gate: override recorded in the pull request body: {reason}"
+    known = {str(sha).lower() for sha in (pr_commits or [])} | {head}
+    latest_other: Optional[str] = None
+    for comment in comments:
+        body = str((comment or {}).get("body") or "")
+        if not is_codex_bot((comment or {}).get("user")) or SUMMARY_MARKER not in body:
+            continue
+        for row in parse_summary(body):
+            matches = {sha for sha in known if sha.startswith(row["commit"])}
+            if head in matches and len(matches) > 1:
+                return "wait", (f"review-gate: reviewed commit {row['commit']} is ambiguous within this pull request "
+                                f"({len(matches)} commits share the prefix); comment `@codex review` for {head[:12]}")
+            if head in matches and resolve is not None:
+                resolved = resolve(row["commit"])
+                if resolved is None or resolved.lower() != head:
+                    return "wait", (f"review-gate: reviewed commit {row['commit']} does not resolve uniquely to this head "
+                                    f"in the repository; comment `@codex review` for {head[:12]}")
+            if head in matches:
+                status = row["status"].lower()
+                if "completed" in status:
+                    return "pass", f"review-gate: Codex review completed for {row['commit']}"
+                if "failed" in status or "error" in status:
+                    return "fail", f"review-gate: Codex review {row['status']} for {row['commit']}; re-request with @codex review or record an override"
+                return "wait", f"review-gate: Codex review {row['status']} for {row['commit']}"
+            latest_other = row["commit"]
+    if latest_other:
+        return "wait", (f"review-gate: the latest Codex review is for {latest_other}, not this head {head[:7]}; "
+                        "comment `@codex review` (a push does not re-trigger a review) or record an override")
+    return "wait", f"review-gate: no Codex review summary yet for {head[:7]}"
+
+
+def _github(path: str, token: str) -> Any:
+    request = urllib.request.Request(
+        f"https://api.github.com/{path}",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "earningsnerd-review-gate"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - fixed https host, no user-supplied scheme
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _paged(path: str, token: str) -> List[Any]:
+    items: List[Any] = []
+    page = 1
+    while True:
+        batch = _github(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}", token)
+        items.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return items
+
+
+State = Tuple[List[Dict[str, Any]], Optional[str], List[str]]
+
+
+def fetch_state(repo: str, number: str, token: str) -> State:
+    comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
+    pull = _github(f"repos/{repo}/pulls/{number}", token)
+    commits = [str(item.get("sha", "")).lower() for item in _paged(f"repos/{repo}/pulls/{number}/commits", token)]
+    return comments, pull.get("body"), commits
+
+
+def repository_resolver(repo: str, token: str) -> Resolver:
+    """Resolve a short SHA through the repository's commit endpoint, which answers only when the
+    prefix is unique among the repository's objects (force-pushed commits included while they
+    exist); anything else, including an ambiguous prefix, resolves to None."""
+    def resolve(short: str) -> Optional[str]:
+        try:
+            commit = _github(f"repos/{repo}/commits/{short}", token)
+        except Exception:  # noqa: BLE001 - 404/422 (unknown or ambiguous) and transport errors all mean "not resolved"
+            return None
+        sha = str(commit.get("sha", "")).lower() if isinstance(commit, dict) else ""
+        return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else None
+    return resolve
+
+
+def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
+         resolve: Optional[Resolver] = None,
+         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
+    env = os.environ
+    head = env.get("REVIEW_GATE_HEAD", "")
+    timeout = float(env.get("REVIEW_GATE_TIMEOUT_MINUTES", "20")) * 60
+    poll = float(env.get("REVIEW_GATE_POLL_SECONDS", "20"))
+    if fetch is None:
+        repo, number, token = env.get("REVIEW_GATE_REPO", ""), env.get("REVIEW_GATE_PR", ""), env.get("GITHUB_TOKEN", "")
+        if not (repo and number and token):
+            print("review-gate: REVIEW_GATE_REPO, REVIEW_GATE_PR and GITHUB_TOKEN are required")
+            return 1
+        fetch = lambda: fetch_state(repo, number, token)  # noqa: E731
+        resolve = resolve or repository_resolver(repo, token)
+    started = clock()
+    while True:
+        comments, body, commits = fetch()
+        verdict, message = decide(head, comments, body, commits, resolve)
+        print(message)
+        if verdict == "pass":
+            return 0
+        if verdict == "fail":
+            return 1
+        if clock() - started >= timeout:
+            print(f"review-gate: timed out after {timeout / 60:g} minutes waiting for a completed Codex review of "
+                  f"{head[:7]}. Comment `@codex review`, wait for it to complete, then re-run this job; or add a "
+                  "`Review override: <reason>` line to the pull request body.")
+            return 1
+        sleep(poll)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
