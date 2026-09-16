@@ -1,3 +1,11 @@
+## September 17 — `summary-2026-09-o` released and drained; attribution guard planned
+
+- [x] [#899](https://github.com/neilmac91/EarningsNerd/pull/899) merged `7131fb07` (rebased onto main as its code commit only; ledger line records the founder's release decision). Rebased full gate 3,334 passed; PR checks green including `eval-baseline` (deterministic gate unchanged). Main CI `35156380503`, deploy revision `earningsnerd-backend-00361-6dx` at 100%, `/health/detailed` healthy.
+- [x] D4 drain under `o`: dry run `stale_total` 48 (47 at `n`, 1 at `k`); four bounded executions (`nlknq`, `x27pn`, `lp6v7`, `cclsf`: 14 + 14 + 15 + 5 updated, 0 failed, 0 deferred; BABA 36166 kept-by-gate twice then updated); final dry run `stale_total` 0 of 48. Wall time 22:19–22:36Z. DeepSeek balance after the three PR eval runs and the drain: USD 78.55 (workflow `35158525198`), from 79.74.
+- [x] Human look at three regenerated summaries (NVDA FY2025 10-K, TSLA FY2022 10-K, AAPL FY2025 10-K): drivers are attributed to MD&A statements with the right scope (Apple's `what_changed` now names the Americas/Europe/Japan attribution instead of applying it to total net sales, the September 15 readout defect); takeaways are figure-dense, not empty.
+- [ ] Next slice: [code-owned attribution guard](attribution-guard-plan-2026-09-17.md), advisory-first, calibrated against the judge (prototype recall 15–17 of 19 judge-G4 attempts; precision on the drop decision still to be earned). Held: universe-wide pregeneration, historical replay beyond the stale drain, provider and flag changes.
+
+
 ## September 16 — #805 assessed; path authorised (assessment, judge acceptance gate, corrected candidate)
 
 - [x] [Expert assessment of #805](pr805-assessment-2026-09-16.md): do not revive the September 9 candidate as it stands (confirmed P1 wording flaw, nine stamps stale with conflicts in `openai_service.py`, `ai/section_recovery.py`, `summary_versioning.py`; reconciliation constant now overlaps the code-owned bridges of `i`/`l`). The shared support condition remains the right shape for the model-authored prose slots no code owner can take; the first strong-judge readout confirms the defect class live (NVDA/KO acceleration, AAPL tax basis). Founder authorised the path 2026-09-16.
