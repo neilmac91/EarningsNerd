@@ -94,7 +94,11 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   disclosures on eligible fresh primary documents; legacy cached content is unchanged.
 # summary-2026-09-m: both conventional cash owners require affirmative nonfinancial
 # applicability, retaining the bank-components veto; unknown fresh inputs abstain.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-m"
+# summary-2026-09-n: evidence auto-snap armed in production (2026-09-15, #888, after the first
+#   complete strong-judge readout). Prompt text unchanged; the stamp advances so every row generated
+#   with the snap unarmed is version-stale and the D4 drain (scripts/refresh_stale_summaries.py)
+#   regenerates it through the armed path. Taxonomy unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-n"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
