@@ -345,6 +345,23 @@ Located in `backend/scripts/`:
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
 
+### Review gate (rule 12 for the review-wait lesson)
+
+`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every non-draft pull
+request head. It passes only when Codex's "Review Summary" comment reports **Completed** for that
+exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
+characters); a completed review of an earlier head is not enough, because a push does not
+re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
+twenty minutes, then fails naming the remedy; re-run the failed job once the review lands. Logic in
+`backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`.
+
+The check binds merges only once required. Founder decision: a ruleset on `main` requiring the
+status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse`
+and `review-gate`, with no bypass actors. A required status check needs no approver, so it does not
+lock a single-collaborator repository; requiring pull-request reviews would, because authors cannot
+approve their own pull requests. As of 2026-09-16 `main` has no branch protection or ruleset, so
+none of the CI checks are required at merge time either.
+
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
 The data-quality report keeps two populations separate. Persisted audit counters describe the

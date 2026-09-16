@@ -1,0 +1,99 @@
+"""The review gate (rule 12 for the review-wait lesson): the decision is pure, pinned offline, and the
+workflow that publishes it runs on every non-draft pull request head without write permissions."""
+from pathlib import Path
+
+import pytest
+import yaml
+
+from scripts import review_gate
+
+ROOT = Path(__file__).resolve().parents[3]
+HEAD = "a834193192d007ed9b5c35e895aa532dcbb757bc"
+
+
+def _summary(status: str, commit: str, login: str = "chatgpt-codex-connector[bot]") -> dict:
+    body = (
+        "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\n"
+        "| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n"
+        f"| 📝 **Code Review** | {status} | `{commit}` | PR opened |\n"
+    )
+    return {"user": {"login": login}, "body": body}
+
+
+COMPLETED = '✅ **Completed** <relative-time datetime="2026-09-15T18:54:47Z">2026-09-15T18:54:47Z</relative-time>'
+RUNNING = '🔄 **Running** since <relative-time datetime="2026-09-15T18:50:38Z">2026-09-15T18:50:38Z</relative-time>'
+
+
+def test_parse_summary_reads_status_and_commit_through_the_markup():
+    rows = review_gate.parse_summary(_summary(COMPLETED, "a834193")["body"])
+    assert len(rows) == 1 and rows[0]["commit"] == "a834193"
+    assert "Completed" in rows[0]["status"] and "<relative-time" not in rows[0]["status"]
+
+
+@pytest.mark.parametrize("case, expected", [
+    ("completed-head", "pass"),
+    ("completed-other-head", "wait"),        # the fix-commit failure mode: the review is for an older head
+    ("running-head", "wait"),
+    ("failed-head", "fail"),
+    ("no-summary", "wait"),
+    ("summary-from-a-human", "wait"),        # only the Codex bot's summary counts
+    ("override", "pass"),
+    ("override-too-short", "wait"),
+    ("bad-head", "fail"),
+])
+def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_override(case, expected):
+    comments, body, head = [], "Ordinary PR body.", HEAD
+    if case == "completed-head":
+        comments = [_summary(COMPLETED, "a834193")]
+    elif case == "completed-other-head":
+        comments = [_summary(COMPLETED, "7547ef1")]
+    elif case == "running-head":
+        comments = [_summary(RUNNING, "a834193")]
+    elif case == "failed-head":
+        comments = [_summary("❌ **Failed**", "a834193")]
+    elif case == "summary-from-a-human":
+        comments = [_summary(COMPLETED, "a834193", login="neilmac91")]
+    elif case == "override":
+        body = "Docs only.\n\nReview override: Codex bot out of credits; two independent lenses reviewed the diff.\n"
+    elif case == "override-too-short":
+        body = "Review override: ok\n"
+    elif case == "bad-head":
+        head = "not-a-sha"
+    verdict, message = review_gate.decide(head, comments, body)
+    assert verdict == expected, message
+    if case == "completed-other-head":
+        assert "7547ef1" in message and "@codex review" in message
+    if case == "override":
+        assert "out of credits" in message
+
+
+def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
+    monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", "5")
+    states = iter([([_summary(RUNNING, "a834193")], "body"), ([_summary(COMPLETED, "a834193")], "body")])
+    sleeps = []
+    ticks = iter([0.0, 0.0, 10.0])
+    assert review_gate.main(fetch=lambda: next(states), sleep=sleeps.append, clock=lambda: next(ticks, 10.0)) == 0
+    assert sleeps == [5.0]
+    # Timeout: the review never completes for this head; the failure names the remedy.
+    ticks = iter([0.0, 0.0, 30.0, 70.0])
+    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body"), sleep=sleeps.append,
+                            clock=lambda: next(ticks, 70.0)) == 1
+    out = capsys.readouterr().out
+    assert "timed out after 1 minutes" in out and "@codex review" in out and "Review override" in out
+
+
+def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permissions():
+    path = ROOT / ".github/workflows/review-gate.yml"
+    workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]["pull_request"]["types"]) == {"opened", "synchronize", "reopened", "ready_for_review", "edited"}
+    assert workflow["permissions"] == {"contents": "read", "issues": "read", "pull-requests": "read"}
+    job = workflow["jobs"]["review-gate"]
+    assert job["if"] == "github.event.pull_request.draft == false"
+    assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
+    step = job["steps"][-1]
+    assert step["run"] == "python backend/scripts/review_gate.py"
+    assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"
+    assert step["env"]["GITHUB_TOKEN"] == "${{ secrets.GITHUB_TOKEN }}"
+    assert int(job["timeout-minutes"]) > int(step["env"]["REVIEW_GATE_TIMEOUT_MINUTES"])

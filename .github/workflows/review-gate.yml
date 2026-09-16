@@ -1,0 +1,41 @@
+# Rule-12 gate for lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md: a pull request
+# merges only after the Codex review of its CURRENT head has completed, or with an override recorded
+# in the pull request body (`Review override: <reason>`). The `review-gate` job is the status check a
+# ruleset on `main` should require (founder decision: Settings → Rules → Rulesets, require status
+# checks review-gate + the CI jobs, no bypass actors). A required status check needs no approver, so
+# it cannot lock a solo-administrator repository. Logic and tests: backend/scripts/review_gate.py,
+# backend/tests/unit/test_review_gate.py. A push does not re-trigger Codex here: after fix commits,
+# comment `@codex review` immediately, and re-run this job if the review lands after the timeout.
+name: Review gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review-gate:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Wait for the Codex review of this head, or an explicit recorded override
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEW_GATE_REPO: ${{ github.repository }}
+          REVIEW_GATE_PR: ${{ github.event.pull_request.number }}
+          REVIEW_GATE_HEAD: ${{ github.event.pull_request.head.sha }}
+          REVIEW_GATE_TIMEOUT_MINUTES: '20'
+        run: python backend/scripts/review_gate.py
