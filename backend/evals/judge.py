@@ -6,6 +6,10 @@ code cannot see without reading the filing:
 
   * G2 — fabricated comparatives (YoY/QoQ claims when the source has no comparative period)
   * G3 — hallucinated facts/events not present in the source
+  * G4 — unsupported cause: a driver/attribution the source does not state (co-movement is not cause)
+  * G5 — basis mismatch: the source's measure, scope, period, accounting/tax basis, unit or the
+    number's role changed; an ex-item total the filing does not define; "accelerated" without a rate
+  (G4/G5 are contract version 2, 2026-09-16: the #805 assessment's explanation-faithfulness gates.)
   * the prose dimensions: faithfulness, insight, clarity, specificity
 
 It is OFF by default in the runner. The message-construction and response-parsing helpers are
@@ -48,6 +52,10 @@ except ImportError:  # pragma: no cover
 
 DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulness > generating it
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
+# The judge contract: bump when a gate is added or its meaning changes, so verdicts judged under
+# different gate sets are never compared silently (readouts record it in their harness).
+JUDGE_CONTRACT_VERSION = 2
+JUDGE_GATES = ("G2 fabricated_comparatives", "G3 hallucinated_facts", "G4 unsupported_cause", "G5 basis_mismatch")
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
 _CLI_TIMEOUT_SECONDS = 300  # subscription CLI can be slow on a 200k-char excerpt + reasoning
 # Every credential/routing variable through which `claude -p` could bill something other than the
@@ -81,6 +89,16 @@ _JUDGE_INSTRUCTIONS = (
     "summary text:\n"
     "   - G2 fabricated_comparatives: a YoY/QoQ/prior-period claim the source does not contain.\n"
     "   - G3 hallucinated_facts: any event/figure/claim not supported by the source.\n"
+    "   - G4 unsupported_cause: a cause, driver or attribution (due to, driven by, on, reflecting, "
+    "because) the source does not itself state for that movement. Two figures moving together, or a "
+    "segment moving with the total, is NOT a cause. A source-stated cause for one line does not "
+    "transfer to another line, measure or period.\n"
+    "   - G5 basis_mismatch: the summary changes the source's named measure, entity/component scope, "
+    "period, accounting or tax basis, currency/unit or the number's role (a balance, a change, a "
+    "rate/ratio and a component are not interchangeable); states an adjusted, core or ex-item total "
+    "the filing does not define or reconcile on that same basis; claims growth accelerated or "
+    "decelerated without a prior-period rate in the source; or reverses a sign or direction. "
+    "Correct arithmetic on the wrong basis still fails.\n"
     "2. Dimensions — score each 1-5 (5 = excellent), reserving 5 for genuinely excellent work: "
     "faithfulness, insight, clarity, specificity.\n"
     "Return ONLY this JSON, no prose:\n"

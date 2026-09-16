@@ -1048,3 +1048,37 @@ and other eligible cohort cards and all source-owned fields are preserved. Class
 not certification of economic meaning: MELI customer funds, adjusted FCF and the usefulness of
 its ratio remain separate unresolved work. Unknown historical inputs are not retroactively
 classified. See [implementation and mutation evidence](../../tasks/cash-card-applicability-local.md).
+
+## Judging a pull request's eval artifact (prompt-candidate acceptance, 2026-09-16)
+
+The weekly readout judges only the fixed cohort. A prompt candidate needs its own semantic acceptance,
+and the September 9 #805 assessment showed why a deterministic-only gate is not enough: correct tables
+with false explanations pass every scorer. `evals.judge_report` judges **any** retained eval report —
+a pull request's `eval-baseline` artifact (`backend/evals/reports/eval_<stamp>.json`, 35 × 2 attempts
+with the payload, grounding excerpt, XBRL grounding and statement evidence retained) or a local run —
+through the same harness judge path as the weekly readout, on the founder's subscription
+(`cli:claude-fable-5-1`), with no generator credential and no re-fetch.
+
+```bash
+gh run download <run_id> --repo neilmac91/EarningsNerd -n eval-report-<run_id> -D /tmp/eval-<pr>
+cd backend && python -m evals.judge_report /tmp/eval-<pr>/eval_*.json --output-dir evals/reports/judged/pr<pr>
+```
+
+Outputs: `judged.json` (every attempt with a fresh verdict; any verdict the report carried is
+discarded) and `judged.md` (gate counts, the per-attempt verdict table, and a **#805 negative
+controls** section: AAPL, AMZN, BA, JPM, MELI, NVDA, PFE, PLTR, RIVN). Exit 0 only when every
+judgeable attempt has a complete verdict; 2 when provenance is refused before any call (golden set
+differs from the checkout, duplicate or foreign attempt identity, no attempts).
+
+**Judge contract version 2** (`evals.judge.JUDGE_CONTRACT_VERSION`, `JUDGE_GATES`) adds two gates to
+G2/G3: **G4 unsupported_cause** (a driver or attribution the source does not state; co-movement is not
+cause) and **G5 basis_mismatch** (measure, scope, period, accounting or tax basis, unit or the number's
+role changed; an ex-item total the filing does not define; "accelerated" without a prior rate; a
+reversed sign). Every verdict and judged harness records the contract version; the September 15
+weekly readout was judged under version 1 (G2/G3 only), so its negative count is not comparable to a
+version-2 count without re-judging its retained `report.json`.
+
+Acceptance bar for a grounding candidate (from the assessment): the negative controls move from a
+false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
+regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
+gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.

@@ -109,3 +109,16 @@ gh workflow run data-quality-weekly.yml -f readout_b64="$(cat <output-dir>/reado
 `--judge <other id>` exists only for an explicitly approved agreement check; its verdicts are
 retained but produce no readout. No generation, no golden or baseline change, no flag change, no
 email without a yes.
+
+## Judging a pull request's eval artifact instead
+
+The same subscription judge accepts any retained eval report, not only the weekly cohort
+(`backend/evals/RUNBOOK.md`, "Judging a pull request's eval artifact"). Download the PR's
+`eval-report-<run_id>` artifact with `gh run download`, then from `backend/`:
+
+```bash
+python -m evals.judge_report /path/to/eval_<stamp>.json --output-dir evals/reports/judged/pr<number>
+```
+
+Read `judged.md`: gate counts (G2–G5), every attempt, and the #805 negative-control section. Record it
+under `tasks/review-evidence/` like a readout. It never re-pins a baseline or arms a feature.

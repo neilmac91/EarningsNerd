@@ -176,7 +176,9 @@ def write_outputs(output_dir: Path, readout: dict, report: dict) -> None:
     (output_dir / "readout.json").write_text(json.dumps(readout, indent=2) + "\n")
     (output_dir / "report.json").write_text(json.dumps({**report, "readout": readout}, indent=2) + "\n")
     (output_dir / "readout.b64").write_text(encode_readout(readout))
+    harness = report.get("harness") or {}
     lines = [f"# Weekly judged measurement: {readout['status']}", "", readout["reason"], "",
+             f"Judge {harness.get('judge')} (contract version {harness.get('judge_contract_version', 'unrecorded')}).", "",
              f"Expected {EXPECTED}; generated {readout['completed']}; judged {readout['scored']}; "
              f"errors {readout['errors']}; missing {readout['missing']}; negative judgments {readout['negative_judgments']}.",
              ""]

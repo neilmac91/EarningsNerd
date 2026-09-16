@@ -302,3 +302,24 @@ async def test_cli_backend_reaps_subprocess_on_cancellation(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await judge_mod._judge_via_cli("sys", "user", "cli:sonnet", 4096)
     assert reaped["kill"] and reaped["wait"]  # killed + reaped before re-raising
+
+
+def test_judge_contract_names_every_gate_and_the_new_gates_veto():
+    """Contract version 2 (2026-09-16): the explanation-faithfulness gates from the #805 assessment are
+    part of the instructions the judge receives, and a failure on either vetoes a PASS like G2/G3."""
+    from evals.judge import JUDGE_CONTRACT_VERSION, JUDGE_GATES, _JUDGE_INSTRUCTIONS, parse_judge_response
+
+    assert JUDGE_CONTRACT_VERSION >= 2
+    assert JUDGE_GATES == ("G2 fabricated_comparatives", "G3 hallucinated_facts",
+                           "G4 unsupported_cause", "G5 basis_mismatch")
+    for gate in JUDGE_GATES:
+        assert gate in _JUDGE_INSTRUCTIONS
+    assert "is NOT a cause" in _JUDGE_INSTRUCTIONS
+    assert "accelerated or decelerated without a prior-period rate" in _JUDGE_INSTRUCTIONS
+    assert "Correct arithmetic on the wrong basis still fails" in _JUDGE_INSTRUCTIONS
+    for failure in ("G4 unsupported_cause: margin widened on mix (not stated)",
+                    "G5 basis_mismatch: pretax drivers applied to net income"):
+        verdict = parse_judge_response(json.dumps({
+            "gate_failures": [failure], "verdict": "PASS",
+            "dimensions": {"faithfulness": 5, "insight": 5, "clarity": 5, "specificity": 5}}))
+        assert verdict.verdict == "FAIL" and verdict.gate_failures == [failure]
