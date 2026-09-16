@@ -5,7 +5,7 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
@@ -24,6 +24,7 @@ from app.services.resend_service import send_email, ResendError
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
+from app.services.summary_refresh import generation_failed, stale_filter
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
 
 router = APIRouter()
@@ -871,17 +872,8 @@ async def reset_all_summaries(
 _REFRESH_STALE_MAX_BATCH = 10
 
 
-def _stale_summary_filter(schema_version_lt: Optional[int]):
-    """Rows to refresh: missing/behind stamp. schema_version_lt bounds by schema; None = stale vs
-    the CURRENT schema+prompt version (covers a prompt-only bump that leaves schema_version equal)."""
-    if schema_version_lt is not None:
-        return or_(Summary.schema_version.is_(None), Summary.schema_version < schema_version_lt)
-    return or_(
-        Summary.schema_version.is_(None),
-        Summary.schema_version != SUMMARY_SCHEMA_VERSION,
-        Summary.prompt_version.is_(None),
-        Summary.prompt_version != SUMMARY_PROMPT_VERSION,
-    )
+# One SQL encoding of staleness, shared with the job-side drain (scripts/refresh_stale_summaries.py).
+_stale_summary_filter = stale_filter
 
 
 @router.post("/summaries/refresh-stale")
@@ -951,9 +943,13 @@ async def refresh_stale_summaries(
         try:
             for fid in candidate_filing_ids:
                 try:
-                    await generate_summary_background(fid, None, force_regenerate=True)
+                    outcome = await generate_summary_background(fid, None, force_regenerate=True)
                 except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
                     logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
+                    failed.append(fid)
+                    continue
+                if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
+                    logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
                     failed.append(fid)
                     continue
                 # Re-read the (separately-committed) row's stamps: current => actually updated;

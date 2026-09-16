@@ -384,6 +384,28 @@ unavailable, partial, simulated or empty report does not meet D5's first-judged-
 prerequisite. Existing scheduled delivery is preserved; development verification uses mocked email
 transport and makes no live send or job dispatch.
 
+### Version-stale summary drain (D4)
+
+`backend/scripts/refresh_stale_summaries.py` is the job-side counterpart of the admin
+`refresh-stale` endpoint for corpus-sized backlogs: the same shared staleness encoding
+(`app/services/summary_refresh.py`), the same in-place regeneration through the one orchestrator
+with `force_regenerate=True` (bookmarks survive, keep-better gate refuses downgrades), bounded by
+`--limit` and `--max-seconds`, random candidate order, honest per-filing outcomes
+(`updated` / `kept_by_gate` / `failed` / `deferred`), and a durable attempt in
+`earningsnerd_job_runs` under `refresh-stale` (a run with any failed regeneration is recorded as
+failed; it is not in the weekly job-health cadence table because it is not scheduled). It runs on
+the pregenerate job image, which carries the generator credential and the database:
+
+```bash
+gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=scripts/refresh_stale_summaries.py            # dry run: breakdown by stamp and form, no model call
+gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=scripts/refresh_stale_summaries.py,--execute,--limit,30,--max-seconds,1200
+```
+
+Every executed generation is paid provider spend; repeat bounded executions until `stale_total`
+is zero. A `SUMMARY_PROMPT_VERSION` bump (for example `summary-2026-09-n`, the armed evidence
+auto-snap) makes every earlier row stale and is what schedules a drain; nothing regenerates on
+read.
+
 ### Scheduled job outcomes and universe coverage (WS-7)
 
 Every scheduled job script records an attempt in `earningsnerd_job_runs`, using a transaction
