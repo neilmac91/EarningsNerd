@@ -402,7 +402,8 @@ gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=script
 ```
 
 Every executed generation is paid provider spend; repeat bounded executions until `stale_total`
-is zero. Keep `--limit` at or below 15 on the 1 GiB pregenerate job: on 2026-09-16 a 48-row
+is zero. The script refuses `--limit` above 15 unless `--unbounded-batch` is passed, which is
+reserved for after the job's memory has been raised: on 2026-09-16 a 48-row
 execution was killed by the container's out-of-memory event after 22 sequential regenerations
 (memory grows across generations in one process); Cloud Run's task retry then finished the rest,
 and the killed attempt's ledger row stays `running` by design. Results land as a JSON line in the

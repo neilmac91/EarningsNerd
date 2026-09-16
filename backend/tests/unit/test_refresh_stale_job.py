@@ -150,6 +150,22 @@ def test_limit_and_time_budget_bound_the_paid_work(sessions, monkeypatch, capsys
         assert [r.status for r in db.query(JobRun).order_by(JobRun.started_at)] == ["succeeded", "succeeded"]
 
 
+def test_limit_above_the_memory_bound_is_refused_without_the_explicit_override(sessions, monkeypatch, capsys):
+    """The 1 GiB job was out-of-memory killed after 22 sequential regenerations (2026-09-16); the
+    bound is a gate, not a default an operator can silently exceed."""
+    _seed(sessions, [(None, None, "10-K")] * 2)
+    spy = AsyncMock(side_effect=_stamp_current(sessions))
+    monkeypatch.setattr(GENERATOR, spy)
+    with pytest.raises(SystemExit) as exc:
+        script.main(["--execute", "--limit", str(script.MAX_LIMIT_PER_EXECUTION + 1)])
+    assert exc.value.code == 2 and "exceeds the per-execution bound" in capsys.readouterr().err
+    spy.assert_not_called()
+    with sessions() as db:
+        assert db.query(JobRun).count() == 0  # refused before any ledger row or spend
+    assert script.main(["--execute", "--limit", str(script.MAX_LIMIT_PER_EXECUTION + 1), "--unbounded-batch"]) == 0
+    assert _last_report(capsys)["updated"] == 2 and spy.await_count == 2
+
+
 def test_schema_threshold_above_the_current_schema_is_refused_before_any_work(sessions, monkeypatch, capsys):
     _seed(sessions, [(None, None, "10-K")])
     spy = AsyncMock(side_effect=_stamp_current(sessions))

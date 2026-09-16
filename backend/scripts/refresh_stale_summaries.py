@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # then retried the task and the retry finished the rest). Keep one execution well under that and
 # repeat executions instead.
 DEFAULT_LIMIT = 15
+MAX_LIMIT_PER_EXECUTION = 15  # the gate for that rule: a larger --limit needs --unbounded-batch (raised job memory)
 DEFAULT_MAX_SECONDS = 1200.0  # well inside the pregenerate job's 3600 s task timeout
 
 
@@ -63,7 +64,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--execute", action="store_true",
                         help="regenerate stale rows (paid); without it the run only reports the staleness breakdown")
-    parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help=f"rows to regenerate this execution (default {DEFAULT_LIMIT})")
+    parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
+                        help=f"rows to regenerate this execution (default {DEFAULT_LIMIT}, at most "
+                             f"{MAX_LIMIT_PER_EXECUTION} without --unbounded-batch)")
+    parser.add_argument("--unbounded-batch", action="store_true",
+                        help=f"allow --limit above {MAX_LIMIT_PER_EXECUTION}; only after the job's memory has been raised "
+                             "(a 1 GiB task was out-of-memory killed after 22 sequential regenerations)")
     parser.add_argument("--max-seconds", type=float, default=DEFAULT_MAX_SECONDS,
                         help=f"stop before a generation that would start after this many seconds (default {DEFAULT_MAX_SECONDS:g})")
     parser.add_argument("--filing-type", default=None, help="optional form filter, e.g. 10-K")
@@ -77,6 +83,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         check_schema_threshold(args.schema_version_lt)
     except ValueError as exc:
         parser.error(str(exc))
+    if args.limit > MAX_LIMIT_PER_EXECUTION and not args.unbounded_batch:
+        parser.error(f"--limit {args.limit} exceeds the per-execution bound of {MAX_LIMIT_PER_EXECUTION} "
+                     "(the 1 GiB job is out-of-memory killed on long sequential batches); repeat executions, "
+                     "or pass --unbounded-batch only after the job's memory has been raised")
 
     try:
         with track_job("refresh-stale", dry_run=not args.execute) as attempt:
