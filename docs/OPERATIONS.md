@@ -364,12 +364,17 @@ no other commit of the pull request shares it, so a head minted to share a revie
 unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
 runs on pull requests opened after it has merged.
 
-The check binds merges only once required. Founder decision: a ruleset on `main` requiring the
-status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse`
-and `review-gate`, with no bypass actors. A required status check needs no approver, so it does not
-lock a single-collaborator repository; requiring pull-request reviews would, because authors cannot
-approve their own pull requests. As of 2026-09-16 `main` has no branch protection or ruleset, so
-none of the CI checks are required at merge time either.
+The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
+repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
+blocked; a pull request required with **zero** approvals and squash as the only merge method;
+required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
+`lighthouse` and `review-gate`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+bind the administrator too. A required status check needs no approver, so this does not lock a
+single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
+their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
+switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the
+review service is unavailable, the pull request body's `Review override: <reason>` line is the only
+way through the gate, by design.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
