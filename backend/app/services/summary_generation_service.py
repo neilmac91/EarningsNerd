@@ -625,7 +625,10 @@ async def generate_summary_background(
     drain_secs = time.time() - drain_started
     log = logger.warning if terminal_type == "error" else logger.info
     log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
-    return
+    # The terminal event is the only machine-readable outcome of a headless drain (exceptions
+    # become error EVENTS, never raises); the stale-summary drain classifies a paid attempt that
+    # ended in `error` as failed rather than as a keep-better decision. Callers may ignore it.
+    return terminal_event
 
 # Stages from which generation can no longer make progress on its own.
 TERMINAL_STAGES = {"completed", "error", "partial"}

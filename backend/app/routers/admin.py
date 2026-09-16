@@ -24,7 +24,7 @@ from app.services.resend_service import send_email, ResendError
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
-from app.services.summary_refresh import stale_filter
+from app.services.summary_refresh import generation_failed, stale_filter
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
 
 router = APIRouter()
@@ -943,9 +943,13 @@ async def refresh_stale_summaries(
         try:
             for fid in candidate_filing_ids:
                 try:
-                    await generate_summary_background(fid, None, force_regenerate=True)
+                    outcome = await generate_summary_background(fid, None, force_regenerate=True)
                 except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
                     logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
+                    failed.append(fid)
+                    continue
+                if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
+                    logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
                     failed.append(fid)
                     continue
                 # Re-read the (separately-committed) row's stamps: current => actually updated;

@@ -42,16 +42,15 @@ async def _run(*, execute: bool, limit: int, max_seconds: float, filing_type: Op
     from app.database import SessionLocal
     from app.services.summary_refresh import drain_stale, stale_breakdown
 
-    db = SessionLocal()
-    try:
+    with SessionLocal() as db:
         report = {"dry_run": not execute, **stale_breakdown(db, schema_version_lt=schema_version_lt, filing_type=filing_type)}
-        if execute:
-            report.update(await drain_stale(
-                db, limit=limit, max_seconds=max_seconds, schema_version_lt=schema_version_lt, filing_type=filing_type,
-            ))
-        return report
-    finally:
-        db.close()
+    if execute:
+        # No session is held across generations; the drain opens its own short-lived ones.
+        report.update(await drain_stale(
+            SessionLocal, limit=limit, max_seconds=max_seconds, schema_version_lt=schema_version_lt,
+            filing_type=filing_type,
+        ))
+    return report
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -66,6 +65,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="refresh rows whose schema_version is NULL or below this (default: stale vs current schema+prompt)")
     args = parser.parse_args(argv)
     from app.services.job_run_service import JobRunFailed, track_job
+    from app.services.summary_refresh import check_schema_threshold
+
+    try:
+        check_schema_threshold(args.schema_version_lt)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     try:
         with track_job("refresh-stale", dry_run=not args.execute) as attempt:

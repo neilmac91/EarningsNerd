@@ -15,11 +15,12 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Filing, Summary
-from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
 Generator = Callable[..., Awaitable[Any]]
+SessionFactory = Callable[[], Session]
 
 
 def stale_filter(schema_version_lt: Optional[int]):
@@ -33,6 +34,17 @@ def stale_filter(schema_version_lt: Optional[int]):
         Summary.prompt_version.is_(None),
         Summary.prompt_version != SUMMARY_PROMPT_VERSION,
     )
+
+
+def check_schema_threshold(schema_version_lt: Optional[int]) -> None:
+    """A threshold above the current schema can never be satisfied by a regeneration (the
+    pipeline stamps the current schema), so every refreshed row would be selected and paid for
+    again on the next execution. Refuse it up front."""
+    if schema_version_lt is not None and schema_version_lt > SUMMARY_SCHEMA_VERSION:
+        raise ValueError(
+            f"schema_version_lt={schema_version_lt} exceeds the current schema version {SUMMARY_SCHEMA_VERSION}; "
+            "a regeneration could never leave that filter"
+        )
 
 
 def stale_query(db: Session, *, schema_version_lt: Optional[int] = None, filing_type: Optional[str] = None):
@@ -49,6 +61,7 @@ def stale_query(db: Session, *, schema_version_lt: Optional[int] = None, filing_
 def stale_breakdown(db: Session, *, schema_version_lt: Optional[int] = None,
                     filing_type: Optional[str] = None) -> Dict[str, Any]:
     """Counts only (no prose loaded): the staleness population by stamp pair and by form."""
+    check_schema_threshold(schema_version_lt)
     by_stamp: Dict[str, int] = {}
     by_form: Dict[str, int] = {}
     total = 0
@@ -70,8 +83,15 @@ def stale_breakdown(db: Session, *, schema_version_lt: Optional[int] = None,
     }
 
 
+def generation_failed(result: Any) -> bool:
+    """The orchestrator converts exceptions into a terminal ``error`` event instead of raising;
+    ``generate_summary_background`` returns that event, and a paid attempt that ended there is a
+    failure, never a keep-better decision."""
+    return isinstance(result, dict) and result.get("type") == "error"
+
+
 async def drain_stale(
-    db: Session, *, limit: int, max_seconds: float, schema_version_lt: Optional[int] = None,
+    session_factory: SessionFactory, *, limit: int, max_seconds: float, schema_version_lt: Optional[int] = None,
     filing_type: Optional[str] = None, generate: Optional[Generator] = None,
     clock: Optional[Callable[[], float]] = None,
 ) -> Dict[str, Any]:
@@ -79,16 +99,19 @@ async def drain_stale(
     start after ``max_seconds``; honest per-filing outcomes, never a fabricated "updated".
 
     Candidates are sampled at random so a filing that keep-better-loses every time cannot wedge
-    every batch at a deterministic head-of-line. Each generation runs in the pipeline's own
-    sessions; ``db`` here only selects candidates and re-reads their stamps."""
+    every batch at a deterministic head-of-line. No session or pooled connection is held while a
+    generation runs: selection and every stamp re-read use their own short-lived session, and the
+    generation runs in the pipeline's own sessions."""
+    check_schema_threshold(schema_version_lt)
     if generate is None:
         from app.services.summary_generation_service import generate_summary_background
         generate = generate_summary_background
     clock = clock or time.monotonic
     started = clock()
-    query = stale_query(db, schema_version_lt=schema_version_lt, filing_type=filing_type)
-    stale_total = query.count()
-    candidates = [row.filing_id for row in query.order_by(func.random()).limit(max(0, limit)).all()]
+    with session_factory() as db:
+        query = stale_query(db, schema_version_lt=schema_version_lt, filing_type=filing_type)
+        stale_total = query.count()
+        candidates = [row.filing_id for row in query.order_by(func.random()).limit(max(0, limit)).all()]
     updated: List[int] = []
     kept: List[int] = []
     failed: List[int] = []
@@ -99,17 +122,21 @@ async def drain_stale(
             logger.info("refresh-stale: time budget reached after %d attempts; %d deferred", index, len(deferred))
             break
         try:
-            await generate(fid, None, force_regenerate=True)
+            result = await generate(fid, None, force_regenerate=True)
         except Exception:  # noqa: BLE001 - one filing's failure must not abort the batch
             logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
             failed.append(fid)
             continue
-        db.commit()  # end this session's read transaction so the fresh SELECT sees the pipeline's commit
-        stamp = db.query(Summary.schema_version, Summary.prompt_version).filter(Summary.filing_id == fid).first()
-        if stamp is not None and not is_stale(stamp[0], stamp[1]):
-            updated.append(fid)
-        else:
-            kept.append(fid)
+        if generation_failed(result):
+            logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
+            failed.append(fid)
+            continue
+        with session_factory() as db:  # a fresh transaction sees the pipeline's commit
+            still_stale = (
+                db.query(Summary.id).filter(Summary.filing_id == fid).filter(stale_filter(schema_version_lt)).first()
+                is not None
+            )
+        (kept if still_stale else updated).append(fid)
     return {
         "stale_total": stale_total,
         "attempted": len(updated) + len(kept) + len(failed),
