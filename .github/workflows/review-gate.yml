@@ -6,6 +6,9 @@
 # it cannot lock a solo-administrator repository. Logic and tests: backend/scripts/review_gate.py,
 # backend/tests/unit/test_review_gate.py. A push does not re-trigger Codex here: after fix commits,
 # comment `@codex review` immediately, and re-run this job if the review lands after the timeout.
+# The script is executed from the base branch's checkout (trusted code), and a reviewed short SHA
+# must match exactly one commit of the pull request, so neither a PR-side edit of the gate nor a
+# crafted prefix collision can pass it.
 name: Review gate
 
 on:
@@ -27,7 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Trusted code only: the gate script comes from the BASE branch, never from the pull request's
+      # own tree, so a change to review_gate.py cannot let itself through. (On the bootstrap PR that
+      # first adds the script, this step therefore fails; the check is not yet required then.)
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'

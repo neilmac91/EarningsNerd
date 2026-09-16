@@ -45,9 +45,11 @@ def test_parse_summary_reads_status_and_commit_through_the_markup():
     ("override", "pass"),
     ("override-too-short", "wait"),
     ("bad-head", "fail"),
+    ("short-head", "fail"),                  # only a full 40-hex head is accepted
+    ("prefix-collision", "wait"),            # a head minted with the reviewed commit's 7-hex prefix
 ])
 def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_override(case, expected):
-    comments, body, head = [], "Ordinary PR body.", HEAD
+    comments, body, head, commits = [], "Ordinary PR body.", HEAD, [HEAD]
     if case == "completed-head":
         comments = [_summary(COMPLETED, "a834193")]
     elif case == "completed-other-head":
@@ -68,26 +70,33 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
         body = "Review override: ok\n"
     elif case == "bad-head":
         head = "not-a-sha"
-    verdict, message = review_gate.decide(head, comments, body)
+    elif case == "short-head":
+        head = HEAD[:7]
+    elif case == "prefix-collision":
+        comments = [_summary(COMPLETED, "a834193")]
+        commits = ["a834193" + "0" * 33, HEAD]  # the reviewed commit and a crafted head share the prefix
+    verdict, message = review_gate.decide(head, comments, body, commits)
     assert verdict == expected, message
     if case == "completed-other-head":
         assert "7547ef1" in message and "@codex review" in message
     if case == "override":
         assert "out of credits" in message
+    if case == "prefix-collision":
+        assert "ambiguous" in message
 
 
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
     monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
     monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
     monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", "5")
-    states = iter([([_summary(RUNNING, "a834193")], "body"), ([_summary(COMPLETED, "a834193")], "body")])
+    states = iter([([_summary(RUNNING, "a834193")], "body", [HEAD]), ([_summary(COMPLETED, "a834193")], "body", [HEAD])])
     sleeps = []
     ticks = iter([0.0, 0.0, 10.0])
     assert review_gate.main(fetch=lambda: next(states), sleep=sleeps.append, clock=lambda: next(ticks, 10.0)) == 0
     assert sleeps == [5.0]
     # Timeout: the review never completes for this head; the failure names the remedy.
     ticks = iter([0.0, 0.0, 30.0, 70.0])
-    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body"), sleep=sleeps.append,
+    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body", [HEAD]), sleep=sleeps.append,
                             clock=lambda: next(ticks, 70.0)) == 1
     out = capsys.readouterr().out
     assert "timed out after 1 minutes" in out and "@codex review" in out and "Review override" in out
@@ -101,6 +110,8 @@ def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permi
     job = workflow["jobs"]["review-gate"]
     assert job["if"] == "github.event.pull_request.draft == false"
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
+    checkout = job["steps"][0]
+    assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
     assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"

@@ -353,7 +353,11 @@ exact head, or when the pull request body carries a line `Review override: <reas
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
 twenty minutes, then fails naming the remedy; re-run the failed job once the review lands. Logic in
-`backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`.
+`backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
+workflow checks out the **base** branch and runs the script from there, so a pull request cannot edit
+its own gate; only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is trusted;
+and a reviewed short SHA counts only when it matches the head and no other commit of the pull
+request, so a head minted to share a reviewed prefix stays unreviewed.
 
 The check binds merges only once required. Founder decision: a ruleset on `main` requiring the
 status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse`

@@ -19,6 +19,10 @@ After pushing commits that address findings, comment ``@codex review`` right awa
 re-triggers nothing here, and the gate waits for a review of the new head. If the review finishes
 after the gate timed out, re-run the failed job (``gh run rerun <run-id> --failed``).
 
+The workflow runs this script from the BASE branch's checkout, so a pull request cannot edit its
+own gate; and a reviewed short SHA counts only when it matches the head and no other commit of the
+pull request, so a head minted to share a reviewed prefix stays unreviewed.
+
 Environment (set by the workflow): ``GITHUB_TOKEN``, ``REVIEW_GATE_REPO`` (owner/name),
 ``REVIEW_GATE_PR`` (number), ``REVIEW_GATE_HEAD`` (full SHA), optional
 ``REVIEW_GATE_TIMEOUT_MINUTES`` (default 20) and ``REVIEW_GATE_POLL_SECONDS`` (default 20).
@@ -66,21 +70,31 @@ def override_reason(body: Optional[str]) -> Optional[str]:
     return match.group("reason").strip() if match else None
 
 
-def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str]) -> Verdict:
-    """Pure decision over the pull request's comments and body for one head SHA."""
+def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
+           pr_commits: Optional[Iterable[str]] = None) -> Verdict:
+    """Pure decision over the pull request's comments, body and commit list for one head SHA.
+
+    Codex names the reviewed commit by a short SHA. A short SHA only identifies the head when it
+    matches the head AND no other commit of the pull request, so a head deliberately minted with
+    the previously reviewed commit's prefix stays unreviewed."""
     head = (head_sha or "").lower()
-    if not re.fullmatch(r"[0-9a-f]{7,40}", head):
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
     reason = override_reason(pr_body)
     if reason:
         return "pass", f"review-gate: override recorded in the pull request body: {reason}"
+    known = {str(sha).lower() for sha in (pr_commits or [])} | {head}
     latest_other: Optional[str] = None
     for comment in comments:
         body = str((comment or {}).get("body") or "")
         if not is_codex_bot((comment or {}).get("user")) or SUMMARY_MARKER not in body:
             continue
         for row in parse_summary(body):
-            if head.startswith(row["commit"]):
+            matches = {sha for sha in known if sha.startswith(row["commit"])}
+            if head in matches and len(matches) > 1:
+                return "wait", (f"review-gate: reviewed commit {row['commit']} is ambiguous within this pull request "
+                                f"({len(matches)} commits share the prefix); comment `@codex review` for {head[:12]}")
+            if head in matches:
                 status = row["status"].lower()
                 if "completed" in status:
                     return "pass", f"review-gate: Codex review completed for {row['commit']}"
@@ -104,20 +118,29 @@ def _github(path: str, token: str) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
-def fetch_state(repo: str, number: str, token: str) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-    comments: List[Dict[str, Any]] = []
+def _paged(path: str, token: str) -> List[Any]:
+    items: List[Any] = []
     page = 1
     while True:
-        batch = _github(f"repos/{repo}/issues/{number}/comments?per_page=100&page={page}", token)
-        comments.extend(batch)
+        batch = _github(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}", token)
+        items.extend(batch)
         if len(batch) < 100:
             break
         page += 1
+    return items
+
+
+State = Tuple[List[Dict[str, Any]], Optional[str], List[str]]
+
+
+def fetch_state(repo: str, number: str, token: str) -> State:
+    comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
     pull = _github(f"repos/{repo}/pulls/{number}", token)
-    return comments, pull.get("body")
+    commits = [str(item.get("sha", "")).lower() for item in _paged(f"repos/{repo}/pulls/{number}/commits", token)]
+    return comments, pull.get("body"), commits
 
 
-def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], Tuple[List[Dict[str, Any]], Optional[str]]]] = None,
+def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
          sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
     env = os.environ
     head = env.get("REVIEW_GATE_HEAD", "")
@@ -131,8 +154,8 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], Tuple
         fetch = lambda: fetch_state(repo, number, token)  # noqa: E731
     started = clock()
     while True:
-        comments, body = fetch()
-        verdict, message = decide(head, comments, body)
+        comments, body, commits = fetch()
+        verdict, message = decide(head, comments, body, commits)
         print(message)
         if verdict == "pass":
             return 0
