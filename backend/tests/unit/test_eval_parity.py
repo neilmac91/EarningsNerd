@@ -130,7 +130,7 @@ def pin_report():
     return {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True,
                         'stream_section_reveal': True, 'fallback_model': '', 'fallback_base_url': '',
                         'ai_evidence_snap': True, 'ai_figure_trace_gate': False,  # armed 2026-09-15; pins mirror the deploy env
-                        'ai_forward_quote_gate': False, 'use_structured_output': False,
+                        'ai_forward_quote_gate': False, 'ai_attribution_gate': False, 'use_structured_output': False,
                         'golden_set_sha256': hashlib.sha256(runner.GOLDEN_PATH.read_bytes()).hexdigest()},
             'summary': {'baseline': {'n': len(results), 'errors': 0, 'gate_fail_rate': 0.0, 'pass_rate': 1.0}}, 'results': results}
 
@@ -267,7 +267,7 @@ def test_ci_parity_and_bounded_repeat_measurement(tmp_path):
 @pytest.mark.parametrize('defect', ['failed-gate', 'missing-gate', 'veto-list', 'missing-veto-list', 'veto-rate', 'missing-rate', 'pass-rate',
                                           'fallback-model', 'fallback-url', 'fallback-missing',
                                           'guard-ai_evidence_snap', 'guard-ai_figure_trace_gate',
-                                          'guard-ai_forward_quote_gate', 'guard-use_structured_output',
+                                          'guard-ai_forward_quote_gate', 'guard-ai_attribution_gate', 'guard-use_structured_output',
                                           'guard-use_statement_financials', 'guard-missing', 'guard-type'])
 def test_pin_cli_refuses_hard_veto_evidence_without_overwriting(tmp_path, pin_report, defect):
     first = pin_report['results'][0]

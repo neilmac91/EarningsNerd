@@ -593,6 +593,7 @@ def _harness_metadata(judge_model: Optional[str] = None) -> Dict[str, Any]:
         "ai_evidence_snap": settings.AI_EVIDENCE_SNAP,
         "ai_figure_trace_gate": settings.AI_FIGURE_TRACE_GATE,
         "ai_forward_quote_gate": settings.AI_FORWARD_QUOTE_GATE,
+        "ai_attribution_gate": settings.AI_ATTRIBUTION_GATE,
         "judge": judge_model or False,
         "source_sha": os.environ.get("GITHUB_SHA", ""),
         "golden_set_sha256": hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest(),

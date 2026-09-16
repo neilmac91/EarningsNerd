@@ -947,6 +947,20 @@ async def stream_filing_summary(
                     quality.get("covered_count"),
                     quality.get("total_count"),
                 )
+            attribution_audit = (raw_summary or {}).get("attribution_audit") or {}
+            if attribution_audit.get("unverified"):
+                # #805 path step 4 measurement channel (count-first): causal clauses the filing does
+                # not state, emitted flag on OR off; dropped counts only when the gate is armed.
+                logger.info(
+                    "attribution_unverified count=%d checked=%d dropped=%d flag=%s filing_id=%s sic=%s slots=%s",
+                    len(attribution_audit["unverified"]),
+                    attribution_audit.get("checked", 0),
+                    len(attribution_audit.get("dropped") or []),
+                    settings.AI_ATTRIBUTION_GATE,
+                    filing_id,
+                    company_sic or "",
+                    "|".join(str(u.get("slot") or "?") for u in attribution_audit["unverified"]),
+                )
             quote_audit = (raw_summary or {}).get("forward_quote_audit") or {}
             if quote_audit.get("unverified"):
                 # T5.4 measurement channel (count-first, the figure-trace convention): §5 quotes

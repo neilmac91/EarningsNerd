@@ -367,6 +367,14 @@ class Settings(BaseSettings):
     # (near_miss vs fabrication split in the counter is the arming signal).
     AI_FORWARD_QUOTE_GATE: bool = False
 
+    # Attribution gate (the #805 path, step 4, 2026-09-17): every causal clause the model writes in an
+    # explanation slot ("driven by / reflecting / due to …") is measured against the excerpt it generated
+    # from; a clause the filing does not itself state for that subject is DROPPED — the clause only, the
+    # movement stays — when armed. Ships DEFAULT OFF (advisory): the audit
+    # (raw_summary["attribution_audit"]) and the greppable attribution_unverified counter are always
+    # emitted; arm after the calibration in tasks/attribution-guard-plan-2026-09-17.md earns precision.
+    AI_ATTRIBUTION_GATE: bool = False
+
     # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence at
     # the model's prompt-tuning floor, so a confident REAL-sentence counterpart is computed in
     # code at generation time for the two verbatim-contracted surfaces (P&L-takeaway rows,

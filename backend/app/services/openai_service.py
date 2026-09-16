@@ -31,6 +31,7 @@ from app.services.ai.copilot_chat import (
 )
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
+from app.services.ai.attribution_gate import gate_attributions
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
@@ -669,6 +670,12 @@ Rules:
         forward_quote_audit = gate_forward_quotes(
             sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
         )
+        # Attribution gate (#805 path, step 4): causal clauses in the model-authored explanation slots
+        # are measured against the same excerpt; dropped (clause only) when AI_ATTRIBUTION_GATE is
+        # armed. Same placement and grounding rules as the quote gate above.
+        attribution_audit = gate_attributions(
+            sections_info, filing_excerpt or "", settings.AI_ATTRIBUTION_GATE
+        )
 
         # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
         # at the model's prompt-tuning floor, so a confident REAL-sentence counterpart is
@@ -819,6 +826,8 @@ Rules:
         }
         if forward_quote_audit:
             raw_summary_payload["forward_quote_audit"] = forward_quote_audit
+        if attribution_audit:
+            raw_summary_payload["attribution_audit"] = attribution_audit
         if evidence_snap_audit:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if writer_result:
