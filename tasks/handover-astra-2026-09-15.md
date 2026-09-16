@@ -51,7 +51,7 @@ Workspace root: `/Users/neilmacaogain/Documents/Codex/2026-09-08/goal-you-are-th
 
 | Item | Next step / blocker |
 | --- | --- |
-| Quality | Cached analysis defects (Apple cash-flow sentence) and the ASML supplemental-scope sentence remain; historical regeneration held. |
+| Quality | Cached analysis defects (Apple cash-flow sentence) and the ASML supplemental-scope sentence remain; historical regeneration held. **#805 assessed 2026-09-16** ([assessment and authorised path](pr805-assessment-2026-09-16.md)): close #805, judge becomes the acceptance gate for any eval artifact, corrected candidate at stamp `o`. |
 | EdgarTools | 5.58.0 adopted in #872 with thirteen-filing parity and a passing generated-output measurement; nothing pending. |
 | W3-10 Notable | Founder retain/kill decision after September 15 closes; then owned flag PR. |
 | W3-10 Analysis | The warm-up script `scripts/sync_companyfacts.py` has never run as a job (the September 8 backfill-facts runs were the W3-9 audit; the warm-up script writes no job-outcome record). Founder-executed warm-up with retained counters, then Pro frontend acceptance, remain. |
