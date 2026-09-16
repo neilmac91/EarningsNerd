@@ -98,7 +98,13 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   complete strong-judge readout). Prompt text unchanged; the stamp advances so every row generated
 #   with the snap unarmed is version-stale and the D4 drain (scripts/refresh_stale_summaries.py)
 #   regenerates it through the armed path. Taxonomy unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-n"
+# summary-2026-09-o: supported financial explanations — one shared source-identity condition
+#   (FINANCIAL_EXPLANATION_SUPPORT) at the primary and recovery evidence boundary, the driver form on
+#   every model-authored explanation slot (print, P&L commentary, working capital, segments) and the
+#   narrowed earnings description form; signed figures support a movement, never a cause. Corrected
+#   re-land of the rejected #805 candidate (tasks/pr805-assessment-2026-09-16.md); e stays unreleased.
+#   Taxonomy unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-o"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
