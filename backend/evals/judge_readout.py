@@ -30,21 +30,12 @@ from typing import Any, Dict, List, Optional
 
 from app.services.ai_readout import EXPECTED, unavailable_readout
 from app.utils.datetimes import iso_z, utcnow
+from evals.judge import JUDGE_CONTRACT_VERSION
+from evals.judge_report import judge_rows
 from evals.weekly_readout import JUDGE_ID, build_readout, load_cohort, write_outputs
 
 DEFAULT_CONCURRENCY = 2  # a subscription session, not a metered API: keep the parallel verdicts small
 REPORTS_DIR = Path(__file__).with_name("reports") / "weekly-judged"
-
-
-def retained_grounding(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """The judge inputs a generation attempt retained, in the shape ``runner._maybe_judge`` reads.
-
-    A failed or legacy attempt (no payload, no retained excerpt) has nothing to judge and stays an
-    error in the readout; it is never judged against a re-fetched or different source."""
-    if row.get("error") or not isinstance(row.get("payload"), dict) or "grounding_excerpt" not in row:
-        return None
-    return {"excerpt": row.get("grounding_excerpt") or "", "xbrl_metrics": row.get("xbrl_grounding"),
-            "statement_source": row.get("statement_source")}
 
 
 def check_provenance(report: Dict[str, Any], filings: List[Dict[str, Any]]) -> None:
@@ -60,7 +51,6 @@ async def judge_report(report: Dict[str, Any], judge_id: str = JUDGE_ID,
                        concurrency: int = DEFAULT_CONCURRENCY) -> Dict[str, Any]:
     """Return the judged report: every judgeable attempt carries a verdict, plus the readout."""
     from evals import runner
-    from evals.schema import GoldenFiling
 
     filings = load_cohort()
     # Every verdict below is produced now, by this judge, from the retained inputs; nothing a
@@ -75,22 +65,8 @@ async def judge_report(report: Dict[str, Any], judge_id: str = JUDGE_ID,
             f"Measurement provenance refused before judging ({type(exc).__name__}); no judge calls made")
         return {**report, "phase": "judged", "results": results, "summary": runner._summarize(results),
                 "harness": harness, "judged_at": iso_z(utcnow()), "readout": readout}
-    cohort = {(f["ticker"], f["filing_type"], f["accession_number"]): GoldenFiling.from_dict(f) for f in filings}
-    semaphore = asyncio.Semaphore(max(1, concurrency))
-
-    async def one(row: Dict[str, Any]) -> None:
-        filing = cohort.get((row.get("ticker"), row.get("filing_type"), row.get("accession_number")))
-        grounding = retained_grounding(row)
-        if filing is None or grounding is None:
-            return
-        async with semaphore:
-            row["judge"] = await runner._maybe_judge(judge_id, row["payload"], filing, grounding)
-        judge = row["judge"] or {}
-        print(f"  {row['ticker']} {row['filing_type']} run {row.get('run')}: {judge.get('verdict')} "
-              f"dims={judge.get('dimensions')} lengths={judge.get('input_lengths')}"
-              f"{' error=' + str(judge.get('error')) if judge.get('error') else ''}")
-
-    await asyncio.gather(*(one(row) for row in results))
+    harness["judge_contract_version"] = JUDGE_CONTRACT_VERSION
+    await judge_rows(results, filings, judge_id, concurrency)
     try:
         readout = build_readout(results, filings, harness, run_url=report.get("run_url"))
     except (ValueError, TypeError, KeyError) as exc:

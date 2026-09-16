@@ -201,7 +201,9 @@ async def _maybe_judge(
     if not judge_model or not isinstance(payload, dict):
         return None
     # Measure BEFORE truncation; candidate prompt serialization remains unchanged.
-    from evals.judge import _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP
+    from evals.judge import (
+        JUDGE_CONTRACT_VERSION, _JUDGE_EXCERPT_CHAR_CAP, _JUDGE_SUMMARY_CHAR_CAP, _JUDGE_XBRL_CHAR_CAP,
+    )
     xbrl_text = json.dumps(_model_metrics(grounding["xbrl_metrics"]), default=str) if grounding["xbrl_metrics"] else ""
     judge_excerpt = grounding["excerpt"] or ""
     statement_evidence = grounding.get("statement_source")
@@ -217,7 +219,7 @@ async def _maybe_judge(
             or lengths["xbrl_chars"] > _JUDGE_XBRL_CHAR_CAP):
         return {"passed": False, "verdict": "FAIL", "mean_dimension": None, "gate_failures": [],
                 "dimensions": {}, "error": "Judge input exceeds full-coverage bounds",
-                "input_complete": False, "input_lengths": lengths}
+                "input_complete": False, "input_lengths": lengths, "contract_version": JUDGE_CONTRACT_VERSION}
     verdict = await judge_summary(
         payload, filing.company_name, filing.filing_type,
         judge_excerpt, xbrl_text, model_id=judge_model,
@@ -225,7 +227,7 @@ async def _maybe_judge(
     return {"passed": verdict.passed, "verdict": verdict.verdict,
             "mean_dimension": verdict.mean_dimension, "gate_failures": verdict.gate_failures,
             "dimensions": verdict.dimensions, "error": verdict.error,
-            "input_complete": True, "input_lengths": lengths}
+            "input_complete": True, "input_lengths": lengths, "contract_version": JUDGE_CONTRACT_VERSION}
 
 
 TRANSIENT_RETRIES = 1  # re-generate an attempt once when its failure was a transient provider fault
