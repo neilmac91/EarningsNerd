@@ -56,6 +56,19 @@ def identity(row: Dict[str, Any]) -> Identity:
     return (row.get("candidate"), row.get("ticker"), row.get("filing_type"), row.get("accession_number"), row.get("run"))
 
 
+def resolve_filing(row: Dict[str, Any], filings: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The one golden filing an attempt names, or None when none or several match.
+
+    The runner's own rows carry ticker, filing_type and run but a None accession (only the weekly
+    readout stamps the cohort accession onto its rows), so identity is ticker + form, and the accession
+    must agree when the row carries one. Several golden entries for one ticker + form make the row
+    ambiguous, which is refused rather than guessed."""
+    matches = [f for f in filings
+               if f["ticker"] == row.get("ticker") and f["filing_type"] == row.get("filing_type")
+               and row.get("accession_number") in (None, f["accession_number"])]
+    return matches[0] if len(matches) == 1 else None
+
+
 def retained_grounding(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """The judge inputs an attempt retained, in the shape ``runner._maybe_judge`` reads; None when absent."""
     if row.get("error") or not isinstance(row.get("payload"), dict) or "grounding_excerpt" not in row:
@@ -72,14 +85,14 @@ def check_provenance(report: Dict[str, Any], filings: List[Dict[str, Any]]) -> N
     harness = report.get("harness") or {}
     if harness.get("golden_set_sha256") != hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest():
         raise ValueError("Golden-set provenance differs from this checkout")
-    known = {(f["ticker"], f["filing_type"], f["accession_number"]) for f in filings}
-    identities = [identity(r) for r in report.get("results", [])]
+    rows = report.get("results", [])
+    identities = [identity(r) for r in rows]
     if not identities:
         raise ValueError("Report carries no attempts")
     if len(set(identities)) != len(identities):
         raise ValueError("Duplicate attempt identity")
-    if any(i[1:4] not in known for i in identities):
-        raise ValueError("Foreign attempt identity")
+    if any(resolve_filing(r, filings) is None for r in rows):
+        raise ValueError("Foreign or ambiguous attempt identity")
 
 
 async def judge_rows(results: List[Dict[str, Any]], filings: Iterable[Dict[str, Any]], judge_id: str,
@@ -90,14 +103,15 @@ async def judge_rows(results: List[Dict[str, Any]], filings: Iterable[Dict[str, 
     from evals import runner
     from evals.schema import GoldenFiling
 
-    cohort = {(f["ticker"], f["filing_type"], f["accession_number"]): GoldenFiling.from_dict(f) for f in filings}
+    filings = list(filings)
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def one(row: Dict[str, Any]) -> None:
-        filing = cohort.get((row.get("ticker"), row.get("filing_type"), row.get("accession_number")))
+        resolved = resolve_filing(row, filings)
         grounding = retained_grounding(row)
-        if filing is None or grounding is None:
+        if resolved is None or grounding is None:
             return
+        filing = GoldenFiling.from_dict(resolved)
         async with semaphore:
             row["judge"] = await runner._maybe_judge(judge_id, row["payload"], filing, grounding)
         judge = row["judge"] or {}
