@@ -398,11 +398,16 @@ the pregenerate job image, which carries the generator credential and the databa
 
 ```bash
 gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=scripts/refresh_stale_summaries.py            # dry run: breakdown by stamp and form, no model call
-gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=scripts/refresh_stale_summaries.py,--execute,--limit,30,--max-seconds,1200
+gcloud run jobs execute earningsnerd-pregenerate --region us-west1 --args=scripts/refresh_stale_summaries.py,--execute,--limit,15,--max-seconds,1200
 ```
 
 Every executed generation is paid provider spend; repeat bounded executions until `stale_total`
-is zero. A `SUMMARY_PROMPT_VERSION` bump (for example `summary-2026-09-n`, the armed evidence
+is zero. The script refuses `--limit` above 15 unless `--unbounded-batch` is passed, which is
+reserved for after the job's memory has been raised: on 2026-09-16 a 48-row
+execution was killed by the container's out-of-memory event after 22 sequential regenerations
+(memory grows across generations in one process); Cloud Run's task retry then finished the rest,
+and the killed attempt's ledger row stays `running` by design. Results land as a JSON line in the
+job's logs (`jsonPayload` with `stale_total`) and as counters in `earningsnerd_job_runs`. A `SUMMARY_PROMPT_VERSION` bump (for example `summary-2026-09-n`, the armed evidence
 auto-snap) makes every earlier row stale and is what schedules a drain; nothing regenerates on
 read.
 

@@ -103,6 +103,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
+- [`ops-bound-drain-batches-to-job-memory.md`](./ops-bound-drain-batches-to-job-memory.md) — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - [`ops-founder-runs-claude-in-the-mac-app.md`](./ops-founder-runs-claude-in-the-mac-app.md) — Address founder instructions to the Claude desktop app, and give `claude -p` its own login
 - [`ops-keep-worktrees-out-of-icloud-documents.md`](./ops-keep-worktrees-out-of-icloud-documents.md) — Keep worktrees, virtual environments and bytecode caches out of iCloud-synced Documents
 - [`ops-fix-the-exact-cited-site.md`](./ops-fix-the-exact-cited-site.md) — Fix and test the plan's exact cited site, not an adjacent manifestation
