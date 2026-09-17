@@ -92,6 +92,8 @@ def test_table_commentary_is_anchored_on_its_metric_not_its_framing():
 def test_measure_names_are_not_clauses():
     assert CONNECTIVE_RE.search("Net income attributable to shareowners was $3,924 million") is None
     assert CONNECTIVE_RE.search("Earnings attributable to controlling interests fell") is None
+    assert CONNECTIVE_RE.search("Core FFO attributable to common stockholders/unitholders of $5.56B") is None
+    assert CONNECTIVE_RE.search("Net income attributable to NEE of $3,144M") is None
     assert CONNECTIVE_RE.search("The decline was attributable to lower volumes") is not None
 
 
@@ -125,3 +127,50 @@ def test_armed_drop_is_invisible_to_the_rendered_markdown():
     assert "higher yields on cash balances" not in md
     assert "concentrate sales volume growth" in md  # the stated driver survives
     assert "24,391 million from 24,611 million" in md  # the movement survives
+
+
+def test_a_heading_or_table_label_names_the_subject_of_the_sentence_after_it():
+    """MD&A puts the subject in a heading and the cause in the next sentence: the short heading is not a
+    candidate sentence but it anchors the one that follows."""
+    filing = ("Research and Development\nThe growth in R&D expense during 2025 compared to 2024 was primarily "
+              "driven by increases in headcount-related expenses and infrastructure-related costs.\nOther income rose.")
+    sections = {"results_that_matter": {"table": [{"metric": "Research and development", "commentary":
+                "R&D expense grew 14%, primarily driven by increases in headcount-related expenses and infrastructure-related costs."}]}}
+    audit = gate_attributions(sections, filing, armed=True)
+    assert audit["unverified"] == [] and audit["verified"] == 1
+    assert "headcount-related" in sections["results_that_matter"]["table"][0]["commentary"]
+
+
+def test_segment_commentary_is_anchored_on_its_own_sentence_not_the_segment_label():
+    filing = ("More Personal Computing. Xbox content and services revenue increased 16% driven by the impact of "
+              "the Activision Blizzard acquisition and Xbox Game Pass. Xbox hardware revenue decreased 25% driven "
+              "by lower volume of consoles sold.")
+    sections = {"segments": [{"segment": "More Personal Computing", "commentary":
+                "Gaming revenue rose, driven by Xbox content and services, which increased 16% on the impact of the "
+                "Activision Blizzard acquisition and Xbox Game Pass."}]}
+    audit = gate_attributions(sections, filing, armed=True)
+    assert audit["unverified"] == []
+    assert "Activision Blizzard" in sections["segments"][0]["commentary"]
+
+
+def test_a_stated_driver_followed_by_a_new_predicate_is_not_diluted_by_it():
+    """", and stated that …" starts a new predicate; the driver clause ends at that comma."""
+    filing = ("Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of "
+              "iPhone and Services. The weakness in foreign currencies relative to the U.S. dollar had an "
+              "unfavorable year-over-year impact on Americas net sales during 2025.")
+    sections = {"segments": [{"segment": "Americas", "commentary":
+                "Americas net sales increased, which management attributed primarily to higher net sales of iPhone "
+                "and Services, and stated that weakness in foreign currencies relative to the U.S. dollar was unfavorable."}]}
+    audit = gate_attributions(sections, filing, armed=True)
+    assert audit["unverified"] == []
+    assert "iPhone" in sections["segments"][0]["commentary"]
+
+
+def test_a_table_label_before_a_split_sentence_still_anchors_it():
+    filing = ("Total revenues\nincreased $736 million, or 5%, in the first quarter of 2026, reflecting an operational "
+              "increase of $304 million, or 2%, as well as a favorable impact of foreign exchange of $431 million, or 3%.")
+    sections = {"the_print": {"headline": "", "key_takeaways": [
+        "Revenues grew 5%, which management attributes to an operational increase of 2% plus a favorable foreign exchange impact of 3%."],
+        "what_changed": ""}}
+    audit = gate_attributions(sections, filing, armed=True)
+    assert audit["unverified"] == []
