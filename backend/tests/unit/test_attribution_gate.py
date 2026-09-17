@@ -244,3 +244,28 @@ def test_candidates_carry_the_source_passages_a_verifier_needs_ignoring_the_anch
     assert checked and candidates, "the lexical decision still misses it — that is the point"
     assert any("27% increase in server ASPs" in passage for passage in candidates[0].evidence)
     assert len(candidates[0].evidence) <= 3
+
+
+def test_evidence_prefers_the_sentence_that_states_the_cause_over_earlier_boilerplate():
+    """The failure this ranking exists to stop (measured 2026-09-17): a long clause's words recur in
+    definitions and risk factors that appear EARLIER in the filing, so ranking ties by position handed
+    the verifier boilerplate and the MD&A sentence never arrived. Three of six wrong drops on that run
+    were passages that simply were not supplied."""
+    boilerplate = " ".join(
+        f"Consumer transaction revenue and consumer Trading Volume are discussed in note {i} of this "
+        f"report, where transaction revenue and Trading Volume definitions are set out at length."
+        for i in range(8)
+    )
+    filing = (
+        "Trading Volume represents the product of the quantity of assets transacted and the trade price. "
+        + boilerplate +
+        " Transaction revenue decreased for the three months ended March 31, 2026, primarily reflecting a "
+        "decrease in consumer transaction revenue driven by a 54% decrease in consumer Trading Volume."
+    )
+    sections = {"the_print": {"headline": "", "key_takeaways": [], "what_changed":
+                "Total revenue fell 30.5%. The filing attributes the transaction revenue decline primarily "
+                "to a decrease in consumer transaction revenue driven by a 54% decrease in consumer Trading Volume."}}
+    _checked, candidates = find_attributions(sections, filing)
+    assert candidates, "the lexical decision still flags it — that is why a verifier is asked"
+    assert any("54% decrease in consumer Trading Volume" in p for p in candidates[0].evidence), \
+        "the sentence that states the driver must reach the verifier, not the boilerplate that precedes it"
