@@ -10,6 +10,10 @@ candidate exercises the current openai_service pipeline end-to-end.
 ADOPTION RULE (roadmap S3/S1): only promote a candidate to default if it beats the baseline on
 schema-validity AND numeric accuracy AND coverage with no regression — at acceptable latency/cost.
 """
+# MEASUREMENT BRANCH ONLY (never merged): this comment makes the eval-baseline job's AI-relevant
+# change detector fire, so the run with AI_ATTRIBUTION_VERIFY on actually generates and records
+# verifier verdicts. Without a touched backend/app|evals|prompts path the whole job is skipped.
+
 from __future__ import annotations
 
 import argparse
