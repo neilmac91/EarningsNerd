@@ -451,6 +451,11 @@ async def _attempt(
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
                     "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"],
                     "raw_sections": (summary.get("raw_summary") or {}).get("sections"),
+                    # The attribution gate's own record for this attempt: which causal clauses it
+                    # flagged, what the verifier decided about each and why it could not decide.
+                    # Retained so the verifier can be calibrated from an ordinary eval artifact
+                    # against the strong judge's G4 findings, the way citation evidence already is.
+                    "attribution_audit": (summary.get("raw_summary") or {}).get("attribution_audit"),
                     "sixk_class": (summary.get("raw_summary") or {}).get("sixk_class"),
                     "statement_source": grounding.get("statement_source"),
                     "grounding_excerpt": grounding["excerpt"],
