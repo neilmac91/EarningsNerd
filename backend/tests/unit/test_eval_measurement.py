@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parents[3]
 
 @pytest.mark.asyncio
 async def test_runner_measures_actual_raw_prose_and_retains_replay_input(monkeypatch):
-    raw = {"sections": {"value_drivers": {"capital_allocation": "A fabricated $9.7B return."}}}
+    raw = {"sections": {"value_drivers": {"capital_allocation": "A fabricated $9.7B return."}},
+           "attribution_audit": {"checked": 2, "verified": 1, "unverified": [{"slot": "the_print.what_changed"}],
+                                 "dropped": [], "armed": False, "decider": "none"}}
     summary = {"business_overview": "Overview without that field.", "raw_summary": raw}
     monkeypatch.setattr(openai_service, "summarize_filing", AsyncMock(return_value=summary))
     grounding = {"filing_text": "raw", "excerpt": "Revenue $2.2 billion", "xbrl_metrics": {},
@@ -31,6 +33,8 @@ async def test_runner_measures_actual_raw_prose_and_retains_replay_input(monkeyp
     assert result["error"] is None
     assert result["figure_trace"] == {"status": "measured", "reason": "", "count": 1, "figures": ["9.7b"]}
     assert result["raw_sections"] == raw["sections"] and result["grounding_excerpt"] == grounding["excerpt"]
+    # The attribution audit rides along so the verifier can be calibrated from an ordinary artifact.
+    assert result["attribution_audit"] == raw.get("attribution_audit")
     assert "9.7" not in result["payload"]["executive_summary"]
     assert result["source_provenance"] == grounding["source_provenance"]
     assert "source_provenance" not in openai_service.summarize_filing.call_args.kwargs
