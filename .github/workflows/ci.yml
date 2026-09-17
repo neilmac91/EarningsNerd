@@ -350,7 +350,10 @@ jobs:
           AI_FIGURE_TRACE_GATE: 'false'
           AI_FORWARD_QUOTE_GATE: 'false'
           AI_ATTRIBUTION_GATE: 'false'
-          AI_ATTRIBUTION_VERIFY: 'false'
+          # MEASUREMENT BRANCH ONLY (never merged): record the verifier's verdicts on every attempt
+          # so its precision can be compared with the strong judge's G4 findings. The gate above
+          # stays off, so this run's summaries are byte-identical to an ordinary run.
+          AI_ATTRIBUTION_VERIFY: 'true'
           USE_STRUCTURED_OUTPUT: 'false'
           USE_STATEMENT_FINANCIALS: 'true'
           STREAM_SECTION_REVEAL: 'true'
