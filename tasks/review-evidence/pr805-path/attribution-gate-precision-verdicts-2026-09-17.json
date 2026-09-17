@@ -1,0 +1,274 @@
+{
+  "o1-AMZN-10-K-r1-0": {
+    "clause": "Anthropic-related adjustments and reclassification adjustments",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "the_print.key_takeaways[1]",
+    "verdict": "stated",
+    "why": "source: 'The reclassification adjustments ... is primarily from the portions of our convertible notes investments in Anthropic'"
+  },
+  "o1-ASML-20-F-r1-0": {
+    "clause": "a EUR 5,450.0 million increase in share repurchases",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "the_print.key_takeaways[3]",
+    "verdict": "not_stated",
+    "why": "no sentence attributes the movement to the repurchase increase"
+  },
+  "o1-ASML-6-K-r1-0": {
+    "clause": "higher than expected Installed Base Management sales",
+    "gate_coverage": 0.4,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "the_print.what_changed",
+    "verdict": "stated",
+    "why": "source: 'driven primarily by higher than expected Installed Base Management sales'"
+  },
+  "o1-COIN-10-Q-r0-0": {
+    "clause": "the net loss against lower total revenue",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "results_that_matter.table[7].commentary",
+    "verdict": "not_stated",
+    "why": "no attribution; two figures moving together"
+  },
+  "o1-F-10-Q-r0-0": {
+    "clause": "the settlement of the $2.3 billion 0.00% Convertible Senior Notes",
+    "gate_coverage": 0.25,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+    "verdict": "stated",
+    "why": "source ties cash to 'after the repayment of our 0.00% Convertible Senior Notes' and dates the settlement"
+  },
+  "o1-F-10-Q-r1-0": {
+    "clause": "the March 16, 2026 settlement of the $2.3 billion 0.00% Convertible Senior Notes",
+    "gate_coverage": 0.2,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+    "verdict": "stated",
+    "why": "same"
+  },
+  "o1-FIGS-10-Q-r0-0": {
+    "clause": "higher net income and a higher diluted share count",
+    "gate_coverage": 0.25,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "results_that_matter.table[5].commentary",
+    "verdict": "not_stated",
+    "why": "no EPS driver in source; a higher diluted share count reduces EPS, so the clause is also backwards"
+  },
+  "o1-INTC-10-Q-r0-0": {
+    "clause": "higher demand for Eye Q products",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "segments[3].commentary",
+    "verdict": "not_stated",
+    "why": "source lists 'restructuring and other charges;' as an item; no attribution of the loss movement to it in the excerpt"
+  },
+  "o1-INTC-10-Q-r1-0": {
+    "clause": "$696 million of higher server revenue due to a 27% increase in server ASPs",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "segments[2].commentary",
+    "verdict": "not_stated",
+    "why": "same"
+  },
+  "o1-INTC-10-Q-r1-1": {
+    "clause": "higher demand for Eye Q products",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "segments[3].commentary",
+    "verdict": "stated",
+    "why": "source: 'DCAI revenue increased $926 million ... primarily driven by $696 million of higher server revenue due to a 27% increase in server ASPs'"
+  },
+  "o1-JD-20-F-r0-0": {
+    "clause": "growth across all three reportable segments",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "results_that_matter.table[0].commentary",
+    "verdict": "not_stated",
+    "why": "source only defines the three segments"
+  },
+  "o1-JPM-10-K-r0-0": {
+    "clause": "a lower diluted share count of 2,781.5 million versus 2,879.0 million",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.key_takeaways[1]",
+    "verdict": "not_stated",
+    "why": "share counts reported in a table; no attribution of the EPS change to them"
+  },
+  "o1-JPM-10-K-r1-0": {
+    "clause": "a lower diluted share count",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "not_stated",
+    "why": "same"
+  },
+  "o1-JPM-10-K-r1-1": {
+    "clause": "a lower diluted share count",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.key_takeaways[1]",
+    "verdict": "not_stated",
+    "why": "same"
+  },
+  "o1-JPM-10-K-r1-2": {
+    "clause": "a lower diluted share count",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "results_that_matter.table[6].commentary",
+    "verdict": "not_stated",
+    "why": "same"
+  },
+  "o1-PDD-6-K-r0-0": {
+    "clause": "the increase in revenues from transaction services and the operating expense increase primarily to the increase in sales and marketing expenses",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "stated",
+    "why": "both halves verbatim: 'was primarily due to the increase in revenues from transaction services' and '...sales and marketing expenses'"
+  },
+  "o1-PDD-6-K-r1-0": {
+    "clause": "cash and cash equivalents and short-term investments",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "balance_sheet_liquidity.working_capital",
+    "verdict": "not_stated",
+    "why": "source reports the balances only; no attribution of the current-asset change"
+  },
+  "o1-PFE-10-Q-r0-0": {
+    "clause": "a $100 million decrease in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements",
+    "gate_coverage": 0.2,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "results_that_matter.table[5].commentary",
+    "verdict": "stated",
+    "why": "verbatim bullet under a causal lead-in"
+  },
+  "o1-PFE-10-Q-r1-0": {
+    "clause": "a decrease of $100 million in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements",
+    "gate_coverage": 0.2,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "results_that_matter.table[6].commentary",
+    "verdict": "stated",
+    "why": "same bullet"
+  },
+  "o2-ASML-20-F-r1-0": {
+    "clause": "higher average wages and salaries per FTE and continued investments in the Community Partnership Program",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "results_that_matter.table[2].commentary",
+    "verdict": "stated",
+    "why": "sentence split across lines: 'higher average wages and salaries per FTE, and continued investments'"
+  },
+  "o2-ASML-6-K-r0-0": {
+    "clause": "higher than expected Installed Base Management sales",
+    "gate_coverage": 0.2,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "the_print.what_changed",
+    "verdict": "stated",
+    "why": "same ASML sentence as o1"
+  },
+  "o2-BRK.B-10-K-r1-0": {
+    "clause": "the lower net earnings attributable to Berkshire shareholders on essentially flat total revenues",
+    "gate_coverage": 0.33,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "results_that_matter.table[5].commentary",
+    "verdict": "not_stated",
+    "why": "only the table label matches; no attribution"
+  },
+  "o2-INTC-10-Q-r0-0": {
+    "clause": "$696 million of higher server revenue due to a 27% increase in server ASPs",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "segments[2].commentary",
+    "verdict": "stated",
+    "why": "verbatim DCAI sentence"
+  },
+  "o2-INTC-10-Q-r0-1": {
+    "clause": "higher demand for Eye Q products",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "segments[3].commentary",
+    "verdict": "stated",
+    "why": "verbatim Mobileye sentence"
+  },
+  "o2-INTC-10-Q-r1-0": {
+    "clause": "$696 million of higher server revenue due to a 27% increase in server ASPs",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "segments[2].commentary",
+    "verdict": "stated",
+    "why": "verbatim DCAI sentence"
+  },
+  "o2-INTC-10-Q-r1-1": {
+    "clause": "higher demand for Eye Q products",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "segments[3].commentary",
+    "verdict": "stated",
+    "why": "verbatim Mobileye sentence"
+  },
+  "o2-JD-20-F-r1-0": {
+    "clause": "growth across all three reportable segments",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "results_that_matter.table[0].commentary",
+    "verdict": "not_stated",
+    "why": "source only defines the three segments"
+  },
+  "o2-NVDA-10-Q-r1-0": {
+    "clause": "data center products for accelerated computing and AI solutions",
+    "gate_coverage": 0.17,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "the_print.what_changed",
+    "verdict": "stated",
+    "why": "verbatim: 'Revenue growth in the first quarter was driven by data center products for accelerated computing and AI solutions.'"
+  },
+  "o2-PDD-20-F-r0-0": {
+    "clause": "interrelated factors including a stronger brand and market position from branding campaigns, more active merchants offering a greater breadth of products",
+    "gate_coverage": 0.21,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "stated",
+    "why": "verbatim: 'primarily attributable to interrelated factors, including our stronger brand and market position'"
+  },
+  "o2-PFE-10-Q-r0-0": {
+    "clause": "a $100 million decrease in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements",
+    "gate_coverage": 0.2,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "results_that_matter.table[6].commentary",
+    "verdict": "stated",
+    "why": "verbatim bullet"
+  },
+  "o2-SE-20-F-r0-0": {
+    "clause": "growth across its businesses, including e-commerce service revenue growth driven by GMV growth and an increase in the rate of monetization on GMV, digital finan",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "not_stated",
+    "why": "drivers stated for e-commerce; the summary attributes the consolidated increase"
+  },
+  "o2-SE-20-F-r1-0": {
+    "clause": "growth across e-commerce, digital financial services and digital entertainment",
+    "gate_coverage": 0.0,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "not_stated",
+    "why": "source only names the three segments"
+  },
+  "o2-SE-6-K-r0-0": {
+    "clause": "growth of GMV and improved monetization at Shopee, growth of the credit business at Monee",
+    "gate_coverage": 0.14,
+    "judge_flagged_g4_on_this_attempt": true,
+    "slot": "the_print.what_changed",
+    "verdict": "not_stated",
+    "why": "drivers stated per segment; the summary attributes the consolidated increase to the bundle"
+  },
+  "o2-TSM-20-F-r0-0": {
+    "clause": "higher interest income of TWD 18,526 million compared to 2024",
+    "gate_coverage": 0.67,
+    "judge_flagged_g4_on_this_attempt": false,
+    "slot": "earnings_quality.operating_vs_one_time",
+    "verdict": "stated",
+    "why": "source: 'higher interest income of NT$18,526 million compared to 2024' (summary relabels NT$ as TWD)"
+  }
+}

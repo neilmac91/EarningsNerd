@@ -1,5 +1,12 @@
 # Code-owned attribution guard — plan and offline calibration, 2026-09-17
 
+> **Outcome (2026-09-17): the gate shipped advisory and is not armed.** Its drop decision was measured
+> at 47% precision on all 34 clauses it flags across the two judged `o` artifacts
+> ([record](review-evidence/pr805-path/attribution-gate-precision-2026-09-17.md)); no coverage
+> threshold separates right from wrong, and it is right 75% of the time only where the strong judge
+> also failed the attempt. The calibration tables below are the path that reached that conclusion and
+> are kept as the reasoning, not as the current numbers.
+
 The next slice after the `summary-2026-09-o` release
 ([acceptance record](review-evidence/pr805-path/acceptance-candidate-o-2026-09-16.md)). The prompt
 condition halved unsupported causes; the remaining 19 of 70 attempts carry a model-authored "driven

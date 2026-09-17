@@ -126,3 +126,5 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`arch-code-owned-render-eligibility.md`](./arch-code-owned-render-eligibility.md) — Keep application-owned render eligibility separate from model payloads and generation stamps.
 - [evals-test-the-row-shape-the-producer-writes.md](evals-test-the-row-shape-the-producer-writes.md) — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
+- [evals-accept-a-prompt-change-on-two-runs-not-one.md](evals-accept-a-prompt-change-on-two-runs-not-one.md) — one generated run sets a direction, never an effect size; report the range across two
+- [ops-the-subscription-judge-has-a-usage-limit.md](ops-the-subscription-judge-has-a-usage-limit.md) — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
