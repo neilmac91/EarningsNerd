@@ -1070,6 +1070,25 @@ controls** section: AAPL, AMZN, BA, JPM, MELI, NVDA, PFE, PLTR, RIVN). Exit 0 on
 judgeable attempt has a complete verdict; 2 when provenance is refused before any call (golden set
 differs from the checkout, duplicate or foreign attempt identity, no attempts).
 
+**Before a long judge run, probe the subscription.** The judge is the founder's Claude subscription
+and it has a usage limit. When it is reached every call returns exit 1 with an empty stderr and the
+reason only in the JSON body (`result`: "You've reached your Fable limit"), so a whole 70-attempt run
+can come back with zero usable verdicts. Probe first and check `is_error` is false:
+
+```bash
+claude -p --model claude-fable-5-1 --output-format json --tools "" --strict-mcp-config --no-session-persistence --system-prompt "Answer in one word." "Reply with exactly: OK"
+```
+
+The retained artifact survives an exhausted subscription: judge it again once the limit resets, and
+never swap in a different judge model to get past it (verdicts from two judges are not comparable).
+Quote denominators from `judged_summary.judged`, not the attempt count.
+
+**Two runs, not one.** Quote a prompt change's effect from at least two independent generated runs per
+configuration and report the range. The `o`-versus-`n` comparison of 2026-09-16/17 showed a candidate
+run-to-run spread (54% and 66% of attempts judged negative) almost as wide as its gap to the control,
+so a single run sets a direction but does not size an effect
+(`lessons/evals-accept-a-prompt-change-on-two-runs-not-one.md`).
+
 **Judge contract version 2** (`evals.judge.JUDGE_CONTRACT_VERSION`, `JUDGE_GATES`) adds two gates to
 G2/G3: **G4 unsupported_cause** (a driver or attribution the source does not state; co-movement is not
 cause) and **G5 basis_mismatch** (measure, scope, period, accounting or tax basis, unit or the number's
