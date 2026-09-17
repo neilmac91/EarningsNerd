@@ -105,53 +105,16 @@ REPORTED_METRIC_LABEL = (
 )
 
 
-# One source-identity condition for every model-authored financial explanation, including claims
-# outside the P&L/earnings fields. Primary and recovery deliver it once at their general evidence
-# boundary; the two field forms below apply it to a slot without repeating the global condition.
-# Corrected 2026-09-16 from the rejected #805 wording (tasks/pr805-assessment-2026-09-16.md): signed
-# figures support a movement, never a cause; a cause needs the filing's own statement for that line.
-FINANCIAL_EXPLANATION_SUPPORT = (
-    "Use only figures and explanations supported by the provided filing excerpts or XBRL data. "
-    "Preserve the source's named measure, entity/component scope, period, accounting/tax basis, "
-    "currency/unit and the number's role. A balance, change, ratio/rate and component are not "
-    "interchangeable. Signed figures support a movement's direction and size, never its cause: state "
-    "a cause, driver or attribution only when the filing itself states it for that same line, measure "
-    "and period; two figures moving together is not a cause. Otherwise retain the supported facts "
-    "without the unsupported conclusion."
-)
-FINANCIAL_DRIVER = (
-    "Explain the movement or significance on that same supported basis; otherwise state the "
-    "supported movement alone without inventing a cause or comparator. An evidence span must "
-    "substantiate this explanation, not merely mention a nearby figure. Example (illustrative "
-    "only, not filing data): revenue 100 versus 80 supports revenue increased 25%; a segment's "
-    "40% growth does not establish prior company growth. With only those totals, report the "
-    "25% movement without an acceleration or causal claim."
-)
-# Narrowed 2026-09-16: reported operating-to-pretax and financing relationships are code-owned
-# (summary-2026-09-i/l), so this slot describes disclosed items and never computes a total.
-EARNINGS_RECONCILIATION = (
-    "Describe reported earnings and the disclosed unusual items on that same supported basis, each "
-    "with the subtotal that includes it and its sign as the filing states them. State an adjusted, "
-    "core or ex-item result only when the filing defines it and reports that total; never compute "
-    "one, remove an item from a subtotal that does not include it, drop a tax effect, or mix current "
-    "items with prior-period changes. Otherwise describe the items without an adjusted total or a "
-    "core-improved conclusion. Example (illustrative only, not filing data): operating profit 4 "
-    "includes gain 9; the filing defines core profit 3 as excluding pension 1 only. Report core "
-    "profit 3 as the filing defines it, note that it still includes gain 9, and do not compute "
-    "operating profit excluding the gain."
-)
-
-
 class PLMetricRow(_V2Base):
     """One row of the §2 P&L table. Values are model-emitted; the renderer computes the Change cell
     from current/prior via metric_delta_service (ppts for margins) — the model's own `change` text is
-    a fallback only. `commentary` is a supported interpretation or movement."""
+    a fallback only. `commentary` is the one-line driver."""
 
     metric: str = Field(default="", description=REPORTED_METRIC_LABEL)
     current_period: str = ""
     prior_period: str = ""
     change: str = ""
-    commentary: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
+    commentary: str = ""
     # T4: a verbatim filing excerpt backing the Investor-Takeaway (`commentary`), text-verified at read
     # time into a Trace-to-Source chip. "" when the model has no line to quote for the driver.
     supporting_evidence: str = ""
@@ -210,11 +173,11 @@ class FootnoteItem(_V2Base):
 
 class ThePrint(_V2Base):
     """§1 — the reaction-note lead. Absorbs Key Takeaways; echoes ≤3 headline figures by reference,
-    each with a supported interpretation; states what this filing changes."""
+    each with driver + so-what; states what this filing changes."""
 
-    headline: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
-    key_takeaways: List[str] = Field(default_factory=list, description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
-    what_changed: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + FINANCIAL_DRIVER)
+    headline: str = ""
+    key_takeaways: List[str] = Field(default_factory=list)
+    what_changed: str = ""
     tone: str = ""
     source_section_ref: str = ""
 
@@ -228,11 +191,11 @@ class ResultsThatMatter(_V2Base):
 
 
 class EarningsQuality(_V2Base):
-    """§3 — the differentiator: supported reported/adjusted earnings description, the NI-vs-CFO
+    """§3 — the differentiator: operating-vs-one-time bridge (adjusted vs reported), the NI-vs-CFO
     accrual read + FCF/conversion, and a red-flag scan. `operating_vs_one_time` + `red_flags` are
     model-extracted; `cash_conversion` is machine-authored from XBRL (T5.1)."""
 
-    operating_vs_one_time: str = Field(default="", description=FINANCIAL_EXPLANATION_SUPPORT + " " + EARNINGS_RECONCILIATION)
+    operating_vs_one_time: str = ""
     # Machine-authored from standardized XBRL by the pipeline's deterministic filler (the NI-vs-CFO
     # cash-conversion ratio + free cash flow) — NOT model-emitted. Declared here so the shape SSOT
     # stays complete; the v2 render builder reads it. Suppressed for financial institutions.
