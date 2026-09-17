@@ -37,11 +37,12 @@ _CONNECTIVES = (
     r"driven (?:primarily |mainly |largely |principally )?by",
     r"reflecting",
     r"due (?:primarily |mainly |largely )?to",
-    r"(?<!income )(?<!loss )(?<!earnings )(?<!net )(?<!\(loss\) )attributable (?:primarily |mainly )?to",
+    r"attributable (?:primarily |mainly )?to (?!(?:common|controlling|non-?controlling|the parent|parent|shareholders|"
+    r"shareowners|stockholders|unitholders|owners|members|ordinary|holders|the company|(?-i:[A-Z])))",
     r"as a result of", r"because of", r"owing to", r"led by", r"on the back of",
     r"helped by", r"supported by", r"boosted by", r"pressured by", r"weighed (?:down )?by",
     r"benefit(?:ed|ing|s|ted) from", r"amid", r"primarily (?:from|on|reflecting)", r"thanks to",
-    r"attribut(?:es|ed|ing) (?:the [\w\s]{1,40}? )?to",
+    r"attribut(?:es|ed|ing) (?:primarily |mainly |largely )?(?:the [\w\s]{1,40}? )?to",
 )
 _LEAD_IN = r"(?:primarily |mainly |largely |principally |mostly |partly |partially |chiefly )?"
 CONNECTIVE_RE = re.compile(r"\b(" + _LEAD_IN + r"(?:" + "|".join(_CONNECTIVES) + r"))\b", re.I)
@@ -52,7 +53,10 @@ _SOURCE_CONNECTIVE_RE = re.compile(
     r"|impact of|increase[sd]? in|decrease[sd]? in|growth in|decline in|was due|were due|due primarily|as a result)\b",
     re.I,
 )
-_CLAUSE_END_RE = re.compile(r"(?:,\s*(?:partially |partly |more than )?offset|;|\.\s|\.$|\)\s*$|$)")
+_CLAUSE_END_RE = re.compile(
+    r"(?:,\s*(?:partially |partly |more than )?offset|,\s*(?:and|while|whereas|but|which|with)\s|;|\.\s|\.$|\)\s*$|$)"
+)
+
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
 _WORD_RE = re.compile(r"[a-z][a-z\-]{2,}")
 _STEM_RE = re.compile(r"(?:ings?|ers?|es|s|ed|ly)$")
@@ -66,6 +70,9 @@ others across during within between after before while more less most least much
 # Framing words a summary uses around a clause that are not the subject of the movement.
 _FRAMING = frozenset({"management", "company", "filing", "firm", "attribut", "report", "said", "note", "state", "mda"})
 _MIN_SOURCE_SENTENCE = 20
+# The segments filler prefixes the model's commentary with its machine margin ("42% operating margin — ");
+# that prefix is not the subject of the model's sentence.
+_MACHINE_PREFIX_RE = re.compile(r"^\s*-?\d+(?:\.\d+)?%\s+operating margin\s*[—–-]\s*")
 _AUDIT_TEXT_CAP = 160
 
 # The model-authored explanation slots (path, kind). Verbatim quotes and evidence fields are exempt.
@@ -94,18 +101,24 @@ def _clauses(text: str) -> Iterator[Tuple[re.Match, str, str]]:
 
 
 def _source_index(source_text: str) -> List[Tuple[set, set, bool]]:
-    """(sentence tokens, subject pool, states a cause). Filings often name the subject in one
-    sentence and the cause in the next ("Net operating revenues increased 12%. The increase was
-    driven by …"), so the subject pool is the sentence plus its predecessor."""
+    """(window tokens, subject pool, states a cause) for each source piece.
+
+    The excerpt is not clean prose: a filing sentence arrives line-broken into several pieces, a
+    heading or table label names the subject of what follows it, and a cause stated as a lead-in to
+    a list ("decreased primarily due to:" then bullets) belongs to every bullet. So a candidate is a
+    piece with its two neighbours (the window), the subject pool reaches one piece further back, and
+    the window states a cause when any of its pieces does."""
+    pieces = [piece.strip() for piece in _SENTENCE_SPLIT_RE.split(source_text) if piece.strip()]
+    tokens = [_tokens(piece) for piece in pieces]
+    causes = [bool(_SOURCE_CONNECTIVE_RE.search(piece)) for piece in pieces]
     out: List[Tuple[set, set, bool]] = []
-    previous: set = set()
-    for piece in _SENTENCE_SPLIT_RE.split(source_text):
-        sentence = piece.strip()
-        if len(sentence) < _MIN_SOURCE_SENTENCE:
+    for i, piece in enumerate(pieces):
+        if len(piece) < _MIN_SOURCE_SENTENCE:
             continue
-        current = _tokens(sentence)
-        out.append((current, current | previous, bool(_SOURCE_CONNECTIVE_RE.search(sentence))))
-        previous = current
+        lo, hi = max(0, i - 1), min(len(pieces), i + 2)
+        window = set().union(*tokens[lo:hi])
+        pool = window | (tokens[i - 2] if i >= 2 else set())
+        out.append((window, pool, any(causes[lo:hi])))
     return out
 
 
@@ -121,9 +134,7 @@ def _verify(clause: str, subject: str, index: List[Tuple[set, set, bool]]) -> Tu
     for sentence_tokens, subject_pool, states_cause in index:
         if not states_cause or (subject_tokens and not (subject_tokens & subject_pool)):
             continue
-        coverage = len(clause_tokens & sentence_tokens) / len(clause_tokens)
-        if coverage > best:
-            best = coverage
+        best = max(best, len(clause_tokens & sentence_tokens) / len(clause_tokens))
     return best >= _threshold(len(clause_tokens)), round(best, 2)
 
 
@@ -199,7 +210,8 @@ def gate_attributions(sections: Dict[str, Any], source_text: str, armed: bool) -
         # Walk clauses right-to-left so a drop never shifts the offsets of an earlier clause.
         for match, clause, subject in reversed(list(_clauses(value))):
             checked += 1
-            verified, coverage = _verify(clause, anchor or subject, index)
+            subject = f"{anchor} {_MACHINE_PREFIX_RE.sub('', subject)}"
+            verified, coverage = _verify(clause, subject, index)
             if verified:
                 continue
             record = {"slot": slot, "connective": match.group(0), "clause": clause[:_AUDIT_TEXT_CAP], "coverage": coverage}
