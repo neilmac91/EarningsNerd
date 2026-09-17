@@ -951,11 +951,16 @@ async def stream_filing_summary(
             if attribution_audit.get("unverified"):
                 # #805 path step 4 measurement channel (count-first): causal clauses the filing does
                 # not state, emitted flag on OR off; dropped counts only when the gate is armed.
+                verification = attribution_audit.get("verification") or {}
                 logger.info(
-                    "attribution_unverified count=%d checked=%d dropped=%d flag=%s filing_id=%s sic=%s slots=%s",
+                    "attribution_unverified count=%d checked=%d dropped=%d decider=%s decided=%d "
+                    "verify_error=%s flag=%s filing_id=%s sic=%s slots=%s",
                     len(attribution_audit["unverified"]),
                     attribution_audit.get("checked", 0),
                     len(attribution_audit.get("dropped") or []),
+                    attribution_audit.get("decider", "none"),
+                    verification.get("decided", 0),
+                    verification.get("error") or "",
                     settings.AI_ATTRIBUTION_GATE,
                     filing_id,
                     company_sic or "",

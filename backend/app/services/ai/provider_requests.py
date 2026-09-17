@@ -161,7 +161,10 @@ class _ProviderRequestsMixin:
         timeout: float = ATTEMPT_SECONDS,
     ) -> str:
         budget = _budget.get()
-        recovery = operation == "section_recovery"
+        # Bounded side calls (section recovery, attribution verification) run AFTER the summary and
+        # must never consume its attempt budget: they get their own small local cap instead, so a
+        # verification can neither starve a summary retry nor be refused by one.
+        recovery = operation in ("section_recovery", "attribution_verify")
         local_attempt = 0
         last_error = None
         primary_timed_out = False

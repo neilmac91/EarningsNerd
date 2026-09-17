@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PROD_ENV_PINS = {
     "NOTABLE_FILINGS_ENABLED": "false", "AI_EVIDENCE_SNAP": "true",
     "AI_FIGURE_TRACE_GATE": "false", "AI_FORWARD_QUOTE_GATE": "false", "AI_ATTRIBUTION_GATE": "false",
+    "AI_ATTRIBUTION_VERIFY": "false",
     "USE_STRUCTURED_OUTPUT": "false", "USE_STATEMENT_FINANCIALS": "true",
     # Founder-approved W3-1 observation: keep the live service filter, not the old plan's false.
     "CALENDAR_INDEX_FILTER_ENABLED": "true", "ENABLE_FPI_FILINGS": "true",
@@ -82,7 +83,7 @@ def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path)
                    and node.targets[0].id in {"allow", "flag_defaults"}}
     assert set(pin_baseline.AI_GUARD_ENV) == {
         "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE", "AI_FORWARD_QUOTE_GATE", "AI_ATTRIBUTION_GATE",
-        "USE_STRUCTURED_OUTPUT", "USE_STATEMENT_FINANCIALS",
+        "AI_ATTRIBUTION_VERIFY", "USE_STRUCTURED_OUTPUT", "USE_STATEMENT_FINANCIALS",
     }
     assert assignments["allow"] >= PROD_ENV_PINS.keys()
     assert assignments["flag_defaults"].keys() >= PROD_ENV_PINS.keys()

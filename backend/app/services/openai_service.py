@@ -31,7 +31,8 @@ from app.services.ai.copilot_chat import (
 )
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
-from app.services.ai.attribution_gate import gate_attributions
+from app.services.ai.attribution_gate import apply_attributions, find_attributions
+from app.services.ai import attribution_verify
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
@@ -98,6 +99,10 @@ class OpenAIService(
             "structured_extraction": self.model,
             "section_recovery": (settings.AI_SECTION_RECOVERY_MODEL.strip()
                                  or settings.AI_FAST_MODEL.strip() or self.model),
+            # Attribution verification is a short yes/no read of supplied passages, so it takes the
+            # same cheap model section recovery uses; no new provider and no new credential.
+            "attribution_verify": (settings.AI_SECTION_RECOVERY_MODEL.strip()
+                                   or settings.AI_FAST_MODEL.strip() or self.model),
         }
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting
@@ -123,6 +128,42 @@ class OpenAIService(
         if task_type in self._task_models:
             return self._task_models[task_type]
         return self.get_model_for_filing(filing_type)
+
+    async def _verify_attributions(
+        self, candidates: list, filing_type_key: str,
+    ) -> tuple[Optional[Dict[int, str]], Optional[Dict[str, Any]]]:
+        """One bounded model verdict on the clauses the attribution gate flagged.
+
+        Returns ``(verdicts, note)``. ``verdicts`` is None whenever no verdict was obtained — the
+        flag is off, nothing was flagged, or the call failed — and a None verdict map is what stops
+        ``apply_attributions`` from removing anything. Every failure mode lands here: a provider
+        error, a timeout, an exhausted request budget or unparseable JSON all leave the summary
+        exactly as the model wrote it, with the reason recorded in the audit.
+        """
+        if not settings.AI_ATTRIBUTION_VERIFY or not candidates:
+            return None, None
+        judged = attribution_verify.verifiable(candidates)
+        if not judged:
+            return None, attribution_verify.audit_note(candidates, judged, {}, "no source passages")
+        try:
+            raw = await self._request_content(
+                {"model": self.get_model_for_task("attribution_verify", filing_type_key),
+                 "messages": [{"role": "system", "content": attribution_verify.VERIFY_SYSTEM_MESSAGE},
+                              {"role": "user", "content": attribution_verify.build_prompt(judged)}],
+                 "temperature": 0.0, "max_tokens": 700},
+                operation="attribution_verify", timeout=15.0,
+            )
+        except Exception as exc:  # noqa: BLE001 — never let verification fail a generation
+            logger.warning("attribution_verify_failed error=%s", type(exc).__name__)
+            return None, attribution_verify.audit_note(candidates, judged, {}, type(exc).__name__)
+        verdicts = attribution_verify.parse_verdicts(raw, judged)
+        if not verdicts:
+            return None, attribution_verify.audit_note(candidates, judged, {}, "no usable verdicts")
+        # Indices are positions in `judged`, which is a prefix-filtered view of `candidates`; map
+        # them back so a drop can never act on a clause the verifier was not shown.
+        position = {id(c): i for i, c in enumerate(candidates)}
+        mapped = {position[id(judged[i])]: verdict for i, verdict in verdicts.items()}
+        return mapped, attribution_verify.audit_note(candidates, judged, verdicts, None)
 
     def _parse_and_clean_text(
         self,
@@ -670,12 +711,22 @@ Rules:
         forward_quote_audit = gate_forward_quotes(
             sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
         )
-        # Attribution gate (#805 path, step 4): causal clauses in the model-authored explanation slots
-        # are measured against the same excerpt; dropped (clause only) when AI_ATTRIBUTION_GATE is
-        # armed. Same placement and grounding rules as the quote gate above.
-        attribution_audit = gate_attributions(
-            sections_info, filing_excerpt or "", settings.AI_ATTRIBUTION_GATE
+        # Attribution gate (#805 path, steps 4-5): causal clauses in the model-authored explanation
+        # slots are measured against the same excerpt, then judged by ONE bounded model call when
+        # AI_ATTRIBUTION_VERIFY is on, and the clause (only the clause) is removed when that verdict
+        # says the filing does not state it AND AI_ATTRIBUTION_GATE is armed. The lexical measurement
+        # alone is 47% precise, so it never deletes text by itself. Same placement and grounding
+        # rules as the quote gate above.
+        attribution_checked, attribution_candidates = find_attributions(sections_info, filing_excerpt or "")
+        attribution_verdicts, verify_note = await self._verify_attributions(
+            attribution_candidates, filing_type_key,
         )
+        attribution_audit = apply_attributions(
+            attribution_checked, attribution_candidates, attribution_verdicts,
+            settings.AI_ATTRIBUTION_GATE,
+        )
+        if attribution_audit is not None and verify_note is not None:
+            attribution_audit["verification"] = verify_note
 
         # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
         # at the model's prompt-tuning floor, so a confident REAL-sentence counterpart is

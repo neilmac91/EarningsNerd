@@ -375,6 +375,15 @@ class Settings(BaseSettings):
     # emitted; arm after the calibration in tasks/attribution-guard-plan-2026-09-17.md earns precision.
     AI_ATTRIBUTION_GATE: bool = False
 
+    # Attribution verification (the #805 path, step 5, 2026-09-17): when on, a generation whose
+    # attribution gate flagged a causal clause makes ONE extra bounded model call that decides, per
+    # clause, whether the filing states that driver. The lexical gate alone is 47% precise and may
+    # never delete text, so AI_ATTRIBUTION_GATE drops only clauses this verdict calls unstated:
+    # arming the gate without this flag drops nothing and records the refusal in the audit. Ships
+    # DEFAULT OFF — it is also the spend switch, since it adds a provider call to roughly a quarter
+    # of generations; the verdicts are recorded for calibration whether or not the gate is armed.
+    AI_ATTRIBUTION_VERIFY: bool = False
+
     # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence at
     # the model's prompt-tuning floor, so a confident REAL-sentence counterpart is computed in
     # code at generation time for the two verbatim-contracted surfaces (P&L-takeaway rows,
