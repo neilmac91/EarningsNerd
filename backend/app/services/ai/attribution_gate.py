@@ -4,9 +4,17 @@ The `summary-2026-09-o` prompt condition halved the judge's unsupported-cause fi
 is a model-authored "driven by / reflecting / due to" clause the filing never states for that line
 (tasks/attribution-guard-plan-2026-09-17.md). This module is the code owner for that residue, in the
 shape of ``forward_quote_gate``: every causal clause in an explanation slot is MEASURED against the
-excerpt the model generated from, and DROPPED — the clause only, the movement stays — when
-``AI_ATTRIBUTION_GATE`` is armed. Advisory-first: the audit persists on the row and the pipeline emits
-the greppable ``attribution_unverified`` counter whether or not the flag is on.
+excerpt the model generated from. Advisory-first: the audit persists on the row and the pipeline emits
+the greppable ``attribution_unverified`` counter whether or not a flag is on.
+
+**This lexical measurement alone never deletes text.** Its drop decision was read by hand against the
+filing for all 34 clauses it flagged across two judged runs and was right 47% of the time
+(``tasks/review-evidence/pr805-path/attribution-gate-precision-2026-09-17.md``): about half the flags
+are drivers the filing does state, reachable only through a label or an abbreviation the lexical
+anchor cannot connect to the slot. A clause is therefore removed only when a MODEL verdict says the
+filing does not state it (``attribution_verify``, ``settings.AI_ATTRIBUTION_VERIFY``) AND
+``settings.AI_ATTRIBUTION_GATE`` is armed. Arming the gate without the verifier drops nothing and
+records the refusal in the audit: the 47% measurement is encoded here, not left in a document.
 
 What counts as verified: a source sentence that (a) is about the same subject — shares a content
 token with the clause's own sentence, or with the P&L row's metric for table commentary — (b) itself
@@ -22,11 +30,16 @@ Conservative by design, mirroring figure_trace and the quote gate:
 - Malformed values (non-strings) pass untouched.
 - A drop removes ", driven by …" up to the clause end (an "offset" clause, a semicolon, or the
   sentence end) and repairs punctuation; nothing else in the slot changes.
+
+Two-phase API: ``find_attributions`` is pure and returns every candidate with the source windows a
+verifier needs; ``apply_attributions`` consumes verdicts and writes the audit. ``gate_attributions``
+composes them for callers that only measure.
 """
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from app.services.provenance_service import normalize_for_match
@@ -74,6 +87,14 @@ _MIN_SOURCE_SENTENCE = 20
 # that prefix is not the subject of the model's sentence.
 _MACHINE_PREFIX_RE = re.compile(r"^\s*-?\d+(?:\.\d+)?%\s+operating margin\s*[—–-]\s*")
 _AUDIT_TEXT_CAP = 160
+# What a verifier is shown per flagged clause: the source windows carrying the most of the clause's
+# content words, chosen WITHOUT the subject anchor the lexical decision applies. The anchor is exactly
+# what misfires, so the passage that would prove a driver stated must still reach the verifier.
+_EVIDENCE_WINDOWS = 3
+_EVIDENCE_WINDOW_CHARS = 600
+# One bounded verification call per generation: beyond this many clauses the extra ones are reported
+# unverifiable rather than silently unchecked, so a pathological summary cannot inflate the call.
+MAX_VERIFIABLE_CLAUSES = 12
 
 # The model-authored explanation slots (path, kind). Verbatim quotes and evidence fields are exempt.
 _PRINT_FIELDS = ("headline", "what_changed")
@@ -100,8 +121,39 @@ def _clauses(text: str) -> Iterator[Tuple[re.Match, str, str]]:
             yield match, clause, subject
 
 
-def _source_index(source_text: str) -> List[Tuple[set, set, bool]]:
-    """(window tokens, subject pool, states a cause) for each source piece.
+@dataclass
+class _Window:
+    """One candidate source passage: its tokens, the subjects it may speak for, and whether it states
+    a cause in the filing's own words. ``text`` is the passage as a verifier would read it."""
+
+    tokens: set
+    subject_pool: set
+    states_cause: bool
+    text: str
+
+
+@dataclass
+class Candidate:
+    """One causal clause the model wrote, with everything needed to judge and to remove it."""
+
+    slot: str
+    connective: str
+    clause: str
+    coverage: float
+    evidence: List[str] = field(default_factory=list)
+    container: Any = None
+    key: Any = None
+    value: str = ""
+    match: Any = None
+
+    def record(self) -> Dict[str, Any]:
+        """The audit shape — text capped, no container references, no source passages."""
+        return {"slot": self.slot, "connective": self.connective,
+                "clause": self.clause[:_AUDIT_TEXT_CAP], "coverage": self.coverage}
+
+
+def _source_index(source_text: str) -> List[_Window]:
+    """One window per source piece: its tokens, subject pool, whether it states a cause, and its text.
 
     The excerpt is not clean prose: a filing sentence arrives line-broken into several pieces, a
     heading or table label names the subject of what follows it, and a cause stated as a lead-in to
@@ -111,14 +163,17 @@ def _source_index(source_text: str) -> List[Tuple[set, set, bool]]:
     pieces = [piece.strip() for piece in _SENTENCE_SPLIT_RE.split(source_text) if piece.strip()]
     tokens = [_tokens(piece) for piece in pieces]
     causes = [bool(_SOURCE_CONNECTIVE_RE.search(piece)) for piece in pieces]
-    out: List[Tuple[set, set, bool]] = []
+    out: List[_Window] = []
     for i, piece in enumerate(pieces):
         if len(piece) < _MIN_SOURCE_SENTENCE:
             continue
         lo, hi = max(0, i - 1), min(len(pieces), i + 2)
-        window = set().union(*tokens[lo:hi])
-        pool = window | (tokens[i - 2] if i >= 2 else set())
-        out.append((window, pool, any(causes[lo:hi])))
+        out.append(_Window(
+            tokens=set().union(*tokens[lo:hi]),
+            subject_pool=set().union(*tokens[lo:hi]) | (tokens[i - 2] if i >= 2 else set()),
+            states_cause=any(causes[lo:hi]),
+            text=" ".join(pieces[lo:hi])[:_EVIDENCE_WINDOW_CHARS],
+        ))
     return out
 
 
@@ -126,16 +181,37 @@ def _threshold(count: int) -> float:
     return 0.5 if count >= 4 else (0.67 if count == 3 else 1.0)
 
 
-def _verify(clause: str, subject: str, index: List[Tuple[set, set, bool]]) -> Tuple[bool, float]:
-    """Best coverage of the clause's tokens by a source sentence that states a cause about the subject."""
+def _verify(clause: str, subject: str, index: List[_Window]) -> Tuple[bool, float]:
+    """Best coverage of the clause's tokens by a source window that states a cause about the subject."""
     clause_tokens = _tokens(clause)
     subject_tokens = _tokens(subject) - _FRAMING
     best = 0.0
-    for sentence_tokens, subject_pool, states_cause in index:
-        if not states_cause or (subject_tokens and not (subject_tokens & subject_pool)):
+    for window in index:
+        if not window.states_cause or (subject_tokens and not (subject_tokens & window.subject_pool)):
             continue
-        best = max(best, len(clause_tokens & sentence_tokens) / len(clause_tokens))
+        best = max(best, len(clause_tokens & window.tokens) / len(clause_tokens))
     return best >= _threshold(len(clause_tokens)), round(best, 2)
+
+
+def _evidence(clause: str, index: List[_Window]) -> List[str]:
+    """The passages a verifier must see: highest token overlap with the clause, ANCHOR IGNORED.
+
+    Deliberately unanchored — a driver the filing states under a different label is precisely what the
+    anchored decision misses, so the passage proving it must still be offered."""
+    clause_tokens = _tokens(clause)
+    if not clause_tokens:
+        return []
+    scored = sorted(
+        ((len(clause_tokens & w.tokens) / len(clause_tokens), i, w.text) for i, w in enumerate(index)),
+        key=lambda item: (-item[0], item[1]),
+    )
+    seen: List[str] = []
+    for score, _i, text in scored:
+        if score <= 0 or len(seen) >= _EVIDENCE_WINDOWS:
+            break
+        if text not in seen:
+            seen.append(text)
+    return seen
 
 
 def _drop_clause(text: str, match: re.Match, clause: str) -> str:
@@ -188,43 +264,88 @@ def _slots(sections: Dict[str, Any]) -> Iterator[Tuple[str, Any, Optional[str], 
                 yield f"balance_sheet_liquidity.maturities_covenants[{i}]", maturities, i, value, ""
 
 
-def gate_attributions(sections: Dict[str, Any], source_text: str, armed: bool) -> Optional[Dict[str, Any]]:
-    """Measure every causal clause in the model-authored explanation slots against ``source_text``;
-    drop unverified clauses (the clause only) when ``armed``. Mutates ``sections`` in place (armed
-    only). Returns the audit dict, or None when there was nothing to measure.
+def find_attributions(sections: Dict[str, Any], source_text: str) -> Tuple[int, List[Candidate]]:
+    """Pure: (clauses checked, candidates the source does not visibly support).
 
-    ``source_text`` is the filing EXCERPT the model generated from. Callers gate ``armed`` on
-    ``settings.AI_ATTRIBUTION_GATE``; this module stays settings-free (a pure leaf)."""
+    Each candidate carries the source passages a verifier needs and the pointers a drop needs.
+    ``source_text`` is the filing EXCERPT the model generated from; no source → nothing checked."""
     if not isinstance(sections, dict) or not normalize_for_match(source_text):
-        return None
+        return 0, []
     index = _source_index(source_text)
     if not index:
-        return None
+        return 0, []
     checked = 0
-    unverified: List[Dict[str, Any]] = []
-    dropped: List[Dict[str, Any]] = []
+    candidates: List[Candidate] = []
     for slot, container, key, value, anchor in list(_slots(sections)):
         if not isinstance(value, str) or not value.strip():
             continue
-        text = value
-        # Walk clauses right-to-left so a drop never shifts the offsets of an earlier clause.
+        # Walk clauses right-to-left so a later drop never shifts an earlier clause's offsets.
         for match, clause, subject in reversed(list(_clauses(value))):
             checked += 1
-            subject = f"{anchor} {_MACHINE_PREFIX_RE.sub('', subject)}"
-            verified, coverage = _verify(clause, subject, index)
+            verified, coverage = _verify(clause, f"{anchor} {_MACHINE_PREFIX_RE.sub('', subject)}", index)
             if verified:
                 continue
-            record = {"slot": slot, "connective": match.group(0), "clause": clause[:_AUDIT_TEXT_CAP], "coverage": coverage}
-            unverified.append(record)
-            if armed:
-                text = _drop_clause(text, match, clause)
-                dropped.append(record)
-        if armed and text != value:
-            container[key] = text
+            candidates.append(Candidate(
+                slot=slot, connective=match.group(0), clause=clause, coverage=coverage,
+                evidence=_evidence(clause, index),
+                container=container, key=key, value=value, match=match,
+            ))
+    return checked, candidates
+
+
+def apply_attributions(
+    checked: int,
+    candidates: List[Candidate],
+    verdicts: Optional[Dict[int, str]],
+    armed: bool,
+) -> Optional[Dict[str, Any]]:
+    """Write the audit and, when ``armed`` AND a verdict says the filing does not state it, remove the
+    clause (the clause only, in place). Returns None when there was nothing to measure.
+
+    ``verdicts`` maps a candidate's index in ``candidates`` to "not_stated" / "stated" / anything else
+    (treated as unknown). ``None`` means no verifier ran: nothing is ever dropped, however the gate is
+    flagged — the lexical measurement alone is 47% precise and may not delete text on its own."""
     if not checked:
         return None
-    return {"checked": checked, "verified": checked - len(unverified), "unverified": unverified,
-            "dropped": dropped, "armed": armed}
+    decided = verdicts if isinstance(verdicts, dict) else {}
+    dropped: List[Dict[str, Any]] = []
+    by_slot: Dict[Tuple[int, Any], List[Candidate]] = {}
+    for i, candidate in enumerate(candidates):
+        if armed and verdicts is not None and decided.get(i) == "not_stated":
+            by_slot.setdefault((id(candidate.container), candidate.key), []).append(candidate)
+            dropped.append(candidate.record())
+    for group in by_slot.values():
+        # Right-to-left within a slot: `candidates` is already in that order, so later drops in the
+        # same string never move an earlier clause's match offsets.
+        text = group[0].value
+        for candidate in group:
+            text = _drop_clause(text, candidate.match, candidate.clause)
+        group[0].container[group[0].key] = text
+    audit = {
+        "checked": checked,
+        "verified": checked - len(candidates),
+        "unverified": [c.record() for c in candidates],
+        "dropped": dropped,
+        "armed": armed,
+        "decider": "model" if verdicts is not None else "none",
+    }
+    if verdicts is not None:
+        audit["verdicts"] = {c.slot: decided.get(i, "unknown") for i, c in enumerate(candidates)}
+    return audit
+
+
+def gate_attributions(
+    sections: Dict[str, Any],
+    source_text: str,
+    armed: bool,
+    verdicts: Optional[Dict[int, str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Measure, and drop only what ``verdicts`` says the filing does not state. Mutates ``sections``
+    in place (armed only). Returns the audit dict, or None when there was nothing to measure.
+
+    Callers gate ``armed`` on ``settings.AI_ATTRIBUTION_GATE``; this module stays settings-free."""
+    checked, candidates = find_attributions(sections, source_text)
+    return apply_attributions(checked, candidates, verdicts, armed)
 
 
 def audit_to_json(audit: Optional[Dict[str, Any]]) -> str:

@@ -100,6 +100,35 @@ strong judge (six of six on the hand check). Two honest options for an armable g
 Either way the gate as shipped is a better measurement than the one before it: on the same
 artifact its flagged population fell from 81 clauses to 19 with the judged-true findings kept.
 
+## Step 5 — judge-in-the-loop, authorised 2026-09-17
+
+Founder decision after the [precision measurement](review-evidence/pr805-path/attribution-gate-precision-2026-09-17.md):
+build the verification call. Shape as shipped:
+
+- `ai/attribution_gate.py` splits into `find_attributions` (pure: every flagged clause plus the source
+  passages a verifier needs) and `apply_attributions` (writes the audit; removes a clause only on a
+  verdict). `gate_attributions` still composes both for callers that only measure.
+- The passages are chosen **without** the subject anchor, deliberately: the anchor is what misfires, so
+  the sentence that proves a driver stated must reach the verifier even when the anchor rejected it.
+- `ai/attribution_verify.py` builds one prompt for every flagged clause (at most twelve, three passages
+  each), parses the verdicts, and **requires a "stated" verdict to quote a passage it was given** —
+  an unquotable "stated" is downgraded to unknown, so a model cannot talk a clause into surviving on
+  invented text.
+- `openai_service._verify_attributions` makes the single call through the shared transport with a new
+  `attribution_verify` operation, which `provider_requests` treats as a bounded side call like section
+  recovery so it can neither consume nor be refused by the summary's attempt budget. Any failure —
+  provider error, timeout, exhausted budget, unparseable JSON — returns no verdicts, and no verdicts
+  means no drops.
+- **The lexical measurement alone never deletes text.** `AI_ATTRIBUTION_GATE` armed without
+  `AI_ATTRIBUTION_VERIFY` drops nothing and records `decider: none`. The 47% precision result is
+  encoded in the code, not left in a document.
+- Both flags default false and are pinned false in the service, pregenerate, eval and weekly
+  environments, the ops allowlist and `pin_baseline.AI_GUARD_ENV`.
+
+Arming sequence from here: turn on `AI_ATTRIBUTION_VERIFY` alone (verdicts recorded, output unchanged),
+run an eval, judge it, compare the verifier's verdicts against the strong judge's G4 findings and read
+a sample by hand; only then consider `AI_ATTRIBUTION_GATE`.
+
 ## Acceptance for the real PR
 
 1. Advisory-first: ship unarmed with the audit and counter; no output changes.

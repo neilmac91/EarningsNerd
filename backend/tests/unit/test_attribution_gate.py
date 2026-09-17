@@ -4,8 +4,20 @@ Verification means the filing itself states that cause for that subject; two fig
 never verifies. Conservative like the quote gate: no source, no clause, malformed → untouched."""
 import copy
 
+import pytest
+
 from app.config import settings
-from app.services.ai.attribution_gate import CONNECTIVE_RE, gate_attributions
+from app.services.ai.attribution_gate import (
+    CONNECTIVE_RE, apply_attributions, find_attributions, gate_attributions,
+)
+
+
+def _drop_all(sections, filing):
+    """Arm the gate with a verdict of "not_stated" for every flagged clause — what a verifier that
+    agreed with the lexical measurement would return. Used by tests about the DROP mechanics."""
+    checked, candidates = find_attributions(sections, filing)
+    verdicts = {i: "not_stated" for i in range(len(candidates))}
+    return apply_attributions(checked, candidates, verdicts, armed=True)
 
 FILING = (
     "Item 7. MD&A. Net operating revenues increased 12% to $12,472 million. The increase was driven by "
@@ -59,7 +71,7 @@ def test_stated_driver_verifies_and_inferred_driver_is_measured_not_dropped_when
 
 def test_armed_drops_only_the_clause_and_keeps_the_movement():
     sections = _sections()
-    audit = gate_attributions(sections, FILING, armed=True)
+    audit = _drop_all(sections, FILING)
     assert audit["armed"] is True and len(audit["dropped"]) == len(audit["unverified"]) >= 5
     assert sections["the_print"]["what_changed"] == STATED  # verified slot untouched, character for character
     assert sections["the_print"]["key_takeaways"][0] == "Diluted weighted average shares declined to 24,391 million from 24,611 million."
@@ -82,7 +94,7 @@ def test_a_stated_cause_for_another_line_does_not_transfer():
 def test_table_commentary_is_anchored_on_its_metric_not_its_framing():
     sections = _sections(commentary="Management attributes the increase to 8% concentrate sales volume growth, favorable "
                                     "price/mix and a 3% favorable foreign currency impact.")
-    audit = gate_attributions(sections, FILING, armed=True)
+    audit = _drop_all(sections, FILING)
     assert all(u["slot"] != "results_that_matter.table[0].commentary" for u in audit["unverified"])
     sections = _sections(commentary="Management attributes the increase to 8% concentrate sales volume growth.", metric="Interest income")
     audit = gate_attributions(sections, FILING, armed=False)
@@ -121,7 +133,7 @@ def test_armed_drop_is_invisible_to_the_rendered_markdown():
     from app.services.summary_sections import render_sections, sections_to_markdown
 
     structured = {"schema_version": 2, "sections": _sections()}
-    gate_attributions(structured["sections"], FILING, armed=True)
+    _drop_all(structured["sections"], FILING)
     md = sections_to_markdown(render_sections(structured))
     assert "reflecting share repurchases" not in md
     assert "higher yields on cash balances" not in md
@@ -174,3 +186,61 @@ def test_a_table_label_before_a_split_sentence_still_anchors_it():
         "what_changed": ""}}
     audit = gate_attributions(sections, filing, armed=True)
     assert audit["unverified"] == []
+
+
+def test_the_lexical_gate_alone_never_deletes_text():
+    """The measured invariant (47% precision by hand on 34 real flags): armed with no verifier
+    verdict, the gate removes nothing and says so, so a misconfiguration cannot silently delete
+    sourced analysis."""
+    sections = _sections()
+    before = copy.deepcopy(sections)
+    audit = gate_attributions(sections, FILING, armed=True)
+    assert sections == before
+    assert audit["dropped"] == [] and audit["decider"] == "none" and audit["armed"] is True
+    assert audit["unverified"]  # it still measures everything
+    assert "verdicts" not in audit
+
+
+def test_only_clauses_the_verdict_calls_unstated_are_dropped():
+    sections = _sections()
+    checked, candidates = find_attributions(sections, FILING)
+    slots = [c.slot for c in candidates]
+    target = slots.index("the_print.key_takeaways[0]")
+    verdicts = {i: ("not_stated" if i == target else "stated") for i in range(len(candidates))}
+    audit = apply_attributions(checked, candidates, verdicts, armed=True)
+    assert [d["slot"] for d in audit["dropped"]] == ["the_print.key_takeaways[0]"]
+    assert sections["the_print"]["key_takeaways"][0] == "Diluted weighted average shares declined to 24,391 million from 24,611 million."
+    assert sections["earnings_quality"]["operating_vs_one_time"] == INFERRED_LEAD  # verdict "stated": untouched
+    assert audit["decider"] == "model" and audit["verdicts"]["the_print.key_takeaways[0]"] == "not_stated"
+
+
+@pytest.mark.parametrize("verdict", ["stated", "unknown", "", "NOT_STATED_TYPO", None])
+def test_anything_but_a_clean_not_stated_keeps_the_clause(verdict):
+    sections = _sections()
+    before = copy.deepcopy(sections)
+    checked, candidates = find_attributions(sections, FILING)
+    audit = apply_attributions(checked, candidates, {i: verdict for i in range(len(candidates))}, armed=True)
+    assert sections == before and audit["dropped"] == []
+
+
+def test_unarmed_never_drops_even_with_unstated_verdicts():
+    sections = _sections()
+    before = copy.deepcopy(sections)
+    checked, candidates = find_attributions(sections, FILING)
+    audit = apply_attributions(checked, candidates, {i: "not_stated" for i in range(len(candidates))}, armed=False)
+    assert sections == before and audit["dropped"] == [] and audit["armed"] is False
+
+
+def test_candidates_carry_the_source_passages_a_verifier_needs_ignoring_the_anchor():
+    """The passages are chosen WITHOUT the subject anchor, because the anchor is what misfires: the
+    sentence that would prove a driver stated must reach the verifier even when the anchor rejected it."""
+    filing = ("DCAI revenue increased $926 million from Q1 2025, primarily driven by $696 million of higher "
+              "server revenue due to a 27% increase in server ASPs.\n"
+              "Unrelated paragraph about liquidity and credit facilities.")
+    sections = {"segments": [{"segment": "Data Center and AI", "commentary":
+                "Segment performance improved, driven by $696 million of higher server revenue due to a "
+                "27% increase in server ASPs."}]}
+    checked, candidates = find_attributions(sections, filing)
+    assert checked and candidates, "the lexical decision still misses it — that is the point"
+    assert any("27% increase in server ASPs" in passage for passage in candidates[0].evidence)
+    assert len(candidates[0].evidence) <= 3
