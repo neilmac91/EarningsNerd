@@ -90,7 +90,7 @@ _AUDIT_TEXT_CAP = 160
 # What a verifier is shown per flagged clause: the source windows carrying the most of the clause's
 # content words, chosen WITHOUT the subject anchor the lexical decision applies. The anchor is exactly
 # what misfires, so the passage that would prove a driver stated must still reach the verifier.
-_EVIDENCE_WINDOWS = 3
+_EVIDENCE_WINDOWS = 4
 _EVIDENCE_WINDOW_CHARS = 600
 # One bounded verification call per generation: beyond this many clauses the extra ones are reported
 # unverifiable rather than silently unchecked, so a pathological summary cannot inflate the call.
@@ -197,20 +197,31 @@ def _evidence(clause: str, index: List[_Window]) -> List[str]:
     """The passages a verifier must see: highest token overlap with the clause, ANCHOR IGNORED.
 
     Deliberately unanchored — a driver the filing states under a different label is precisely what the
-    anchored decision misses, so the passage proving it must still be offered."""
+    anchored decision misses, so the passage proving it must still be offered.
+
+    Ranking matters as much as selection. A long clause's content words recur all over a filing, so
+    many windows tie at full coverage and a naive tie-break by document order hands the verifier the
+    boilerplate that happens to appear first (a "Trading Volume" definition, a risk factor about cost
+    structure) while the MD&A sentence that actually states the driver, further down, never arrives.
+    Measured on the 2026-09-17 verification run: three of six wrong drops were passages that simply
+    were not supplied. So ties break first toward windows that state a cause in the filing's own
+    words, then toward the tightest match (Jaccard — a window packed with the clause's words beats a
+    long one that merely contains them), and only then by position."""
     clause_tokens = _tokens(clause)
     if not clause_tokens:
         return []
-    scored = sorted(
-        ((len(clause_tokens & w.tokens) / len(clause_tokens), i, w.text) for i, w in enumerate(index)),
-        key=lambda item: (-item[0], item[1]),
-    )
+    def rank(item):
+        i, window = item
+        shared = len(clause_tokens & window.tokens)
+        coverage = shared / len(clause_tokens)
+        union = len(clause_tokens | window.tokens) or 1
+        return (-coverage, not window.states_cause, -shared / union, i)
     seen: List[str] = []
-    for score, _i, text in scored:
-        if score <= 0 or len(seen) >= _EVIDENCE_WINDOWS:
+    for i, window in sorted(enumerate(index), key=rank):
+        if not (clause_tokens & window.tokens) or len(seen) >= _EVIDENCE_WINDOWS:
             break
-        if text not in seen:
-            seen.append(text)
+        if window.text not in seen:
+            seen.append(window.text)
     return seen
 
 
