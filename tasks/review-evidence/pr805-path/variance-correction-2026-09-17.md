@@ -44,6 +44,13 @@ reverts the prompt to `n` so CI generates a second control cohort; its artifact
 (`eval-report-35240242526`, 70 attempts, 0 errors, deterministic gate PASS) is retained. Judging it
 returned zero usable verdicts because the subscription judge had reached its Fable usage limit — the
 same failure that cost `o` run 2 its two MELI verdicts
-(`lessons/ops-the-subscription-judge-has-a-usage-limit.md`). The judge is queued to retry
-automatically once the limit resets; until it completes, the control column above is one run and the
-pooled `o` figures are the firmer half of the comparison.
+(`lessons/ops-the-subscription-judge-has-a-usage-limit.md`). A retry probed the subscription every
+ten minutes for ten hours and never found the limit reset; it is re-armed for a further twenty-four.
+**Until it completes the control column above is one run**, and the pooled `o` figures are the firmer
+half of the comparison.
+
+Judging it with a different model would not serve the purpose: the point of a second control is to
+bound variance inside the same judge frame as the runs it is compared with, and verdicts from two
+judges are not comparable (the same reason the September 18 verifier measurement, judged on Opus 5,
+carries its own warning against cross-run comparison). If the Fable limit stays out of reach, the
+honest alternative is to re-judge **all four** artifacts in one frame rather than patch one column.
