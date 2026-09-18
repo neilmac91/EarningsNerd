@@ -1,0 +1,6717 @@
+{
+ "_readme": "Per-attempt judge verdicts. Every run judged cli:claude-fable-5-1 under judge contract v2 except o3_opus (cli:claude-opus-5, same artifact as o3_fable). codes = first gate code of each failure string. n = production prompt summary-2026-09-n (control); o = summary-2026-09-o (candidate). o2 has 68 complete verdicts (two lost to an exhausted judge quota). verify_audit = the in-generation verifier's record on the o3 artifact: flagged slots and its verdict per slot.",
+ "runs": {
+  "n1": [
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4",
+     "G4",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G3",
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G2",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3",
+     "G2"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G2"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G5",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3",
+     "G4",
+     "G3",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G3",
+     "G5",
+     "G2"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G2",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   }
+  ],
+  "n2": [
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G3",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G2"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G3",
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G2",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   }
+  ],
+  "o1": [
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   }
+  ],
+  "o2": [
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G2",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G2",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G2",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G3",
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5",
+     "G5",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G2",
+     "G2",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   }
+  ],
+  "o3_fable": [
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G5",
+     "G3",
+     "G3",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G2",
+     "G4",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   }
+  ],
+  "o3_opus": [
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "6-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PLD",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "NEE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 2,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "PGR",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "FIGS",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 5,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "GPRO",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "AAPL",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "MSFT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVDA",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JPM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "KO",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "TSLA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "AMZN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BRK.B",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G2",
+     "G4",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G2",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "XOM",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PFE",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "F",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G3"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "WMT",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "COST",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BA",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "INTC",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 5,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PLTR",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "RIVN",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "COIN",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 5,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BYND",
+    "form": "10-Q",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "BABA",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "ASML",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 3,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "TSM",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G3",
+     "G5",
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G3",
+     "G4",
+     "G4",
+     "G4"
+    ],
+    "dims": {
+     "faithfulness": 2,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 3
+    }
+   },
+   {
+    "ticker": "JD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "SE",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "NVO",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 4,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "PDD",
+    "form": "20-F",
+    "run": 1,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 3,
+     "clarity": 4,
+     "specificity": 4
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 0,
+    "verdict": "PASS",
+    "codes": [],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 5
+    }
+   },
+   {
+    "ticker": "MELI",
+    "form": "10-K",
+    "run": 1,
+    "verdict": "FAIL",
+    "codes": [
+     "G5"
+    ],
+    "dims": {
+     "faithfulness": 4,
+     "insight": 4,
+     "clarity": 3,
+     "specificity": 5
+    }
+   }
+  ]
+ },
+ "verify_audit": {
+  "ASML|6-K|0": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "stated"
+   }
+  },
+  "ASML|6-K|1": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "stated"
+   }
+  },
+  "SE|6-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "SE|6-K|1": {
+   "unverified": [
+    "results_that_matter.table[0].commentary"
+   ],
+   "verdicts": {
+    "results_that_matter.table[0].commentary": "not_stated"
+   }
+  },
+  "PDD|6-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PDD|6-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PLD|10-K|0": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated"
+   }
+  },
+  "PLD|10-K|1": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated"
+   }
+  },
+  "NEE|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "NEE|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PGR|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PGR|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "FIGS|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "FIGS|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "GPRO|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "GPRO|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "AAPL|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "AAPL|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "MSFT|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "MSFT|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "NVDA|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "NVDA|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "JPM|10-K|0": {
+   "unverified": [
+    "the_print.key_takeaways[1]",
+    "results_that_matter.table[6].commentary"
+   ],
+   "verdicts": {
+    "the_print.key_takeaways[1]": "not_stated",
+    "results_that_matter.table[6].commentary": "not_stated"
+   }
+  },
+  "JPM|10-K|1": {
+   "unverified": [
+    "the_print.what_changed",
+    "results_that_matter.table[7].commentary",
+    "results_that_matter.table[8].commentary"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated",
+    "results_that_matter.table[7].commentary": "not_stated",
+    "results_that_matter.table[8].commentary": "not_stated"
+   }
+  },
+  "KO|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "KO|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "TSLA|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "TSLA|10-K|1": {
+   "unverified": [
+    "the_print.key_takeaways[1]"
+   ],
+   "verdicts": {
+    "the_print.key_takeaways[1]": "not_stated"
+   }
+  },
+  "AMZN|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "AMZN|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BRK.B|10-K|0": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated"
+   }
+  },
+  "BRK.B|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "XOM|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "XOM|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PFE|10-Q|0": {
+   "unverified": [
+    "results_that_matter.table[6].commentary"
+   ],
+   "verdicts": {
+    "results_that_matter.table[6].commentary": "not_stated"
+   }
+  },
+  "PFE|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "F|10-Q|0": {
+   "unverified": [
+    "balance_sheet_liquidity.maturities_covenants[0]"
+   ],
+   "verdicts": {
+    "balance_sheet_liquidity.maturities_covenants[0]": "not_stated"
+   }
+  },
+  "F|10-Q|1": {
+   "unverified": [
+    "balance_sheet_liquidity.maturities_covenants[0]"
+   ],
+   "verdicts": {
+    "balance_sheet_liquidity.maturities_covenants[0]": "not_stated"
+   }
+  },
+  "WMT|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "WMT|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "COST|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "COST|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BA|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BA|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "INTC|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "INTC|10-Q|1": {
+   "unverified": [
+    "segments[2].commentary",
+    "segments[3].commentary"
+   ],
+   "verdicts": {
+    "segments[2].commentary": "stated",
+    "segments[3].commentary": "not_stated"
+   }
+  },
+  "PLTR|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PLTR|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "RIVN|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "RIVN|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "COIN|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "COIN|10-Q|1": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated"
+   }
+  },
+  "BYND|10-Q|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BYND|10-Q|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BABA|20-F|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "BABA|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "ASML|20-F|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "ASML|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "TSM|20-F|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "TSM|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "JD|20-F|0": {
+   "unverified": [
+    "results_that_matter.table[0].commentary"
+   ],
+   "verdicts": {
+    "results_that_matter.table[0].commentary": "not_stated"
+   }
+  },
+  "JD|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "SE|20-F|0": {
+   "unverified": [
+    "the_print.what_changed"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated"
+   }
+  },
+  "SE|20-F|1": {
+   "unverified": [
+    "the_print.what_changed",
+    "results_that_matter.table[2].commentary",
+    "results_that_matter.table[3].commentary"
+   ],
+   "verdicts": {
+    "the_print.what_changed": "not_stated",
+    "results_that_matter.table[2].commentary": "not_stated",
+    "results_that_matter.table[3].commentary": "not_stated"
+   }
+  },
+  "NVO|20-F|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "NVO|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PDD|20-F|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "PDD|20-F|1": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "MELI|10-K|0": {
+   "unverified": [],
+   "verdicts": {}
+  },
+  "MELI|10-K|1": {
+   "unverified": [],
+   "verdicts": {}
+  }
+ }
+}

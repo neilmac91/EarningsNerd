@@ -66,6 +66,11 @@ verbatim same-line restatement.
 
 ## What the strong judge adds
 
+> **Re-judged on Fable the same day** ([results](fable-judge-results-2026-09-18.md)). In the contract
+> frame: 12 of the 20 drop verdicts sit on attempts Fable failed for G4, and the gate surfaced 10 of 22
+> Fable-G4 attempts. Fable and Opus agree on G4 for 87% of attempts (kappa 0.71). The section below
+> is the Opus reading as first recorded.
+
 The artifact was judged with `cli:claude-opus-5` under judge contract version 2, because the
 contract's Fable judge had reached its usage limit
 (`lessons/ops-the-subscription-judge-has-a-usage-limit.md`). **The G4 count below is therefore not
