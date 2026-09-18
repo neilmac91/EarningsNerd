@@ -1,5 +1,11 @@
 # Correction: the o-versus-n improvement is about a third, not a half — 2026-09-17
 
+> **Superseded 2026-09-18 by [the five-run comparison](fable-judge-results-2026-09-18.md).** The second
+> control was judged on Fable (55 of 70 negative, 78.6%) and a third candidate run added. Pooled over
+> two controls and three candidates: negatives 80.0% → 55.8% (30% fewer), unsupported causes 61% → 35%
+> (42% fewer). Every candidate run beats every control run on negatives, G4 and G5. The table below is
+> kept as the state of evidence on September 17.
+
 The [September 16 acceptance record](acceptance-candidate-o-2026-09-16.md) compared one judged run of
 candidate `summary-2026-09-o` with one judged run of production `n` and reported "negative judgments
 57 → 38". A second `o` run, judged under the same contract, does not reproduce that gap. This file is
