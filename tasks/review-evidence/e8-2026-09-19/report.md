@@ -34,3 +34,8 @@ The offline audit verified every captured request SHA, every recorded response S
 The final ledger does not contain event timestamps, so historical concurrent reservation occupancy cannot be reconstructed independently from the final snapshot. The admission guarantee is supported by the reviewed transport code and its mutation-tested concurrent gate; this audit confirms the retained requests and final accounting. Actual settled cost is bounded using peak tariffs, not claimed as the exact account charge. No post-run balance read or new model call was made.
 
 No rerun, restart, replacement generation, extra spend or PR closure was performed by this monitoring task. Parent may now close the never-merge draft after recording the result. Full evidence: audit.json, audit-output.txt, job.json, job.log, workflow-watch.log, both n-corpus files, programme-final.json, balance-before.json and provider/.
+
+
+## Publication note
+
+This is the retained artifact auditor's report. References above to “this directory”, provider responses, job logs and scratch audit-output files describe the complete artifact in `/private/tmp/earningsnerd-wave3-20260919/work/e8-pilot-run/`, also preserved as `e8-pilot-evidence.zip` in the founder's Codex task outputs. The repository carries the compact audit receipts beside this report; it does not claim to contain the full provider-response archive. Later [judge preparation](judge-preparation.md) and the [returned-control audit](../pr805-path/e2-fable-audit-2026-09-19.md) supersede preparation-stage status while preserving the frozen panel and order.

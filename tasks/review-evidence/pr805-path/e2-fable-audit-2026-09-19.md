@@ -27,3 +27,8 @@ Control 1 is stamped 2026-09-19T19:09:09.920346Z; control 2 is stamped 19:36:26.
 **Invocation accounting remains separate:** 140 complete verdicts do not establish exactly 140 real CLI invocations. Prior retries, probes and failed calls require actual execution attestation before shared guard accounting is reconciled. `prior_real_cli_invocations` is deliberately null. No new call or rerun is requested by this audit.
 
 Detailed evidence: `control1-audit.json`, `control2-audit.json`, `frozen-panel-code-parity.json`, `e8-main-reuse-manifest.json`, and reproducible `audit.py` (argument 1 or 2). Earlier `audit.json`/`run.txt` are the initial control-1-only pass; the paired named receipts and this report are authoritative for reuse. All work is scratch-only; no tracked repository changes, calls, pinning or production actions.
+
+
+## Publication note
+
+The final paragraph describes the independent auditor's scratch-only work before the parent archived it. The committed counterparts are [control 1 audit](e2-control1-fable-audit-2026-09-19.json), [control 2 audit](e2-control2-fable-audit-2026-09-19.json), [frozen-code parity](e2-fable-frozen-code-2026-09-19.json), [reuse manifest](e8-control-main-reuse-2026-09-19.json), and [all normalized verdicts](e2-fable-verdicts-2026-09-19.json). The original auditor script/logs remain in `/private/tmp/earningsnerd-wave3-20260919/work/e2-control1-external-audit/`; full original judged reports and received-file hashes are preserved in the founder's Codex task outputs. This publication changes no frozen input, verdict or source hash.
