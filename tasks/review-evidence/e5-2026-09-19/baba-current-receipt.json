@@ -1,0 +1,40 @@
+{
+  "observed_after_utc": "2026-09-19T19:44:34.934059+00:00",
+  "method": "read-only existing public GET endpoints; no generation",
+  "filing_endpoint": "https://api.earningsnerd.io/api/filings/327",
+  "summary_endpoint": "https://api.earningsnerd.io/api/summaries/filing/327",
+  "filing_id": 327,
+  "accession": "0001193125-26-231755",
+  "form": "20-F",
+  "summary_id": 94,
+  "schema_version": 2,
+  "prompt_version": "summary-2026-09-o",
+  "stored_status": "complete",
+  "stored_quality": {
+    "tier": "full",
+    "reasons": [],
+    "numeric_grounded": true,
+    "covered_count": 8,
+    "total_count": 8,
+    "figures_untraceable": [
+      "155236m",
+      "234058m",
+      "23849m",
+      "3344m",
+      "344.6b",
+      "45321m",
+      "520824m",
+      "54136m"
+    ],
+    "machine_sections_only": false
+  },
+  "artifacts": {
+    "baba-327-current-summary.json": "0b883bb84b52eb788210989a7f36c16342861807b6868cf4d6f998b09ab492a0",
+    "baba-327-current-filing.json": "62a8d03f8acf4e6db2214bcbbcf5e5ada6f82bfdf32ea281e006146e179f92b5"
+  },
+  "limits": [
+    "Stored full tier is not independent quality clearance.",
+    "Does not identify cause of the earlier partial attempts.",
+    "Eight figures_untraceable remain reported; no historical repair is authorized."
+  ]
+}
