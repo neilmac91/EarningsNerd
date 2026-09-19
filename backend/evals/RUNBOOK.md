@@ -398,6 +398,35 @@ basis. Ground truth therefore carries the primary in `value` and the other legit
 These are eval-honesty fixes, not model changes: the summaries were already reporting correct,
 ADR-appropriate figures. A *fabricated* number still won't match any legitimate basis.
 
+### Financial-depth applicability and delta association (E6)
+
+The default financial-depth rubric remains cash flow, balance sheet and margins (three equally
+weighted categories), including the known incomplete-statement 6-K cohort. An explicit `insurer`
+profile in a frozen golden entry also recognizes insurance float for balance-sheet depth and
+underwriting earnings/profit/loss/income or combined ratio for operating profitability. Premiums
+alone do not earn profitability depth, and the cash-flow requirement is unchanged. BRK.B and PGR
+carry filing evidence and its accession in `financial_depth_profile_source`; loading a non-default
+profile without evidence for the selected accession fails. Re-resolving a filing through the golden
+builder therefore requires reviewing and refreshing this evidence. Candidate output never selects
+its own rubric. Both runner paths pass the golden profile, the score records the profile actually
+used, and each result retains its source. The golden-set hash binds this applicability; the pin
+script rejects a missing or mismatched measured profile.
+
+Delta consistency now attaches a direction-cued percentage directly to its named metric, allowing
+only a short set of auxiliary words and explicit currency amounts (including parenthetical
+changes and "decreased $2B, or 3%"). It no longer scans a broad proximity window.
+Overlapping qualified names (for example, operating profit within non-GAAP operating profit)
+can still be ambiguous; this is not semantic metric-identity verification.
+This intentionally favors precision over recall: intervening descriptors, pronoun references and
+percentage-before-metric phrasing can remain unmeasured. It still compares absolute magnitudes,
+not signed direction or loss-narrowing semantics. The retained GPRO failure was revenue's 18.7%
+decline borrowed by an unquantified net-loss sentence, not evidence of a negative-base sign bug.
+
+These are measurement corrections, not improved generated summaries. The September 19 E6 pin
+below records the inspected fresh three-repeat run on this scorer/golden version. Older retained
+reports remain historical and support offline comparisons; they cannot be relabelled with the
+new golden identity or substituted for the authoritative measurement.
+
 ### Re-pinning the baseline
 
 Routine `eval-baseline` PR runs evaluate the complete verified set twice. Manual CI dispatch
@@ -428,6 +457,39 @@ A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a fr
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
+
+**September 19, 2026 E6 re-pin (scorer association and frozen insurer applicability).**
+`baseline_scores.json` now binds `eval_20260919T222710Z.json`, authoritative workflow
+[35472665559](https://github.com/neilmac91/EarningsNerd/actions/runs/35472665559) on exact source
+`4614153286d42a47727f7fad1ba1620be9300b0e`; report SHA-256
+`1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f`.
+All 35 frozen filings × 3 runs were scored (105/105, zero errors/retries/hard vetoes), with
+99 general and 6 accession-bound insurer profile observations. Actual model `deepseek-flash`,
+empty fallback, evidence snap on and attribution verifier/gate off match intended production.
+The actual regression step passed with the standing untraceable-dollar WARN, mean 2.4857
+(previous 2.1619). Source, golden/profile, attempt identities and retained excerpt hashes were
+independently audited before pinning through the existing tool. See the
+[compact provenance receipt](../../tasks/review-evidence/e6-2026-09-19/authoritative-repin.json)
+and [previous pin](../../tasks/review-evidence/e6-2026-09-19/previous-baseline_scores.json).
+
+Against the historical September 15 pin: financial depth 0.7937 → 0.7746, delta consistency
+0.8438 → 0.9976, citation fidelity 0.9706 → 0.9648, citation checked 7.0857 → 7.1810,
+redundancy 0.9115 → 0.9274, forward-quote fidelity unchanged at 0.9952. These differences
+combine measurement-definition changes, later generation runtime and run variation; they do
+not demonstrate improved generated quality. Same-output rescoring separately isolates the
+bounded scorer correction. No existing WARN dimension is newly activated by this pin.
+
+Known limits remain measured rather than tuned away: BABA 20-F run 2 scores delta 0.75 because
+its segment adjusted-EBITA decline of 44% matches the shorter consolidated metric name whose
+table decline is 56%. This is the disclosed qualified-name collision, not a verified prose
+contradiction. Missing direct grammar scores 1.0, a matching duplicate can mask a wrong one,
+and signed direction remains unmeasured. Insurer depth still uses a term-near-digit heuristic;
+it does not certify financial facts. PLD run 0 retains four non-verbatim P&L evidence strings
+(citation 0.4286), and BABA run 2 retains prose placing nonoperating investment/disposal gains
+inside operating income. These are generated semantic residuals, not repaired by the scorer
+change or removed by re-pinning. No strong-judge acceptance is claimed for this 105-output run.
+The prior pin's complete note and historical paragraphs below are preserved.
+
 **September 15, 2026 re-pin (armed guard: `AI_EVIDENCE_SNAP=true`).** `baseline_scores.json` now binds
 `eval_20260915T204745Z.json`: 35 verified filings × 3 runs (105/105 scored, 0 errors, PASS with the standing
 untraceable-dollar advisory), run 35020462848 on source `e44f8046`, EdgarTools 5.58.0, DeepSeek V4.1 Flash with
@@ -466,7 +528,10 @@ findings on the added cases are recorded in #873, not treated as measurement err
 later work against this pin.
 
 Re-pin only for an explicitly justified model/prompt, structured-output, extraction-library or
-armed-guard change with actual before/after evidence. Adding an advisory dimension or observing
+armed-guard change, or a pre-authorized correction to an existing scorer or frozen applicability,
+with actual before/after evidence. The founder's September 19 E6 brief authorizes the latter for
+same-metric delta association and accession-bound insurer depth profiles. This reconciles E6's
+explicit authorization with the earlier trigger list; adding an advisory dimension or observing
 changed scores alone does not authorize a cosmetic replacement. From `backend/`:
 ```bash
 python -m evals.runner --candidates baseline --runs 3            # full verified set

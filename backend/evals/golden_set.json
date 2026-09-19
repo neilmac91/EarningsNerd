@@ -227,7 +227,12 @@
         }
       ],
       "verified": true,
-      "notes": "Insurer (W3-8a breadth): premiums-driven revenue, combined-ratio economics, investment income"
+      "notes": "Insurer (W3-8a breadth): premiums-driven revenue, combined-ratio economics, investment income",
+      "financial_depth_profile": "insurer",
+      "financial_depth_profile_source": {
+        "accession_number": "0000080661-26-000086",
+        "evidence": "Our focus on achieving our underwriting profitability goal takes precedence over growth."
+      }
     },
     {
       "ticker": "FIGS",
@@ -753,7 +758,12 @@
         }
       ],
       "verified": true,
-      "notes": "financial conglomerate, complex/insurance statements; eps hand-filled per RUNBOOK Step 2 from the filing's Consolidated Statements of Earnings (R4): $31.04 per average equivalent Class B share (primary, matches the ticker), $46,563 per Class A share (alternate); revenue $371,444M and attributable net earnings $66,968M confirmed on the same page"
+      "notes": "financial conglomerate, complex/insurance statements; eps hand-filled per RUNBOOK Step 2 from the filing's Consolidated Statements of Earnings (R4): $31.04 per average equivalent Class B share (primary, matches the ticker), $46,563 per Class A share (alternate); revenue $371,444M and attributable net earnings $66,968M confirmed on the same page",
+      "financial_depth_profile": "insurer",
+      "financial_depth_profile_source": {
+        "accession_number": "0001193125-26-083899",
+        "evidence": "Float was approximately $176 billion at December 31, 2025, $171 billion at December 31, 2024 and $169 billion at December 31, 2023."
+      }
     },
     {
       "ticker": "XOM",

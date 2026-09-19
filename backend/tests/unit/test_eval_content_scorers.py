@@ -197,6 +197,49 @@ def test_delta_consistency_skips_ppt_rows():
     assert score_delta_consistency(payload) == (1.0, [])
 
 
+def test_delta_percentage_belongs_to_its_metric_not_a_neighbor():
+    # Measured GPRO false positive: revenue's 18.7% must not become net loss's 78.4%.
+    # Include non-table neighbors and a correct neighbor that used to mask a real contradiction.
+    cases = [
+        ("Revenue fell 18.7% to $651.5M and net loss narrowed to $93.5M.", 1.0),
+        ("Net loss narrowed to $93.5M while revenue fell 18.7%.", 1.0),
+        ("Net loss narrowed; camera shipments fell 24.9%.", 1.0),
+        ("Net loss narrowed. Revenue fell 18.7%.", 1.0),
+        ("Net loss was down 78.4% while revenue fell 18.7%.", 1.0),
+        ("Net loss fell 50% and revenue fell 78.4%.", 0.0),
+        ("Net loss was down by 50%.", 0.0),
+        ("Net loss: -50%.", 0.0),
+        ("Net loss fell 70-80%.", 1.0),  # a range is not a point estimate
+    ]
+    for prose, expected in cases:
+        payload = {"executive_summary": prose,
+                   **_fh([{"metric": "Net loss", "change": "Loss narrowed 78.4%"}])}
+        score, details = score_delta_consistency(payload)
+        assert score == expected, (prose, details)
+        assert bool(details) == (expected < 1.0)
+
+    # Verbatim grammatical forms in the retained 2026-09-17 artifact. Change only the percentage
+    # within the SAME prose and keep its neighboring metrics, proving sensitivity beyond "X up N%".
+    retained = [
+        ("Net revenue", "7.2", "Intel reported Q1 2026 net revenue of $13.6B (up 7.2% YoY) "
+         "and a net loss attributable to Intel of $3.7B, or $0.73 diluted loss per share."),
+        ("Total net sales", "15.6", "ASML reported total net sales of EUR 32.7B (+15.6% YoY) "
+         "and net income of EUR 9.6B (+26.9% YoY) for the year ended December 31, 2025."),
+        ("Total revenues", "3", "Total revenues decreased $2.86B, or 3%, to $94.83B in 2025 "
+         "from $97.69B in 2024."),
+        ("Net income", "10.6", "Net income increased 10.6% year-on-year to US$458.1 million "
+         "from US$414.2 million, while diluted earnings per share attributable to Sea Limited's "
+         "ordinary shareholders was US$0.70 versus US$0.65."),
+    ]
+    for metric, percentage, prose in retained:
+        payload = {"executive_summary": prose,
+                   **_fh([{"metric": metric, "change": percentage + "%"}])}
+        assert score_delta_consistency(payload) == (1.0, [])
+        payload["executive_summary"] = prose.replace(percentage + "%", "99%")
+        score, details = score_delta_consistency(payload)
+        assert score == 0.0 and metric in details[0], prose
+
+
 def test_delta_consistency_no_table_is_not_penalised():
     assert score_delta_consistency({"executive_summary": "Revenue up 85%."}) == (1.0, [])
 
