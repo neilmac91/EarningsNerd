@@ -221,3 +221,57 @@ def test_extract_segments_incoherent_low_sum_is_dropped():
     # table, so it is dropped rather than surfaced.
     xb = _FakeXBRL({_REV: [_row("A", CUR, 5_000_000_000.0), _row("B", CUR, 4_000_000_000.0)]})
     assert _extract_segments(xb, "10-K", POR, consolidated_revenue=100_000_000_000.0) == []
+
+
+def test_intersegment_revenue_never_becomes_an_issuer_margin_in_summary_surfaces():
+    """KO Q1 2026 retained inputs: EMEA 1,259 / 3,012 != reported 44.8%.
+
+    Asia Pacific likewise gives 536 / 1,508 != reported 37.6%. Segment-axis
+    operating-member qualification does not prove external-only revenue. Drive the
+    extractor's actual row shape through normalization, final and preview owners,
+    then the shared web/export projection; preserve amounts and model commentary.
+    """
+    import json
+
+    from app.services.edgar.xbrl_service import EdgarXBRLService
+    from app.services.openai_service import openai_service
+    from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
+
+    span = ("2026-01-01", "2026-04-03")
+    prior = ("2025-01-01", "2025-03-28")
+    amounts = [
+        ("North America", 4893, 4361, 1606),
+        ("EMEA", 3012, 2657, 1259),
+        ("Latin America", 1678, 1477, 1038),
+        ("Bottling investments", 1640, 1463, 191),
+        ("A. Pacific", 1508, 1421, 536),
+    ]
+
+    def source_row(name, period, value):
+        return {**_row(name, period, value * 1_000_000),
+                "dim_srt_ConsolidationItemsAxis": "us-gaap:OperatingSegmentsMember"}
+
+    xb = _FakeXBRL({
+        _REV: [row for name, revenue, old, _ in amounts
+               for row in (source_row(name, span, revenue), source_row(name, prior, old))],
+        _OPINC: [source_row(name, span, income) for name, _, _, income in amounts],
+    })
+    extracted = _extract_segments(xb, "10-Q", span[1], consolidated_revenue=12_472_000_000)
+    metrics = EdgarXBRLService().extract_standardized_metrics({"segments": extracted})
+    note = "Unit case volume increased 2%."
+    offered = {"segments": [{"segment": "EMEA", "commentary": note}]}
+    preview = openai_service._partial_markdown_preview(json.dumps({"sections": offered}), metrics)
+    openai_service._apply_structured_fallbacks(offered, {}, metrics)
+    raw = {"schema_version": 2, "sections": offered}
+    rendered = render_sections(raw)
+    web = render_sections_json(raw)
+    rows = next(block["rows"] for section in web for block in section["blocks"]
+                if block.get("headers", [None])[0] == "Segment")
+    assert len(rows) == 5
+    assert rows[1] == ["EMEA", "$3.0B", "$1.3B", "+13.4%", note]
+    assert rows[4] == ["A. Pacific", "$1.5B", "$536.0M", "+6.1%", ""]
+    assert preview is not None
+    for text in (preview, sections_to_markdown(rendered), json.dumps(web)):
+        assert "operating margin" not in text.lower()
+        assert note in text
+        assert "$3.0B" in text and "$536.0M" in text

@@ -576,8 +576,7 @@ class _MarkdownRenderMixin:
             sections["value_drivers"] = vd
 
         # segments (§7): author the reportable-segment table from standardized XBRL (T5.2). Code owns the
-        # FIGURES — per-segment revenue, operating income, YoY revenue change — plus a same-row
-        # operating margin; code owns every segment FIGURE and the
+        # FIGURES — per-segment revenue, operating income, YoY revenue change; code owns the
         # section key. Ownership invariant (mirrors cash_conversion): pop any model segments FIRST so a
         # model row can never render — but HARVEST its commentary before discarding (T5.2b hybrid: the
         # model contributes ONLY a qualitative driver per row, keyed by the code's own labels via the
@@ -626,11 +625,10 @@ class _MarkdownRenderMixin:
                 prior = _seg_num(r.get("revenue_prior"))
                 opinc = _seg_num(r.get("operating_income"))
                 change = f"{(rev - prior) / abs(prior) * 100.0:+.1f}%" if rev is not None and prior else ""
-                # Same-row margin first, model driver appended; hierarchy is not needed to divide
-                # a row's operating income by its own revenue. Preserve commentary-only rows too.
-                det = f"{opinc / rev * 100.0:.0f}% operating margin" if rev and opinc is not None else ""
-                note = model_notes.get(name.casefold(), "")
-                commentary = f"{det} — {note}" if det and note else (det or note)
+                # Selected segment revenue can include intersegment sales (KO). The rows carry
+                # no basis/context proof for an issuer operating margin, so retain commentary
+                # without manufacturing a ratio from these independently selected amounts.
+                commentary = model_notes.get(name.casefold(), "")
                 authored.append({
                     "segment": name,
                     "revenue": format_currency(rev) or "",

@@ -234,9 +234,7 @@ def _prose_blob(sections: Any) -> str:
             for field in fields:
                 _add(data.get(field))
     # segments[].commentary carries MODEL prose again (T5.2b: a qualitative driver merged onto the
-    # machine-authored rows), so it is policed. The machine half of the cell (mix % / operating margin %)
-    # is percentages only — invisible to this dollar-figure gate — so re-inclusion cannot false-flag the
-    # filler's own read; only a model-written dollar amount is checked. Segment FIGURES (revenue /
+    # machine-authored rows), so its model-written dollar amounts are checked. Segment FIGURES (revenue /
     # operating income columns) stay machine-authored and excluded.
     segments = sections.get("segments")
     if isinstance(segments, list):

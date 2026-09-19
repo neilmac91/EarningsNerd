@@ -445,7 +445,7 @@ def _segment_xbrl(currency=None):
 
 def test_apply_structured_fallbacks_segments_authored_from_xbrl():
     """§7 is machine-authored from XBRL segment dimensions: per-segment revenue + operating income +
-    YoY revenue change and a same-row operating-margin read."""
+    YoY revenue change, without inferring an operating-margin basis."""
     sections: dict = {}
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
 
@@ -454,7 +454,7 @@ def test_apply_structured_fallbacks_segments_authored_from_xbrl():
     a = seg[0]
     assert a["revenue"] == "$178.4B" and a["operating_income"] == "$72.5B"
     assert a["change"] == "+6.8%"                                   # (178.353-167.045)/167.045
-    assert a["commentary"] == "41% operating margin"
+    assert a["commentary"] == ""
     assert seg[1]["change"] == "+9.6%"
 
 
@@ -488,8 +488,7 @@ def test_segments_do_not_derive_revenue_shares_from_overlapping_members():
         ("", "$-2.4B", ""),
     ]
     assert [row["commentary"] for row in rows] == [
-        "32% operating margin — Management discussed product demand.",
-        "33% operating margin", "31% operating margin", "16% operating margin",
+        "Management discussed product demand.", "", "", "",
         "Management discussed foundry execution.",
     ]
 
@@ -519,9 +518,8 @@ def test_apply_structured_fallbacks_segments_stripped_when_no_xbrl():
 
 def test_apply_structured_fallbacks_segments_merge_model_commentary():
     """T5.2b hybrid: the model's qualitative driver (a commentary-only row keyed by the grounding's
-    label list) is merged onto the CODE row — machine margin first, model words appended. A label
-    the code did not author is dropped (the model can never create a row); a code row the model said
-    nothing about keeps the deterministic read alone."""
+    label list) is merged onto the CODE row. A label the code did not author is dropped (the model
+    can never create a row); a code row the model said nothing about keeps an empty commentary."""
     sections = {"segments": [
         # Conflicting figure keys on a MATCHING label — the pre-2026-07-f full-row shape a prompt
         # regression would resurrect. Only the commentary may survive; figures never move.
@@ -534,9 +532,9 @@ def test_apply_structured_fallbacks_segments_merge_model_commentary():
     seg = sections["segments"]
     assert [r["segment"] for r in seg] == ["Americas", "Europe"]   # phantom dropped, order = code's
     assert seg[0]["commentary"] == (
-        "41% operating margin — Growth was led by data center demand."
+        "Growth was led by data center demand."
     )
-    assert " — " not in seg[1]["commentary"]                        # Europe: deterministic-only
+    assert seg[1]["commentary"] == ""                               # Europe: no commentary
     # Figures stay code-authored regardless of what the model wrote on the matching row.
     assert seg[0]["revenue"] == "$178.4B" and seg[0]["operating_income"] == "$72.5B"
     assert seg[0]["change"] == "+6.8%"
@@ -545,12 +543,12 @@ def test_apply_structured_fallbacks_segments_merge_model_commentary():
 def test_apply_structured_fallbacks_segments_commentary_match_is_case_insensitive():
     sections = {"segments": [{"segment": "  AMERICAS ", "commentary": "Led by data center demand."}]}
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
-    assert sections["segments"][0]["commentary"].endswith("— Led by data center demand.")
+    assert sections["segments"][0]["commentary"] == "Led by data center demand."
 
 
 def test_apply_structured_fallbacks_segments_placeholder_commentary_ignored():
     """A placeholder / 'Not disclosed' / 'Not applicable' model line never reaches the cell —
-    deterministic read only."""
+    empty commentary."""
     sections = {"segments": [
         {"segment": "Americas", "commentary": "Not disclosed—no drivers stated."},
         {"segment": "Europe", "commentary": "Not applicable for this filing."},
@@ -570,8 +568,8 @@ def test_apply_structured_fallbacks_segments_leading_minus_preserved():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
 
     seg = sections["segments"]
-    assert seg[0]["commentary"].endswith("— -3% FX headwind drove the decline.")
-    assert seg[1]["commentary"].endswith("— led by services demand.")
+    assert seg[0]["commentary"] == "-3% FX headwind drove the decline."
+    assert seg[1]["commentary"] == "led by services demand."
     assert "— — " not in seg[1]["commentary"]
 
 
@@ -585,7 +583,7 @@ def test_apply_structured_fallbacks_segments_none_stated_filtered():
 
     seg = sections["segments"]
     assert " — " not in seg[0]["commentary"]
-    assert seg[1]["commentary"].endswith("— Nonetheless, services demand carried growth.")
+    assert seg[1]["commentary"] == "Nonetheless, services demand carried growth."
 
 
 def test_segments_not_applicable_requires_xbrl_presence():
