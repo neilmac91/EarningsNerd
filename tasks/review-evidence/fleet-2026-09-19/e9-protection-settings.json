@@ -1,0 +1,20 @@
+{
+  "name": "earningsnerd-db",
+  "settings": {
+    "backupConfiguration": {
+      "backupRetentionSettings": {
+        "retainedBackups": 7,
+        "retentionUnit": "COUNT"
+      },
+      "backupTier": "STANDARD",
+      "enabled": true,
+      "kind": "sql#backupConfiguration",
+      "pointInTimeRecoveryEnabled": true,
+      "replicationLogArchivingEnabled": true,
+      "startTime": "16:00",
+      "transactionLogRetentionDays": 7,
+      "transactionalLogStorageState": "CLOUD_STORAGE"
+    }
+  },
+  "state": "RUNNABLE"
+}
