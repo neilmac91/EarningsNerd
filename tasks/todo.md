@@ -1,3 +1,9 @@
+## September 19 — E5 segment-margin basis correction
+
+- [x] Confirmed source-owned KO defect: retained Q1 2026 segment inputs EMEA operating income 1,259M / selected revenue 3,012M produced an unqualified 42% operating margin, while the filing reports 44.8%; Asia Pacific 536M / 1,508M produced 36%, versus reported 37.6%. Operating-segment member qualification does not prove external-only revenue or matching margin basis.
+- [x] Removed the unsupported derived prefix for newly generated segment rows while retaining monetary columns, revenue changes and model commentary. No ticker condition, source substitution, historical rewrite or production flag change. Legacy prefix audit parsing remains compatible.
+- [x] One source-shaped regression covers extraction, normalization, preview and shared web/export projection. Targeted committed tests: 160 passed. One mutation proof reintroduced the unconditional ratio and failed on the exact 42% EMEA prefix; restored control passed. Full final gate, PR evaluation and release evidence follow in a later dated entry.
+
 ## September 19 — E7 acceptance specification and candidate manifest approved
 
 - [x] Founder approved the [acceptance specification](quality-acceptance-specification-2026-09-19.md), exact30-accession manifest and USD10incremental generator ceiling. Zero material defects; at least86/90 outputs must jointly score4/5 completeness and usefulness. ManifestSHA25668242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66 preserved unchanged.
