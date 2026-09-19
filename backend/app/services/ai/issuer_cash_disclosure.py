@@ -41,10 +41,14 @@ def _disclosure(source: str) -> dict | None:
     if len(source) > 320_000 or sum(line.strip().casefold() == "free cash flow" for line in source.splitlines()) != 1:
         return None
     folded_source = source.casefold()
+    blocks = [block for block in recovery_blocks(source, _LAYOUT)
+              if block.families and set(block.families) <= {"financials", "mda"}]
+    # Another eligible block can contradict the table block without containing a table.
+    if sum(re.sub(r"[^\S\r\n]+", " ", line).casefold().count("financial reporting currency is")
+           for block in blocks for line in block.text.splitlines()) != 1:
+        return None
     candidates = []
-    for block in recovery_blocks(source, _LAYOUT):
-        if not block.families or not set(block.families) <= {"financials", "mda"}:
-            continue
+    for block in blocks:
         # Preserve physical line boundaries; only space characters within a line normalize.
         lines = [line.strip() for line in block.text.splitlines() if line.strip()]
         normalized = [re.sub(r"[^\S\r\n]+", " ", line) for line in lines]

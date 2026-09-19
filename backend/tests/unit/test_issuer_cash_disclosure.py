@@ -21,7 +21,8 @@ METRICS = {"financial_classification": {"is_financial": False}, "reporting_curre
 MODES = ["valid", "other_values", "recovery_valid", "recovery_absent", "absent", "currency_absent",
          "currency_conflict", "currency_other_block", "risk", "duplicate", "unit_absent",
          "years_swapped", "amount_wrong", "definition_absent", "limitations_absent", "limitations_edge",
-         "row_absent", "extra_row", "too_large", "uppercase_conflict", "uppercase_duplicate"]
+         "row_absent", "extra_row", "too_large", "uppercase_conflict", "uppercase_duplicate",
+         "currency_cross_block", "currency_cross_block_uppercase", "currency_same_line"]
 
 
 @pytest.mark.asyncio
@@ -58,6 +59,14 @@ async def test_only_complete_supplied_issuer_disclosure_reaches_final_surfaces(m
     elif mode == "uppercase_conflict":
         source = source.replace("\nFree Cash Flow\n", "\nOUR FINANCIAL REPORTING CURRENCY IS THE CANADIAN "
                                 "DOLLAR AND ALL AMOUNTS BELOW USE THAT CURRENCY.\nFree Cash Flow\n")
+    elif mode == "currency_same_line":
+        source = source.replace(currency, currency + " Our financial reporting currency is the Canadian Dollar "
+                                "and all amounts below use that currency.")
+    elif mode.startswith("currency_cross_block"):
+        conflict = "Our financial reporting currency is the Canadian Dollar and all amounts below use that currency."
+        if mode.endswith("uppercase"):
+            conflict = conflict.upper()
+        source += "\nITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\nContext.\n" + conflict + "\nEnd."
     elif mode == "uppercase_duplicate":
         source += SOURCE.upper()
     elif mode == "duplicate":
@@ -90,6 +99,11 @@ async def test_only_complete_supplied_issuer_disclosure_reaches_final_surfaces(m
     assert (OWNED_FIELD in raw["sections"]["earnings_quality"]) is eligible
     assert "issuerCashDisclosure" not in raw["sections"]["earnings_quality"]
     assert metrics == METRICS
+    compat = result["management_discussion"] or ""
+    assert ("Recovered explanation." if mode.startswith("recovery_") else "Reported operating results.") in compat
+    assert "Issuer Cash Disclosure" not in compat and "Currency Statement" not in compat
+    assert "FORGED ISSUER" not in compat and "Headers:" not in compat and "Rows:" not in compat
+    assert definition not in compat and limitation not in compat
     preview = service._partial_markdown_preview(json.dumps(candidate), metrics) or ""
     assert LABEL not in preview and "FORGED ISSUER" not in preview
     summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],

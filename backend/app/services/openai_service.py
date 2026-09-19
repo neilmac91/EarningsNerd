@@ -40,7 +40,7 @@ from app.services.ai.statement_relationship import (
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
-    SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, bind_issuer_cash_disclosure,
+    SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, OWNED_FIELD as ISSUER_CASH_OWNED_FIELD, bind_issuer_cash_disclosure,
 )
 from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
@@ -839,10 +839,12 @@ Rules:
         # prose that absorbed the MD&A read; `key_changes`/outlook maps to forward_signals.
         management_section_structured = sections_info.get("earnings_quality")
         management_for_compat = management_section_structured
-        if statement_source and isinstance(management_section_structured, dict):
+        if isinstance(management_section_structured, dict):
             management_for_compat = dict(management_section_structured)
-            owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
-            management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
+            management_for_compat.pop(ISSUER_CASH_OWNED_FIELD, None)
+            if statement_source:
+                owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
+                management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
         management_section = _stringify(management_for_compat)
         guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
