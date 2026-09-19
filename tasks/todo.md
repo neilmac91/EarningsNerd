@@ -1,3 +1,8 @@
+## September 19 — E5 enrichment release candidate rebased after cash #925
+
+- [x] Rebased the two enrichment/evidence commits onto cash #925 merge `b8e11f368cdb237da4b76000de48c1a8b1dfa688`. Preserved all prior main history and both enrichment ledger entries. The enrichment production/test diff remains byte-identical to its reviewed preparation; all eleven locked anchors match the new base. Remote Codex review has resumed, so no review-quota override is claimed.
+- [ ] Run the full committed backend gate including performance and four PostgreSQL lanes, then obtain exact-head review and applicable release measurements. Parent owns release and serial deploy verification. No push, PR, paid call, historical replay or production action is performed by this rebase preparation.
+
 ## September 19 — AAPL/BABA residual reconciliation
 
 - [x] AAPL's older unrestricted capital-allocation field is already superseded for new generation by the existing qualified financing-comparison owner; no duplicate rule or distributions ratio was added.
