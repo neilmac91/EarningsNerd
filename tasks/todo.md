@@ -1,3 +1,8 @@
+## September 19 — E5 issuer FCF release-base preparation
+
+- [x] Rebased the independently reviewed issuer-disclosure change onto enrichment release `1c644e867832831bc8f6874ca7d71b72e35197fc`, after cash-basis #925 and enrichment #926. Only the prepend-only task ledger conflicted; all upstream history and both prior issuer-disclosure entries are preserved. The executable patch is byte-identical (SHA-256 `5a7dbafce12278a714a435b00408e28a6d9530a7bb7f917b57779b4147de864e`), and all eleven locked anchors remain unchanged. Existing one-invariant/one-arithmetic-mutation evidence carries forward without another implementation change.
+- [ ] Final committed release-base ruff, bandit and full pytest gate (including performance and all four PostgreSQL lanes), exact-head remote review, CI/eval acceptance and serial deployment remain release requirements. Earlier results remain historical evidence. KO remains separately held for corrected-prompt semantic acceptance; no model call, push, PR, merge or production action occurred in this preparation.
+
 ## September 19 — E5 issuer disclosure ambiguity review fix
 
 - [x] Independent review found that uppercase conflicting reporting-currency text or an uppercase duplicate disclosure evaded case-sensitive rejection checks. Ambiguity detection now casefolds heading, currency and unique-passage comparisons; positive supported-shape matching and the displayed source wording/cells remain unchanged. Two uppercase counterexamples extend the existing source-to-visible invariant to 21 cases. Targeted result: **21 passed, 2 warnings in 5.72s**; changed-file ruff clean.
