@@ -1,3 +1,8 @@
+## September 19 — E6 final release base after issuer FCF #927
+
+- [x] Rebased the scorer/applicability candidate onto actual main `299cb1bfdc5392ff6ab8d04a7d999f23eb029183` after issuer FCF #927. The only conflict was the prepend-only ledger; all previous E6 entries and the complete main ledger remain intact. All eight changed backend files are byte-identical to prepared `b0666b4d`, including its qualified-metric ambiguity caveat. The frozen golden/profile bytes and historical baseline remain unchanged; all eleven locked files match the actual base.
+- [ ] Complete the committed full backend/performance/four-PostgreSQL-lane gate before publishing the branch without a PR. Then obtain the authoritative complete 35×3 manual workflow artifact, audit its source/harness/profile and measured results, pin through the existing tool, commit and run the final full gate before opening a draft PR for its normal 70-output validation. Prior green gates do not substitute for these final-base checks. Parent owns publication, paid measurement and serial deploy verification; no pin, model/flag change or paid call occurred in this rebase.
+
 ## September 19 — E6 integrated onto cash and enrichment main; final AMZN base still pending
 
 - [x] Rebased prepared E6 `b384a77fc8d533088761179ccc08b42193065017` onto actual main `1c644e867832831bc8f6874ca7d71b72e35197fc` (#925 cash basis and #926 enrichment). The complete E6 backend patch, scorer/profile propagation, golden metadata, pin refusal and both invariant gates are byte-identical to preparation; only the prepend-only ledger conflict required resolution. All earlier E6 additions and the complete new-main ledger remain intact.
