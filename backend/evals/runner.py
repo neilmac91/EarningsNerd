@@ -279,7 +279,8 @@ async def _run_one(
     other provider faults come back as application status:error fallbacks, which are retained as
     unscored, non-transient failed attempts and are never retried here."""
     base = {"candidate": candidate, "ticker": filing.ticker,
-            "filing_type": filing.filing_type, "run": run_index}
+            "filing_type": filing.filing_type, "run": run_index,
+            "financial_depth_profile_source": filing.financial_depth_profile_source}
     retried = 0
     first_error: Optional[str] = None
     first_latency: Optional[float] = None
@@ -440,6 +441,7 @@ async def _attempt(
             score = score_summary(
                 payload, filing.ground_truth,
                 filing_text=grounding["excerpt"] or grounding["filing_text"],
+                financial_depth_profile=filing.financial_depth_profile,
             )
             judge = await _maybe_judge(judge_model, payload, filing, grounding)
             return {"score": score.__dict__, "aggregate": score.aggregate(),
@@ -474,6 +476,7 @@ async def _attempt(
         score = score_summary(
             raw, filing.ground_truth,
             filing_text=grounding["excerpt"] or grounding["filing_text"],
+            financial_depth_profile=filing.financial_depth_profile,
         )
         payload, _ = parse_model_json(raw)
         judge = await _maybe_judge(judge_model, payload, filing, grounding)

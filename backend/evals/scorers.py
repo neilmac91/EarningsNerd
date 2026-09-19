@@ -217,11 +217,30 @@ _DEPTH_CATEGORIES: Dict[str, Tuple[str, ...]] = {
 }
 
 
+# Same three dimensions and denominator. Insurers may express balance-sheet funding through
+# float and operating profitability through underwriting; premiums alone are not profit depth.
+_DEPTH_PROFILES = {
+    "general": _DEPTH_CATEGORIES,
+    "insurer": {
+        **_DEPTH_CATEGORIES,
+        "balance_sheet": _DEPTH_CATEGORIES["balance_sheet"] + ("float",),
+        "margins": _DEPTH_CATEGORIES["margins"] + (
+            "underwriting earnings", "underwriting profit", "underwriting loss",
+            "underwriting income", "underwriting after-tax earnings", "combined ratio",
+        ),
+    },
+}
+
+
 def _term_near_number(text: str, terms: Tuple[str, ...]) -> bool:
     """True when any term appears within ~40 chars of a digit and not inside a placeholder phrase."""
     for term in terms:
         start = text.find(term)
         while start != -1:
+            # A standalone insurance float is a balance-sheet measure; floating-rate debt is not.
+            if term == "float" and not re.compile(r"\bfloat\b").match(text, start):
+                start = text.find(term, start + 1)
+                continue
             window = text[max(0, start - 40): start + len(term) + 40]
             if re.search(r"\d", window) and not any(p in window for p in PLACEHOLDER_PATTERNS):
                 return True
@@ -229,12 +248,19 @@ def _term_near_number(text: str, terms: Tuple[str, ...]) -> bool:
     return False
 
 
-def score_financial_depth(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
-    """Fraction of {cash_flow, balance_sheet, margins} surfaced with real figures. (ratio, missing)."""
+def score_financial_depth(
+    payload: Dict[str, Any], *, profile: str = "general",
+) -> Tuple[float, List[str]]:
+    """Three financial-depth dimensions under an evaluator-owned profile. (ratio, missing).
+
+    The default rubric is unchanged, including for 6-Ks; candidate payload metadata cannot
+    choose a profile. The runner supplies the frozen golden filing's explicit applicability.
+    """
+    categories = _DEPTH_PROFILES[profile]
     blob = _financial_haystack(payload).lower()
-    missing = [name for name, terms in _DEPTH_CATEGORIES.items() if not _term_near_number(blob, terms)]
-    present = len(_DEPTH_CATEGORIES) - len(missing)
-    return round(present / len(_DEPTH_CATEGORIES), 4), missing
+    missing = [name for name, terms in categories.items() if not _term_near_number(blob, terms)]
+    present = len(categories) - len(missing)
+    return round(present / len(categories), 4), missing
 
 
 # ---------------------------------------------------------------------------
@@ -702,11 +728,30 @@ def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 # as "gross margin of 74.9%" never trips the consistency check. The minus arm is `(?<!\d)-` so a
 # hyphenated RANGE ("8-10%") is not read as a delta cue, while "up -8%" / a standalone "-8%" still
 # is; the U+2212 minus (−) never appears in ranges, so it stays as-is.
+# A currency-labeled amount is allowed between a metric and a parenthetical delta, or
+# between a direction verb and "or N%". This grammar cannot consume a neighboring metric.
+_DELTA_AMOUNT = (
+    r"(?:US\$|\$|€|£|EUR|RMB|CNY|USD|DKK|JPY|TWD)\s*"
+    r"\d[\d,]*(?:\.\d+)?(?:\s*(?:billion|million|thousand|[BMT]))?"
+)
 _DELTA_CUED_PCT_RE = re.compile(
     r"(?:up|down|grew|rose|increased|decreased|declined|fell|gained|jumped|surged|dropped|climbed|"
-    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?(\d[\d,]*(?:\.\d+)?)\s*%",
+    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?"
+    + r"(?:" + _DELTA_AMOUNT + r",\s*or\s+)?"
+    + r"(\d[\d,]*(?:\.\d+)?)\s*%",
     re.IGNORECASE,
 )
+
+
+def _metric_delta_pattern(metric: str) -> re.Pattern:
+    """A named metric and its own percentage, allowing only auxiliaries/explicit amounts."""
+    return re.compile(
+        r"\b" + re.escape(metric) + r"\b\s*:?[ \t]*"
+        r"(?:(?:was|were|is|are|has|have|had|been|also)\s+){0,3}"
+        + r"(?:(?:of\s+)?" + _DELTA_AMOUNT + r"\s*,?\s*\(?\s*)?"
+        + _DELTA_CUED_PCT_RE.pattern,
+        re.IGNORECASE,
+    )
 
 
 def _table_pct_deltas(payload: Dict[str, Any]) -> List[Tuple[str, float]]:
@@ -736,9 +781,10 @@ def _table_pct_deltas(payload: Dict[str, Any]) -> List[Tuple[str, float]]:
 def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     """[0,1] prose/table delta consistency (plan defect g's prose residual). 1.0 = the prose never
     contradicts the code-computed table deltas. For each table metric with a %-change, a metric is
-    FLAGGED only when a direction-cued percentage near its name in the prose is >2 points off AND no
-    nearby percentage matches — so a metric the prose states correctly (or doesn't quantify) is never
-    penalised. Conservative by construction. Returns (score, contradictions)."""
+    FLAGGED only when a directly attached direction-cued percentage is >2 points off AND no
+    attached percentage matches. Only auxiliary words and explicit currency amounts may separate the metric
+    from its change; a neighboring metric's delta must not count. Percentages remain absolute
+    magnitudes: this scorer does not infer sign or loss-narrowing semantics. Returns (score, reasons)."""
     deltas = _table_pct_deltas(payload)
     # Scan the shared narrative prose — which EXCLUDES the table-home sections, so the rendered
     # metrics table (mapped into executive_summary in production) can no longer self-satisfy the
@@ -755,15 +801,8 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     for metric, table_pct in deltas:
         # Word-boundary match so a short metric name never matches inside another word ("EPS" in
         # "steps", "Revenue" in a hyphenated compound), which would pull an unrelated % into scope.
-        name_re = re.compile(r"\b" + re.escape(metric.lower()) + r"\b", re.IGNORECASE)
-        nearby: List[float] = []
-        for match in name_re.finditer(prose):
-            window = prose[max(0, match.start() - 40): match.end() + 80]
-            for pm in _DELTA_CUED_PCT_RE.findall(window):
-                try:
-                    nearby.append(abs(float(pm.replace(",", ""))))
-                except ValueError:
-                    pass
+        nearby = [abs(float(pm.replace(",", "")))
+                  for pm in _metric_delta_pattern(metric).findall(prose)]
         if not nearby:
             continue
         checked += 1
@@ -898,7 +937,8 @@ def score_citation_fidelity(
 
 
 def score_summary(
-    raw_or_payload: Any, ground_truth: List[GroundTruthFact], filing_text: Optional[str] = None
+    raw_or_payload: Any, ground_truth: List[GroundTruthFact], filing_text: Optional[str] = None,
+    *, financial_depth_profile: str = "general",
 ) -> RubricScore:
     """Score one candidate summary. Accepts a raw string (from a model) or an already-parsed
     dict (from the baseline pipeline mapped into canonical shape). ``filing_text`` (T5.4) is the
@@ -913,6 +953,7 @@ def score_summary(
         return RubricScore(
             schema_valid=False, repaired=True, numeric_accuracy=0.0, coverage=0.0,
             numeric_precision=0.0, financial_depth=0.0,
+            financial_depth_profile=financial_depth_profile,
             gate_failures=["G1 numeric fidelity — unparseable output (no JSON object found)"],
             missing_sections=list(REQUIRED_SECTIONS),
             missing_facts=[f.metric for f in ground_truth],
@@ -924,7 +965,7 @@ def score_summary(
     )
     coverage, missing_sections = score_coverage(payload)
     precision, contradictions = score_numeric_precision(payload, ground_truth)
-    depth, _ = score_financial_depth(payload)
+    depth, _ = score_financial_depth(payload, profile=financial_depth_profile)
     specificity, _ = score_specificity(payload)
     currency_consistency, _ = score_currency_consistency(payload, ground_truth)
     redundancy, _ = score_redundancy(payload)
@@ -942,6 +983,7 @@ def score_summary(
         coverage=coverage,
         numeric_precision=precision,
         financial_depth=depth,
+        financial_depth_profile=financial_depth_profile,
         specificity=specificity,
         currency_consistency=currency_consistency,
         redundancy=redundancy,

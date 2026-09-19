@@ -133,6 +133,11 @@ def build_baseline(
         raise ValueError(
             "Cannot pin: the numeric scorers score these verified golden entries 1.0 on no "
             f"ground truth, which measures nothing: {', '.join(vacuous)}")
+    profiles = {(f["ticker"], f["filing_type"]): f.get("financial_depth_profile", "general")
+                for f in runnable}
+    if any(r["score"].get("financial_depth_profile") != profiles[(r["ticker"], r["filing_type"])]
+           for r in results):
+        raise ValueError("Cannot pin: measured financial-depth profile differs from the golden or is missing")
     runs = max(r.get("run", 0) for r in results) + 1
     if runs < 3:
         raise ValueError("A baseline pin requires at least three measured runs per filing")

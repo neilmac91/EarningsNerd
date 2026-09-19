@@ -124,7 +124,8 @@ async def test_report_records_actual_harness_not_pinning_environment(monkeypatch
 def pin_report():
     filings = json.loads(runner.GOLDEN_PATH.read_text())['filings']
     results = [{'candidate': 'baseline', 'ticker': f['ticker'], 'filing_type': f['filing_type'],
-                'run': run, 'score': {'schema_valid': True, 'gate_failures': []},
+                'run': run, 'score': {'schema_valid': True, 'gate_failures': [],
+                                       'financial_depth_profile': f.get('financial_depth_profile', 'general')},
                 'passed_gates': True, 'error': None}
                for f in filings if f['verified'] and f['document_url'] for run in range(3)]
     return {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True,
@@ -134,6 +135,68 @@ def pin_report():
                         'ai_attribution_verify': False, 'use_structured_output': False,
                         'golden_set_sha256': hashlib.sha256(runner.GOLDEN_PATH.read_bytes()).hexdigest()},
             'summary': {'baseline': {'n': len(results), 'errors': 0, 'gate_fail_rate': 0.0, 'pass_rate': 1.0}}, 'results': results}
+
+
+@pytest.mark.asyncio
+async def test_depth_profile_is_filing_owned_measured_and_required_for_pinning(monkeypatch, pin_report):
+    from evals.scorers import score_summary
+
+    entries = json.loads(runner.GOLDEN_PATH.read_text())['filings']
+    insurer = next(f for f in entries if f['ticker'] == 'BRK.B')
+    # The same applicability applies to every declared insurer, without ticker logic in scorers.
+    assert {f['ticker'] for f in entries if f.get('financial_depth_profile') == 'insurer'} == {'BRK.B', 'PGR'}
+    for entry in entries:
+        filing = GoldenFiling.from_dict(entry)
+        if entry['filing_type'] == '6-K':
+            assert filing.financial_depth_profile == 'general'
+    for changes in [
+        {'financial_depth_profile': 'easy'},
+        {'financial_depth_profile_source': {}},
+        {'accession_number': 'new-filing'},
+    ]:
+        with pytest.raises(ValueError):
+            GoldenFiling.from_dict({**insurer, **changes})
+
+    payload = {'executive_summary': 'Operating cash flow $20B. ' + ' ' * 90
+               + 'Float was $150B. ' + ' ' * 90 + 'Underwriting profit $4B.',
+               'financial_highlights': {}, 'risk_factors': [],
+               'management_discussion': '', 'outlook': '', 'financial_depth_profile': 'insurer'}
+    assert score_summary(payload, []).financial_depth == 0.3333  # payload cannot select the rubric
+    assert score_summary(payload, [], financial_depth_profile='insurer').financial_depth == 1.0
+    for text in ['Insurance premiums earned $100B.', 'Floating-rate borrowings $100B.',
+                 'Underwriting profit not disclosed. Float not available.']:
+        sparse = dict(payload, executive_summary=text)
+        assert score_summary(sparse, [], financial_depth_profile='insurer').financial_depth == 0.0
+
+    # Exercise both real runner call sites, replacing only generation/assembly and figure tracing.
+    monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', False)
+    monkeypatch.setattr(openai_service, 'summarize_filing', AsyncMock(return_value={}))
+    monkeypatch.setattr(runner, '_baseline_to_canonical', lambda summary: deepcopy(payload))
+    monkeypatch.setattr(runner, 'measure_figures', lambda *args: {})
+    monkeypatch.setattr(runner, 'call_model', AsyncMock(return_value=(json.dumps(payload), 0, 0, 0.1)))
+    candidate = next(name for name in runner.REGISTRY if name != 'baseline')
+    grounding = {'filing_text': '', 'excerpt': '', 'xbrl_metrics': {}}
+    for entry, expected in [(dict(insurer, ticker='RENAMED'), 1.0),
+                            (next(f for f in entries if f['filing_type'] == '6-K'), 0.3333)]:
+        filing = GoldenFiling.from_dict(entry)
+        for name in ('baseline', candidate):
+            result = await runner._run_one(name, filing, grounding, transient_retries=0)
+            assert result['error'] is None
+            assert result['score']['financial_depth'] == expected
+            assert result['score']['financial_depth_profile'] == filing.financial_depth_profile
+            assert result['financial_depth_profile_source'] == filing.financial_depth_profile_source
+
+    report_path = Path('eval_20260919T120000Z.json')
+    assert pin_baseline.build_baseline(pin_report, report_path)['runs_per_candidate'] == 3
+    for wrong in (None, 'general', 'unknown'):
+        broken = deepcopy(pin_report)
+        row = next(row for row in broken['results'] if row['ticker'] == 'BRK.B')
+        if wrong is None:
+            del row['score']['financial_depth_profile']
+        else:
+            row['score']['financial_depth_profile'] = wrong
+        with pytest.raises(ValueError, match='financial-depth profile'):
+            pin_baseline.build_baseline(broken, report_path)
 
 
 def test_pin_cli_preserves_note_and_measured_configuration(monkeypatch, tmp_path, pin_report):
