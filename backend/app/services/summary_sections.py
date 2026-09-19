@@ -22,6 +22,10 @@ from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
     OWNED_FIELD as STATEMENT_OWNED_FIELD,
 )
+from app.services.ai.issuer_cash_disclosure import (
+    CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
+    OWNED_FIELD as ISSUER_CASH_OWNED_FIELD,
+)
 from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, OWNED_FIELD
 from app.services import metric_delta_service
 from app.services.summary_schema import SECTION_META, SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
@@ -606,7 +610,9 @@ def _v2_results_that_matter(sections: dict) -> Section:
     return section
 
 
-def _v2_earnings_quality(sections: dict, *, statement_owned: bool = False) -> Section:
+def _v2_earnings_quality(
+    sections: dict, *, statement_owned: bool = False, issuer_cash_owned: bool = False,
+) -> Section:
     section = Section(SECTION_META["earnings_quality"]["title"])
     data = sections.get("earnings_quality")
     if not isinstance(data, dict):
@@ -620,6 +626,13 @@ def _v2_earnings_quality(sections: dict, *, statement_owned: bool = False) -> Se
         text = _clean(data.get(key) or data.get(alt))
         if text and not is_placeholder(text):
             section.blocks.append(Block("paragraph", text=text))
+    if issuer_cash_owned:
+        disclosure = data.get(ISSUER_CASH_OWNED_FIELD)
+        if isinstance(disclosure, dict):
+            section.blocks.append(Block("subheading", text="Issuer-reported free cash flow — filing reconciliation"))
+            section.blocks.append(Block("quote", text=disclosure["definition"], speaker="Filing statement"))
+            section.blocks.append(Block("table", headers=disclosure["headers"], rows=disclosure["rows"]))
+            section.blocks.append(Block("quote", text=disclosure["limitations"], speaker="Filing statement"))
     # Red flags are the "is the profit real?" payload — render each as a highlighted callout.
     flags = [f for f in _str_list(data.get("red_flags") or data.get("redFlags")) if not is_placeholder(f)]
     for flag in flags:
@@ -827,6 +840,8 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     statement_owned = type(statement_marker) is int and statement_marker == STATEMENT_CONTEXT_VERSION
     capital_marker = raw_summary.get(CAPITAL_CONTEXT_KEY)
     capital_owned = type(capital_marker) is int and capital_marker == CAPITAL_CONTEXT_VERSION
+    issuer_cash_marker = raw_summary.get(ISSUER_CASH_CONTEXT_KEY)
+    issuer_cash_owned = type(issuer_cash_marker) is int and issuer_cash_marker == ISSUER_CASH_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
@@ -834,7 +849,7 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
             if builder is _v2_forward_signals else
             builder(sections, capital_owned=capital_owned)
             if builder is _v2_value_drivers else
-            builder(sections, statement_owned=statement_owned)
+            builder(sections, statement_owned=statement_owned, issuer_cash_owned=issuer_cash_owned)
             if builder is _v2_earnings_quality else builder(sections)
         )
         if section.has_content:

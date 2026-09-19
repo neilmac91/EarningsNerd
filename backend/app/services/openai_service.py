@@ -38,6 +38,10 @@ from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
     OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship,
 )
+from app.services.ai.issuer_cash_disclosure import (
+    CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
+    SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, bind_issuer_cash_disclosure,
+)
 from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
 )
@@ -487,6 +491,7 @@ Rules:
 
         # The model cannot choose its own evidence source. Overwrite its private key.
         summary_data["_capital_allocation_grounding"] = filing_sample
+        summary_data[ISSUER_CASH_SOURCE_KEY] = filing_sample
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             recovered = await self._recover_missing_sections(
@@ -498,6 +503,10 @@ Rules:
             )
             if recovered:
                 sections_info.update(recovered)
+                if "earnings_quality" in recovered:
+                    summary_data[ISSUER_CASH_SOURCE_KEY] = self._build_section_context(
+                        "earnings_quality", recovery_sources, filing_sample,
+                    )
                 if "value_drivers" in recovered:
                     summary_data["_capital_allocation_grounding"] = self._build_section_context(
                         "value_drivers", recovery_sources, filing_sample,
@@ -604,6 +613,7 @@ Rules:
                 forward.pop("quotes", None)
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
+            bind_issuer_cash_disclosure(sections)
             rendered = render_sections({
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
@@ -768,6 +778,9 @@ Rules:
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
         bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
+        issuer_cash_owned = bind_issuer_cash_disclosure(
+            sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
+        )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
@@ -853,12 +866,14 @@ Rules:
         # only contain their explicit raw-summary keys, never arbitrary model top-level keys.
         structured_summary.pop(SOURCE_UNIT_CONTEXT_KEY, None)
         structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
+        structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
         structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
         }
         rendered = render_sections(render_envelope)
@@ -871,6 +886,7 @@ Rules:
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             "structured": structured_summary,
             "sections": sections_info,
             "section_coverage": coverage_snapshot,
