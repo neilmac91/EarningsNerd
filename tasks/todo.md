@@ -1,3 +1,9 @@
+## September 19 — E5 segment prompt consistency review correction
+
+- [x] Remote review of #924 head `640d514c` found that the shared model-facing rule still promised deterministic segment operating margins after their unsupported derived prefix was removed. Removed only that stale promise; the table still owns revenue and operating income, with revenue changes and matched commentary preserved. No new source, causal directive, model, flag or schema change.
+- [x] Advanced the content stamp to `summary-2026-09-p` for the corrected inline prompt and segment output. Older rows become version-stale; no read-time regeneration, drain or historical repair is scheduled. The existing source-to-surface invariant and its single mutation remain unchanged; locked tests are untouched.
+- [ ] Release remains blocked on the new committed full backend gate and semantic acceptance of the changed prompt. The earlier `640d514c` gate/baseline is retained historical evidence, not acceptance of these prompt bytes. Same-Fable contract-v2 judgment and source hand review are pending; no effect claim or RUNBOOK exemption is made. Parent owns fresh generation, external judging and release decisions; no paid call or push in this correction.
+
 ## September 19 — E5 segment-margin basis correction
 
 - [x] Confirmed source-owned KO defect: retained Q1 2026 segment inputs EMEA operating income 1,259M / selected revenue 3,012M produced an unqualified 42% operating margin, while the filing reports 44.8%; Asia Pacific 536M / 1,508M produced 36%, versus reported 37.6%. Operating-segment member qualification does not prove external-only revenue or matching margin basis.
