@@ -252,7 +252,8 @@ jobs:
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
   eval-baseline:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    # MEASUREMENT BRANCH ONLY: never run the uncapped eval in this experiment.
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     # Each run is a real DeepSeek measurement (see step below). Without this, every new
@@ -629,3 +630,88 @@ jobs:
           echo "$body"
           echo "$body" | grep -qE '"status": ?"unhealthy"' && { echo "Deploy unhealthy — DB unreachable"; exit 1; } || true
           echo "Deployed ${GITHUB_SHA::7} and verified healthy."
+
+  e8-pilot:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/wave3-e8-n-pilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: e8-usd5-pilot
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - name: Refuse reruns
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: test "$RUN_ATTEMPT" = 1
+      - name: Refuse a second programme dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # The serial concurrency group ensures the first programme is recorded before any
+          # later dispatch reaches here. A failed/aborted first programme also blocks reuse.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=codex%2Fwave3-e8-n-pilot&event=workflow_dispatch&per_page=100" \
+            --jq '.workflow_runs[].id' > "$RUNNER_TEMP/e8-prior-run-ids"
+          while read -r PRIOR_RUN; do
+            if [ "$PRIOR_RUN" -lt "$CURRENT_RUN" ]; then
+              echo 'A previous E8 programme exists; retain its ledger and do not restart.'
+              exit 1
+            fi
+          done < "$RUNNER_TEMP/e8-prior-run-ids"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Load AI model configuration
+        run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35461717484'
+          name: eval-report-35461717484
+          path: e8-controls/one
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35462609093'
+          name: eval-report-35462609093
+          path: e8-controls/two
+      - name: Two retained-grounding n corpora under one USD5 ledger
+        working-directory: backend
+        env:
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: eval-baseline-secret-key-for-ci-0123456789
+          STRIPE_SECRET_KEY: sk_test_ci_eval
+          STRIPE_WEBHOOK_SECRET: whsec_ci_eval
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AI_FALLBACK_MODEL: ''
+          AI_FALLBACK_BASE_URL: ''
+          AI_EVIDENCE_SNAP: 'true'
+          AI_FIGURE_TRACE_GATE: 'false'
+          AI_FORWARD_QUOTE_GATE: 'false'
+          AI_ATTRIBUTION_GATE: 'false'
+          AI_ATTRIBUTION_VERIFY: 'true'
+          USE_STRUCTURED_OUTPUT: 'false'
+          USE_STATEMENT_FINANCIALS: 'true'
+          STREAM_SECTION_REVEAL: 'true'
+          AI_SUMMARY_THINKING_EFFORT: ''
+        run: |
+          python -m evals.e8_pilot --controls \
+            ../e8-controls/one/eval_20260919T184629Z.json \
+            ../e8-controls/two/eval_20260919T190325Z.json \
+            --output evals/reports/e8-pilot
+      - name: Preserve all incurred response bytes, ledgers and partial corpora
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e8-usd5-pilot-${{ github.run_id }}
+          path: backend/evals/reports/e8-pilot/
+          retention-days: 30
+          if-no-files-found: warn
