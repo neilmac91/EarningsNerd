@@ -10,9 +10,9 @@ skill files, or in agent files.
 Read `CLAUDE.md` for repository rules. Use `lessons/README.md` to find lessons relevant to
 this task; open those lessons rather than the whole collection.
 
-- Continuing the master plan or a release: read `tasks/handover-astra-2026-09-08.md`,
-  `tasks/handover-wave3-2026-09.md` and the relevant current entries in `tasks/todo.md`.
-  Retain their later dated corrections and founder boundaries.
+- Continuing the master plan or a release: read `tasks/handover-astra-2026-09-19.md`, the current
+  state and reconciled open list. Its launch prompt is `tasks/handover-astra-2026-09-19-prompt.md`.
+  `tasks/todo.md` is the historical ledger; its older unchecked rows are not a to-do list.
 - Service boundaries or data flow: `docs/ARCHITECTURE.md`.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`.
 - UI changes: `frontend/DESIGN_SYSTEM.md`.
@@ -25,9 +25,9 @@ Routine isolated edits do not require loading the full handovers or repository m
 Apply this order, note the conflict in the PR body, fix the losing document in the same PR, and
 do not pause to ask:
 
-code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-08.md` >
-`tasks/handover-wave3-2026-09.md` > `tasks/todo.md` > `docs/`
-> `tasks/handover-wave2-2026-09.md` and `tasks/implementation-briefs-2026-09.md` (historical)
+code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-19.md` > `tasks/todo.md`
+> `docs/` > earlier handovers (`tasks/handover-astra-2026-09-*.md`, `tasks/handover-wave3-2026-09.md`,
+`tasks/handover-wave2-2026-09.md`) and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
 
 The seven engineering briefs under `.claude/agents/engineering/` are refreshed and guarded by
@@ -42,8 +42,10 @@ Infer intent and scope from the wave-3 plan and the conversation. Every item mar
 before asking anything. Complete the work that is already authorized before raising a question.
 
 Pause and ask only for these: editing a locked contract test (rule 6); a baseline re-pin outside
-a listed RUNBOOK trigger; flipping a production flag; spending money; any row marked *founder*;
-deleting data or history. If a skill or agent file makes you want to ask permission, name the
+a listed RUNBOOK trigger; flipping a production flag; any row marked *founder*; deleting data or
+history; and the founder-held list in `tasks/handover-astra-2026-09-19.md` §5. Bounded measurement
+spend (an `eval-baseline` run is about USD 0.30) is authorised after reading the balance; a new paid
+evaluation programme needs a stated ceiling first. If a skill or agent file makes you want to ask permission, name the
 file, quote the instruction, and proceed under this file instead.
 
 ## 4. Testing proportionality

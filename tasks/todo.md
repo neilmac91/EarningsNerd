@@ -1,3 +1,9 @@
+## September 19 — chief engineer role handed to GPT-6 Astra
+
+- [x] [Handover](handover-astra-2026-09-19.md) and [launch prompt](handover-astra-2026-09-19-prompt.md) written at the founder's request. The handover is the authoritative state as of 2026-09-19 with one reconciled open list; this ledger's older unchecked rows are history (#840, #843 and #845 merged on 13 September; `engines.node` already fixed). `AGENTS.md` now points at the new handover and its spend rule matches it. State read live: revision `earningsnerd-backend-00367-t8t` at 100% and healthy (main CI `35285580415`), DeepSeek balance USD 76.68 (run `35457885585`), open PRs Dependabot #916 and #917. Measurement PR #911 closed with its artifact captured.
+- [ ] Owned by the incoming chief engineer from here: the work queue E1–E9 and the founder decisions in the handover §5.
+
+
 ## September 17 — `summary-2026-09-o` released and drained; attribution guard planned
 
 - [x] [#899](https://github.com/neilmac91/EarningsNerd/pull/899) merged `7131fb07` (rebased onto main as its code commit only; ledger line records the founder's release decision). Rebased full gate 3,334 passed; PR checks green including `eval-baseline` (deterministic gate unchanged). Main CI `35156380503`, deploy revision `earningsnerd-backend-00361-6dx` at 100%, `/health/detailed` healthy.
