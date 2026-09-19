@@ -1,3 +1,9 @@
+## September 19 — documentation releases and independent judge handoffs
+
+- [x] Control clause evidence and the retained recall-gap study merged in [#921](https://github.com/neilmac91/EarningsNerd/pull/921) as `cc05e83961097d187028f29cbc5c7360599de62d` at 19:35:14Z. The founder-approved quality specification and exact manifest merged in [#922](https://github.com/neilmac91/EarningsNerd/pull/922) as `356663dded04ae662a72815c5ca00833ad470c9e` at 19:43:07Z. Both were documentation-only; neither deploys the backend.
+- [x] E8 [judgment package](review-evidence/e8-2026-09-19/judge-preparation.md) preserves 280 main inputs and twenty preselected duplicate packets, with independently reviewed quota/child-cleanup protection and unchanged judge code. No new real judge invocation occurred during preparation. The package is disabled pending prior-call reconciliation; valid existing controls are reused after audit.
+- [ ] E2/E3/E8 semantic verdict files remain with the founder's Claude agent. Only the original control handoff and its addendum are confirmed sent. Candidate/E8 handoffs are prepared and shared; neither delivery nor completed judgment is assumed. Local Fable quota remains a stop boundary, not a reason to substitute models.
+
 ## September 19 — approved E8 pilot captured completely within ceiling
 
 - [x] Never-merged measurement [#923](https://github.com/neilmac91/EarningsNerd/pull/923) closed after run 35465430465 retained two matched n corpora: 70/70 unique scored outputs each, zero errors or missing slots. All 140 source-channel sets match the pinned E2 controls. [Artifact audit](review-evidence/e8-2026-09-19/report.md).

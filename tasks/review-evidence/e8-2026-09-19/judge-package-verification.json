@@ -1,0 +1,82 @@
+{
+  "prepared_at_utc": "2026-09-19T20:23:11.530011+00:00",
+  "status": "offline_package_verified_no_judging",
+  "archive": {
+    "path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/e8-judge-queue-and-guard.zip",
+    "sha256": "6502d565fce6675748c2251f72ee945611f43382ea36c7a1393beb159e0cd3e4",
+    "bytes": 16136159,
+    "entries": 321,
+    "crc_and_byte_equality": "all entries match existing scratch source files"
+  },
+  "panel": {
+    "seed": 20260919,
+    "file_sha256": "de9ea2972ce31764a3577b91d896e1d7cf75d638e56b881bb5703bf3f84ef5de",
+    "canonical_core_sha256": "a4d68b47f7524febbca1c45a8726fa633bdd56b0fc3a2d766f1a8a5bdc23f401",
+    "canonical_order_sha256": "e5931d556f23889884682d65b113f954246fbae00910e7f671bc0f55df73caf4",
+    "main_slots": 280,
+    "duplicate_slots": 20,
+    "slots_unchanged": true
+  },
+  "queue": {
+    "path": "/private/tmp/earningsnerd-wave3-20260919/work/e8-judge-queue",
+    "private_map_sha256": "cc4d71e4e309a208c2e32c2d98350ede5ab1148ec0698b0169289f854a0b2a1f",
+    "singleton_packets": 300,
+    "source_channel_matches": 140,
+    "byte_identical_duplicate_pairs": 20,
+    "original_row_and_harness_equal": true,
+    "unchanged_check_provenance_accepted": 300,
+    "all_input_caps_pass": true
+  },
+  "sources": [
+    {
+      "path": "work/e8-pilot-run/n-corpus-1.json",
+      "sha256": "fab392e8a79614a5ceaa5919da7052603f3d280002fd3ed30183ff3dda276140",
+      "source_sha": "3a079a90f45838bc406db57a8b58ca13339fe35f",
+      "harness_sha256": "71cdf899dedff8853b8505630517a0af166771be9a2e794f68762b08e121603f"
+    },
+    {
+      "path": "work/e8-pilot-run/n-corpus-2.json",
+      "sha256": "11fb4918cebe2316c36877ead522150334ac66621b69ef70e64c12e2b89fc47e",
+      "source_sha": "3a079a90f45838bc406db57a8b58ca13339fe35f",
+      "harness_sha256": "06061e9b69b9d01a495caa01ad12a513add9ffb31f5ed399a6b7b83ce605a44a"
+    },
+    {
+      "path": "work/e2-ranking-run1/eval_20260919T184629Z.json",
+      "sha256": "8574ee7ccac4976e66b20fe9ee2bc64a509d36d3275f1f400ec29f64408c5fee",
+      "source_sha": "e1b52bafb18c4d1cb69f489ccbdfd8ebd7407deb",
+      "harness_sha256": "7d01c431ab510e4554efa1e5e98268301ae92edb0711abc9510d3c483e81ac16"
+    },
+    {
+      "path": "work/e2-ranking-run2/eval_20260919T190325Z.json",
+      "sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "source_sha": "73cc31162c3dfe7ec497c8c88c43cf397afce4a7",
+      "harness_sha256": "b819efd13d530148245883c0b5fa0921259cd1e101c9cb80aadf06a52e603c82"
+    }
+  ],
+  "judge_code_sha256": {
+    "backend/evals/judge_report.py": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+    "backend/evals/judge.py": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "backend/evals/runner.py": "63b010b7968c3f4bdbcfd62114af82dcfcd8c5eb56e892b0c0da77f4943c0029",
+    "backend/evals/weekly_readout.py": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d"
+  },
+  "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+  "guard": {
+    "path": "/private/tmp/earningsnerd-wave3-20260919/work/e8-judge-guard/claude",
+    "sha256": "c0ade9e8d278683e8ccdf9546b97e4b65c496a7c55c195885b4bfa1a38d4c138",
+    "enabled": false,
+    "accounting_reconciled": false,
+    "count_placeholder": 0,
+    "absolute_ceiling": 601,
+    "independent_review": "e1_review cleared guardian SIGKILL fix and documented reached-Fable-limit phrase at exact current shim SHA; no remaining introduced blocker",
+    "stub_invariant": "1 test in 2.161s OK",
+    "same_quota_latch_mutation": "1 test in 0.891s FAILED as expected: retry exit0 vs required75",
+    "restored": "1 test in 1.593s OK"
+  },
+  "limitations": [
+    "Existing valid E2 main verdicts are not to be rerun; reuse audit remains operator-owned.",
+    "No Fable verdicts inspected in selection/packaging.",
+    "Prior E8 call count plus attestation required before guard enablement; E3 excluded from ceiling but shared quota.",
+    "Earlier control judgments cannot be retroactively randomized/interleaved."
+  ],
+  "handoff_path_checks": "All existing absolute input/package paths resolve; result directory is explicitly future."
+}
