@@ -103,6 +103,54 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
     return abs(Decimal(token) - growth) <= tolerance
 
 
+# Selected-concept meanings, not a claim that an undimensioned fact proves entity scope.
+# FASB 2025 documentation distinguishes parent, common-holder, and NCI-inclusive income;
+# IFRS ProfitLoss is the total, with owners-of-parent profit separately tagged.
+_NET_INCOME_BASES = {
+    "us-gaap:NetIncomeLoss": "attributable to the parent",
+    "us-gaap:ProfitLoss": "including noncontrolling interests",
+    "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic": "available to common shareholders",
+    "ifrs-full:ProfitLoss": "including noncontrolling interests",
+    "ifrs-full:ProfitLossAttributableToOwnersOfParent": "attributable to owners of the parent",
+}
+
+
+def cash_conversion_basis(metrics: dict) -> str | None:
+    """Name a known selected NI basis only for matching observed cash/income periods.
+
+    Legacy snapshots and the companyfacts fallback can lack the selected concept or
+    duration. They abstain; neither fiscal labels nor equal amounts can supply it.
+    This qualifies this comparison only, without changing NI selection or other ratios.
+    """
+    points = []
+    for key in ("net_income", "operating_cash_flow"):
+        metric = metrics.get(key)
+        point = metric.get("current") if isinstance(metric, dict) else None
+        if not isinstance(point, dict) or _number(point.get("value")) is None:
+            return None
+        points.append(point)
+    income, cash = points
+    tag = income.get("raw_tag")
+    basis = _NET_INCOME_BASES.get(tag) if isinstance(tag, str) else None
+    # Continuing-operations OCF is a different numerator; no total-income conversion is certified.
+    if basis is None or cash.get("raw_tag") not in (
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        "ifrs-full:CashFlowsFromUsedInOperatingActivities",
+    ):
+        return None
+    currency = income.get("currency")
+    if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency) or cash.get("currency") != currency:
+        return None
+    try:
+        start, end = date.fromisoformat(income["period_start"]), date.fromisoformat(income["period"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (start >= end or income["period_start"] != start.isoformat() or income["period"] != end.isoformat()
+            or cash.get("period_start") != income["period_start"] or cash.get("period") != income["period"]):
+        return None
+    return basis
+
+
 def conventional_cash_applicable(metrics: dict) -> bool:
     """Require affirmative nonfinancial evidence; bank components remain a veto."""
     return (metrics.get("financial_classification", {}).get("is_financial") is False

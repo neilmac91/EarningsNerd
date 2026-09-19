@@ -816,3 +816,119 @@ def test_revenue_source_namespace_survives_fact_and_citation_paths(monkeypatch, 
         assert citation['raw_tag'] == qualified
         assert citation['section_ref'] == f'XBRL · {qualified}'
         assert citation['verified'] is True
+
+
+@pytest.mark.parametrize("income_tag,basis,defect", [
+    ("us-gaap:NetIncomeLoss", "attributable to the parent", None),
+    ("us-gaap:ProfitLoss", "including noncontrolling interests", None),
+    ("us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "available to common shareholders", None),
+    ("ifrs-full:ProfitLoss", "including noncontrolling interests", None),
+    ("ifrs-full:ProfitLossAttributableToOwnersOfParent", "attributable to owners of the parent", None),
+    *[("us-gaap:NetIncomeLoss", None, defect) for defect in (
+        "missing_income_tag", "unsupported_income_tag", "missing_cash_tag", "continuing_cash",
+        "missing_start", "different_start", "different_end", "invalid_date", "same_invalid_dates",
+        "different_currency", "missing_currency", "same_invalid_currency", "nonfinite_income",
+    )],
+])
+def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, income_tag, basis, defect):
+    """SE-shaped total/parent amounts stay distinct through selection and every projection.
+
+    Known taxonomy bases use the selected amount; unknown or mismatched snapshots
+    abstain from NI comparisons while retaining FCF, its qualifier and model prose.
+    These are controlled source rows, not a certification of old SE snapshots.
+    """
+    import json
+    from types import SimpleNamespace
+
+    from app.config import settings
+    from app.services.openai_service import openai_service
+    from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
+
+    cash_tag = ("ifrs-full:CashFlowsFromUsedInOperatingActivities" if income_tag.startswith("ifrs-full:")
+                else "us-gaap:NetCashProvidedByUsedInOperatingActivities")
+    income = 1_610_894_000 if income_tag.endswith(":ProfitLoss") else 1_578_149_000
+
+    def frame(value):
+        return pd.DataFrame([{"period_start": "2025-01-01", "period_end": "2025-12-31",
+                              "currency": "USD", "is_dimensioned": False, "numeric_value": value}])
+
+    frames = {income_tag: frame(income), cash_tag: frame(5_024_523_000),
+              "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment": frame(513_809_000)}
+    if income_tag == "us-gaap:NetIncomeLoss":
+        # Both exist in source; do not switch to total income to match model prose.
+        frames["us-gaap:ProfitLoss"] = frame(1_610_894_000)
+    calls = []
+
+    class Query:
+        def by_concept(self, concept, exact=True):
+            assert exact is True
+            calls.append(concept)
+            self.frame = frames.get(concept, pd.DataFrame())
+            return self
+
+        def to_dataframe(self):
+            return self.frame
+
+    xb = SimpleNamespace(facts=SimpleNamespace(query=Query))
+    monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", False)
+    monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
+    selected = {key: DURATION_CONCEPTS[key] for key in ("net_income", "operating_cash_flow", "capital_expenditures")}
+    monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", selected)
+    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {})
+    monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
+    monkeypatch.setattr(xbrl_module, "debt_component_observations", lambda *a, **k: [])
+    with _patch_company([FakeFiling("20-F", "2025-12-31", xb)]):
+        raw = _extract_from_filing_instance_sync("0000000001", "selected-accession")
+    assert raw["net_income"][0]["raw_tag"] == income_tag
+    assert raw["operating_cash_flow"][0]["raw_tag"] == cash_tag
+    assert raw["net_income"][0]["value"] == income
+    if income_tag == "us-gaap:NetIncomeLoss":
+        assert "us-gaap:ProfitLoss" not in calls  # Preserve first-candidate precedence.
+    ni, ocf = raw["net_income"][0], raw["operating_cash_flow"][0]
+    if defect == "missing_income_tag":
+        ni.pop("raw_tag")
+    elif defect == "unsupported_income_tag":
+        ni["raw_tag"] = "issuer:AdjustedNetIncome"
+    elif defect == "missing_cash_tag":
+        ocf.pop("raw_tag")
+    elif defect == "continuing_cash":
+        ocf["raw_tag"] = "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
+    elif defect == "missing_start":
+        ni.pop("period_start")
+    elif defect == "different_start":
+        ocf["period_start"] = "2025-01-02"
+    elif defect == "different_end":
+        ocf["period"] = "2025-12-30"
+    elif defect == "invalid_date":
+        ni["period_start"] = "2025-02-30"
+    elif defect == "same_invalid_dates":
+        ni["period_start"] = ocf["period_start"] = "2025-12-31"
+    elif defect == "different_currency":
+        ocf["currency"] = "EUR"
+    elif defect == "missing_currency":
+        ni.pop("currency")
+    elif defect == "same_invalid_currency":
+        ni["currency"] = ocf["currency"] = "unknown"
+    elif defect == "nonfinite_income":
+        ni["value"] = float("inf")
+    metrics = EdgarXBRLService().extract_standardized_metrics(raw)
+    metrics["financial_classification"] = {"is_financial": False}
+    # An independent supplied FCF keeps the test focused on NI-comparison eligibility,
+    # including mismatched OCF dates for which extraction cannot derive its own FCF.
+    metrics["free_cash_flow"] = {"current": {"value": 4_510_714_000, "period": "2025-12-31"}}
+    sections = {"earnings_quality": {"cash_conversion": "UNTRUSTED COMPARISON", "red_flags": ["Preserved disclosure."]}}
+    preview = openai_service._partial_markdown_preview(json.dumps({"sections": sections}), metrics)
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    raw_summary = {"schema_version": 2, "sections": sections}
+    line = sections["earnings_quality"]["cash_conversion"]
+    expected = f"{5_024_523_000 / income:.1f}x net income {basis} (cash conversion)"
+    assert (expected in line) is (basis is not None)
+    assert preview is not None
+    for text in (preview, sections_to_markdown(render_sections(raw_summary)), json.dumps(render_sections_json(raw_summary))):
+        assert ("cash conversion" in text) is (basis is not None)
+        if basis:
+            assert expected in text
+        assert "free cash flow of $4.5b" in text.lower()
+        assert "not an issuer-defined or discretionary-cash measure" in text
+        assert "Preserved disclosure." in text and "UNTRUSTED COMPARISON" not in text
