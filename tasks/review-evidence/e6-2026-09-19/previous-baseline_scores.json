@@ -1,6 +1,6 @@
 {
-  "snapshot_date": "2026-09-19T22:27:10Z",
-  "source_report": "eval_20260919T222710Z.json",
+  "snapshot_date": "2026-09-15T20:47:45Z",
+  "source_report": "eval_20260915T204745Z.json",
   "golden_set_size": 35,
   "runs_per_candidate": 3,
   "harness": {
@@ -16,11 +16,9 @@
     "ai_evidence_snap": true,
     "ai_figure_trace_gate": false,
     "ai_forward_quote_gate": false,
-    "ai_attribution_gate": false,
-    "ai_attribution_verify": false,
     "judge": false,
-    "source_sha": "4614153286d42a47727f7fad1ba1620be9300b0e",
-    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "source_sha": "e44f804645bb90ad294f395176a2775cb7f1a5f5",
+    "golden_set_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
     "candidates": [
       "baseline"
     ],
@@ -172,7 +170,7 @@
   },
   "candidates": {
     "baseline": {
-      "mean_untraceable_dollar_figures": 2.4857,
+      "mean_untraceable_dollar_figures": 2.1619,
       "figure_trace_measured": 105,
       "figure_trace_unavailable": 0,
       "figure_trace_errors": 0,
@@ -180,23 +178,23 @@
       "scored": 105,
       "errors": 0,
       "retried": 0,
-      "mean_aggregate": 1.0,
-      "aggregate_stdev": 0.0,
+      "mean_aggregate": 0.9995,
+      "aggregate_stdev": 0.0049,
       "pass_rate": 1.0,
       "gate_fail_rate": 0.0,
       "schema_valid_rate": 1.0,
       "repaired_rate": 0.0,
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
-      "mean_coverage": 1.0,
-      "mean_financial_depth": 0.7746,
-      "mean_specificity": 0.9963,
+      "mean_coverage": 0.9981,
+      "mean_financial_depth": 0.7937,
+      "mean_specificity": 0.9962,
       "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9274,
-      "mean_delta_consistency": 0.9976,
+      "mean_redundancy": 0.9115,
+      "mean_delta_consistency": 0.8438,
       "mean_forward_quote_fidelity": 0.9952,
-      "mean_citation_fidelity": 0.9648,
-      "mean_citation_checked": 7.181,
+      "mean_citation_fidelity": 0.9706,
+      "mean_citation_checked": 7.0857,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
       "incurred_usage_attempts": 105,
@@ -209,25 +207,25 @@
         "actual_models": [
           "deepseek-flash"
         ],
-        "prompt_tokens": 4133670,
-        "completion_tokens": 419714,
-        "cache_hit_tokens": 4112628,
-        "cache_miss_tokens": 21042,
+        "prompt_tokens": 4077705,
+        "completion_tokens": 381332,
+        "cache_hit_tokens": 4057332,
+        "cache_miss_tokens": 20373,
         "reasoning_tokens": null
       },
       "usage_attempts": 105,
-      "mean_completion_tokens": 3997.3,
-      "mean_prompt_tokens": 39368.3,
-      "total_completion_tokens": 419714,
-      "total_prompt_tokens": 4133670,
-      "total_cache_hit_tokens": 4112628,
-      "total_cache_miss_tokens": 21042,
+      "mean_completion_tokens": 3631.7,
+      "mean_prompt_tokens": 38835.3,
+      "total_completion_tokens": 381332,
+      "total_prompt_tokens": 4077705,
+      "total_cache_hit_tokens": 4057332,
+      "total_cache_miss_tokens": 20373,
       "provider_calls": 105,
       "actual_models": [
         "deepseek-flash"
       ],
-      "mean_latency_seconds": 13.188
+      "mean_latency_seconds": 12.589
     }
   },
-  "note": "Armed-guard re-pin (AI_EVIDENCE_SNAP=true), 2026-09-15: 35 verified filings x 3 runs, run 35020462848 on source e44f8046, DeepSeek V4.1 Flash thinking off, empty fallback; citation fidelity moves with the armed snap, all other dimensions within their run-to-run bands.\n\nE6 scorer/applicability re-pin, 2026-09-19: authoritative run 35472665559 on exact source 4614153286d42a47727f7fad1ba1620be9300b0e, report eval_20260919T222710Z.json SHA256 1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f; 35 frozen filings x 3 runs, 105/105 scored, zero errors/retries/hard vetoes. Corrected direct metric-percentage association and frozen accession-owned insurer depth applicability (BRK.B/PGR); general and 6-K applicability unchanged. Actual DeepSeek Flash with empty fallback, evidence snap true, attribution verifier/gate false. Regression PASS with standing untraceable-dollar WARN mean 2.4857. This replaces measurement definitions, not evidence of improved generated quality. Qualified metric-name ambiguity remains (BABA run 2 segment adjusted EBITA 44% matched to consolidated 56%); PLD non-verbatim evidence and BABA basis prose remain semantic residuals outside deterministic acceptance. Historical September 15 provenance above is retained."
+  "note": "Armed-guard re-pin (AI_EVIDENCE_SNAP=true), 2026-09-15: 35 verified filings x 3 runs, run 35020462848 on source e44f8046, DeepSeek V4.1 Flash thinking off, empty fallback; citation fidelity moves with the armed snap, all other dimensions within their run-to-run bands."
 }

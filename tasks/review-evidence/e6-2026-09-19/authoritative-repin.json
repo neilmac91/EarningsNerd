@@ -1,0 +1,308 @@
+{
+  "run_id": 35472665559,
+  "workflow_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35472665559",
+  "source_sha": "4614153286d42a47727f7fad1ba1620be9300b0e",
+  "source_tree": "d5ac81b08a237ec3f006d35c09d441b2ac720492",
+  "report_name": "eval_20260919T222710Z.json",
+  "report_sha256": "1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f",
+  "golden_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+  "previous_pin_sha256": "7d47f73c49c3932aa76a3d346346ebe71ba130e42a808e1bdb0ab2f673130032",
+  "new_pin_sha256": "6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387",
+  "counts": {
+    "expected": 105,
+    "attempted": 105,
+    "scored": 105,
+    "errors": 0,
+    "veto_or_missing_gate": 0,
+    "missing": [],
+    "extra": [],
+    "duplicates": []
+  },
+  "profile_counts": {
+    "general": 99,
+    "insurer": 6
+  },
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": true,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "ai_attribution_gate": false,
+    "ai_attribution_verify": false,
+    "judge": false,
+    "source_sha": "4614153286d42a47727f7fad1ba1620be9300b0e",
+    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 3,
+    "filings": [
+      {
+        "ticker": "ASML",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PLD",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NEE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PGR",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "FIGS",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "GPRO",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "BRK.B",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "profile_quotes_present_in_own_retained_excerpt": true,
+  "regression_findings": [
+    {
+      "severity": "WARN",
+      "candidate": "baseline",
+      "metric": "mean_untraceable_dollar_figures",
+      "baseline": null,
+      "candidate_value": 2.4857,
+      "delta": null,
+      "label": "absolute advisory: untraceable dollar figures in measured raw prose"
+    }
+  ],
+  "old_new_means": {
+    "mean_untraceable_dollar_figures": {
+      "old": 2.1619,
+      "new": 2.4857,
+      "delta": 0.3238
+    },
+    "mean_aggregate": {
+      "old": 0.9995,
+      "new": 1.0,
+      "delta": 0.0005
+    },
+    "mean_numeric_accuracy": {
+      "old": 1.0,
+      "new": 1.0,
+      "delta": 0.0
+    },
+    "mean_numeric_precision": {
+      "old": 1.0,
+      "new": 1.0,
+      "delta": 0.0
+    },
+    "mean_coverage": {
+      "old": 0.9981,
+      "new": 1.0,
+      "delta": 0.0019
+    },
+    "mean_financial_depth": {
+      "old": 0.7937,
+      "new": 0.7746,
+      "delta": -0.0191
+    },
+    "mean_specificity": {
+      "old": 0.9962,
+      "new": 0.9963,
+      "delta": 0.0001
+    },
+    "mean_currency_consistency": {
+      "old": 1.0,
+      "new": 1.0,
+      "delta": 0.0
+    },
+    "mean_redundancy": {
+      "old": 0.9115,
+      "new": 0.9274,
+      "delta": 0.0159
+    },
+    "mean_delta_consistency": {
+      "old": 0.8438,
+      "new": 0.9976,
+      "delta": 0.1538
+    },
+    "mean_forward_quote_fidelity": {
+      "old": 0.9952,
+      "new": 0.9952,
+      "delta": 0.0
+    },
+    "mean_citation_fidelity": {
+      "old": 0.9706,
+      "new": 0.9648,
+      "delta": -0.0058
+    },
+    "mean_citation_checked": {
+      "old": 7.0857,
+      "new": 7.181,
+      "delta": 0.0953
+    },
+    "mean_completion_tokens": {
+      "old": 3631.7,
+      "new": 3997.3,
+      "delta": 365.6
+    },
+    "mean_prompt_tokens": {
+      "old": 38835.3,
+      "new": 39368.3,
+      "delta": 533.0
+    },
+    "mean_latency_seconds": {
+      "old": 12.589,
+      "new": 13.188,
+      "delta": 0.599
+    }
+  },
+  "actual_provider_usage": {
+    "calls": 105,
+    "unknown_calls": 0,
+    "prompt_tokens": 4133670,
+    "completion_tokens": 419714,
+    "cache_hit_tokens": 4112628,
+    "cache_miss_tokens": 21042
+  },
+  "actual_operations": {
+    "summary_primary": 105
+  },
+  "pin_tool_output": "Pinned /private/tmp/earningsnerd-scorers-20260919/backend/evals/baseline_scores.json from eval_20260919T222710Z.json: 35 filings \u00d7 3 runs\n  pass_rate=1.0 gate_fail_rate=0.0 precision=1.0 coverage=1.0 recall=1.0 stdev=0.0",
+  "note_preserves_previous_prefix": true,
+  "limitations": [
+    "Actual report retained externally; this compact receipt does not duplicate105outputs.",
+    "Old/new scores combine scorer/applicability changes, newer generation runtime and run variation, not a causal generated-quality effect.",
+    "BABA20-F run2delta0.75 is the documented qualified-name collision: segment44% versus consolidated56%.",
+    "PLD10-K run0citation0.4286 includes4non-verbatim evidence strings; BABA20-F run2operating-income prose includes nonoperating gains. These semantic residuals are preserved, not engineering failures removed by re-pinning.",
+    "No strong-judge verdict exists for this105-output report; deterministic pass is not full semantic acceptance.",
+    "Provider total_cost_usd0is unmetered;105actualsummary_primary calls are recorded,0unknown.",
+    "Raw document body absent; declared raw-source SHA not independently recomputed. Existing9six-K rows lack raw-source provenance; retained excerpt hashes recomputed."
+  ]
+}
