@@ -1,0 +1,3048 @@
+{
+  "schema_version": 1,
+  "status": "proposal_not_frozen",
+  "created_on": "2026-09-19",
+  "candidate_identity_count": 30,
+  "generations_per_filing": 3,
+  "required_candidate_outputs": 90,
+  "selection_method": "Purposive stratified proposal using source-verifiable filings available before 2026-09-19; not a random population sample and not necessarily latest filing. No generated outputs inspected for selection.",
+  "unseen_status": "pending_full_exposure_adjudication_and_founder_attestation_of_untracked_prior_evaluations",
+  "identity_verification_method": "Official SEC filing detail or submission header, accessed read-only through web tool; SEC record filing date retained separately from reported financial period for 6-K",
+  "size_policy": "Four selected SEC smaller-reporting-company issuers plus two selected 10-K public-float-below-USD1B observations dated 2025-06-30 provide smaller-issuer proxies. These are not current market-cap classifications. Other size tags remain pending.",
+  "coverage_limits": [
+    "No amendment in offered scope; amendment coverage requires a separate proposal",
+    "Nokia earnings tables include image assets; extraction completeness needs special examination",
+    "HSBC USD presentation, not an asserted non-USD financial case",
+    "CoreWeave has available comparatives; it does not establish a no-prior-period case",
+    "Offline helper assessment completed; full production orchestrator, fallback narrative extraction and XBRL metric extraction not run",
+    "Structured helper coverage gaps retained for CB, NTLA, PG, USB, AEP, BRT, SAP, TM and HSBC; no post-observation substitution",
+    "Human material-issue reference briefs and untracked-exposure attestation pending; no quality acceptance claimed"
+  ],
+  "filings": [
+    {
+      "holdout_id": "H01",
+      "ticker": "CAT",
+      "company_name": "Caterpillar Inc.",
+      "cik": "18230",
+      "filing_type": "10-K",
+      "accession_number": "0000018230-26-000008",
+      "filing_date": "2026-02-13",
+      "period_of_report": "2025-12-31",
+      "primary_document": "cat-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/0000018230-26-000008-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/cat-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "fb9bdf42368dc77660f1fc85085edf3d2b3b33c19e38d5d999dfede447d31ffc",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "industrial machinery",
+      "selection_rationale": "acquisition/debt explanation",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H01/cat-20251231.htm",
+          "bytes": 6100583,
+          "sha256": "fb9bdf42368dc77660f1fc85085edf3d2b3b33c19e38d5d999dfede447d31ffc",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "fb9bdf42368dc77660f1fc85085edf3d2b3b33c19e38d5d999dfede447d31ffc",
+            "characters": 6100583,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/cat-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/cat-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H01/0000018230-26-000008-index.htm",
+          "bytes": 14404,
+          "sha256": "7afcc54daeced3e411f83a15c3dd9423c2021433ede080d0c00bf54efd4bc56c",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "7afcc54daeced3e411f83a15c3dd9423c2021433ede080d0c00bf54efd4bc56c",
+            "characters": 14404,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/0000018230-26-000008-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/0000018230-26-000008-index.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H01/0000018230-26-000008.txt",
+          "bytes": 33197476,
+          "sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972",
+            "characters": 33197476,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/0000018230-26-000008.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/0000018230-26-000008.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H01/offline-assessment.json",
+        "sha256": "9aea5280d63c34112e7571e4866786b03fa42d92539486a49b0db5e56d306a77",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H02",
+      "ticker": "DUK",
+      "company_name": "Duke Energy Corporation",
+      "cik": "1326160",
+      "filing_type": "10-K",
+      "accession_number": "0001326160-26-000014",
+      "filing_date": "2026-02-26",
+      "period_of_report": "2025-12-31",
+      "primary_document": "duk-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/0001326160-26-000014-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/duk-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "6c451cbcbd57e32dc676240ad2e6cb2355299e6c39ef3cbfa0a460a94758b15a",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "regulated utility",
+      "selection_rationale": "multi-registrant consolidation; capital intensity",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H02/duk-20251231.htm",
+          "bytes": 16080290,
+          "sha256": "6c451cbcbd57e32dc676240ad2e6cb2355299e6c39ef3cbfa0a460a94758b15a",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "6c451cbcbd57e32dc676240ad2e6cb2355299e6c39ef3cbfa0a460a94758b15a",
+            "characters": 16080290,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/duk-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/duk-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H02/0001326160-26-000014-index.htm",
+          "bytes": 38152,
+          "sha256": "b6d2d7f1b1975f6c52a05a211052bc31d61e1f343232194ea93fcade6579d793",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "b6d2d7f1b1975f6c52a05a211052bc31d61e1f343232194ea93fcade6579d793",
+            "characters": 38152,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/0001326160-26-000014-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/0001326160-26-000014-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H02/0001326160-26-000014.txt",
+          "bytes": 81613612,
+          "sha256": "38548af7359d2d9145c8375285848ea4caded860d5e80ba44f32a8d552aa30af",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "38548af7359d2d9145c8375285848ea4caded860d5e80ba44f32a8d552aa30af",
+            "characters": 81613612,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/0001326160-26-000014.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/0001326160-26-000014.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H02/offline-assessment.json",
+        "sha256": "78cf9068d2cec8cdecc50c205ce904c49f27606cdd67b0dc922b03c86698a55e",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H03",
+      "ticker": "O",
+      "company_name": "Realty Income Corporation",
+      "cik": "726728",
+      "filing_type": "10-K",
+      "accession_number": "0000726728-26-000011",
+      "filing_date": "2026-02-25",
+      "period_of_report": "2025-12-31",
+      "primary_document": "o-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/0000726728-26-000011-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/o-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "3b17bd2002e50b528a972990aaa72223aa7dbf8a9646147f8c3c359c3411dce3",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "REIT",
+      "selection_rationale": "FFO versus GAAP",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H03/o-20251231.htm",
+          "bytes": 4098074,
+          "sha256": "3b17bd2002e50b528a972990aaa72223aa7dbf8a9646147f8c3c359c3411dce3",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3b17bd2002e50b528a972990aaa72223aa7dbf8a9646147f8c3c359c3411dce3",
+            "characters": 4098074,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/o-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/o-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H03/0000726728-26-000011-index.htm",
+          "bytes": 12817,
+          "sha256": "02e40927165c9d0948b477d2078022c03ee7ee13e56b488f255bd51ef66a67e1",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "02e40927165c9d0948b477d2078022c03ee7ee13e56b488f255bd51ef66a67e1",
+            "characters": 12817,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/0000726728-26-000011-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/0000726728-26-000011-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H03/0000726728-26-000011.txt",
+          "bytes": 22820808,
+          "sha256": "aede71a80eb58c6fc724bff1fc354f360fe1df91db2b3496df5d2d667a490d34",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "aede71a80eb58c6fc724bff1fc354f360fe1df91db2b3496df5d2d667a490d34",
+            "characters": 22820808,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/0000726728-26-000011.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/0000726728-26-000011.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H03/offline-assessment.json",
+        "sha256": "b936125ac2552b25f686bcd664e8f79f6a811cc56c71b1af5b33d3b35e7ead17",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H04",
+      "ticker": "CB",
+      "company_name": "Chubb Limited",
+      "cik": "896159",
+      "filing_type": "10-K",
+      "accession_number": "0000896159-26-000005",
+      "filing_date": "2026-02-27",
+      "period_of_report": "2025-12-31",
+      "primary_document": "cb-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/0000896159-26-000005-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/cb-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "bc5d6490a0489e90028b222620a10db94b08f1dc44471896af909de840f0a03d",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "insurance",
+      "selection_rationale": "premiums/underwriting/investment basis",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H04/cb-20251231.htm",
+          "bytes": 9698848,
+          "sha256": "bc5d6490a0489e90028b222620a10db94b08f1dc44471896af909de840f0a03d",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "bc5d6490a0489e90028b222620a10db94b08f1dc44471896af909de840f0a03d",
+            "characters": 9698848,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/cb-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/cb-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H04/0000896159-26-000005-index.htm",
+          "bytes": 14127,
+          "sha256": "f9a9acc5c42a4c8ecffc906a7e9aca152a4ec5e69854bbf07cf69b5fcb3bc5e0",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "f9a9acc5c42a4c8ecffc906a7e9aca152a4ec5e69854bbf07cf69b5fcb3bc5e0",
+            "characters": 14127,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/0000896159-26-000005-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/0000896159-26-000005-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H04/0000896159-26-000005.txt",
+          "bytes": 49685560,
+          "sha256": "449b2da229b3b89db9e327027920bb9227f58a12980886c8aa8fab25aac9fbdb",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "449b2da229b3b89db9e327027920bb9227f58a12980886c8aa8fab25aac9fbdb",
+            "characters": 49685560,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/0000896159-26-000005.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/896159/000089615926000005/0000896159-26-000005.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H04/offline-assessment.json",
+        "sha256": "ff624785ffb31fc758b2e6333fe0a0fb6c39643c08425a16925732f94e7b4bad",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H05",
+      "ticker": "GS",
+      "company_name": "The Goldman Sachs Group Inc.",
+      "cik": "886982",
+      "filing_type": "10-K",
+      "accession_number": "0000886982-26-000091",
+      "filing_date": "2026-02-25",
+      "period_of_report": "2025-12-31",
+      "primary_document": "gs-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/0000886982-26-000091-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/gs-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "451cf573e5e6a7f1b4970a6fcaa9148c54e087a51664017e6c0fe958551b3141",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "investment banking",
+      "selection_rationale": "financial-profile cash applicability",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H05/gs-20251231.htm",
+          "bytes": 9611279,
+          "sha256": "451cf573e5e6a7f1b4970a6fcaa9148c54e087a51664017e6c0fe958551b3141",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "451cf573e5e6a7f1b4970a6fcaa9148c54e087a51664017e6c0fe958551b3141",
+            "characters": 9611279,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/gs-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/gs-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H05/0000886982-26-000091-index.htm",
+          "bytes": 18100,
+          "sha256": "10acb165dcb3e0d641235fe3dc316a263902b4c2cb102522b4523434dc0cec85",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "10acb165dcb3e0d641235fe3dc316a263902b4c2cb102522b4523434dc0cec85",
+            "characters": 18100,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/0000886982-26-000091-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/0000886982-26-000091-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H05/0000886982-26-000091.txt",
+          "bytes": 49399989,
+          "sha256": "1577977ff3eac9be5cdf70f92764445ba201a55e485de5cb4edfbb67fffd8a63",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "1577977ff3eac9be5cdf70f92764445ba201a55e485de5cb4edfbb67fffd8a63",
+            "characters": 49399989,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/0000886982-26-000091.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/0000886982-26-000091.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H05/offline-assessment.json",
+        "sha256": "cdb2ef765f601fea23227d8bfc60c365b714dc4e25f23c75b494bd03c67733f8",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H06",
+      "ticker": "CVX",
+      "company_name": "Chevron Corporation",
+      "cik": "93410",
+      "filing_type": "10-K",
+      "accession_number": "0000093410-26-000078",
+      "filing_date": "2026-02-24",
+      "period_of_report": "2025-12-31",
+      "primary_document": "cvx-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/0000093410-26-000078-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/cvx-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "c7a5f3659605975dac1029d1e0c75a09179e04e79667f7540e63b848e033846f",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "energy",
+      "selection_rationale": "commodity-driver language",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H06/cvx-20251231.htm",
+          "bytes": 6061430,
+          "sha256": "c7a5f3659605975dac1029d1e0c75a09179e04e79667f7540e63b848e033846f",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "c7a5f3659605975dac1029d1e0c75a09179e04e79667f7540e63b848e033846f",
+            "characters": 6061430,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/cvx-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/cvx-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H06/0000093410-26-000078-index.htm",
+          "bytes": 26237,
+          "sha256": "2fe3a9218f0c2b452eace042951629bd150f42094a38a7c4a470a1d085e7abb6",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "2fe3a9218f0c2b452eace042951629bd150f42094a38a7c4a470a1d085e7abb6",
+            "characters": 26237,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/0000093410-26-000078-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/0000093410-26-000078-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H06/0000093410-26-000078.txt",
+          "bytes": 28996618,
+          "sha256": "4f1fa121ec505126499bf1b3fa47eeef2857f86bdd08b10dab21c83f7d6ca663",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "4f1fa121ec505126499bf1b3fa47eeef2857f86bdd08b10dab21c83f7d6ca663",
+            "characters": 28996618,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/0000093410-26-000078.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/93410/000009341026000078/0000093410-26-000078.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H06/offline-assessment.json",
+        "sha256": "3defb3b275aa23fca1aeba4e76573234ef35c62aff1c80268b38d32f0c6de4de",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H07",
+      "ticker": "TGT",
+      "company_name": "Target Corporation",
+      "cik": "27419",
+      "filing_type": "10-K",
+      "accession_number": "0000027419-26-000016",
+      "filing_date": "2026-03-11",
+      "period_of_report": "2026-01-31",
+      "primary_document": "tgt-20260131.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/0000027419-26-000016-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/tgt-20260131.htm",
+      "sec_report_date": "2026-01-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "f0a3c1443db691eb0e2d96431f88ecc74e68579ce65e4697ad877cb207020054",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "retail",
+      "selection_rationale": "non-calendar year",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H07/tgt-20260131.htm",
+          "bytes": 2059408,
+          "sha256": "f0a3c1443db691eb0e2d96431f88ecc74e68579ce65e4697ad877cb207020054",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "f0a3c1443db691eb0e2d96431f88ecc74e68579ce65e4697ad877cb207020054",
+            "characters": 2059408,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/tgt-20260131.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/tgt-20260131.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H07/0000027419-26-000016-index.htm",
+          "bytes": 20299,
+          "sha256": "012380706d76120aae02e4366e2657fef31a0449b286e5b3a56bfb1cd7c346da",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "012380706d76120aae02e4366e2657fef31a0449b286e5b3a56bfb1cd7c346da",
+            "characters": 20299,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/0000027419-26-000016-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/0000027419-26-000016-index.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H07/0000027419-26-000016.txt",
+          "bytes": 12723909,
+          "sha256": "9cb81d7f062d4c25171ea26879d8d1f6e019c32c4c4a99ce3d626a202c5019cc",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "9cb81d7f062d4c25171ea26879d8d1f6e019c32c4c4a99ce3d626a202c5019cc",
+            "characters": 12723909,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/0000027419-26-000016.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/27419/000002741926000016/0000027419-26-000016.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H07/offline-assessment.json",
+        "sha256": "00d8ca47b73e43398dcca448ecdf7683b6a29c43f0e78b6ae5e8a4e3ebab615a",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H08",
+      "ticker": "ADBE",
+      "company_name": "Adobe Inc.",
+      "cik": "796343",
+      "filing_type": "10-K",
+      "accession_number": "0000796343-26-000003",
+      "filing_date": "2026-01-15",
+      "period_of_report": "2025-11-28",
+      "primary_document": "adbe-20251128.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/0000796343-26-000003-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/adbe-20251128.htm",
+      "sec_report_date": "2025-11-28",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "49d009c6c695beb1ce918c9431234219b9944dac3d4049b80828168b1c1fa557",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "software",
+      "selection_rationale": "non-calendar year; recurring revenue",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H08/adbe-20251128.htm",
+          "bytes": 2321290,
+          "sha256": "49d009c6c695beb1ce918c9431234219b9944dac3d4049b80828168b1c1fa557",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "49d009c6c695beb1ce918c9431234219b9944dac3d4049b80828168b1c1fa557",
+            "characters": 2321290,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/adbe-20251128.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/adbe-20251128.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H08/0000796343-26-000003-index.htm",
+          "bytes": 13220,
+          "sha256": "0dfde0a4cc4a30d72e16c11415e4586dcaaa34c02c90c32887d012a4c2285dd9",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "0dfde0a4cc4a30d72e16c11415e4586dcaaa34c02c90c32887d012a4c2285dd9",
+            "characters": 13220,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/0000796343-26-000003-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/0000796343-26-000003-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H08/0000796343-26-000003.txt",
+          "bytes": 13002522,
+          "sha256": "c3e54c2c5601c850776696c0a6402f8444b862ef2e131df4bf1059843119f733",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "c3e54c2c5601c850776696c0a6402f8444b862ef2e131df4bf1059843119f733",
+            "characters": 13002522,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/0000796343-26-000003.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/796343/000079634326000003/0000796343-26-000003.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H08/offline-assessment.json",
+        "sha256": "c7a167c99ac39a30ba357fed97d19e7ce493ef084dac0ca53944a507c368047c",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H09",
+      "ticker": "NTLA",
+      "company_name": "Intellia Therapeutics Inc.",
+      "cik": "1652130",
+      "filing_type": "10-K",
+      "accession_number": "0001193125-26-076550",
+      "filing_date": "2026-02-26",
+      "period_of_report": "2025-12-31",
+      "primary_document": "ntla-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/0001193125-26-076550-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/ntla-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "b4a86c2dfa56e7226542fd1d7f1a9fab3bd1f1c367d768d12e0ba15019d66fc0",
+      "size_proxy": {
+        "basis": "Selected 10-K cover reports historical nonaffiliate public float; this is not total/current market cap",
+        "status": "verified_in_selected_filing",
+        "value": "nonaffiliate_public_float_below_USD_1B",
+        "as_of": "2025-06-30",
+        "reported_usd": 869490759,
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/ntla-20251231.htm"
+      },
+      "sector": "biotechnology",
+      "selection_rationale": "loss and cash runway",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H09/ntla-20251231.htm",
+          "bytes": 3674376,
+          "sha256": "b4a86c2dfa56e7226542fd1d7f1a9fab3bd1f1c367d768d12e0ba15019d66fc0",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "b4a86c2dfa56e7226542fd1d7f1a9fab3bd1f1c367d768d12e0ba15019d66fc0",
+            "characters": 3674376,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/ntla-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/ntla-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H09/0001193125-26-076550-index.htm",
+          "bytes": 12355,
+          "sha256": "a2b408664dce487c4aec441cf220604665a0e02929a63fd86ceb980690311c0b",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "a2b408664dce487c4aec441cf220604665a0e02929a63fd86ceb980690311c0b",
+            "characters": 12355,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/0001193125-26-076550-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/0001193125-26-076550-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H09/0001193125-26-076550.txt",
+          "bytes": 16714922,
+          "sha256": "55716ba3f69fe24505c63172c1d1001158cfbe741cb3ba16d85890bd5a44922f",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "55716ba3f69fe24505c63172c1d1001158cfbe741cb3ba16d85890bd5a44922f",
+            "characters": 16714922,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/0001193125-26-076550.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1652130/000119312526076550/0001193125-26-076550.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H09/offline-assessment.json",
+        "sha256": "dc7a597ce81dfadbfc265814df6ff6e67d257de452b8757711a03f6364330ef1",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H10",
+      "ticker": "OUST",
+      "company_name": "Ouster Inc.",
+      "cik": "1816581",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-26-013313",
+      "filing_date": "2026-03-02",
+      "period_of_report": "2025-12-31",
+      "primary_document": "oust-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/0001628280-26-013313-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/oust-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "c6cb70169f2efffe53344d0e04c18ff489620f68035b9888b60990657f0abb1e",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "verified_in_selected_filing",
+        "value": "smaller_reporting_company",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/oust-20251231.htm"
+      },
+      "sector": "industrial sensing",
+      "selection_rationale": "smaller reporter; loss and thin disclosures",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H10/oust-20251231.htm",
+          "bytes": 2040793,
+          "sha256": "c6cb70169f2efffe53344d0e04c18ff489620f68035b9888b60990657f0abb1e",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "c6cb70169f2efffe53344d0e04c18ff489620f68035b9888b60990657f0abb1e",
+            "characters": 2040793,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/oust-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/oust-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H10/0001628280-26-013313-index.htm",
+          "bytes": 12960,
+          "sha256": "d6cef5e3c8b8e4612a327279723e37fcafbcc41efb1c01ef8dc417871608f6ed",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "d6cef5e3c8b8e4612a327279723e37fcafbcc41efb1c01ef8dc417871608f6ed",
+            "characters": 12960,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/0001628280-26-013313-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/0001628280-26-013313-index.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H10/0001628280-26-013313.txt",
+          "bytes": 11619092,
+          "sha256": "70749fc95d17ad96ebc324d9c5c6804282241e45d424547596606e9d6e0543de",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "70749fc95d17ad96ebc324d9c5c6804282241e45d424547596606e9d6e0543de",
+            "characters": 11619092,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/0001628280-26-013313.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1816581/000162828026013313/0001628280-26-013313.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H10/offline-assessment.json",
+        "sha256": "d13875294da9dbb27b767be823ce7f65edab5fa442484c61e31dda9361eb6102",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H11",
+      "ticker": "ABCL",
+      "company_name": "AbCellera Biologics Inc.",
+      "cik": "1703057",
+      "filing_type": "10-K",
+      "accession_number": "0001703057-26-000012",
+      "filing_date": "2026-02-24",
+      "period_of_report": "2025-12-31",
+      "primary_document": "abcl-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/0001703057-26-000012-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/abcl-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "e968c74fb65dd5136ed5ee81eb2187b0e9dea6a2b6a0beff147e41d2c21ff4c4",
+      "size_proxy": {
+        "basis": "Selected 10-K cover reports historical nonaffiliate public float; this is not total/current market cap",
+        "status": "verified_in_selected_filing",
+        "value": "nonaffiliate_public_float_below_USD_1B",
+        "as_of": "2025-06-30",
+        "reported_usd": 789227743,
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/abcl-20251231.htm"
+      },
+      "sector": "pharmaceuticals",
+      "selection_rationale": "biotechnology; milestone/license income versus recurring revenue; historical public-float proxy below USD1B",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H11/abcl-20251231.htm",
+          "bytes": 2128478,
+          "sha256": "e968c74fb65dd5136ed5ee81eb2187b0e9dea6a2b6a0beff147e41d2c21ff4c4",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "e968c74fb65dd5136ed5ee81eb2187b0e9dea6a2b6a0beff147e41d2c21ff4c4",
+            "characters": 2128478,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/abcl-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/abcl-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H11/0001703057-26-000012-index.htm",
+          "bytes": 15478,
+          "sha256": "0eb9e08e4fe163920ae122e9ba32b08ab468e63a0f9e81865b009ed96dbc11df",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "0eb9e08e4fe163920ae122e9ba32b08ab468e63a0f9e81865b009ed96dbc11df",
+            "characters": 15478,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/0001703057-26-000012-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/0001703057-26-000012-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H11/0001703057-26-000012.txt",
+          "bytes": 19363816,
+          "sha256": "988528030901eb15db8744ecbfd77499b4d19abe9b8a923bcdad1cfda415804d",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "988528030901eb15db8744ecbfd77499b4d19abe9b8a923bcdad1cfda415804d",
+            "characters": 19363816,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/0001703057-26-000012.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1703057/000170305726000012/0001703057-26-000012.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H11/offline-assessment.json",
+        "sha256": "bf65c97605759d595eedc5b6f17b438984eea7be1fe5693b38faf7cdf9da0e75",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H12",
+      "ticker": "WM",
+      "company_name": "Waste Management Inc.",
+      "cik": "823768",
+      "filing_type": "10-K",
+      "accession_number": "0001104659-26-012049",
+      "filing_date": "2026-02-09",
+      "period_of_report": "2025-12-31",
+      "primary_document": "wm-20251231x10k.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/0001104659-26-012049-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/wm-20251231x10k.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "2d62ef2a7311e51cf19c938662c204641091cee5b8ecb74c0b467ea5343b265e",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "environmental services",
+      "selection_rationale": "acquisition and cash flow",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H12/wm-20251231x10k.htm",
+          "bytes": 4648566,
+          "sha256": "2d62ef2a7311e51cf19c938662c204641091cee5b8ecb74c0b467ea5343b265e",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "2d62ef2a7311e51cf19c938662c204641091cee5b8ecb74c0b467ea5343b265e",
+            "characters": 4648566,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/wm-20251231x10k.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/wm-20251231x10k.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H12/0001104659-26-012049-index.htm",
+          "bytes": 13318,
+          "sha256": "84326849bb4b7b661312f73a50bb9d6a89465f67fbc76a4f120fbc7205a187b9",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "84326849bb4b7b661312f73a50bb9d6a89465f67fbc76a4f120fbc7205a187b9",
+            "characters": 13318,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/0001104659-26-012049-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/0001104659-26-012049-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H12/0001104659-26-012049.txt",
+          "bytes": 21455393,
+          "sha256": "def038f5640a33d0e96448da1e67f065953ee45995768fbd80673267228f606e",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "def038f5640a33d0e96448da1e67f065953ee45995768fbd80673267228f606e",
+            "characters": 21455393,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/0001104659-26-012049.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/823768/000110465926012049/0001104659-26-012049.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H12/offline-assessment.json",
+        "sha256": "05772213ebfce1e54d17096a5b64eb2a0814361ec52ac21b9be7c428bc0837e4",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H13",
+      "ticker": "CRM",
+      "company_name": "Salesforce Inc.",
+      "cik": "1108524",
+      "filing_type": "10-Q",
+      "accession_number": "0001108524-26-000127",
+      "filing_date": "2026-05-28",
+      "period_of_report": "2026-04-30",
+      "primary_document": "crm-20260430.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/0001108524-26-000127-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/crm-20260430.htm",
+      "sec_report_date": "2026-04-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "bcca0b593f72d5a33eced7ec45bdebb6ff7aa47fb89fdeae6e12cd380214d883",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "software",
+      "selection_rationale": "non-calendar quarter; explanation support",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H13/crm-20260430.htm",
+          "bytes": 1738055,
+          "sha256": "bcca0b593f72d5a33eced7ec45bdebb6ff7aa47fb89fdeae6e12cd380214d883",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "bcca0b593f72d5a33eced7ec45bdebb6ff7aa47fb89fdeae6e12cd380214d883",
+            "characters": 1738055,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/crm-20260430.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/crm-20260430.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H13/0001108524-26-000127-index.htm",
+          "bytes": 11954,
+          "sha256": "dc8a1d76e9f2e7535f70a866d1558c900c6789fc6b632633c9b2c00cc0a6710c",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "dc8a1d76e9f2e7535f70a866d1558c900c6789fc6b632633c9b2c00cc0a6710c",
+            "characters": 11954,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/0001108524-26-000127-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/0001108524-26-000127-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H13/0001108524-26-000127.txt",
+          "bytes": 9351464,
+          "sha256": "4170deb021fe7e9f612084f6db52d27525dafba986f99761bbab516977f3cfa8",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "4170deb021fe7e9f612084f6db52d27525dafba986f99761bbab516977f3cfa8",
+            "characters": 9351460,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/0001108524-26-000127.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000127/0001108524-26-000127.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H13/offline-assessment.json",
+        "sha256": "37414a8fe8e55e68ae9997dd0ebba2e9ccc3a56d459fde229ccb562a6101ba8d",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H14",
+      "ticker": "AMD",
+      "company_name": "Advanced Micro Devices Inc.",
+      "cik": "2488",
+      "filing_type": "10-Q",
+      "accession_number": "0000002488-26-000123",
+      "filing_date": "2026-08-05",
+      "period_of_report": "2026-06-27",
+      "primary_document": "amd-20260627.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/0000002488-26-000123-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+      "sec_report_date": "2026-06-27",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "652898612bd12d71d554449efcc7d9a8c7cfd467dfb7dda86e160b81413d6b2a",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "semiconductors",
+      "selection_rationale": "segment revenue and consolidation",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H14/amd-20260627.htm",
+          "bytes": 1348716,
+          "sha256": "652898612bd12d71d554449efcc7d9a8c7cfd467dfb7dda86e160b81413d6b2a",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "652898612bd12d71d554449efcc7d9a8c7cfd467dfb7dda86e160b81413d6b2a",
+            "characters": 1348716,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H14/0000002488-26-000123-index.htm",
+          "bytes": 12556,
+          "sha256": "3a2b8745ceccf584e4a8654330c58ebdfd77b1172fa3144a6f05e853f62a3857",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3a2b8745ceccf584e4a8654330c58ebdfd77b1172fa3144a6f05e853f62a3857",
+            "characters": 12556,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/0000002488-26-000123-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/0000002488-26-000123-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H14/0000002488-26-000123.txt",
+          "bytes": 8588595,
+          "sha256": "a7426fcb62e56b220df82801ba4ca8f3a073824b42405451485fb7067da977d5",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "a7426fcb62e56b220df82801ba4ca8f3a073824b42405451485fb7067da977d5",
+            "characters": 8588595,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/0000002488-26-000123.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/0000002488-26-000123.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H14/offline-assessment.json",
+        "sha256": "66dbda42bbab891b5242e99fb3ad7959fb2e536e44523d8a0c4d4e7a954ece35",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H15",
+      "ticker": "BIRD",
+      "company_name": "Allbirds Inc.",
+      "cik": "1653909",
+      "filing_type": "10-Q",
+      "accession_number": "0001628280-26-035302",
+      "filing_date": "2026-05-15",
+      "period_of_report": "2026-03-31",
+      "primary_document": "bird-20260331.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/0001628280-26-035302-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/bird-20260331.htm",
+      "sec_report_date": "2026-03-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "d5762ccffcc716684bc9b79e8de759767c60d59ad0651282bb48958356ab9a39",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "verified_in_selected_filing",
+        "value": "smaller_reporting_company",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/bird-20260331.htm"
+      },
+      "sector": "consumer footwear",
+      "selection_rationale": "smaller reporter; loss",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H15/bird-20260331.htm",
+          "bytes": 1191312,
+          "sha256": "d5762ccffcc716684bc9b79e8de759767c60d59ad0651282bb48958356ab9a39",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "d5762ccffcc716684bc9b79e8de759767c60d59ad0651282bb48958356ab9a39",
+            "characters": 1191312,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/bird-20260331.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/bird-20260331.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H15/0001628280-26-035302-index.htm",
+          "bytes": 11560,
+          "sha256": "881abcc6fdb0aeb441aeda22a2812a93f9367363a1ecf32dbc13f369a668ee24",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "881abcc6fdb0aeb441aeda22a2812a93f9367363a1ecf32dbc13f369a668ee24",
+            "characters": 11560,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/0001628280-26-035302-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/0001628280-26-035302-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H15/0001628280-26-035302.txt",
+          "bytes": 6376693,
+          "sha256": "788d99ce76209b51065aacda11bb416b141239017dd6de39e1899637970c432f",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "788d99ce76209b51065aacda11bb416b141239017dd6de39e1899637970c432f",
+            "characters": 6376693,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/0001628280-26-035302.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1653909/000162828026035302/0001628280-26-035302.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H15/offline-assessment.json",
+        "sha256": "9d4d30623c8d6b083f1336cc869f0c776d3da04efcac908bd42edbe602150fe4",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H16",
+      "ticker": "CDXS",
+      "company_name": "Codexis Inc.",
+      "cik": "1200375",
+      "filing_type": "10-Q",
+      "accession_number": "0001200375-26-000019",
+      "filing_date": "2026-08-11",
+      "period_of_report": "2026-06-30",
+      "primary_document": "cdxs-20260630.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/0001200375-26-000019-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/cdxs-20260630.htm",
+      "sec_report_date": "2026-06-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "3f20c32cb155301a5c98d8b474a899652a2f9ce8e18266a7b20f7a4c1584e292",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "verified_in_selected_filing",
+        "value": "smaller_reporting_company",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/cdxs-20260630.htm"
+      },
+      "sector": "biotechnology",
+      "selection_rationale": "smaller reporter; cash runway",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H16/cdxs-20260630.htm",
+          "bytes": 1398779,
+          "sha256": "3f20c32cb155301a5c98d8b474a899652a2f9ce8e18266a7b20f7a4c1584e292",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3f20c32cb155301a5c98d8b474a899652a2f9ce8e18266a7b20f7a4c1584e292",
+            "characters": 1398779,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/cdxs-20260630.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/cdxs-20260630.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H16/0001200375-26-000019-index.htm",
+          "bytes": 11217,
+          "sha256": "f7445aa71c0105bc011611cfec0c5fc69a7a977ebc71f8050d271327806afd36",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "f7445aa71c0105bc011611cfec0c5fc69a7a977ebc71f8050d271327806afd36",
+            "characters": 11217,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/0001200375-26-000019-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/0001200375-26-000019-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H16/0001200375-26-000019.txt",
+          "bytes": 6733532,
+          "sha256": "fdb44673f90c018b4f32d9c6922766170453eb3f3bd85dd2b3654b276190f52d",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "fdb44673f90c018b4f32d9c6922766170453eb3f3bd85dd2b3654b276190f52d",
+            "characters": 6733532,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/0001200375-26-000019.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1200375/000120037526000019/0001200375-26-000019.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H16/offline-assessment.json",
+        "sha256": "c7ebf9a0e60f950744fec26f8ca8918e6feb830b210fb266233d2577f0240f40",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H17",
+      "ticker": "PG",
+      "company_name": "The Procter & Gamble Company",
+      "cik": "80424",
+      "filing_type": "10-Q",
+      "accession_number": "0000080424-26-000060",
+      "filing_date": "2026-04-24",
+      "period_of_report": "2026-03-31",
+      "primary_document": "pg-20260331.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/0000080424-26-000060-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/pg-20260331.htm",
+      "sec_report_date": "2026-03-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "2dfd0b3ae69948b4143e4297e49b6dac6aa07389bb697f0530aa9885d4783289",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "consumer staples",
+      "selection_rationale": "consumer staples; non-calendar fiscal Q3; quarter versus YTD",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H17/pg-20260331.htm",
+          "bytes": 1537942,
+          "sha256": "2dfd0b3ae69948b4143e4297e49b6dac6aa07389bb697f0530aa9885d4783289",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "2dfd0b3ae69948b4143e4297e49b6dac6aa07389bb697f0530aa9885d4783289",
+            "characters": 1537942,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/pg-20260331.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/pg-20260331.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H17/0000080424-26-000060-index.htm",
+          "bytes": 12106,
+          "sha256": "7b30e4b33912b031408958e8df7b17f586626ac7131a688299f780810c71a591",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "7b30e4b33912b031408958e8df7b17f586626ac7131a688299f780810c71a591",
+            "characters": 12106,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/0000080424-26-000060-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/0000080424-26-000060-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H17/0000080424-26-000060.txt",
+          "bytes": 6980446,
+          "sha256": "ee1c9c49613a20abbc198865870524424020970b29228617972a74890b4d8175",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "ee1c9c49613a20abbc198865870524424020970b29228617972a74890b4d8175",
+            "characters": 6980446,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/0000080424-26-000060.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000060/0000080424-26-000060.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H17/offline-assessment.json",
+        "sha256": "e49cd246777385bc115aac42fccfe49185e295a72abc751c953bbf9453e36699",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "risk"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H18",
+      "ticker": "USB",
+      "company_name": "U.S. Bancorp",
+      "cik": "36104",
+      "filing_type": "10-Q",
+      "accession_number": "0000036104-26-000044",
+      "filing_date": "2026-08-06",
+      "period_of_report": "2026-06-30",
+      "primary_document": "usb-20260630.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/0000036104-26-000044-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/usb-20260630.htm",
+      "sec_report_date": "2026-06-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "6397e892383d91969b657f2891dcda5237f41f69248f8ff3acfd5a53804b1282",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "banking",
+      "selection_rationale": "quarter/YTD basis",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H18/usb-20260630.htm",
+          "bytes": 5088916,
+          "sha256": "6397e892383d91969b657f2891dcda5237f41f69248f8ff3acfd5a53804b1282",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "6397e892383d91969b657f2891dcda5237f41f69248f8ff3acfd5a53804b1282",
+            "characters": 5088916,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/usb-20260630.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/usb-20260630.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H18/0000036104-26-000044-index.htm",
+          "bytes": 11247,
+          "sha256": "c826720a1553e67fcf0327cc6737b0deb774c2624fb07e2ace93974139ab6145",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "c826720a1553e67fcf0327cc6737b0deb774c2624fb07e2ace93974139ab6145",
+            "characters": 11247,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/0000036104-26-000044-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/0000036104-26-000044-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H18/0000036104-26-000044.txt",
+          "bytes": 24869080,
+          "sha256": "7f7d0ab4ff9f7ed50ad1ec67a7dece38e9fc1981d64383b09620c6c13ae9660b",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "7f7d0ab4ff9f7ed50ad1ec67a7dece38e9fc1981d64383b09620c6c13ae9660b",
+            "characters": 24869080,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/0000036104-26-000044.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000044/0000036104-26-000044.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H18/offline-assessment.json",
+        "sha256": "bc161196dd64ab3ca87ad22ab27cde3e52089023e1eb0b5f2f7336e5368baf97",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H19",
+      "ticker": "AEP",
+      "company_name": "American Electric Power Company Inc.",
+      "cik": "4904",
+      "filing_type": "10-Q",
+      "accession_number": "0000004904-26-000059",
+      "filing_date": "2026-07-30",
+      "period_of_report": "2026-06-30",
+      "primary_document": "aep-20260630.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/0000004904-26-000059-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/aep-20260630.htm",
+      "sec_report_date": "2026-06-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "8e3e9ee3b07db5b41677fe323068dcb55d872116b19578b6f864c273c7082580",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "multi_registrant_note": "Index under co-registrant CIK 1702494 explicitly lists parent CIK 4904; select parent's consolidated statements. Direct parent index fetch unavailable via web tool.",
+      "sector": "regulated utility",
+      "selection_rationale": "multi-registrant statements",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H19/aep-20260630.htm",
+          "bytes": 11042906,
+          "sha256": "8e3e9ee3b07db5b41677fe323068dcb55d872116b19578b6f864c273c7082580",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "8e3e9ee3b07db5b41677fe323068dcb55d872116b19578b6f864c273c7082580",
+            "characters": 11042906,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/aep-20260630.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/aep-20260630.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H19/0000004904-26-000059-index.htm",
+          "bytes": 30554,
+          "sha256": "442996854cd3f5c38939a9a0eda6048a4c968cc29c58b0ea83b06763ff24aba0",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "442996854cd3f5c38939a9a0eda6048a4c968cc29c58b0ea83b06763ff24aba0",
+            "characters": 30554,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/0000004904-26-000059-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/0000004904-26-000059-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H19/0000004904-26-000059.txt",
+          "bytes": 48928921,
+          "sha256": "53def802d6ea2ca2f8f9f3a91176ee6ba5848077e92f0360ca2ece5a5f795ee1",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "53def802d6ea2ca2f8f9f3a91176ee6ba5848077e92f0360ca2ece5a5f795ee1",
+            "characters": 48928897,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/0000004904-26-000059.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1702494/000000490426000059/0000004904-26-000059.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H19/offline-assessment.json",
+        "sha256": "d31d9636693f17a42def26fd0f26fddc29c51b16705c37773a82249a42b50d6a",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H20",
+      "ticker": "BRT",
+      "company_name": "BRT Apartments Corp.",
+      "cik": "14846",
+      "filing_type": "10-Q",
+      "accession_number": "0000014846-26-000037",
+      "filing_date": "2026-08-10",
+      "period_of_report": "2026-06-30",
+      "primary_document": "brt-20260630.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/0000014846-26-000037-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/brt-20260630.htm",
+      "sec_report_date": "2026-06-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "7dd8a9d422a511cd4e94398aef12cfc8487009ce7ed6b371fddd1d10ac669f73",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "verified_in_selected_filing",
+        "value": "smaller_reporting_company",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/brt-20260630.htm"
+      },
+      "sector": "REIT",
+      "selection_rationale": "smaller reporter; issuer-defined measures",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H20/brt-20260630.htm",
+          "bytes": 1020198,
+          "sha256": "7dd8a9d422a511cd4e94398aef12cfc8487009ce7ed6b371fddd1d10ac669f73",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "7dd8a9d422a511cd4e94398aef12cfc8487009ce7ed6b371fddd1d10ac669f73",
+            "characters": 1020198,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/brt-20260630.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/brt-20260630.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H20/0000014846-26-000037-index.htm",
+          "bytes": 11901,
+          "sha256": "3de3fbd5448067a8e14e8d22a9e91790ba575950fcfb3fd547b27cbd1ac1eb12",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3de3fbd5448067a8e14e8d22a9e91790ba575950fcfb3fd547b27cbd1ac1eb12",
+            "characters": 11901,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/0000014846-26-000037-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/0000014846-26-000037-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H20/0000014846-26-000037.txt",
+          "bytes": 5870370,
+          "sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c",
+            "characters": 5870370,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/0000014846-26-000037.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/14846/000001484626000037/0000014846-26-000037.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H20/offline-assessment.json",
+        "sha256": "8a00e22a01bac3b38223db80d714d21b3dba3ed4291cadf1b040b622166aca45",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "risk"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H21",
+      "ticker": "QS",
+      "company_name": "QuantumScape Corporation",
+      "cik": "1811414",
+      "filing_type": "10-Q",
+      "accession_number": "0001193125-26-316073",
+      "filing_date": "2026-07-24",
+      "period_of_report": "2026-06-30",
+      "primary_document": "qs-20260630.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/0001193125-26-316073-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/qs-20260630.htm",
+      "sec_report_date": "2026-06-30",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "215cf8a64f1bdcfecce041bf546392605b2cc4d33b0412e7523712538a4195db",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "verified_in_selected_filing",
+        "value": "large_accelerated_filer",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/qs-20260630.htm"
+      },
+      "sector": "battery development",
+      "selection_rationale": "precommercial loss; sparse revenue",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H21/qs-20260630.htm",
+          "bytes": 2652377,
+          "sha256": "215cf8a64f1bdcfecce041bf546392605b2cc4d33b0412e7523712538a4195db",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "215cf8a64f1bdcfecce041bf546392605b2cc4d33b0412e7523712538a4195db",
+            "characters": 2652377,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/qs-20260630.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/qs-20260630.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H21/0001193125-26-316073-index.htm",
+          "bytes": 10280,
+          "sha256": "3d08e6af0aecf4a7284ea2c5692ec089f07e418b99c05ec4c63f2480ec6cdf66",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3d08e6af0aecf4a7284ea2c5692ec089f07e418b99c05ec4c63f2480ec6cdf66",
+            "characters": 10280,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/0001193125-26-316073-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/0001193125-26-316073-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H21/0001193125-26-316073.txt",
+          "bytes": 10159003,
+          "sha256": "22810c7055ab76b58fa19ddde9788d508d82891e3b6c35ad25f1308b9ce545b2",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "22810c7055ab76b58fa19ddde9788d508d82891e3b6c35ad25f1308b9ce545b2",
+            "characters": 10159003,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/0001193125-26-316073.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526316073/0001193125-26-316073.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H21/offline-assessment.json",
+        "sha256": "0c15419d7d31e9823fb6748374d8c11ea50f5e766b3fe0b5d23a035b8b2fe3fa",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H22",
+      "ticker": "CRWV",
+      "company_name": "CoreWeave Inc.",
+      "cik": "1769628",
+      "filing_type": "10-Q",
+      "accession_number": "0001769628-26-000222",
+      "filing_date": "2026-05-08",
+      "period_of_report": "2026-03-31",
+      "primary_document": "crwv-20260331.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/crwv-20260331.htm",
+      "sec_report_date": "2026-03-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "3ef64950c5a456005928fc6c16f60950f5ab6e622fc327c3942caef398e69322",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "cloud infrastructure",
+      "selection_rationale": "recent IPO and financing; no assertion that comparatives are absent",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H22/crwv-20260331.htm",
+          "bytes": 1741657,
+          "sha256": "3ef64950c5a456005928fc6c16f60950f5ab6e622fc327c3942caef398e69322",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3ef64950c5a456005928fc6c16f60950f5ab6e622fc327c3942caef398e69322",
+            "characters": 1741657,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/crwv-20260331.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/crwv-20260331.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H22/0001769628-26-000222-index.htm",
+          "bytes": 11590,
+          "sha256": "20dbae188fb1c73c8cc023872ee13fe92e966845937c047f5191e51ffe1b4fe4",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "20dbae188fb1c73c8cc023872ee13fe92e966845937c047f5191e51ffe1b4fe4",
+            "characters": 11590,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H22/0001769628-26-000222.txt",
+          "bytes": 10409193,
+          "sha256": "295648283208330bdae111146c939649ef786a012e6b648598be6ed94d415f8e",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "295648283208330bdae111146c939649ef786a012e6b648598be6ed94d415f8e",
+            "characters": 10409193,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H22/offline-assessment.json",
+        "sha256": "dbf40fdb2c76d10a9a290f3eda185a89480c146654b64b8328501120700a9ec1",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "financials",
+          "mda",
+          "risk"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H23",
+      "ticker": "SAP",
+      "company_name": "SAP SE",
+      "cik": "1000184",
+      "filing_type": "20-F",
+      "accession_number": "0001104659-26-020058",
+      "filing_date": "2026-02-26",
+      "period_of_report": "2025-12-31",
+      "primary_document": "sap-20251231x20f.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/0001104659-26-020058-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/sap-20251231x20f.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "cb35420e39b8c90761d9b0ff48946efc806c663fa7c50a1436335016772a9d3d",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "software",
+      "selection_rationale": "EUR/IFRS",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H23/sap-20251231x20f.htm",
+          "bytes": 12810997,
+          "sha256": "cb35420e39b8c90761d9b0ff48946efc806c663fa7c50a1436335016772a9d3d",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "cb35420e39b8c90761d9b0ff48946efc806c663fa7c50a1436335016772a9d3d",
+            "characters": 12810997,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/sap-20251231x20f.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/sap-20251231x20f.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H23/0001104659-26-020058-index.htm",
+          "bytes": 19472,
+          "sha256": "37c23dbb5f8557bdc5e65a0ff3eca52ea31a219edcfa8006c2fb43359468339a",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "37c23dbb5f8557bdc5e65a0ff3eca52ea31a219edcfa8006c2fb43359468339a",
+            "characters": 19472,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/0001104659-26-020058-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/0001104659-26-020058-index.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H23/0001104659-26-020058.txt",
+          "bytes": 52604911,
+          "sha256": "ab302031b1563ba0583000abd2af1054af18b299ce45b9966ad56541d48f79f6",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "ab302031b1563ba0583000abd2af1054af18b299ce45b9966ad56541d48f79f6",
+            "characters": 52604911,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/0001104659-26-020058.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/0001104659-26-020058.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H23/offline-assessment.json",
+        "sha256": "a59ebb23eb8dd0e7e5b2e64a9790ab80d613211cd020d4ffe43cc52bf22d53c5",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H24",
+      "ticker": "TM",
+      "company_name": "Toyota Motor Corporation",
+      "cik": "1094517",
+      "filing_type": "20-F",
+      "accession_number": "0001193125-25-142326",
+      "filing_date": "2025-06-18",
+      "period_of_report": "2025-03-31",
+      "primary_document": "d925022d20f.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/0001193125-25-142326-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/d925022d20f.htm",
+      "sec_report_date": "2025-03-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "824192f1c9be426d529f4a9d555f57abbc0b2a21def7636283cc6aef5e7dacd6",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "automotive",
+      "selection_rationale": "JPY/non-calendar year",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H24/d925022d20f.htm",
+          "bytes": 6419374,
+          "sha256": "824192f1c9be426d529f4a9d555f57abbc0b2a21def7636283cc6aef5e7dacd6",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "824192f1c9be426d529f4a9d555f57abbc0b2a21def7636283cc6aef5e7dacd6",
+            "characters": 6419374,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/d925022d20f.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/d925022d20f.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H24/0001193125-25-142326-index.htm",
+          "bytes": 21724,
+          "sha256": "74803e61a1d234fbda9ab9bae3165907e81e5939c88a4253afa240c5cf34166f",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "74803e61a1d234fbda9ab9bae3165907e81e5939c88a4253afa240c5cf34166f",
+            "characters": 21724,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/0001193125-25-142326-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/0001193125-25-142326-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H24/0001193125-25-142326.txt",
+          "bytes": 44152781,
+          "sha256": "b1564b0cd42563fec3fe0fa838b57f3c1c01bb01a48ee445104f211f098ea7e0",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "b1564b0cd42563fec3fe0fa838b57f3c1c01bb01a48ee445104f211f098ea7e0",
+            "characters": 44152781,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/0001193125-25-142326.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1094517/000119312525142326/0001193125-25-142326.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H24/offline-assessment.json",
+        "sha256": "07bc34a5ffdc2551f05d770cb97b5bf6f4282e7828add90ec2e916e29f6fed0b",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H25",
+      "ticker": "HSBC",
+      "company_name": "HSBC Holdings plc",
+      "cik": "1089113",
+      "filing_type": "20-F",
+      "accession_number": "0001089113-26-000010",
+      "filing_date": "2026-02-26",
+      "period_of_report": "2025-12-31",
+      "primary_document": "hsbc-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "4b60b424ae531503aefced8e583f8d3cb08e89b0adb9bb8af0d6e6af88c60ace",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "banking",
+      "selection_rationale": "foreign financial issuer; USD presentation",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H25/hsbc-20251231.htm",
+          "bytes": 57158562,
+          "sha256": "4b60b424ae531503aefced8e583f8d3cb08e89b0adb9bb8af0d6e6af88c60ace",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "4b60b424ae531503aefced8e583f8d3cb08e89b0adb9bb8af0d6e6af88c60ace",
+            "characters": 57158562,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H25/0001089113-26-000010-index.htm",
+          "bytes": 95290,
+          "sha256": "193c9c201f48e87f48a4ecb727b12d80be734eeb97bffa7fc99b7d24e04cf4eb",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "193c9c201f48e87f48a4ecb727b12d80be734eeb97bffa7fc99b7d24e04cf4eb",
+            "characters": 95290,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H25/0001089113-26-000010.txt",
+          "bytes": 297209475,
+          "sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+            "characters": 297209475,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H25/offline-assessment.json",
+        "sha256": "675714d596e6d61390acb19dca2554c0b62d60d91c29bfa1f9cec6dbb814a4a5",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H26",
+      "ticker": "BIDU",
+      "company_name": "Baidu Inc.",
+      "cik": "1329099",
+      "filing_type": "20-F",
+      "accession_number": "0001193125-26-109289",
+      "filing_date": "2026-03-17",
+      "period_of_report": "2025-12-31",
+      "primary_document": "d38065d20f.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/0001193125-26-109289-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/d38065d20f.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "3e76f8d96d2458fcff285d970a1a9791416336b2ba945c1f2e6bcc6889c68284",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "internet",
+      "selection_rationale": "RMB/ADS basis",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H26/d38065d20f.htm",
+          "bytes": 6674922,
+          "sha256": "3e76f8d96d2458fcff285d970a1a9791416336b2ba945c1f2e6bcc6889c68284",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "3e76f8d96d2458fcff285d970a1a9791416336b2ba945c1f2e6bcc6889c68284",
+            "characters": 6674922,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/d38065d20f.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/d38065d20f.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H26/0001193125-26-109289-index.htm",
+          "bytes": 12866,
+          "sha256": "914ed20029d44610e0551d30cb03938fa3331a7bb777fa860e942845aa78ab88",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "914ed20029d44610e0551d30cb03938fa3331a7bb777fa860e942845aa78ab88",
+            "characters": 12866,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/0001193125-26-109289-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/0001193125-26-109289-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H26/0001193125-26-109289.txt",
+          "bytes": 28452639,
+          "sha256": "33ca1cbaa516528c09b501c858f58a174c978aca0bd76a56b33627523227de73",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "33ca1cbaa516528c09b501c858f58a174c978aca0bd76a56b33627523227de73",
+            "characters": 28452639,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/0001193125-26-109289.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1329099/000119312526109289/0001193125-26-109289.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H26/offline-assessment.json",
+        "sha256": "8eae8af6a9cc0de4a0256563dfc2008fc8d5de2915f9692e0d03284495666cef",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H27",
+      "ticker": "GLOB",
+      "company_name": "Globant S.A.",
+      "cik": "1557860",
+      "filing_type": "20-F",
+      "accession_number": "0001628280-26-012910",
+      "filing_date": "2026-02-27",
+      "period_of_report": "2025-12-31",
+      "primary_document": "glob-20251231.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/0001628280-26-012910-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/glob-20251231.htm",
+      "sec_report_date": "2025-12-31",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "f7cf2dabdeb4a90307d8b59a4406bef16df73daf059aa80586a4767f160e54fb",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "sector": "IT services",
+      "selection_rationale": "cross-border consolidation; USD",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H27/glob-20251231.htm",
+          "bytes": 5520788,
+          "sha256": "f7cf2dabdeb4a90307d8b59a4406bef16df73daf059aa80586a4767f160e54fb",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "f7cf2dabdeb4a90307d8b59a4406bef16df73daf059aa80586a4767f160e54fb",
+            "characters": 5520788,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/glob-20251231.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/glob-20251231.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H27/0001628280-26-012910-index.htm",
+          "bytes": 31756,
+          "sha256": "1fe39392d76b202a3bc9defa43cc3fa99d4c80eb0392bc9c4376a6e317aede0e",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "1fe39392d76b202a3bc9defa43cc3fa99d4c80eb0392bc9c4376a6e317aede0e",
+            "characters": 31756,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/0001628280-26-012910-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/0001628280-26-012910-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H27/0001628280-26-012910.txt",
+          "bytes": 43370274,
+          "sha256": "8c9e452a597fa7362b1652bcea210e5e59644468ebcfca4646c0a55b6be22cc3",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "8c9e452a597fa7362b1652bcea210e5e59644468ebcfca4646c0a55b6be22cc3",
+            "characters": 43370274,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/0001628280-26-012910.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1557860/000162828026012910/0001628280-26-012910.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H27/offline-assessment.json",
+        "sha256": "ed49a24fe2090796258b4b0ed4ef76d33f0dd8b514d7f501f7023ca937fddf64",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "missing_helper_sections": [],
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H28",
+      "ticker": "NOK",
+      "company_name": "Nokia Corporation",
+      "cik": "924613",
+      "filing_type": "6-K",
+      "accession_number": "0001104659-25-070159",
+      "filing_date": "2025-07-24",
+      "period_of_report": "2025-06-30",
+      "primary_document": "tm2521634d1_6k.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/0001104659-25-070159-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/tm2521634d1_6k.htm",
+      "sec_report_date": "2025-07-24",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "6c71a4b2493656d2c4812ab9e53ca515fed2a951706817c736f2e61d351d36b3",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "earnings_source_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/tm2521634d1_6k.htm",
+      "sector": "telecom equipment",
+      "selection_rationale": "EUR earnings 6-K; tables may be image-backed",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H28/tm2521634d1_6k.htm",
+          "bytes": 271002,
+          "sha256": "6c71a4b2493656d2c4812ab9e53ca515fed2a951706817c736f2e61d351d36b3",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "6c71a4b2493656d2c4812ab9e53ca515fed2a951706817c736f2e61d351d36b3",
+            "characters": 271002,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/tm2521634d1_6k.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/tm2521634d1_6k.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H28/0001104659-25-070159-index.htm",
+          "bytes": 18953,
+          "sha256": "943a197bf866b0383aadb41f285c13cd08f64d8d5fb368fcddbaf4b008b7a74a",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "943a197bf866b0383aadb41f285c13cd08f64d8d5fb368fcddbaf4b008b7a74a",
+            "characters": 18953,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/0001104659-25-070159-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/0001104659-25-070159-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H28/0001104659-25-070159.txt",
+          "bytes": 7986523,
+          "sha256": "daea730b329cc4ab55131821c3f721876368219d1cd90077d14e10887ccb9bda",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "daea730b329cc4ab55131821c3f721876368219d1cd90077d14e10887ccb9bda",
+            "characters": 7986523,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/0001104659-25-070159.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/924613/000110465925070159/0001104659-25-070159.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H28/offline-assessment.json",
+        "sha256": "51be6fc752d4674ac021aaf3ea2d9ed7aaf2e1ef68633fdc9fe19a6c361f6002",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "sixk_grounding_classification": {
+          "branch": "primary_document_fallback",
+          "source_file": "tm2521634d1_6k.htm",
+          "sha256": "6c71a4b2493656d2c4812ab9e53ca515fed2a951706817c736f2e61d351d36b3",
+          "characters": 271002,
+          "classifier_scan_cap_chars": 60000,
+          "classification": {
+            "class": "earnings",
+            "earnings_cues": 37,
+            "governance_cues": 0,
+            "money_tokens": 20,
+            "regulatory_return": false
+          },
+          "scope": "Existing classifier called on local helper output or retained primary HTML according to summary_pipeline.py branches; full orchestrator not run"
+        },
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H29",
+      "ticker": "XPEV",
+      "company_name": "XPeng Inc.",
+      "cik": "1810997",
+      "filing_type": "6-K",
+      "accession_number": "0001193125-25-183155",
+      "filing_date": "2025-08-19",
+      "period_of_report": "2025-06-30",
+      "primary_document": "d59478d6k.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/0001193125-25-183155-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478d6k.htm",
+      "sec_report_date": "2025-08-19",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "fb7e56b5a4719b58003570060db5f55b2ea3d456ea81fe539d7f65b566b51edf",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "earnings_source_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478dex991.htm",
+      "sector": "electric vehicles",
+      "selection_rationale": "RMB earnings exhibit and USD convenience translation",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H29/d59478d6k.htm",
+          "bytes": 8434,
+          "sha256": "fb7e56b5a4719b58003570060db5f55b2ea3d456ea81fe539d7f65b566b51edf",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "fb7e56b5a4719b58003570060db5f55b2ea3d456ea81fe539d7f65b566b51edf",
+            "characters": 8434,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478d6k.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478d6k.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H29/0001193125-25-183155-index.htm",
+          "bytes": 8418,
+          "sha256": "de46e36baac94e2bd4a9b135e4848fd337604114ba8a6f27d23915aab67745df",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "de46e36baac94e2bd4a9b135e4848fd337604114ba8a6f27d23915aab67745df",
+            "characters": 8418,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/0001193125-25-183155-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/0001193125-25-183155-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "earnings_exhibit",
+          "path": "e7-sources/H29/d59478dex991.htm",
+          "bytes": 233688,
+          "sha256": "5923c2beed66dacb987b5d64b924ba1c3a049cbeaaa8f1587a435d47a48af62c",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "5923c2beed66dacb987b5d64b924ba1c3a049cbeaaa8f1587a435d47a48af62c",
+            "characters": 233688,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478dex991.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/d59478dex991.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H29/0001193125-25-183155.txt",
+          "bytes": 552142,
+          "sha256": "6488d5349f55dea015aed200e17f1b54de4eb6f99136cf76282a1db7475fba65",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "6488d5349f55dea015aed200e17f1b54de4eb6f99136cf76282a1db7475fba65",
+            "characters": 552142,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/0001193125-25-183155.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1810997/000119312525183155/0001193125-25-183155.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H29/offline-assessment.json",
+        "sha256": "d91e45afd96c5de6932a8153a1f1c2d746ff5c52baf9d5471fe1823b9f7dc1a3",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "sixk_grounding_classification": {
+          "branch": "exhibit_helper_text",
+          "source_file": "sixk-grounding.txt",
+          "sha256": "9b343fff5e5d70109c7bac63ac0246dbbee0c4facbde16d2bec2a39c16201e8a",
+          "characters": 47306,
+          "classifier_scan_cap_chars": 60000,
+          "classification": {
+            "class": "earnings",
+            "earnings_cues": 44,
+            "governance_cues": 0,
+            "money_tokens": 106,
+            "regulatory_return": false
+          },
+          "scope": "Existing classifier called on local helper output or retained primary HTML according to summary_pipeline.py branches; full orchestrator not run"
+        },
+        "parsed_identity_matches_manifest": true
+      }
+    },
+    {
+      "holdout_id": "H30",
+      "ticker": "NIO",
+      "company_name": "NIO Inc.",
+      "cik": "1736541",
+      "filing_type": "6-K",
+      "accession_number": "0001104659-25-086034",
+      "filing_date": "2025-09-02",
+      "period_of_report": "2025-06-30",
+      "primary_document": "tm2524949d3_6k.htm",
+      "index_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/0001104659-25-086034-index.htm",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_6k.htm",
+      "sec_report_date": "2025-09-02",
+      "repeats": [
+        1,
+        2,
+        3
+      ],
+      "source_verification": "Official SEC identity verified; primary/index/complete submission retained through repository SEC client/shared limiter with SHA256 of complete HTTP-decoded UTF-8 text; offline extraction assessment separate",
+      "review_status": "candidate_not_frozen",
+      "source_sha256": "ddb23e822b3478e296a1a39bf972715309062d8d52540fee3d41309d3afeb70c",
+      "size_proxy": {
+        "basis": "SEC cover-page filer classification, not current market capitalization",
+        "status": "pending"
+      },
+      "earnings_source_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_ex99-1.htm",
+      "sector": "electric vehicles",
+      "selection_rationale": "loss-making RMB earnings exhibit",
+      "stressor_status": "selection rationale; material reference brief and complete stressor audit pending",
+      "exclusion_status": "no_accession_match_in_audited_git_history",
+      "structured_issuer_exposure_paths": [],
+      "source_packets": [
+        {
+          "role": "primary",
+          "path": "e7-sources/H30/tm2524949d3_6k.htm",
+          "bytes": 10825,
+          "sha256": "ddb23e822b3478e296a1a39bf972715309062d8d52540fee3d41309d3afeb70c",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "ddb23e822b3478e296a1a39bf972715309062d8d52540fee3d41309d3afeb70c",
+            "characters": 10825,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_6k.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_6k.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "index",
+          "path": "e7-sources/H30/0001104659-25-086034-index.htm",
+          "bytes": 7406,
+          "sha256": "ab96cce39a4d7ca5043cf203a0f16052de365f17a7dc221d1b448e6cd5acfad3",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "ab96cce39a4d7ca5043cf203a0f16052de365f17a7dc221d1b448e6cd5acfad3",
+            "characters": 7406,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/0001104659-25-086034-index.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/0001104659-25-086034-index.htm",
+            "content_type": "text/html; charset=UTF-8"
+          }
+        },
+        {
+          "role": "earnings_exhibit",
+          "path": "e7-sources/H30/tm2524949d3_ex99-1.htm",
+          "bytes": 528183,
+          "sha256": "67e83624cc0ca9b43c2ea66e5fbf080ff87d592b97dfc6c6baff5d98ed64b7c0",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "67e83624cc0ca9b43c2ea66e5fbf080ff87d592b97dfc6c6baff5d98ed64b7c0",
+            "characters": 528183,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_ex99-1.htm",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/tm2524949d3_ex99-1.htm",
+            "content_type": "text/html"
+          }
+        },
+        {
+          "role": "complete_submission",
+          "path": "e7-sources/H30/0001104659-25-086034.txt",
+          "bytes": 539951,
+          "sha256": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+          "provenance": {
+            "schema_version": 1,
+            "representation": "httpx_decoded_response_text_utf8",
+            "sha256": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+            "characters": 539951,
+            "requested_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/0001104659-25-086034.txt",
+            "final_url": "https://www.sec.gov/Archives/edgar/data/1736541/000110465925086034/0001104659-25-086034.txt",
+            "content_type": "text/plain"
+          }
+        }
+      ],
+      "offline_assessment": {
+        "path": "e7-sources/H30/offline-assessment.json",
+        "sha256": "aec9f79da20a8cb65de1e7dd6b01041b1e5d5f36b54f8547d25e3f5ef47da697",
+        "status": "offline_extraction_completed",
+        "canonical_sections": [],
+        "blocked_network_attempt_count": 0,
+        "independent_human_reviewed": false,
+        "end_to_end_eligibility": "not_assessed_no_generation",
+        "sixk_grounding_classification": {
+          "branch": "exhibit_helper_text",
+          "source_file": "sixk-grounding.txt",
+          "sha256": "bf00c4065993abb70ed5a597b792e0d2e5315ca31f79ae287223351e5998996e",
+          "characters": 67810,
+          "classifier_scan_cap_chars": 60000,
+          "classification": {
+            "class": "earnings",
+            "earnings_cues": 38,
+            "governance_cues": 0,
+            "money_tokens": 65,
+            "regulatory_return": false
+          },
+          "scope": "Existing classifier called on local helper output or retained primary HTML according to summary_pipeline.py branches; full orchestrator not run"
+        },
+        "parsed_identity_matches_manifest": true
+      }
+    }
+  ],
+  "exclusion_audit": {
+    "audited_on": "2026-09-19",
+    "git_head": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+    "git_all_reachable_commits": 2441,
+    "shallow": false,
+    "text_blob_count": 7809,
+    "bytes_scanned": 242069225,
+    "scope": "All locally reachable git history, textual blobs by listed extensions; dashed and dashless accession match. Evaluation/review-evidence/prompt paths additionally searched for structured ticker/CIK fields. Untracked local/cloud/expired CI data and prose-only issuer mentions not exhaustively inventoried. Replacement audit includes structured ticker= fields and tasks/archive paths.",
+    "extensions": [
+      ".json",
+      ".md",
+      ".txt",
+      ".py",
+      ".ts",
+      ".tsx",
+      ".yaml",
+      ".yml",
+      ".csv",
+      ".html",
+      ".htm"
+    ],
+    "candidate_accession_matches": {},
+    "candidate_structured_issuer_matches_in_eval_or_review_paths": {},
+    "historical_cohort_unique_accessions": 38,
+    "historical_cohort_unique_tickers": 32,
+    "historical_cohort_blob_count": 19,
+    "known_cohort_candidate_issuer_overlap": 0,
+    "untracked_evaluation_attestation": "pending_founder"
+  },
+  "excluded_candidates": [
+    {
+      "ticker": "REGN",
+      "accession_number": "0000872589-26-000008",
+      "reason": "Exact accession already present in retained production facts review tasks/archive/w39-review-2026-09-08.md; conservatively excluded despite no demonstrated summary tuning."
+    },
+    {
+      "ticker": "PEP",
+      "accession_number": "0000077476-26-000035",
+      "reason": "Exact accession already present in retained production facts review tasks/archive/w39-review-2026-09-08.md; conservatively excluded despite no demonstrated summary tuning."
+    }
+  ],
+  "source_capture": {
+    "status": "complete_for_30_candidate_packets",
+    "http_requests_successful": 92,
+    "stored_bytes": 1161213075,
+    "source_representation": "httpx_decoded_response_text_utf8, not original raw HTTP wire bytes",
+    "capture_log": "e7-sources/capture-log.json",
+    "capture_log_sha256": "645b2a2af8fdc05c6ade21e5164d86edf1570dfc4f96981c390eb236670d96b7",
+    "sandbox_dns_failure_log": "e7-sources/capture-log-sandbox-dns.json",
+    "generation_or_judge_calls": 0,
+    "provider_spend_usd": 0,
+    "approval_status": "source_preparation_only_not_acceptance_freeze"
+  },
+  "offline_assessment_summary": {
+    "source_commit": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+    "edgartools_version": "5.58.0",
+    "source_identity_matches": 30,
+    "network_calls": 0,
+    "generation_or_judge_calls": 0,
+    "helper_assessments_completed": 30,
+    "canonical_section_count_all_three": 18,
+    "canonical_section_count_partial": 6,
+    "canonical_section_count_empty_non6k": 3,
+    "sixk_earnings_classifications": 3,
+    "helper_coverage_observations": [
+      {
+        "holdout_id": "H04",
+        "ticker": "CB",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H09",
+        "ticker": "NTLA",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H17",
+        "ticker": "PG",
+        "missing_helper_sections": [
+          "risk"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H18",
+        "ticker": "USB",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H19",
+        "ticker": "AEP",
+        "missing_helper_sections": [
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H20",
+        "ticker": "BRT",
+        "missing_helper_sections": [
+          "risk"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H23",
+        "ticker": "SAP",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H24",
+        "ticker": "TM",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      },
+      {
+        "holdout_id": "H25",
+        "ticker": "HSBC",
+        "missing_helper_sections": [
+          "risk",
+          "mda",
+          "financials"
+        ],
+        "meaning": "helper-level observation; existing fallback may still support end-to-end eligibility"
+      }
+    ],
+    "eligibility": "supported candidate identities remain fixed; helper coverage observations are not automatic exclusion or evidence of end-to-end failure",
+    "scope": "local SGML plus captured primary; resolver and primary reads mocked; no production DB, provider, test suite or real credentials used"
+  }
+}

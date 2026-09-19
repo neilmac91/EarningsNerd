@@ -1,3 +1,9 @@
+## September 19 — E7 acceptance specification and candidate manifest approved
+
+- [x] Founder approved the [acceptance specification](quality-acceptance-specification-2026-09-19.md), exact30-accession manifest and USD10incremental generator ceiling. Zero material defects; at least86/90 outputs must jointly score4/5 completeness and usefulness. ManifestSHA25668242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66 preserved unchanged.
+- [x] Source-only preparation:30identities/90planned draws;12 10-K,10 10-Q,5 20-F,3earnings6-K;92retained source packets. Full reachable-history accession scan found no final-candidate match. Offline helper coverage limitations remain explicit and no difficult case was removed based on output quality. No model generation or acceptance spend occurred.
+- [ ] Execution prerequisites: founder supplies human reviewer/adjudicator details and external/untracked exposure information; independent reference briefs and stable final configuration, source-grounding audit and reviewed request-level budget enforcement must be complete. Accepted sample selection is not an unseen certification or quality acceptance; universe-wide generation remains off.
+
 ## September 19 — verifier measurement draft closed without merge
 
 - [x] Never-merged #920 is closed after retaining two ranking-control and two claim-context candidate corpora. Candidate runs35463689504 and35463743007 each contain70/70 scored attempts,0generation/verifier errors and0actual deletions. Source parity and complete artifacts verified; [control clause evidence](review-evidence/pr805-path/e2-run1-clause-read-2026-09-19.md) remains separate from pending candidate review.
