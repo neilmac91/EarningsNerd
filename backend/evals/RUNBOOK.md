@@ -413,7 +413,8 @@ used, and each result retains its source. The golden-set hash binds this applica
 script rejects a missing or mismatched measured profile.
 
 Delta consistency now attaches a direction-cued percentage directly to its named metric, allowing
-only a short set of auxiliary words. It does not borrow the percentage of another nearby metric.
+only a short set of auxiliary words and explicit currency amounts (including parenthetical
+changes and "decreased $2B, or 3%"). It does not borrow the percentage of another nearby metric.
 This intentionally favors precision over recall: intervening descriptors, pronoun references and
 percentage-before-metric phrasing can remain unmeasured. It still compares absolute magnitudes,
 not signed direction or loss-narrowing semantics. The retained GPRO failure was revenue's 18.7%

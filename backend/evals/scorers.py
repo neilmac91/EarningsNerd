@@ -728,11 +728,30 @@ def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 # as "gross margin of 74.9%" never trips the consistency check. The minus arm is `(?<!\d)-` so a
 # hyphenated RANGE ("8-10%") is not read as a delta cue, while "up -8%" / a standalone "-8%" still
 # is; the U+2212 minus (−) never appears in ranges, so it stays as-is.
+# A currency-labeled amount is allowed between a metric and a parenthetical delta, or
+# between a direction verb and "or N%". This grammar cannot consume a neighboring metric.
+_DELTA_AMOUNT = (
+    r"(?:US\$|\$|€|£|EUR|RMB|CNY|USD|DKK|JPY|TWD)\s*"
+    r"\d[\d,]*(?:\.\d+)?(?:\s*(?:billion|million|thousand|[BMT]))?"
+)
 _DELTA_CUED_PCT_RE = re.compile(
     r"(?:up|down|grew|rose|increased|decreased|declined|fell|gained|jumped|surged|dropped|climbed|"
-    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?(\d[\d,]*(?:\.\d+)?)\s*%",
+    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?"
+    + r"(?:" + _DELTA_AMOUNT + r",\s*or\s+)?"
+    + r"(\d[\d,]*(?:\.\d+)?)\s*%",
     re.IGNORECASE,
 )
+
+
+def _metric_delta_pattern(metric: str) -> re.Pattern:
+    """A named metric and its own percentage, allowing only auxiliaries/explicit amounts."""
+    return re.compile(
+        r"\b" + re.escape(metric) + r"\b\s*:?[ \t]*"
+        r"(?:(?:was|were|is|are|has|have|had|been|also)\s+){0,3}"
+        + r"(?:(?:of\s+)?" + _DELTA_AMOUNT + r"\s*,?\s*\(?\s*)?"
+        + _DELTA_CUED_PCT_RE.pattern,
+        re.IGNORECASE,
+    )
 
 
 def _table_pct_deltas(payload: Dict[str, Any]) -> List[Tuple[str, float]]:
@@ -763,7 +782,7 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     """[0,1] prose/table delta consistency (plan defect g's prose residual). 1.0 = the prose never
     contradicts the code-computed table deltas. For each table metric with a %-change, a metric is
     FLAGGED only when a directly attached direction-cued percentage is >2 points off AND no
-    attached percentage matches. Only a short list of auxiliary words may separate the metric
+    attached percentage matches. Only auxiliary words and explicit currency amounts may separate the metric
     from its change; a neighboring metric's delta must not count. Percentages remain absolute
     magnitudes: this scorer does not infer sign or loss-narrowing semantics. Returns (score, reasons)."""
     deltas = _table_pct_deltas(payload)
@@ -782,13 +801,8 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     for metric, table_pct in deltas:
         # Word-boundary match so a short metric name never matches inside another word ("EPS" in
         # "steps", "Revenue" in a hyphenated compound), which would pull an unrelated % into scope.
-        attached_re = re.compile(
-            r"\b" + re.escape(metric) + r"\b\s*:?[ \t]*"
-            r"(?:(?:was|were|is|are|has|have|had|been|also)\s+){0,3}"
-            + _DELTA_CUED_PCT_RE.pattern,
-            re.IGNORECASE,
-        )
-        nearby = [abs(float(pm.replace(",", ""))) for pm in attached_re.findall(prose)]
+        nearby = [abs(float(pm.replace(",", "")))
+                  for pm in _metric_delta_pattern(metric).findall(prose)]
         if not nearby:
             continue
         checked += 1

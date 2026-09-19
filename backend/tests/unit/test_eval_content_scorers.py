@@ -218,6 +218,27 @@ def test_delta_percentage_belongs_to_its_metric_not_a_neighbor():
         assert score == expected, (prose, details)
         assert bool(details) == (expected < 1.0)
 
+    # Verbatim grammatical forms in the retained 2026-09-17 artifact. Change only the percentage
+    # within the SAME prose and keep its neighboring metrics, proving sensitivity beyond "X up N%".
+    retained = [
+        ("Net revenue", "7.2", "Intel reported Q1 2026 net revenue of $13.6B (up 7.2% YoY) "
+         "and a net loss attributable to Intel of $3.7B, or $0.73 diluted loss per share."),
+        ("Total net sales", "15.6", "ASML reported total net sales of EUR 32.7B (+15.6% YoY) "
+         "and net income of EUR 9.6B (+26.9% YoY) for the year ended December 31, 2025."),
+        ("Total revenues", "3", "Total revenues decreased $2.86B, or 3%, to $94.83B in 2025 "
+         "from $97.69B in 2024."),
+        ("Net income", "10.6", "Net income increased 10.6% year-on-year to US$458.1 million "
+         "from US$414.2 million, while diluted earnings per share attributable to Sea Limited's "
+         "ordinary shareholders was US$0.70 versus US$0.65."),
+    ]
+    for metric, percentage, prose in retained:
+        payload = {"executive_summary": prose,
+                   **_fh([{"metric": metric, "change": percentage + "%"}])}
+        assert score_delta_consistency(payload) == (1.0, [])
+        payload["executive_summary"] = prose.replace(percentage + "%", "99%")
+        score, details = score_delta_consistency(payload)
+        assert score == 0.0 and metric in details[0], prose
+
 
 def test_delta_consistency_no_table_is_not_penalised():
     assert score_delta_consistency({"executive_summary": "Revenue up 85%."}) == (1.0, [])
