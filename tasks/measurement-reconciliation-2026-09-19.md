@@ -1,12 +1,12 @@
 # September 19 measurement and fleet evidence reconciliation
 
-This documentation snapshot consolidates retained evidence on cash-release main `b8e11f368cdb237da4b76000de48c1a8b1dfa688`. It changes no application, workflow, prompt, model, baseline or production state. Earlier ledger entries remain dated history; the latest verified state is below.
+This documentation snapshot consolidates retained evidence on E6-release main `4d9398103f46106bbd720ab505bc14b8d5142b36`. It changes no application, workflow, prompt, model, baseline or production state. Earlier ledger entries remain dated history; the latest verified state is below.
 
 The [E1–E9 status and holds page](e1-e9-status-2026-09-20.md) records the latest completed work and outstanding external prerequisites.
 
 | Work | Verified evidence | Remaining boundary |
 |---|---|---|
-| E6 measured pin | [Compact measurement/local-gate archive](review-evidence/e6-release-2026-09-20/README.md): audited 105/105, explicit authorized pin, independent reviews, committed full gate 3,428 passed. | PR #928 exact-head remote review completed without findings; actual CI/baseline/Copilot artifact acceptance, merge and deployment remain pending. Scorer coverage limits and generated semantic residuals are retained; no quality-effect claim. |
+| E6 measured pin | [Compact measurement/local-gate archive](review-evidence/e6-release-2026-09-20/README.md): audited 105/105, explicit authorized pin, independent reviews, committed full gate 3,428 passed. | PR #928 merged after completed exact-head review and actual 70/70 baseline / 18/18 Copilot audits; deployment/migrations/Ready revision at 100% and post-completion health are independently verified. Scorer coverage limits and generated semantic residuals are retained; no quality-effect claim. |
 | Issuer FCF scoped release | [#927 release archive](review-evidence/issuer-fcf-release-2026-09-20/README.md): corrected local/CI gates, both AMZN bindings, clean compatibility prose, completed review and actual deployment/health verified. | Retained AMZN model false comparison remains open; E7 semantic acceptance and universe-wide generation remain held. Request-construction parity does not prove identical provider behavior. |
 | E2 controls | [Independent paired Fable audit](review-evidence/pr805-path/e2-fable-audit-2026-09-19.md): 140 unchanged inputs and complete contract-2 judgments; negative counts 38/70 and 42/70. | Attempt-level finder overlap is not clause recall; no deletion activation. |
 | E4 current-control miss study | [Independently corrected study](review-evidence/pr805-path/e4-current-control-miss-study-2026-09-20.md): 35 attempts / 52 reasons; manual labels 15 unsupported and 20 unresolved attempts, 17 unsupported and 35 unresolved reasons. | Four ambiguous reason assessments downgraded; original Fable verdicts and older #921 evidence preserved. Overlapping finder mechanisms and final replay do not establish clause recall or a fix. |

@@ -1,0 +1,5 @@
+eval-baseline	Regression gate vs pinned baseline	2026-09-19T22:51:23.0519685Z Regression gate: eval_20260919T225122Z.json vs baseline_scores.json (baseline: 35 filings × 3 runs)
+eval-baseline	Regression gate vs pinned baseline	2026-09-19T22:51:23.0520437Z   note: baseline: expected=70 attempted=70 scored=70 errors=0; quality means use scored outputs only
+eval-baseline	Regression gate vs pinned baseline	2026-09-19T22:51:23.0520983Z   note: baseline: figure trace measured=70 unavailable=0 errors=0; unavailable is not measured zero
+eval-baseline	Regression gate vs pinned baseline	2026-09-19T22:51:23.0521862Z   [WARN] baseline: mean_untraceable_dollar_figures = 2.314 — absolute advisory: untraceable dollar figures in measured raw prose
+eval-baseline	Regression gate vs pinned baseline	2026-09-19T22:51:23.0522411Z PASS — no hard regressions (1 warning(s)).

@@ -1,0 +1,17 @@
+{
+  "prior_snapshot_commit": "87d8f617d82a29dd6a81d02fc0d84a6f31abc754",
+  "integrated_main": "4d9398103f46106bbd720ab505bc14b8d5142b36",
+  "merge_commit": "7a05e723",
+  "old_evidence_count": 321,
+  "old_evidence_byte_identical": 320,
+  "authorized_evolving_file": "tasks/review-evidence/e6-release-2026-09-20/README.md",
+  "previous_readme_sha256": "79c6fb9d42afaf153af073e91529afcc4c7f1cd7f635388bc09489cf81c4890a",
+  "current_readme_sha256": "b58779a9a34de54e27a0aaf033f4b92f7a2669460a143e947756c1468d68639c",
+  "reason": "Replace pre-release pending snapshot with actual merged release, corpus, balance and deployment receipts; preserve original audits and caveats. Original SHA256SUMS remains historical and names the prior README hash; release-SHA256SUMS covers the current expanded archive.",
+  "main_ledger_exact_suffix": true,
+  "prior_base_ledger_exact_suffix": true,
+  "saved_docs_prefix_preserved_verbatim": true,
+  "main_ledger_sha256": "9f475173d3ff34ad5850ffc66bc7bbc9d734fe539cb267735603a8a0017f1d6d",
+  "prior_inventory_source": "work/final-reconciliation/before.json",
+  "prior_inventory_sha256": "6bd591d7358f782bdb8a4f23a18ba7ad78f2fc0c8037a701f78811f1ad4c3b3e"
+}

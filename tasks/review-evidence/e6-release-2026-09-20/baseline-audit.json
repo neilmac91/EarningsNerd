@@ -1,0 +1,361 @@
+{
+  "head": "fb5b61ca46c26b37f41c33a96feb7785af79ba98",
+  "run": 35474065022,
+  "source_sha": "580d32116e1f02cc8c208406e55a5f632eaf9d0b",
+  "report_sha256": "a9750d728c310dad4ac3a0871c9bce2c0d5ed516c26c3d8f8954d3a5f7eb1082",
+  "golden_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+  "pin_sha256": "6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387",
+  "expected_attempted_scored": 70,
+  "errors": 0,
+  "retries": 0,
+  "row_hard_vetoes": 0,
+  "profiles": {
+    "general": 66,
+    "insurer": 4
+  },
+  "insurer_own_quote_checks": [
+    [
+      "PGR",
+      "10-K",
+      0
+    ],
+    [
+      "PGR",
+      "10-K",
+      1
+    ],
+    [
+      "BRK.B",
+      "10-K",
+      0
+    ],
+    [
+      "BRK.B",
+      "10-K",
+      1
+    ]
+  ],
+  "config_matches_pin_except_source_and_two_vs_three_draws": true,
+  "excerpt_hashes_verified": 70,
+  "raw_source_hash_missing_existing_6k_slots": [
+    [
+      "ASML",
+      "6-K",
+      0
+    ],
+    [
+      "ASML",
+      "6-K",
+      1
+    ],
+    [
+      "SE",
+      "6-K",
+      0
+    ],
+    [
+      "SE",
+      "6-K",
+      1
+    ],
+    [
+      "PDD",
+      "6-K",
+      0
+    ],
+    [
+      "PDD",
+      "6-K",
+      1
+    ]
+  ],
+  "summary_means_recomputed": {
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.781,
+    "mean_specificity": 0.9956,
+    "mean_currency_consistency": 1.0,
+    "mean_redundancy": 0.9274,
+    "mean_delta_consistency": 0.9964,
+    "mean_forward_quote_fidelity": 1.0,
+    "mean_citation_fidelity": 0.9657,
+    "mean_citation_checked": 7.4
+  },
+  "regression_findings": [
+    {
+      "severity": "WARN",
+      "candidate": "baseline",
+      "metric": "mean_untraceable_dollar_figures",
+      "baseline": null,
+      "candidate_value": 2.3143,
+      "delta": null,
+      "label": "absolute advisory: untraceable dollar figures in measured raw prose"
+    }
+  ],
+  "regression_notes": [
+    "baseline: expected=70 attempted=70 scored=70 errors=0; quality means use scored outputs only",
+    "baseline: figure trace measured=70 unavailable=0 errors=0; unavailable is not measured zero"
+  ],
+  "regression_hard_count": 0,
+  "pin_comparison": {
+    "mean_financial_depth": {
+      "pin": 0.7746,
+      "candidate": 0.781,
+      "delta": 0.0064
+    },
+    "mean_delta_consistency": {
+      "pin": 0.9976,
+      "candidate": 0.9964,
+      "delta": -0.0012
+    },
+    "mean_citation_fidelity": {
+      "pin": 0.9648,
+      "candidate": 0.9657,
+      "delta": 0.0009
+    },
+    "mean_citation_checked": {
+      "pin": 7.181,
+      "candidate": 7.4,
+      "delta": 0.219
+    },
+    "mean_forward_quote_fidelity": {
+      "pin": 0.9952,
+      "candidate": 1.0,
+      "delta": 0.0048
+    },
+    "mean_redundancy": {
+      "pin": 0.9274,
+      "candidate": 0.9274,
+      "delta": 0.0
+    },
+    "mean_untraceable_dollar_figures": {
+      "pin": 2.4857,
+      "candidate": 2.3143,
+      "delta": -0.1714
+    }
+  },
+  "selected_scores": [
+    {
+      "ticker": "PGR",
+      "form": "10-K",
+      "run": 0,
+      "depth": 1.0,
+      "delta": 1.0
+    },
+    {
+      "ticker": "PGR",
+      "form": "10-K",
+      "run": 1,
+      "depth": 0.6667,
+      "delta": 1.0
+    },
+    {
+      "ticker": "GPRO",
+      "form": "10-K",
+      "run": 0,
+      "depth": 1.0,
+      "delta": 1.0
+    },
+    {
+      "ticker": "GPRO",
+      "form": "10-K",
+      "run": 1,
+      "depth": 1.0,
+      "delta": 1.0
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 0,
+      "depth": 0.6667,
+      "delta": 1.0
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 1,
+      "depth": 1.0,
+      "delta": 1.0
+    }
+  ],
+  "delta_residuals": [
+    {
+      "ticker": "BABA",
+      "form": "20-F",
+      "run": 0,
+      "score": 0.75
+    }
+  ],
+  "limits": "Raw source-body hashes are declared provenance; bodies are not retained in this baseline report for independent rehash. Deterministic scorer coverage is bounded; no broad semantic or causal quality claim.",
+  "source_tree_equals_head": true,
+  "source_tree": "2afdfed565b10b63ebfc516321ab9bc28b5fcbdd",
+  "actual_generation_and_regression_steps": "success",
+  "actual_primary_provider_calls": 70,
+  "unknown_provider_calls": 0,
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "citation_advisories": [
+    {
+      "identity": [
+        "PLD",
+        "10-K",
+        0
+      ],
+      "fidelity": 0.3333,
+      "violations": [
+        "P&L takeaway [Total revenues] evidence not verbatim (no counterpart, score 52.4): \"Total revenues increased 7.2% to $8.8B, driven by a $644M increase in rental revenues to $\"",
+        "P&L takeaway [Operating income] evidence not verbatim (no counterpart, score 51.6): \"Operating income was $4.4B, down 1.3% from $4.4B in 2024, as gains on dispositions fell by\"",
+        "P&L takeaway [Net earnings attributable to controlling interests] evidence not verbatim (no counterpart, score 59.8): \"Net earnings attributable to controlling interests decreased 10.8% to $3.3B, and diluted E\"",
+        "P&L takeaway [Diluted EPS] evidence not verbatim (no counterpart, score 52.1): \"Diluted EPS declined to $3.56 from $4.01, reflecting lower gains on real estate dispositio\""
+      ]
+    },
+    {
+      "identity": [
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "fidelity": 0.8571,
+      "violations": [
+        "P&L takeaway [Total net sales] evidence not verbatim (no counterpart, score 61.5): \"Total net sales increased 6% to $416.2B\""
+      ]
+    },
+    {
+      "identity": [
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "fidelity": 0.8333,
+      "violations": [
+        "P&L takeaway [Total net sales] evidence not verbatim (no counterpart, score 86.2): \"Total net sales increased 6% during 2025 compared to 2024.\""
+      ]
+    },
+    {
+      "identity": [
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "fidelity": 0.8889,
+      "violations": [
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.2): \"The net gain of $15.2 billion in 2025 is primarily from an upward adjustment for observabl\""
+      ]
+    },
+    {
+      "identity": [
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "fidelity": 0.8889,
+      "violations": [
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.2): \"The net gain of $15.2 billion in 2025 is primarily from an upward adjustment for observabl\""
+      ]
+    },
+    {
+      "identity": [
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "fidelity": 0.8889,
+      "violations": [
+        "footnote [Comirnaty and Paxlovid remaining perform] evidence not verbatim (near-miss, score 99.2): \"Contracted revenue expected to be recognized from remaining performance obligations for fi\""
+      ]
+    },
+    {
+      "identity": [
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "fidelity": 0.875,
+      "violations": [
+        "footnote [Contingencies] evidence not verbatim (near-miss, score 99.1): \"As of March 28, 2026, we have accrued liabilities of $1.0 billion related to litigation in\""
+      ]
+    },
+    {
+      "identity": [
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "fidelity": 0.875,
+      "violations": [
+        "P&L takeaway [Loss from operations] evidence not verbatim (near-miss, score 99.1): \"The reduction in loss from operations was primarily driven by higher gross profit reflecti\""
+      ]
+    },
+    {
+      "identity": [
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "fidelity": 0.875,
+      "violations": [
+        "P&L takeaway [Loss from operations] evidence not verbatim (near-miss, score 99.1): \"The reduction in loss from operations was primarily driven by higher gross profit reflecti\""
+      ]
+    },
+    {
+      "identity": [
+        "ASML",
+        "20-F",
+        0
+      ],
+      "fidelity": 0.7273,
+      "violations": [
+        "P&L takeaway [Selling, general and administrative (SG&A) costs] evidence not verbatim (near-miss, score 97.6): \"SG&A) costs increased by 7.9% year-over-year, primarily due to higher average wages and sa\"",
+        "footnote [Equity method investment in Carl Zeiss S] evidence not verbatim (near-miss, score 98.9): \"For the year ended December 31, 2025, we recorded a profit from Equity method investments \"",
+        "footnote [Share repurchases and dividend] evidence not verbatim (near-miss, score 98.5): \"In 2025, we repurchased 8,323,320 shares (2024: 574,925 shares) for a total consideration \""
+      ]
+    },
+    {
+      "identity": [
+        "ASML",
+        "20-F",
+        1
+      ],
+      "fidelity": 0.9,
+      "violations": [
+        "footnote [Equity method investment in Carl Zeiss S] evidence not verbatim (near-miss, score 98.9): \"For the year ended December 31, 2025, we recorded a profit from Equity method investments \""
+      ]
+    },
+    {
+      "identity": [
+        "TSM",
+        "20-F",
+        0
+      ],
+      "fidelity": 0.8,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\""
+      ]
+    },
+    {
+      "identity": [
+        "TSM",
+        "20-F",
+        1
+      ],
+      "fidelity": 0.8571,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\""
+      ]
+    }
+  ],
+  "forward_quote_advisories": [],
+  "qualified_name_residual": {
+    "identity": [
+      "BABA",
+      "20-F",
+      0
+    ],
+    "observed_segment_clause": "Alibaba China E-commerce Group adjusted EBITA fell 44% to CNY 107.5B.",
+    "consolidated_table_change": "Adjusted EBITA -56% YoY",
+    "delta_score": 0.75,
+    "scope": "Same documented qualified-metric-name association limitation; not tuned away and not proof of incorrect source figures."
+  }
+}
