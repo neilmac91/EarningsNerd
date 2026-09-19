@@ -1,0 +1,76 @@
+{
+  "reports": [
+    "eval_20260919T192439Z.json",
+    "eval_20260919T192513Z.json"
+  ],
+  "counts": {
+    "uncertain_rescue": 2,
+    "correct_prospective_drop": 5,
+    "uncertain_drop": 17,
+    "confirmed_rescue": 19,
+    "unsafe_prospective_drop": 4
+  },
+  "recorded_verdicts": {
+    "stated": 21,
+    "not_stated": 26,
+    "unknown": 1
+  },
+  "attempts": 140,
+  "flagged_attempts": 39,
+  "flagged_clauses": 48,
+  "prospective_drops": 26,
+  "rescues": 21,
+  "unclassified_abstentions": 1,
+  "actual_deletions": 0,
+  "confirmed_correct_drop_fraction": 0.19230769230769232,
+  "classification_upper_bound_if_all_uncertain_correct": 0.8461538461538461,
+  "correct_fraction_decidable_subset": 0.5555555555555556,
+  "excluded_unresolved_drops": 17,
+  "unsafe_drop_fraction": 0.15384615384615385,
+  "confirmed_full_source_rescue_fraction": 0.9047619047619048,
+  "observed_per_report_ranges": {
+    "flagged_clauses": [
+      22,
+      26
+    ],
+    "not_stated": [
+      9,
+      17
+    ],
+    "confirmed_correct_drop_fraction": [
+      0.11764705882352941,
+      0.3333333333333333
+    ],
+    "unsafe_drop_fraction": [
+      0.1111111111111111,
+      0.17647058823529413
+    ],
+    "confirmed_full_source_rescue_fraction": [
+      0.8461538461538461,
+      1
+    ]
+  },
+  "E2_comparison": {
+    "attempts": 140,
+    "flagged_attempts": 29,
+    "flagged_clauses": 38,
+    "prospective_drops": 28,
+    "rescues": 10,
+    "unknown": 0,
+    "correct_drops": 9,
+    "unsafe_drops": 10,
+    "unresolved_drops": 9,
+    "confirmed_rescues": 9,
+    "unresolved_rescues": 1,
+    "confirmed_correct_drop_fraction": 0.32142857142857145,
+    "classification_upper_bound": 0.6428571428571429
+  },
+  "caveats": [
+    "Descriptive ranges, not confidence intervals. Classification bounds represent unresolved manual judgments.",
+    "E3 and E2 generated different summaries; not a paired fixed-claim experiment. No causal verifier-effect or same-judge Fable claim.",
+    "Repeated filings and correlated clauses; not independent factual examples.",
+    "All70 corresponding retained excerpts match across both E3 and E2 reports.",
+    "SE20-F repeat0 audit/replay checked mismatch in each E3 report; exact flags preserved.",
+    "One supported full-source PFE clause is recorded unknown; retained as null classification and excluded from drop/rescue denominators."
+  ]
+}
