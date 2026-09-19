@@ -1,3 +1,8 @@
+## September 19 — verifier measurement draft closed without merge
+
+- [x] Never-merged #920 is closed after retaining two ranking-control and two claim-context candidate corpora. Candidate runs35463689504 and35463743007 each contain70/70 scored attempts,0generation/verifier errors and0actual deletions. Source parity and complete artifacts verified; [control clause evidence](review-evidence/pr805-path/e2-run1-clause-read-2026-09-19.md) remains separate from pending candidate review.
+- [ ] Candidate all-clause review and same-Fable judgments remain pending; model verdict counts are not precision or effect claims. Production flags remain off. Releasing the candidate requires acceptance of that evidence through a normal reviewed PR.
+
 ## September 19 — E2 controls captured; E3 candidate measurement and founder decisions
 
 - [x] E2 current-ranking controls from never-merged [#920](https://github.com/neilmac91/EarningsNerd/pull/920): Actions 35461717484 and35462609093 each70/70 scored,0 errors, verifytrue/gatefalse. Exact corresponding grounding/XBRL/statement channels match. [Run1 all-clause read](review-evidence/pr805-path/e2-run1-clause-read-2026-09-19.md) covers25 flags/17 attempts; [run2](review-evidence/pr805-path/e2-run2-clause-read-2026-09-19.md) covers13 flags/12 attempts. Proposed drops: run1 7 correct/6 unsafe/6 unresolved; run2 2 correct/4 unsafe/3 unresolved. Pooled28:9 correct,10 unsafe,9 unresolved; classification bounds32.1–64.3%, not a confidence interval. Nine of10 rescues full-source supported; one ambiguous. No actual deletion. Source windows are reconstructed, not retained request logs; run2 SE checked-count mismatch remains explicit.
