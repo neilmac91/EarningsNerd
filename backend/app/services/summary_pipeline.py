@@ -509,7 +509,14 @@ async def stream_filing_summary(
                                                 exc_info=True,
                                             )
 
-                            await run_sync_db(update_xbrl_sync)
+                            try:
+                                await run_sync_db(update_xbrl_sync)
+                            except Exception as persistence_error:
+                                # Fresh metrics are useful to this generation even when their
+                                # best-effort cache/facts write fails. Cancellation still propagates.
+                                logger.warning(
+                                    f"[stream:{filing_id}] XBRL persistence failed (non-fatal): {persistence_error}"
+                                )
                             return metrics
                     except Exception as xbrl_error:
                         logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
@@ -701,28 +708,29 @@ async def stream_filing_summary(
             # CRITICAL: 2s was too aggressive - SEC API for large companies can take 5-10s
             excerpt = None
             xbrl_metrics = None
+            tasks_to_wait = [excerpt_task]
+            if xbrl_task:
+                tasks_to_wait.append(xbrl_task)
             try:
                 # Give excerpt/XBRL time to complete - critical for financial data accuracy
-                tasks_to_wait = [excerpt_task]
-                if xbrl_task:
-                    tasks_to_wait.append(xbrl_task)
-
-                results = await asyncio.wait_for(
+                await asyncio.wait_for(
                     asyncio.gather(*tasks_to_wait, return_exceptions=True),
                     timeout=CONTEXT_ENRICHMENT_TIMEOUT_SECONDS
                 )
-
-                excerpt = results[0] if not isinstance(results[0], Exception) else None
-                if len(results) > 1:
-                    xbrl_result = results[1]
-                    xbrl_metrics = xbrl_result if not isinstance(xbrl_result, Exception) and xbrl_result is not None else None
             except asyncio.TimeoutError:
-                excerpt = None
-                xbrl_metrics = None
+                pass  # wait_for has cancelled/drained pending siblings; retain completed results.
             except Exception as e:
                 logger.warning(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
-                excerpt = None
-                xbrl_metrics = None
+
+            # A slow/failed sibling cannot erase enrichment that already completed successfully.
+            # External cancellation bypasses this block; it is never converted to partial success.
+            results = [
+                task.result() if task.done() and not task.cancelled() and task.exception() is None else None
+                for task in tasks_to_wait
+            ]
+            excerpt = results[0]
+            if len(results) > 1:
+                xbrl_metrics = results[1]
 
             mark_stage("context_enrichment")
 
