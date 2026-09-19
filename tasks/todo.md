@@ -1,3 +1,9 @@
+## September 19 — founder reports Fable quota hold; controls reported complete
+
+- [x] Founder reports the external Fable agent's five-hour limit, with about 3h10m remaining at the time of the message. No new local judge calls, availability probes or model substitution are authorized by that report. Continue independent engineering while waiting.
+- [x] Founder-supplied screenshots show the agent reporting both E2 controls complete, 70/70 each, zero judge errors and no truncated grounding. Reported negative counts are38/70 and42/70; G4 counts23 and25. These are screenshot-reported values, not independently recomputed results. Two full judged JSON files and their receipts are required before acceptance or E8 reuse. Optional E1 is last visible at56/70; completion is not established.
+- [ ] Updated handoff order: recover/audit the completed E2 files without rejudging, corrected KO semantic review, E3 verifier candidates, then E8 using validated control main verdicts. Preserve optional E1 partial results and leave remaining E1 work last. No full-report restart that discards completed judgments.
+
 ## September 19 — documentation releases and independent judge handoffs
 
 - [x] Control clause evidence and the retained recall-gap study merged in [#921](https://github.com/neilmac91/EarningsNerd/pull/921) as `cc05e83961097d187028f29cbc5c7360599de62d` at 19:35:14Z. The founder-approved quality specification and exact manifest merged in [#922](https://github.com/neilmac91/EarningsNerd/pull/922) as `356663dded04ae662a72815c5ca00833ad470c9e` at 19:43:07Z. Both were documentation-only; neither deploys the backend.
