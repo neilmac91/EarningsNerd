@@ -1,3 +1,10 @@
+## September 19 — approved E8 pilot captured completely within ceiling
+
+- [x] Never-merged measurement [#923](https://github.com/neilmac91/EarningsNerd/pull/923) closed after run 35465430465 retained two matched n corpora: 70/70 unique scored outputs each, zero errors or missing slots. All 140 source-channel sets match the pinned E2 controls. [Artifact audit](review-evidence/e8-2026-09-19/report.md).
+- [x] All 187 provider requests have complete captured responses and settled usage: 140 primary and 47 attribution-verifier requests. Legacy telemetry calls the latter section_recovery; no actual missing-section recovery request occurred. Conservative peak-price bound USD 0.658198548 against approved shared USD 5 ceiling; no unknown reservation or admission stop. This is not an invoice. Provider key stayed in CI; no production deployment or replacement generation occurred.
+- [x] A 20-output duplicate-judgment panel and blinded order were selected from identities with seed 20260919 before reading verdicts. Same-Fable judgments, source-matched reuse of valid control judgments and the planned disagreement analysis remain pending with the founder's Claude agent. Two corpora per condition and historical control timing cannot establish population variance or a causal prompt effect.
+- [x] Fresh account balance after pilot: USD 75.44 at 2026-09-19T20:09:30Z, workflow 35466516599. This is an account observation, not isolated pilot billing.
+
 ## September 19 — E3 manual candidate review complete; release remains held
 
 - [x] Independently reviewed all 48 recorded candidate clauses across the two retained 70-output corpora: 26 proposed drops comprise 5 correct, 4 unsafe and 17 unresolved; 21 rescues comprise 19 confirmed and 2 uncertain; one supported-source Pfizer clause remains unknown. No actual deletion occurred. [Full comparison and per-run ranges](review-evidence/pr805-path/e3-pooled-clause-read-2026-09-19.md); [independent audit](review-evidence/pr805-path/e3-independent-manual-review-2026-09-19.md).
