@@ -242,6 +242,11 @@ def test_apply_structured_fallbacks_current_ratio_edge_cases():
 
 # --- T5.1: earnings_quality.cash_conversion machine-authored from XBRL (numbers from code) ---
 
+def _cash_point(value, tag, currency="USD"):
+    return {"value": value, "period": "2025-12-31", "period_start": "2025-01-01",
+            "currency": currency, "raw_tag": tag}
+
+
 def test_apply_structured_fallbacks_authors_cash_conversion():
     """§3's cash-conversion read is machine-authored: the NI-vs-CFO ratio (operating cash flow / net
     income — a derived relationship in no single XBRL magnitude) plus free cash flow. ONE-HOME: the
@@ -249,8 +254,8 @@ def test_apply_structured_fallbacks_authors_cash_conversion():
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
@@ -267,13 +272,13 @@ def test_apply_structured_fallbacks_cash_conversion_ratio_only_when_fcf_absent()
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow was 1.5x net income (cash conversion)."
+    assert cc == "Operating cash flow was 1.5x net income attributable to the parent (cash conversion)."
 
 
 def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
@@ -283,14 +288,14 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 3_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(-5_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(3_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 2_000_000_000, "period": "FY2025"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow was positive despite a net loss; free cash flow of $2.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
+    assert cc == "Operating cash flow was positive despite a net loss attributable to the parent; free cash flow of $2.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
     assert "x net income" not in cc  # no meaningless ratio against a negative denominator
 
 
@@ -299,12 +304,12 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf_no_fc
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 3_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(-5_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(3_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
-    assert sections["earnings_quality"]["cash_conversion"] == "Operating cash flow was positive despite a net loss."
+    assert sections["earnings_quality"]["cash_conversion"] == "Operating cash flow was positive despite a net loss attributable to the parent."
 
 
 def test_apply_structured_fallbacks_cash_conversion_loss_and_cash_burn_authors_nothing():
@@ -314,8 +319,8 @@ def test_apply_structured_fallbacks_cash_conversion_loss_and_cash_burn_authors_n
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": -5_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": -3_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(-5_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(-3_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
@@ -328,12 +333,12 @@ def test_apply_structured_fallbacks_cash_conversion_negative_ocf_positive_ni():
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": -4_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(-4_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
-    assert sections["earnings_quality"]["cash_conversion"] == "Operating cash flow was -0.2x net income (cash conversion)."
+    assert sections["earnings_quality"]["cash_conversion"] == "Operating cash flow was -0.2x net income attributable to the parent (cash conversion)."
 
 
 def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
@@ -344,7 +349,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
     s1: dict = {}
     openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
     assert s1["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
@@ -353,7 +358,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
     s2: dict = {}
     openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {
         "financial_classification": {"is_financial": False},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
     assert s2["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
@@ -372,8 +377,8 @@ def test_apply_structured_fallbacks_cash_conversion_strips_stray_model_text_for_
     xbrl = {
         "financial_classification": {"is_financial": False},
         "net_interest_income": {"current": {"value": 5_000_000_000, "period": "FY2025"}},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
@@ -399,13 +404,13 @@ def test_apply_structured_fallbacks_cash_conversion_near_breakeven_is_qualitativ
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 10_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 2_500_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(10_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(2_500_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow far exceeded net income."
+    assert cc == "Operating cash flow far exceeded net income attributable to the parent."
     assert "x net income" not in cc and "250" not in cc
 
 
@@ -415,18 +420,18 @@ def test_apply_structured_fallbacks_cash_conversion_ratio_band_boundary():
     s1: dict = {}
     openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 1_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 10_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(1_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(10_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     })
-    assert s1["earnings_quality"]["cash_conversion"] == "Operating cash flow was 10.0x net income (cash conversion)."
+    assert s1["earnings_quality"]["cash_conversion"] == "Operating cash flow was 10.0x net income attributable to the parent (cash conversion)."
 
     s2: dict = {}
     openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 1_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 11_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(1_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(11_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     })
-    assert s2["earnings_quality"]["cash_conversion"] == "Operating cash flow far exceeded net income."
+    assert s2["earnings_quality"]["cash_conversion"] == "Operating cash flow far exceeded net income attributable to the parent."
 
 
 def _segment_xbrl(currency=None):
@@ -793,13 +798,13 @@ def test_apply_structured_fallbacks_cash_conversion_large_negative_ratio_is_qual
     sections: dict = {}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 10_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": -2_500_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(10_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(-2_500_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow was negative despite positive net income."
+    assert cc == "Operating cash flow was negative despite positive net income attributable to the parent."
     assert "x net income" not in cc
 
 
@@ -811,8 +816,8 @@ def test_apply_structured_fallbacks_cash_conversion_suppressed_for_banks():
     xbrl = {
         "financial_classification": {"is_financial": False},
         "net_interest_income": {"current": {"value": 5_000_000_000, "period": "FY2025"}},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
@@ -836,8 +841,8 @@ def test_apply_structured_fallbacks_cash_conversion_uses_reporting_currency():
     xbrl = {
         "financial_classification": {"is_financial": False},
         "reporting_currency": "EUR",
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss", "EUR")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities", "EUR")},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
@@ -856,8 +861,8 @@ def test_apply_structured_fallbacks_cash_conversion_overwrites_model_text():
     }}
     xbrl = {
         "financial_classification": {"is_financial": False},
-        "net_income": {"current": {"value": 20_000_000_000, "period": "FY2025"}},
-        "operating_cash_flow": {"current": {"value": 30_000_000_000, "period": "FY2025"}},
+        "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
+        "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 25_000_000_000, "period": "FY2025"}},
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)

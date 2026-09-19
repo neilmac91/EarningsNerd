@@ -171,6 +171,10 @@ async def test_cash_card_applicability_preserves_basic_flows_across_surfaces(mon
         metrics.pop("financial_classification")
     if case == "bank_veto":
         metrics["net_interest_income"] = {"current": {"value": 1}}
+    # Synthetic known bases isolate this classification gate. The retained artifacts above
+    # remain unmodified and do not retrospectively acquire source-concept evidence.
+    metrics["net_income"]["current"]["raw_tag"] = "us-gaap:NetIncomeLoss"
+    metrics["operating_cash_flow"]["current"]["raw_tag"] = "us-gaap:NetCashProvidedByUsedInOperatingActivities"
     eligible = case == "nonfinancial"
     supplied = {"metadata": {}, "sections": {
         "earnings_quality": {"cash_conversion": "UNTRUSTED MODEL CARD", "red_flags": ["Preserved disclosure."]},
@@ -201,7 +205,7 @@ async def test_cash_card_applicability_preserves_basic_flows_across_surfaces(mon
         exporter.generate_csv(summary, filing), json.dumps([s.to_dict() for s in rendered])]
     for text in texts:
         assert "UNTRUSTED MODEL CARD" not in text
-        assert ("Operating cash flow was positive despite a net loss." in text) is eligible
+        assert ("Operating cash flow was positive despite a net loss attributable to the parent." in text) is eligible
         assert "Preserved disclosure." in text
         for amount in (("$-147.8B", "$-265.6B", "$269.5B") if case == "JPM"
                        else ("$182.7M", "$-239.1M", "$-864.9M")):

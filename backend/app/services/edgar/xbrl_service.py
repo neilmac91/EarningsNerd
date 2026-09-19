@@ -401,7 +401,8 @@ def _extract_from_filing_instance_sync(
                  "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
                 for end, value, start in series
             ]
-        elif metric == "capital_expenditures":
+        elif metric in {"capital_expenditures", "net_income", "operating_cash_flow"}:
+            # Preserve the winning basis for cash comparisons; selection and precedence stay fixed.
             series, currency, raw_tag = duration_series_with_starts(
                 xb, concepts, base_form, period_of_report, qualified_concept=True
             )

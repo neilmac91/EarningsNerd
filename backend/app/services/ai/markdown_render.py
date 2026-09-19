@@ -13,7 +13,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
-from app.services.ai.cash_claims import conventional_cash_applicable, qualify_cash_lead
+from app.services.ai.cash_claims import cash_conversion_basis, conventional_cash_applicable, qualify_cash_lead
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
@@ -463,7 +463,10 @@ class _MarkdownRenderMixin:
             eq.pop("cash_conversion", None)
         if conventional_cash_applicable(xbrl_metrics or {}):
             qualify_cash_lead(sections, xbrl_metrics or {}, format_currency)
-            ni_v = raw_current("net_income")
+            # Keep the selected NI amount, but name its basis and compare only matching
+            # observed durations/currencies. Unknown legacy metadata abstains; FCF is independent.
+            basis = cash_conversion_basis(xbrl_metrics or {})
+            ni_v = raw_current("net_income") if basis else None
             ocf_v = raw_current("operating_cash_flow")
             fcf = format_currency(raw_current("free_cash_flow"))
             parts: List[str] = []
@@ -472,18 +475,18 @@ class _MarkdownRenderMixin:
                 if -10.0 <= ratio <= 10.0:
                     # Positive net income in a meaningful band: the multiple IS the accrual read. A
                     # negative OCF against a positive NI stays (a negative multiple — a real red flag).
-                    parts.append(f"operating cash flow was {ratio:.1f}x net income (cash conversion)")
+                    parts.append(f"operating cash flow was {ratio:.1f}x net income {basis} (cash conversion)")
                 elif ratio > 10.0:
                     # Near-breakeven NI: the tiny denominator dominates, so the multiple (e.g. 250x) is
                     # analytically noise. Keep the signal (cash far exceeding income) qualitatively.
-                    parts.append("operating cash flow far exceeded net income")
+                    parts.append(f"operating cash flow far exceeded net income {basis}")
                 else:  # ratio < -10.0: a large operating cash OUTFLOW against a small positive income
-                    parts.append("operating cash flow was negative despite positive net income")
+                    parts.append(f"operating cash flow was negative despite positive net income {basis}")
             elif ni_v is not None and ni_v < 0 and ocf_v is not None and ocf_v > 0:
                 # A net LOSS alongside positive operating cash flow — §3's highest-value accrual signal:
                 # the business generated cash despite a GAAP loss (non-cash charges/impairments). Stated
                 # qualitatively; a "conversion" multiple against a negative denominator is meaningless.
-                parts.append("operating cash flow was positive despite a net loss")
+                parts.append(f"operating cash flow was positive despite a net loss {basis}")
             if fcf:
                 parts.append(f"free cash flow of {fcf} ({cash_flow_basis('free_cash_flow')})")
             if parts:
