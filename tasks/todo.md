@@ -1,3 +1,10 @@
+## September 19 — E2 complete verdict artifacts independently verified
+
+- [x] Received both external Fable contract-2 reports and receipts. [Independent audit](review-evidence/pr805-path/e2-fable-audit-2026-09-19.md) verifies all140 original non-judge result rows and harness channels unchanged,140 complete judgments, zero errors/missing/duplicate slots, frozen source/golden hashes and actual judge serialization without truncation. [All normalized verdicts and reasons](review-evidence/pr805-path/e2-fable-verdicts-2026-09-19.json) are retained with full-file hashes; original large reports remain in the founder's task outputs.
+- [x] Negative verdicts are38/70 (54.3%) and42/70 (60.0%); G4 is23 and25. Finder flags17 and12 attempts, overlapping7 and6 G4 attempts. Pooled13/48 attempt overlap, with35 G4 attempts unflagged, is not clause recall or a causal prompt effect. The earlier all-clause manual study still contains10 confirmed unsafe proposed drops among28; do not arm deletion.
+- [x] All140 reconstructed judge requests match the frozen E8 o-condition main slots. [Reuse manifest](review-evidence/pr805-path/e8-control-main-reuse-2026-09-19.json) preserves exact input/verdict hashes and original batch times. No control rejudging is needed. Twenty preselected duplicates remain separate; CLI2.1.278 is receipt-attested and should remain the future execution environment. Raw CLI envelopes/fine-grained call order were not returned.
+- [ ] E8 guard remains disabled pending prior-call/retry/probe accounting;140 complete verdicts do not prove exactly140 invocations. Fable is quota-held, so the next judging order is corrected KO, E3 candidates, then E8; optional E1 last. E2's engineering measurement is complete; E3/E8 semantic acceptance and production flags remain separate.
+
 ## September 19 — founder reports Fable quota hold; controls reported complete
 
 - [x] Founder reports the external Fable agent's five-hour limit, with about 3h10m remaining at the time of the message. No new local judge calls, availability probes or model substitution are authorized by that report. Continue independent engineering while waiting.

@@ -1,0 +1,3481 @@
+{
+  "scope": "External E2 control2 artifact audit; no model/CLI/network calls",
+  "input_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+  "received_files": {
+    "analysis.txt": {
+      "sha256": "747910ef8a18092ca0ef64b38a545275b21546077744d386ba211448d7a474e5",
+      "bytes": 60815
+    },
+    "judged.json": {
+      "sha256": "15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa",
+      "bytes": 20595611
+    },
+    "judged.md": {
+      "sha256": "6febea9b13fd3078a84de2a2837e81e03381ac2b0bb9190486ba258389d0d557",
+      "bytes": 21338
+    },
+    "overlap-detail.txt": {
+      "sha256": "6097ee6903783ad8769de399f853ba590d1f4b57d0a034af4068141673930bf7",
+      "bytes": 9604
+    },
+    "receipt.md": {
+      "sha256": "de3e54ff528c4f39505b9ff3fd827b07801d1cea2088bed026ee700b399ac55a",
+      "bytes": 1817
+    }
+  },
+  "frozen_ref": "73cc31162c3dfe7ec497c8c88c43cf397afce4a7",
+  "frozen_judge_code_sha256": {
+    "backend/evals/judge.py": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "backend/evals/runner.py": "63b010b7968c3f4bdbcfd62114af82dcfcd8c5eb56e892b0c0da77f4943c0029"
+  },
+  "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+  "source_sha": "73cc31162c3dfe7ec497c8c88c43cf397afce4a7",
+  "source_tree": "fa5cc567ebbf62e2b45e15a5436f7fdc5e5eb6dd",
+  "all_nonjudge_fields_equal": true,
+  "summary": {
+    "attempts": 70,
+    "judgeable": 70,
+    "judged": 70,
+    "errors": 0,
+    "negative": 42,
+    "gate_counts": {
+      "G2 fabricated_comparatives": 2,
+      "G3 hallucinated_facts": 12,
+      "G4 unsupported_cause": 25,
+      "G5 basis_mismatch": 24
+    },
+    "complete": true
+  },
+  "dimension_means": {
+    "faithfulness": 3.657142857142857,
+    "insight": 3.142857142857143,
+    "clarity": 3.557142857142857,
+    "specificity": 4.1
+  },
+  "serialization_maxima": {
+    "summary_chars": 32912,
+    "excerpt_chars": 260154,
+    "xbrl_chars": 22500
+  },
+  "caps": {
+    "_JUDGE_SUMMARY_CHAR_CAP": 100000,
+    "_JUDGE_EXCERPT_CHAR_CAP": 400000,
+    "_JUDGE_XBRL_CHAR_CAP": 40000
+  },
+  "overlap": {
+    "G4": 25,
+    "finder_flagged": 12,
+    "both": 6,
+    "G4_without_flag": 19,
+    "flag_without_G4": 6,
+    "neither": 39,
+    "both_ids": [
+      [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      [
+        "baseline",
+        "PLD",
+        "10-K",
+        1
+      ]
+    ],
+    "G4_without_flag_ids": [
+      [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      [
+        "baseline",
+        "BRK.B",
+        "10-K",
+        1
+      ],
+      [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      [
+        "baseline",
+        "FIGS",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "GPRO",
+        "10-K",
+        1
+      ],
+      [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      [
+        "baseline",
+        "NEE",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "PDD",
+        "6-K",
+        0
+      ],
+      [
+        "baseline",
+        "PLD",
+        "10-K",
+        0
+      ],
+      [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      [
+        "baseline",
+        "SE",
+        "6-K",
+        1
+      ],
+      [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ]
+    ],
+    "flag_without_G4_ids": [
+      [
+        "baseline",
+        "ASML",
+        "6-K",
+        1
+      ],
+      [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ]
+    ]
+  },
+  "e8_exact_assembled_requests_equal": 70,
+  "cli_comparability": {
+    "external_version_receipt": "2.1.278",
+    "local_guard_pinned_version": "2.1.273",
+    "external_run_time": "2026-09-19T19:36:26.499175Z",
+    "raw_cli_envelopes_retained": false,
+    "backend_resolved_model_retained": false,
+    "status": "Main reuse admissible under normalized contract and exact reconstructed input checks; future programme uses receipt-attested CLI 2.1.278 in executing environment. Earlier time/order remains a batch limitation; local disabled guard 2.1.273 is not execution evidence. Raw envelope absence does not itself bar reuse."
+  },
+  "problems": [],
+  "per_attempt": [
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "6-K",
+        0
+      ],
+      "accession": "0001628280-26-048235",
+      "nonjudge_row_sha256": "0d3ad89b55528a49b4d2a9f09175e4c922ed2fca233adf73347162e362033a5f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "3af41e6da7cdf03f1d688084f52a645204a5a1886fa9adb269c6c6b7ba6cc398",
+        "request_sha256": "c491035de55d3343143166cc05061922b0370b2a5933912364c06fdfd7d04f05"
+      },
+      "input_lengths": {
+        "summary_chars": 16986,
+        "excerpt_chars": 12957,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-c527a90037bed225",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16986,
+          "excerpt_chars": 12957,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "6-K",
+        1
+      ],
+      "accession": "0001628280-26-048235",
+      "nonjudge_row_sha256": "873383e6ce8861d6bf5b45f95e0d128a355cc0ba40d1c454f552fb2aa247fdc7",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "51dad1c2de196933aebc8d6e8850c199154827f5f325c559d27920bf198fd5d5",
+        "request_sha256": "254e3235955b09bfb29cddc07f3ed353ba3253e021234cfcca0ad3c4bf15bc79"
+      },
+      "input_lengths": {
+        "summary_chars": 16576,
+        "excerpt_chars": 12957,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-45273ee0701686f1",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16576,
+          "excerpt_chars": 12957,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "6-K",
+        0
+      ],
+      "accession": "0001193125-26-344596",
+      "nonjudge_row_sha256": "a145224169be981cb3bcb506630ab90c57d64bd79ce9aa0e7b2dd3a379df38f9",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "83ec5c3ee2872f26d2250907a760dd52e3820238cb5d88e920e5d7ceb66208cc",
+        "request_sha256": "690ed0d2f12b8e5755e781164c6e33629ea77fb19faa3117cc8c621e8c4fd343"
+      },
+      "input_lengths": {
+        "summary_chars": 18136,
+        "excerpt_chars": 57809,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-1e9a8b72605880df",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch (sign reversal): executive summary table row 'Total cost of revenue | US$(4,237,893) thousand | US$(2,849,667) thousand | \u221248.7%' presents the change as negative, whereas the source states cost of revenue 'increased by 48.7%' (the summary's own commentary and JSON table say 'up 48.7%', so the cell is internally contradictory and reads as a decrease)."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18136,
+          "excerpt_chars": 57809,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "6-K",
+        1
+      ],
+      "accession": "0001193125-26-344596",
+      "nonjudge_row_sha256": "38616819effb61cfe91e06a822af4d882e8864f6d15b7adeeaf88510ae4d9318",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "c96a7c1e1ca167392937262959336400749dfd53b13548f63f1ea6ce5a723550",
+        "request_sha256": "fcf9cdc7955a4b78d6e5713643b22f5027b14bc86cdc9175df17382adc9d7b8c"
+      },
+      "input_lengths": {
+        "summary_chars": 21474,
+        "excerpt_chars": 57809,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-dd5635ccacf06ad5",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch: \"unallocated expenses of US$9.7 million are mainly related to share-based compensation, and general and corporate administrative costs\" \u2014 the source explicitly states the US$9,747k unallocated expenses within total adjusted EBITDA are \"mainly related to general and corporate administrative costs such as professional fees\"; share-based compensation (US$131,920k) is a separate reconciliation line and belongs to the US$141,667k operating-income-level unallocated figure, not the adjusted-EBITDA one. The Notable Footnotes row repeats the error while quoting the non-SBC definition as its evidence.",
+          "G4 unsupported_cause: \"Revenue growth of 48.1% outpaced net income growth of 10.6% as total operating expenses increased 50.9% ... Income tax expense rose 74.0%\" and \"Operating income increased 33.3% year-on-year as total operating expenses increased 50.9%\" \u2014 the source states no such causal decomposition of the net income/operating income growth gap; the summary narrates co-moving line items as drivers.",
+          "G3 hallucinated_facts (contradiction): \"This filing's standardized financial data reports no debt balance ... no total debt ... figure is stated\" \u2014 the balance sheet in the source reports Borrowings of US$316,165k (current) and US$908,151k (non-current) plus convertible notes; asserting no verifiable debt balance misrepresents the source."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 21474,
+          "excerpt_chars": 57809,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "6-K",
+        0
+      ],
+      "accession": "0001104659-26-100534",
+      "nonjudge_row_sha256": "3b0619d76a61e11d367f35c599b0060872ae53ab6321fd1ff07e6584c99e7ddb",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "3ad8fe248f4b80b174b2c5e01a01bc54eb0219045cf9fc456a39a439f0d00359",
+        "request_sha256": "9b6a32d3d4858c56c3c25e025ca8feea8a351157ca711396978d11ee663e158a"
+      },
+      "input_lengths": {
+        "summary_chars": 16390,
+        "excerpt_chars": 40750,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-f36789c515522c98",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Increased ecosystem investments, including higher sales and marketing expenses, may continue to pressure profitability.\" \u2014 the source's Jun Liu quote mentions stepped-up ecosystem investments but never identifies sales and marketing expenses as part of those investments nor links them to profitability pressure; the summary fuses two separate source statements into an attribution the filing does not make."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16390,
+          "excerpt_chars": 40750,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "6-K",
+        1
+      ],
+      "accession": "0001104659-26-100534",
+      "nonjudge_row_sha256": "324796ffbfbfd87b55a76428737c976ad6476ff0bd968ace5def9abac6a0266f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "a7d0c2a5d1d9040ac77c29ee49797d4e696e984beff281edde9e6dd74560b16e",
+        "request_sha256": "0be589efb202e43f16f0605093257b9eafb703390b4dbd1fc14fd792db98b7ff"
+      },
+      "input_lengths": {
+        "summary_chars": 18986,
+        "excerpt_chars": 40750,
+        "xbrl_chars": 0
+      },
+      "e8_output_id": "O-295b27a67ff2a91b",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18986,
+          "excerpt_chars": 40750,
+          "xbrl_chars": 0
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLD",
+        "10-K",
+        0
+      ],
+      "accession": "0001193125-26-051453",
+      "nonjudge_row_sha256": "4ce07a0aac438bde0f7e0177d1ac49aa65f996ce7afb771006a0d77a4ba5d13e",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "791e52e7311a7033a3958259746faf9762b6118d7579d13bfb56eeb2ecfce42a",
+        "request_sha256": "b9ec8228a4160a32bf1cb75860abd16667837f17789afeac5c32b47b291ecb4a"
+      },
+      "input_lengths": {
+        "summary_chars": 16471,
+        "excerpt_chars": 231325,
+        "xbrl_chars": 13101
+      },
+      "e8_output_id": "O-2f56e5993938de48",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"The decline reflects lower gains on real estate dispositions and higher interest expense, partly offset by higher rental revenues.\" \u2014 the source never attributes the net-earnings decline to these drivers; the summary constructs its own causal narrative from income-statement line items and omits the $194M swing in foreign currency/derivative gains ($209M to $15M), the $80M strategic capital revenue decline and higher rental/G&A expense. The only interest-expense cause the source states (higher-rate senior note issuances) is for the interest line, not net earnings.",
+          "G4 unsupported_cause (borderline): \"Net earnings attributable to controlling interests declined 10.8% ... with operating income of $4.36B roughly flat versus $4.42B as gains on real estate dispositions decreased\" and \"Total revenues rose 7.2% ... driven by rental revenues\" \u2014 component/segment movement presented as cause; the source states no such driver for operating income or total revenues."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16471,
+          "excerpt_chars": 231325,
+          "xbrl_chars": 13101
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLD",
+        "10-K",
+        1
+      ],
+      "accession": "0001193125-26-051453",
+      "nonjudge_row_sha256": "95c92b05e355e0b5c9e29e5234e1cdf0fae632b890fa53eefbe297e3d9fe8a81",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "1a89f82242fad7eaedfd7e90c4f875bcc01a1cbf2f0bb7f43c23bae77203085a",
+        "request_sha256": "778e590c85e3b6fab24ee20676f505dab1d77ec5d75aec825e594842fb23f871"
+      },
+      "input_lengths": {
+        "summary_chars": 18346,
+        "excerpt_chars": 231325,
+        "xbrl_chars": 13101
+      },
+      "e8_output_id": "O-b3321e3a0a5bfb05",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Net earnings attributable to controlling interests fell to $3.33B from $3.73B, and diluted EPS declined to $3.56 from $4.01, reflecting lower gains on real estate dispositions ($944M combined in 2025 versus $1.32B in 2024) and higher interest expense of $1.00B versus $864M\" / \"Net earnings declined as lower gains on real estate dispositions and higher interest expense of $1.00B versus $864M offset higher rental revenues\" \u2014 the source never attributes the net earnings/EPS decline to these items; the summary derives the cause from income-statement line items (and omits the ~$194M swing in FX/derivative/other income) and cites the source's interest-expense driver ('principally due to the issuance of senior notes') as supporting evidence, transferring a cause stated for one line to another line.",
+          "G4 unsupported_cause: \"Operating income declined as gains on dispositions of development properties and land fell to $258M from $414M and gains on other dispositions of investments in real estate fell to $686M from $904M\" \u2014 source does not state a cause for the operating income decline; this is an arithmetic decomposition of line items presented as a driver."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18346,
+          "excerpt_chars": 231325,
+          "xbrl_chars": 13101
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "NEE",
+        "10-Q",
+        0
+      ],
+      "accession": "0000753308-26-000060",
+      "nonjudge_row_sha256": "cd13e3c7cb965c005500494b488a6a2727e39d941d1658f7367760279de74ec8",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "481894dba75d97de1f5931b1c3b38cc468f95cee65c35dba31eb918693cb46f1",
+        "request_sha256": "0cd94407a1e38ea21a616a11311ab5032d9b5224f65de5c1930634c4f33c16cd"
+      },
+      "input_lengths": {
+        "summary_chars": 17153,
+        "excerpt_chars": 96406,
+        "xbrl_chars": 13269
+      },
+      "e8_output_id": "O-1db883e901bb0329",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: revenue commentary states \"The increase reflects higher results across the segments\" \u2014 the source attributes 'higher results at FPL, NEER and Corporate and Other' to the net income movement, not to consolidated operating revenue; no segment-level revenue driver is stated for Corporate and Other, and the net income cause does not transfer to the revenue line."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 17153,
+          "excerpt_chars": 96406,
+          "xbrl_chars": 13269
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "NEE",
+        "10-Q",
+        1
+      ],
+      "accession": "0000753308-26-000060",
+      "nonjudge_row_sha256": "560f2ae8c3357647cd2674a7ef9b159dbc5b49c46e5bfc3b5498c87a609d1f4c",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "a0baecd1f0907c36110f2dded211afef17eccde64c08f2a5049b7af7ab6dfb41",
+        "request_sha256": "e0b26552b63fdaf9dddb0447faf2189ce73c3060ace2056008c93f4fe27853af"
+      },
+      "input_lengths": {
+        "summary_chars": 15986,
+        "excerpt_chars": 96406,
+        "xbrl_chars": 13269
+      },
+      "e8_output_id": "O-37329ece6d37b8e1",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 15986,
+          "excerpt_chars": 96406,
+          "xbrl_chars": 13269
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PGR",
+        "10-K",
+        0
+      ],
+      "accession": "0000080661-26-000086",
+      "nonjudge_row_sha256": "eb752cebe2c17d3f3132835038f4c9e2c2b2dbd35348c3b9bb0d62951c0f4d92",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "fc5babe4285edc3d60aad126115e38513bf8373a948b481c0e1887711568028d",
+        "request_sha256": "c07944848230b38ea079c2c884b7146948367bd22ac4d72fb41aa64d9a2f1702"
+      },
+      "input_lengths": {
+        "summary_chars": 12978,
+        "excerpt_chars": 175835,
+        "xbrl_chars": 13501
+      },
+      "e8_output_id": "O-8be88bfae62c7fc2",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch: \"Personal Lines premium revenue of $72.6B\" \u2014 Schedule III shows Personal Lines premium revenue (earned) of $70,778M; $72,558M is Personal Lines net premiums *written*, a different measure (Commercial's $10.9B is correctly premium revenue, so the two segment figures are on inconsistent bases)."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 2,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 12978,
+          "excerpt_chars": 175835,
+          "xbrl_chars": 13501
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PGR",
+        "10-K",
+        1
+      ],
+      "accession": "0000080661-26-000086",
+      "nonjudge_row_sha256": "73d5296f494354c5832cc3c105d617df1b8cbb8fd9289f58340f8ac77b92d4f7",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "3ed9a95fb58caa8e21c1189ed113d9ca4a92fe8471f078001e7a5bcc35b02ad9",
+        "request_sha256": "dc6d1aefdde1c96fc68ada9a3232b736ef505b7c6c0e520922e1863a0585ab6b"
+      },
+      "input_lengths": {
+        "summary_chars": 13005,
+        "excerpt_chars": 175835,
+        "xbrl_chars": 13501
+      },
+      "e8_output_id": "O-3ef04927465c8126",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G3 hallucinated_facts: \"Working capital: Not disclosed\u2014Progressive's balance sheet is unclassified, so current assets and current liabilities are not separately reported.\" \u2014 the consolidated balance sheet is not in the excerpt and nothing in the source states the balance sheet is unclassified; this is an assertion about the filing's presentation that the provided source does not support."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 13005,
+          "excerpt_chars": 175835,
+          "xbrl_chars": 13501
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "FIGS",
+        "10-Q",
+        0
+      ],
+      "accession": "0001628280-26-054342",
+      "nonjudge_row_sha256": "8447d08fb2fdd5567a5242fa253e32017b469fb2101d8283b6da9327a3dd5ec8",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "e4d4c7a7b8b84d19a6e78df7acb117188da3f06b0459fcc7d878df8d30ac2eb0",
+        "request_sha256": "d28eb8e2eeb69ad9ed6970eccdac1e882f4a9ed30bbea2cf3d4085de0385b8e3"
+      },
+      "input_lengths": {
+        "summary_chars": 22111,
+        "excerpt_chars": 112432,
+        "xbrl_chars": 14355
+      },
+      "e8_output_id": "O-c686036f45ca2678",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 4,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Operating income increased as net revenues grew 28.8% while total operating expenses rose 21.9%\" \u2014 the filing does not attribute the operating income movement to this; it is a synthesized decomposition that omits the COGS decrease/IEEPA refund that the source actually cites as the primary driver of gross profit.",
+          "G5 basis_mismatch: \"Return on equity was 6.4% (prior 1.5%)\" \u2014 the unlabeled 'prior' is the Q1 2026 sequential figure (XBRL 1.46%), while every other 'prior' in the summary is Q2 2025 (YoY ROE would be ~1.8%); mixing an unlabeled QoQ comparison into a YoY summary changes the comparison period without disclosure."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 22111,
+          "excerpt_chars": 112432,
+          "xbrl_chars": 14355
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "FIGS",
+        "10-Q",
+        1
+      ],
+      "accession": "0001628280-26-054342",
+      "nonjudge_row_sha256": "ddac233d5e6ed85e46780c09033e51c8412c4dec0d73fc15ed43244c6c830eeb",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "b73aa8d736d284e2d74cee3a63aba3a3470e80c9c27f7b73435815725556d42c",
+        "request_sha256": "8a6fe0e6e98af7357a74f0c14caa7531c43fd589cb94d14425ffba0023ba2ce8"
+      },
+      "input_lengths": {
+        "summary_chars": 23118,
+        "excerpt_chars": 112432,
+        "xbrl_chars": 14355
+      },
+      "e8_output_id": "O-4d1ecd0bd1c5894c",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G5 basis_mismatch: \"Return on equity was 6.4% (prior 1.5%)\" \u2014 the 1.5% comparator is the Q1 2026 (sequential) figure from the XBRL series, while every other 'prior' comparison in the summary is Q2 2025 YoY (Q2 2025 ROE on the same basis would be ~1.8%); the period is unlabeled and inconsistent with the summary's stated comparison basis."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23118,
+          "excerpt_chars": 112432,
+          "xbrl_chars": 14355
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "GPRO",
+        "10-K",
+        0
+      ],
+      "accession": "0001500435-26-000006",
+      "nonjudge_row_sha256": "4e770d3061b35085a0dfc2e2a99eb326a5054626effc71067d70ee31c705bad3",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "2d2a576399aa5cf71551c33c6e8f05466655a7abf2b295178839934095fa2fcf",
+        "request_sha256": "3143b91fc9fbde75a3d86f67b593ef93852b064f3ecd760f09bae1354fbbfa1b"
+      },
+      "input_lengths": {
+        "summary_chars": 23283,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18632
+      },
+      "e8_output_id": "O-2d6757d4436607b1",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4.25,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23283,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 18632
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "GPRO",
+        "10-K",
+        1
+      ],
+      "accession": "0001500435-26-000006",
+      "nonjudge_row_sha256": "a0fec6fe00cfef6d405b26cfdae089ffed21c9e53d1a416cbae446df48ea3eb2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "5a36458b8f230e12f8242d7ebcacf35506c53383b9ece5d0b2cd9a1629d3656a",
+        "request_sha256": "b602a0ea2d45f4e688e5ace57386a0159b7672e6caaf6823fb2e8494913f5ad6"
+      },
+      "input_lengths": {
+        "summary_chars": 22309,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18632
+      },
+      "e8_output_id": "O-3a6e715100efc90f",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 4,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Total operating expenses decreased 25.6% to $302.5M from $406.3M, driven by decreases in research and development and sales and marketing expenses\" \u2014 the source explains drivers within R&D and S&M individually but never states that the opex decline was 'driven by' those lines; a component moving with the total is arithmetic decomposition, not a source-stated cause (and the summary omits the offsetting $18.6M goodwill impairment line in that attribution).",
+          "G2 fabricated_comparatives (minor): executive-summary table states subscription and services revenue change as \"\u22120.7%\" while the financial-highlights table states \"-0.6% YoY\"; source figures ($106,275 vs $106,961) give -0.64%, so -0.7% is a mis-rounded comparative not found in the source (source says 'flat'/(1)%)."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 22309,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 18632
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        0
+      ],
+      "accession": "0000320193-25-000079",
+      "nonjudge_row_sha256": "d8a783b0c7134b60de28ce606c3434ece3da61e4b56598f403e95fb35f755f55",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "f1aef5290e87885c1ec2b4af7d3cd6c73466e810a10f179f7866a7863a7f912e",
+        "request_sha256": "98d9a6b3fd05ee2db525d780a10538fe4d132d18aed0c36b257c3284b4518757"
+      },
+      "input_lengths": {
+        "summary_chars": 22574,
+        "excerpt_chars": 124125,
+        "xbrl_chars": 20647
+      },
+      "e8_output_id": "O-402a3e6e00dc6b77",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G3 hallucinated_facts (minor): executive-summary table states total net sales change of \"+6.5%\"; source/XBRL yields 6.43% (\u22486.4%), and the summary's own financial_highlights table says \"up 6.4% YoY\" \u2014 internally inconsistent and not supported by the source arithmetic"
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 22574,
+          "excerpt_chars": 124125,
+          "xbrl_chars": 20647
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "AAPL",
+        "10-K",
+        1
+      ],
+      "accession": "0000320193-25-000079",
+      "nonjudge_row_sha256": "4c5893257618938aaa49b0b79a9c244bf07e48b211bd9f56d8c39c47a1164311",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "7ac8b27f4725188d05febabdf3ef01a8045a18ae23c352e07fad6eb485fa14a6",
+        "request_sha256": "69d023176faf212ac79079a305f9f93983bfb34179effec01d39e58b943e8aa0"
+      },
+      "input_lengths": {
+        "summary_chars": 25831,
+        "excerpt_chars": 124125,
+        "xbrl_chars": 20647
+      },
+      "e8_output_id": "O-a283f600135f752d",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Total net sales ... Management attributes the increase primarily to higher net sales of iPhone and Services\" \u2014 the source states this driver only for the Americas segment (\"Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services\"); the MD&A gives no cause for total net sales, and the summary's own supporting_evidence quotes the Americas line, confirming the segment-to-total transfer.",
+          "G3 hallucinated_facts (minor): \"Total net sales | $416.2B | $391.0B | +6.5%\" \u2014 source/XBRL change is 6.43% (rounds to 6.4%), so the stated 6.5% is not supported."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 25831,
+          "excerpt_chars": 124125,
+          "xbrl_chars": 20647
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        0
+      ],
+      "accession": "0000950170-25-100235",
+      "nonjudge_row_sha256": "c03608fff6e53b141972acf8666b8a604cb84286165c996c795c8d09ad07ae29",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "ba4b193e93de2b12cb3e1c4cc0cb2eb5f2af23ff3abe8d1896eb834f9ef2c2ca",
+        "request_sha256": "eda87baf853e755779e0f83100e59dd922d9adfa2a3751d42443b1892343eaed"
+      },
+      "input_lengths": {
+        "summary_chars": 22089,
+        "excerpt_chars": 164767,
+        "xbrl_chars": 20307
+      },
+      "e8_output_id": "O-73a3c64f096648e7",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Microsoft's FY2025 revenue rose 15% to $281.7B with net income of $101.8B and diluted EPS of $13.64, as Microsoft Cloud revenue increased 23% to $168.9B\" \u2014 the source states Microsoft Cloud revenue grew 23% and that total revenue grew 'with growth across each of our segments', but nowhere attributes the total revenue/net income/EPS increase to Microsoft Cloud; the 'as' links a component's movement to the consolidated result as a driver the filing does not state."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 22089,
+          "excerpt_chars": 164767,
+          "xbrl_chars": 20307
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "MSFT",
+        "10-K",
+        1
+      ],
+      "accession": "0000950170-25-100235",
+      "nonjudge_row_sha256": "925564e80aa7f40dda886e10b55b926863840d1852f514147a0f3d4d883a94ee",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "8b9901c1e153eb736cdf061b35c30ab7532e286720dd696eaf573f64ffdf615b",
+        "request_sha256": "b171fae6c5d23ba274137bc25307da95081fac3868c885a04063206487c14beb"
+      },
+      "input_lengths": {
+        "summary_chars": 19386,
+        "excerpt_chars": 164767,
+        "xbrl_chars": 20307
+      },
+      "e8_output_id": "O-7d7bfe26b0afcf0b",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 4,
+        "gate_failures": [
+          "G5 basis_mismatch: \"Xbox content and services revenue increased 16% driven by the impact of the Activision Blizzard acquisition and Xbox Game Pass, offset by a 25% decrease in Xbox hardware revenue on lower console volume\" \u2014 the source states the Xbox hardware decline offset (in part) Gaming revenue growth of 9%, not Xbox content and services revenue growth of 16%; the summary re-scopes the offset to a different measure and drops the 'in part' qualifier."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 19386,
+          "excerpt_chars": 164767,
+          "xbrl_chars": 20307
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        0
+      ],
+      "accession": "0001045810-26-000052",
+      "nonjudge_row_sha256": "66ec2013f9ad10de1bd0bab0bf736fc3c901f399d187be114ca907f7be9bf66b",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "f366bc18eae99134623244771045908acafac9bb3df6063c44671b457e7722ce",
+        "request_sha256": "1f6c0388ac63348d2f80d241f3f1eb8e9970cf6ff8c420bd0fd14550da763dcb"
+      },
+      "input_lengths": {
+        "summary_chars": 24373,
+        "excerpt_chars": 102206,
+        "xbrl_chars": 22500
+      },
+      "e8_output_id": "O-e31d0d60e15f8bb8",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4.25,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24373,
+          "excerpt_chars": 102206,
+          "xbrl_chars": 22500
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVDA",
+        "10-Q",
+        1
+      ],
+      "accession": "0001045810-26-000052",
+      "nonjudge_row_sha256": "3feca7f18636130d6e432e939bf8a1e964207bbedcabb3059edb2dd4f4b2b695",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "73e28c5f3410e68272d0b5fcfb4ea38c1163e1d89ccb8932ca60ed890a2568e1",
+        "request_sha256": "13781e5e32f46125d111a99ba054b68389b49dedb1ebd5e1b163a1fa7f36b666"
+      },
+      "input_lengths": {
+        "summary_chars": 22930,
+        "excerpt_chars": 102206,
+        "xbrl_chars": 22500
+      },
+      "e8_output_id": "O-8d585d6b3beb6919",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 22930,
+          "excerpt_chars": 102206,
+          "xbrl_chars": 22500
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        0
+      ],
+      "accession": "0001628280-26-008131",
+      "nonjudge_row_sha256": "6d80dab230a90e423c59fcd71f80fe98e9aee9aa86d3eeecac9f503b0de7be9c",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "d476780c965171c460452ea30e253e3989e0dd031e9907089e794d677d78cb29",
+        "request_sha256": "a4a4a02aafb379450924456586c8e2067e4e42b424e7f2eb61eb921760703bc6"
+      },
+      "input_lengths": {
+        "summary_chars": 18101,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 14309
+      },
+      "e8_output_id": "O-d2ece3087a0f8571",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch: \"Return on equity was 15.7% (prior 17.0%) (period net income / period-end equity, not annualized); return on assets 1.3% (prior 1.5%)\" \u2014 the filing defines and reports ROE (net income applicable to common / average common equity) as 17% and 18%, and ROA as 1.29% and 1.43%; the summary re-labels a different, non-filing computation under the filing's named measures, producing values (15.7%, 1.5% prior ROA) that contradict the source's reported ratios."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18101,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 14309
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "JPM",
+        "10-K",
+        1
+      ],
+      "accession": "0001628280-26-008131",
+      "nonjudge_row_sha256": "a6b56cd6cabad37171985aedb4ff35ac1eea4efd6e4e4276f2205fc913cc0622",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "2103c9b960f44c7a2fa5831925b7588f787acf2435eb7d72ed9c6bb8e99a8ce6",
+        "request_sha256": "e308afc1356da3798ffed88b9daaedd720208df3f2f92e7932b8512c5e87f002"
+      },
+      "input_lengths": {
+        "summary_chars": 23906,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 14309
+      },
+      "e8_output_id": "O-15664ddd6923af25",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Total net revenue increased 3% to $182.4B, which management attributes to higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity, largely offset by deposit margin compression and the impact of lower rates\" (and the identical Total net revenue table commentary) \u2014 the source states these drivers for net interest income only; total net revenue is explained by NII +3% and NIR +2% (incl. the absence of the $7.9B Visa gain). The NII cause is transferred to a different line.",
+          "G5 basis_mismatch: \"Return on equity was 15.7% (prior 17.0%) ... return on assets 1.3% (prior 1.5%)\" \u2014 the filing's named measures are ROE 17% (2025) / 18% (2024) on average common equity and ROA 1.29% / 1.43% on average assets; the summary substitutes a differently-based computation (net income / period-end total equity incl. preferred) under the same label, contradicting the filing's stated ratios (a prior-year ROA of 1.5% appears nowhere in the source)."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23906,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 14309
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        0
+      ],
+      "accession": "0001628280-26-028802",
+      "nonjudge_row_sha256": "0fd66e869a7703c1d732f24e4f2f10e75aa47810465303124451ac12a6260ceb",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "eb01872d493ab2cee228aedc3690744c6bc1a224e315212577ef720a3390f7ff",
+        "request_sha256": "d6043fac8d8a012062cdcbf25e99a5b04b798eee25435a2c4e5f223348b08ea2"
+      },
+      "input_lengths": {
+        "summary_chars": 27515,
+        "excerpt_chars": 95851,
+        "xbrl_chars": 20212
+      },
+      "e8_output_id": "O-1959736176a24e4a",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch (segment margins): Segments table states EMEA \"42% operating margin\" and A. Pacific \"36% operating margin\", but the filing's own segment operating margin table reports EMEA 44.8% and Asia Pacific 37.6%; the summary's ratios are computed on a different revenue basis than the issuer's stated measure and contradict the source figures.",
+          "G4 unsupported_cause: \"The increase reflects the higher operating income and equity income, partially offset by lower other income (loss) \u2014 net, which included a $331 million gain on the sale of a portion of the ownership interest in CCEP in the prior-year period.\" \u2014 the source does not attribute the net income movement to any drivers; the summary's partial decomposition also ignores the $77M lower income tax expense and higher NCI.",
+          "G3 hallucinated_facts (misstatement about source): \"This filing's standardized financial data reports no debt balance under a concept whose scope can be verified... no total debt, net debt or debt-to-equity figure is stated\" \u2014 the source balance sheet explicitly reports long-term debt $39,065M, current maturities $4,493M and loans/notes payable $332M, so the claim that debt cannot be established is contradicted by the filing."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 27515,
+          "excerpt_chars": 95851,
+          "xbrl_chars": 20212
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "KO",
+        "10-Q",
+        1
+      ],
+      "accession": "0001628280-26-028802",
+      "nonjudge_row_sha256": "3247489d8fb1deaab4fcfdb133edd0a6496c88290b656006b31c15eff8ed137f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "4d003fe061660df8fec25ff63eb854530622ea843b08ccd1997e440acf856cd3",
+        "request_sha256": "005b6d052f8a12aabb3031d3e019d2c17fabff0ac5f6e3f25390b27e3ea325db"
+      },
+      "input_lengths": {
+        "summary_chars": 26443,
+        "excerpt_chars": 95851,
+        "xbrl_chars": 20212
+      },
+      "e8_output_id": "O-6c158fef7d56b152",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch: Segments table states EMEA \"42% operating margin\" (derived as 1,259/3,012 from XBRL segment revenue), but the filing's own operating-margin table states EMEA operating margin of 44.8% for the quarter \u2014 the summary computes the named measure on a different revenue basis and reports a figure that contradicts the source's stated metric.",
+          "G5 basis_mismatch: Segments table states Asia Pacific \"36% operating margin\" (536/1,508), but the filing explicitly states Asia Pacific operating margin of 37.6% \u2014 same basis substitution, contradicting the source-stated measure."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 26443,
+          "excerpt_chars": 95851,
+          "xbrl_chars": 20212
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "accession": "0001628280-26-003952",
+      "nonjudge_row_sha256": "667f43fff9c210f4234371bc63e81a5620019e85daf596536ed30403b7c8e3d0",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "7bccff693b3f38ff275b7c577647d5611fb2393307279d680febc21c20dce0e4",
+        "request_sha256": "a6336c30deb8fe1efe56f0686d6769b036e3a8b168010c961ce4a16c613fbf38"
+      },
+      "input_lengths": {
+        "summary_chars": 25919,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17417
+      },
+      "e8_output_id": "O-8a97d025b691069f",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 25919,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 17417
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "accession": "0001628280-26-003952",
+      "nonjudge_row_sha256": "391bc78f8f83ba03002ba1eb2009c7287d7841e7e9b1902235fdaef0dc117e28",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "298cb425a872f8777c9a8c456325ef3d13790a08ce46db1e215f3a0f15b74863",
+        "request_sha256": "64d3e9344151a87224ff729e840abe5c2903bcb4b8c6e72c8def190465074d94"
+      },
+      "input_lengths": {
+        "summary_chars": 31248,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17417
+      },
+      "e8_output_id": "O-297d232014219a1a",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4.25,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 31248,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 17417
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        0
+      ],
+      "accession": "0001018724-26-000004",
+      "nonjudge_row_sha256": "560b2044c920c950fd142c44444b63ec6f39ff3264a34c0e047532d5bff17308",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "8722b5e6abf3497d74cb85ff30136ad125e27cf3fcdb1100e4938d5188f4001c",
+        "request_sha256": "ec9bb4875fc964d8c0b718dfe43eeadad8f0191025f25ebb80787a38c9f03416"
+      },
+      "input_lengths": {
+        "summary_chars": 29903,
+        "excerpt_chars": 161529,
+        "xbrl_chars": 17363
+      },
+      "e8_output_id": "O-c9a15dfe0e3ee3f9",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch: \"of which $1.1 billion related to the resolution of tax disputes associated with its stores business in Italy\" \u2014 the source says the $1.1 billion related to the Italy tax disputes \"and the settlement of a lawsuit\"; the summary narrows the component scope to the tax disputes alone (appears in both executive summary and management_discussion).",
+          "G5 basis_mismatch: \"free cash flow of $7.7B (derived as operating cash flow minus the absolute selected capex cash-flow amount...)\" \u2014 the filing defines and reconciles free cash flow as $11,194M (OCF less purchases net of proceeds/incentives, $128,320M); the summary applies the filing's named measure to a different component scope (gross purchases of $131,819M) and thereby presents two conflicting 'free cash flow' figures ($11.2B in the headline vs $7.7B in cash conversion)."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 4,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 29903,
+          "excerpt_chars": 161529,
+          "xbrl_chars": 17363
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "accession": "0001018724-26-000004",
+      "nonjudge_row_sha256": "59282d0291001a961d4fa5247550394ed6c68637be99976dcaba2cf2b88646f2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "ddfc8a211c18417e46f9212fe58c906a2c894474056cb95e8657082daf4c97a8",
+        "request_sha256": "d63e7ace4f82394b094c1b297e980a4772ee91f278859ad9eae328033f4134ed"
+      },
+      "input_lengths": {
+        "summary_chars": 24985,
+        "excerpt_chars": 161529,
+        "xbrl_chars": 17363
+      },
+      "e8_output_id": "O-cd2ad55d18f05774",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24985,
+          "excerpt_chars": 161529,
+          "xbrl_chars": 17363
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BRK.B",
+        "10-K",
+        0
+      ],
+      "accession": "0001193125-26-083899",
+      "nonjudge_row_sha256": "6eca10c574dfa732bacd60cbf690497210e007246355937cfd759a818a9259b2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "24b0b9d1f33668bd6987d969fc366294842b67e9375be588c8639cf4cb329fd9",
+        "request_sha256": "e5787a5ed5efd6c909258c3dfc89b70b555716cfc5fcf80a214c866e84a75073"
+      },
+      "input_lengths": {
+        "summary_chars": 24826,
+        "excerpt_chars": 147121,
+        "xbrl_chars": 11145
+      },
+      "e8_output_id": "O-191020078799790f",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G2 fabricated_comparatives: exec summary table states Railroad transportation revenues change of \"\u22120.4%\"; source figures ($23,330M vs $23,355M) imply \u22120.1% (which the financial_highlights table itself uses), so the \u22120.4% is unsupported",
+          "G5 basis_mismatch: \"Net earnings per average equivalent Class B share (diluted)\" \u2014 the source measure is \"Net earnings per average equivalent Class B share\" with no diluted designation; the summary renames the measure",
+          "G5 basis_mismatch: \"Equity method earnings swung to a $9.6B loss in 2025 from $1.8B of earnings in 2024, driven by the $8.3B after-tax other-than-temporary impairment\" \u2014 the $9.6B equity-method line is pre-tax while the $8.3B impairment is after-tax (cash flow statement shows the pre-tax equity method impairment as $10,681M); mixes tax bases and the source does not state that attribution for the pre-tax line",
+          "G5 basis_mismatch: \"Cash and cash equivalents were $52.6B at December 31, 2025 versus $48.4B\" \u2014 $52,569M/$48,376M is cash and cash equivalents AND restricted cash; cash and cash equivalents per the balance sheet were $51,877M ($47,719M + $4,158M) in 2025"
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24826,
+          "excerpt_chars": 147121,
+          "xbrl_chars": 11145
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BRK.B",
+        "10-K",
+        1
+      ],
+      "accession": "0001193125-26-083899",
+      "nonjudge_row_sha256": "e8d626eb2581463c7f62dfb84c4a58c2eb9dd3020bbdb6cc1b6f20fe556ecd74",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "f8758809e76a9a9cec82cef8f229d6849210c33fb147f58278ad29a5839be80d",
+        "request_sha256": "da7274ac083c2e745665988028f38105411c5d94652b030100d8aead8edbd109"
+      },
+      "input_lengths": {
+        "summary_chars": 23089,
+        "excerpt_chars": 147121,
+        "xbrl_chars": 11145
+      },
+      "e8_output_id": "O-22c460d352e6ee70",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"partially offset by higher operating segment earnings\" \u2014 the source's disaggregation shows operating earnings ex-investment gains/OTTI declined in aggregate (underwriting \u2212$1.8B, insurance investment income \u2212$1.2B, other \u2212$1.3B vs BNSF/BHE/MSR +$1.3B combined); the source states no such offset.",
+          "G5 basis_mismatch: \"Net earnings of $67.3B included investment gains of $39.1B and an $8.3B after-tax other-than-temporary impairment\" \u2014 mixes consolidated net earnings (incl. NCI) with pre-tax investment gains ($39.1B; after-tax figure is $30.7B) and an after-tax, Berkshire-attributable impairment in one 'included' statement.",
+          "G5 basis_mismatch: \"Railroad transportation revenues | $23.3B | $23.4B | \u22120.4%\" in exec summary \u2014 source is $23,330M vs $23,355M, a \u22120.1% change (the table elsewhere correctly says \u22120.1%); \u22120.4% is not in the source.",
+          "G5 basis_mismatch: \"Cash and cash equivalents of $52.6B plus short-term investments in U.S. Treasury Bills of $321.4B provided liquidity of approximately $374.0B\" \u2014 $52.6B is cash, cash equivalents AND restricted cash ($692M restricted); balance-sheet cash and cash equivalents total $51.9B; the $374.0B 'liquidity' total is a summary-constructed measure the filing does not state.",
+          "G4 unsupported_cause: \"Investment gains declined versus 2024, reflecting changes in market prices of equity securities and foreign currency exchange rates\" \u2014 source only says gains 'can include' such items; it gives no cause for the 2025 decline.",
+          "G4 unsupported_cause: \"Sales and service revenues declined, with lower service and retailing revenues partly offset by higher manufacturing revenues\" \u2014 attributes the consolidated $199.5B line's movement to MSR segment components ($214.3B, different scope); source states no driver for that line."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23089,
+          "excerpt_chars": 147121,
+          "xbrl_chars": 11145
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        0
+      ],
+      "accession": "0000034088-26-000045",
+      "nonjudge_row_sha256": "e7852d018765758ef9988c688378c3e15983502bd65aba8bbde9c108c0c7a5e2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "a82a0b0e88c5f06479eed6a5f4245e4addde3afba1bd2dfa4bf050a7ff8b7c42",
+        "request_sha256": "9f5d7a249d1e51b9f7d275b21bc6588c73bfca2e5ac5816401e8f6d9bd38df2e"
+      },
+      "input_lengths": {
+        "summary_chars": 18128,
+        "excerpt_chars": 160904,
+        "xbrl_chars": 15261
+      },
+      "e8_output_id": "O-7554d56ef7e56573",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18128,
+          "excerpt_chars": 160904,
+          "xbrl_chars": 15261
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "XOM",
+        "10-K",
+        1
+      ],
+      "accession": "0000034088-26-000045",
+      "nonjudge_row_sha256": "2f9090cc9bc81b074042f4585619505d702a6c68e42d99fdac39a779a7cff8ed",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "b35ed5b1d013ce1d06072c43a8ccd32ff3bf2db23f296fdbb7f63b4fc39912ef",
+        "request_sha256": "609120cd5ebff42428149a486c5585f18adb9aa56022f6fecab97b77317b3554"
+      },
+      "input_lengths": {
+        "summary_chars": 20324,
+        "excerpt_chars": 160904,
+        "xbrl_chars": 15261
+      },
+      "e8_output_id": "O-0715b48f45f3aa03",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 20324,
+          "excerpt_chars": 160904,
+          "xbrl_chars": 15261
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "accession": "0000078003-26-000054",
+      "nonjudge_row_sha256": "433cc5ef528971569ea75376f94fb8a570af68da62a2b061641b4e4106df27c2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "653aa6cf27a045edbb922af45d4995b449eafc48e7ee55751a448d3152f7316e",
+        "request_sha256": "2732877d22d0b9e0414c43d567b6a0fad4256f2edfba89d0c83862f1be94bc1c"
+      },
+      "input_lengths": {
+        "summary_chars": 31880,
+        "excerpt_chars": 181166,
+        "xbrl_chars": 17423
+      },
+      "e8_output_id": "O-092bfb7cd7240ca7",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch: \"partially offset by higher income from continuing operations\" \u2014 the source's named line 'Income from continuing operations' fell to $2,709M from $2,973M; only the pre-tax line rose. Direction reversed on a named measure.",
+          "G4 unsupported_cause: \"The decline reflects a $650 million increase in the provision for taxes on income ... and a $13 million loss from discontinued operations, partially offset by higher income from continuing operations\" \u2014 the source states no cause for the net income decline; this is the summary's own reconstruction (and mislabels the offsetting component).",
+          "G3 hallucinated_facts: \"The filing provides no company-wide revenue or EPS guidance for full-year 2026\" and \"The filing does not disclose available credit facilities\" \u2014 the MD&A excerpt is truncated mid-section; the source does not support these negative claims about the whole filing (the MD&A itself references 'financial guidance').",
+          "G5 basis_mismatch (minor scope shift): \"total costs incurred were $4.3 billion, including $2.9 billion of restructuring charges\" \u2014 the source ties the $2.9B restructuring charges to the $3.3B Biopharma portion, not to the $4.3B program total."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 31880,
+          "excerpt_chars": 181166,
+          "xbrl_chars": 17423
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "PFE",
+        "10-Q",
+        1
+      ],
+      "accession": "0000078003-26-000054",
+      "nonjudge_row_sha256": "65be4d061526346870182dc13ddc14f7e55e4646afd3b66081ceb6cbf28f5ff9",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "41e8a0ede601f9950bee893d7ebc22192a8efeb3fd72eb8409d3f28397c45d50",
+        "request_sha256": "538d43414ee335010b01ab9b5f64b720afe296bea2ec0779aea86d5da66266b2"
+      },
+      "input_lengths": {
+        "summary_chars": 24617,
+        "excerpt_chars": 181166,
+        "xbrl_chars": 17423
+      },
+      "e8_output_id": "O-b6053c630ab67d7e",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Reported as a component of the increase in income from continuing operations before taxes, which management attributed in part to increases in research and development expenses.\" \u2014 the source says the pretax increase was 'partially offset by' higher R&D; it does not attribute the increase to R&D (role reversed).",
+          "G4 unsupported_cause (borderline): \"The decline reflects a higher provision for taxes on income of $461 million versus a benefit of $189 million... partially offset by higher income from continuing operations before taxes.\" \u2014 the source never states a cause for the net income decline; this is the summary's own arithmetic decomposition presented as attribution."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24617,
+          "excerpt_chars": 181166,
+          "xbrl_chars": 17423
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        0
+      ],
+      "accession": "0000037996-26-000086",
+      "nonjudge_row_sha256": "115ecadc09c0c38ebdef5eb793859622f2f717f3ef5009f96c83a05d88e9af8d",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "8c958c838c004f40b624c1956ed3ed64d0b019f00dcd8899881562607a6dbfba",
+        "request_sha256": "f7dfa96ba305b448c05204de4a4b06454695119b08c9bbd6163e007198316b4e"
+      },
+      "input_lengths": {
+        "summary_chars": 24435,
+        "excerpt_chars": 98293,
+        "xbrl_chars": 18604
+      },
+      "e8_output_id": "O-65e9de961a17b009",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Ford Blue's higher EBIT reflects the one-time IEEPA tariff benefit of about $700 million recognized in the first quarter of 2026\" \u2014 the source attributes Ford Blue's higher EBIT to 'favorable market factors, higher parts and accessories profit, and lower regulatory compliance expenses' and explicitly states costs were 'about flat year over year' because the ~$700M IEEPA benefit was offset by higher sourcing costs and commodity prices; the source does not state IEEPA as a driver of Ford Blue's EBIT increase."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24435,
+          "excerpt_chars": 98293,
+          "xbrl_chars": 18604
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "F",
+        "10-Q",
+        1
+      ],
+      "accession": "0000037996-26-000086",
+      "nonjudge_row_sha256": "e709043aae8195768c3abf32a76db0bc31dfa092d118a83dfd42e3bebd3e3a3d",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "539a080c27134fb9297d01410a4fcea74181fb591114fe3033ee842fd5562f4c",
+        "request_sha256": "71d70f95ba49d6fbdf430a533c1b378416bb41199a2a0aa8646ae022e4453711"
+      },
+      "input_lengths": {
+        "summary_chars": 23799,
+        "excerpt_chars": 98293,
+        "xbrl_chars": 18604
+      },
+      "e8_output_id": "O-4a0195e708000ac2",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23799,
+          "excerpt_chars": 98293,
+          "xbrl_chars": 18604
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        0
+      ],
+      "accession": "0000104169-26-000055",
+      "nonjudge_row_sha256": "7b9aefd91dc4d0265c493edc803cdea429d020b6d2369dd9d51320febc89382a",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "11cac82a0cbc20a0bc93ba5152445638fbae4adede208399b7a02ad639dee451",
+        "request_sha256": "f4cc3be1340b9f16ae4ed8f8c8f879a7d3564a9c7c0f507d497765f0d34cffc8"
+      },
+      "input_lengths": {
+        "summary_chars": 26273,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18011
+      },
+      "e8_output_id": "O-c26333e1b014fd98",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G5 basis_mismatch: \"return on assets 7.7% (prior 7.5%) (period net income / period-end assets, not annualized)\" \u2014 the filing defines and reports ROA as consolidated net income / average total assets = 8.2% (prior 7.9%); the summary presents a differently-based figure under the filing's named measure, contradicting the issuer's stated ROA.",
+          "G4 unsupported_cause: \"Operating income as a percentage of net sales decreased 13 basis points ... partly offset by growth in membership income globally\" \u2014 the source says the decrease was \"primarily due to the factors described above and strong growth in membership income globally\"; it does not characterize membership income as an offset, and the summary also drops the gross profit rate improvement that is among the 'factors described above'."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 3
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 26273,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 18011
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "WMT",
+        "10-K",
+        1
+      ],
+      "accession": "0000104169-26-000055",
+      "nonjudge_row_sha256": "b84a1b23451be305e969a186fcaae409f5dd83fad3e12345f725b1bf254602f4",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "a893bb30a528228aae12fc6e36400b7fe13fd57bd711f56e3fb662a14ba2897d",
+        "request_sha256": "da5f702e65f31cb335cc34f37edc86c03556ba67d95223265ff712105e0c262b"
+      },
+      "input_lengths": {
+        "summary_chars": 32699,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18011
+      },
+      "e8_output_id": "O-f0f84de2f06ef9db",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 32699,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 18011
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        0
+      ],
+      "accession": "0000909832-26-000051",
+      "nonjudge_row_sha256": "662fa94bbba9fb0256fbd37442afa809c7af1bca99c1fa7cdee3403c355fcd27",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "2f67ed09cc349310837ccc1c0d4e16204f2e04cf1d525b38344e8a86c42026fe",
+        "request_sha256": "c9bd68c6c9be504f19dd933eb4492a0bc31b78b1ced523a964356a1d445b9a9f"
+      },
+      "input_lengths": {
+        "summary_chars": 18055,
+        "excerpt_chars": 68765,
+        "xbrl_chars": 13908
+      },
+      "e8_output_id": "O-3662d1bf4da44adb",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18055,
+          "excerpt_chars": 68765,
+          "xbrl_chars": 13908
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "COST",
+        "10-Q",
+        1
+      ],
+      "accession": "0000909832-26-000051",
+      "nonjudge_row_sha256": "d362ddced55ab782dda840087d2219150a8444f65d8ad7daeaa186b866362afa",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "bda3f93eafc59590eacba2a5902ce976e000d412423040ec64fd51fe85b817f2",
+        "request_sha256": "55d96f9b640f35c33905bea9b13ded2134da32a086f077ed61b8d5c49b5cac15"
+      },
+      "input_lengths": {
+        "summary_chars": 19810,
+        "excerpt_chars": 68765,
+        "xbrl_chars": 13908
+      },
+      "e8_output_id": "O-8650193529af0e67",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 19810,
+          "excerpt_chars": 68765,
+          "xbrl_chars": 13908
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        0
+      ],
+      "accession": "0001628280-26-004357",
+      "nonjudge_row_sha256": "0306e871bf25344f45bb1f5b2c612853bf91cabb05e03e1c56c9d2941726efbe",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "5a8ab2f7d5f9400be88f8de8eee1dc9a5da23c72279417b7809e00352030d2c9",
+        "request_sha256": "877c8f324d8852ddb9a45e5407d74317f458188ea4a4efc9afe35b35f1c5efdd"
+      },
+      "input_lengths": {
+        "summary_chars": 20179,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17666
+      },
+      "e8_output_id": "O-e4f1913978e244de",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 20179,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 17666
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BA",
+        "10-K",
+        1
+      ],
+      "accession": "0001628280-26-004357",
+      "nonjudge_row_sha256": "5b86f0216c1b039f71812be71ba13aa623c50f863df6e01e8c6875bd4236dadb",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "db46317bdd8f01ee35bd07bd5de011db19ae7e165d3cf03d0832fba5a15ac993",
+        "request_sha256": "8e8d0ec70c94c0e2388fa096f1498dd8e39b905bdeca55b99986ac3520128040"
+      },
+      "input_lengths": {
+        "summary_chars": 23708,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17666
+      },
+      "e8_output_id": "O-972d141009153264",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 3,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23708,
+          "excerpt_chars": 170233,
+          "xbrl_chars": 17666
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        0
+      ],
+      "accession": "0000050863-26-000079",
+      "nonjudge_row_sha256": "2ea119a4d9ac2dfd5187c9ffdc03e77f2aeda40f9d3b4f6e67aecc37837f47f8",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "f6fd9533d8f13bb39194349d82a70955d76e14d76d96724f09402b8c005a9829",
+        "request_sha256": "95aa05e7f4c5cc6f4a31b14df35f3c3a184c71a8bfbe056204d47502a96c173f"
+      },
+      "input_lengths": {
+        "summary_chars": 24560,
+        "excerpt_chars": 181072,
+        "xbrl_chars": 19591
+      },
+      "e8_output_id": "O-1c56c1d5a1c16db4",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G5 basis_mismatch / G3 (period/status): Risk #4 presents as a live forward risk that 'failure to substantially complete construction of Fab 34 ... could require delay-related liquidated damages to Apollo beginning in the second half of 2026, not to exceed $1.1 billion in total' \u2014 the source states this obligation existed 'As of March 28, 2026' (past tense) and that the April 2026 repurchase of Apollo's interest results in 'the substantial termination of existing related operating and other ancillary agreements' and 'the extinguishment of our derivative liability associated with the delay-related liquidated damage provisions'; the source does not support this as an ongoing risk."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24560,
+          "excerpt_chars": 181072,
+          "xbrl_chars": 19591
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "INTC",
+        "10-Q",
+        1
+      ],
+      "accession": "0000050863-26-000079",
+      "nonjudge_row_sha256": "b3c5e71a776cca7d96f3dbc287c72fcdf9a4e5654ccf30da119b21808547732f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "78a4a5ec8829b574a33daf39867d4d7e7e8821260a259a66cad8ea94f327d718",
+        "request_sha256": "4c40200bf50935308d20c5cca4087bd1cfccc15ff92362e387f23c71edcf4d08"
+      },
+      "input_lengths": {
+        "summary_chars": 25997,
+        "excerpt_chars": 181072,
+        "xbrl_chars": 19591
+      },
+      "e8_output_id": "O-53cf44e219cc4084",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 25997,
+          "excerpt_chars": 181072,
+          "xbrl_chars": 19591
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        0
+      ],
+      "accession": "0001321655-26-000028",
+      "nonjudge_row_sha256": "9519c27c585270854a909a1b9844950c5eed6782d94b8c54367fd4c136db53f7",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "ebf70605c90556146eebf4563c61eb3d1ae51144f80c644ca6f4d5d8c62d1d61",
+        "request_sha256": "7910e94cb7a751d861f0ed92c4a24c031bdffa9569c1fa557af9b4cf3b500d81"
+      },
+      "input_lengths": {
+        "summary_chars": 19263,
+        "excerpt_chars": 116850,
+        "xbrl_chars": 18525
+      },
+      "e8_output_id": "O-826f50737a9bb6d6",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 4,
+          "clarity": 3,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 19263,
+          "excerpt_chars": 116850,
+          "xbrl_chars": 18525
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PLTR",
+        "10-Q",
+        1
+      ],
+      "accession": "0001321655-26-000028",
+      "nonjudge_row_sha256": "af2eb2e0dcb224e66278ae55d4816974779811d35bcfe25510e3094fd7e2e1d9",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "5d70cdad5774b849f5e2f6f4a4d0b31f58680df28920a52ec66e2ec2204677f5",
+        "request_sha256": "81338f44a5e23071885557a2759c416b5c5d17a427d4f59556721e0bbb2b5b2e"
+      },
+      "input_lengths": {
+        "summary_chars": 20437,
+        "excerpt_chars": 116850,
+        "xbrl_chars": 18525
+      },
+      "e8_output_id": "O-26e51a356039e8f2",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Gross margin rose to 87% from 80%, which management said reflected the change in cost of revenue, which increased 25% primarily due to an increase of $39 million in third-party cloud hosting services.\" \u2014 the source states the margin change and the cost-of-revenue driver separately; management never attributes the gross margin expansion to the change in cost of revenue (and a rising cost line cannot 'explain' a rising margin). The 'management said' attribution is fabricated.",
+          "G4 unsupported_cause: \"Management attributed the increase to increased adoption of its products and services within existing customer organizations\" \u2014 the source only says 'Generally, increases in revenue from our existing customers are related to increased adoption...'; it does not attribute the quarter's total $749M revenue increase to this, and ~$30M of the increase came from new customers.",
+          "G3 hallucinated_facts / contradiction: \"This filing's standardized financial data reports no debt balance under a concept whose scope can be verified. That is an unestablished scope, not zero debt and not a net cash position\" \u2014 the filing explicitly states 'As of March 31, 2026, we had no outstanding debt balances' (and the summary itself quotes this), so asserting debt status is unestablished and 'not zero debt' contradicts the source."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 20437,
+          "excerpt_chars": 116850,
+          "xbrl_chars": 18525
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        0
+      ],
+      "accession": "0001874178-26-000008",
+      "nonjudge_row_sha256": "c5422794f0ec58cba2ae56adfb289cc42a4405ef3c3ff9e99b676ecfbcd37d8e",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "5fc9f6d9031fde314363b9ea1fd11d030d0351c71133d4aa10f6586230de40ea",
+        "request_sha256": "475ed9cf079f3d87f525d84074cd0017d9486e53f2f2dea7343c080f278bb4cb"
+      },
+      "input_lengths": {
+        "summary_chars": 26295,
+        "excerpt_chars": 129484,
+        "xbrl_chars": 17764
+      },
+      "e8_output_id": "O-27b8917fe9cd1a66",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 26295,
+          "excerpt_chars": 129484,
+          "xbrl_chars": 17764
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "RIVN",
+        "10-K",
+        1
+      ],
+      "accession": "0001874178-26-000008",
+      "nonjudge_row_sha256": "c32092d3d11e52d3f88bb26a1d40afe1cc40018f6f6e9464a6bdd0db5e103ebd",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "88d11e537147f5030517acfafeea3ce2b7be7870b39cff3b94883e8f7067dff1",
+        "request_sha256": "f29c83aee7af4b8d89151debddb0f9dba424c819bf6ca1e84278c8dd40406e81"
+      },
+      "input_lengths": {
+        "summary_chars": 24780,
+        "excerpt_chars": 129484,
+        "xbrl_chars": 17764
+      },
+      "e8_output_id": "O-e368a303402f42a6",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24780,
+          "excerpt_chars": 129484,
+          "xbrl_chars": 17764
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        0
+      ],
+      "accession": "0001679788-26-000054",
+      "nonjudge_row_sha256": "f2672c722682f78fbbe5125543218ca8b89752a520e4ee42b555fd59ba53ada2",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "8ddbdcd279ecbb2bfd28e1a3ccd2646b9d21cb8915f357f15464a93b83fd940e",
+        "request_sha256": "f2b0bc396d474c36f561ea1d19263c3b43bccfb948b81212b075d67e53052e4d"
+      },
+      "input_lengths": {
+        "summary_chars": 16776,
+        "excerpt_chars": 91192,
+        "xbrl_chars": 18596
+      },
+      "e8_output_id": "O-07fe7dfb1e7f6df9",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Total revenue decreased 30.5% YoY to $1.41B, which management attributes primarily to a 40% decline in transaction revenue driven by a 54% decrease in consumer Trading Volume, offset in part by growth in derivatives trading volume and the launch of prediction markets trading\" \u2014 management states this cause for consumer transaction revenue only; the source never attributes the total revenue decline to anything, and the cause is transferred to a different line.",
+          "G4 unsupported_cause: \"the diluted share count fell to 264,775 thousand from 271,251 thousand, reflecting share repurchases\" \u2014 source gives no cause for the diluted count change; basic weighted shares actually rose (264,775 vs 253,878) and the diluted decline reflects anti-dilution in a loss period, not repurchases.",
+          "G4 unsupported_cause: \"Adjusted EBITDA decreased 67.4% YoY, reflecting the decline in revenue and higher operating expenses\" \u2014 the source provides no driver for the Adjusted EBITDA decline."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16776,
+          "excerpt_chars": 91192,
+          "xbrl_chars": 18596
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "COIN",
+        "10-Q",
+        1
+      ],
+      "accession": "0001679788-26-000054",
+      "nonjudge_row_sha256": "7fde86d90a7c5ab6af1357bdc35c57d6104d6992f1788639a4844d64f81413e4",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "74b55e2f5a81cf7a38764a1f34ee580d8e5feb148578cdead8534174ef60e312",
+        "request_sha256": "1d44e99758786eb939e5f84d38d3d6374c5ec4f908fac8f7ac79fbbac8019f82"
+      },
+      "input_lengths": {
+        "summary_chars": 19889,
+        "excerpt_chars": 91192,
+        "xbrl_chars": 18596
+      },
+      "e8_output_id": "O-5535ecabdf1b1432",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Adjusted EBITDA decreased 67.4% YoY, reflecting lower revenue and higher operating expenses, partly offset by the exclusion of $482.4M of crypto asset investment losses\" \u2014 the source states no driver for the Adjusted EBITDA decline, and the 'offset by exclusion' logic is incoherent (investment losses are excluded in both periods, $596.7M prior; an exclusion cannot offset a decline).",
+          "G4 unsupported_cause: \"Total revenue decreased 30.5% YoY, driven by lower transaction revenue as consumer Trading Volume fell 54%, partly offset by growth in derivatives trading volume and the launch of prediction markets trading\" \u2014 the source states this driver for transaction revenue (and specifically consumer transaction revenue), not for total revenue; the cause is transferred to a different line.",
+          "G4 unsupported_cause: \"Crypto asset price declines drove ... $35.2M of losses on crypto assets held for operations, net\" \u2014 the MD&A says only 'no material changes to note' for losses on crypto assets held for operations; no price-decline cause is stated for that line."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 19889,
+          "excerpt_chars": 91192,
+          "xbrl_chars": 18596
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        0
+      ],
+      "accession": "0001655210-26-000037",
+      "nonjudge_row_sha256": "fce63356e63ab9dc610666eaf0ef67e277fc80505e6f4e4d738ad9ed8e183667",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "3c4838e47c447880d06c32d369f666b9fe670cedc27662a60ad03103b5b139fd",
+        "request_sha256": "7a60c341382b8b20569f6e1cfe6927166f789edb6861b45bc68769a4b6f871d9"
+      },
+      "input_lengths": {
+        "summary_chars": 29544,
+        "excerpt_chars": 177945,
+        "xbrl_chars": 19088
+      },
+      "e8_output_id": "O-6fce66b905c20969",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 4,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 29544,
+          "excerpt_chars": 177945,
+          "xbrl_chars": 19088
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BYND",
+        "10-Q",
+        1
+      ],
+      "accession": "0001655210-26-000037",
+      "nonjudge_row_sha256": "9a641c6164424d9cfdc037cb1076e715e13c9cfac7ab93c58b180903d2c52ad3",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "f226c7cb45e679fe7e7d4dc88271b6b107349c51700350f19753ee873f1c6f79",
+        "request_sha256": "799eb2e119107ed5462d4193638aa7be9173b86e7f9eddc9c765e342e3fbea29"
+      },
+      "input_lengths": {
+        "summary_chars": 32912,
+        "excerpt_chars": 177945,
+        "xbrl_chars": 19088
+      },
+      "e8_output_id": "O-6e05571ffc4e1743",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 4.25,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 5,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 5
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 32912,
+          "excerpt_chars": 177945,
+          "xbrl_chars": 19088
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        0
+      ],
+      "accession": "0001193125-26-231755",
+      "nonjudge_row_sha256": "3d3d2fe82a88a9bbc1dc42bfdb6fdc073654c73186ffadc914886ef11552d36f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "af9b15c90fcde2070fdf948e9e6ecae797705f7b842ef3b889e20bae3bc48a4e",
+        "request_sha256": "6f5ca00553314e9eaf6fb6e46375f0c122092d28fb63bdbec047e595f3d550dd"
+      },
+      "input_lengths": {
+        "summary_chars": 25917,
+        "excerpt_chars": 231089,
+        "xbrl_chars": 15425
+      },
+      "e8_output_id": "O-ee7c89e9e21648b5",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch: \"Income from operations of CNY 50,150M includes non-cash share-based compensation expense of CNY 14,821M\" \u2014 the source states RMB14,821M is total share-based compensation expense which \"includes both cash and non-cash share-based compensation expenses\"; the non-cash share-based compensation expense per the filing's reconciliation is RMB11,180M. The summary relabels the total-SBC figure as non-cash SBC, changing the measure's scope (repeated in both the Earnings Quality section and management_discussion)."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 25917,
+          "excerpt_chars": 231089,
+          "xbrl_chars": 15425
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "BABA",
+        "20-F",
+        1
+      ],
+      "accession": "0001193125-26-231755",
+      "nonjudge_row_sha256": "b766e818cd92b221d7e33305c9d817eab04b5243c09b8c7d945ddfccd7d91af1",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "9f1d874a4e6b79f5716bb6c58145deac1ab57c50cf32c096f7a09477dde3d59a",
+        "request_sha256": "02cfdfdf63015f4f4f23edbe5c415db73857ea2aa599a38d18c5c9b7dac00fc1"
+      },
+      "input_lengths": {
+        "summary_chars": 26436,
+        "excerpt_chars": 231089,
+        "xbrl_chars": 15425
+      },
+      "e8_output_id": "O-5554a787d5cb1c39",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: Summary states for consolidated Adjusted EBITA (CNY 76,416M vs CNY 173,065M) that 'The filing attributes the decrease primarily to the investment in quick commerce, user experiences, and technology, while there is positive contribution from customer management service.' The source states this cause only for the Alibaba China E-commerce Group segment adjusted EBITA (-44%); it gives no attribution for the consolidated adjusted EBITA decline (-56%), which also reflects the widened All others loss attributed to 'increased investment in technology businesses'. A segment-level cause was transferred to the consolidated line."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 26436,
+          "excerpt_chars": 231089,
+          "xbrl_chars": 15425
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        0
+      ],
+      "accession": "0001628280-26-011378",
+      "nonjudge_row_sha256": "f386ac7a2ac15de856fcfff68cd980a95bc19a7861afe1bf92994131e9e7fefb",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "9dcd702e50a4de5b58f03e8e4d9212fe8954fe29dcc186b821269bdb475f962b",
+        "request_sha256": "081acc685e0ac671ad91854b3647ddcca4ea8d61d67cb3075bf12698a01ebbfd"
+      },
+      "input_lengths": {
+        "summary_chars": 19635,
+        "excerpt_chars": 260154,
+        "xbrl_chars": 19704
+      },
+      "e8_output_id": "O-0c6b6d003963b574",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch: \"current portion of long-term debt of EUR 1.7B\" \u2014 source Note 16 states the current portion of long-term debt is EUR 990.2M; the EUR 1,681.9M figure includes EUR 691.7M of Euro Commercial Paper short-term borrowings, which the summary then claims are \"Not separately reported\" even though the source discloses EUR 693.0M outstanding under the ECP program.",
+          "G4 unsupported_cause: Segments table attributes the New systems segment (+13.1%) to \"higher EUV and DUV immersion system sales, partially offset by a decrease in ArF dry, KrF and i-line sales volumes\" \u2014 the source states this driver for total net system sales (EUR 24,474.3M), not for the New systems component line.",
+          "G5 basis_mismatch: \"free cash flow of EUR 11.1B\" \u2014 the filing defines and reports free cash flow as EUR 11,027.3M (OCF less PP&E and intangible purchases); the summary presents a differently-scoped figure under the same measure name, contradicting the issuer's own EUR 11.0bn KPI even with its disclaimer."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 19635,
+          "excerpt_chars": 260154,
+          "xbrl_chars": 19704
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "ASML",
+        "20-F",
+        1
+      ],
+      "accession": "0001628280-26-011378",
+      "nonjudge_row_sha256": "30447a8f160ba34af712106f3aae6d0dd9fd3ff382d820a58b57b8003072ec6d",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "4fb689d15cb4d31d1b6608bcc4c694b129a64a59c913c230ef57390622249cb1",
+        "request_sha256": "cc7d2a30c9870255c8c5c8d4590922ac58147f168e269572ef6eaae1a50830b5"
+      },
+      "input_lengths": {
+        "summary_chars": 21549,
+        "excerpt_chars": 260154,
+        "xbrl_chars": 19704
+      },
+      "e8_output_id": "O-fd40bf265d1ad199",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G5 basis_mismatch: \"free cash flow of EUR 11.1B (derived as operating cash flow minus the absolute selected capex cash-flow amount...)\" \u2014 the filing explicitly defines and reports free cash flow as \u20ac11,027.3M (\u20ac11.0bn, OCF minus PP&E purchases minus intangible purchases); the summary uses the filing's named measure with a different, unreconciled definition yielding a different figure (\u20ac11,084.9M).",
+          "G4 unsupported_cause: Segments table row \"New systems | EUR 23.9B | +13.1% | The increase in system sales was primarily driven by higher EUV and DUV immersion system sales, partially offset by a decrease in ArF dry, KrF and i-line sales volumes\" \u2014 the source states this driver for total net system sales (\u20ac24,474.3M, new + used), not for the 'New systems' segment; a cause stated for one line is transferred to a component line."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 21549,
+          "excerpt_chars": 260154,
+          "xbrl_chars": 19704
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        0
+      ],
+      "accession": "0001628280-26-025362",
+      "nonjudge_row_sha256": "ac88f3268ecda228c0bbda656bef9d04bdeeab0a5e8ed9c7dcf3ac5b99f7de16",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "659478f585e0d5341f5bf1c8c239451c5371d58035ef7bcfc0ddd675429643f7",
+        "request_sha256": "aa24d3815f56fddafd6ee1b2247b673ca37785a4e2d10380bd2930dd80300bcd"
+      },
+      "input_lengths": {
+        "summary_chars": 18858,
+        "excerpt_chars": 217082,
+        "xbrl_chars": 17302
+      },
+      "e8_output_id": "O-1ecfe2528b91efb3",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G3 hallucinated_facts: \"no total debt, net debt or debt-to-equity figure is stated\" / \"reports no debt balance under a concept whose scope can be verified\" \u2014 the source explicitly states short-term loans were nil and \"aggregate long-term debts were NT$1,032,988 million (US$32,929 million), of which NT$136,926 million ... was classified as current\"; the summary's claim contradicts the filing.",
+          "G3 hallucinated_facts: \"Four quarterly cash dividends were approved in 2025\" \u2014 the source shows the fourth-quarter 2025 dividend was approved on February 10, 2026, not in 2025.",
+          "G5 basis_mismatch (period/role): the February 2025 Marlin ITC/EDTX complaints are presented under \"Subsequent events\" \u2014 the fiscal year ends December 31, 2025, so a February 2025 filing is an in-period matter, not a post-balance-sheet event; the source does not characterize it as such."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 18858,
+          "excerpt_chars": 217082,
+          "xbrl_chars": 17302
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "TSM",
+        "20-F",
+        1
+      ],
+      "accession": "0001628280-26-025362",
+      "nonjudge_row_sha256": "45c64b16e8090c6287f3d994751afdeb2179cd4f19ba433699c790d966a7d005",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "1d41a7879f1090cf00c29233ce49e71ba3cbfcf50ecb4c178fb3f1908f3a27f5",
+        "request_sha256": "6a6f4c363ad470bf3e8066a0d7be2f5511d0df839a672d71b82121f003b0a3af"
+      },
+      "input_lengths": {
+        "summary_chars": 17122,
+        "excerpt_chars": 217082,
+        "xbrl_chars": 17302
+      },
+      "e8_output_id": "O-3a6775bb2350396a",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G3 hallucinated_facts: \"This filing's standardized financial data reports no debt balance under a concept whose scope can be verified... no total debt, net debt or debt-to-equity figure is stated\" \u2014 the source explicitly states \"our short-term loans were nil and our aggregate long-term debts were NT$1,032,988 million (US$32,929 million), of which NT$136,926 million (US$4,365 million) was classified as current\"; the summary's claim that no debt figure is stated is contradicted by the filing (and by the summary's own later citation of NT$1,229,859 million long-term debt obligations).",
+          "G4 unsupported_cause: \"Basic EPS increased in line with the rise in net income attributable to shareholders of the parent\" / \"Diluted EPS increased in line with...\" \u2014 the source provides no EPS discussion or attribution; this is co-movement presented as explanation.",
+          "G5 basis_mismatch (period/role): the Marlin complaint (\"In February 2025... filed complaints...\") is presented under \"Subsequent events\" although it occurred during FY2025, not after the December 31, 2025 balance-sheet date; the source labels it a legal proceeding, not a subsequent event."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 17122,
+          "excerpt_chars": 217082,
+          "xbrl_chars": 17302
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        0
+      ],
+      "accession": "0001193125-26-157870",
+      "nonjudge_row_sha256": "ef3b42f89ef9f663d4f3f2d0e4bc9a0b30dd5b658073355539591c1e0d798192",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "7eeb1283fc3bb1c498ec49440d8e6c40c014e4464ac1e429742d69e3dbad5fd7",
+        "request_sha256": "d3f46c0f2b44a7cdb430cc9c077637a9cf917579186ba2b4e94ab7c2b35af494"
+      },
+      "input_lengths": {
+        "summary_chars": 30654,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      },
+      "e8_output_id": "O-82158c50369132f8",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G5 basis_mismatch (entity/component scope): \"In March 2026, all outstanding balance of the borrowings was early repaid in full.\" \u2014 presented as a standalone subsequent event, this implies all of the company's borrowings were repaid; the source sentence refers only to the US$1.0B drawn under the December 2021 US$2.0B green loan facility, while the company continued to carry RMB41.7B long-term debt, RMB8.0B short-term debt and other notes (and the April 2026 notes were only 'partially used to repay certain existing borrowings')."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 30654,
+          "excerpt_chars": 230528,
+          "xbrl_chars": 18662
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "JD",
+        "20-F",
+        1
+      ],
+      "accession": "0001193125-26-157870",
+      "nonjudge_row_sha256": "b55aee6acecb1787565700437819dd01cb5c90bcc7fcf4468ceb28a365edc3d3",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "a6198d4686095f630d9189162d8c676af2a456cae5d13132f1f971b3cbe6345f",
+        "request_sha256": "91db48df4ae4aebac709949fdf9bacf808530a6f5b93d8736f3c3bc80ab98c58"
+      },
+      "input_lengths": {
+        "summary_chars": 20730,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      },
+      "e8_output_id": "O-c89e372a352b211b",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.75,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Reported as a secondary figure below consolidated net income; the decline reflects the same period-over-period movement in consolidated net income.\" \u2014 the source states no such driver for attributable net income; the two lines moving together is not a cause (attributable NI fell 52.5% vs consolidated 48.2% while NCI income rose), and the filing's stated cause for income from operations does not transfer to this line."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 20730,
+          "excerpt_chars": 230528,
+          "xbrl_chars": 18662
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        0
+      ],
+      "accession": "0001140361-26-015366",
+      "nonjudge_row_sha256": "4440f6579ece006384ae319e8bab6c56e0dc8f9001e195e196df6bc765ea3cf1",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "ba2de53fc4585276ce3e8e015c3f5986983115347b2ecde4cf1c7c4b747bfffb",
+        "request_sha256": "a4a8232af9d22871f82d1cf1c123940d1e933bef3da79660e36edd87e8c28587"
+      },
+      "input_lengths": {
+        "summary_chars": 16354,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      },
+      "e8_output_id": "O-3a1b04f8e0ad7972",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.25,
+        "gate_failures": [
+          "G3 hallucinated_facts: 'The Company agreed to settle the New York class action at US$40 million and the Arizona class action at US$46 million, both subject to final court approval.' \u2014 the source states both settlements received final court approval (July 11, 2025 and August 7, 2025) and the cases were dismissed with prejudice; presenting approval as still pending contradicts the source (and the summary's own 'Subsequent events' bullets).",
+          "G5 basis_mismatch: 'Subsequent events \u2014 On August 7, 2025 ... On July 11, 2025 ...' \u2014 these court approvals occurred within FY2025 (period ended 2025-12-31), not after the balance-sheet date; the source's Item 8.B states no significant changes since the audited financial statements, so labeling in-period events as subsequent events misstates their period role."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16354,
+          "excerpt_chars": 123016,
+          "xbrl_chars": 17314
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "SE",
+        "20-F",
+        1
+      ],
+      "accession": "0001140361-26-015366",
+      "nonjudge_row_sha256": "59327f816b40e51f08d50361fcccd3c04d99a7d1d5f17caf27784c3fb84c1d28",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "241feff73d0e67d5764fe6b7a5d5d9045c12a472c9d9d32ee43c153acdfa609b",
+        "request_sha256": "eea57dd3a1c0216da8889d0e12d7526630a44128adc82d1fe38dc8ec92fea3b8"
+      },
+      "input_lengths": {
+        "summary_chars": 16984,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      },
+      "e8_output_id": "O-bff00769badcfc36",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G3 hallucinated_facts / G5 period mismatch: the summary lists under \"**Subsequent events**\" that \"On August 7, 2025, the court issued an order and final judgment approving the class action settlement ... entered by the clerk of court on September 10, 2025\" \u2014 this occurred within FY2025 (period ended 2025-12-31), not after the balance-sheet date; the source itself states \"we have not experienced any significant changes since the date of our audited consolidated financial statements\", so presenting it as a post-period event is unsupported and misleading on timing."
+        ],
+        "dimensions": {
+          "faithfulness": 3,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 16984,
+          "excerpt_chars": 123016,
+          "xbrl_chars": 17314
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        0
+      ],
+      "accession": "0000353278-26-000012",
+      "nonjudge_row_sha256": "ae9131711d1fe3d84113d0af4758e0cb85c72dda42ed52a55ca19bc6a43fc5ec",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "2a14ae09411f773d5447ad361388346fd8bff9e49e9f6bf8d97957dbd690e339",
+        "request_sha256": "b702194aadd423783854f7b79a14dfbe2dbfc8fccd06480fb80a464de136d3bd"
+      },
+      "input_lengths": {
+        "summary_chars": 23287,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      },
+      "e8_output_id": "O-33d742a43d6e7efb",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 23287,
+          "excerpt_chars": 40972,
+          "xbrl_chars": 16589
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "NVO",
+        "20-F",
+        1
+      ],
+      "accession": "0000353278-26-000012",
+      "nonjudge_row_sha256": "d81ce1df983ad6f74b9cc3145d7595df2cedd168cb379c74662f477b16859aa6",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "54069f53ff59f08ef3f4262434ac5d689ffc0849db465ae436f13306efc53557",
+        "request_sha256": "180094fbdc05c99b20e909a2411336e0c7cc503ba79e8a0ec193a2b25050efc2"
+      },
+      "input_lengths": {
+        "summary_chars": 24774,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      },
+      "e8_output_id": "O-519bd0a36bd3ca66",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 24774,
+          "excerpt_chars": 40972,
+          "xbrl_chars": 16589
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        0
+      ],
+      "accession": "0001104659-26-050727",
+      "nonjudge_row_sha256": "b5683cd5aeb4b437860ad0fdc359eff983187ea4a948413c967b55d748388f8c",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "e27a30e477c75a81bea93a4b47b8f8826e72f25713077e00e12eaf9e10098ca9",
+        "request_sha256": "a3e2f73079e6f8a5a61898341b67ab9f04f9194e9aac35056e4ee265283edc3a"
+      },
+      "input_lengths": {
+        "summary_chars": 30542,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      },
+      "e8_output_id": "O-7d29b768f7d171b9",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3,
+        "gate_failures": [
+          "G5 basis_mismatch (direction reversed): \"transaction services revenue of RMB 214.1B (49.6% of total) exceeding online marketing services and others of RMB 217.8B (50.4%)\" \u2014 source shows transaction services (RMB 214.1B, 49.6%) is smaller than online marketing services and others (RMB 217.8B, 50.4%); the stated comparison is the opposite of the source.",
+          "G3 hallucinated_facts: the claim that transaction services revenue exceeded online marketing services revenue in 2025 is contradicted by the filing's revenue table and MD&A."
+        ],
+        "dimensions": {
+          "faithfulness": 2,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 30542,
+          "excerpt_chars": 226630,
+          "xbrl_chars": 14480
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": true,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "PDD",
+        "20-F",
+        1
+      ],
+      "accession": "0001104659-26-050727",
+      "nonjudge_row_sha256": "9138c0552139b3b4ce1dec98a31732f41816b4c00146dac91579c948458f6dc8",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "b5a70b7896ceb1bcd9749df1acff2fe4c3b8c86911880945f7526a1ece3f5484",
+        "request_sha256": "8c20518db14ef73920a74896a8497e6de4f561f47b96b1cdbb75c0dab99ddae7"
+      },
+      "input_lengths": {
+        "summary_chars": 21311,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      },
+      "e8_output_id": "O-fa1fe1026933b65a",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.75,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 4,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 21311,
+          "excerpt_chars": 226630,
+          "xbrl_chars": 14480
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        0
+      ],
+      "accession": "0001099590-26-000006",
+      "nonjudge_row_sha256": "44e119d7feac948bbdda04a0c25f973a10d5651f3921c77ff96a9a120b097a4f",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "6d1cf45a66e744bc4e9e357aa7921c8524b269619c7ae4108d1902aa6b6eefb9",
+        "request_sha256": "96422b2426dcb8f58175dada4bb73877081671bc3d78b563db96f54a405ac9d7"
+      },
+      "input_lengths": {
+        "summary_chars": 31236,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      },
+      "e8_output_id": "O-a2d3186d29b8ad0e",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": true,
+        "verdict": "PASS",
+        "mean_dimension": 3.5,
+        "gate_failures": [],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 31236,
+          "excerpt_chars": 250076,
+          "xbrl_chars": 17880
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": false
+    },
+    {
+      "identity": [
+        "baseline",
+        "MELI",
+        "10-K",
+        1
+      ],
+      "accession": "0001099590-26-000006",
+      "nonjudge_row_sha256": "65dee043f18038479a12fcd34519076a727d616672438c8ab8136fb3240ed3f4",
+      "request": {
+        "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+        "user_sha256": "19ad591adbe447318346c579fe0d561affd9c6e0a56fed91b2e3e943a098a0c0",
+        "request_sha256": "3ec4ee5b9bedf7f3ae82e2a1d09bba13afb919285df544a678d871e32198ff9e"
+      },
+      "input_lengths": {
+        "summary_chars": 32008,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      },
+      "e8_output_id": "O-1df5ce0a7b252231",
+      "e8_original_source_sha256": "2c1fb37fae2c719fa016b8c55c53d3532973afeb7229d9c4218bf3424e1053e9",
+      "judge": {
+        "passed": false,
+        "verdict": "FAIL",
+        "mean_dimension": 3.5,
+        "gate_failures": [
+          "G4 unsupported_cause: \"Total assets grew to $42.7B from $25.2B, driven in part by increases in restricted cash and cash equivalents and loans receivable\" \u2014 the source nowhere attributes the total-asset increase to these lines; the summary infers a driver from balance-sheet components moving with the total, which the rubric treats as arithmetic co-movement, not a stated cause."
+        ],
+        "dimensions": {
+          "faithfulness": 4,
+          "insight": 3,
+          "clarity": 3,
+          "specificity": 4
+        },
+        "error": null,
+        "input_complete": true,
+        "input_lengths": {
+          "summary_chars": 32008,
+          "excerpt_chars": 250076,
+          "xbrl_chars": 17880
+        },
+        "contract_version": 2
+      },
+      "finder_flagged": false,
+      "g4": true
+    }
+  ]
+}
