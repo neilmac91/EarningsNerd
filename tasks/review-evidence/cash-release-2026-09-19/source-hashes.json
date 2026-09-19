@@ -1,0 +1,15 @@
+{
+  "raw_deployment_files": {
+    "receipt.json": "11c6243b0b2ab0b8b8054514e59a9d21cd5ae2ce0f52471c6f23362d5cefedda",
+    "run.json": "1eaf79ec421c722c2d3f72cae0b562a7da46ce3f4ab4beb4a4478188cf6296b5",
+    "deploy-job.log": "f87fe9dae0ce9ae7529a595c23129e218bcda89a534a14bab87182e6891d88be",
+    "service-traffic.json": "58e10a0bcad354327be43d5d37f62c36369be943e7e247b0c0f0578dcca0be16",
+    "health-detailed.json": "8c0cc24c670ddfd0395efcae1a2eeacec83f6fefe2964faefe4d6e3001093dee",
+    "sha256.txt": "9d05032fb0051229a3001b7f081a87a0ff2f9899dd6dda907fb058da328590b9"
+  },
+  "original_repeat_receipt": {
+    "json_sha256": "b45739a65ec1ae835c533ff98670eebffe5485a4d8c3b8369a269d1f65564d69",
+    "markdown_sha256": "fd88f6d1be6edd7fdf4a10effba06e1ff2a646b3111a7784b9da673332a308a7"
+  },
+  "scope": "Minimal sanitized archive; full CI logs/reports/source packets remain in retained task scratch. No cloud or provider call during archival."
+}
