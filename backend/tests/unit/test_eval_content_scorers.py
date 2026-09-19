@@ -197,6 +197,28 @@ def test_delta_consistency_skips_ppt_rows():
     assert score_delta_consistency(payload) == (1.0, [])
 
 
+def test_delta_percentage_belongs_to_its_metric_not_a_neighbor():
+    # Measured GPRO false positive: revenue's 18.7% must not become net loss's 78.4%.
+    # Include non-table neighbors and a correct neighbor that used to mask a real contradiction.
+    cases = [
+        ("Revenue fell 18.7% to $651.5M and net loss narrowed to $93.5M.", 1.0),
+        ("Net loss narrowed to $93.5M while revenue fell 18.7%.", 1.0),
+        ("Net loss narrowed; camera shipments fell 24.9%.", 1.0),
+        ("Net loss narrowed. Revenue fell 18.7%.", 1.0),
+        ("Net loss was down 78.4% while revenue fell 18.7%.", 1.0),
+        ("Net loss fell 50% and revenue fell 78.4%.", 0.0),
+        ("Net loss was down by 50%.", 0.0),
+        ("Net loss: -50%.", 0.0),
+        ("Net loss fell 70-80%.", 1.0),  # a range is not a point estimate
+    ]
+    for prose, expected in cases:
+        payload = {"executive_summary": prose,
+                   **_fh([{"metric": "Net loss", "change": "Loss narrowed 78.4%"}])}
+        score, details = score_delta_consistency(payload)
+        assert score == expected, (prose, details)
+        assert bool(details) == (expected < 1.0)
+
+
 def test_delta_consistency_no_table_is_not_penalised():
     assert score_delta_consistency({"executive_summary": "Revenue up 85%."}) == (1.0, [])
 

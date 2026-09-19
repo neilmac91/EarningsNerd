@@ -398,6 +398,32 @@ basis. Ground truth therefore carries the primary in `value` and the other legit
 These are eval-honesty fixes, not model changes: the summaries were already reporting correct,
 ADR-appropriate figures. A *fabricated* number still won't match any legitimate basis.
 
+### Financial-depth applicability and delta association (E6)
+
+The default financial-depth rubric remains cash flow, balance sheet and margins (three equally
+weighted categories), including the known incomplete-statement 6-K cohort. An explicit `insurer`
+profile in a frozen golden entry also recognizes insurance float for balance-sheet depth and
+underwriting earnings/profit/loss/income or combined ratio for operating profitability. Premiums
+alone do not earn profitability depth, and the cash-flow requirement is unchanged. BRK.B and PGR
+carry filing evidence and its accession in `financial_depth_profile_source`; loading a non-default
+profile without evidence for the selected accession fails. Re-resolving a filing through the golden
+builder therefore requires reviewing and refreshing this evidence. Candidate output never selects
+its own rubric. Both runner paths pass the golden profile, the score records the profile actually
+used, and each result retains its source. The golden-set hash binds this applicability; the pin
+script rejects a missing or mismatched measured profile.
+
+Delta consistency now attaches a direction-cued percentage directly to its named metric, allowing
+only a short set of auxiliary words. It does not borrow the percentage of another nearby metric.
+This intentionally favors precision over recall: intervening descriptors, pronoun references and
+percentage-before-metric phrasing can remain unmeasured. It still compares absolute magnitudes,
+not signed direction or loss-narrowing semantics. The retained GPRO failure was revenue's 18.7%
+decline borrowed by an unquantified net-loss sentence, not evidence of a negative-base sign bug.
+
+These are measurement corrections, not improved generated summaries. The existing pin remains
+historical until a fresh complete three-repeat run on this scorer/golden version is inspected and
+pinned under the process below; retained reports can support an offline comparison but cannot be
+re-pinned with the new golden identity or substituted for that measurement.
+
 ### Re-pinning the baseline
 
 Routine `eval-baseline` PR runs evaluate the complete verified set twice. Manual CI dispatch

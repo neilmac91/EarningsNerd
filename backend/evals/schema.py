@@ -77,9 +77,24 @@ class GoldenFiling:
     # Operator must confirm accession/url against EDGAR + ground_truth before trusting scores.
     verified: bool = False
     notes: str = ""
+    # Evaluator-owned applicability, never inferred from candidate output. Non-default profiles
+    # carry filing evidence tied to the frozen accession, included in the golden-set hash.
+    financial_depth_profile: str = "general"
+    financial_depth_profile_source: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "GoldenFiling":
+        profile = d.get("financial_depth_profile", "general")
+        source = d.get("financial_depth_profile_source", {})
+        if profile not in ("general", "insurer"):
+            raise ValueError(f"Unknown financial-depth profile: {profile}")
+        if profile != "general" and (
+            not isinstance(source, dict)
+            or source.get("accession_number") != d["accession_number"]
+            or not isinstance(source.get("evidence"), str)
+            or not source["evidence"].strip()
+        ):
+            raise ValueError("A financial-depth profile needs evidence from its frozen accession")
         facts = [GroundTruthFact(**f) for f in d.get("ground_truth", [])]
         return cls(
             ticker=d["ticker"],
@@ -91,6 +106,8 @@ class GoldenFiling:
             ground_truth=facts,
             verified=bool(d.get("verified", False)),
             notes=d.get("notes", ""),
+            financial_depth_profile=profile,
+            financial_depth_profile_source=source,
         )
 
 
@@ -111,6 +128,8 @@ class RubricScore:
     # (report-quality P1). Reported alongside the aggregate (not folded into it, to keep the
     # adoption math stable) — it tracks whether the depth work is landing, run over run.
     financial_depth: float = 1.0
+    # Records the rubric actually selected by the evaluator; pinning checks it against the golden.
+    financial_depth_profile: str = "general"
     # [0,1] narrative specificity (Wave 2): penalises vague boilerplate in the prose fields and
     # credits explicit period-over-period framing. Reported alongside the aggregate (NOT folded in),
     # so de-boilerplating prompt changes are measurable in CI without the LLM judge.
