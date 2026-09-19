@@ -1,0 +1,99 @@
+{
+  "head": "fb5b61ca46c26b37f41c33a96feb7785af79ba98",
+  "base": "299cb1bfdc5392ff6ab8d04a7d999f23eb029183",
+  "locked": [
+    {
+      "path": "backend/tests/integration/test_summary_stream_contract.py",
+      "head": "e06b46d16234e7238533547b2cc7bd68bc83e811",
+      "base": "e06b46d16234e7238533547b2cc7bd68bc83e811",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_auth_flow.py",
+      "head": "5266bc4f3dbdd37cb06a4026b441a332ea8f838b",
+      "base": "5266bc4f3dbdd37cb06a4026b441a332ea8f838b",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_background_generation_characterization.py",
+      "head": "cb8c96f2e2f3ac3b1b6d8d84fb6845b1a7de4bb7",
+      "base": "cb8c96f2e2f3ac3b1b6d8d84fb6845b1a7de4bb7",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_companyfacts_fixture.py",
+      "head": "4f222e2ad7ea5bbec2061cb2aa4f7fe42afb4ea2",
+      "base": "4f222e2ad7ea5bbec2061cb2aa4f7fe42afb4ea2",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_expired_trial_gating.py",
+      "head": "0f98d51893bb5c4b037e8c2f45f6735748723540",
+      "base": "0f98d51893bb5c4b037e8c2f45f6735748723540",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_filing_scan.py",
+      "head": "dc47596d051de212d9d49ffbc1e249a3fbf5fbb9",
+      "base": "dc47596d051de212d9d49ffbc1e249a3fbf5fbb9",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_generation_requires_account.py",
+      "head": "d14412b10eb1a7eebcbc8d252c83cf2282cd2f71",
+      "base": "d14412b10eb1a7eebcbc8d252c83cf2282cd2f71",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_refresh_replay.py",
+      "head": "5fd75eff8132ae1ee2db03fb30adcefc7255a55c",
+      "base": "5fd75eff8132ae1ee2db03fb30adcefc7255a55c",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_stripe_webhook.py",
+      "head": "0de4c2ee1abd6ea041782bf910859ea89545addb",
+      "base": "0de4c2ee1abd6ea041782bf910859ea89545addb",
+      "same": true
+    },
+    {
+      "path": "backend/tests/unit/test_subscription_webhook_sync.py",
+      "head": "9efb5b7480264a7af6251ead11a832dff269b620",
+      "base": "9efb5b7480264a7af6251ead11a832dff269b620",
+      "same": true
+    },
+    {
+      "path": "frontend/tests/unit/summaryStream.contract.spec.ts",
+      "head": "8fffe05d1dcbaf0dad3bb02fb89586c2eb44308e",
+      "base": "8fffe05d1dcbaf0dad3bb02fb89586c2eb44308e",
+      "same": true
+    }
+  ],
+  "scorer_golden_runtime_and_tests_unchanged": {
+    "backend/evals/golden_set.json": true,
+    "backend/evals/scorers.py": true,
+    "backend/evals/runner.py": true,
+    "backend/evals/schema.py": true,
+    "backend/scripts/pin_baseline.py": true,
+    "backend/tests/unit/test_eval_content_scorers.py": true,
+    "backend/tests/unit/test_eval_parity.py": true
+  },
+  "pin_summary_equals_exact_report": true,
+  "pin_harness_equals_exact_report": true,
+  "historical_note_exact_prefix": true,
+  "new_pin_sha256": "6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387",
+  "clean_status": "",
+  "gate": {
+    "head": "fb5b61ca46c26b37f41c33a96feb7785af79ba98",
+    "start": "head fb5b61ca46c26b37f41c33a96feb7785af79ba98 Python 3.12.2 2026-09-19T22:36:34Z",
+    "finish": "gate finished 2026-09-19T22:38:48Z",
+    "summary": "3428 passed, 78 warnings in 128.40s",
+    "exit": 0,
+    "ruff": "pass",
+    "bandit": "pass",
+    "pg_lanes": 4,
+    "performance": true,
+    "post_summary_logging_error": "Yahoo cleanup logs to closed stream; retained; exit0"
+  },
+  "clean_after_gate": ""
+}

@@ -1,0 +1,144 @@
+{
+  "documentation_base": "7f05534d0b6aaf4fb6a6bef20f5b6dc2b3d3f36c",
+  "pr": 928,
+  "release_state": "completed exact-head remote review; pending actual PR CI and 70-output/Copilot artifact audits, merge and deployment verification",
+  "measured_source": "4614153286d42a47727f7fad1ba1620be9300b0e",
+  "pinned_head": "fb5b61ca46c26b37f41c33a96feb7785af79ba98",
+  "copied_files": {
+    "pre-pin-audit.md": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/audit-summary.md",
+      "sha256": "f5293c77660d07b0c9ec9dd650083289f2536526b82c21e45f14d64b1e4541af",
+      "bytes": 6555
+    },
+    "pre-pin-manual-audit.json": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/manual-audit.json",
+      "sha256": "51e625f23ec34a3c614f4834edf37ed5b8d28f2effd2648642be762b0728ec2d",
+      "bytes": 2308
+    },
+    "independent-audit.json": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/independent-audit.json",
+      "sha256": "56fe727c41dab5812e26ad03d8660efeace33c35c4fd70502a4212895cdef20c",
+      "bytes": 2282
+    },
+    "independent-artifact-review.md": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/independent-review.md",
+      "sha256": "6739310b2c7e9629ffca838576fcfe453add6996d4a294f2b1409de492e8ca2c",
+      "bytes": 3970
+    },
+    "independent-code-review.md": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-final-code-review.md",
+      "sha256": "cc32b805e6773228f6181641d429823b0617cd96cd2a5efcf428ad6714a8dfe6",
+      "bytes": 3090
+    },
+    "independent-pin-review.md": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-final-pin-delta-review.md",
+      "sha256": "5c80c7f295d0b2bc0bdd53ad5d11fa486430a2d951cdab6e3d0916f15fdd3cf1",
+      "bytes": 2997
+    },
+    "post-pin-gate.json": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-postpin-gate/preservation.json",
+      "sha256": "883ce46273e76bb932d37351474eb2f356b8b931ae923e0f4150c668ba31a0fe",
+      "bytes": 3577
+    },
+    "targeted-witnesses.json": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/targeted-manual-index.json",
+      "sha256": "2f59c398868560c5f9137a2c01dbefb53210e7de1eb49f11221fcc98fe7851d4",
+      "bytes": 17746
+    },
+    "pin.txt": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/pin.log",
+      "sha256": "e1ec37639676f55bb6b9f65a973ea547c9f54c1c73bd3dc9a171d713170e0c08",
+      "bytes": 222
+    },
+    "mutation-delta.log": {
+      "source_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e6-gates/mutation-delta.log",
+      "sha256": "b5a80c6db581fe91884fccbda865823454556ba08cba6c378490ec5907fcaf91",
+      "bytes": 2854
+    },
+    "mutation-profile.log": {
+      "source_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e6-gates/mutation-profile.log",
+      "sha256": "17dcbcfacd8b550f2aa4d5cf26666515be81c19cdb2e1ee9e6f83bc32f91cf3a",
+      "bytes": 4869,
+      "archive_sha256": "0975c13dd626b1089a184b15a9ba1f1ca7ffc9d8d0b73c95ce04b9f6a88c911f",
+      "archive_transformation": "Removed trailing spaces from three otherwise blank lines only; original full log retained at source_path with source sha256."
+    },
+    "restored-targeted.log": {
+      "source_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e6-gates/restored-targeted.log",
+      "sha256": "c7577b3af95d33109d3df4e7663f67a608bbc489452a04fa314e508d9e683306",
+      "bytes": 1171
+    },
+    "remote-review.json": {
+      "source_path": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/review/audit.json",
+      "sha256": "c7f9c3f97b2c2297ac16fdf039b40748491007c066956abb796450824a70720f",
+      "bytes": 1230
+    }
+  },
+  "outside_git_sources": {
+    "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/report/eval_20260919T222710Z.json": {
+      "sha256": "1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f",
+      "bytes": 30750856,
+      "retained_outside_git": true
+    },
+    "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/eval-baseline.log": {
+      "sha256": "dbc13bfcda05cc562593a359157611651c45f53114c04110b23a339bcca6f978",
+      "bytes": 248949,
+      "retained_outside_git": true
+    },
+    "/private/tmp/earningsnerd-scorers-20260919/work/e6-authoritative-35472665559/run-final.json": {
+      "sha256": "ec0e35f6033fccfc6c3808f93c4e9d681f53236bf15c19b8b5ce2ac323c6d1d4",
+      "bytes": 15392,
+      "retained_outside_git": true
+    },
+    "/private/tmp/earningsnerd-scorers-20260919/work/e6-postpin-gate/full-gate.log": {
+      "sha256": "e2ea4c270abe09c02bd5c84988bba41d4e8c86863ef147495114f3b17334fee1",
+      "bytes": 16911,
+      "retained_outside_git": true
+    },
+    "/private/tmp/earningsnerd-scorers-20260919/work/rebase-299cb1bf/full-gate.log": {
+      "sha256": "401c1d04dd9ed16de46726ffa9d62b34380a67f7a4bfe29976a481cb4f6829db",
+      "bytes": 16911,
+      "retained_outside_git": true
+    },
+    "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e6-gates/coverage.json": {
+      "sha256": "f6284d977717ebb953969d23e39e0397349bfcf06a25b8ba4df1096779e6866c",
+      "bytes": 51994,
+      "retained_outside_git": true
+    },
+    "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e6-gates/counterfactual.json": {
+      "sha256": "629d5d78488794815254e79f182440a018334f193b76ddd9ca4c452c6f8b8bca",
+      "bytes": 26737,
+      "retained_outside_git": true
+    }
+  },
+  "workflow_metadata": {
+    "databaseId": 35472665559,
+    "headSha": "4614153286d42a47727f7fad1ba1620be9300b0e",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "createdAt": "2026-09-19T22:12:47Z",
+    "updatedAt": "2026-09-19T22:27:15Z",
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35472665559"
+  },
+  "coverage_counts": {
+    "table_rows": 371,
+    "old_checked_metric_rows": 148,
+    "new_checked_metric_rows": 113,
+    "old_pair_occurrences": 434,
+    "new_pair_occurrences": 249
+  },
+  "conditional_corruption_detection": {
+    "cases": 113,
+    "detected": 113,
+    "missed": []
+  },
+  "source_files_sha256": {
+    "backend/evals/scorers.py": "e757a6dabd72f563e4ab800cdc9dc22fe413b273355756ecf981f6012e55de59",
+    "backend/evals/runner.py": "28bd69aee5ae58ae8545914ae168347a7f0898302577ce5fd73c9fc15f34645f",
+    "backend/evals/schema.py": "8e8f7e67246745356c904953b986185c49197175bc19008f93c12372f0988dc6",
+    "backend/evals/golden_set.json": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "backend/scripts/pin_baseline.py": "3ea1f6d27c3ebc9a7c0f7fbe125dd623b4b447284bf1cf06742c9e67fb7101ee",
+    "backend/tests/unit/test_eval_content_scorers.py": "c023fa0cbd5c68e13730329fb440e769bbc2031ca35a6bab24e42206c4c45d76",
+    "backend/tests/unit/test_eval_parity.py": "070999c53ee7ec5d5e9d325fd1477934b10b80d9581f5fc97af754d8c83d4f9e"
+  }
+}

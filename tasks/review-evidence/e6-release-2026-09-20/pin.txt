@@ -1,0 +1,2 @@
+Pinned /private/tmp/earningsnerd-scorers-20260919/backend/evals/baseline_scores.json from eval_20260919T222710Z.json: 35 filings × 3 runs
+  pass_rate=1.0 gate_fail_rate=0.0 precision=1.0 coverage=1.0 recall=1.0 stdev=0.0

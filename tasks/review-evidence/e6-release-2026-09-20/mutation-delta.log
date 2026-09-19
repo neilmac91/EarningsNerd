@@ -1,0 +1,40 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_delta_percentage_belongs_to_its_metric_not_a_neighbor __________
+
+    def test_delta_percentage_belongs_to_its_metric_not_a_neighbor():
+        # Measured GPRO false positive: revenue's 18.7% must not become net loss's 78.4%.
+        # Include non-table neighbors and a correct neighbor that used to mask a real contradiction.
+        cases = [
+            ("Revenue fell 18.7% to $651.5M and net loss narrowed to $93.5M.", 1.0),
+            ("Net loss narrowed to $93.5M while revenue fell 18.7%.", 1.0),
+            ("Net loss narrowed; camera shipments fell 24.9%.", 1.0),
+            ("Net loss narrowed. Revenue fell 18.7%.", 1.0),
+            ("Net loss was down 78.4% while revenue fell 18.7%.", 1.0),
+            ("Net loss fell 50% and revenue fell 78.4%.", 0.0),
+            ("Net loss was down by 50%.", 0.0),
+            ("Net loss: -50%.", 0.0),
+            ("Net loss fell 70-80%.", 1.0),  # a range is not a point estimate
+        ]
+        for prose, expected in cases:
+            payload = {"executive_summary": prose,
+                       **_fh([{"metric": "Net loss", "change": "Loss narrowed 78.4%"}])}
+            score, details = score_delta_consistency(payload)
+>           assert score == expected, (prose, details)
+E           AssertionError: ('Revenue fell 18.7% to $651.5M and net loss narrowed to $93.5M.', ['Net loss: prose ~18.7% vs table 78.4%'])
+E           assert 0.0 == 1.0
+
+tests/unit/test_eval_content_scorers.py:218: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_eval_content_scorers.py::test_delta_percentage_belongs_to_its_metric_not_a_neighbor
+  /private/tmp/earningsnerd-scorers-20260919/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_eval_content_scorers.py::test_delta_percentage_belongs_to_its_metric_not_a_neighbor
+  /private/tmp/earningsnerd-scorers-20260919/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_eval_content_scorers.py::test_delta_percentage_belongs_to_its_metric_not_a_neighbor
+1 failed, 2 warnings in 1.06s

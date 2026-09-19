@@ -1,0 +1,56 @@
+{
+  "audit_time_utc": "2026-09-19T22:31:55.013870+00:00",
+  "workflow": {
+    "run_id": 35472665559,
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "head_sha": "4614153286d42a47727f7fad1ba1620be9300b0e"
+  },
+  "artifact_sha256": "1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f",
+  "usage_recomputed": {
+    "calls": 105,
+    "unknown_calls": 0,
+    "prompt_tokens": 4133670,
+    "completion_tokens": 419714,
+    "cache_hit_tokens": 4112628,
+    "cache_miss_tokens": 21042
+  },
+  "usage_operations": {
+    "summary_primary": 105
+  },
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "usage_equals_report": true,
+  "figure_trace_total": 261,
+  "figure_trace_counts_distribution": {
+    "0": 41,
+    "5": 9,
+    "4": 10,
+    "3": 10,
+    "2": 2,
+    "1": 18,
+    "9": 2,
+    "8": 4,
+    "6": 4,
+    "10": 1,
+    "7": 3,
+    "19": 1
+  },
+  "baseline_unchanged": true,
+  "baseline_sha256": "7d47f73c49c3932aa76a3d346346ebe71ba130e42a808e1bdb0ab2f673130032",
+  "no_pin_written": true,
+  "source_review": {
+    "profile_quotes_present_all_six": true,
+    "gpro_checked_metric_pairs": [
+      "Total revenue18.7%",
+      "Hardware revenue21.5%"
+    ],
+    "baba_run2_delta_false_positive": "Adjusted EBITA56% table receives Alibaba China E-commerce Group adjusted EBITA44% prose. Existing qualified-name ambiguity.",
+    "pdd_6k_run0_forward_quote": "Source has comma at second quarter; output puts period. Strict verbatim scorer penalty0.5; same factual words.",
+    "pdd_20f_run1_trace": "Maximum19untraceable signals. At least93,102.1million operating profit is expressly in retained source and output; diagnostic representation93102.100000000006m is not proof of fabricated value. Remaining18 signals not individually adjudicated.",
+    "pld_run0_citations": "Worst0.4286(3/7verified):4P&L evidence strings synthesized rather than direct verbatim retained passages. Preserved as scored; not suppressed.",
+    "baba_run2_quality_limit": "Raw earnings_quality prose says income from operations includes investment/disposal gains that it simultaneously locates in interest and investment income, net. This remains a generated-prose quality concern outside deterministic veto coverage; no claim that aggregate1.0certifies semantic correctness."
+  }
+}

@@ -1,0 +1,69 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_depth_profile_is_filing_owned_measured_and_required_for_pinning _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11e98bc80>
+pin_report = {'harness': {'model': 'measured-model', 'judge': False, 'use_statement_financials': True, 'stream_section_reveal': Tru...ing_type': '6-K', 'run': 1, ...}, {'candidate': 'baseline', 'ticker': 'SE', 'filing_type': '6-K', 'run': 2, ...}, ...]}
+
+    @pytest.mark.asyncio
+    async def test_depth_profile_is_filing_owned_measured_and_required_for_pinning(monkeypatch, pin_report):
+        from evals.scorers import score_summary
+
+        entries = json.loads(runner.GOLDEN_PATH.read_text())['filings']
+        insurer = next(f for f in entries if f['ticker'] == 'BRK.B')
+        # The same applicability applies to every declared insurer, without ticker logic in scorers.
+        assert {f['ticker'] for f in entries if f.get('financial_depth_profile') == 'insurer'} == {'BRK.B', 'PGR'}
+        for entry in entries:
+            filing = GoldenFiling.from_dict(entry)
+            if entry['filing_type'] == '6-K':
+                assert filing.financial_depth_profile == 'general'
+        for changes in [
+            {'financial_depth_profile': 'easy'},
+            {'financial_depth_profile_source': {}},
+            {'accession_number': 'new-filing'},
+        ]:
+            with pytest.raises(ValueError):
+                GoldenFiling.from_dict({**insurer, **changes})
+
+        payload = {'executive_summary': 'Operating cash flow $20B. ' + ' ' * 90
+                   + 'Float was $150B. ' + ' ' * 90 + 'Underwriting profit $4B.',
+                   'financial_highlights': {}, 'risk_factors': [],
+                   'management_discussion': '', 'outlook': '', 'financial_depth_profile': 'insurer'}
+        assert score_summary(payload, []).financial_depth == 0.3333  # payload cannot select the rubric
+        assert score_summary(payload, [], financial_depth_profile='insurer').financial_depth == 1.0
+        for text in ['Insurance premiums earned $100B.', 'Floating-rate borrowings $100B.',
+                     'Underwriting profit not disclosed. Float not available.']:
+            sparse = dict(payload, executive_summary=text)
+            assert score_summary(sparse, [], financial_depth_profile='insurer').financial_depth == 0.0
+
+        # Exercise both real runner call sites, replacing only generation/assembly and figure tracing.
+        monkeypatch.setattr(settings, 'STREAM_SECTION_REVEAL', False)
+        monkeypatch.setattr(openai_service, 'summarize_filing', AsyncMock(return_value={}))
+        monkeypatch.setattr(runner, '_baseline_to_canonical', lambda summary: deepcopy(payload))
+        monkeypatch.setattr(runner, 'measure_figures', lambda *args: {})
+        monkeypatch.setattr(runner, 'call_model', AsyncMock(return_value=(json.dumps(payload), 0, 0, 0.1)))
+        candidate = next(name for name in runner.REGISTRY if name != 'baseline')
+        grounding = {'filing_text': '', 'excerpt': '', 'xbrl_metrics': {}}
+        for entry, expected in [(dict(insurer, ticker='RENAMED'), 1.0),
+                                (next(f for f in entries if f['filing_type'] == '6-K'), 0.3333)]:
+            filing = GoldenFiling.from_dict(entry)
+            for name in ('baseline', candidate):
+                result = await runner._run_one(name, filing, grounding, transient_retries=0)
+                assert result['error'] is None
+>               assert result['score']['financial_depth'] == expected
+E               assert 0.3333 == 1.0
+
+tests/unit/test_eval_parity.py:185: AssertionError
+=============================== warnings summary ===============================
+app/config.py:21
+  /private/tmp/earningsnerd-scorers-20260919/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_eval_parity.py::test_depth_profile_is_filing_owned_measured_and_required_for_pinning
+  /private/tmp/earningsnerd-scorers-20260919/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_eval_parity.py::test_depth_profile_is_filing_owned_measured_and_required_for_pinning
+1 failed, 2 warnings in 5.35s

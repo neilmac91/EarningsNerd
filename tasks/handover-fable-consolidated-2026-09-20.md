@@ -68,7 +68,7 @@ gh run download 35467365092 --repo neilmac91/EarningsNerd \
 
 The corrected change removes the unqualified machine-filled segment operating-margin ratio and the prompt's stale promise of that ratio, retaining segment revenue, operating income, growth and prose. It does not prohibit a margin explicitly supported by issuer evidence. Both KO draws retain five segment rows and three segment-table previews per draw without the old `Operating margin:` prefix. Check both draws' source/basis and rendered interpretation. Run 0's outlook citation named “Operating Margin” is a source heading, not itself a segment-ratio claim.
 
-Judge all 70 missing identities, then return the complete files and a short hand review of both KO draws and representative non-KO failures/negative controls, with retained-source witnesses and supported/unsafe/unresolved distinctions. This is one corrected corpus: do not claim an improvement, causal effect or release approval.
+Complete the 70-identity corpus by judging only its missing identities, then return the complete files and a short hand review of both KO draws and representative non-KO failures/negative controls, with retained-source witnesses and supported/unsafe/unresolved distinctions. This is one corrected corpus: do not claim an improvement, causal effect or release approval.
 
 Keep the earlier pre-correction corpus separate: run `35466463047`, report `eval_20260919T201840Z.json`, SHA-256 `cee471deb3ab3a925f44099dd53ed8148f6c2bbbe05120dbf6b78cc6764c091e`. Reuse valid existing judgments if any, but no new judging or generation of that older corpus is requested. It is not a second corrected corpus.
 
