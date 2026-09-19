@@ -1,0 +1,53 @@
+{
+  "reports": [
+    "eval_20260919T184629Z.json",
+    "eval_20260919T190325Z.json"
+  ],
+  "counts": {
+    "uncertain_rescue": 1,
+    "confirmed_rescue": 9,
+    "correct_prospective_drop": 9,
+    "unsafe_prospective_drop": 10,
+    "uncertain_drop": 9
+  },
+  "attempts": 140,
+  "flagged_attempts": 29,
+  "flagged_clauses": 38,
+  "prospective_drops": 28,
+  "rescues": 10,
+  "actual_deletions": 0,
+  "confirmed_correct_drop_fraction": 0.32142857142857145,
+  "classification_upper_bound_if_all_uncertain_correct": 0.6428571428571429,
+  "correct_fraction_decidable_subset": 0.47368421052631576,
+  "excluded_unresolved_drops": 9,
+  "unsafe_drop_fraction": 0.35714285714285715,
+  "confirmed_full_source_rescue_fraction": 0.9,
+  "observed_per_report_ranges": {
+    "flagged_clauses": [
+      13,
+      25
+    ],
+    "not_stated": [
+      9,
+      19
+    ],
+    "confirmed_correct_drop_fraction": [
+      0.2222222222222222,
+      0.3684210526315789
+    ],
+    "unsafe_drop_fraction": [
+      0.3157894736842105,
+      0.4444444444444444
+    ],
+    "confirmed_full_source_rescue_fraction": [
+      0.8333333333333334,
+      1
+    ]
+  },
+  "caveats": [
+    "Descriptive ranges, not confidence intervals",
+    "Same E2 configuration; no old-verifier/E3 effect or Fable claim",
+    "Repeated filings and correlated clauses; not independent factual examples",
+    "SE 20-F run2 repeat1 audit checked5 versus final replay4, exact flag identity retained"
+  ]
+}
