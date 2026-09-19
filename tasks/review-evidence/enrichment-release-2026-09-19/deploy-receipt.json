@@ -1,0 +1,40 @@
+{
+  "pr": 926,
+  "merge_sha": "1c644e867832831bc8f6874ca7d71b72e35197fc",
+  "merged_at": "2026-09-19T21:25:38Z",
+  "run_id": 35470381046,
+  "run_conclusion": "success",
+  "deploy_job_id": 105970636024,
+  "deploy_completed_at": "2026-09-19T21:32:42Z",
+  "migration_tail": "apply_migrations: applied=0 skipped=39",
+  "latest_created_revision": "earningsnerd-backend-00370-zl2",
+  "latest_ready_revision": "earningsnerd-backend-00370-zl2",
+  "ready": true,
+  "traffic_percent": 100,
+  "independent_health_at": "2026-09-19T21:33:39.906139+00:00",
+  "health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.62
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1789853619.9061391
+  },
+  "scope": "Read-only CI/log, restricted service status and public health; no reruns, settings, jobs, models or historical regeneration."
+}

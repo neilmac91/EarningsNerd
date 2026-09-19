@@ -1,0 +1,237 @@
+{
+  "report_sha256": "d3287285ac378b57f6483b91e9dfeb48c8588053d0897cbaa410560a873d2926",
+  "filename": "eval_20260919T212236Z.json",
+  "source_sha": "a54331f3e9bbe596875f283658ec9eecf8bd758c",
+  "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+  "all70identities_unique_and_expected": true,
+  "inventory_excerpt_hashes_checked": 70,
+  "summary": {
+    "baseline": {
+      "mean_untraceable_dollar_figures": 2.3857,
+      "figure_trace_measured": 70,
+      "figure_trace_unavailable": 0,
+      "figure_trace_errors": 0,
+      "n": 70,
+      "scored": 70,
+      "errors": 0,
+      "retried": 0,
+      "mean_aggregate": 1.0,
+      "aggregate_stdev": 0.0,
+      "pass_rate": 1.0,
+      "gate_fail_rate": 0.0,
+      "schema_valid_rate": 1.0,
+      "repaired_rate": 0.0,
+      "mean_numeric_accuracy": 1.0,
+      "mean_numeric_precision": 1.0,
+      "mean_coverage": 1.0,
+      "mean_financial_depth": 0.781,
+      "mean_specificity": 0.9961,
+      "mean_currency_consistency": 0.9998,
+      "mean_redundancy": 0.9238,
+      "mean_delta_consistency": 0.8095,
+      "mean_forward_quote_fidelity": 0.9929,
+      "mean_citation_fidelity": 0.9637,
+      "mean_citation_checked": 7.4857,
+      "judge_pass_rate": null,
+      "total_cost_usd": 0.0,
+      "incurred_usage_attempts": 70,
+      "incurred_provider_usage": {
+        "calls": 72,
+        "unknown_calls": 0,
+        "operations": {
+          "summary_primary": 70,
+          "section_recovery": 2
+        },
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "prompt_tokens": 2770483,
+        "completion_tokens": 276997,
+        "cache_hit_tokens": 2741752,
+        "cache_miss_tokens": 28731,
+        "reasoning_tokens": null
+      },
+      "usage_attempts": 70,
+      "mean_completion_tokens": 3957.1,
+      "mean_prompt_tokens": 39578.3,
+      "total_completion_tokens": 276997,
+      "total_prompt_tokens": 2770483,
+      "total_cache_hit_tokens": 2741752,
+      "total_cache_miss_tokens": 28731,
+      "provider_calls": 72,
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "mean_latency_seconds": 13.173
+    }
+  },
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": true,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "ai_attribution_gate": false,
+    "ai_attribution_verify": false,
+    "judge": false,
+    "source_sha": "a54331f3e9bbe596875f283658ec9eecf8bd758c",
+    "golden_set_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 2,
+    "filings": [
+      {
+        "ticker": "ASML",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PLD",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NEE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PGR",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "FIGS",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "GPRO",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "BRK.B",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "judge_verdicts_present": 0,
+  "branch_purpose_limitation": "Baseline calls summarize_filing after separate grounding, not stream_filing_summary; changed failure handling is covered by real-orchestrator offline mutation tests."
+}

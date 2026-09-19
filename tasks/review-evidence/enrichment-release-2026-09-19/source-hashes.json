@@ -1,0 +1,19 @@
+{
+  "scope": "Minimal sanitized archive; complete original reports/logs/source packets remain retained in enrichment task scratch. No cloud/provider calls during archival.",
+  "source_hashes": {
+    "baseline/eval_20260919T212236Z.json": "d3287285ac378b57f6483b91e9dfeb48c8588053d0897cbaa410560a873d2926",
+    "copilot/copilot-fidelity-35469713319/copilot-eval.json": "07e1afba1d5604d958eacef7922d54c0f60b7cbd42b8e8d4cea17ca3fa1ac25c",
+    "report.md": "b6eb5060923a106b4540f26e26e8e1842e0f1536d13f0d0bfede5b53868cc405",
+    "baseline-audit.json": "2f1ba1b226a972722e47c844f23f569fef59f400159faedacba5aad31068dd59",
+    "copilot-audit.json": "25b294d4b28f9d41892dc20bbe73115ca678cda3850e6ffb2b9b43091f78ec6f",
+    "issue-comments.json": "756f6dd570df298e5c47936f1c835db10e587526d0a1917ca54e3937fb45eb1a",
+    "checked-source.json": "fed588b9b6b677672b49f4d8fa560b30022a978817b32f533b1170904e31ab20",
+    "checked-source-vs-head.json": "1394c60b7b08783540776644dcbf7dec014b4207558d7c053793072c7704b6bb",
+    "deploy/receipt.json": "473d79547504b24f06ab1b96662c5ca7e2aa62b7a8e3da4245afb73f2a0c8c46",
+    "deploy/run.json": "46d5fde86871d5009863f631418cfb5a87170d86bdf5b424e32274ca75f90036",
+    "deploy/deploy-job.log": "4061a3cd9c68c9c5162427271a72504be01057862042bd27f58f40468520471c",
+    "deploy/service-traffic.json": "34b5b7e71bd35221cad6aa8531db2685e18ca1df94bac1bf1c892da35fd09f56",
+    "deploy/health-detailed.json": "8d747ccb2e8c0e7f01b19e0d98d87eba6bec8e7e2e0d142316aa259ab9447e01",
+    "deploy/sha256.txt": "766e7e9158362a7b8fa12a52b716b16ee8a1febe9ce3b0e7ddb626ad3dc24cae"
+  }
+}
