@@ -1,0 +1,1034 @@
+{
+  "artifact": "eval_20260919T184629Z.json",
+  "artifact_sha256": "8574ee7ccac4976e66b20fe9ee2bc64a509d36d3275f1f400ec29f64408c5fee",
+  "source_sha": "e1b52bafb18c4d1cb69f489ccbdfd8ebd7407deb",
+  "entries": [
+    {
+      "id": 1,
+      "ticker": "ASML",
+      "form": "6-K",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the Q2 result to",
+        "clause": "higher than expected Installed Base Management sales",
+        "coverage": 0.4
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total net sales rose from \u20ac8,767M in Q1 2026 to \u20ac9,326M in Q2 2026, gross margin rose from 53.0% to 54.0%, and net income rose from \u20ac2,757M to \u20ac2,918M. The release attributes the Q2 result to higher than expected Installed Base Management sales, and states that the full-year 2026 total net sales outlook was increased to between \u20ac43 billion and \u20ac45 billion with a gross margin between 54% and 56%.",
+      "replayed_clause": "higher than expected Installed Base Management sales",
+      "replayed_evidence": [
+        "A complete summary of US GAAP Consolidated Statements of Operations is published on www.asml.com. CEO statement and outlook \"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1.",
+        "CEO statement and outlook \"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1. \"Ongoing AI-related investments and continued progress in AI technologies are driving demand for advanced Logic and Memory chips, further strengthening the semiconductor industry's growth outlook.",
+        "\"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1. \"Ongoing AI-related investments and continued progress in AI technologies are driving demand for advanced Logic and Memory chips, further strengthening the semiconductor industry's growth outlook. Our customers, in turn, continue to accelerate their capacity expansion plans.",
+        "Given the business dynamics discussed above, we now expect total net sales for 2026 to be between \u20ac43 billion and \u20ac45 billion, with a gross margin between 54% and 56%. At our next Capital Markets Day, which will be held on June 10, 2027, we will update our longer-term views to reflect the market and technology dynamics since our last Capital Markets Day,\" said ASML President and Chief Executive Officer Christophe Fouquet. 1Installed Base Management sales equals our net service and field option sales."
+      ],
+      "hand_read": {
+        "classification": "uncertain_rescue",
+        "supplied_passages_assessment": "partial_scope",
+        "full_excerpt_assessment": "ambiguous",
+        "rationale": "The supplied ASML CEO passage attributes Q2 net sales and gross margin above guidance to higher-than-expected Installed Base Management sales. The full excerpt agrees. The summary first lists sequential revenue, margin and net-income movements, then calls this the Q2 result. That broad referent may imply a net-income/sequential-growth attribution not stated in the source. Do not count this as a clean successful rescue; the narrower revenue/margin reading is supportable.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444"
+    },
+    {
+      "id": 2,
+      "ticker": "ASML",
+      "form": "6-K",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the Q2 revenue and margin levels to",
+        "clause": "higher than expected Installed Base Management sales",
+        "coverage": 0.2
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total net sales rose from \u20ac8,767M in Q1 2026 to \u20ac9,326M in Q2 2026, gross margin rose from 53.0% to 54.0%, and net income rose from \u20ac2,757M to \u20ac2,918M. The filing attributes the Q2 revenue and margin levels to higher than expected Installed Base Management sales, which rose from \u20ac2,488M to \u20ac2,762M over the same two quarters. End-quarter cash and cash equivalents and short-term investments declined from \u20ac8,376M to \u20ac7,582M.",
+      "replayed_clause": "higher than expected Installed Base Management sales",
+      "replayed_evidence": [
+        "A complete summary of US GAAP Consolidated Statements of Operations is published on www.asml.com. CEO statement and outlook \"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1.",
+        "CEO statement and outlook \"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1. \"Ongoing AI-related investments and continued progress in AI technologies are driving demand for advanced Logic and Memory chips, further strengthening the semiconductor industry's growth outlook.",
+        "\"Our second-quarter total net sales were \u20ac9.3 billion and gross margin came in at 54.0%, both above guidance, driven primarily by higher than expected Installed Base Management sales1. \"Ongoing AI-related investments and continued progress in AI technologies are driving demand for advanced Logic and Memory chips, further strengthening the semiconductor industry's growth outlook. Our customers, in turn, continue to accelerate their capacity expansion plans.",
+        "Given the business dynamics discussed above, we now expect total net sales for 2026 to be between \u20ac43 billion and \u20ac45 billion, with a gross margin between 54% and 56%. At our next Capital Markets Day, which will be held on June 10, 2027, we will update our longer-term views to reflect the market and technology dynamics since our last Capital Markets Day,\" said ASML President and Chief Executive Officer Christophe Fouquet. 1Installed Base Management sales equals our net service and field option sales."
+      ],
+      "hand_read": {
+        "classification": "confirmed_rescue",
+        "supplied_passages_assessment": "supported",
+        "full_excerpt_assessment": "supported",
+        "rationale": "Same source passage states Q2 sales EUR 9.3B and gross margin 54.0%, both above guidance, driven by Installed Base Management sales. Here the summary explicitly limits the claim to Q2 revenue and margin levels. Full source confirms the same period/metrics. This is a supported rescue, with the caveat that the source explains above-guidance performance, not a separately quantified QoQ-growth driver.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444"
+    },
+    {
+      "id": 3,
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "balance_sheet_liquidity.working_capital",
+        "connective": "driven mainly by",
+        "clause": "short-term investments",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total current assets were RMB556.8 billion and total current liabilities RMB212.7 billion as of June 30, 2026, versus RMB519.0 billion and RMB213.7 billion as of December 31, 2025; the increase in total current assets was driven mainly by short-term investments, which rose to RMB327.5 billion from RMB313.4 billion, and cash and cash equivalents, which rose to RMB128.9 billion from RMB108.9 billion.",
+      "replayed_clause": "short-term investments",
+      "replayed_evidence": [
+        "Cash, cash equivalents and short-term investments were RMB456.4 billion (US$67.3 billion) as of June 30, 2026, compared with RMB422.3 billion",
+        "cash equivalents and short-term investments were RMB456.4 billion (US$67.3 billion) as of June 30, 2026, compared with RMB422.3 billion as of December 31, 2025.",
+        "Short-term investments                                           313,408                       327,496                       48,267 Amounts due from related parties                                  10,205                         8,432                        1,243 Prepayments and other current assets                               7,527                         8,581                        1,265",
+        "Restricted cash                                                   73,831                        77,274                       11,389 Receivables from online payment platforms                          5,109                         6,079                          896 Short-term investments                                           313,408                       327,496                       48,267"
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "The supplied passages show cash/investment balances and component rows, but no current-assets driver statement. Full release gives current assets 556,780 vs 518,981; cash+equivalents 128,918 vs 108,901 and short-term investments 327,496 vs 313,408. Their increases explain much of the arithmetic, but the issuer does not state this as the current-assets cause. Under the filing-stated attribution rule this is unsupported; correct numbers alone do not establish the declared driver. The clause parser cuts before the following cash clause.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe"
+    },
+    {
+      "id": 4,
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the revenue increase primarily to",
+        "clause": "the increase in revenues from transaction services and the operating expense increase primarily to the increase in sales and marketing expenses",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Revenue growth of 8% was accompanied by a 12% decline in net income attributable to ordinary shareholders, as total operating expenses grew 13% to RMB36.6 billion and other income/(loss), net moved to a loss of RMB7.4 billion from income of RMB119 million in the prior-year quarter. The filing attributes the revenue increase primarily to the increase in revenues from transaction services and the operating expense increase primarily to the increase in sales and marketing expenses.",
+      "replayed_clause": "the increase in revenues from transaction services and the operating expense increase primarily to the increase in sales and marketing expenses",
+      "replayed_evidence": [
+        "Revenues                                                                            103,985                        112,358                        16,560                                          199,657                        218,587                         32,216 Costs of revenues                                                                  (45,859)                       (48,017)                       (7,077)                                         (86,805)                       (94,910)                       (13,988) Sales and marketing expenses                                            ",
+        "included in: Costs of revenues                                                                65                          46                         7                                           122                          74                        11 Sales and marketing expenses                                                    485                         319                        47                                         1,122                         680                       100",
+        "Costs of revenues                                                                  (45,859)                       (48,017)                       (7,077)                                         (86,805)                       (94,910)                       (13,988) Sales and marketing expenses                                                       (27,210)                       (29,668)                       (4,373)                                         (60,613)                       (63,441)                        (9,350) General and administrative                                              ",
+        "Costs of revenues                                                                65                          46                         7                                           122                          74                        11 Sales and marketing expenses                                                    485                         319                        47                                         1,122                         680                       100 General and administrative expenses                                             865                         645             "
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "missing_counterpart",
+        "full_excerpt_assessment": "supported",
+        "rationale": "All four supplied passages are operating-statement tables. Full release explicitly says the revenue increase was primarily due to the increase in transaction-services revenue, and separately says the operating-expense increase was primarily due to sales/marketing expenses. Both causes, periods and measures match the summary. The single extracted clause combines two real attributions; selected passages omit both explanations. This is a wrong prospective drop, not a model verdict that establishes hallucination.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe"
+    },
+    {
+      "id": 5,
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 1,
+      "audit_index": 1,
+      "audit": {
+        "slot": "balance_sheet_liquidity.working_capital",
+        "connective": "driven mainly by",
+        "clause": "cash and cash equivalents and short-term investments",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total current assets were RMB556.8 billion and total current liabilities were RMB212.7 billion as of June 30, 2026, versus RMB519.0 billion and RMB213.7 billion respectively as of December 31, 2025; the increase in current assets was driven mainly by cash and cash equivalents and short-term investments.",
+      "replayed_clause": "cash and cash equivalents and short-term investments",
+      "replayed_evidence": [
+        "Cash, cash equivalents and short-term investments were RMB456.4 billion (US$67.3 billion) as of June 30, 2026, compared with RMB422.3 billion",
+        "cash equivalents and short-term investments were RMB456.4 billion (US$67.3 billion) as of June 30, 2026, compared with RMB422.3 billion as of December 31, 2025.",
+        "Restricted cash                                                   73,831                        77,274                       11,389 Receivables from online payment platforms                          5,109                         6,079                          896 Short-term investments                                           313,408                       327,496                       48,267",
+        "(Decrease)/increase                                                                                               (5,358                         6,938                        1,023                                           3,706                        23,460                        3,458 in cash, cash equivalents and restricted cash Cash,                                                                                                            135,258                       199,254                       29,366                                         126,194                       182,732          "
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "As in id 3, the full source reports the balances but does not attribute total-current-assets growth to cash and short-term investments. The source components make this an intelligible derived bridge, but it is not an issuer-stated causal driver. Keep this qualification when reporting the rule-specific correct-drop count.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe"
+    },
+    {
+      "id": 6,
+      "ticker": "PLD",
+      "form": "10-K",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "primarily due to",
+        "clause": "promote revenue falling to $2M from $139M",
+        "coverage": 0.67
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "all attempt verdicts identical",
+      "replay_matched": true,
+      "replayed_subject_context": "The 7.2% revenue increase was driven by a $644M rise in rental revenues to $8.16B, which management attributes to significant rent change due to higher rental rates on the rollover of leases during both periods. This was partially offset by an $80M decline in strategic capital revenues to $592M, primarily due to promote revenue falling to $2M from $139M. Net earnings declined despite higher revenues, as gains on dispositions of development properties and land fell to $258M from $414M and gains on other dispositions of investments in real estate fell to $686M from $904M, while interest expense increased to $1.00B from $864M.",
+      "replayed_clause": "promote revenue falling to $2M from $139M",
+      "replayed_evidence": [
+        "Strategic Capital Segment This reportable segment includes revenues from asset management and property management services, transactional services for acquisition, disposition and leasing activity and promote revenue earned from the unconsolidated co-investment ventures. Revenues associated with the Strategic Capital Segment fluctuate because of changes in the size of the portfolios through acquisitions and dispositions, the fair value of the properties, timing of promotes, foreign currency exchange rates and other transactional activity.",
+        "This reportable segment includes revenues from asset management and property management services, transactional services for acquisition, disposition and leasing activity and promote revenue earned from the unconsolidated co-investment ventures. Revenues associated with the Strategic Capital Segment fluctuate because of changes in the size of the portfolios through acquisitions and dispositions, the fair value of the properties, timing of promotes, foreign currency exchange rates and other transactional activity. These revenues are reduced by the direct costs associated with the asset and prop",
+        "(2)Recurring fees include asset management and property management fees. (3)Transactional fees include leasing commissions, acquisition, disposition, development and other fees. (4)We generally earn promote revenue directly from third-party investors in the co-investment ventures based on the cumulative returns of the venture over a three-year period or the stabilization of individual development projects owned by the venture.",
+        "(3)Transactional fees include leasing commissions, acquisition, disposition, development and other fees. (4)We generally earn promote revenue directly from third-party investors in the co-investment ventures based on the cumulative returns of the venture over a three-year period or the stabilization of individual development projects owned by the venture. Changes in asset valuations within the co-investment ventures during the promote period is one of the significant inputs to the calculation of promote revenues."
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "generic_background",
+        "full_excerpt_assessment": "decomposition_only",
+        "rationale": "The selected passages define promote revenue and generic reasons Strategic Capital revenues fluctuate, without the 2025 explanation. Full source provides recurring fees 521 vs 472, transaction fees 69 vs 61, promotes 2 vs 139, total 592 vs 672. The promote decline 137 is the dominant negative component, but no retrieved source sentence attributes this year total decline 80 to it. This is a sound arithmetic decomposition versus an unstated causal narration boundary; do not count it as a clean correct or wrong drop without a settled policy for bridges.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914"
+    },
+    {
+      "id": 7,
+      "ticker": "PLD",
+      "form": "10-K",
+      "run": 0,
+      "audit_index": 1,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "driven by",
+        "clause": "a $644M rise in rental revenues to $8.16B",
+        "coverage": 0.33
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "all attempt verdicts identical",
+      "replay_matched": true,
+      "replayed_subject_context": "The 7.2% revenue increase was driven by a $644M rise in rental revenues to $8.16B, which management attributes to significant rent change due to higher rental rates on the rollover of leases during both periods. This was partially offset by an $80M decline in strategic capital revenues to $592M, primarily due to promote revenue falling to $2M from $139M. Net earnings declined despite higher revenues, as gains on dispositions of development properties and land fell to $258M from $414M and gains on other dispositions of investments in real estate fell to $686M from $904M, while interest expense increased to $1.00B from $864M.",
+      "replayed_clause": "a $644M rise in rental revenues to $8.16B",
+      "replayed_evidence": [
+        "As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S. GAAP) to our Same Store Property NOI measures. We evaluate the results of our same store portfolio on a quarterly basis.",
+        "35 As non-GAAP financial measures, the same store metrics have certain limitations as an analytical tool and may vary among real estate companies. As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S.",
+        "As non-GAAP financial measures, the same store metrics have certain limitations as an analytical tool and may vary among real estate companies. As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S. GAAP) to our Same Store Property NOI measures.",
+        "% (1)We exclude properties held for sale to third parties, along with development properties that were not stabilized at the beginning of the periods and properties acquired or disposed of to third parties during the periods. We also exclude one-time items due to early lease terminations, including termination fees received from customers and the write-off of related lease assets and liabilities, that are not indicative of the property\u2019s recurring operating performance in order to evaluate the growth or decline in each property's rental revenues."
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "wrong_context",
+        "full_excerpt_assessment": "decomposition_only",
+        "rationale": "Supplied windows concern same-store NOI reconciliation, not consolidated revenue growth. Full MD&A shows rental revenue 8,159 vs 7,515 and strategic-capital revenue 592 vs 672, plus development/other 39 vs 14. It explicitly calls higher rent on lease rollover a driver of rental income, but not the summary's consolidated 7.2% revenue increase phrased as driven by the computed 644 rental change. The component bridge is factual; whether this phrasing requires an issuer causal sentence is policy-sensitive.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914"
+    },
+    {
+      "id": 8,
+      "ticker": "PLD",
+      "form": "10-K",
+      "run": 0,
+      "audit_index": 2,
+      "audit": {
+        "slot": "results_that_matter.table[0].commentary",
+        "connective": "driven by",
+        "clause": "a $644M rise in rental revenues to $8.16B",
+        "coverage": 0.67
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "The increase was driven by a $644M rise in rental revenues to $8.16B, partially offset by an $80M decline in strategic capital revenues to $592M.",
+      "replayed_clause": "a $644M rise in rental revenues to $8.16B",
+      "replayed_evidence": [
+        "As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S. GAAP) to our Same Store Property NOI measures. We evaluate the results of our same store portfolio on a quarterly basis.",
+        "35 As non-GAAP financial measures, the same store metrics have certain limitations as an analytical tool and may vary among real estate companies. As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S.",
+        "As non-GAAP financial measures, the same store metrics have certain limitations as an analytical tool and may vary among real estate companies. As a result, we provide a reconciliation of Rental Revenues less Rental Expenses (\u201cProperty NOI\u201d) (from our Consolidated Financial Statements prepared in accordance with U.S. GAAP) to our Same Store Property NOI measures.",
+        "% (1)We exclude properties held for sale to third parties, along with development properties that were not stabilized at the beginning of the periods and properties acquired or disposed of to third parties during the periods. We also exclude one-time items due to early lease terminations, including termination fees received from customers and the write-off of related lease assets and liabilities, that are not indicative of the property\u2019s recurring operating performance in order to evaluate the growth or decline in each property's rental revenues."
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "wrong_context",
+        "full_excerpt_assessment": "decomposition_only",
+        "rationale": "Same 644 rental bridge as id 7, now commentary under the total-revenue table row. Source component amounts are real; supplied windows do not contain the table/period. Full source confirms component arithmetic, not the exact declared consolidated-revenue cause. Preserve as uncertain rather than inflating precision with a mechanically derived bridge.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914"
+    },
+    {
+      "id": 9,
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "reflecting",
+        "clause": "a reduction in the diluted share count to 2,781.5M from 2,879.0M",
+        "coverage": 0.25
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total net revenue increased 3% to $182.4B, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity, largely offset by deposit margin compression and the impact of lower rates. Net income decreased 2% to $57.0B, while diluted EPS increased 1% to $20.02, reflecting a reduction in the diluted share count to 2,781.5M from 2,879.0M.",
+      "replayed_clause": "a reduction in the diluted share count to 2,781.5M from 2,879.0M",
+      "replayed_evidence": [
+        "Basic earnings per share$20.05\u00a0$19.79\u00a0$16.25 Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6",
+        "Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6 Weighted-average diluted shares2,781.5\u00a02,879.0\u00a02,943.1",
+        "Earnings per share data Net income:              Basic$20.05\u00a0$19.79\u00a0$16.25 Diluted20.02\u00a019.75\u00a016.23",
+        "Diluted2,781.5\u00a02,879.0\u00a02,943.1 Market and per common share data Market capitalization868,793\u00a0670,618\u00a0489,320"
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "The four supplied windows list EPS and weighted-average shares. Full excerpt gives EPS 20.02 vs 19.75, net income 57,048 vs 58,471 and diluted shares 2,781.5 vs 2,879.0, but no issuer statement linking this EPS increase to the share decline. The denominator explanation is mathematically plausible; the narrower filing-stated-driver rule does not permit converting simultaneous reported changes into an attributed cause.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97"
+    },
+    {
+      "id": 10,
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 1,
+      "audit_index": 1,
+      "audit": {
+        "slot": "the_print.key_takeaways[1]",
+        "connective": "reflecting",
+        "clause": "a lower diluted share count of 2,781.5M versus 2,879.0M",
+        "coverage": 0.33
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net income declined 2% to $57.0B, while diluted EPS increased 1% to $20.02, reflecting a lower diluted share count of 2,781.5M versus 2,879.0M.",
+      "replayed_clause": "a lower diluted share count of 2,781.5M versus 2,879.0M",
+      "replayed_evidence": [
+        "Basic earnings per share$20.05\u00a0$19.79\u00a0$16.25 Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6",
+        "Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6 Weighted-average diluted shares2,781.5\u00a02,879.0\u00a02,943.1",
+        "Earnings per share data Net income:              Basic$20.05\u00a0$19.79\u00a0$16.25 Diluted20.02\u00a019.75\u00a016.23",
+        "Diluted2,781.5\u00a02,879.0\u00a02,943.1 Market and per common share data Market capitalization868,793\u00a0670,618\u00a0489,320"
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "Same JPM denominator inference as id 9, repeated in a takeaway. Full retained excerpt and supplied passages disclose the values but do not state the causal EPS/share-count explanation. Count under the strict stated-driver rule, not as a claim that the financial arithmetic is wrong.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97"
+    },
+    {
+      "id": 11,
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 1,
+      "audit_index": 2,
+      "audit": {
+        "slot": "results_that_matter.table[6].commentary",
+        "connective": "reflecting",
+        "clause": "the reduction in the diluted share count to 2,781.5M from 2,879.0M",
+        "coverage": 0.25
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Diluted EPS increased 1%, reflecting the reduction in the diluted share count to 2,781.5M from 2,879.0M, which more than offset the decline in net income.",
+      "replayed_clause": "the reduction in the diluted share count to 2,781.5M from 2,879.0M",
+      "replayed_evidence": [
+        "Basic earnings per share$20.05\u00a0$19.79\u00a0$16.25 Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6",
+        "Diluted earnings per share20.02\u00a019.75\u00a016.23 Weighted-average basic shares2,776.5\u00a02,873.9\u00a02,938.6 Weighted-average diluted shares2,781.5\u00a02,879.0\u00a02,943.1",
+        "Earnings per share data Net income:              Basic$20.05\u00a0$19.79\u00a0$16.25 Diluted20.02\u00a019.75\u00a016.23",
+        "Diluted2,781.5\u00a02,879.0\u00a02,943.1 Market and per common share data Market capitalization868,793\u00a0670,618\u00a0489,320"
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "Same JPM relation in diluted-EPS table commentary, adding that lower shares more than offset lower net income. The full source does not state that explanatory comparison; it is reverse-engineered from the table. The gate would remove the causal clause while leaving the observed EPS movement.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97"
+    },
+    {
+      "id": 12,
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the change to",
+        "clause": "lower investment gains",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net earnings attributable to Berkshire shareholders declined 24.8% to $67.0B in 2025 from $89.0B in 2024. The filing attributes the change to lower investment gains, which fell to $39.1B pre-tax from $52.8B, and to $8.3B of after-tax other-than-temporary impairment losses recorded on the equity-method investments in Kraft Heinz and Occidental. Total revenues were essentially unchanged at $371.4B versus $371.4B.",
+      "replayed_clause": "lower investment gains",
+      "replayed_evidence": [
+        "Dollar denominated debt and goodwill impairment losses. After-tax other earnings in 2025 declined $1.3 billion compared to 2024, reflecting after-tax foreign currency exchange rate losses in 2025 of $642 million compared to after-tax gains in 2024 of $1.15 billion, reduced earnings from equity method investments and increased goodwill impairment losses, partially offset by increased investment income. Insurance\u2014Underwriting",
+        "The portion of the unrealized loss that is not related to a credit loss is recognized in accumulated other comprehensive income. (e)Investments in equity securities We carry investments in equity securities at fair value and record the changes in fair values in the Consolidated Statements of Earnings as a component of investment gains and losses.",
+        "After-tax other earnings in 2025 declined $1.3 billion compared to 2024, reflecting after-tax foreign currency exchange rate losses in 2025 of $642 million compared to after-tax gains in 2024 of $1.15 billion, reduced earnings from equity method investments and increased goodwill impairment losses, partially offset by increased investment income. Insurance\u2014Underwriting Our periodic underwriting earnings may be subject to considerable volatility from the timing and magnitude of significant property catastrophe loss events.",
+        "Earnings from the renewable energy business decreased mainly due to lower earnings from wind tax equity investments in 2024 and debt extinguishment gains recognized in 2023. Net earnings of real estate brokerage businesses decreased $120 million in 2024 compared to 2023, primarily attributable to charges in connection with the real estate brokerage industry litigation matters. The real estate brokerage business was negatively impacted in 2024 by the limited availability of homes for sale and high home prices."
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "wrong_subject_or_period",
+        "full_excerpt_assessment": "decomposition_only",
+        "rationale": "Selected passages describe other earnings/insurance and an unrelated 2024vs 2023 energy/real-estate comparison. Full MD&A explicitly disaggregates Berkshire net earnings: investment gains after tax 30,737 vs 41,558 and impairment(8,255) vs zero, total 66,968 vs 88,995; it also says investment gains cause earnings volatility. These components support the economic bridge, but the full-source text does not explicitly attribute this particular total decline to lower gains in the summary's wording. Treat the table-bridge/attribution boundary as uncertain.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "d4a2e2e4259c58577186c29511249dba4c29d893258b27c9d5afe417557a8fe9"
+    },
+    {
+      "id": 13,
+      "ticker": "XOM",
+      "form": "10-K",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "results_that_matter.table[3].commentary",
+        "connective": "reflecting",
+        "clause": "the decline in net income relative to total revenues and other income",
+        "coverage": 0.33
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net margin narrowed to 8.7% from 9.6%, reflecting the decline in net income relative to total revenues and other income.",
+      "replayed_clause": "the decline in net income relative to total revenues and other income",
+      "replayed_evidence": [
+        "5,064\u00a06,194\u00a06,385 Other income\u00a03,269\u00a04,144\u00a03,500 Total revenues and other income\u00a0332,238\u00a0349,585\u00a0344,582",
+        "(millions of dollars) NoteReferenceNumber202520242023 Revenues and other income",
+        "Other income\u00a03,269\u00a04,144\u00a03,500 Total revenues and other income\u00a0332,238\u00a0349,585\u00a0344,582 Costs and other deductions",
+        "Revenues and other income Sales and other operating revenue3 323,905\u00a0339,247\u00a0334,697"
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "ratio_identity",
+        "rationale": "Selected passages contain revenue table rows only. Full source shows attributable net income 28,844 vs 33,680 and revenues/other income 332,238 vs 349,585, yielding 8.68% vs 9.63%. The summary merely restates the net-margin ratio moving with numerator relative to denominator; it introduces no new economic driver. A blanket causal-connective interpretation can overflag this identity. This needs the ratio/decomposition policy, not a clean positive precision count.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "df0a0fdf0001cb4869bff5145a0dc54ce513efd9d28f0988341a8e005e648e8c"
+    },
+    {
+      "id": 14,
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+        "connective": "reflecting",
+        "clause": "the settlement of the $2.3 billion 0.00% Convertible Senior Notes on March 16, 2026",
+        "coverage": 0.2
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Company excluding Ford Credit debt payable within one year decreased to $3,268M at March 31, 2026 from $5,550M at December 31, 2025, reflecting the settlement of the $2.3 billion 0.00% Convertible Senior Notes on March 16, 2026.",
+      "replayed_clause": "the settlement of the $2.3 billion 0.00% Convertible Senior Notes on March 16, 2026",
+      "replayed_evidence": [
+        "Liquidity. Our key priority is to maintain a strong balance sheet to withstand potential stress scenarios, while having resources available to invest in and grow our business. At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion.",
+        "__________ (a)On March 16, 2026, we settled the principal amount of our $2.3 billion 0.00% Convertible Senior Notes in cash and issued 6.6 million shares of Ford Common Stock held as treasury stock to settle the conversion premium, which were subsequently repurchased as part of our anti-dilutive share repurchase program. (b)At December\u00a031, 2025 and March\u00a031, 2026, long-term finance leases payable within one year were $136 million and $129 million, respectively, and long-term finance leases payable after one year were $754 million and $752 million, respectively.",
+        "At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion. At March\u00a031, 2026, about 82% of Company cash was held by consolidated entities domiciled in the United States. To be prepared for an economic downturn and other stress scenarios, we target an ongoing Company cash balance at or above $20 billion plus significant additional liquidity above our Company cash target.",
+        "Our key priority is to maintain a strong balance sheet to withstand potential stress scenarios, while having resources available to invest in and grow our business. At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion. At March\u00a031, 2026, about 82% of Company cash was held by consolidated entities domiciled in the United States."
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "partial_scope",
+        "full_excerpt_assessment": "supported_by_anchored_note",
+        "rationale": "The verifier sees the explicit March 16 settlement of 2.3B notes and the note that cash was reduced after repayment, but lacks the current-debt table. Full Note 12 binds footnote(a) to convertible notes 2,300\u2192zero within Company-excluding-Ford-Credit debt payable within one year 5,550\u21923,268. This is an explicit discharge of an identified component of the same debt balance, not unrelated co-movement. Removing the settlement explanation is unsafe. No inference that the full debt decline equals exactly 2.3B is needed.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a"
+    },
+    {
+      "id": 15,
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+        "connective": "reflecting",
+        "clause": "the settlement of the $2.3 billion 0.00% Convertible Senior Notes",
+        "coverage": 0.25
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Company excluding Ford Credit debt payable within one year was $3,268 million at March 31, 2026, down from $5,550 million at December 31, 2025, reflecting the settlement of the $2.3 billion 0.00% Convertible Senior Notes.",
+      "replayed_clause": "the settlement of the $2.3 billion 0.00% Convertible Senior Notes",
+      "replayed_evidence": [
+        "Liquidity. Our key priority is to maintain a strong balance sheet to withstand potential stress scenarios, while having resources available to invest in and grow our business. At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion.",
+        "__________ (a)On March 16, 2026, we settled the principal amount of our $2.3 billion 0.00% Convertible Senior Notes in cash and issued 6.6 million shares of Ford Common Stock held as treasury stock to settle the conversion premium, which were subsequently repurchased as part of our anti-dilutive share repurchase program. (b)At December\u00a031, 2025 and March\u00a031, 2026, long-term finance leases payable within one year were $136 million and $129 million, respectively, and long-term finance leases payable after one year were $754 million and $752 million, respectively.",
+        "At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion. At March\u00a031, 2026, about 82% of Company cash was held by consolidated entities domiciled in the United States. To be prepared for an economic downturn and other stress scenarios, we target an ongoing Company cash balance at or above $20 billion plus significant additional liquidity above our Company cash target.",
+        "Our key priority is to maintain a strong balance sheet to withstand potential stress scenarios, while having resources available to invest in and grow our business. At March\u00a031, 2026, we had Company cash of $22.0 billion (after the repayment of our 0.00% Convertible Senior Notes, which was not refinanced, and share repurchases under our anti-dilutive share repurchase program), and liquidity of $43.1 billion. At March\u00a031, 2026, about 82% of Company cash was held by consolidated entities domiciled in the United States."
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "partial_scope",
+        "full_excerpt_assessment": "supported_by_anchored_note",
+        "rationale": "Same Ford settlement relation as id 14, with date omitted from the summary. The full source table and its attached footnote explicitly identify removal of the 2.3B debt component, for the same company scope and quarter. The selected windows lose the table anchor. This is a supported note-based explanation, not a fictional cause.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a"
+    },
+    {
+      "id": 16,
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "segments[3].commentary",
+        "connective": "primarily driven by",
+        "clause": "higher demand for Eye Q products",
+        "coverage": 0.67
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "16% operating margin \u2014 All other revenue was $628 million, down $315 million from Q1 2025, primarily driven by lower revenue resulting from the deconsolidation of Altera in Q3 2025, partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million, primarily driven by higher demand for Eye Q products.",
+      "replayed_clause": "higher demand for Eye Q products",
+      "replayed_evidence": [
+        "Q1 2025 All other revenue was $628 million, down $315 million from Q1 2025, primarily driven by lower revenue resulting from the deconsolidation of Altera in Q3 2025. This decrease was partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million from Q1 2025, primarily driven by higher demand for Eye Q",
+        "All other revenue was $628 million, down $315 million from Q1 2025, primarily driven by lower revenue resulting from the deconsolidation of Altera in Q3 2025. This decrease was partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million from Q1 2025, primarily driven by higher demand for Eye Q \u00ae",
+        "Other DCAI product revenue was $935 million, up $230 million from Q1 2025, primarily driven by higher networking customer-related demand. Segment Operating Income Summary Q1 2026 vs.",
+        "This increase in client revenue was partially offset by a 13% decrease in volume compared to Q1 2025. Market demand exceeded our available product supply in Q1 2026 due to internal and external supply constraints, limiting our ability to fully meet customer demand. We expect these supply constraints to persist at least through the first half of 2026."
+      ],
+      "hand_read": {
+        "classification": "confirmed_rescue",
+        "supplied_passages_assessment": "supported",
+        "full_excerpt_assessment": "supported",
+        "rationale": "Supplied passages explicitly state Mobileye revenue 558M, up 120M, primarily driven by higher EyeQ demand, under All other. The full source continues the Eye Q trademark/line break into products. The actual summary attaches this clause to the Mobileye increase, while separately assigning the All-other decline to Altera deconsolidation. Same subsubject and period; supported rescue.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335"
+    },
+    {
+      "id": 17,
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "segments[2].commentary",
+        "connective": "attributes the increase primarily to",
+        "clause": "$696 million of higher server revenue due to a 27% increase in server ASPs",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "31% operating margin \u2014 Management attributes the increase primarily to $696 million of higher server revenue due to a 27% increase in server ASPs, partially offset by a 5% decrease in volume; other DCAI product revenue was $935 million, up $230 million, primarily driven by higher networking customer-related demand.",
+      "replayed_clause": "$696 million of higher server revenue due to a 27% increase in server ASPs",
+      "replayed_evidence": [
+        "\u25aa DCAI revenue increased $926 million from Q1 2025, primarily driven by $696 million of higher server revenue due to a 27% increase in server ASPs. The increase in server ASPs was primarily driven by a higher mix of premium products sold in Q1 2026 and demand-based pricing actions in part to offset higher input costs.",
+        "DCAI revenue increased $926 million from Q1 2025, primarily driven by $696 million of higher server revenue due to a 27% increase in server ASPs. The increase in server ASPs was primarily driven by a higher mix of premium products sold in Q1 2026 and demand-based pricing actions in part to offset higher input costs. This increase in server revenue was partially offset by a 5% decrease in volume compared to Q1 2025.",
+        "Q1 2025 Our Q1 2026 revenue was $13.6 billion, up $910 million from Q1 2025, primarily driven by higher Intel Products revenue. Intel Products revenue increased 9% from Q1 2025, primarily driven by a 22% increase in DCAI revenue, resulting from higher server ASPs due to a higher mix of premium products sold in Q1 2026 and demand-based pricing actions in part to offset higher input costs.",
+        "Our Q1 2026 revenue was $13.6 billion, up $910 million from Q1 2025, primarily driven by higher Intel Products revenue. Intel Products revenue increased 9% from Q1 2025, primarily driven by a 22% increase in DCAI revenue, resulting from higher server ASPs due to a higher mix of premium products sold in Q1 2026 and demand-based pricing actions in part to offset higher input costs. CCG and Intel Foundry revenue were both modestly higher compared to Q1 2025."
+      ],
+      "hand_read": {
+        "classification": "confirmed_rescue",
+        "supplied_passages_assessment": "supported",
+        "full_excerpt_assessment": "supported",
+        "rationale": "The selected first two passages explicitly state DCAI revenue increased 926M, primarily driven by 696M higher server revenue due to 27% higher ASPs, and the 5% volume offset. Full source agrees. The segment label is DCAI and commentary refers to its increase. This is a supported rescue despite the old verifier prompt omitting that label.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335"
+    },
+    {
+      "id": 18,
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 1,
+      "audit_index": 1,
+      "audit": {
+        "slot": "segments[3].commentary",
+        "connective": "primarily driven by",
+        "clause": "higher demand for Eye Q products",
+        "coverage": 0.67
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "16% operating margin \u2014 Management attributes the decrease primarily to lower revenue resulting from the deconsolidation of Altera in Q3 2025, partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million from Q1 2025, primarily driven by higher demand for Eye Q products.",
+      "replayed_clause": "higher demand for Eye Q products",
+      "replayed_evidence": [
+        "Q1 2025 All other revenue was $628 million, down $315 million from Q1 2025, primarily driven by lower revenue resulting from the deconsolidation of Altera in Q3 2025. This decrease was partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million from Q1 2025, primarily driven by higher demand for Eye Q",
+        "All other revenue was $628 million, down $315 million from Q1 2025, primarily driven by lower revenue resulting from the deconsolidation of Altera in Q3 2025. This decrease was partially offset by higher Q1 2026 Mobileye revenue, which totaled $558 million, up $120 million from Q1 2025, primarily driven by higher demand for Eye Q \u00ae",
+        "Other DCAI product revenue was $935 million, up $230 million from Q1 2025, primarily driven by higher networking customer-related demand. Segment Operating Income Summary Q1 2026 vs.",
+        "This increase in client revenue was partially offset by a 13% decrease in volume compared to Q1 2025. Market demand exceeded our available product supply in Q1 2026 due to internal and external supply constraints, limiting our ability to fully meet customer demand. We expect these supply constraints to persist at least through the first half of 2026."
+      ],
+      "hand_read": {
+        "classification": "confirmed_rescue",
+        "supplied_passages_assessment": "supported",
+        "full_excerpt_assessment": "supported",
+        "rationale": "Same explicit Mobileye/ EyeQ relationship as id 16 in the second repeat. The pre-connective summary context locates the cause in Mobileye's 120M increase, not in the Altera-driven total All-other decline. Full source and selected passages support it.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335"
+    },
+    {
+      "id": 19,
+      "ticker": "BABA",
+      "form": "20-F",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the decrease primarily to",
+        "clause": "the decrease in adjusted EBITA and increase in impairment of goodwill",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Income from operations decreased 64% from RMB140,905 million in fiscal year 2025 to RMB50,150 million in fiscal year 2026. The filing attributes the decrease primarily to the decrease in adjusted EBITA and increase in impairment of goodwill, partly offset by the decrease in one-time provisions and non-cash share-based expenses. Consolidated adjusted EBITA fell 56% to RMB76,416 million.",
+      "replayed_clause": "the decrease in adjusted EBITA and increase in impairment of goodwill",
+      "replayed_evidence": [
+        "Table of Contents decrease in adjusted EBITA and increase in impairment of goodwill, partly offset by the decrease in one-time provisions and non-cash share-based expenses. Interest and Investment Income, Net",
+        "decrease in adjusted EBITA and increase in impairment of goodwill, partly offset by the decrease in one-time provisions and non-cash share-based expenses. Interest and Investment Income, Net Interest and investment income, net in fiscal year 2026 was RMB87,512 million (US$12,687 million), compared to RMB20,759 million in fiscal year 2025, primarily due to the year-over-year increase in net gain from mark-to-market changes of our equity investments, as well as net gains from disposal of investments, including local consumer service business of Trendyol in fiscal year 2026, compared to losses on",
+        "Adjusted EBITA represents net income before interest and investment income, net, interest expense, other income (expense), net, income tax expenses, share of results of equity method investees, certain non-cash expenses, consisting of share-based compensation expense, amortization and impairment of intangible assets, impairment of goodwill, and others (including provision in relation to matters outside the ordinary course of business), which we do not believe are reflective of our core operating performance during the periods presented. Non\u2011GAAP net income",
+        "Adjusted EBITA represents net income before interest and investment income, net, interest expense, other income (expense), net, income tax expenses, share of results of equity method investees, certain non-cash expenses, consisting of share-based compensation expense, amortization and impairment of intangible assets, impairment of goodwill, and others (including provision in relation to matters outside the ordinary course of business), which we do not believe are reflective of our core operating performance during the periods presented. Non\u2011GAAP net income represents net income before non-cash"
+      ],
+      "hand_read": {
+        "classification": "confirmed_rescue",
+        "supplied_passages_assessment": "truncated_subject",
+        "full_excerpt_assessment": "supported",
+        "rationale": "Full BABA MD&A states income from operations 140,905\u219250,150 and says its decrease was primarily attributable to decreased adjusted EBITA and increased goodwill impairment, with offsets. Supplied passages begin after a page break with only the driver fragment, so they do not independently carry the complete subject/period. Full-source rescue is correct, but this is not proof the selected evidence or accepted quote alone justified the subject. Raw model quote/reason is not retained.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    },
+    {
+      "id": 20,
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.key_takeaways[3]",
+        "connective": "primarily reflecting",
+        "clause": "a EUR 5,450.0M increase in share repurchases",
+        "coverage": 0.33
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net cash provided by operating activities of EUR 12,658.5M; net cash used in financing activities of EUR 8,670.5M, primarily reflecting a EUR 5,450.0M increase in share repurchases.",
+      "replayed_clause": "a EUR 5,450.0M increase in share repurchases",
+      "replayed_evidence": [
+        "in share repurchases under our share buyback program, the repayment of an outstanding \u20ac1,000.0 million bond that was due on December 6, 2025, and a",
+        "the remainder of the shares repurchased. The share",
+        "increase in share repurchases under our share buyback program, the repayment of an",
+        ". The\u00a0increase in basic net income per ordinary share was\u00a0primarily driven by higher net income."
+      ],
+      "hand_read": {
+        "classification": "uncertain_drop",
+        "supplied_passages_assessment": "truncated_counterpart",
+        "full_excerpt_assessment": "level_vs_change",
+        "rationale": "Full ASML cash-flow discussion says financing cash used INCREASED by 5,838.4M, primarily driven by a 5,450M increase in buybacks, plus bond repayment/dividends and offsets. The selected windows omit the start/amount of that statement. Summary attaches the buyback INCREASE to the annual financing-use LEVEL 8,670.5M rather than explicitly to its change. The source relationship exists but its numerical role is compressed; this is neither a clean correct drop nor a clean rescue without resolving the level/change reading.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    },
+    {
+      "id": 21,
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the revenue increase to",
+        "clause": "growth across the e-commerce, digital financial services and digital entertainment businesses, including growth of GMV, growth of loans receivable and an increa",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total revenue increased 36.4% from US$16.8 billion in 2024 to US$22.9 billion in 2025, and net income increased from US$447.8 million to US$1.6 billion over the same period. The filing attributes the revenue increase to growth across the e-commerce, digital financial services and digital entertainment businesses, including growth of GMV, growth of loans receivable and an increase in the active user base.",
+      "replayed_clause": "growth across the e-commerce, digital financial services and digital entertainment businesses, including growth of GMV, growth of loans receivable and an increase in the active user base",
+      "replayed_evidence": [
+        "sellers. This results in greater monetization potential as the size of each platform grows. Finally, synergies among our digital financial services business and each of our e-commerce and digital entertainment businesses allow us to increase our user base and use cases, and benefit our",
+        "This results in greater monetization potential as the size of each platform grows. Finally, synergies among our digital financial services business and each of our e-commerce and digital entertainment businesses allow us to increase our user base and use cases, and benefit our monetization and cost efficiencies.",
+        "Finally, synergies among our digital financial services business and each of our e-commerce and digital entertainment businesses allow us to increase our user base and use cases, and benefit our monetization and cost efficiencies. At the same time, the large user base on Shopee may also increasingly explore other services and product offerings available on our digital financial services platform, such as our credit, banking and insurtech",
+        "We generate revenue from our digital financial services business primarily from earning interest and fees from our credit and banking businesses, fees from our e-wallet, payment processing and wealth services and fees and premiums from our insurance business. For loans receivable, interest and fees earned are recognized over the period of the loan based on the effective"
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "wrong_context",
+        "full_excerpt_assessment": "supported_segment_synthesis",
+        "rationale": "The selected windows are generic platform-synergy/revenue-recognition background. Full 2025vs 2024 Revenue section states total growth 36.4% then separately links Shopee growth 33.9% to GMV, finance growth 60.1% to credit/loan growth and Garena growth 26.1% to active-user/paying-user growth. The summary says growth across these businesses, including those respective mechanisms; it is a bounded synthesis of the filing section, not a lone segment driver asserted for every business. Passage ranking omitted the actual explanation. Avoid reading this as an exhaustive quantified group bridge.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d"
+    },
+    {
+      "id": 22,
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 0,
+      "audit_index": 1,
+      "audit": {
+        "slot": "results_that_matter.table[2].commentary",
+        "connective": "as a result of",
+        "clause": "the foregoing revenue, cost of revenue and operating expense movements",
+        "coverage": 0.33
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Operating income increased from US$662.2 million in 2024 to US$2.0 billion in 2025; the filing presents this as a result of the foregoing revenue, cost of revenue and operating expense movements.",
+      "replayed_clause": "the foregoing revenue, cost of revenue and operating expense movements",
+      "replayed_evidence": [
+        "dollar strengthens relative to currencies in our local markets, our revenue and operating expenses will be lower than if currencies had remained constant. Movements in foreign currency exchange rates may have a material adverse effect on our results of operations, which may cause our financial",
+        "local markets, our revenue and operating expenses will be lower than if currencies had remained constant. Movements in foreign currency exchange rates may have a material adverse effect on our results of operations, which may cause our financial and operational metrics reported in the U.S.",
+        "\u25cf E-commerce (Shopee): Cost of revenue increased by 32.6% from US$7.2 billion in 2024 to US$9.5 billion in 2025. The increase was primarily driven by the increase in",
+        "\u25cf E-commerce (Shopee): Cost of revenue increased by 38.6% from US$5.2 billion in 2023 to US$7.2 billion in 2024. The increase was primarily driven by the increase in"
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "wrong_context",
+        "full_excerpt_assessment": "wrong_measure_attribution",
+        "rationale": "Selected windows discuss currency risks and e-commerce costs, not operating-income 2.0B. Full source reports operating income 662,152\u21921,985,306 in a table, but the prose as-a-result-of-the-foregoing statement applies to PRETAX income 778.8M\u21922.3B and separately NET income 447.8M\u21921.6B. The summary explicitly claims the filing presents OPERATING income this way, transferring the source wording to another measure. The accounting identity may be true, but the attributed statement is not.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d"
+    },
+    {
+      "id": 23,
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 1,
+      "audit_index": 0,
+      "audit": {
+        "slot": "the_print.what_changed",
+        "connective": "attributes the revenue increase to",
+        "clause": "growth across e-commerce, digital financial services and digital entertainment",
+        "coverage": 0.0
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Total revenue increased 36.4% from US$16.8 billion in 2024 to US$22.9 billion in 2025, and net income rose to US$1.6 billion from US$447.8 million. The filing attributes the revenue increase to growth across e-commerce, digital financial services and digital entertainment, and the net income increase to the resulting operating income and other income, expenses, gains and losses.",
+      "replayed_clause": "growth across e-commerce, digital financial services and digital entertainment",
+      "replayed_evidence": [
+        "Revenue We currently generate revenue primarily from our e-commerce business, digital financial services business and digital entertainment business. The table below sets forth our revenue breakdown.",
+        "We currently generate revenue primarily from our e-commerce business, digital financial services business and digital entertainment business. The table below sets forth our revenue breakdown. For the Year Ended December 31,",
+        "We had net income of US$162.7 million, US$447.8 million and US$1.6 billion in 2023, 2024 and 2025, respectively. Major Factors Affecting Our Results of Operations Our results of operations and financial condition are affected by general factors driving the e-commerce, digital financial services, digital entertainment and other industries in our markets,",
+        "Segment Reporting We have three reportable segments, namely, e-commerce, digital financial services and digital entertainment. The chief operating decision maker (\u201cCODM\u201d), comprising our senior management team,"
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "generic_background",
+        "full_excerpt_assessment": "supported_segment_synthesis",
+        "rationale": "Supplied passages identify the three businesses and their general revenue roles, but miss the annual comparison. Full 2025vs 2024 section narrates growth in each business immediately after the total revenue increase. The summary's broad growth-across-businesses recap preserves the subject hierarchy and same period. It does not claim that one business-specific driver applies wholesale to consolidated revenue. Dropping this sourced high-level recap is unsafe.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d"
+    },
+    {
+      "id": 24,
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 0,
+      "audit_index": 0,
+      "audit": {
+        "slot": "results_that_matter.table[6].commentary",
+        "connective": "reflecting",
+        "clause": "the operating margin decline and a foreign exchange loss of CNY 2.0B in 2025 versus a foreign exchange gain of CNY 0.6B in 2024",
+        "coverage": 0.14
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net margin contracted 5.8 pts, reflecting the operating margin decline and a foreign exchange loss of CNY 2.0B in 2025 versus a foreign exchange gain of CNY 0.6B in 2024.",
+      "replayed_clause": "the operating margin decline and a foreign exchange loss of CNY 2.0B in 2025 versus a foreign exchange gain of CNY 0.6B in 2024",
+      "replayed_evidence": [
+        "\u2014 Foreign exchange gain/((loss) 35,721",
+        "\u2014 Foreign exchange gain/(loss) \u200b",
+        "1,134,972 Foreign exchange (gain)/loss \u200b",
+        "Non-monetary items that are measured in terms of historical cost in foreign currency are re-measured using the exchange rates at the dates of the initial transactions. Exchange gains and losses are included in the consolidated statements of comprehensive income. The Company uses the average exchange rate for the year and the exchange rate at the balance sheet date to translate the operating results and financial position, respectively."
+      ],
+      "hand_read": {
+        "classification": "correct_prospective_drop",
+        "supplied_passages_assessment": "facts_only",
+        "full_excerpt_assessment": "not_stated",
+        "rationale": "Selected windows have FX labels and accounting policy, not the asserted net-margin explanation. Full source reports operating margin 27.5%\u219221.6%, net margin 28.5%\u219222.7%, FX gain 587.9M\u2192loss 1,966.6M and an overall net-income as-result-of-foregoing discussion, but does not single out operating-margin decline+FX as the cause of net-margin contraction. This selectively constructed attribution is unsupported under the filing-stated rule; figures alone are not a stated cause.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a"
+    },
+    {
+      "id": 25,
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 0,
+      "audit_index": 1,
+      "audit": {
+        "slot": "earnings_quality.operating_vs_one_time",
+        "connective": "attributes to",
+        "clause": "an increase of short-term investments), a foreign exchange loss of CNY 2.0B (versus a gain of CNY 0.6B in 2024), other income, net of CNY 2.7B",
+        "coverage": 0.38
+      },
+      "recorded_slot_verdict": "not_stated",
+      "verdict_identity": "unique slot",
+      "replay_matched": true,
+      "replayed_subject_context": "Net income of CNY 97.8B in 2025 includes interest and investment income, net of CNY 25.6B (up from CNY 20.6B in 2024, which the filing attributes to an increase of short-term investments), a foreign exchange loss of CNY 2.0B (versus a gain of CNY 0.6B in 2024), other income, net of CNY 2.7B, and share of profits of equity investees of CNY 0.1B. Operating profit of CNY 93.1B is below net income, and the filing does not define an adjusted or non-GAAP earnings total.",
+      "replayed_clause": "an increase of short-term investments), a foreign exchange loss of CNY 2.0B (versus a gain of CNY 0.6B in 2024), other income, net of CNY 2.7B",
+      "replayed_evidence": [
+        "\u2014 Foreign exchange gain/((loss) 35,721",
+        "\u2014 Foreign exchange gain/(loss) \u200b",
+        "1,134,972 Foreign exchange (gain)/loss \u200b",
+        "Monetary assets and liabilities denominated in foreign currencies are re-measured at the exchange rates prevailing at the balance sheet date. Non-monetary items that are measured in terms of historical cost in foreign currency are re-measured using the exchange rates at the dates of the initial transactions. Exchange gains and losses are included in the consolidated statements of comprehensive income."
+      ],
+      "hand_read": {
+        "classification": "unsafe_prospective_drop",
+        "supplied_passages_assessment": "wrong_context",
+        "full_excerpt_assessment": "supported_with_parser_overrun",
+        "rationale": "Full 2025 MD&A explicitly says net interest/investment income increased 20,553.5M\u219225,583.8M and the increase was primarily attributable to increased short-term investments. In the summary that attribution is parenthesized; subsequent FX/other-income amounts are separate facts. The clause parser overruns the closing parenthesis and includes those unrelated amounts in its driver clause, leading selected windows toward FX policy. A drop would remove the valid investment explanation and unrelated true facts. Treat this as candidate-boundary corruption and unsafe deletion, not a confirmed hallucination.",
+        "judge": "independent manual read; not Fable",
+        "actual_drop": false
+      },
+      "full_excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a"
+    }
+  ],
+  "attempt_replay": [
+    {
+      "ticker": "ASML",
+      "form": "6-K",
+      "run": 0,
+      "audit_checked": 2,
+      "replay_checked": 2,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "ASML",
+      "form": "6-K",
+      "run": 1,
+      "audit_checked": 2,
+      "replay_checked": 2,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 0,
+      "audit_checked": 4,
+      "replay_checked": 4,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 1,
+      "audit_checked": 6,
+      "replay_checked": 6,
+      "audit_flagged": 2,
+      "replay_flagged": 2,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "PLD",
+      "form": "10-K",
+      "run": 0,
+      "audit_checked": 8,
+      "replay_checked": 8,
+      "audit_flagged": 3,
+      "replay_flagged": 3,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "JPM",
+      "form": "10-K",
+      "run": 1,
+      "audit_checked": 9,
+      "replay_checked": 9,
+      "audit_flagged": 3,
+      "replay_flagged": 3,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 0,
+      "audit_checked": 3,
+      "replay_checked": 3,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "XOM",
+      "form": "10-K",
+      "run": 0,
+      "audit_checked": 3,
+      "replay_checked": 3,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 0,
+      "audit_checked": 4,
+      "replay_checked": 4,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "F",
+      "form": "10-Q",
+      "run": 1,
+      "audit_checked": 6,
+      "replay_checked": 6,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 0,
+      "audit_checked": 17,
+      "replay_checked": 17,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "INTC",
+      "form": "10-Q",
+      "run": 1,
+      "audit_checked": 16,
+      "replay_checked": 16,
+      "audit_flagged": 2,
+      "replay_flagged": 2,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "BABA",
+      "form": "20-F",
+      "run": 1,
+      "audit_checked": 4,
+      "replay_checked": 4,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 0,
+      "audit_checked": 12,
+      "replay_checked": 12,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 0,
+      "audit_checked": 7,
+      "replay_checked": 7,
+      "audit_flagged": 2,
+      "replay_flagged": 2,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "SE",
+      "form": "20-F",
+      "run": 1,
+      "audit_checked": 8,
+      "replay_checked": 8,
+      "audit_flagged": 1,
+      "replay_flagged": 1,
+      "unmatched_replay": []
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 0,
+      "audit_checked": 6,
+      "replay_checked": 6,
+      "audit_flagged": 2,
+      "replay_flagged": 2,
+      "unmatched_replay": []
+    }
+  ],
+  "provenance": {
+    "local_tree": "73cc31162c3dfe7ec497c8c88c43cf397afce4a7",
+    "artifact_source": "e1b52bafb18c4d1cb69f489ccbdfd8ebd7407deb",
+    "identity_check": "git diff --exit-code local_tree artifact_source -- backend/app backend/prompts backend/evals: exit0",
+    "request_evidence": "deterministic reconstruction, not retained provider request logs",
+    "replay_audit_match": "25/25 exact record matches;17/17 checked and candidate counts match",
+    "raw_verifier_quotes_retained": false
+  },
+  "manual_summary": {
+    "counts": {
+      "uncertain_rescue": 1,
+      "confirmed_rescue": 5,
+      "correct_prospective_drop": 7,
+      "unsafe_prospective_drop": 6,
+      "uncertain_drop": 6
+    },
+    "recorded_verdicts": {
+      "stated": 6,
+      "not_stated": 19
+    },
+    "flagged_clauses": 25,
+    "flagged_attempts": 17,
+    "attempts": 70,
+    "actual_drops": 0,
+    "prospective_drop_precision_confirmed_lower_bound": 0.3684210526315789,
+    "prospective_drop_precision_upper_bound_if_all_uncertain_correct": 0.6842105263157895,
+    "prospective_drop_precision_on_decidable_subset": 0.5384615384615384,
+    "confirmed_rescue_fraction": 0.8333333333333334,
+    "notes": "Rule-specific manual classification; 6 policy/basis-sensitive not_stated cases and 1 broad-subject stated case unresolved. No cross-run effect estimate or Fable result."
+  }
+}
