@@ -1,3 +1,9 @@
+## September 19 — E6 integrated onto cash and enrichment main; final AMZN base still pending
+
+- [x] Rebased prepared E6 `b384a77fc8d533088761179ccc08b42193065017` onto actual main `1c644e867832831bc8f6874ca7d71b72e35197fc` (#925 cash basis and #926 enrichment). The complete E6 backend patch, scorer/profile propagation, golden metadata, pin refusal and both invariant gates are byte-identical to preparation; only the prepend-only ledger conflict required resolution. All earlier E6 additions and the complete new-main ledger remain intact.
+- [x] Rechecked all eleven locked anchors/auth/Stripe files against new main; all match. All 35 filing identities/facts remain unchanged, and both insurer evidence excerpts match their own frozen PGR/BRK.B accessions in both retained control draws. Golden SHA256 remains `f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c`; historical baseline bytes remain unchanged.
+- [ ] Current validation-slot correction: AMZN issuer-FCF preparation owns the PostgreSQL slot, not E8. No full gate, provider call or baseline write occurred in this rebase. After AMZN's serial release is verified, rebase onto that final main, coordinate the full committed backend/performance/four-PostgreSQL gate, then complete fresh 35×3 measurement, exact-artifact audit/re-pin, final review/CI and serial deployment. KO's corrected-prompt semantic hold remains separate.
+
 ## September 19 — E6 release preparation and repin trigger reconciliation
 
 - [x] Rebased the scorer branch onto documentation-only #922 (`356663dded04ae662a72815c5ca00833ad470c9e`), preserving the original E6 entry and all intervening ledger history. The scorer implementation, golden applicability and ordinary gates remain unchanged from `c7969a3707ae52af8033cb490506c9c6b1862ce4`; existing locked anchors/auth/Stripe tests are byte-identical to main.
