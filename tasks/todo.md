@@ -1,3 +1,10 @@
+## September 19 — consolidated measurement evidence and cash-release status correction
+
+- [x] Consolidated the [measurement and fleet evidence index](measurement-reconciliation-2026-09-19.md) on main `b8e11f368cdb237da4b76000de48c1a8b1dfa688`. Cash-conversion basis [#925](https://github.com/neilmac91/EarningsNerd/pull/925) has merged. Its earlier preparation entry below is retained as history; merge completion does not establish production deployment or a corrected production SE output.
+- [ ] Cash release production verification remains pending in this snapshot: retain the actual main CI/deploy result, migration tail, serving revision/traffic and independent health before recording the deployment as verified. No such result is inferred here.
+- [x] E2's returned Fable controls are now independently audited and reusable as exact E8 main inputs. Earlier screenshot-only and pending-control entries below are superseded by the dated complete-verdict entry, not erased. E3's manual clause review is complete; its same-Fable acceptance remains pending. E8 generation is complete within the approved ceiling; judging, invocation reconciliation and variance conclusions remain pending, with the local guard disabled.
+- [x] Integrated the [fleet proposal and protection receipts](fleet-coordination-proposal-2026-09-19.md). Daily backups and seven-day PITR are verified enabled and the initial backup succeeded; no restore rehearsal is claimed. The IAM connection measured the database limit but the first job-table SELECT failed with permission denied, so job-outcome evidence remains unavailable. Neither fleet design is activated and no secret access is authorized by this documentation.
+
 ## September 19 — E9 fleet proposal completed; approved database protection verified
 
 - [x] [Fleet proposal](fleet-coordination-proposal-2026-09-19.md) separates filing ownership and fleet SEC admission. Current service/job/scheduler limits reread; actual database max_connections25 observed. Configured50-connection overlap is a potential demand scenario, not observed occupancy; no capacity or coordinator activation.
