@@ -21,7 +21,7 @@ METRICS = {"financial_classification": {"is_financial": False}, "reporting_curre
 MODES = ["valid", "other_values", "recovery_valid", "recovery_absent", "absent", "currency_absent",
          "currency_conflict", "currency_other_block", "risk", "duplicate", "unit_absent",
          "years_swapped", "amount_wrong", "definition_absent", "limitations_absent", "limitations_edge",
-         "row_absent", "extra_row", "too_large"]
+         "row_absent", "extra_row", "too_large", "uppercase_conflict", "uppercase_duplicate"]
 
 
 @pytest.mark.asyncio
@@ -55,6 +55,11 @@ async def test_only_complete_supplied_issuer_disclosure_reaches_final_surfaces(m
         source = "Selected filing without the supported cash disclosure."
     elif mode == "currency_other_block":
         source = source.replace(currency, "") + "\nITEM 1A - RISK FACTORS:\nStart.\n" + currency + "\nEnd."
+    elif mode == "uppercase_conflict":
+        source = source.replace("\nFree Cash Flow\n", "\nOUR FINANCIAL REPORTING CURRENCY IS THE CANADIAN "
+                                "DOLLAR AND ALL AMOUNTS BELOW USE THAT CURRENCY.\nFree Cash Flow\n")
+    elif mode == "uppercase_duplicate":
+        source += SOURCE.upper()
     elif mode == "duplicate":
         source += SOURCE
     elif mode == "limitations_edge":

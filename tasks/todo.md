@@ -1,3 +1,8 @@
+## September 19 — E5 issuer disclosure ambiguity review fix
+
+- [x] Independent review found that uppercase conflicting reporting-currency text or an uppercase duplicate disclosure evaded case-sensitive rejection checks. Ambiguity detection now casefolds heading, currency and unique-passage comparisons; positive supported-shape matching and the displayed source wording/cells remain unchanged. Two uppercase counterexamples extend the existing source-to-visible invariant to 21 cases. Targeted result: **21 passed, 2 warnings in 5.72s**; changed-file ruff clean.
+- [ ] The earlier full gate on `d1d7a8b9` (3,399 passed, reported by parent) is not review clearance for the fixed head. Parent will run its updated full gate; no push/PR or production change here. The existing arithmetic mutation is the same invariant proof, not a new mutation type.
+
 ## September 19 — E5 issuer free-cash-flow disclosure prepared
 
 - [x] Added a bounded source-owned issuer reconciliation beside the existing conventional FCF line. Supported shape: one complete labelled financial/MD&A block with an explicit U.S. Dollar reporting-currency paragraph, the net-PP&E definition, two consecutive calendar-year December 31 columns in millions, three reconciled integer rows and complete limitations. No ticker/desired-number lookup, generic table parser, selected-metric replacement or cross-owner arithmetic bridge. AMZN's retained example remains $7.695B conventional FCF, with issuer-reported 11,194 million shown separately from its own filing reconciliation.

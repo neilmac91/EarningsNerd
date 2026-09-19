@@ -38,8 +38,9 @@ def _row(line: str, label: str, *, deduction: bool = False) -> list[str] | None:
 
 
 def _disclosure(source: str) -> dict | None:
-    if len(source) > 320_000 or sum(line.strip() == "Free Cash Flow" for line in source.splitlines()) != 1:
+    if len(source) > 320_000 or sum(line.strip().casefold() == "free cash flow" for line in source.splitlines()) != 1:
         return None
+    folded_source = source.casefold()
     candidates = []
     for block in recovery_blocks(source, _LAYOUT):
         if not block.families or not set(block.families) <= {"financials", "mda"}:
@@ -47,17 +48,17 @@ def _disclosure(source: str) -> dict | None:
         # Preserve physical line boundaries; only space characters within a line normalize.
         lines = [line.strip() for line in block.text.splitlines() if line.strip()]
         normalized = [re.sub(r"[^\S\r\n]+", " ", line) for line in lines]
-        currencies = [i for i, line in enumerate(normalized) if "financial reporting currency is" in line]
+        currencies = [i for i, line in enumerate(normalized) if "financial reporting currency is" in line.casefold()]
         if (len(currencies) != 1 or not 0 < currencies[0] < len(lines) - 1
                 or not normalized[currencies[0]].startswith(_CURRENCY + " and ")
                 or not normalized[currencies[0]].endswith(".")
-                or len(lines[currencies[0]]) > 2000 or source.count(lines[currencies[0]]) != 1):
+                or len(lines[currencies[0]]) > 2000 or folded_source.count(lines[currencies[0]].casefold()) != 1):
             continue
         for i, line in enumerate(normalized):
             if line != "Free Cash Flow" or i == 0 or i + 7 >= len(lines):
                 continue
             intro = _INTRO.fullmatch(normalized[i + 1])
-            if not intro or len(lines[i + 1]) > 2000 or source.count(lines[i + 1]) != 1:
+            if not intro or len(lines[i + 1]) > 2000 or folded_source.count(lines[i + 1].casefold()) != 1:
                 continue
             years = list(intro.groups())
             if int(years[1]) != int(years[0]) + 1 or normalized[i + 2] != "Year Ended December 31,":
@@ -88,7 +89,7 @@ def _disclosure(source: str) -> dict | None:
                 continue
             limitation = normalized[end]
             if (not limitation.startswith(_LIMIT_START) or not limitation.endswith(_LIMIT_END)
-                    or len(lines[end]) > 2000 or source.count(lines[end]) != 1):
+                    or len(lines[end]) > 2000 or folded_source.count(lines[end].casefold()) != 1):
                 continue
             candidates.append({
                 "definition": lines[i + 1], "limitations": lines[end],
