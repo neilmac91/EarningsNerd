@@ -1,0 +1,195 @@
+{
+  "original_baseline": {
+    "retained_path": "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/baseline/eval_20260919T214556Z.json",
+    "sha256": "ac7f61434dbb783121272a715314e739fb7d50efe0b9e667b65dfca953f9c19a",
+    "source_sha": "c7662a55746e2c3941428feda41b4fb321064558",
+    "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b"
+  },
+  "corrected_baseline": {
+    "retained_path": "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/corrected/baseline/eval_20260919T220102Z.json",
+    "sha256": "639ca00ba49c1f12ed1b9ba474769030b1c6c8da8950deaa6bb111b03a687b55",
+    "source_sha": "da269a17bf69ba85181e1181c710659f4fb8b450",
+    "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b"
+  },
+  "original_copilot": {
+    "retained_path": "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/copilot/copilot-eval.json",
+    "sha256": "6b8a4702885309f8e8c31329fe161241c575aa58040caed2065ae18c55efdf16",
+    "source_sha": "c7662a55746e2c3941428feda41b4fb321064558",
+    "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0"
+  },
+  "corrected_copilot": {
+    "retained_path": "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/corrected/copilot/copilot-eval.json",
+    "sha256": "4462fad0c32e3c48f663a72fabbe93d251902a46f63c1ae59154e2350b6a5598",
+    "source_sha": "da269a17bf69ba85181e1181c710659f4fb8b450",
+    "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0"
+  },
+  "corrected_copilot_source_files": [
+    {
+      "bytes": 126028,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000320193-25-000079/excerpt.txt",
+      "relative_path": "0000320193-25-000079/excerpt.txt",
+      "sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    },
+    {
+      "bytes": 1520322,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000320193-25-000079/filing.html",
+      "relative_path": "0000320193-25-000079/filing.html",
+      "sha256": "ea53d6054844f0754bdc4f32c1aa30484991e81e4f2811de14d78321157f700f"
+    },
+    {
+      "bytes": 156405,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000320193-25-000079/sections.json",
+      "relative_path": "0000320193-25-000079/sections.json",
+      "sha256": "dbe532bc99dd333c1e305302e35448eabec2f1ea8827db211e9a672479f0e283"
+    },
+    {
+      "bytes": 11286,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000320193-25-000079/xbrl.json",
+      "relative_path": "0000320193-25-000079/xbrl.json",
+      "sha256": "986b546c9f34c581bc1f96ea54d6267cc1755191576dd869da70615678548133"
+    },
+    {
+      "bytes": 165047,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-25-003063/excerpt.txt",
+      "relative_path": "0001628280-25-003063/excerpt.txt",
+      "sha256": "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    },
+    {
+      "bytes": 2596573,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-25-003063/filing.html",
+      "relative_path": "0001628280-25-003063/filing.html",
+      "sha256": "e6122f15e548b7eec7e1ce101981ed63b1c4a0cba8bb7801c74b3fe8d18346ff"
+    },
+    {
+      "bytes": 290266,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-25-003063/sections.json",
+      "relative_path": "0001628280-25-003063/sections.json",
+      "sha256": "ad63c0f417bb0d7c8001750c35c29e23b250b464e8a54e0b0e61cc081749822b"
+    },
+    {
+      "bytes": 8983,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-25-003063/xbrl.json",
+      "relative_path": "0001628280-25-003063/xbrl.json",
+      "sha256": "7b4d416be66f0f429f90270bb9903ece2dc5e1feb8bc178aacd0c822c71cc1af"
+    },
+    {
+      "bytes": 165156,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-100235/excerpt.txt",
+      "relative_path": "0000950170-25-100235/excerpt.txt",
+      "sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    },
+    {
+      "bytes": 8158181,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-100235/filing.html",
+      "relative_path": "0000950170-25-100235/filing.html",
+      "sha256": "e7b538015f78cb0428ee2711946dd3787ca41024f3c93b4f6fdacc453446f4d5"
+    },
+    {
+      "bytes": 256112,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-100235/sections.json",
+      "relative_path": "0000950170-25-100235/sections.json",
+      "sha256": "54d37ff58b668f677b8dd8e31bd68efe7e4597a247a1e3d26763f0d6f5d788c1"
+    },
+    {
+      "bytes": 10981,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-100235/xbrl.json",
+      "relative_path": "0000950170-25-100235/xbrl.json",
+      "sha256": "71c6815f60fab058b9dcd1ac49b0a2c83e2e6e3f38c136808ad56c9a9b59bc02"
+    },
+    {
+      "bytes": 235128,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001193125-26-231755/excerpt.txt",
+      "relative_path": "0001193125-26-231755/excerpt.txt",
+      "sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    },
+    {
+      "bytes": 11745277,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001193125-26-231755/filing.html",
+      "relative_path": "0001193125-26-231755/filing.html",
+      "sha256": "5aa370db0a5cf5c71adb35db65ca4fe92a45406f2db92cbbb2314c11a26f89d8"
+    },
+    {
+      "bytes": 564670,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001193125-26-231755/sections.json",
+      "relative_path": "0001193125-26-231755/sections.json",
+      "sha256": "ca524b9bd6dc15bb8b26221f7004ca3bced62dfbd569d3868ae06c09c4617dac"
+    },
+    {
+      "bytes": 7863,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001193125-26-231755/xbrl.json",
+      "relative_path": "0001193125-26-231755/xbrl.json",
+      "sha256": "144a0e30a74475e810882531870264891ab020e5131bd6866cb44d33d268543d"
+    },
+    {
+      "bytes": 317834,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-090161/excerpt.txt",
+      "relative_path": "0000950170-25-090161/excerpt.txt",
+      "sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    },
+    {
+      "bytes": 7720459,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-090161/filing.html",
+      "relative_path": "0000950170-25-090161/filing.html",
+      "sha256": "60203f3236b88704f60fa5c07714427c4abb01dbc1b76f00e8fd784cdce6c1b1"
+    },
+    {
+      "bytes": 85506,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-090161/sections.json",
+      "relative_path": "0000950170-25-090161/sections.json",
+      "sha256": "5ce949c0c971f3567b4d68496a6ec87d6f4dbc48bb45a2ab4d6751f2f0d84bea"
+    },
+    {
+      "bytes": 7857,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0000950170-25-090161/xbrl.json",
+      "relative_path": "0000950170-25-090161/xbrl.json",
+      "sha256": "4f40c2944c11bc766569f2970d4dc8ab499c8f8ebbdd97d0bbe05caeddf960b0"
+    },
+    {
+      "bytes": 262563,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-26-011378/excerpt.txt",
+      "relative_path": "0001628280-26-011378/excerpt.txt",
+      "sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    },
+    {
+      "bytes": 24864729,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-26-011378/filing.html",
+      "relative_path": "0001628280-26-011378/filing.html",
+      "sha256": "60c7224ae5ad489f109d8f042d2b362923a344918add9e70ff99295b6d8379d6"
+    },
+    {
+      "bytes": 4,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-26-011378/sections.json",
+      "relative_path": "0001628280-26-011378/sections.json",
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "bytes": 10389,
+      "path": "/home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/copilot/0001628280-26-011378/xbrl.json",
+      "relative_path": "0001628280-26-011378/xbrl.json",
+      "sha256": "0c9b9ae2f21dc2ecf4b35cde7fa5a492112de0df478a3ad2c0ff6ec9aa374364"
+    }
+  ],
+  "archive_correction_2026_09_20": {
+    "reason": "Correct exact selected FCF table fragment and distinguish unchanged generator method from changed assembler method with unchanged prefix.",
+    "source_report_sha256": "639ca00ba49c1f12ed1b9ba474769030b1c6c8da8950deaa6bb111b03a687b55",
+    "identity": [
+      "baseline",
+      "AMZN",
+      "10-K",
+      0
+    ],
+    "source_field": "grounding_excerpt",
+    "selection": "Contiguous fragment selected after the Free Cash Flow header, from NBSP Year Ended December 31 through Free cash flow row; excludes following investing-activities row.",
+    "fragment_start_character": 112584,
+    "fragment_end_character": 112819,
+    "fragment_utf8_sha256": "e58a3dfdeed0f9129354c7d1a4d90a48aee463bd0759c72fcd2b3af1f5ebde51",
+    "prior_semantic_note_sha256": {
+      "/private/tmp/earningsnerd-wave3-20260919/tasks/review-evidence/issuer-fcf-release-2026-09-20/semantic-defect.md": "5aa6e0801028881956ba41d5c59bb1964174bcaf5fcd8e8cd9d3b5024a41185a",
+      "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/corrected/amzn-semantic-defect.md": "a50983983b9e92c47aaf86ec07cc61730dcd5c2bd01f34acb68cf597ecb5e06c",
+      "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/e5-amzn-semantic-defect.md": "660dc18d55767c46d9aed4e3156f0ff9a7188f3f53c217673995a82b15ecd0a1"
+    },
+    "prior_request_parity_sha256": "5f6652bca8d0cde6bf5ab8c442cdc7d56e9907eea5f4dd0435aab992447031c7",
+    "corrected_archive_semantic_note_sha256": "97c55062db69e3406cb2de58e2818f6ca64c40834ff335d44e229de0b172149b",
+    "corrected_request_parity_sha256": "b77dcfdb363bf0f3b385adcf4acfe5c0a77869045a4822918182e66c60340e72"
+  }
+}

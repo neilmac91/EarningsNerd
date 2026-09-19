@@ -1,0 +1,66 @@
+{
+  "source_sha": "4614153286d42a47727f7fad1ba1620be9300b0e",
+  "run_id": 35472665559,
+  "report_sha256": "1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f",
+  "previous_baseline_sha256": "7d47f73c49c3932aa76a3d346346ebe71ba130e42a808e1bdb0ab2f673130032",
+  "golden_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+  "slots": 105,
+  "profiles": {
+    "general": 99,
+    "insurer": 6
+  },
+  "insurer_own_source_quote_checks": [
+    "('PGR', '10-K', 0)",
+    "('PGR', '10-K', 1)",
+    "('PGR', '10-K', 2)",
+    "('BRK.B', '10-K', 0)",
+    "('BRK.B', '10-K', 1)",
+    "('BRK.B', '10-K', 2)"
+  ],
+  "missing_raw_source_existing_6k_slots": [
+    "('ASML', '6-K', 0)",
+    "('ASML', '6-K', 1)",
+    "('ASML', '6-K', 2)",
+    "('SE', '6-K', 0)",
+    "('SE', '6-K', 1)",
+    "('SE', '6-K', 2)",
+    "('PDD', '6-K', 0)",
+    "('PDD', '6-K', 1)",
+    "('PDD', '6-K', 2)"
+  ],
+  "figure_trace_count": 261,
+  "figure_trace_mean": 2.4857,
+  "old_figure_trace_mean": 2.1619,
+  "score_means_recomputed": {
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.7746,
+    "mean_specificity": 0.9963,
+    "mean_currency_consistency": 1.0,
+    "mean_redundancy": 0.9274,
+    "mean_delta_consistency": 0.9976,
+    "mean_forward_quote_fidelity": 0.9952,
+    "mean_citation_fidelity": 0.9648,
+    "mean_citation_checked": 7.181
+  },
+  "findings": [
+    {
+      "severity": "WARN",
+      "candidate": "baseline",
+      "metric": "mean_untraceable_dollar_figures",
+      "baseline": null,
+      "candidate_value": 2.4857,
+      "delta": null,
+      "label": "absolute advisory: untraceable dollar figures in measured raw prose"
+    }
+  ],
+  "notes": [
+    "baseline: expected=105 attempted=105 scored=105 errors=0; quality means use scored outputs only",
+    "baseline: figure trace measured=105 unavailable=0 errors=0; unavailable is not measured zero"
+  ],
+  "pure_pin_builder_accepted": true,
+  "refusals": [],
+  "mechanical_pin_eligible": true,
+  "scope": "Independent read-only artifact verification; no pin or model call. Declared raw-document hashes cannot rehash absent bodies. Run/harness/logs corroborate source/config; no semantic acceptance or causal score-improvement claim."
+}

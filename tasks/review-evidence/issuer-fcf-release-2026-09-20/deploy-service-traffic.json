@@ -1,0 +1,40 @@
+{
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-09-19T22:13:10.021775Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-09-19T22:12:48.811342Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2026-09-19T22:13:09.995028Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "earningsnerd-backend-00371-ckz",
+    "latestReadyRevisionName": "earningsnerd-backend-00371-ckz",
+    "traffic": [
+      {
+        "revisionName": "earningsnerd-backend-00022-nic",
+        "tag": "deepseek",
+        "url": "https://deepseek---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "revisionName": "earningsnerd-backend-00029-kev",
+        "tag": "ds-prod",
+        "url": "https://ds-prod---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "earningsnerd-backend-00371-ckz"
+      }
+    ]
+  }
+}

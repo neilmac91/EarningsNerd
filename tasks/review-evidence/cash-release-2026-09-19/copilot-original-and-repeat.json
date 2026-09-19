@@ -1,0 +1,469 @@
+{
+  "prepared_from": "actual retained original/repeat reports and independently reviewed repeat receipt",
+  "candidate_head": "f9a94ceb6543b1b6d659b530f59a8ef1a7adf396",
+  "declaration_comment": "https://github.com/neilmac91/EarningsNerd/pull/925#issuecomment-5745227119",
+  "reports": [
+    {
+      "label": "original",
+      "actions_run": 35468046429,
+      "source_report_sha256": "b38da9e482a4ff141a44242fe75c613deaed18afcb061580744393ae34c23cf8",
+      "source_report_retained_path": "/private/tmp/earningsnerd-cash-basis-20260919/work/release-evidence-925/copilot/copilot-fidelity-35468046429/copilot-eval.json",
+      "summary": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 18,
+        "errors": 0,
+        "passed": 17
+      },
+      "accepted": false,
+      "failures": [
+        "deterministic trust/accuracy veto"
+      ],
+      "source_sha": "ca3c49849df09014bbc0fc48e0bf6af7579d680c",
+      "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+      "attempts": [
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": false,
+          "gate_failures": [
+            "CITATION: 1 excerpt(s) failed filing-text verification (absent or too short)"
+          ]
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        }
+      ]
+    },
+    {
+      "label": "declared_repeat",
+      "actions_run": 35468810148,
+      "source_report_sha256": "43a558e4d5ccf883645dffa6b4e8358518f40b0a5ac71e9d6bbb3dde961c21ee",
+      "source_report_retained_path": "/private/tmp/earningsnerd-cash-basis-20260919/work/release-evidence-925/repeat/copilot-fidelity-35468810148/copilot-eval.json",
+      "summary": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 18,
+        "errors": 0,
+        "passed": 18
+      },
+      "accepted": true,
+      "failures": [],
+      "source_sha": "ca3c49849df09014bbc0fc48e0bf6af7579d680c",
+      "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+      "attempts": [
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "AAPL",
+            "0000320193-25-000079",
+            "sales-gross-profit-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "TSLA",
+            "0001628280-25-003063",
+            "sales-operating-income-2024",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "MSFT",
+            "0000950170-25-100235",
+            "sales-diluted-eps-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0001193125-26-231755",
+            "native-revenue-2026",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "BABA",
+            "0000950170-25-090161",
+            "viewed-native-revenue-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            0
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            1
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        },
+        {
+          "identity": [
+            "ASML",
+            "0001628280-26-011378",
+            "us-gaap-sales-net-income-2025",
+            2
+          ],
+          "terminal_complete": true,
+          "passed": true,
+          "gate_failures": []
+        }
+      ]
+    }
+  ],
+  "same_initial_inputs": true,
+  "same_schema_and_options": true,
+  "semantic_tool_paths_changed": 2,
+  "source_file_checks": {
+    "count": 24,
+    "receipt_assertion": "24 retained source files identical between both reports; detailed comparison retained in original repeat receipt"
+  },
+  "source_tree_equals_head": true,
+  "source_tree": "beb4dbba4b5199c855c303b7ee17143e91ff4e07",
+  "fresh_codex_review": {
+    "completed_at": "2026-09-19T20:57:33.875960Z",
+    "short_sha": "f9a94ce",
+    "trigger": "Draft marked ready",
+    "comment": "https://github.com/neilmac91/EarningsNerd/pull/925#issuecomment-5745135291",
+    "inline_findings": 0,
+    "gate_passed_earlier_than_fresh_review": true,
+    "fresh_summary_independently_inspected": true
+  },
+  "limits": [
+    "Both full reports retained; repeat does not replace original failure.",
+    "35/36 is descriptive repeated-question output, not 36 independent issuers.",
+    "No citation fix, causal improvement, historical regeneration or post-deploy summary measurement is inferred."
+  ],
+  "original_repeat_receipt_sha256": "b45739a65ec1ae835c533ff98670eebffe5485a4d8c3b8369a269d1f65564d69"
+}

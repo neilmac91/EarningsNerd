@@ -1,0 +1,10 @@
+Pager usage is off.
+Output format is csv.
+BEGIN
+SET
+SET
+SET
+SET
+observed_at_utc,database_name,max_connections,transaction_read_only,lock_timeout,statement_timeout,idle_in_transaction_session_timeout
+2026-09-19 18:53:24.627263+00,earningsnerd,25,on,2s,15s,30s
+Latest and last successful attempt, preserving missing expected jobs.

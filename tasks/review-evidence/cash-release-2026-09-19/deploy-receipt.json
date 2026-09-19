@@ -1,0 +1,50 @@
+{
+  "pr": 925,
+  "merge_sha": "b8e11f368cdb237da4b76000de48c1a8b1dfa688",
+  "main_ci_run": 35469461947,
+  "ci_conclusion": "success",
+  "deploy_job_id": 105968237391,
+  "deploy_started_at": "2026-09-19T21:11:56Z",
+  "deploy_completed_at": "2026-09-19T21:15:15Z",
+  "deploy_conclusion": "success",
+  "migration_line": "deploy-backend\tApply database migrations\t2026-09-19T21:13:44.4527339Z apply_migrations: applied=0 skipped=39",
+  "applied": 0,
+  "skipped": 39,
+  "revision": "earningsnerd-backend-00369-42k",
+  "traffic_percent": 100,
+  "ready": true,
+  "independent_health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.45
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1789852577.1051507
+  },
+  "independent_health_utc": "2026-09-19T21:16:17.105151+00:00",
+  "health_observed_after_job_completion": true,
+  "configuration_read_scope": "Cloud Run status.latestCreatedRevisionName/latestReadyRevisionName/traffic/conditions only",
+  "premerge_evidence": {
+    "baseline": "70/70 scored, zero errors; scoped Sea cash basis/FCF verified",
+    "copilot_first": "17/18 with one genuine ASML stitched-citation failure",
+    "copilot_predeclared_repeat": "18/18, zero trust/accuracy vetoes; does not demonstrate a causal fix",
+    "fresh_review_completed_at": "2026-09-19T20:57:33.875960Z"
+  },
+  "actions": "Read-only CI/log/status/health inspection. No model calls, settings changes, reruns, merge or historical regeneration by this audit."
+}

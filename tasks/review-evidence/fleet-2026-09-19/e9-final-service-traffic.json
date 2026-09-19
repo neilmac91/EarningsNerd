@@ -1,0 +1,21 @@
+{
+  "status": {
+    "traffic": [
+      {
+        "revisionName": "earningsnerd-backend-00022-nic",
+        "tag": "deepseek",
+        "url": "https://deepseek---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "revisionName": "earningsnerd-backend-00029-kev",
+        "tag": "ds-prod",
+        "url": "https://ds-prod---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "earningsnerd-backend-00368-8jt"
+      }
+    ]
+  }
+}

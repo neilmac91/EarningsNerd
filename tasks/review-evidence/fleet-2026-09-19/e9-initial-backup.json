@@ -1,0 +1,8 @@
+{
+  "description": "Initial backup after founder-approved automated backups and PITR enablement, 2026-09-19",
+  "endTime": "2026-09-19T19:18:10.104Z",
+  "id": "1789845398872",
+  "startTime": "2026-09-19T19:16:38.882Z",
+  "status": "SUCCESSFUL",
+  "type": "ON_DEMAND"
+}

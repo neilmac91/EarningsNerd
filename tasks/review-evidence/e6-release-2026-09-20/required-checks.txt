@@ -1,0 +1,6 @@
+backend-tests	pass	3m38s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474065022/job/105980127976
+e2e-tests	pass	1m53s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474065022/job/105980127955
+frontend-tests	pass	2m25s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474065022/job/105980127821
+lighthouse	pass	2m8s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474065022/job/105980127968
+migrations-postgres	pass	1m44s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474065022/job/105980127925
+review-gate	pass	3m4s	https://github.com/neilmac91/EarningsNerd/actions/runs/35474075589/job/105980156207

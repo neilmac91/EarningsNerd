@@ -1,0 +1,23 @@
+{
+  "reviewed_head": "fb5b61ca46c26b37f41c33a96feb7785af79ba98",
+  "summary_url": "https://github.com/neilmac91/EarningsNerd/pull/928#issuecomment-5745861588",
+  "summary_updated_at": "2026-09-19T22:44:59Z",
+  "completed_at": "2026-09-19T22:44:58.763670Z",
+  "reaction": {
+    "actor": "chatgpt-codex-connector[bot]",
+    "content": "+1",
+    "created_at": "2026-09-19T22:45:01Z"
+  },
+  "inline_findings": 0,
+  "review_objects": 0,
+  "review_check_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35474075589/job/105980156207",
+  "disposition": "Remote Codex review complete with no findings; release remains subject to separate CI and artifact audits.",
+  "receipt_sha256": {
+    "checks.json": "dda0b063f1130129ff1a70242a57b3d66fa0e5a01d78e5fc06abf85cc100bba7",
+    "comments.json": "9407e9a57287837d767fe8fc0615f7ab97b21bc0454ce659bcb7a6d563cfa547",
+    "inline-comments.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "pull.json": "770c17723e8e38fe2022b648725f051977613114a29280333cd87214631e9f39",
+    "reactions.json": "b6906739e0cab623ef00b52c36a78088dcd4d09a324452f18e113ae44bbfc19f",
+    "reviews.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

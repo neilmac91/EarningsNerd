@@ -1,0 +1,22 @@
+{
+  "backend/evals/judge_report.py": {
+    "frozen_sha256": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+    "panel_sha256": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+    "equal": true
+  },
+  "backend/evals/judge.py": {
+    "frozen_sha256": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "panel_sha256": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "equal": true
+  },
+  "backend/evals/runner.py": {
+    "frozen_sha256": "63b010b7968c3f4bdbcfd62114af82dcfcd8c5eb56e892b0c0da77f4943c0029",
+    "panel_sha256": "63b010b7968c3f4bdbcfd62114af82dcfcd8c5eb56e892b0c0da77f4943c0029",
+    "equal": true
+  },
+  "backend/evals/weekly_readout.py": {
+    "frozen_sha256": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+    "panel_sha256": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+    "equal": true
+  }
+}

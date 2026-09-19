@@ -1,0 +1,752 @@
+{
+  "target_rows": [
+    {
+      "identity": [
+        "PGR",
+        "10-K",
+        0
+      ],
+      "depth": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0000080661-26-000086",
+        "evidence": "Our focus on achieving our underwriting profitability goal takes precedence over growth."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": []
+    },
+    {
+      "identity": [
+        "PGR",
+        "10-K",
+        1
+      ],
+      "depth": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0000080661-26-000086",
+        "evidence": "Our focus on achieving our underwriting profitability goal takes precedence over growth."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": []
+    },
+    {
+      "identity": [
+        "PGR",
+        "10-K",
+        2
+      ],
+      "depth": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.6667,
+        [
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0000080661-26-000086",
+        "evidence": "Our focus on achieving our underwriting profitability goal takes precedence over growth."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": []
+    },
+    {
+      "identity": [
+        "GPRO",
+        "10-K",
+        0
+      ],
+      "depth": [
+        1.0,
+        []
+      ],
+      "general_depth_comparator": [
+        1.0,
+        []
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "general",
+      "profile_source": {},
+      "profile_quote_present": null,
+      "delta_pairs": [
+        {
+          "metric": "Total revenue",
+          "table_pct": 18.7,
+          "prose_matches": [
+            {
+              "text": "Total revenue declined 18.7%",
+              "pct": 18.7
+            }
+          ]
+        },
+        {
+          "metric": "Hardware revenue",
+          "table_pct": 21.5,
+          "prose_matches": [
+            {
+              "text": "hardware revenue down 21.5%",
+              "pct": 21.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identity": [
+        "GPRO",
+        "10-K",
+        1
+      ],
+      "depth": [
+        1.0,
+        []
+      ],
+      "general_depth_comparator": [
+        1.0,
+        []
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "general",
+      "profile_source": {},
+      "profile_quote_present": null,
+      "delta_pairs": [
+        {
+          "metric": "Total revenue",
+          "table_pct": 18.7,
+          "prose_matches": [
+            {
+              "text": "Total revenue declined 18.7%",
+              "pct": 18.7
+            }
+          ]
+        },
+        {
+          "metric": "Hardware revenue",
+          "table_pct": 21.5,
+          "prose_matches": [
+            {
+              "text": "hardware revenue down 21.5%",
+              "pct": 21.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identity": [
+        "GPRO",
+        "10-K",
+        2
+      ],
+      "depth": [
+        1.0,
+        []
+      ],
+      "general_depth_comparator": [
+        1.0,
+        []
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "general",
+      "profile_source": {},
+      "profile_quote_present": null,
+      "delta_pairs": [
+        {
+          "metric": "Total revenue",
+          "table_pct": 18.7,
+          "prose_matches": [
+            {
+              "text": "Total revenue declined 18.7%",
+              "pct": 18.7
+            }
+          ]
+        },
+        {
+          "metric": "Hardware revenue",
+          "table_pct": 21.5,
+          "prose_matches": [
+            {
+              "text": "hardware revenue down 21.5%",
+              "pct": 21.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identity": [
+        "BRK.B",
+        "10-K",
+        0
+      ],
+      "depth": [
+        0.6667,
+        [
+          "balance_sheet"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0001193125-26-083899",
+        "evidence": "Float was approximately $176 billion at December 31, 2025, $171 billion at December 31, 2024 and $169 billion at December 31, 2023."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": [
+        {
+          "metric": "Net earnings attributable to Berkshire shareholders",
+          "table_pct": 24.8,
+          "prose_matches": [
+            {
+              "text": "Net earnings attributable to Berkshire shareholders declined 24.8%",
+              "pct": 24.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identity": [
+        "BRK.B",
+        "10-K",
+        1
+      ],
+      "depth": [
+        1.0,
+        []
+      ],
+      "general_depth_comparator": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0001193125-26-083899",
+        "evidence": "Float was approximately $176 billion at December 31, 2025, $171 billion at December 31, 2024 and $169 billion at December 31, 2023."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": [
+        {
+          "metric": "Net earnings attributable to Berkshire shareholders",
+          "table_pct": 24.8,
+          "prose_matches": [
+            {
+              "text": "net earnings attributable to Berkshire shareholders fell 24.8%",
+              "pct": 24.8
+            },
+            {
+              "text": "Net earnings attributable to Berkshire shareholders declined 24.8%",
+              "pct": 24.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identity": [
+        "BRK.B",
+        "10-K",
+        2
+      ],
+      "depth": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "delta": [
+        1.0,
+        []
+      ],
+      "profile": "insurer",
+      "profile_source": {
+        "accession_number": "0001193125-26-083899",
+        "evidence": "Float was approximately $176 billion at December 31, 2025, $171 billion at December 31, 2024 and $169 billion at December 31, 2023."
+      },
+      "profile_quote_present": true,
+      "delta_pairs": []
+    },
+    {
+      "identity": [
+        "BABA",
+        "20-F",
+        2
+      ],
+      "depth": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "general_depth_comparator": [
+        0.3333,
+        [
+          "balance_sheet",
+          "margins"
+        ]
+      ],
+      "delta": [
+        0.75,
+        [
+          "Adjusted EBITA: prose ~44% vs table 56%"
+        ]
+      ],
+      "profile": "general",
+      "profile_source": {},
+      "profile_quote_present": null,
+      "delta_pairs": [
+        {
+          "metric": "Revenue",
+          "table_pct": 3.0,
+          "prose_matches": [
+            {
+              "text": "revenue rose 3%",
+              "pct": 3.0
+            },
+            {
+              "text": "Revenue increased 3%",
+              "pct": 3.0
+            },
+            {
+              "text": "revenue grew 11%",
+              "pct": 11.0
+            },
+            {
+              "text": "revenue grew 34%",
+              "pct": 34.0
+            }
+          ]
+        },
+        {
+          "metric": "Income from operations",
+          "table_pct": 64.0,
+          "prose_matches": [
+            {
+              "text": "income from operations dropped 64%",
+              "pct": 64.0
+            },
+            {
+              "text": "Income from operations decreased 64%",
+              "pct": 64.0
+            },
+            {
+              "text": "income from operations fell 64%",
+              "pct": 64.0
+            }
+          ]
+        },
+        {
+          "metric": "Net income",
+          "table_pct": 19.0,
+          "prose_matches": [
+            {
+              "text": "net income fell 19%",
+              "pct": 19.0
+            },
+            {
+              "text": "Net income decreased 19%",
+              "pct": 19.0
+            }
+          ]
+        },
+        {
+          "metric": "Adjusted EBITA",
+          "table_pct": 56.0,
+          "prose_matches": [
+            {
+              "text": "adjusted EBITA fell 44%",
+              "pct": 44.0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "low_citation": [
+    {
+      "identity": [
+        "PLD",
+        "10-K",
+        0
+      ],
+      "value": 0.4286,
+      "checked": 7,
+      "violations": [
+        "P&L takeaway [Total revenues] evidence not verbatim (no counterpart, score 73.7): \"Rental revenues increased 8.6% to $8.16B, primarily due to significant rent change due to \"",
+        "P&L takeaway [Operating income] evidence not verbatim (no counterpart, score 61.4): \"Operating income before gains on real estate transactions, net increased to $3.41B from $3\"",
+        "P&L takeaway [Net earnings attributable to controlling interests] evidence not verbatim (no counterpart, score 59.8): \"Net earnings attributable to controlling interests decreased to $3.33B from $3.73B, primar\"",
+        "P&L takeaway [Diluted EPS] evidence not verbatim (no counterpart, score 81.8): \"Net earnings per share attributable to common stockholders \u2013 Diluted decreased to $3.56 fr\""
+      ]
+    },
+    {
+      "identity": [
+        "AMZN",
+        "10-K",
+        1
+      ],
+      "value": 0.8333,
+      "checked": 6,
+      "violations": [
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.2): \"The net gain of $15.2 billion in 2025 is primarily from an upward adjustment for observabl\""
+      ]
+    },
+    {
+      "identity": [
+        "ASML",
+        "20-F",
+        0
+      ],
+      "value": 0.75,
+      "checked": 8,
+      "violations": [
+        "footnote [Equity method investment in Carl Zeiss S] evidence not verbatim (near-miss, score 98.9): \"For the year ended December 31, 2025, we recorded a profit from Equity method investments \"",
+        "footnote [Share repurchases and dividend] evidence not verbatim (near-miss, score 98.5): \"In 2025, we repurchased 8,323,320 shares (2024: 574,925 shares) for a total consideration \""
+      ]
+    },
+    {
+      "identity": [
+        "ASML",
+        "20-F",
+        1
+      ],
+      "value": 0.6364,
+      "checked": 11,
+      "violations": [
+        "P&L takeaway [Net system sales] evidence not verbatim (near-miss, score 99.4): \"The increase in system sales was primarily driven by higher EUV and DUV immersion system s\"",
+        "footnote [Equity method investment in Carl Zeiss S] evidence not verbatim (near-miss, score 98.9): \"For the year ended December 31, 2025, we recorded a profit from Equity method investments \"",
+        "footnote [Intangible assets, net] evidence not verbatim (near-miss, score 98.4): \"As of December 31, 2025, the intangible assets not yet available for use, as included in O\"",
+        "footnote [Income taxes \u2014 unrecognized tax benefits] evidence not verbatim (near-miss, score 98.9): \"Consistent with the requirements of ASC 740, as of December 31, 2025, the liability for un\""
+      ]
+    },
+    {
+      "identity": [
+        "TSM",
+        "20-F",
+        0
+      ],
+      "value": 0.8,
+      "checked": 5,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\""
+      ]
+    },
+    {
+      "identity": [
+        "TSM",
+        "20-F",
+        1
+      ],
+      "value": 0.6,
+      "checked": 5,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\"",
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.3): \"Income tax expenses increased by NT$98,214 million in 2025, or 39.6% from 2024. The increa\""
+      ]
+    },
+    {
+      "identity": [
+        "TSM",
+        "20-F",
+        2
+      ],
+      "value": 0.8,
+      "checked": 5,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\""
+      ]
+    },
+    {
+      "identity": [
+        "PDD",
+        "20-F",
+        2
+      ],
+      "value": 0.75,
+      "checked": 8,
+      "violations": [
+        "footnote [Income taxes and effective tax rate] evidence not verbatim (near-miss, score 98.2): \"For the year ended December 31, 2025, income tax expenses amounted to RMB21,430 million (U\"",
+        "footnote [Undistributed earnings and unrecognized ] evidence not verbatim (near-miss, score 99.2): \"As of December 31, 2025, the total amount of temporary differences related to foreign undi\""
+      ]
+    }
+  ],
+  "forward_violations": [
+    {
+      "identity": [
+        "PDD",
+        "6-K",
+        0
+      ],
+      "violations": [
+        "forward quote not verbatim (near-miss, score 98.4): \"We stepped up our ecosystem investments in the second quarter.\""
+      ]
+    }
+  ],
+  "figure_trace_top": [
+    {
+      "identity": [
+        "PDD",
+        "20-F",
+        1
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 19,
+        "figures": [
+          "106938.699999999997m",
+          "108422.899999999994m",
+          "108900.600000000006m",
+          "125917.399999999994m",
+          "131512.899999999994m",
+          "149941.799999999988m",
+          "150575.899999999994m",
+          "15327.700000000001m",
+          "153900.399999999994m",
+          "18005.900000000001m",
+          "188801.799999999988m",
+          "20266.799999999999m",
+          "21532.099999999999m",
+          "21732.799999999999m",
+          "25583.799999999999m",
+          "393836.099999999977m",
+          "431845.700000000012m",
+          "73830.800000000003m",
+          "93102.100000000006m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "F",
+        "10-Q",
+        2
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 10,
+        "figures": [
+          "197m",
+          "2363m",
+          "29.5b",
+          "471m",
+          "49.8b",
+          "51752m",
+          "5550m",
+          "580m",
+          "849m",
+          "89665m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "AAPL",
+        "10-K",
+        2
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 9,
+        "figures": [
+          "10078m",
+          "1306m",
+          "1981m",
+          "3708m",
+          "49303m",
+          "4972m",
+          "5235m",
+          "788m",
+          "9300m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "PFE",
+        "10-Q",
+        0
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 9,
+        "figures": [
+          "191m",
+          "195m",
+          "224m",
+          "295m",
+          "49m",
+          "51m",
+          "554m",
+          "673m",
+          "861m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "TSLA",
+        "10-K",
+        0
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 8,
+        "figures": [
+          "1008m",
+          "12.77b",
+          "419m",
+          "494m",
+          "589m",
+          "68m",
+          "69.53b",
+          "695m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "TSLA",
+        "10-K",
+        1
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 8,
+        "figures": [
+          "12.53b",
+          "12.74b",
+          "12.77b",
+          "12392m",
+          "335m",
+          "362m",
+          "494m",
+          "69.53b"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "COST",
+        "10-Q",
+        2
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 8,
+        "figures": [
+          "106m",
+          "119m",
+          "183m",
+          "232m",
+          "338m",
+          "684m",
+          "818m",
+          "96m"
+        ]
+      }
+    },
+    {
+      "identity": [
+        "PDD",
+        "20-F",
+        2
+      ],
+      "figure_trace": {
+        "status": "measured",
+        "reason": "",
+        "count": 8,
+        "figures": [
+          "108422.899999999994m",
+          "131512.899999999994m",
+          "149941.799999999988m",
+          "153900.399999999994m",
+          "188801.799999999988m",
+          "393836.099999999977m",
+          "431845.700000000012m",
+          "93102.100000000006m"
+        ]
+      }
+    }
+  ]
+}

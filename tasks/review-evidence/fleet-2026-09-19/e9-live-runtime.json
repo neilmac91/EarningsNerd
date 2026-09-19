@@ -1,0 +1,186 @@
+{
+  "observed_utc": "2026-09-19T18:58:48.914264+00:00",
+  "service": {
+    "name": "earningsnerd-backend",
+    "annotations": {},
+    "template_annotations": {
+      "autoscaling.knative.dev/maxScale": "2",
+      "autoscaling.knative.dev/minScale": "1",
+      "run.googleapis.com/cpu-throttling": "false",
+      "run.googleapis.com/startup-cpu-boost": "true"
+    },
+    "concurrency": 40,
+    "timeoutSeconds": 600,
+    "resources": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1Gi"
+      }
+    },
+    "command": null,
+    "args": null,
+    "env": {
+      "AI_DEFAULT_MODEL": "deepseek-flash",
+      "DB_POOL_SIZE": "12",
+      "DB_MAX_OVERFLOW": "8",
+      "AI_EVIDENCE_SNAP": "true",
+      "AI_ATTRIBUTION_GATE": "false",
+      "AI_ATTRIBUTION_VERIFY": "false"
+    },
+    "traffic": [
+      {
+        "revisionName": "earningsnerd-backend-00022-nic",
+        "tag": "deepseek",
+        "url": "https://deepseek---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "revisionName": "earningsnerd-backend-00029-kev",
+        "tag": "ds-prod",
+        "url": "https://ds-prod---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "earningsnerd-backend-00368-8jt"
+      }
+    ]
+  },
+  "jobs": [
+    {
+      "name": "earningsnerd-backfill-facts",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "3600",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-earnings-calendar-refresh",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "1800",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-earnings-day-alerts",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "1800",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-filing-digest",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "1800",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-filing-scan",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "1800",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-notable-filings",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "900",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    },
+    {
+      "name": "earningsnerd-pregenerate",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "3600",
+      "maxRetries": 3,
+      "env": {
+        "AI_DEFAULT_MODEL": "deepseek-flash",
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2",
+        "AI_EVIDENCE_SNAP": "true",
+        "AI_ATTRIBUTION_GATE": "false",
+        "AI_ATTRIBUTION_VERIFY": "false"
+      }
+    },
+    {
+      "name": "earningsnerd-retention-purge",
+      "taskCount": 1,
+      "parallelism": null,
+      "timeoutSeconds": "1800",
+      "maxRetries": 3,
+      "env": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2"
+      }
+    }
+  ],
+  "schedulers": [
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/filing-scan-hourly",
+      "schedule": "0 * * * *",
+      "timeZone": "Etc/UTC",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/earningsnerd-pregenerate-weekly",
+      "schedule": "0 6 * * 1",
+      "timeZone": "Etc/UTC",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/notable-filings-scan",
+      "schedule": "30 8,18 * * *",
+      "timeZone": "America/New_York",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/filing-digest-daily",
+      "schedule": "0 8 * * *",
+      "timeZone": "Etc/UTC",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/retention-purge-weekly",
+      "schedule": "0 3 * * 0",
+      "timeZone": "Etc/UTC",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/earnings-day-alerts-daily",
+      "schedule": "0 6 * * *",
+      "timeZone": "America/New_York",
+      "state": "ENABLED"
+    },
+    {
+      "name": "projects/earnings-nerd/locations/us-west1/jobs/earnings-calendar-refresh-daily",
+      "schedule": "30 5 * * *",
+      "timeZone": "America/New_York",
+      "state": "ENABLED"
+    }
+  ]
+}

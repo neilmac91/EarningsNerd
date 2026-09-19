@@ -1,0 +1,104 @@
+{
+  "merge_sha": "4d9398103f46106bbd720ab505bc14b8d5142b36",
+  "merge_time_utc": "2026-09-19T23:04:40Z",
+  "release_receipts": {
+    "baseline-audit.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/baseline-audit.json",
+      "sha256": "a0c644b65971c2d9d90b720cffb9acef874924a5a72fc0d2e6f1e4121869e459",
+      "bytes": 9973
+    },
+    "copilot-audit.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/copilot-audit.json",
+      "sha256": "825eeccca49a8a95b43883a3df77f187b800036ec8c7ef36816d706f06c10e7d",
+      "bytes": 23876
+    },
+    "readiness.md": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/readiness.md",
+      "sha256": "b0a4c54bacdc5c46924b1feb57cf6d59a4d167b4d37abae18bda00457d1ee2a9",
+      "bytes": 3209
+    },
+    "regression-tail.txt": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/regression-tail.txt",
+      "sha256": "70a41d23c321745d92a80c534317b6085dd42e210743b9ca9110c2396a54bf69",
+      "bytes": 868
+    },
+    "required-checks.txt": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/required-checks.txt",
+      "sha256": "bbdedf2eca4d236a42e426d63c74bbcc3b4646fabfde57e197342558faf788a0",
+      "archive_sha256": "9968b254a8b95e0fe3f4bb10161d8cfd0e64c693d787b043c7b82f6310fa7f5a",
+      "transformation": "Trailing tab whitespace removed; results and links unchanged."
+    },
+    "ci-run.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/ci-run.json",
+      "sha256": "e517d60b261d6fdc4dc699198a42e09dcd89b73532559601d820a195229fa4ff",
+      "bytes": 15292,
+      "retained_outside_git": true
+    },
+    "copilot-run.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/copilot-run.json",
+      "sha256": "0c926ebba2bbfc86240a6907880623a467cd16183d3540e0ae2675a85907863f",
+      "bytes": 2348,
+      "retained_outside_git": true
+    },
+    "source-commit.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/source-commit.json",
+      "sha256": "ea2c2f2b5a3c96fa6a96496fb194d56aeed028f538950ee8bac0ed3d264a2050",
+      "bytes": 71943,
+      "retained_outside_git": true
+    },
+    "baseline-source-hashes.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/baseline-source-hashes.json",
+      "sha256": "1bffb42df936636de218ca3ca150cf08ecc7f4bb932a0ae77c14e8238410534a",
+      "bytes": 42229,
+      "retained_outside_git": true
+    },
+    "baseline/eval_20260919T225122Z.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/baseline/eval_20260919T225122Z.json",
+      "sha256": "a9750d728c310dad4ac3a0871c9bce2c0d5ed516c26c3d8f8954d3a5f7eb1082",
+      "bytes": 20576923,
+      "retained_outside_git": true
+    },
+    "copilot/copilot-eval.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/copilot/copilot-eval.json",
+      "sha256": "0bf56dd0acd801b245bd3a91346ed4a1c72bd9af1a4c9cf1d08012be7a559c38",
+      "bytes": 9963561,
+      "retained_outside_git": true
+    }
+  },
+  "remote_review": "remote-review.json",
+  "remote_review_sha256": "c7f9c3f97b2c2297ac16fdf039b40748491007c066956abb796450824a70720f",
+  "deploy_status": "verified",
+  "deploy_sources": {
+    "deploy-receipt.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/receipt.json",
+      "sha256": "98b3a981e711f2a6dc33df0c72d06e2cdcf138cfc05a1255bf8239e6061617bd"
+    },
+    "deploy-health-detailed.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/health-detailed.json",
+      "sha256": "758c7eb31f7943eed7d0b94fe5587083245dd1e127290b38809217f74cfd2f0c"
+    },
+    "deploy-service-traffic.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/service-traffic.json",
+      "sha256": "ff18e07e96e9d0af84da53c09dca84087797eb815c71cd230727b52756fe33ee"
+    },
+    "migration-tail.txt": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/migration-tail.txt",
+      "sha256": "70d6da4cc48c8d4145fbcfefe9d0aaf1cfe2970c8f9b691c2d7bcf30b01cac93"
+    },
+    "run.json": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/run.json",
+      "sha256": "5c1052ff2ffb9ffa6a6bfe4da661ac23aae2b91b1af0fc250b52957a6038b14c",
+      "retained_outside_git": true
+    },
+    "deploy-job.log": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/deploy-job.log",
+      "sha256": "d2338a9467e1e0f46cc4c0389e83e8ec53b677e1878f09dd0751b4f56d4b8a89",
+      "retained_outside_git": true
+    },
+    "sha256.txt": {
+      "source": "/private/tmp/earningsnerd-scorers-20260919/work/release-evidence-928/deploy/sha256.txt",
+      "sha256": "5d23c528b8ed43efa84ce8d0d027ba342d88db32eeecb0488ec3e3af2c0b4877",
+      "retained_outside_git": true
+    }
+  }
+}

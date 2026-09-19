@@ -1,0 +1,15 @@
+{
+  "candidate_head": "9ebce0b6261a9d92639559d1cccc38a2cdda248b",
+  "merge_sha": "299cb1bfdc5392ff6ab8d04a7d999f23eb029183",
+  "merged_at": "2026-09-19T22:07:24Z",
+  "final_review_gate_run": 35472363064,
+  "final_review_gate_conclusion": "success",
+  "review_summary_completed_at": "2026-09-19T21:54:08.312584Z",
+  "explicit_request_comment": 5745555204,
+  "signals": "Current-head completed summary and PR bot thumbs-up; explicit request eyes acknowledgement retained. Only original P2 comments authored before correction.",
+  "required_checks": "backend-tests\tpass\t3m32s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471622833/job/105973482260\t\ne2e-tests\tpass\t1m55s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471622833/job/105973482173\t\nfrontend-tests\tpass\t1m55s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471622833/job/105973482102\t\nlighthouse\tpass\t2m27s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471622833/job/105973482143\t\nmigrations-postgres\tpass\t1m16s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471622833/job/105973482170\t\nreview-gate\tpass\t3m4s\thttps://github.com/neilmac91/EarningsNerd/actions/runs/35471637914/job/105973524611\t\n",
+  "locked_files_unchanged": 11,
+  "full_gate_exit": 0,
+  "disposition": "Scoped engineering release. Model false comparison remains open; E7 semantic acceptance and universe-wide generation remain held. No assertion that this exact bad sentence was previously observed.",
+  "final_pr_body_sha256": "371a54c6e918cf7bd75aaad78b27ee920d469757db99be210781fd678b5b328f"
+}

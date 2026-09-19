@@ -1,0 +1,19 @@
+{
+  "workflow": 35474676905,
+  "timestamp_utc": "2026-09-19T22:55:26.2256227Z",
+  "actual_log_line": "balance\tRead available provider balance\t2026-09-19T22:55:26.2256227Z {\"is_available\": true, \"balance_infos\": [{\"currency\": \"USD\", \"total_balance\": \"73.86\", \"granted_balance\": \"0.00\", \"topped_up_balance\": \"73.86\"}]}",
+  "payload": {
+    "is_available": true,
+    "balance_infos": [
+      {
+        "currency": "USD",
+        "total_balance": "73.86",
+        "granted_balance": "0.00",
+        "topped_up_balance": "73.86"
+      }
+    ]
+  },
+  "source_log": "/private/tmp/earningsnerd-scorers-20260919/work/balance-after-e6.log",
+  "source_log_sha256": "49b28952236f8c4c87caa803a087497d007f211535d6026e2b7c94e685beb6a7",
+  "scope": "Observed provider balance, not per-run billed-cost attribution."
+}

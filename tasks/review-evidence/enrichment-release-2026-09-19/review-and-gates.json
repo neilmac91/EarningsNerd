@@ -1,0 +1,47 @@
+{
+  "candidate_head": "dcadf94243e5cff906321b2c4fc0f1bcab65dadd",
+  "artifact_source_sha": "a54331f3e9bbe596875f283658ec9eecf8bd758c",
+  "source_parents": [
+    "b8e11f368cdb237da4b76000de48c1a8b1dfa688",
+    "dcadf94243e5cff906321b2c4fc0f1bcab65dadd"
+  ],
+  "comparison_files": [],
+  "remote_review": {
+    "comment_url": "https://github.com/neilmac91/EarningsNerd/pull/926#issuecomment-5745335123",
+    "completed_at": "2026-09-19T21:14:47.971019Z",
+    "short_head": "dcadf94",
+    "inline_findings_count": 0
+  },
+  "logs": {
+    "enrichment-release-full-gate-unsandboxed.log": {
+      "sha256": "4343a70ef0633ead5ee2871e90d1b43a78b4753bac0860f83fbae4e8450cfb20",
+      "selected_actual_lines": [
+        "head dcadf94243e5cff906321b2c4fc0f1bcab65dadd Python 3.12.2 2026-09-19T21:09:10Z",
+        "PostgreSQL 15.15 (Homebrew)",
+        "RUFF_OK",
+        "BANDIT_OK",
+        "3402 passed, 78 warnings in 126.84s (0:02:06)",
+        "gate finished 2026-09-19T21:11:22Z"
+      ]
+    },
+    "mutation-timeout.log": {
+      "sha256": "5b74d43841507980243050d459d73b3e946cfc69b7e58ea417bd9a2d7ea92003",
+      "selected_actual_lines": [
+        "2 failed, 1 passed, 1 deselected, 9 warnings in 5.80s"
+      ]
+    },
+    "mutation-write.log": {
+      "sha256": "4688f25bda7778bc9d1f73c170651e1ae4e37ce094f0bb0962abb6777dd09df8",
+      "selected_actual_lines": [
+        "1 failed, 3 deselected, 9 warnings in 5.61s"
+      ]
+    },
+    "restored.log": {
+      "sha256": "3f3f1ee441461fdd1285711771567cb5b579e71a3b10dd2680f297d6d46dd470",
+      "selected_actual_lines": [
+        "4 passed, 9 warnings in 5.68s"
+      ]
+    }
+  },
+  "scope": "Actual retained full-gate and mutation receipts; no tests run during archival. Baseline/Copilot are downstream regression checks, not live injections of changed orchestrator failure paths."
+}
