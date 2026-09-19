@@ -1,0 +1,17 @@
+{
+  "readability_patch_whitespace_only": true,
+  "readability_changed_lines": 61,
+  "verbatim_quote_lines_preserved": 126,
+  "protected_spans_preserved": 332,
+  "review_status_separate_authorized_change": "independent and parent review complete",
+  "json_sha256_unchanged": "f928ea750ce3550dca216c80b45316411fd6d9b3893742779ef80742627eeee9",
+  "prior_archive_sha256": "eb184df24813e5b4fc232bf7f13c0bddb1f2dfcac67a5bfc4aef7d7d4490875a",
+  "readability_only_sha256": "da57c3578e3c664b02ec29cc7e413df67e207cd351b60a174f4692575b55a041",
+  "final_archive_sha256": "90c63b540cb35e15f4ed183eacd09d19e0ddd50f8f0de73378c61634935a2017",
+  "assessment_counts_unchanged": {
+    "attempts_unsupported": 15,
+    "attempts_unresolved": 20,
+    "reasons_unsupported": 17,
+    "reasons_unresolved": 35
+  }
+}

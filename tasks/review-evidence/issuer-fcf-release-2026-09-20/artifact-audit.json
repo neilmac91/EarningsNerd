@@ -1,0 +1,147 @@
+{
+  "head": "9ebce0b6261a9d92639559d1cccc38a2cdda248b",
+  "source_sha": "da269a17bf69ba85181e1181c710659f4fb8b450",
+  "source_tree": "c3a76edb5af299c78d2744aaefd0dfb02bb027fc",
+  "source_tree_equals_head": true,
+  "baseline_run": 35471622833,
+  "copilot_run": 35471637874,
+  "baseline_report_sha256": "639ca00ba49c1f12ed1b9ba474769030b1c6c8da8950deaa6bb111b03a687b55",
+  "copilot_report_sha256": "4462fad0c32e3c48f663a72fabbe93d251902a46f63c1ae59154e2350b6a5598",
+  "baseline_summary": {
+    "mean_untraceable_dollar_figures": 2.1857,
+    "figure_trace_measured": 70,
+    "figure_trace_unavailable": 0,
+    "figure_trace_errors": 0,
+    "n": 70,
+    "scored": 70,
+    "errors": 0,
+    "retried": 0,
+    "mean_aggregate": 1.0,
+    "aggregate_stdev": 0.0,
+    "pass_rate": 1.0,
+    "gate_fail_rate": 0.0,
+    "schema_valid_rate": 1.0,
+    "repaired_rate": 0.0,
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.7905,
+    "mean_specificity": 0.997,
+    "mean_currency_consistency": 1.0,
+    "mean_redundancy": 0.9317,
+    "mean_delta_consistency": 0.8617,
+    "mean_forward_quote_fidelity": 1.0,
+    "mean_citation_fidelity": 0.9671,
+    "mean_citation_checked": 7.4571,
+    "judge_pass_rate": null,
+    "total_cost_usd": 0.0,
+    "incurred_usage_attempts": 70,
+    "incurred_provider_usage": {
+      "calls": 70,
+      "unknown_calls": 0,
+      "operations": {
+        "summary_primary": 70
+      },
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "prompt_tokens": 2755780,
+      "completion_tokens": 278937,
+      "cache_hit_tokens": 2741752,
+      "cache_miss_tokens": 14028,
+      "reasoning_tokens": null
+    },
+    "usage_attempts": 70,
+    "mean_completion_tokens": 3984.8,
+    "mean_prompt_tokens": 39368.3,
+    "total_completion_tokens": 278937,
+    "total_prompt_tokens": 2755780,
+    "total_cache_hit_tokens": 2741752,
+    "total_cache_miss_tokens": 14028,
+    "provider_calls": 70,
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "mean_latency_seconds": 13.111
+  },
+  "copilot_summary": {
+    "expected": 18,
+    "completed": 18,
+    "scored": 18,
+    "errors": 0,
+    "passed": 18,
+    "pass_rate": 1.0
+  },
+  "baseline_exact_expected_identities": 70,
+  "copilot_exact_expected_identities": 18,
+  "copilot_source_files_verified": 24,
+  "golden_hashes_verified": true,
+  "baseline_config_unchanged_except_source_sha": true,
+  "unchanged_xbrl_and_excerpt_pairs": 70,
+  "amzn_draws": [
+    {
+      "run": 0,
+      "issuer_disclosure_identical_to_original_source_owned_object": true,
+      "source_definition_limitations_currency_verbatim": true,
+      "final_issuer_label_count": 1,
+      "conventional_fcf": 7695000000,
+      "issuer_fcf_2025_millions": 11194,
+      "compat_ordinary_and_cash_prose_preserved": true,
+      "compat_issuer_internal_prose_absent": true,
+      "retained_preview_count": 13,
+      "previews_truncated": false,
+      "issuer_absent_from_retained_previews": true
+    },
+    {
+      "run": 1,
+      "issuer_disclosure_identical_to_original_source_owned_object": true,
+      "source_definition_limitations_currency_verbatim": true,
+      "final_issuer_label_count": 1,
+      "conventional_fcf": 7695000000,
+      "issuer_fcf_2025_millions": 11194,
+      "compat_ordinary_and_cash_prose_preserved": true,
+      "compat_issuer_internal_prose_absent": true,
+      "retained_preview_count": 9,
+      "previews_truncated": false,
+      "issuer_absent_from_retained_previews": true
+    }
+  ],
+  "non_amzn_false_binding_count": 0,
+  "non_amzn_rows_checked": 68,
+  "scope": "Deterministic gate and bounded issuer-disclosure output audit only; no broad semantic acceptance or causal model-effect claim.",
+  "semantic_observation": {
+    "identity": [
+      "baseline",
+      "AMZN",
+      "10-K",
+      0
+    ],
+    "field": "earnings_quality.red_flags[1]",
+    "quote": "Purchases of property and equipment, net of proceeds from sales and incentives, rose to $128.3B in 2025 from $77.7B in 2024, exceeding net cash provided by operating activities of $139.5B and reducing company-defined free cash flow to $11.2B from $38.2B.",
+    "finding": "False greater-than comparison:128.3<139.5. Source rows128320 and139514million confirm positive11194million remainder.",
+    "refutations": [
+      "Both amounts explicitly describe2025 cash flows; no mismatched prior-year comparator makes the inequality true.",
+      "Both issuer netPP&E128.320B and conventional selectedcapex131.819B are less than139.514BOCF; neither definition rescues the claim. Correct code-owned source table does not remove model-authored red flag."
+    ],
+    "introduced_by_change": "Not established; source/configunchanged and modelprose varies.",
+    "visibility": [
+      "final executive_summary",
+      "management_discussion",
+      "raw_sections.earnings_quality.red_flags"
+    ],
+    "other_draw": "Draw1statesdeclinewithoutfalseexceedingclaim."
+  },
+  "review": {
+    "summary_completed_at": "2026-09-19T21:54:08.312584Z",
+    "head": "9ebce0b",
+    "trigger": "Draft marked ready",
+    "pr_bot_reaction": "+1",
+    "explicit_request_comment": 5745555204,
+    "request_reaction": "eyes (retained acknowledgement)",
+    "completion_basis": "Current-head Completed summary plus PR thumbs-up; bot summary states thumbs-up means all reviews finished with no findings. No new review submission or comment after original cdc74bc4 findings."
+  },
+  "required_checks": "6requiredchecksallpass",
+  "readiness": "Engineering scope and formal gates verified; observed model-authored false comparison reported to parent for release disposition. No broad semantic acceptance.",
+  "audit_snapshot_precedes_release_disposition": true,
+  "subsequent_release_disposition": "Parent released #927 as a scoped engineering change; model false comparison remains open, E7 semantic acceptance and universe-wide generation remain held. Actual merge/deployment are separately retained in deploy-receipt.json."
+}

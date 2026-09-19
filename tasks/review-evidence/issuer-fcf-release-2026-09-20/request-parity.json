@@ -1,0 +1,19 @@
+{
+  "base": "1c644e867832831bc8f6874ca7d71b72e35197fc",
+  "head": "9ebce0b6261a9d92639559d1cccc38a2cdda248b",
+  "changed_files": [
+    "backend/app/services/ai/issuer_cash_disclosure.py",
+    "backend/app/services/openai_service.py",
+    "backend/app/services/summary_sections.py",
+    "backend/tests/fixtures/issuer_fcf_disclosure.txt",
+    "backend/tests/unit/test_issuer_cash_disclosure.py",
+    "tasks/todo.md"
+  ],
+  "all_request_and_recovery_call_asts_identical": true,
+  "call_count": 3,
+  "primary_method": "_assemble_structured_summary",
+  "primary_pre_binding_ast_identical": true,
+  "primary_pre_binding_ast_sha256": "49b1bf7cab62666e4b3ad17f5d16b633e4ddc29f8d9542705cb2291dbf81d808",
+  "recovery_and_prompt_files_changed": false,
+  "limitations": "Static request-construction parity plus retained source/config parity, not captured raw provider-request equality or proof of identical provider behavior."
+}

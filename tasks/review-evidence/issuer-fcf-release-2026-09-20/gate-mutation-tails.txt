@@ -1,0 +1,23 @@
+Full final committed gate
+Retained log SHA256 46bd10c009b0b3755acacffb8b785b255e1b5cc6e3d3d5e181b41ca79a748123
+head 9ebce0b6261a9d92639559d1cccc38a2cdda248b Python 3.12.2 2026-09-19T21:47:00Z
+PostgreSQL 15.15 (Homebrew)
+RUFF_OK
+BANDIT_OK
+3426 passed, 78 warnings in 119.76s (0:01:59)
+gate finished 2026-09-19T21:49:05Z
+
+Final targeted
+Retained log SHA256 62758aab7a91324a3b193811851df09981308d82d554fec84a63c075bc55e450
+83 passed, 9 warnings in 11.54s
+
+Arithmetic bypass mutation
+Retained log SHA256 50f5a8345e55eb58765ee6cecd1f65e7af522a1d4c1cb604dc9f91f79f63b3eb
+FAILED tests/unit/test_issuer_cash_disclosure.py::test_only_complete_supplied_issuer_disclosure_reaches_final_surfaces[amount_wrong]
+1 failed, 23 passed, 2 warnings in 5.47s
+
+Restored committed source
+Retained log SHA256 5889e85329db41fb6db3e37b2ae2521cbfadafeea424b51fada8ab71f762b7bd
+24 passed, 2 warnings in 5.13s
+
+History: wrong-cwd targeted launch failed collection before tests; corrected launch passed. The 90ad6989 full gate was intentionally interrupted for the confirmed same-line currency witness, then final corrected committed head was gated. Post-summary closed-stream shutdown logging on the successful final gate did not alter exit 0. All prior logs remain retained task artifacts.

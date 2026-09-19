@@ -1,0 +1,99 @@
+{
+  "head": "cdc74bc44f320d852cbf06f93512365c2bf395eb",
+  "baseline_run": 35470871768,
+  "baseline_report": "work/release-evidence-927/baseline/eval_20260919T214556Z.json",
+  "baseline_sha256": "ac7f61434dbb783121272a715314e739fb7d50efe0b9e667b65dfca953f9c19a",
+  "baseline_summary": {
+    "mean_untraceable_dollar_figures": 2.3143,
+    "figure_trace_measured": 70,
+    "figure_trace_unavailable": 0,
+    "figure_trace_errors": 0,
+    "n": 70,
+    "scored": 70,
+    "errors": 0,
+    "retried": 0,
+    "mean_aggregate": 1.0,
+    "aggregate_stdev": 0.0,
+    "pass_rate": 1.0,
+    "gate_fail_rate": 0.0,
+    "schema_valid_rate": 1.0,
+    "repaired_rate": 0.0,
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.7714,
+    "mean_specificity": 0.9955,
+    "mean_currency_consistency": 0.9998,
+    "mean_redundancy": 0.9288,
+    "mean_delta_consistency": 0.8302,
+    "mean_forward_quote_fidelity": 1.0,
+    "mean_citation_fidelity": 0.9696,
+    "mean_citation_checked": 7.3143,
+    "judge_pass_rate": null,
+    "total_cost_usd": 0.0,
+    "incurred_usage_attempts": 70,
+    "incurred_provider_usage": {
+      "calls": 70,
+      "unknown_calls": 0,
+      "operations": {
+        "summary_primary": 70
+      },
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "prompt_tokens": 2755780,
+      "completion_tokens": 283738,
+      "cache_hit_tokens": 2741752,
+      "cache_miss_tokens": 14028,
+      "reasoning_tokens": null
+    },
+    "usage_attempts": 70,
+    "mean_completion_tokens": 4053.4,
+    "mean_prompt_tokens": 39368.3,
+    "total_completion_tokens": 283738,
+    "total_prompt_tokens": 2755780,
+    "total_cache_hit_tokens": 2741752,
+    "total_cache_miss_tokens": 14028,
+    "provider_calls": 70,
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "mean_latency_seconds": 13.428
+  },
+  "source_sha": "c7662a55746e2c3941428feda41b4fb321064558",
+  "golden_sha256": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b",
+  "exact_expected_identities": 70,
+  "config_matches_prior_cash_except_source_sha": true,
+  "prior_cash_matching_xbrl_groundings": 70,
+  "prior_cash_matching_grounding_excerpts": 70,
+  "amzn": [
+    {
+      "run": 0,
+      "definition_limitations_currency_verbatim_in_source": true,
+      "own_table_reconciles": true,
+      "conventional_fcf": 7695000000,
+      "issuer_fcf_2025_millions": 11194,
+      "retained_preview_count": 11,
+      "previews_truncated": false,
+      "preview_issuer_label_absent": true,
+      "legacy_prose_leak_observed": true,
+      "final_issuer_label_exactly_once": true,
+      "final_conventional_and_issuer_disclosure_separate": true
+    },
+    {
+      "run": 1,
+      "definition_limitations_currency_verbatim_in_source": true,
+      "own_table_reconciles": true,
+      "conventional_fcf": 7695000000,
+      "issuer_fcf_2025_millions": 11194,
+      "retained_preview_count": 11,
+      "previews_truncated": false,
+      "preview_issuer_label_absent": true,
+      "legacy_prose_leak_observed": true,
+      "final_issuer_label_exactly_once": true,
+      "final_conventional_and_issuer_disclosure_separate": true
+    }
+  ],
+  "non_amzn_owned_binding_count": 0,
+  "readiness": "NOT CLEARED: actual legacy-prose leak and cross-block ambiguity independently confirmed; original reports retained, corrected head requires fresh acceptance"
+}

@@ -1,0 +1,46 @@
+{
+  "pr": 927,
+  "candidate_head": "9ebce0b6261a9d92639559d1cccc38a2cdda248b",
+  "merge_sha": "299cb1bfdc5392ff6ab8d04a7d999f23eb029183",
+  "main_ci_run": 35472409240,
+  "ci_conclusion": "success",
+  "deploy_job_id": 105976081986,
+  "deploy_conclusion": "success",
+  "deploy_started_at": "2026-09-19T22:10:42Z",
+  "deploy_completed_at": "2026-09-19T22:13:57Z",
+  "migration_line": "deploy-backend\tApply database migrations\t2026-09-19T22:12:28.8314207Z apply_migrations: applied=0 skipped=39",
+  "applied": 0,
+  "skipped": 39,
+  "revision": "earningsnerd-backend-00371-ckz",
+  "traffic_percent": 100,
+  "ready": true,
+  "independent_health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.98
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1789856088.9458134
+  },
+  "independent_health_utc": "2026-09-19T22:14:48.945813+00:00",
+  "health_observed_after_job_completion": true,
+  "configuration_read_scope": "status.latestCreatedRevisionName/latestReadyRevisionName/traffic/conditions only",
+  "semantic_limit": "AMZN draw0 has retained model-authored false128.3B>139.5B comparison; source-owned issuer table correct; E7 broad acceptance remains open.",
+  "audit_actions": "Read-only existingCI/log/CloudRunstatus/publichealth; no modelcalls/reruns/settingschanges/merge by this audit."
+}

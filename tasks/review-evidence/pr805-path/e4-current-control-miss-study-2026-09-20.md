@@ -1,8 +1,8 @@
 # Current E2 control miss study — 19 September 2026
 
-**Revised20 September2026 after independent audit; final parent review pending.** This extends E4 using newly returned full Fable reasons. It does not replace the earlier #921 study of a different retained corpus with12 misses and missing reasons.
+**Revised 20 September 2026 after independent audit; independent and parent review complete.** This extends E4 using newly returned full Fable reasons. It does not replace the earlier #921 study of a different retained corpus with 12 misses and missing reasons.
 
-All35 selected attempts were read:16 from control1 and19 from control2, containing52 G4 reason strings. Under the conservative assessment below,15 attempts contain at least one independently witnessed unsupported source attribution;20 remain unresolved. The52 original reason strings have17 unsupported and35 unresolved manual assessments. None is classified wholly supported. Multiple allegations can occur in one reason or attempt. These are attempt counts, not clause-level recall or precision.
+All 35 selected attempts were read: 16 from control 1 and 19 from control 2, containing 52 G4 reason strings. Under the conservative assessment below, 15 attempts contain at least one independently witnessed unsupported source attribution; 20 remain unresolved. The 52 original reason strings have 17 unsupported and 35 unresolved manual assessments. None is classified wholly supported. Multiple allegations can occur in one reason or attempt. These are attempt counts, not clause-level recall or precision.
 
 | Corpus | Attempts reviewed | Confirmed attribution mismatch | Unresolved |
 |---|---:|---:|---:|
@@ -11,19 +11,19 @@ All35 selected attempts were read:16 from control1 and19 from control2, containi
 
 “Unsupported” means a witnessed source-ownership/scope mismatch, not proof that the economic relationship is impossible. “Unresolved” means this read does not independently confirm the alleged defect; it does not clear the output or overturn Fable. Within mixed attempts, the JSON records each reason’s assessment.
 
-The independent audit downgraded four manual reason assessments to unresolved: C1-10 reason0(institutional volume drag), C2-10 reason0(ambiguous operating-segment offset), C2-13 reason1(repurchases), and C2-14 reason1(nested transaction-revenue bridge). Only C1-10 changes its attempt-level classification. Original Fable verdicts and reason text are unchanged; this correction changes neither finder replay nor historical #921 evidence. Reason indexes here are zero-based, as in the JSON.
+The independent audit downgraded four manual reason assessments to unresolved: C1-10 reason 0 (institutional volume drag), C2-10 reason 0 (ambiguous operating-segment offset), C2-13 reason 1 (repurchases), and C2-14 reason 1 (nested transaction-revenue bridge). Only C1-10 changes its attempt-level classification. Original Fable verdicts and reason text are unchanged; this correction changes neither finder replay nor historical #921 evidence. Reason indexes here are zero-based, as in the JSON.
 
 ## Evidence and method
 
-The complete returned reports remain in retained task outputs at `claude-judge-results/e2/judged.json` and `claude-judge-results/e2-control2/judged.json`; these are task-artifact paths, not repository files. The [independent E2 audit](e2-fable-audit-2026-09-19.md) and [normalized original verdicts](e2-fable-verdicts-2026-09-19.json) are archived in this repository. Their SHA-256 hashes are respectively `d5c6a293aa7fb79b416f0df5c47bf90f67960601c8946b3180248838dbacb54d` and `15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa`. They retain the same `cli:claude-fable-5-1` contract2 judging evidence reviewed in the existing E2 audit. This study makes no additional CLI invocation attestation.
+The complete returned reports remain in retained task outputs at `claude-judge-results/e2/judged.json` and `claude-judge-results/e2-control2/judged.json`; these are task-artifact paths, not repository files. The [independent E2 audit](e2-fable-audit-2026-09-19.md) and [normalized original verdicts](e2-fable-verdicts-2026-09-19.json) are archived in this repository. Their SHA-256 hashes are respectively `d5c6a293aa7fb79b416f0df5c47bf90f67960601c8946b3180248838dbacb54d` and `15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa`. They retain the same `cli:claude-fable-5-1` contract 2 judging evidence reviewed in the existing E2 audit. This study makes no additional CLI invocation attestation.
 
-The finder was reconstructed from frozen source `73cc31162c3dfe7ec497c8c88c43cf397afce4a7`; file hash `66924c25c4d73bac636e49ab5f0114c0b14ea584c71d93f937348c4545787d42`. Control1’s synthetic source tree was already verified equal to73cc for app/prompts/evals; control2 used73cc. Only stdlib-backed pure finder functions were replayed on the final retained `raw_sections`. No tests or model calls ran.
+The finder was reconstructed from frozen source `73cc31162c3dfe7ec497c8c88c43cf397afce4a7`; file hash `66924c25c4d73bac636e49ab5f0114c0b14ea584c71d93f937348c4545787d42`. Control 1’s synthetic source tree was already verified equal to 73cc for app/prompts/evals; control 2 used 73cc. Only stdlib-backed pure finder functions were replayed on the final retained `raw_sections`. No tests or model calls ran.
 
-The recorded `unverified` list preserves lexical candidates regardless of subsequent verifier verdict. Therefore these35 attempts genuinely have no recorded finder flags; they are not “stated” verdicts being mistaken for missing flags. Final replay also yields zero candidates for every selected attempt. Recorded checked counts agree with final replay for32 non-null audits; two null audits(SE control1,NVO control1) replay zero. MELI control1 records13 checked versus9 final-replayed clauses. Its pre/post-binding difference remains unresolved; no exact audit-stage trace is claimed.
+The recorded `unverified` list preserves lexical candidates regardless of subsequent verifier verdict. Therefore these 35 attempts genuinely have no recorded finder flags; they are not “stated” verdicts being mistaken for missing flags. Final replay also yields zero candidates for every selected attempt. Recorded checked counts agree with final replay for 32 non-null audits; two null audits (SE control 1, NVO control 1) replay zero. MELI control 1 records 13 checked versus 9 final-replayed clauses. Its pre/post-binding difference remains unresolved; no exact audit-stage trace is claimed.
 
-Source checks use the full retained grounding excerpt, with targeted examination of the claimed metric and driver and adjacent context. A negative search is not proof of absence from the entire original filing. The companion JSON contains full judge reasons, exact selected output fields and owner rows, source witnesses with normalized character offsets, original excerpt hashes, and every reconstructed lexical clause. Local scratch includes the full retained35 records and replay script.
+Source checks use the full retained grounding excerpt, with targeted examination of the claimed metric and driver and adjacent context. A negative search is not proof of absence from the entire original filing. The companion JSON contains full judge reasons, exact selected output fields and owner rows, source witnesses with normalized character offsets, original excerpt hashes, and every reconstructed lexical clause. Local scratch includes the full retained 35 records and replay script.
 
-Two refutation passes informed the confirmed findings: first check the actual output field and its metric/segment owner instead of trusting the judge’s compressed quote; then examine the source’s stated owner and possible alternative support. This corrected the witness location for COIN control2 and ASML, and avoided adopting overstrong claims that rising costs cannot coexist with rising margin, or that any adjustment exclusion can never affect a reconciliation.
+Two refutation passes informed the confirmed findings: first check the actual output field and its metric/segment owner instead of trusting the judge’s compressed quote; then examine the source’s stated owner and possible alternative support. This corrected the witness location for COIN control 2 and ASML, and avoided adopting overstrong claims that rising costs cannot coexist with rising margin, or that any adjustment exclusion can never affect a reconciliation.
 
 ## Why no finder flag appeared
 
@@ -38,24 +38,24 @@ Two refutation passes informed the confirmed findings: first check the actual ou
 
 These counts overlap. They identify mechanisms affecting the alleged text, not a count of all causal clauses. An attempt can contain many correctly detected other clauses while its alleged relation is not discovered. “Lexical accept” also includes unresolved accounting bridges; it is not automatically a confirmed false acceptance.
 
-The four omitted-surface attempts are SE control1 risk, TSLA control1 red flag, PDD control2 risk, and COIN control2 risk. The finite grammar omits ordinary “as,” “reflects/reflected,” “in line with,” “driven in part by,” and some forecast or offset constructions. Broad source windows and a one-token subject match can accept a detected driver whose source actually concerns another metric or segment. Because these allegations never became verifier candidates, this study does not diagnose evidence-window ranking inside the model verifier.
+The four omitted-surface attempts are SE control 1 risk, TSLA control 1 red flag, PDD control 2 risk, and COIN control 2 risk. The finite grammar omits ordinary “as,” “reflects/reflected,” “in line with,” “driven in part by,” and some forecast or offset constructions. Broad source windows and a one-token subject match can accept a detected driver whose source actually concerns another metric or segment. Because these allegations never became verifier candidates, this study does not diagnose evidence-window ranking inside the model verifier.
 
 ## Bounded next work — proposals only
 
-1. Design one source-to-candidate fixture around explicit wrong-owner transfers(AAPL Americas→total sales, BABA segment→consolidated EBITA, PLTR cost→margin). Preserve qualifying positive same-owner cases. Investigate whether lexical acceptance can require adequate metric/scope ownership while retaining the verifier’s one-call/candidate cap and unknown behavior. No change is selected here.
+1. Design one source-to-candidate fixture around explicit wrong-owner transfers (AAPL Americas → total sales, BABA segment → consolidated EBITA, PLTR cost → margin). Preserve qualifying positive same-owner cases. Investigate whether lexical acceptance can require adequate metric/scope ownership while retaining the verifier’s one-call/candidate cap and unknown behavior. No change is selected here.
 2. Study scanner coverage for risks/red_flags and finite variants such as “reflects” and “driven in part by.” Measure candidate count/cap displacement on retained data before widening surfaces or activating any deletion. Forecast language needs its own policy boundary.
-3. Study coordinated offset tails and abbreviation boundaries(WMT “U.S.”; COIN institutional suffix). Preserve context and ownership rather than simply treating every tail as an independent cause.
-4. Calibrate the arithmetic/co-movement boundary with human review, particularly EPS/NI, balance-sheet component bridges, NVO adjacency, WMT’s compressed two-year attribution and SE’s “as a result of the foregoing.” These20 unresolved attempts are not validated automatic-deletion targets.
+3. Study coordinated offset tails and abbreviation boundaries (WMT “U.S.”; COIN institutional suffix). Preserve context and ownership rather than simply treating every tail as an independent cause.
+4. Calibrate the arithmetic/co-movement boundary with human review, particularly EPS/NI, balance-sheet component bridges, NVO adjacency, WMT’s compressed two-year attribution and SE’s “as a result of the foregoing.” These 20 unresolved attempts are not validated automatic-deletion targets.
 
-No implementation, flags, live measurement, retrieval fix, or quality/effect claim follows from this study. It cannot estimate clause-level recall, and comparisons with the older12-miss corpus cannot establish causal improvement.
+No implementation, flags, live measurement, retrieval fix, or quality/effect claim follows from this study. It cannot estimate clause-level recall, and comparisons with the older 12-miss corpus cannot establish causal improvement.
 
 ## Per-attempt evidence
 
-Identity includes corpus, ticker/form and zero-based retained run. Full accessions,52 original reasons and detailed lexical matches are in the [machine companion](e4-current-control-miss-study-2026-09-20.json). The excerpts below are shortened for reading; ellipses mark clipping, not contiguous source claims.
+Identity includes corpus, ticker/form and zero-based retained run. Full accessions, 52 original reasons and detailed lexical matches are in the [machine companion](e4-current-control-miss-study-2026-09-20.json). The excerpts below are shortened for reading; ellipses mark clipping, not contiguous source claims.
 
 ### C1-01 — SE 6-K, run 0: unsupported
 
-Finder: recorded checked None; final replay 0; candidates0. Mechanisms: allegation in an unscanned output field.
+Finder: recorded checked None; final replay 0; candidates 0. Mechanisms: allegation in an unscanned output field.
 
 Source owns credit-business growth for Monee revenue/cost, while its credit-loss paragraph reports the change without that driver. The risk summary transfers the explanation to the provision. This confirms unsupported source attribution, not that credit growth cannot affect losses.
 
@@ -68,7 +68,7 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C1-02 — PLD 10-K, run 1: unresolved
 
-Finder: recorded checked 4; final replay 4; candidates0. Mechanisms: detected relation accepted by lexical overlap, relation outside finite connective grammar.
+Finder: recorded checked 4; final replay 4; candidates 0. Mechanisms: detected relation accepted by lexical overlap, relation outside finite connective grammar.
 
 All three allegations are component bridges: earnings/disposal gains/interest, operating income/disposals, and total revenue/rental revenue. The source has the line items and an interest-expense-specific cause; the reproduced matcher also accepts generic unconsolidated-earnings discussion. No exact management attribution for the totals was located. That does not by itself prove the bridges financially false or settle the strict G4 policy boundary.
 
@@ -83,7 +83,7 @@ G4 reasons reviewed: 3. reason 1: unresolved; reason 2: unresolved; reason 3: un
 
 ### C1-03 — NEE 10-Q, run 0: unsupported
 
-Finder: recorded checked 6; final replay 6; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 6; final replay 6; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 The revenue row reuses higher results across FPL/NEER, which the source expressly owns for net income. Its later NEER revenue clause is separately supported and does not validate that opening. Operating-income/expense and EPS/net-income co-movement allegations remain unresolved accounting bridges.
 
@@ -98,7 +98,7 @@ G4 reasons reviewed: 3. reason 1: unresolved; reason 2: unsupported; reason 3: u
 
 ### C1-04 — AAPL 10-K, run 0: unresolved
 
-Finder: recorded checked 10; final replay 10; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 10; final replay 10; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
 The total-sales explanation combines true category/segment movements. Exact source wording found is segment-specific; broad lexical overlap accepts the total-level clause. Unlike the explicit Americas-to-total management attribution in C2-07, this general composition statement remains an unresolved arithmetic/source-attribution boundary.
 
@@ -111,7 +111,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-05 — MSFT 10-K, run 1: unsupported
 
-Finder: recorded checked 7; final replay 7; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 7; final replay 7; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
 The source assigns impairments to investment losses and equity-derivative losses to derivatives, not the primary decrease in total other income/expense. Its Other, net line changes from -1,319 to -4,725 and explicitly concerns equity-method investments including OpenAI. The summary promotes component causes to the aggregate primary driver.
 
@@ -124,9 +124,9 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C1-06 — NVDA 10-Q, run 1: unresolved
 
-Finder: recorded checked 14; final replay 14; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 14; final replay 14; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-Repurchases are real, but the source diluted-share bridge also changes the dilutive equity-award increment from170 to105. The matcher accepts share repurchases as complete lexical support without establishing ownership of the diluted-count movement. A partial economic contribution is plausible; no exact attribution was located.
+Repurchases are real, but the source diluted-share bridge also changes the dilutive equity-award increment from 170 to 105. The matcher accepts share repurchases as complete lexical support without establishing ownership of the diluted-count movement. A partial economic contribution is plausible; no exact attribution was located.
 
 - Output `results_that_matter.table[4].commentary`: “Diluted weighted average shares fell to 24,391M from 24,611M, reflecting share repurchases.”
 
@@ -137,7 +137,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-07 — KO 10-Q, run 1: unresolved
 
-Finder: recorded checked 8; final replay 8; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 8; final replay 8; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 Reflects is not a discovered connective. The NI explanation composes operating/equity/other-income line movements; the prior $331m CCEP gain is documented. No same-line NI attribution was located, but a partial accounting bridge is not disproved merely by omitted items.
 
@@ -150,7 +150,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-08 — TSLA 10-K, run 0: unsupported
 
-Finder: recorded checked 13; final replay 13; candidates0. Mechanisms: allegation in an unscanned output field, relation outside finite connective grammar.
+Finder: recorded checked 13; final replay 13; candidates 0. Mechanisms: allegation in an unscanned output field, relation outside finite connective grammar.
 
 The red flag expressly attributes the NI-versus-OCF divergence to a source explanation for the $176m OCF decrease alone. That changes the explained quantity. The gross-margin/mix and operating-income/opex as-bridges are separately unresolved; they are not discovered.
 
@@ -164,9 +164,9 @@ G4 reasons reviewed: 3. reason 1: unsupported; reason 2: unresolved; reason 3: u
 
 ### C1-09 — PLTR 10-Q, run 1: unsupported
 
-Finder: recorded checked 7; final replay 7; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 7; final replay 7; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-The adjacent source sentences give $39m hosting as the cost-of-revenue increase driver, then state gross margin increased80%→87%. The summary attributes margin expansion to hosting. Token overlap and adjacent subject words accept the wrong measure. Refutation: increasing costs can coexist with expanding margin when sales grow faster; the defect is attribution ownership, not that impossible-arithmetic assertion in the judge reason.
+The adjacent source sentences give $39m hosting as the cost-of-revenue increase driver, then state gross margin increased 80% → 87%. The summary attributes margin expansion to hosting. Token overlap and adjacent subject words accept the wrong measure. Refutation: increasing costs can coexist with expanding margin when sales grow faster; the defect is attribution ownership, not that impossible-arithmetic assertion in the judge reason.
 
 - Output `the_print.what_changed`: “Revenue increased by $749 million, or 85%, for the three months ended March 31, 2026 compared to the same period in 2025. Management attributed the increase to increased adoption of products and services within existing customer organizations, noting that of the government increase, $367 million was from government customers existing as of December 31, 2025, and of the commercial increase, $352 million was from commercial customers existing as of December 31, 2025. Gross margin increased from 80% to 87%, which management attributed primarily to an increase of $39 million in third-party cloud hosting services within cost of revenue.”
 
@@ -176,9 +176,9 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C1-10 — COIN 10-Q, run 0: unresolved
 
-Finder: recorded checked 3; final replay 3; candidates0. Mechanisms: contested tail lies beyond discovered clause, relation outside finite connective grammar.
+Finder: recorded checked 3; final replay 3; candidates 0. Mechanisms: contested tail lies beyond discovered clause, relation outside finite connective grammar.
 
-The source expressly includes the $37.5m institutional spot-volume drag in its total transaction-revenue bridge, alongside the larger institutional derivatives increase. The summary does not say institutional net revenue declined. Omitting that positive offset does not independently prove its stated partial drag is unsupported; reason0 is unresolved. The suffix still lies past the discovered consumer-clause boundary, a coverage observation rather than a confirmed bad cause. The headline total-revenue/volume as-bridge also remains unresolved.
+The source expressly includes the $37.5m institutional spot-volume drag in its total transaction-revenue bridge, alongside the larger institutional derivatives increase. The summary does not say institutional net revenue declined. Omitting that positive offset does not independently prove its stated partial drag is unsupported; reason 0 is unresolved. The suffix still lies past the discovered consumer-clause boundary, a coverage observation rather than a confirmed bad cause. The headline total-revenue/volume as-bridge also remains unresolved.
 
 - Output `the_print.what_changed`: “Total revenue decreased 30.5% YoY to $1.41B from $2.03B, and the company swung to a net loss of $394.1M from net income of $65.6M. Management attributed the transaction revenue decline primarily to a 54% decrease in consumer Trading Volume, offset in part by growth in derivatives trading volume and the launch of prediction markets trading, and to a 48% decrease in institutional Trading Volume. Subscription and services revenue decreased 14% YoY to $583.5M, which management attributed to lower blockchain rewards and lower average interest rates, offset in part by higher average USDC balances.”
 - Output `the_print.headline`: “Coinbase reported a Q1 2026 net loss of $394.1M (-$1.49 diluted EPS) on total revenue of $1.41B, down 30.5% YoY from $2.03B, as trading volume fell 50% to $202B.”
@@ -189,7 +189,7 @@ G4 reasons reviewed: 2. reason 1: unresolved; reason 2: unresolved.
 
 ### C1-11 — COIN 10-Q, run 1: unresolved
 
-Finder: recorded checked 3; final replay 3; candidates0. Mechanisms: detected relation accepted by lexical overlap, relation outside finite connective grammar.
+Finder: recorded checked 3; final replay 3; candidates 0. Mechanisms: detected relation accepted by lexical overlap, relation outside finite connective grammar.
 
 The three allegations compose total opex from technology/development, operating loss from expenses, and revenue from transaction/subscription lines. The lines support directions but not explicit management attribution. Lexical matches elsewhere in the discussion do not validate the totals. No independent proof that these partial accounting bridges are false was found.
 
@@ -204,9 +204,9 @@ G4 reasons reviewed: 3. reason 1: unresolved; reason 2: unresolved; reason 3: un
 
 ### C1-12 — BYND 10-Q, run 0: unresolved
 
-Finder: recorded checked 7; final replay 7; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 7; final replay 7; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-The source separately records the317,834,446-share exchange and weighted-average shares455,272,616 versus76,194,916. Issuance can affect weighted averages; timing and the full weighting bridge were not reconstructed. The lexically accepted causal statement is not independently established as either source-stated or false.
+The source separately records the 317,834,446-share exchange and weighted-average shares 455,272,616 versus 76,194,916. Issuance can affect weighted averages; timing and the full weighting bridge were not reconstructed. The lexically accepted causal statement is not independently established as either source-stated or false.
 
 - Output `results_that_matter.table[4].commentary`: “Weighted average common shares outstanding—basic and diluted increased to 455,272,616 from 76,194,916, reflecting share issuance including 317,834,446 New Shares issued in the Exchange Offer and 5,315,857 shares issued on 2030 Notes conversions.”
 
@@ -217,7 +217,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-13 — BABA 20-F, run 0: unresolved
 
-Finder: recorded checked 4; final replay 4; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 4; final replay 4; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 The as-link places S&M growth next to operating-income decline. The source explicitly explains operating income through adjusted EBITA and goodwill impairment, with offsets; S&M is a component inside operating results. The summary is incomplete as an explanation, but the economic contribution and whether as asserts a source attribution remain unresolved.
 
@@ -230,9 +230,9 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-14 — ASML 20-F, run 1: unsupported
 
-Finder: recorded checked 9; final replay 9; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 9; final replay 9; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-The source causal paragraph owns total net system sales (24,474.3m,+12.4%). The final summary attaches it to the New systems row(23.9bn,+13.1%), alongside a separate Used systems row. The finder sees shared system/sales words and accepts it. This is a scope transfer; it does not prove new-system economics contradict the driver.
+The source causal paragraph owns total net system sales (24,474.3m, +12.4%). The final summary attaches it to the New systems row (23.9bn, +13.1%), alongside a separate Used systems row. The finder sees shared system/sales words and accepts it. This is a scope transfer; it does not prove new-system economics contradict the driver.
 
 - Output `segments[0].commentary`: “The increase in system sales was primarily driven by higher EUV and DUV immersion system sales, partially offset by a decrease in ArF dry, KrF and i-line sales volumes; ASML recognized four EXE and 44 NXE systems in sales in 2025 compared to two EXE and 42 NXE systems in 2024.”
 
@@ -243,9 +243,9 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C1-15 — NVO 20-F, run 0: unresolved
 
-Finder: recorded checked None; final replay 0; candidates0. Mechanisms: judge relies on adjacency/implication.
+Finder: recorded checked None; final replay 0; candidates 0. Mechanisms: judge relies on adjacency/implication.
 
-The summary separately states margin contractions and a filing-attributed US after-rebate price decline. The source expressly supports rebates→US prices. No grammatical assertion in the quoted output expressly makes that the margin driver; Fable itself calls the reading borderline. Adjacency alone is not enough for this study to confirm an unsupported cause.
+The summary separately states margin contractions and a filing-attributed US after-rebate price decline. The source expressly supports rebates → US prices. No grammatical assertion in the quoted output expressly makes that the margin driver; Fable itself calls the reading borderline. Adjacency alone is not enough for this study to confirm an unsupported cause.
 
 - Output `the_print.what_changed`: “Revenue increased 6.4% YoY to DKK 309.1B while operating income declined 0.5% to DKK 127.7B, producing an operating margin contraction of 2.9 percentage points to 41.3%. Gross margin fell 3.7 percentage points to 81.0%. The filing states that average prices after rebates for the Novo Nordisk portfolio in 2025 in the United States declined, and that US payers continue to leverage their size and control to demand higher rebates, particularly in the insulin segment but increasingly in the GLP-1 category.”
 
@@ -255,9 +255,9 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C1-16 — MELI 10-K, run 1: unresolved
 
-Finder: recorded checked 13; final replay 9; candidates0. Mechanisms: relation outside finite connective grammar, recorded versus final replay stage differs.
+Finder: recorded checked 13; final replay 9; candidates 0. Mechanisms: relation outside finite connective grammar, recorded versus final replay stage differs.
 
-Driven in part by is outside the finite connective grammar. Assets and restricted cash both rise in the balance sheet; the source does not supply an explicit total-assets cause in the reviewed context. This partial balance-sheet bridge remains unresolved. Audit checked13 versus final raw replay9 prevents treating the reconstructed stage as an exact audit-stage trace.
+Driven in part by is outside the finite connective grammar. Assets and restricted cash both rise in the balance sheet; the source does not supply an explicit total-assets cause in the reviewed context. This partial balance-sheet bridge remains unresolved. Audit checked 13 versus final raw replay 9 prevents treating the reconstructed stage as an exact audit-stage trace.
 
 - Output `the_print.key_takeaways[3]`: “Total assets grew to $42.7B from $25.2B, driven in part by restricted cash and cash equivalents of $9.9B versus $2.1B.”
 
@@ -268,7 +268,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-01 — SE 6-K, run 1: unresolved
 
-Finder: recorded checked 1; final replay 1; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 1; final replay 1; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 The alleged as-links are not discovered; the sole checked clause concerns non-operating interest income. The release enumerates expenses/tax and says net income rose as a result of the foregoing. This weakens a blanket no-causal-decomposition allegation, but does not precisely attribute the revenue/NI growth gap or operating-income movement to the selected expenses.
 
@@ -282,7 +282,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-02 — PDD 6-K, run 0: unsupported
 
-Finder: recorded checked 5; final replay 5; candidates0. Mechanisms: allegation in an unscanned output field, relation outside finite connective grammar.
+Finder: recorded checked 5; final replay 5; candidates 0. Mechanisms: allegation in an unscanned output field, relation outside finite connective grammar.
 
 The source executive quote states stepped-up ecosystem investment and a long-term development priority. The summary adds that higher S&M is included and may continue pressuring profitability. The separate S&M expense statement does not establish that classification or the forecast. Risks is outside finder surfaces; may continue to pressure is also not a recognized connective.
 
@@ -295,7 +295,7 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C2-03 — PLD 10-K, run 0: unresolved
 
-Finder: recorded checked 1; final replay 1; candidates0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
+Finder: recorded checked 1; final replay 1; candidates 0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
 
 Net earnings/disposal/interest, operating income/disposals, and total revenue/rental are component bridges as in C1-02. Reflects/as are undiscovered; rental-driven revenue is detected and accepted against rental discussion. The source supports component movements, not an exact aggregate management cause in reviewed passages; financial falsity is not established.
 
@@ -310,7 +310,7 @@ G4 reasons reviewed: 2. reason 1: unresolved; reason 2: unresolved.
 
 ### C2-04 — NEE 10-Q, run 0: unsupported
 
-Finder: recorded checked 9; final replay 9; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 9; final replay 9; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 Reflects higher results across segments is applied to operating revenue. The matching source statement expressly explains net income attributable to NEE. A subsequent supported NEER revenue driver does not establish the preceding consolidated revenue claim.
 
@@ -322,7 +322,7 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C2-05 — FIGS 10-Q, run 0: unresolved
 
-Finder: recorded checked 7; final replay 7; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 7; final replay 7; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 The undiscovered as-link compares revenue growth and opex growth to explain operating income. Source gross-profit discussion additionally emphasizes tariff refunds/COGS. Omitting that factor makes the bridge incomplete, but is not enough to prove the partial relation false; exact management attribution is not located.
 
@@ -334,7 +334,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-06 — GPRO 10-K, run 1: unresolved
 
-Finder: recorded checked 3; final replay 3; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 3; final replay 3; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
 R&D and S&M decreased materially and are components of total opex; their own causal descriptions supply lexical words that accept the total-level statement. The omitted goodwill offset matters to completeness. Under strict source-stated-cause policy this is suspect, but a partial arithmetic contribution is not independently disproved.
 
@@ -347,7 +347,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-07 — AAPL 10-K, run 1: unsupported
 
-Finder: recorded checked 9; final replay 9; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 9; final replay 9; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
 An explicit Management attributes claim for total net sales is supported in the output by a quotation about Americas net sales. Both the retained source and output evidence name Americas. Shared sales/iPhone/Services tokens cause a wrong-scope lexical acceptance.
 
@@ -359,7 +359,7 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C2-08 — MSFT 10-K, run 0: unresolved
 
-Finder: recorded checked 15; final replay 15; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 15; final replay 15; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 The headline as-link places Cloud growth alongside revenue, NI and EPS. The source states revenue growth across each segment and Cloud growth, but does not explicitly own all headline results with that driver. The scope of as is ambiguous and Cloud is a material revenue component; this is not independently confirmed as false attribution.
 
@@ -372,7 +372,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-09 — KO 10-Q, run 0: unresolved
 
-Finder: recorded checked 8; final replay 8; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 8; final replay 8; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 Same undiscovered reflects NI/component bridge as C1-07. Source confirms the other-income prior CCEP gain and equity/operating changes, without an exact aggregate NI attribution in reviewed context. Omitted income-statement lines do not alone establish false partial causality.
 
@@ -385,9 +385,9 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-10 — BRK.B 10-K, run 1: unsupported
 
-Finder: recorded checked 4; final replay 4; candidates0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
+Finder: recorded checked 4; final replay 4; candidates 0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
 
-The first allegation is unresolved: operating earnings excluding investment gains/impairment decrease in aggregate, but higher operating segment earnings can refer to the BNSF/BHE/MSR segments expressly named immediately afterward, each of which genuinely rises. The output does not unambiguously claim that aggregate operating earnings rose. The source can include market/FX gains is generic, not a specific2025 decline cause, but the finder accepts it. Consolidated199.5bn sales/services and the214.3bn MSR schedule have different scope, so the component-driver transfer is not validated. Reflected/offset/with relations are not independently discovered.
+The first allegation is unresolved: operating earnings excluding investment gains/impairment decrease in aggregate, but higher operating segment earnings can refer to the BNSF/BHE/MSR segments expressly named immediately afterward, each of which genuinely rises. The output does not unambiguously claim that aggregate operating earnings rose. The source can include market/FX gains is generic, not a specific 2025 decline cause, but the finder accepts it. Consolidated 199.5bn sales/services and the 214.3bn MSR schedule have different scope, so the component-driver transfer is not validated. Reflected/offset/with relations are not independently discovered.
 
 - Output `the_print.what_changed`: “Total revenues were essentially unchanged at $371.4B versus $371.4B in 2024, while net earnings attributable to Berkshire shareholders declined 24.8% to $67.0B from $89.0B. The decline reflected lower investment gains and an $8.3B after-tax other-than-temporary impairment on Kraft Heinz and Occidental, partially offset by higher operating segment earnings. Insurance underwriting after-tax earnings fell to $7.3B from $9.0B, BNSF rose to $5.5B from $5.0B, BHE rose to $4.0B from $3.7B, and manufacturing, service and retailing rose to $13.6B from $13.1B.”
 - Output `results_that_matter.table[7].commentary`: “Investment gains declined versus 2024, reflecting changes in market prices of equity securities and foreign currency exchange rates.”
@@ -402,7 +402,7 @@ G4 reasons reviewed: 3. reason 1: unresolved; reason 2: unsupported; reason 3: u
 
 ### C2-11 — WMT 10-K, run 0: unresolved
 
-Finder: recorded checked 14; final replay 14; candidates0. Mechanisms: contested tail lies beyond discovered clause.
+Finder: recorded checked 14; final replay 14; candidates 0. Mechanisms: contested tail lies beyond discovered clause.
 
 Source explicitly links the margin changes to factors above and strong global membership growth, but covers two years together without saying offset. Its preceding gross-profit improvement is omitted by the summary. The claimed membership sign error is not decisively established from that compressed sentence. The checked what_changed clause ends at U.S.; the other checked row ends before the offset, so neither verifies the contested membership tail.
 
@@ -416,7 +416,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-12 — PLTR 10-Q, run 1: unsupported
 
-Finder: recorded checked 8; final replay 8; candidates0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
+Finder: recorded checked 8; final replay 8; candidates 0. Mechanisms: relation outside finite connective grammar, detected relation accepted by lexical overlap.
 
 Margin attribution uses said reflected, outside discovery, while the nested cost-of-revenue cause is correctly detected. That does not validate a margin cause. Separately the source says Generally about existing-customer adoption; the summary promotes it to a management attribution for this quarter total revenue including new customers. Lexical matching accepts that generic/specific and part/whole transfer. The judge claim that rising cost cannot accompany rising margin is unnecessary and not adopted.
 
@@ -430,9 +430,9 @@ G4 reasons reviewed: 2. reason 1: unsupported; reason 2: unsupported.
 
 ### C2-13 — COIN 10-Q, run 0: unsupported
 
-Finder: recorded checked 6; final replay 6; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 6; final replay 6; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-The explicit total-revenue management attribution borrows consumer/transaction drivers. The diluted-share explanation is unresolved: the source documents actual common-stock repurchases, while basic shares rise253,878→264,775 and prior dilution17,373 disappears. Those other changes do not establish that repurchases made no contribution to the diluted-count movement. An exact weighted-average causal bridge is not demonstrated. Both relations pass lexical matching. EBITDA revenue/opex is an unresolved component bridge. Refutation: buybacks occurred, so do not claim they had zero effect; the retained excerpt lacks the full anti-dilution note needed to assert the judge’s sole explanation.
+The explicit total-revenue management attribution borrows consumer/transaction drivers. The diluted-share explanation is unresolved: the source documents actual common-stock repurchases, while basic shares rise 253,878 → 264,775 and prior dilution 17,373 disappears. Those other changes do not establish that repurchases made no contribution to the diluted-count movement. An exact weighted-average causal bridge is not demonstrated. Both relations pass lexical matching. EBITDA revenue/opex is an unresolved component bridge. Refutation: buybacks occurred, so do not claim they had zero effect; the retained excerpt lacks the full anti-dilution note needed to assert the judge’s sole explanation.
 
 - Output `the_print.what_changed`: “Total revenue decreased 30.5% YoY to $1.41B, which management attributes primarily to a 40% decline in transaction revenue driven by a 54% decrease in consumer Trading Volume, offset in part by growth in derivatives trading volume and the launch of prediction markets trading. Net income swung to a $394.1M loss from $65.6M of income, and operating income swung to a $21.4M loss from $705.8M of income.”
 - Output `results_that_matter.table[4].commentary`: “Diluted EPS swung to a $1.49 loss from $0.24 of income; the diluted share count fell to 264,775 thousand from 271,251 thousand, reflecting share repurchases.”
@@ -447,9 +447,9 @@ G4 reasons reviewed: 3. reason 1: unsupported; reason 2: unresolved; reason 3: u
 
 ### C2-14 — COIN 10-Q, run 1: unsupported
 
-Finder: recorded checked 6; final replay 6; candidates0. Mechanisms: detected relation accepted by lexical overlap, contested tail lies beyond discovered clause, allegation in an unscanned output field, relation outside finite connective grammar.
+Finder: recorded checked 6; final replay 6; candidates 0. Mechanisms: detected relation accepted by lexical overlap, contested tail lies beyond discovered clause, allegation in an unscanned output field, relation outside finite connective grammar.
 
-The revenue-row allegation is unresolved. Its wording explicitly nests lower transaction revenue as consumer Trading Volume falls, rather than directly attributing all consolidated revenue to that consumer driver or claiming a management attribution. Transaction revenue falls $506.383m of the $621.313m total decline, approximately81.5%, so the component bridge has substantial arithmetic support. This does not establish an exhaustive source-stated aggregate explanation. The what_changed paragraph also preserves transaction scope. Risks applies investment-price causation to operations losses; operations MD&A states no material changes and supplies no price cause. EBITDA offset wording is outside the checked clause; both-period investment-loss addbacks mean the asserted YoY offset is not established. An exclusion can affect an absolute reconciliation, so the judge’s categorical impossibility claim is not adopted.
+The revenue-row allegation is unresolved. Its wording explicitly nests lower transaction revenue as consumer Trading Volume falls, rather than directly attributing all consolidated revenue to that consumer driver or claiming a management attribution. Transaction revenue falls $506.383m of the $621.313m total decline, approximately 81.5%, so the component bridge has substantial arithmetic support. This does not establish an exhaustive source-stated aggregate explanation. The what_changed paragraph also preserves transaction scope. Risks applies investment-price causation to operations losses; operations MD&A states no material changes and supplies no price cause. EBITDA offset wording is outside the checked clause; both-period investment-loss addbacks mean the asserted YoY offset is not established. An exclusion can affect an absolute reconciliation, so the judge’s categorical impossibility claim is not adopted.
 
 - Output `results_that_matter.table[5].commentary`: “Adjusted EBITDA decreased 67.4% YoY, reflecting lower revenue and higher operating expenses, partly offset by the exclusion of $482.4M of crypto asset investment losses.”
 - Output `results_that_matter.table[0].commentary`: “Total revenue decreased 30.5% YoY, driven by lower transaction revenue as consumer Trading Volume fell 54%, partly offset by growth in derivatives trading volume and the launch of prediction markets trading.”
@@ -465,9 +465,9 @@ G4 reasons reviewed: 3. reason 1: unresolved; reason 2: unresolved; reason 3: un
 
 ### C2-15 — BABA 20-F, run 1: unsupported
 
-Finder: recorded checked 5; final replay 5; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 5; final replay 5; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-The row is consolidated adjusted EBITA76,416m versus173,065m; its exact supporting quotation names Alibaba China E-commerce Group107,509m versus193,223m. Shared EBITA and driver terms pass lexical matching. The source cause belongs to the segment, not the consolidated row; All others has a separate technology-investment loss explanation.
+The row is consolidated adjusted EBITA 76,416m versus 173,065m; its exact supporting quotation names Alibaba China E-commerce Group 107,509m versus 193,223m. Shared EBITA and driver terms pass lexical matching. The source cause belongs to the segment, not the consolidated row; All others has a separate technology-investment loss explanation.
 
 - Output `results_that_matter.table[6].commentary`: “The filing attributes the decrease primarily to the investment in quick commerce, user experiences, and technology, while there is positive contribution from customer management service.”
 
@@ -478,9 +478,9 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C2-16 — ASML 20-F, run 0: unsupported
 
-Finder: recorded checked 10; final replay 10; candidates0. Mechanisms: detected relation accepted by lexical overlap.
+Finder: recorded checked 10; final replay 10; candidates 0. Mechanisms: detected relation accepted by lexical overlap.
 
-Same total-net-system-sales→New systems transfer as C1-14. The broader what_changed passage is correctly scoped and is not the allegation witness. The New systems anchor in the actual segment row distinguishes it from total systems; lexical overlap still accepts the clause.
+Same total-net-system-sales → New systems transfer as C1-14. The broader what_changed passage is correctly scoped and is not the allegation witness. The New systems anchor in the actual segment row distinguishes it from total systems; lexical overlap still accepts the clause.
 
 - Output `segments[0].commentary`: “The increase in system sales was primarily driven by higher EUV and DUV immersion system sales, partially offset by a decrease in ArF dry, KrF and i-line sales volumes; four EXE and 44 NXE systems were recognized in sales in 2025 compared to two EXE and 42 NXE systems in 2024.”
 
@@ -491,7 +491,7 @@ G4 reasons reviewed: 1. reason 1: unsupported.
 
 ### C2-17 — TSM 20-F, run 1: unresolved
 
-Finder: recorded checked 9; final replay 9; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 9; final replay 9; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 In line with is not a connective. Both EPS rows describe co-movement with parent NI; source financial ratios support its increase but no EPS attribution was located in the retained excerpt. Whether this observational/accounting statement asserts an unsupported causal explanation requires a rubric boundary decision.
 
@@ -504,7 +504,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-18 — JD 20-F, run 1: unresolved
 
-Finder: recorded checked 3; final replay 3; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 3; final replay 3; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 Reflects same period-over-period movement describes direction, not necessarily equal percentages or an explicit management driver. Attributable and consolidated NI both decline, with NCI changing. The source table supports the direction; whether phrasing implies unsupported causality remains unresolved.
 
@@ -517,7 +517,7 @@ G4 reasons reviewed: 1. reason 1: unresolved.
 
 ### C2-19 — MELI 10-K, run 1: unresolved
 
-Finder: recorded checked 6; final replay 6; candidates0. Mechanisms: relation outside finite connective grammar.
+Finder: recorded checked 6; final replay 6; candidates 0. Mechanisms: relation outside finite connective grammar.
 
 Driven in part by is undiscovered. Source balance-sheet assets, restricted cash and loans increase; no express aggregate cause was located. It is a plausible partial component bridge whose strict G4 status remains unresolved.
 
