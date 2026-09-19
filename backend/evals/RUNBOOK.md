@@ -493,7 +493,10 @@ findings on the added cases are recorded in #873, not treated as measurement err
 later work against this pin.
 
 Re-pin only for an explicitly justified model/prompt, structured-output, extraction-library or
-armed-guard change with actual before/after evidence. Adding an advisory dimension or observing
+armed-guard change, or a pre-authorized correction to an existing scorer or frozen applicability,
+with actual before/after evidence. The founder's September 19 E6 brief authorizes the latter for
+same-metric delta association and accession-bound insurer depth profiles. This reconciles E6's
+explicit authorization with the earlier trigger list; adding an advisory dimension or observing
 changed scores alone does not authorize a cosmetic replacement. From `backend/`:
 ```bash
 python -m evals.runner --candidates baseline --runs 3            # full verified set

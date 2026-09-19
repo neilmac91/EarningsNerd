@@ -1,3 +1,10 @@
+## September 19 — E6 release preparation and repin trigger reconciliation
+
+- [x] Rebased the scorer branch onto documentation-only #922 (`356663dded04ae662a72815c5ca00833ad470c9e`), preserving the original E6 entry and all intervening ledger history. The scorer implementation, golden applicability and ordinary gates remain unchanged from `c7969a3707ae52af8033cb490506c9c6b1862ce4`; existing locked anchors/auth/Stripe tests are byte-identical to main.
+- [x] Retained prior committed full gate on `c7969a37`: ruff and bandit passed; 3,382 tests passed, 78 warnings in 125.21s, including performance and all four PostgreSQL lanes. This is prior-head evidence, not a final gate on the future release head. The new gate waits until E8 releases its shared validation slot and the preceding E5 releases are incorporated.
+- [x] Reconciled RUNBOOK's earlier enumerated trigger list with the founder's explicit E6 scorer-correction authorization. The re-pin requires fresh complete three-repeat measurement on the final scorer/golden version, actual runner/regression logs and provenance inspection, then a same-PR baseline update. Retained-output rescoring is diagnostic evidence only; the historical pin remains unchanged.
+- [ ] Fresh final-head gate, authoritative evaluation/re-pin, exact-head review, PR checks and serial deployment remain pending. No paid run or baseline mutation was performed during this preparation.
+
 ## September 19 — E6 scorer association and filing-owned insurer profiles
 
 - [x] Prepared same-metric delta association to stop borrowing a neighboring metric's percentage (GPRO revenue versus net loss), preserving bounded observed amount/percentage forms. Offline replay of the retained 70 attempts changes measurement, not generation quality: 113 of 371 percentage-bearing metric rows checked versus 148 before; all 113 selected-grammar counterfactuals detected. This is not independently measured semantic recall, signed direction or clearance of all deltas.
