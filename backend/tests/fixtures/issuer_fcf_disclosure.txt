@@ -1,0 +1,32 @@
+ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:
+Selected filing context.
+
+Our financial reporting currency is the U.S. Dollar and changes in foreign exchange rates significantly affect our reported results and consolidated trends. For example, if the U.S. Dollar weakens year-over-year relative to currencies in our international locations, our consolidated net sales and operating expenses will be higher than if currencies had remained constant. Likewise, if the U.S. Dollar strengthens year-over-year relative to currencies in our international locations, our consolidated net sales and operating expenses will be lower than if currencies had remained constant. We believe that our increasing diversification beyond the U.S. economy through our growing international businesses benefits our shareholders over the long-term. We also believe it is useful to evaluate our operating results and growth rates before and after the effect of currency changes.
+
+
+Free Cash Flow
+
+Our financial focus is on long-term, sustainable growth in free cash flow. We provide a free cash flow measure because we believe it provides additional perspective on the impact of acquiring property and equipment with cash. Free cash flow is cash flow from operations reduced by “Purchases of property and equipment, net of proceeds from sales and incentives.” The following is a reconciliation of free cash flow to the most comparable GAAP cash flow measure, “Net cash provided by (used in) operating activities,” for 2024 and 2025 (in millions):
+
+ Year Ended December 31,
+
+ 20242025
+
+Net cash provided by (used in) operating activities$115,877 $139,514 
+
+Purchases of property and equipment, net of proceeds from sales and incentives(77,658)(128,320)
+
+Free cash flow$38,219 $11,194 
+
+Net cash provided by (used in) investing activities$(94,342)$(142,545)
+
+Net cash provided by (used in) financing activities$(11,812)$9,661 
+
+Free cash flow has limitations as it omits certain components of the overall cash flow statement and does not represent the residual cash flow available for discretionary expenditures. For example, free cash flow does not incorporate the portion of payments representing principal reductions of debt or cash payments for business acquisitions. Additionally, our mix of property and equipment acquisitions with cash or other financing options may change over time. Therefore, we believe it is important to view free cash flow only as a complement to our entire consolidated statements of cash flows.
+
+28
+
+
+Effect of Foreign Exchange Rates
+
+Following selected filing context.
