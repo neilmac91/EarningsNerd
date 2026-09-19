@@ -1,0 +1,2 @@
+WARNING: password file "/dev/null" is not a plain file
+psql:/private/tmp/earningsnerd-wave3-20260919/work/e9-live-read-20260919/query.sql:38: ERROR:  permission denied for table earningsnerd_job_runs
