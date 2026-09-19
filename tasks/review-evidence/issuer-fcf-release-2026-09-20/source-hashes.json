@@ -168,5 +168,28 @@
       "relative_path": "0001628280-26-011378/xbrl.json",
       "sha256": "0c9b9ae2f21dc2ecf4b35cde7fa5a492112de0df478a3ad2c0ff6ec9aa374364"
     }
-  ]
+  ],
+  "archive_correction_2026_09_20": {
+    "reason": "Correct exact selected FCF table fragment and distinguish unchanged generator method from changed assembler method with unchanged prefix.",
+    "source_report_sha256": "639ca00ba49c1f12ed1b9ba474769030b1c6c8da8950deaa6bb111b03a687b55",
+    "identity": [
+      "baseline",
+      "AMZN",
+      "10-K",
+      0
+    ],
+    "source_field": "grounding_excerpt",
+    "selection": "Contiguous fragment selected after the Free Cash Flow header, from NBSP Year Ended December 31 through Free cash flow row; excludes following investing-activities row.",
+    "fragment_start_character": 112584,
+    "fragment_end_character": 112819,
+    "fragment_utf8_sha256": "e58a3dfdeed0f9129354c7d1a4d90a48aee463bd0759c72fcd2b3af1f5ebde51",
+    "prior_semantic_note_sha256": {
+      "/private/tmp/earningsnerd-wave3-20260919/tasks/review-evidence/issuer-fcf-release-2026-09-20/semantic-defect.md": "5aa6e0801028881956ba41d5c59bb1964174bcaf5fcd8e8cd9d3b5024a41185a",
+      "/private/tmp/earningsnerd-issuer-fcf-20260919/work/release-evidence-927/corrected/amzn-semantic-defect.md": "a50983983b9e92c47aaf86ec07cc61730dcd5c2bd01f34acb68cf597ecb5e06c",
+      "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/e5-amzn-semantic-defect.md": "660dc18d55767c46d9aed4e3156f0ff9a7188f3f53c217673995a82b15ecd0a1"
+    },
+    "prior_request_parity_sha256": "5f6652bca8d0cde6bf5ab8c442cdc7d56e9907eea5f4dd0435aab992447031c7",
+    "corrected_archive_semantic_note_sha256": "97c55062db69e3406cb2de58e2818f6ca64c40834ff335d44e229de0b172149b",
+    "corrected_request_parity_sha256": "b77dcfdb363bf0f3b385adcf4acfe5c0a77869045a4822918182e66c60340e72"
+  }
 }

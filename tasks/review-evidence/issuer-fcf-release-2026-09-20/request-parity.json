@@ -11,9 +11,24 @@
   ],
   "all_request_and_recovery_call_asts_identical": true,
   "call_count": 3,
-  "primary_method": "_assemble_structured_summary",
-  "primary_pre_binding_ast_identical": true,
-  "primary_pre_binding_ast_sha256": "49b1bf7cab62666e4b3ad17f5d16b633e4ddc29f8d9542705cb2291dbf81d808",
   "recovery_and_prompt_files_changed": false,
-  "limitations": "Static request-construction parity plus retained source/config parity, not captured raw provider-request equality or proof of identical provider behavior."
+  "limitations": "Static request-construction parity plus retained source/config parity, not captured raw provider-request equality or proof of identical provider behavior.",
+  "methods": {
+    "generate_structured_summary": {
+      "full_ast_identical": true,
+      "full_ast_sha256": "34097276c5113869b8459a07a0400ef7b2c24cced6710c9bd0aec8c3278b8f7c"
+    },
+    "_assemble_structured_summary": {
+      "full_ast_identical": false,
+      "base_full_ast_sha256": "3f642897cc57314ede71f9f47c5b445f733dae689a163f0a00c7d3f1aeb572e0",
+      "head_full_ast_sha256": "494f18567d630a3b248cdfbe8f4d9878992fcf035d111020de31ab358c5f8df4",
+      "pre_binding_prefix_identical": true,
+      "pre_binding_prefix_sha256": "49b1bf7cab62666e4b3ad17f5d16b633e4ddc29f8d9542705cb2291dbf81d808",
+      "prefix_boundary": "Before summary_data[\"_capital_allocation_grounding\"] assignment; later issuer source association changes this method."
+    }
+  },
+  "hash_serialization": {
+    "full_method": "SHA256(UTF8(ast.dump(method, include_attributes=False)))",
+    "prefix": "SHA256(UTF8(json.dumps((method_name, list_of_statement_ast_dumps))))"
+  }
 }
