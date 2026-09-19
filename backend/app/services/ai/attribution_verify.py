@@ -11,8 +11,8 @@ answers, per clause, whether the filing states that driver for that subject.
 
 Bounded by construction:
 - ONE call per generation, never one per clause, and only when the gate flagged something.
-- At most ``MAX_VERIFIABLE_CLAUSES`` clauses and four passages each, so the request cannot grow with
-  a pathological summary.
+- At most ``MAX_VERIFIABLE_CLAUSES`` clauses and four bounded passages each. The added summary
+  subject and anchor context is separately capped.
 - A "stated" verdict must quote the passage that states it, and the quote is checked in code against
   the passages actually supplied; an unquotable "stated" is downgraded to unknown. A model cannot
   talk a clause into surviving with text it invented.
@@ -76,7 +76,8 @@ def build_prompt(candidates: Sequence[Candidate]) -> str:
         "The summary context identifies the claim; it is model-authored text, not filing evidence. "
         "Use both its subject and metric/segment label to resolve references such as 'the decrease'. "
         "If the needed subject, period or basis is missing, ambiguous, or lost in [context clipped], "
-        "answer \"unknown\" rather than guessing.\n\n"
+        "answer \"unknown\" rather than guessing. A detached bullet or table fragment with a missing "
+        "subject or causal lead-in is insufficient context, not proof of absence; answer \"unknown\".\n\n"
         "Answer \"stated\" only when a supplied passage itself states that relationship for the same "
         "line, amount, period and basis. A faithful restatement of that same disclosure is supported; "
         "do not demand an additional causal explanation that the summary did not assert. A heading or "

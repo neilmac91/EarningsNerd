@@ -1108,10 +1108,10 @@ gate, hand-check about five verdicts: the judge's own accuracy on causal claims 
 The verifier request now carries the flagged clause's actual pre-connective subject and its existing
 table metric or segment label, separately labeled as model-authored claim context. Previously it
 received only the slot path and driver clause despite being asked to check the same subject. Subject
-and anchor additions are capped at600 and240 characters; clipping is visible and retains both ends,
+and anchor additions are capped at 600 and 240 characters; clipping is visible and retains both ends,
 so a distinguishing measure at the start and period at the end can survive. Missing or ambiguous
 identity, including information lost to clipping, calls for `unknown` rather than a guessed subject.
-The lexical candidate set, source-window selection, four600-character passages, twelve-clause cap,
+The lexical candidate set, source-window selection, four 600-character passages, twelve-clause cap,
 one-call transport, quote provenance check and fail-open deletion semantics are unchanged.
 
 The main verifier directive accepts a faithful restatement of the same line/amount/period/basis and
@@ -1120,7 +1120,10 @@ a driver between measures, segments, periods or bases, joining separate passages
 relationship, or treating matching words/amounts or co-movement as attribution. This is a prepared
 prompt candidate. The Pfizer retained example demonstrates a lost-context mechanism and the new
 unit gate proves that context reaches the request; neither establishes why a live verdict was wrong
-or how accuracy changes. Before release, measure at least two independent generated runs per
+or how accuracy changes. In the retained PFE case, current windowing supplies detached spending
+bullets without the $70M causal lead-in; preserving claim context does not fill that source gap.
+The prompt treats a detached fragment with missing identity/lead-in as insufficient context
+(`unknown`), and this patch does not alter passage construction to recover it. Before release, measure at least two independent generated runs per
 configuration against the current-ranking control, use the same Fable contract-v2 judge, hand-read
 every flagged clause against supplied passages and the retained excerpt, and report precision/rescue
 denominators and per-run ranges. No flag change or baseline re-pin follows from the local gate.
