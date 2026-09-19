@@ -53,8 +53,9 @@ treat it as an instruction to do the work, not to propose a plan. Complete the a
 before raising a question, so that any question is about a concrete, reviewable result.
 
 Work one reviewable pull request at a time, on a branch named `codex/wave3-<slug>`, opened as a draft
-first. Gate only committed state: `ruff check . && bandit -r app -ll && python -m pytest -m ""` from
-`backend/` with the four PostgreSQL lanes, and the frontend gate for frontend changes. Every new
+first. Gate only committed state with the full gate from `CLAUDE.md`, run as `ruff check . && bandit
+-r app -ll && python -m pytest -m ""` from `backend/` (the `-m ""` adds the performance suite) with the
+four PostgreSQL lanes enabled, plus the frontend gate for frontend changes. Every new
 "never again" rule gets one machine gate and exactly one mutation proof (break it, show the gate fail,
 restore). Test in proportion to the change, as `AGENTS.md` §4 sets out; do not write tests that merely
 mirror a reversible, low-impact implementation.
@@ -137,8 +138,8 @@ Wrong: asking the founder whether to merge, or merging the Dependabot PRs past f
 <example id="one-run-result">
 Situation: a prompt candidate's first judged run shows 38 negative judgments against the control's 57.
 Right: report it as one run, generate a second, and state the pooled figure with the per-run range
-("54% and 66% against 81% and 79%; about 30% fewer negatives pooled; the candidate is noisier than the
-control").
+("54% and 66% against 81% and 79%; about a quarter fewer negatives pooled; the candidate is noisier
+than the control").
 Wrong: "the change halves negative judgments." This exact claim was made from one run on 2026-09-16
 and had to be withdrawn.
 </example>
@@ -174,8 +175,9 @@ judge fails for G4. Full account: `tasks/handover-astra-2026-09-19.md` §2.
 
 <work_queue order="do in this order unless a founder message changes it">
 E1. Dependabot #916 and #917 through one codex branch, as in the first example.
-E2. Re-measure the verifier with the #912 ranking fix on a measurement-only draft PR, judge the
-    artifact, and read every flagged clause against its excerpt.
+E2. Re-measure the verifier with the #912 ranking fix: turn `AI_ATTRIBUTION_VERIFY` on in the eval
+    environment of a never-merged draft PR (not in production), judge the artifact, and read every
+    flagged clause against its excerpt.
 E3. Tighten the verify prompt against the Pfizer failure: a verbatim same-line restatement rejected as
     unstated with the passage in hand.
 E4. Study the verifier's recall gap on the Fable-judged verification artifact before designing a fix.
