@@ -7,6 +7,7 @@ upper bounds from provider-reported usage, not receipts or the application's zer
 """
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import fcntl
 import hashlib
@@ -52,6 +53,7 @@ class Ledger:
         directory.mkdir(parents=True, exist_ok=True)
         self.path = directory / "ledger.json"
         self.lock_path = directory / "programme.lock"
+        self._halt_reason: str | None = None
         # Exclusive creation also refuses a crashed programme whose JSON was never written.
         with self.lock_path.open("x") as handle:
             handle.write("E8 USD5 programme; do not reset or resume\n")
@@ -71,11 +73,24 @@ class Ledger:
             return result
 
     def stop(self, reason: str) -> None:
+        self._halt_reason = reason
         def halt(state: dict) -> None:
             state["stopped"] = state["stopped"] or reason
         self._change(halt)
 
+    def abandon(self, request_id: str, reason: str) -> None:
+        """Unknown accounting never releases funds, including capture/close failures."""
+        self._halt_reason = reason
+        def halt(state: dict) -> None:
+            row = state["requests"][request_id]
+            row.update(state="unknown", accounting_error=reason,
+                       accounted_nanousd=row["reserved_nanousd"])
+            state["stopped"] = state["stopped"] or reason
+        self._change(halt)
+
     def reserve(self, body: bytes, output_cap: int) -> str:
+        if self._halt_reason:
+            raise AdmissionStopped(self._halt_reason)
         reservation = CONTEXT * 300 + output_cap * 1200
         request_id = uuid4().hex
 
@@ -115,7 +130,7 @@ class Ledger:
                 if not events or events[-1] != b"[DONE]":
                     raise ValueError("missing terminal SSE DONE")
                 packets = [json.loads(event) for event in events[:-1]]
-                if not packets or any(packet.get("model") != MODEL for packet in packets):
+                if not packets or any(not isinstance(packet, dict) or packet.get("model") != MODEL for packet in packets):
                     raise ValueError("response model identity mismatch")
                 usages = [packet["usage"] for packet in packets if packet.get("usage") is not None]
                 if len(usages) != 1 or packets[-1].get("usage") is None:
@@ -123,7 +138,7 @@ class Ledger:
                 usage = usages[0]
             else:
                 packet = json.loads(response)
-                if packet.get("model") != MODEL:
+                if not isinstance(packet, dict) or packet.get("model") != MODEL:
                     raise ValueError("response model identity mismatch")
                 usage = packet["usage"]
             keys = ("prompt_tokens", "completion_tokens", "total_tokens",
@@ -133,8 +148,8 @@ class Ledger:
             if (usage["prompt_tokens"] != usage["prompt_cache_hit_tokens"] + usage["prompt_cache_miss_tokens"]
                     or usage["total_tokens"] != usage["prompt_tokens"] + usage["completion_tokens"]):
                 raise ValueError("inconsistent provider usage")
-        except (ValueError, KeyError, TypeError) as exc:
-            error = str(exc)
+        except Exception as exc:  # noqa: BLE001 — any unaccounted provider shape must halt admission
+            error = str(exc) or type(exc).__name__
 
         def settle(state: dict) -> None:
             row = state["requests"][request_id]
@@ -153,7 +168,13 @@ class Ledger:
                             + usage["completion_tokens"] * 1200)
             row.update(state="usage_settled", accounted_nanousd=actual_bound, provider_usage=usage)
 
-        self._change(settle)
+        try:
+            self._change(settle)
+        except BaseException:
+            # Also latch in memory before persistence: a failed disk write must never leave
+            # this process free to admit more calls, even when durable storage is unavailable.
+            self.abandon(request_id, "accounting settlement failed")
+            raise
 
 
 class CapturedStream(httpx.AsyncByteStream):
@@ -167,26 +188,36 @@ class CapturedStream(httpx.AsyncByteStream):
         self.path.touch(exist_ok=False)
 
     async def __aiter__(self):
-        async for chunk in self.stream:
-            with self.path.open("ab") as handle:
-                handle.write(chunk)
-                handle.flush()
-                os.fsync(handle.fileno())
-            yield chunk
-        self.complete = True
+        try:
+            async for chunk in self.stream:
+                with self.path.open("ab") as handle:
+                    handle.write(chunk)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                yield chunk
+            self.complete = True
+        except (Exception, asyncio.CancelledError):
+            self.ledger.abandon(self.request_id, "response stream read or capture failed")
+            raise
 
     async def aclose(self) -> None:
         if self.closed:
             return
         self.closed = True
         try:
-            body = self.path.read_bytes()
+            try:
+                body = self.path.read_bytes()
+            finally:
+                # Keep the reservation until close succeeds; close even if capture reading
+                # failed, without refunding before an awaited operation that can fail.
+                await self.stream.aclose()
             # The SDK closes an SSE stream immediately on DONE, before HTTP EOF. A complete
             # terminal protocol event is sufficient; non-streaming JSON requires HTTP EOF.
             status = self.status if self.streaming or self.complete else 0
             self.ledger.finish(self.request_id, body, status, self.streaming)
-        finally:
-            await self.stream.aclose()
+        except BaseException:
+            self.ledger.abandon(self.request_id, "response capture, close or settlement failed")
+            raise
 
 
 class BudgetTransport(httpx.AsyncBaseTransport):

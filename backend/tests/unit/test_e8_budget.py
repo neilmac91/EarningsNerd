@@ -68,6 +68,68 @@ async def test_e8_every_send_is_reserved_and_unknown_usage_stops_both_corpora(tm
     assert row["state"] == "unknown" and row["accounted_nanousd"] == row["reserved_nanousd"]
     assert cancelled.snapshot()["stopped"]
 
+    # Malformed HTTP200 shapes and capture/read/close failures must stop actual SDK retries
+    # and subsequent slots, not merely consume one reservation and allow more paid sends.
+    for case in ("json_array", "json_null", "sse_null", "error_status", "read_failure",
+                 "capture_read_failure", "close_failure"):
+        failed_ledger = Ledger(tmp_path / case)
+        failed_sends = []
+        streaming = case == "sse_null"
+
+        class BadWire(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                if case == "read_failure":
+                    raise httpx.ReadError("fixture read failure")
+                if case == "sse_null":
+                    yield b"data: null\n\ndata: [DONE]\n\n"
+                else:
+                    yield b"[]" if case == "json_array" else b"null"
+
+            async def aclose(self):
+                if case == "close_failure":
+                    raise OSError("fixture close failure")
+
+        async def bad_reply(request):
+            failed_sends.append(request)
+            return httpx.Response(500 if case == "error_status" else 200, stream=BadWire(),
+                                  headers={"Content-Type": "text/event-stream" if streaming else "application/json"})
+
+        bad_sdk = AsyncOpenAI(api_key="test-not-a-key", base_url="https://api.deepseek.com/v1", max_retries=0,
+                             http_client=httpx.AsyncClient(transport=BudgetTransport(httpx.MockTransport(bad_reply), failed_ledger)))
+        read_bytes = Path.read_bytes
+
+        def broken_read(path):
+            if path.suffix == ".body":
+                raise OSError("fixture capture read failure")
+            return read_bytes(path)
+
+        try:
+            with monkeypatch.context() as patch:
+                if case == "capture_read_failure":
+                    patch.setattr(Path, "read_bytes", broken_read)
+                for _ in range(2):
+                    try:
+                        response = await bad_sdk.chat.completions.create(
+                            model="deepseek-flash", messages=[{"role": "user", "content": "fixture"}],
+                            max_tokens=100, stream=streaming, extra_body={"thinking": {"type": "disabled"}},
+                        )
+                        if streaming:
+                            try:
+                                async for _chunk in response:
+                                    pass
+                            finally:
+                                await response.close()
+                    except Exception:
+                        pass  # SDK may wrap transport/accounting failures; inspect admission below.
+            state = failed_ledger.snapshot()
+            assert state["stopped"], case
+            assert len(failed_sends) == len(state["requests"]) == 1, case
+            record = next(iter(state["requests"].values()))
+            assert record["state"] == "unknown", case
+            assert record["accounted_nanousd"] == record["reserved_nanousd"], case
+        finally:
+            await bad_sdk.close()
+
     # Real SDK + existing request owner, retaining a full input sentinel. The SDK
     # closes SSE on DONE (not HTTP EOF); this is the actual stream settlement boundary.
     ledger = Ledger(tmp_path / "paired")
