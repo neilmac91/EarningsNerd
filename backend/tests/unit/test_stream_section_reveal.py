@@ -174,6 +174,13 @@ def test_previews_respect_final_numeric_ownership_and_guarded_quotes(monkeypatch
         "segments": [{"name": "Products", "revenue": 500_000_000,
                       "revenue_prior": 400_000_000, "operating_income": 100_000_000}],
     }
+    for key, tag in (
+        ("net_income", "us-gaap:NetIncomeLoss"),
+        ("operating_cash_flow", "us-gaap:NetCashProvidedByUsedInOperatingActivities"),
+    ):
+        facts[key]["current"].update(
+            period_start="2025-01-01", currency="USD", raw_tag=tag,
+        )
     sections = {
         "earnings_quality": {"operating_vs_one_time": "A retained earnings explanation.",
                              "cash_conversion": "MODEL CASH CLAIM"},
