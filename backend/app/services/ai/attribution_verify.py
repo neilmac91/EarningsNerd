@@ -16,8 +16,9 @@ Bounded by construction:
 - A "stated" verdict must quote the passage that states it, and the quote is checked in code against
   the passages actually supplied; an unquotable "stated" is downgraded to unknown. A model cannot
   talk a clause into surviving with text it invented.
-- Anything that is not a clean "not_stated" is unknown, and unknown never drops. A failed, slow,
-  truncated or unparseable verification leaves the summary exactly as the model wrote it.
+- Unknown or absent verdicts never drop. Request failures and timeouts return no verdicts.
+  JSON repair can retain an early verdict from a truncated response; truncation is not a
+  guaranteed whole-batch rejection in the current transport/parser.
 """
 from __future__ import annotations
 

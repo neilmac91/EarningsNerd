@@ -1,3 +1,10 @@
+## September 19 — E3 verifier claim context prepared for controlled measurement
+
+- [x] Preserve the existing candidate subject and metric/segment anchor in a separately labeled, bounded prompt context. The prompt distinguishes faithful same-line restatement from a wrong subject, period or basis, and asks for unknown when supplied context is insufficient. Source discovery/ranking and deletion behavior are unchanged.
+- [x] One source-to-transport invariant and one mutation proof: removing constructor propagation fails; restored targeted gate45 passed,2 warnings in6.07s. Independent correctness/rules/gates review found no introduced blocker; locked tests unchanged.
+- [x] Corrected the Pfizer mechanism assumption: its retained excerpt contains the causal lead-in, but selected passages omit it. No rescue or precision improvement is claimed. Unknown-on-insufficient-context is model instructed, not a deterministic override. Existing JSON repair can preserve partial verdicts and quote validation joins passages; corrected the module's overly broad truncation claim to match code. These residuals remain relevant before any future arming decision.
+- [ ] Full committed gate, two generated corpora per configuration, same Fable contract-v2 judging and all-flagged-clause review remain required before release/effect acceptance. Production verifier and deletion flags remain off.
+
 ## September 19 — incoming chief engineer: E1 dependency refresh
 
 - [x] Re-read `main` as `c19da7931e9b33a42455c21a7e826b32c2f6c16c`. Independent detailed health check healthy. Latest backend deploy evidence from main CI `35285580415`: `apply_migrations: applied=0 skipped=39`, revision `earningsnerd-backend-00367-t8t` serving 100%; later main runs were documentation-only. Direct gcloud observation is unavailable: founder credential requires reauthentication.
