@@ -1101,3 +1101,63 @@ Acceptance bar for a grounding candidate (from the assessment): the negative con
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
 regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
+# E8 retained-grounding pilot — measurement branch only, never merge
+
+The founder approved a **USD 5 total ceiling** for two new 70-slot n corpora paired
+with the E2 o controls from runs 35461717484 and 35462609093. The measurement branch
+`codex/wave3-e8-n-pilot` starts at `73cc31162c3dfe7ec497c8c88c43cf397afce4a7`.
+It transplants only the four-file prompt/schema/stamp reversal from historical
+`2ed3d5d5139caaea8e0a19de932f6b860de9de1d`; no historical test deletion is included.
+The main o support-condition test intentionally describes a different treatment and
+will fail on this never-merge n branch. Do not weaken or delete it to green the pilot.
+
+The `e8-pilot` job in the existing CI workflow is dispatch-only on this branch.
+The ordinary uncapped `eval-baseline` job is disabled here. Dispatch exactly once
+after independent review; no paid calls are part of preparation. Workflow reruns,
+later programme dispatches, and reopening an existing local ledger are refused.
+If infrastructure fails before useful measurement, preserve the failed ledger and
+obtain an explicitly reconciled continuation design rather than resetting it.
+
+`evals.e8_pilot` verifies both artifact SHA256s, configuration, golden identities
+and all corresponding retained source channels before reading the CI-only account
+balance and generating anything. It calls the existing `evals.runner._run_one`
+with unchanged retries and filing concurrency 2. Each corpus retains the E2 excerpt,
+XBRL, statement evidence, 6-K class, provenance and coverage inventory without new
+truncation. The raw document and `sixk_class_audit` were not retained in E2: the
+nonempty excerpt occupies the unused `filing_text` argument, and the audit remains
+absent. The existing `_parse_and_clean_text` owner selects the excerpt exclusively.
+This measures prompt variability on retained grounding, not extraction variability
+or the full production orchestrator. Reports carry control and input hashes.
+
+`evals.e8_budget` wraps the actual HTTP transport with a single durable ledger across
+both corpora, primary calls, recovery, verification and all retries. It reserves
+1,048,576 uncached input tokens plus the request's unchanged maximum output before
+each send, using **peak** prices verified on 2026-09-19 at
+https://api-docs.deepseek.com/quick_start/pricing/:
+USD 0.30/M uncached input, 0.006/M cache hit, 1.20/M output for `deepseek-flash`.
+These prices and the maximum context envelope must be rechecked before dispatch if
+the tariff changes. Requests use disabled thinking, one completion, a known output
+cap, no fallback, no SDK/HTTP retries outside the adapter, and no redirects.
+Reservations serialize under a file lock and fsync an atomic checkpoint before the
+transport sends. Refunds use complete, consistent provider token/cache usage and
+the same peak tariff; settled amounts remain a conservative upper bound, not an
+invoice or the evaluator's historical zero-valued `cost_usd`. Missing or inconsistent
+usage, changed response model, non-200 results, interrupted streams and unknown
+accounting retain their full reservation and stop admission. Already admitted
+requests may finish within their existing reservations. Budget exhaustion preserves
+partial corpora and is not evidence that 140 usable results were obtained.
+
+Every request body and every received response byte is retained before delivery to
+the SDK; auth headers and keys are never written. SSE settlement requires terminal
+DONE with final usage because the SDK closes there before HTTP EOF. Non-streaming
+settlement requires complete HTTP EOF. Per-slot corpus checkpoints and the shared
+ledger are uploaded even on failure. Abrupt runner loss can still prevent GitHub's
+artifact uploader from running; no software-only harness promises recovery after
+destruction of the runner disk. That event never authorizes fresh spending.
+
+One offline gate (`test_e8_budget.py`) covers admission, concurrent reservation,
+provider-usage refunds, unknown-usage retention, both corpora and restart refusal.
+Its mutation disables the ceiling comparison; the concurrent-send assertion must
+fail. No E7 holdout content is used. The exact review head, gate result and mutation
+evidence are recorded in the scratch handoff. This branch must never be merged or
+deployed, and it does not change the production flag decisions.
