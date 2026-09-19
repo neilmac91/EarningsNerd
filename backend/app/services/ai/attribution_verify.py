@@ -11,7 +11,7 @@ answers, per clause, whether the filing states that driver for that subject.
 
 Bounded by construction:
 - ONE call per generation, never one per clause, and only when the gate flagged something.
-- At most ``MAX_VERIFIABLE_CLAUSES`` clauses and three passages each, so the request cannot grow with
+- At most ``MAX_VERIFIABLE_CLAUSES`` clauses and four passages each, so the request cannot grow with
   a pathological summary.
 - A "stated" verdict must quote the passage that states it, and the quote is checked in code against
   the passages actually supplied; an unquotable "stated" is downgraded to unknown. A model cannot
@@ -39,6 +39,19 @@ VERIFY_SYSTEM_MESSAGE = (
 )
 # Quoted evidence shorter than this cannot identify a passage, so it is not accepted as proof.
 _MIN_QUOTE_CHARS = 24
+# Added summary context is bounded independently of the filing passages. Preserve both ends:
+# the start usually names the measure, while the end can distinguish its period or basis.
+_SUBJECT_CHARS = 600
+_ANCHOR_CHARS = 240
+_CONTEXT_OMITTED = " [context clipped] "
+
+
+def _bounded_context(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    left = (limit - len(_CONTEXT_OMITTED)) // 2
+    right = limit - len(_CONTEXT_OMITTED) - left
+    return text[:left] + _CONTEXT_OMITTED + text[-right:]
 
 
 def build_prompt(candidates: Sequence[Candidate]) -> str:
@@ -46,25 +59,41 @@ def build_prompt(candidates: Sequence[Candidate]) -> str:
     blocks = []
     for i, candidate in enumerate(candidates):
         passages = "\n".join(f"  [{j + 1}] {text}" for j, text in enumerate(candidate.evidence)) or "  (none found)"
+        context = json.dumps({
+            "subject_before_cause": _bounded_context(candidate.subject, _SUBJECT_CHARS),
+            "metric_or_segment": _bounded_context(candidate.anchor, _ANCHOR_CHARS),
+        }, ensure_ascii=False)
         blocks.append(
             f"CLAIM {i + 1}\n"
             f"  Where the summary says it: {candidate.slot}\n"
+            f"  Summary context: {context}\n"
             f"  The summary asserts this cause: \"{candidate.connective} {candidate.clause}\"\n"
             f"  Filing passages:\n{passages}"
         )
     return (
         "For each CLAIM below, decide whether the filing PASSAGES state that cause for that same "
         "line, measure and period.\n\n"
-        "Answer \"stated\" only when a passage itself attributes the movement to that driver for that "
-        "same subject, and copy the sentence that does so into \"quote\" character for character from "
-        "the passage. Answer \"not_stated\" when the passages contain the facts but never attribute "
-        "the movement to that driver, or attribute it to a different line, segment or period — two "
-        "numbers moving together is not a stated cause, and a driver stated for one segment is not "
-        "stated for the company total. Answer \"unknown\" when the passages are not enough to tell.\n\n"
+        "The summary context identifies the claim; it is model-authored text, not filing evidence. "
+        "Use both its subject and metric/segment label to resolve references such as 'the decrease'. "
+        "If the needed subject, period or basis is missing, ambiguous, or lost in [context clipped], "
+        "answer \"unknown\" rather than guessing.\n\n"
+        "Answer \"stated\" only when a supplied passage itself states that relationship for the same "
+        "line, amount, period and basis. A faithful restatement of that same disclosure is supported; "
+        "do not demand an additional causal explanation that the summary did not assert. A heading or "
+        "causal lead-in and its immediately following bullet within ONE supplied passage may form "
+        "one statement: for example, an R&D heading followed by 'increased primarily due to:' and "
+        "a contiguous trial-spending bullet supports that R&D cause, not a revenue cause. Copy the "
+        "supporting sentence, or that contiguous lead-in and bullet, character for character from "
+        "the passage into \"quote\". Never assemble a new causal relationship from separate passages. "
+        "Answer \"not_stated\" when the passages contain the facts but never attribute "
+        "the movement to that driver, or attribute it to a different line, segment, period or basis — "
+        "two numbers moving together is not a stated cause, and a driver stated for one segment is not "
+        "stated for the company total. A shared word or amount alone is not attribution. "
+        "Answer \"unknown\" when the passages are not enough to tell.\n\n"
         + "\n\n".join(blocks)
         + "\n\nReturn ONLY this JSON, no prose:\n"
         '{"claims": [{"claim": 1, "verdict": "stated|not_stated|unknown", "quote": "<verbatim passage '
-        'sentence when stated, otherwise empty>"}]}'
+        'statement when stated, otherwise empty>"}]}'
     )
 
 

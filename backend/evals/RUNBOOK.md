@@ -1101,3 +1101,26 @@ Acceptance bar for a grounding candidate (from the assessment): the negative con
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
 regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
+
+
+## Attribution-verifier claim context candidate — September 19, 2026
+
+The verifier request now carries the flagged clause's actual pre-connective subject and its existing
+table metric or segment label, separately labeled as model-authored claim context. Previously it
+received only the slot path and driver clause despite being asked to check the same subject. Subject
+and anchor additions are capped at600 and240 characters; clipping is visible and retains both ends,
+so a distinguishing measure at the start and period at the end can survive. Missing or ambiguous
+identity, including information lost to clipping, calls for `unknown` rather than a guessed subject.
+The lexical candidate set, source-window selection, four600-character passages, twelve-clause cap,
+one-call transport, quote provenance check and fail-open deletion semantics are unchanged.
+
+The main verifier directive accepts a faithful restatement of the same line/amount/period/basis and
+a causal lead-in plus its contiguous bullet within one supplied passage. It still forbids transferring
+a driver between measures, segments, periods or bases, joining separate passages into a new causal
+relationship, or treating matching words/amounts or co-movement as attribution. This is a prepared
+prompt candidate. The Pfizer retained example demonstrates a lost-context mechanism and the new
+unit gate proves that context reaches the request; neither establishes why a live verdict was wrong
+or how accuracy changes. Before release, measure at least two independent generated runs per
+configuration against the current-ranking control, use the same Fable contract-v2 judge, hand-read
+every flagged clause against supplied passages and the retained excerpt, and report precision/rescue
+denominators and per-run ranges. No flag change or baseline re-pin follows from the local gate.
