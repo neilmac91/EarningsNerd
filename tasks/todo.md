@@ -1,3 +1,9 @@
+## September 19 — AAPL/BABA residual reconciliation
+
+- [x] AAPL's older unrestricted capital-allocation field is already superseded for new generation by the existing qualified financing-comparison owner; no duplicate rule or distributions ratio was added.
+- [x] Read existing BABA filing 327 and stored summary 94 through public GET endpoints: accession 0001193125-26-231755, prompt summary-2026-09-o, status complete, full tier, 8/8 sections. Eight untraceable-figure markers remain; stored completeness is not quality acceptance. [Evidence and limitations](review-evidence/e5-2026-09-19/residual-reconciliation.md).
+- [x] The separate enrichment result-preservation fixes are reproducible defects, not a proven cause of the historical BABA partial attempts. No historical replay, live job or timeout increase was performed.
+
 ## September 19 — E5 completed enrichment preservation prepared
 
 - [x] The existing summary pipeline now retains each successfully completed excerpt/XBRL task when its sibling reaches the existing enrichment deadline. The original `wait_for(gather(...))` still cancels and drains pending tasks; caller cancellation propagates. An ordinary exception from the existing awaited XBRL cache/facts write no longer discards already standardized metrics. No detached persistence worker, new timeout, SEC path, provider call or orchestrator was introduced. A write still pending at the deadline remains outside this fix.
