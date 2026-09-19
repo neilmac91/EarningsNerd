@@ -414,7 +414,9 @@ script rejects a missing or mismatched measured profile.
 
 Delta consistency now attaches a direction-cued percentage directly to its named metric, allowing
 only a short set of auxiliary words and explicit currency amounts (including parenthetical
-changes and "decreased $2B, or 3%"). It does not borrow the percentage of another nearby metric.
+changes and "decreased $2B, or 3%"). It no longer scans a broad proximity window.
+Overlapping qualified names (for example, operating profit within non-GAAP operating profit)
+can still be ambiguous; this is not semantic metric-identity verification.
 This intentionally favors precision over recall: intervening descriptors, pronoun references and
 percentage-before-metric phrasing can remain unmeasured. It still compares absolute magnitudes,
 not signed direction or loss-narrowing semantics. The retained GPRO failure was revenue's 18.7%
