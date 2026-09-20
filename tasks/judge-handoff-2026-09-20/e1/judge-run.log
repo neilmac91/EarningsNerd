@@ -1,0 +1,74 @@
+Judging 70 attempts from ../work/e1/eval_20260919T182951Z.json with cli:claude-fable-5-1 (contract version 2; source 44fd9c4425c7139dbaef1b8707327d3561bab0ce, generator deepseek-flash, run local)
+  baseline ASML 6-K run 0: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 16463, 'excerpt_chars': 12957, 'xbrl_chars': 0}
+  baseline ASML 6-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 16538, 'excerpt_chars': 12957, 'xbrl_chars': 0}
+  baseline SE 6-K run 0: FAIL dims={'faithfulness': 3, 'insight': 2, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 17570, 'excerpt_chars': 57809, 'xbrl_chars': 0}
+  baseline SE 6-K run 1: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 25308, 'excerpt_chars': 57809, 'xbrl_chars': 0}
+  baseline PDD 6-K run 0: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 21222, 'excerpt_chars': 40750, 'xbrl_chars': 0}
+  baseline PDD 6-K run 1: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 13454, 'excerpt_chars': 40750, 'xbrl_chars': 0}
+  baseline PLD 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 18024, 'excerpt_chars': 231325, 'xbrl_chars': 13101}
+  baseline PLD 10-K run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 18065, 'excerpt_chars': 231325, 'xbrl_chars': 13101}
+  baseline NEE 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 15434, 'excerpt_chars': 96406, 'xbrl_chars': 13269}
+  baseline NEE 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 15510, 'excerpt_chars': 96406, 'xbrl_chars': 13269}
+  baseline PGR 10-K run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 16753, 'excerpt_chars': 175835, 'xbrl_chars': 13501}
+  baseline PGR 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 15501, 'excerpt_chars': 175835, 'xbrl_chars': 13501}
+  baseline FIGS 10-Q run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 20231, 'excerpt_chars': 112432, 'xbrl_chars': 14355}
+  baseline FIGS 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 22046, 'excerpt_chars': 112432, 'xbrl_chars': 14355}
+  baseline GPRO 10-K run 0: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 24990, 'excerpt_chars': 170233, 'xbrl_chars': 18632}
+  baseline GPRO 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 22842, 'excerpt_chars': 170233, 'xbrl_chars': 18632}
+  baseline AAPL 10-K run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 31018, 'excerpt_chars': 124125, 'xbrl_chars': 20647}
+  baseline AAPL 10-K run 1: FAIL dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 31621, 'excerpt_chars': 124125, 'xbrl_chars': 20647}
+  baseline MSFT 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21498, 'excerpt_chars': 164767, 'xbrl_chars': 20307}
+  baseline MSFT 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 20741, 'excerpt_chars': 164767, 'xbrl_chars': 20307}
+  baseline NVDA 10-Q run 1: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21091, 'excerpt_chars': 102206, 'xbrl_chars': 22500}
+  baseline NVDA 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 23777, 'excerpt_chars': 102206, 'xbrl_chars': 22500}
+  baseline JPM 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 24704, 'excerpt_chars': 170233, 'xbrl_chars': 14309}
+  baseline JPM 10-K run 1: FAIL dims={'faithfulness': 2, 'insight': 3, 'clarity': 3, 'specificity': 3} lengths={'summary_chars': 17164, 'excerpt_chars': 170233, 'xbrl_chars': 14309}
+  baseline KO 10-Q run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 25555, 'excerpt_chars': 95851, 'xbrl_chars': 20212}
+  baseline KO 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 26942, 'excerpt_chars': 95851, 'xbrl_chars': 20212}
+  baseline TSLA 10-K run 0: FAIL dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 26287, 'excerpt_chars': 170233, 'xbrl_chars': 17417}
+  baseline TSLA 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 25249, 'excerpt_chars': 170233, 'xbrl_chars': 17417}
+  baseline AMZN 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 33886, 'excerpt_chars': 161529, 'xbrl_chars': 17363}
+  baseline AMZN 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 31192, 'excerpt_chars': 161529, 'xbrl_chars': 17363}
+  baseline BRK.B 10-K run 0: FAIL dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21585, 'excerpt_chars': 147121, 'xbrl_chars': 11145}
+  baseline BRK.B 10-K run 1: FAIL dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 22620, 'excerpt_chars': 147121, 'xbrl_chars': 11145}
+  baseline XOM 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 16591, 'excerpt_chars': 160904, 'xbrl_chars': 15261}
+  baseline XOM 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 16631, 'excerpt_chars': 160904, 'xbrl_chars': 15261}
+  baseline PFE 10-Q run 1: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 27499, 'excerpt_chars': 181166, 'xbrl_chars': 17423}
+  baseline PFE 10-Q run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 19294, 'excerpt_chars': 181166, 'xbrl_chars': 17423}
+  baseline F 10-Q run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 26947, 'excerpt_chars': 98293, 'xbrl_chars': 18604}
+  baseline F 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 25116, 'excerpt_chars': 98293, 'xbrl_chars': 18604}
+  baseline WMT 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 26934, 'excerpt_chars': 170233, 'xbrl_chars': 18011}
+  baseline WMT 10-K run 1: FAIL dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 19764, 'excerpt_chars': 170233, 'xbrl_chars': 18011}
+  baseline COST 10-Q run 0: PASS dims={'faithfulness': 5, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 15335, 'excerpt_chars': 68765, 'xbrl_chars': 13908}
+  baseline COST 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 21505, 'excerpt_chars': 68765, 'xbrl_chars': 13908}
+  baseline BA 10-K run 0: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21520, 'excerpt_chars': 170233, 'xbrl_chars': 17666}
+  baseline BA 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 24647, 'excerpt_chars': 170233, 'xbrl_chars': 17666}
+  baseline INTC 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 23935, 'excerpt_chars': 181072, 'xbrl_chars': 19591}
+  baseline INTC 10-Q run 1: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 24576, 'excerpt_chars': 181072, 'xbrl_chars': 19591}
+  baseline PLTR 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 18026, 'excerpt_chars': 116850, 'xbrl_chars': 18525}
+  baseline PLTR 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21149, 'excerpt_chars': 116850, 'xbrl_chars': 18525}
+  baseline RIVN 10-K run 0: FAIL dims={'faithfulness': 3, 'insight': 4, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 26200, 'excerpt_chars': 129484, 'xbrl_chars': 17764}
+  baseline RIVN 10-K run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 23553, 'excerpt_chars': 129484, 'xbrl_chars': 17764}
+  baseline COIN 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 24246, 'excerpt_chars': 91192, 'xbrl_chars': 18596}
+  baseline COIN 10-Q run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 20663, 'excerpt_chars': 91192, 'xbrl_chars': 18596}
+  baseline BYND 10-Q run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 25618, 'excerpt_chars': 177945, 'xbrl_chars': 19088}
+  baseline BYND 10-Q run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 30543, 'excerpt_chars': 177945, 'xbrl_chars': 19088}
+  baseline BABA 20-F run 0: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 24906, 'excerpt_chars': 231089, 'xbrl_chars': 15425}
+  baseline BABA 20-F run 1: FAIL dims={'faithfulness': 3, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 24959, 'excerpt_chars': 231089, 'xbrl_chars': 15425}
+  baseline ASML 20-F run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 4, 'specificity': 4} lengths={'summary_chars': 25444, 'excerpt_chars': 260154, 'xbrl_chars': 19704}
+  baseline ASML 20-F run 0: FAIL dims={'faithfulness': 4, 'insight': 4, 'clarity': 4, 'specificity': 5} lengths={'summary_chars': 21901, 'excerpt_chars': 260154, 'xbrl_chars': 19704}
+  baseline TSM 20-F run 1: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 21904, 'excerpt_chars': 217082, 'xbrl_chars': 17302}
+  baseline JD 20-F run 0: FAIL dims={} lengths={'summary_chars': 26299, 'excerpt_chars': 230528, 'xbrl_chars': 18662} error=RuntimeError: claude CLI exit 1: 
+  baseline JD 20-F run 1: FAIL dims={} lengths={'summary_chars': 18646, 'excerpt_chars': 230528, 'xbrl_chars': 18662} error=RuntimeError: claude CLI exit 1: 
+  baseline SE 20-F run 0: FAIL dims={} lengths={'summary_chars': 17424, 'excerpt_chars': 123016, 'xbrl_chars': 17314} error=RuntimeError: claude CLI exit 1: 
+  baseline SE 20-F run 1: FAIL dims={} lengths={'summary_chars': 19189, 'excerpt_chars': 123016, 'xbrl_chars': 17314} error=RuntimeError: claude CLI exit 1: 
+  baseline NVO 20-F run 0: FAIL dims={} lengths={'summary_chars': 20988, 'excerpt_chars': 40972, 'xbrl_chars': 16589} error=RuntimeError: claude CLI exit 1: 
+  baseline TSM 20-F run 0: PASS dims={'faithfulness': 4, 'insight': 3, 'clarity': 3, 'specificity': 4} lengths={'summary_chars': 24327, 'excerpt_chars': 217082, 'xbrl_chars': 17302}
+  baseline NVO 20-F run 1: FAIL dims={} lengths={'summary_chars': 19552, 'excerpt_chars': 40972, 'xbrl_chars': 16589} error=RuntimeError: claude CLI exit 1: 
+  baseline PDD 20-F run 0: FAIL dims={} lengths={'summary_chars': 20460, 'excerpt_chars': 226630, 'xbrl_chars': 14480} error=RuntimeError: claude CLI exit 1: 
+  baseline PDD 20-F run 1: FAIL dims={} lengths={'summary_chars': 21850, 'excerpt_chars': 226630, 'xbrl_chars': 14480} error=RuntimeError: claude CLI exit 1: 
+  baseline MELI 10-K run 0: FAIL dims={} lengths={'summary_chars': 28484, 'excerpt_chars': 250076, 'xbrl_chars': 17880} error=RuntimeError: claude CLI exit 1: 
+  baseline MELI 10-K run 1: FAIL dims={} lengths={'summary_chars': 36163, 'excerpt_chars': 250076, 'xbrl_chars': 17880} error=RuntimeError: claude CLI exit 1: 
+Judged 60/70 judgeable attempts (70 total); negative 29; gates {'G2 fabricated_comparatives': 0, 'G3 hallucinated_facts': 10, 'G4 unsupported_cause': 16, 'G5 basis_mismatch': 18}
+Outputs: ../work/judged-e1
+judge exit=1
