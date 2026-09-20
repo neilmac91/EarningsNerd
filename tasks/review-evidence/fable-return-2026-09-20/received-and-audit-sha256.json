@@ -1,0 +1,9 @@
+{
+  "verdict-provenance-audit.json": "4e4059928f1adfeb82c18cf5258dc9ecf68f16e5a1f1afc2446e1999796990f7",
+  "supplied-checksum-audit.json": "4290912454504ddf2af1327f325f5d6d5f29a9707a331901c8cfdf133be71438",
+  "received-results.zip": "3a451e364d548fa20af853c980890283382dae7c396be542a00fdef84b467563",
+  "path-sanitization-audit.json": "541190c39ebfe0fcdf948e76c0d67f0acd958d1c306bea5143724b07a32d8c46",
+  "received-takeover-prompt.md": "4955005b2c7b7d962dd00e873758ea3d497bd68295781d6801a84bbd4f04fb78",
+  "review.md": "4b6d0681a03714d1605c6f0ba7790dc48c9bc8f5a3ba9c96a3233d353072ee15",
+  "tooling-review.md": "d889db10bb9d78bdbc914e701d99ddb11be878a66498c83a2f9cb5f9c71978ef"
+}

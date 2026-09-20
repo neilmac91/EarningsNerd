@@ -1,0 +1,772 @@
+{
+  "stage": "ko-corrected",
+  "updated_at": "2026-09-20T00:26:24.776729+00:00",
+  "original_input_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+  "index": "<judge-checkout>/work/ko-corrected/packets/packets-index.json",
+  "counts": {
+    "planned": 70,
+    "completed": 50,
+    "failed": 0,
+    "missing": 20
+  },
+  "completed": [
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/001-ASML-6-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/002-ASML-6-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/003-SE-6-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/004-SE-6-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/005-PDD-6-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/006-PDD-6-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLD",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/007-PLD-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLD",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/008-PLD-10-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NEE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/009-NEE-10-Q-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NEE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/010-NEE-10-Q-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PGR",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/011-PGR-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PGR",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/012-PGR-10-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "FIGS",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/013-FIGS-10-Q-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "FIGS",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/014-FIGS-10-Q-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "GPRO",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/015-GPRO-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "GPRO",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/016-GPRO-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AAPL",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/017-AAPL-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AAPL",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/018-AAPL-10-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MSFT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/019-MSFT-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MSFT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/020-MSFT-10-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVDA",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/021-NVDA-10-Q-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVDA",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/022-NVDA-10-Q-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JPM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/023-JPM-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JPM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/024-JPM-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "KO",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/025-KO-10-Q-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "KO",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/026-KO-10-Q-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSLA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/027-TSLA-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSLA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/028-TSLA-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AMZN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/029-AMZN-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AMZN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/030-AMZN-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BRK.B",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/031-BRK_B-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BRK.B",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/032-BRK_B-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "XOM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/033-XOM-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "XOM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/034-XOM-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PFE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/035-PFE-10-Q-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PFE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/036-PFE-10-Q-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "F",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/037-F-10-Q-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "F",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/038-F-10-Q-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "WMT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/039-WMT-10-K-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "WMT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/040-WMT-10-K-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COST",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/041-COST-10-Q-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COST",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/042-COST-10-Q-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/043-BA-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/044-BA-10-K-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "INTC",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/045-INTC-10-Q-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "INTC",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/046-INTC-10-Q-run1",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLTR",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/047-PLTR-10-Q-run0",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLTR",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/048-PLTR-10-Q-run1",
+      "verdict": "FAIL"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "RIVN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/049-RIVN-10-K-run0",
+      "verdict": "PASS"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "RIVN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/050-RIVN-10-K-run1",
+      "verdict": "FAIL"
+    }
+  ],
+  "failed": [],
+  "missing": [
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COIN",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/051-COIN-10-Q-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COIN",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/052-COIN-10-Q-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BYND",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/053-BYND-10-Q-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BYND",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/054-BYND-10-Q-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BABA",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/055-BABA-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BABA",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/056-BABA-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/057-ASML-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/058-ASML-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSM",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/059-TSM-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSM",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/060-TSM-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/061-JD-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/062-JD-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/063-SE-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/064-SE-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/065-NVO-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/066-NVO-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/067-PDD-20-F-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/068-PDD-20-F-run1"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/069-MELI-10-K-run0"
+    },
+    {
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "slot": "<judge-checkout>/work/ko-corrected/slots/070-MELI-10-K-run1"
+    }
+  ],
+  "active_process": "stopped",
+  "stop_reason": "operator_stop_at_50: founder instruction (session usage limit); resume by re-running run-stage.sh (skips complete slots)",
+  "current_slot": "051-COIN-10-Q-run0 (aborted at start, no output)",
+  "e8_guard_config": null,
+  "e8_guard_state": null
+}

@@ -1,0 +1,535 @@
+{
+  "original_pr": 930,
+  "original_head": "3b4cccc04495765caf0fd8135f59151ea9a90ebf",
+  "new_base": "b9c2ca4d9a14b8200bfcdd147cda61cf2263ded4",
+  "received_zip_sha256": "3a451e364d548fa20af853c980890283382dae7c396be542a00fdef84b467563",
+  "received_zip_retained_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/fable-return-review-2026-09-20/received-results.zip",
+  "entire_zip_committed": false,
+  "received_zip_members": {
+    "results/ko-corrected/non-ko-spot-witnesses.txt": {
+      "bytes": 3300,
+      "sha256": "d28c6ce4d48fa17f7789590f7ba30656abdde480b1c1f99be21fad8d16a02809"
+    },
+    "results/ko-corrected/overlap-detail.txt": {
+      "bytes": 6641,
+      "sha256": "079ebfac8d1b80fbf0d7f25a2992c1406a0ad0cf8d69645cb786d156bbba45bb"
+    },
+    "results/ko-corrected/ko-hand-review-witnesses.txt": {
+      "bytes": 15537,
+      "sha256": "322f473b4dd6308b5b39edbbe9bf7bb70e4e28fc443fc1fe5cca9acd83c2cad5"
+    },
+    "results/ko-corrected/receipt.md": {
+      "bytes": 2599,
+      "sha256": "8d3f8b3da0bee60d80a7856ca1b81c07f83541facac9e92b876cc7ae927212a9"
+    },
+    "results/ko-corrected/analysis.txt": {
+      "bytes": 38475,
+      "sha256": "09ba1601b03719f00689c241c81666e535293c84a54c8ffb916285f8237c379a"
+    },
+    "results/ko-corrected/packets-index.json": {
+      "bytes": 62779,
+      "sha256": "ed22d6094e8bb114d78b31b0269503c0531d04ad075db3cd3d267c9108c2aa33"
+    },
+    "results/ko-corrected/stop-at-50.log": {
+      "bytes": 201,
+      "sha256": "782750034b46d4968e15abbbcf78d88627dad0ab0391f714f49448ab817a5081"
+    },
+    "results/ko-corrected/judged.md": {
+      "bytes": 15727,
+      "sha256": "52a891e0b1e35245c270ee689040979b6f8a44cf22f0bc43394fa22af7b7fc08"
+    },
+    "results/ko-corrected/resume-manifest.json": {
+      "bytes": 19973,
+      "sha256": "aa68f379038cec7e715c57cf916a978876d832519b401432944fdd9eec1068f8"
+    },
+    "results/ko-corrected/sha256.txt": {
+      "bytes": 832,
+      "sha256": "67a235f66f4e5362e45c234e98f3e4c3972b781e8cd03219eb99943fe0851bc1"
+    },
+    "results/ko-corrected/execution-ledger.jsonl": {
+      "bytes": 88160,
+      "sha256": "b1be0168b4cff104af5f2ce7d76ddeea4e514059b43e55ce84cc18fc2f972bc3"
+    },
+    "results/ko-corrected/judged.json": {
+      "bytes": 20621130,
+      "sha256": "5a0983c75ba48ba13e524dc061097cc0d66753a1ae9989d9547365fe42ee74cd"
+    },
+    "results/astra-takeover-prompt.md": {
+      "bytes": 15478,
+      "sha256": "4955005b2c7b7d962dd00e873758ea3d497bd68295781d6801a84bbd4f04fb78"
+    },
+    "results/e2-control2/overlap-detail.txt": {
+      "bytes": 9604,
+      "sha256": "6097ee6903783ad8769de399f853ba590d1f4b57d0a034af4068141673930bf7"
+    },
+    "results/e2-control2/receipt.md": {
+      "bytes": 1817,
+      "sha256": "de3e54ff528c4f39505b9ff3fd827b07801d1cea2088bed026ee700b399ac55a"
+    },
+    "results/e2-control2/analysis.txt": {
+      "bytes": 60815,
+      "sha256": "747910ef8a18092ca0ef64b38a545275b21546077744d386ba211448d7a474e5"
+    },
+    "results/e2-control2/ci-execution.txt": {
+      "bytes": 154,
+      "sha256": "02706c9e035c190cde4c8973931191061f6e50860eb4f6344240528fc074e6cb"
+    },
+    "results/e2-control2/judged.md": {
+      "bytes": 21338,
+      "sha256": "6febea9b13fd3078a84de2a2837e81e03381ac2b0bb9190486ba258389d0d557"
+    },
+    "results/e2-control2/judge-run.log": {
+      "bytes": 13135,
+      "sha256": "14f1c2750137c63a13040408ed8838deda22ff98db7b282f8e786e2643064fa9"
+    },
+    "results/e2-control2/judged.json": {
+      "bytes": 20595611,
+      "sha256": "15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa"
+    },
+    "results/e1/missing-identities-packets-index.json": {
+      "bytes": 9132,
+      "sha256": "fbbeacf9e90ab89c98af9677a7305bed1d7278a9aaa13c467bd609f00d82a648"
+    },
+    "results/e1/analysis.partial.txt": {
+      "bytes": 42380,
+      "sha256": "8abfe5a84ae4f31e7a4b85e5204f79b2092a128762c93ac9641bc40a76cd7f13"
+    },
+    "results/e1/sha256.txt": {
+      "bytes": 455,
+      "sha256": "85593c43af67d5e3be366c702e5231398812a39494eb1e0bc3d9ebda6107b711"
+    },
+    "results/e1/judge-run.log": {
+      "bytes": 12901,
+      "sha256": "a66e14cc7aa818a61ee59113e799efc6c52528502fe3a8b6c208607d24b05b1f"
+    },
+    "results/e1/judged.partial-60of70.json": {
+      "bytes": 20428924,
+      "sha256": "97e718364dea742f60a1c9b0a102c092bfa6fa56766445909f8984aae89a76ec"
+    },
+    "results/e1/judged.partial-60of70.md": {
+      "bytes": 17213,
+      "sha256": "a5618a14653d19747ec7cfb726cd0139dc0216c5010d9b1e9d46858acfa60695"
+    },
+    "results/e8-pilot/e8-execution-index.json": {
+      "bytes": 333077,
+      "sha256": "6a188d74aae352ebe2a7a117b1dda6e605415a532f6913607e46c281d4d5efcf"
+    },
+    "results/e8-pilot/relocation-record.json": {
+      "bytes": 724,
+      "sha256": "9175d37859eb52cb46f31aef43c7e9d7ab22b1ddc618edf58bc738cb02d93b59"
+    },
+    "results/e8-pilot/guard-config.relocated-disabled.json": {
+      "bytes": 156,
+      "sha256": "a8436b2ae6c0de9e20737de49d59e8bd45b02963e3a1ef76e885879ca4b27b2f"
+    },
+    "results/e8-pilot/guard-state.uninitialized.json": {
+      "bytes": 108,
+      "sha256": "a588c4866eae3d21c7d364d8f124a970d0bc320bb6695dbe7708c08829344937"
+    },
+    "results/e8-pilot/sha256.txt": {
+      "bytes": 560,
+      "sha256": "9dc9ab88da9e094555263f1ee80c81317cb3bcfdc01dea939fc6957a3130b0d5"
+    },
+    "results/e8-pilot/initialize-guard.sh": {
+      "bytes": 2012,
+      "sha256": "15095e39f03a8be9e8949533ef3f845ed9d260d3ad7884aafe74dcb81de5bbff"
+    },
+    "results/e8-pilot/accounting-reconciliation.md": {
+      "bytes": 2912,
+      "sha256": "ef5ef4dda0ac71dbc3480381f2d9febe3c2f09ffc4c0ce391c5814769a62f26c"
+    },
+    "results/e2/overlap-detail.txt": {
+      "bytes": 11795,
+      "sha256": "a82ff28025de753bb2a68e131b1d2f0b1bc0316dc05d3b78a1461feb72f1e0ee"
+    },
+    "results/e2/receipt.md": {
+      "bytes": 1904,
+      "sha256": "67a0f0a6fe9d40d443711fc1a957b29ed4b72373954c45ae1c76a0b66f63e4c8"
+    },
+    "results/e2/analysis.txt": {
+      "bytes": 55788,
+      "sha256": "8612d9bab7deb2480f4b1206c8e8c91daf1580e228106fb0d10ce2b7905a2e0b"
+    },
+    "results/e2/ci-execution.txt": {
+      "bytes": 154,
+      "sha256": "cdfdc1b504507fc04ecff26cdd91b4f259ea4d29c9814b26116908131283e8e5"
+    },
+    "results/e2/judged.md": {
+      "bytes": 19592,
+      "sha256": "e35eddc3f7e6b58b6416c640935ff026e6fb491926bf33179c08ad8440a94543"
+    },
+    "results/e2/judge-run.log": {
+      "bytes": 13131,
+      "sha256": "48c700c993580de0e7b96342c5f6c6d3392fcaa98ce061d6d41b4b68b1832833"
+    },
+    "results/e2/judged.json": {
+      "bytes": 20274114,
+      "sha256": "d5c6a293aa7fb79b416f0df5c47bf90f67960601c8946b3180248838dbacb54d"
+    },
+    "results/README-handover.md": {
+      "bytes": 15971,
+      "sha256": "8b35d7523878649bf5a7d30e307a77c4f5d9fd1fead288225739d87232eaa6bb"
+    },
+    "results/tools/overlap_detail.py": {
+      "bytes": 2557,
+      "sha256": "fee69be88e4c8874562eb81ca4b66a4aa5468c5894a74c2dfe7d96d974de9204"
+    },
+    "results/tools/finish-stage.sh": {
+      "bytes": 1463,
+      "sha256": "c3aa3984be12a63f1c935aa74e265f00b3b9fcf098772d3455140ceeec12e3e7"
+    },
+    "results/tools/consolidate.py": {
+      "bytes": 4226,
+      "sha256": "694377881b22b292ab3083e0ac3401a4203d10b659afb9742c80b814589ee23e"
+    },
+    "results/tools/analyze_judged.py": {
+      "bytes": 4331,
+      "sha256": "eab1ba95f8ae98e81f77f753cb6391ff7d2e646782511ef59edc0688cb125408"
+    },
+    "results/tools/receipt.py": {
+      "bytes": 4037,
+      "sha256": "487ec9a461dd7a6db32cd62a0a0c97c6245108cba80f88d4df749354d8237dfb"
+    },
+    "results/tools/e8_analyze.py": {
+      "bytes": 4188,
+      "sha256": "a1ded86d145127daca8d24ffb66b8e9518503a1681395dcdd7d46d51f447adcf"
+    },
+    "results/tools/compare_runs.py": {
+      "bytes": 2844,
+      "sha256": "2851064be08e3b77d6c0b8aa413b2d6c49fcccd617e022bbc76bca38a6b77333"
+    },
+    "results/tools/build_packets.py": {
+      "bytes": 4461,
+      "sha256": "8aceae1b77503ef9ae9ad54573406aaa8bb6c82b0cd7e5b553b472f3d1779bb9"
+    },
+    "results/tools/run_queue.py": {
+      "bytes": 9189,
+      "sha256": "6028d17b5d919d2d803be64959f71db8cedf33afc91bb26b0f5aed984768eddf"
+    },
+    "astra-takeover-prompt.md": {
+      "bytes": 15478,
+      "sha256": "4955005b2c7b7d962dd00e873758ea3d497bd68295781d6801a84bbd4f04fb78"
+    }
+  },
+  "original_pr_files": [
+    {
+      "original_pr_path": "tasks/handover-judge-2026-09-20.md",
+      "bytes": 15971,
+      "sha256": "8b35d7523878649bf5a7d30e307a77c4f5d9fd1fead288225739d87232eaa6bb",
+      "archived_as": "historical-handover.md.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e1/analysis.partial.txt",
+      "bytes": 42380,
+      "sha256": "8abfe5a84ae4f31e7a4b85e5204f79b2092a128762c93ac9641bc40a76cd7f13",
+      "received_zip_member": "results/e1/analysis.partial.txt",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/e1/analysis.partial.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e1/judge-run.log",
+      "bytes": 12901,
+      "sha256": "a66e14cc7aa818a61ee59113e799efc6c52528502fe3a8b6c208607d24b05b1f",
+      "received_zip_member": "results/e1/judge-run.log",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Exact raw log retained in original PR and received ZIP, including trailing-space CLI errors; exact judge errors also preserved in partial-verdicts.json."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e1/judged.partial-60of70.md",
+      "bytes": 17213,
+      "sha256": "a5618a14653d19747ec7cfb726cd0139dc0216c5010d9b1e9d46858acfa60695",
+      "received_zip_member": "results/e1/judged.partial-60of70.md",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e1/missing-identities-packets-index.json",
+      "bytes": 9132,
+      "sha256": "fbbeacf9e90ab89c98af9677a7305bed1d7278a9aaa13c467bd609f00d82a648",
+      "received_zip_member": "results/e1/missing-identities-packets-index.json",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2-control2/analysis.txt",
+      "bytes": 60815,
+      "sha256": "747910ef8a18092ca0ef64b38a545275b21546077744d386ba211448d7a474e5",
+      "received_zip_member": "results/e2-control2/analysis.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2-control2/ci-execution.txt",
+      "bytes": 154,
+      "sha256": "02706c9e035c190cde4c8973931191061f6e50860eb4f6344240528fc074e6cb",
+      "received_zip_member": "results/e2-control2/ci-execution.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2-control2/judge-run.log",
+      "bytes": 13135,
+      "sha256": "14f1c2750137c63a13040408ed8838deda22ff98db7b282f8e786e2643064fa9",
+      "received_zip_member": "results/e2-control2/judge-run.log",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2-control2/overlap-detail.txt",
+      "bytes": 9604,
+      "sha256": "6097ee6903783ad8769de399f853ba590d1f4b57d0a034af4068141673930bf7",
+      "received_zip_member": "results/e2-control2/overlap-detail.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2-control2/receipt.md",
+      "bytes": 1817,
+      "sha256": "de3e54ff528c4f39505b9ff3fd827b07801d1cea2088bed026ee700b399ac55a",
+      "received_zip_member": "results/e2-control2/receipt.md",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2/analysis.txt",
+      "bytes": 55788,
+      "sha256": "8612d9bab7deb2480f4b1206c8e8c91daf1580e228106fb0d10ce2b7905a2e0b",
+      "received_zip_member": "results/e2/analysis.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2/ci-execution.txt",
+      "bytes": 154,
+      "sha256": "cdfdc1b504507fc04ecff26cdd91b4f259ea4d29c9814b26116908131283e8e5",
+      "received_zip_member": "results/e2/ci-execution.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2/judge-run.log",
+      "bytes": 13131,
+      "sha256": "48c700c993580de0e7b96342c5f6c6d3392fcaa98ce061d6d41b4b68b1832833",
+      "received_zip_member": "results/e2/judge-run.log",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2/overlap-detail.txt",
+      "bytes": 11795,
+      "sha256": "a82ff28025de753bb2a68e131b1d2f0b1bc0316dc05d3b78a1461feb72f1e0ee",
+      "received_zip_member": "results/e2/overlap-detail.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e2/receipt.md",
+      "bytes": 1904,
+      "sha256": "67a0f0a6fe9d40d443711fc1a957b29ed4b72373954c45ae1c76a0b66f63e4c8",
+      "received_zip_member": "results/e2/receipt.md",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/accounting-reconciliation.md",
+      "bytes": 2912,
+      "sha256": "ef5ef4dda0ac71dbc3480381f2d9febe3c2f09ffc4c0ce391c5814769a62f26c",
+      "received_zip_member": "results/e8-pilot/accounting-reconciliation.md",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/e8-pilot/accounting-reconciliation.md.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/e8-execution-index.json",
+      "bytes": 333077,
+      "sha256": "6a188d74aae352ebe2a7a117b1dda6e605415a532f6913607e46c281d4d5efcf",
+      "received_zip_member": "results/e8-pilot/e8-execution-index.json",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/guard-config.relocated-disabled.json",
+      "bytes": 156,
+      "sha256": "a8436b2ae6c0de9e20737de49d59e8bd45b02963e3a1ef76e885879ca4b27b2f",
+      "received_zip_member": "results/e8-pilot/guard-config.relocated-disabled.json",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/e8-pilot/guard-config.relocated-disabled.json"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/guard-state.uninitialized.json",
+      "bytes": 108,
+      "sha256": "a588c4866eae3d21c7d364d8f124a970d0bc320bb6695dbe7708c08829344937",
+      "received_zip_member": "results/e8-pilot/guard-state.uninitialized.json",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/e8-pilot/guard-state.uninitialized.json"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/initialize-guard.sh",
+      "bytes": 2012,
+      "sha256": "15095e39f03a8be9e8949533ef3f845ed9d260d3ad7884aafe74dcb81de5bbff",
+      "received_zip_member": "results/e8-pilot/initialize-guard.sh",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/e8-pilot/relocation-record.json",
+      "bytes": 724,
+      "sha256": "9175d37859eb52cb46f31aef43c7e9d7ab22b1ddc618edf58bc738cb02d93b59",
+      "received_zip_member": "results/e8-pilot/relocation-record.json",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/analysis.txt",
+      "bytes": 38475,
+      "sha256": "09ba1601b03719f00689c241c81666e535293c84a54c8ffb916285f8237c379a",
+      "received_zip_member": "results/ko-corrected/analysis.txt",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/analysis.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/execution-ledger.jsonl",
+      "bytes": 88160,
+      "sha256": "b1be0168b4cff104af5f2ce7d76ddeea4e514059b43e55ce84cc18fc2f972bc3",
+      "received_zip_member": "results/ko-corrected/execution-ledger.jsonl",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/execution-ledger.jsonl"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/judged.md",
+      "bytes": 15727,
+      "sha256": "52a891e0b1e35245c270ee689040979b6f8a44cf22f0bc43394fa22af7b7fc08",
+      "received_zip_member": "results/ko-corrected/judged.md",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/ko-hand-review-witnesses.txt",
+      "bytes": 15537,
+      "sha256": "322f473b4dd6308b5b39edbbe9bf7bb70e4e28fc443fc1fe5cca9acd83c2cad5",
+      "received_zip_member": "results/ko-corrected/ko-hand-review-witnesses.txt",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/ko-hand-review-witnesses.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/non-ko-spot-witnesses.txt",
+      "bytes": 3300,
+      "sha256": "d28c6ce4d48fa17f7789590f7ba30656abdde480b1c1f99be21fad8d16a02809",
+      "received_zip_member": "results/ko-corrected/non-ko-spot-witnesses.txt",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/non-ko-spot-witnesses.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/overlap-detail.txt",
+      "bytes": 6641,
+      "sha256": "079ebfac8d1b80fbf0d7f25a2992c1406a0ad0cf8d69645cb786d156bbba45bb",
+      "received_zip_member": "results/ko-corrected/overlap-detail.txt",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/packets-index.json",
+      "bytes": 62779,
+      "sha256": "ed22d6094e8bb114d78b31b0269503c0531d04ad075db3cd3d267c9108c2aa33",
+      "received_zip_member": "results/ko-corrected/packets-index.json",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/receipt.md",
+      "bytes": 2599,
+      "sha256": "8d3f8b3da0bee60d80a7856ca1b81c07f83541facac9e92b876cc7ae927212a9",
+      "received_zip_member": "results/ko-corrected/receipt.md",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/receipt.md.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/resume-manifest.json",
+      "bytes": 19973,
+      "sha256": "aa68f379038cec7e715c57cf916a978876d832519b401432944fdd9eec1068f8",
+      "received_zip_member": "results/ko-corrected/resume-manifest.json",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/resume-manifest.json"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/ko-corrected/stop-at-50.log",
+      "bytes": 201,
+      "sha256": "782750034b46d4968e15abbbcf78d88627dad0ab0391f714f49448ab817a5081",
+      "received_zip_member": "results/ko-corrected/stop-at-50.log",
+      "received_zip_same_bytes": true,
+      "archived_as": "historical-receipts/ko-corrected/stop-at-50.log.txt"
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/analyze_judged.py",
+      "bytes": 4331,
+      "sha256": "eab1ba95f8ae98e81f77f753cb6391ff7d2e646782511ef59edc0688cb125408",
+      "received_zip_member": "results/tools/analyze_judged.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/build_packets.py",
+      "bytes": 4461,
+      "sha256": "8aceae1b77503ef9ae9ad54573406aaa8bb6c82b0cd7e5b553b472f3d1779bb9",
+      "received_zip_member": "results/tools/build_packets.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/compare_runs.py",
+      "bytes": 2844,
+      "sha256": "2851064be08e3b77d6c0b8aa413b2d6c49fcccd617e022bbc76bca38a6b77333",
+      "received_zip_member": "results/tools/compare_runs.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/consolidate.py",
+      "bytes": 4226,
+      "sha256": "694377881b22b292ab3083e0ac3401a4203d10b659afb9742c80b814589ee23e",
+      "received_zip_member": "results/tools/consolidate.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/e8_analyze.py",
+      "bytes": 4188,
+      "sha256": "a1ded86d145127daca8d24ffb66b8e9518503a1681395dcdd7d46d51f447adcf",
+      "received_zip_member": "results/tools/e8_analyze.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/finish-stage.sh",
+      "bytes": 1463,
+      "sha256": "c3aa3984be12a63f1c935aa74e265f00b3b9fcf098772d3455140ceeec12e3e7",
+      "received_zip_member": "results/tools/finish-stage.sh",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/overlap_detail.py",
+      "bytes": 2557,
+      "sha256": "fee69be88e4c8874562eb81ca4b66a4aa5468c5894a74c2dfe7d96d974de9204",
+      "received_zip_member": "results/tools/overlap_detail.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/receipt.py",
+      "bytes": 4037,
+      "sha256": "487ec9a461dd7a6db32cd62a0a0c97c6245108cba80f88d4df749354d8237dfb",
+      "received_zip_member": "results/tools/receipt.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    },
+    {
+      "original_pr_path": "tasks/judge-handoff-2026-09-20/tools/run_queue.py",
+      "bytes": 9189,
+      "sha256": "6028d17b5d919d2d803be64959f71db8cedf33afc91bb26b0f5aed984768eddf",
+      "received_zip_member": "results/tools/run_queue.py",
+      "received_zip_same_bytes": true,
+      "not_copied_reason": "Operator tooling/index or previously retained control evidence; retained in original PR and/or received ZIP, not a current runnable instruction."
+    }
+  ],
+  "review_scope": "All 40 original PR blobs read and hashed; JSON/JSONL parsed and Python sources parsed without execution. Only selected historical evidence copied; no operator scripts installed."
+}

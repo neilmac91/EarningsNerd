@@ -1,0 +1,54 @@
+# Fable handover review — 20 September 2026
+
+The delivered completed judgments are usable retained evidence. The judging programme remains incomplete, and the supplied automation should be corrected before an unattended resume. This review inspected the attachments as evidence; it did not execute their judging, installation, GitHub or deployment instructions.
+
+## Verified status
+
+| Stage | Complete | Negative among complete | Remaining |
+|---|---:|---:|---|
+| E2 control 1 | 70/70 | 38/70 (54.3%) | None; preserve and reuse |
+| E2 control 2 | 70/70 | 42/70 (60.0%) | None; preserve and reuse |
+| Corrected KO corpus | 50/70 | 27/50 (54.0%) | 20 unjudged identities, no judge errors in the completed 50 |
+| E3 candidate 1 | 0/70 supplied | — | 70 judgments |
+| E3 candidate 2 | 0/70 supplied | — | 70 judgments |
+| E8 | 140 reusable control mains; no new judgments supplied | — | 140 n mains plus 20 duplicates |
+| E1 | 60/70 | 29/60 (48.3%) | 10 identities with recorded CLI errors |
+
+KO gate counts are G2=0, G3=13, G4=14, G5=15. E1 counts are 0, 10, 16, 18. Counts are attempts, not numbers of reasons. KO's missing rows are COIN/BYND 10-Q, BABA/ASML/TSM/JD/SE/NVO/PDD 20-F, and MELI 10-K, two draws each. E1's error rows are JD/SE/NVO/PDD 20-F and MELI 10-K, two draws each.
+
+Both corrected KO draws have complete contract-2 PASS verdicts. Their retained segment tables omit the unsafe operating-margin prefix. The source explicitly distinguishes EMEA 44.8% and Asia Pacific 37.6% issuer margins from the former derived ratios. The remaining “Change” column is ambiguously labelled beside revenue and operating income: +6.1% for Asia Pacific is revenue growth, not operating-income growth. Preserve that presentation issue. Two passing KO draws do not complete the 70-output corpus or establish broad quality acceptance.
+
+The completed KO prefix contains 6 six-K, 26 ten-K and 18 ten-Q outputs; all 14 twenty-F outputs remain unjudged. Its 54.0% negative rate must not be compared with the complete E2 rates as a prompt effect. The same limitation applies to the partial E1 rate.
+
+## Evidence checks
+
+- Both E2 judged JSON files are byte-identical to the previously audited deliveries.
+- All 70 original non-judge rows in each KO and E1 report match their retained generation input exactly. Harness metadata differs only by the expected judge identity/contract fields.
+- All 50 KO and 60 E1 complete verdicts carry contract 2, complete input and no judge error. Their negative/gate counts and dimension means were independently recomputed.
+- All 70 KO packet, canonical-row and reconstructed-request hashes match the frozen harness and original report. The ten E1 retry-packet hashes also match. All five frozen judge/golden file hashes match the consolidated handoff.
+- The 50 successful KO ledger entries agree with the consolidated verdicts, dimensions, reasons, input lengths and indexed hashes, with sequential non-overlapping recorded intervals. A separate operator-stop record identifies the aborted first COIN call; it has no verdict and is not a completed slot.
+- Independent tooling review checked all 300 E8 packet byte hashes and indexed source/identity/request/order mappings against the retained frozen queue: 160 pending slots and 140 reused mains, with all 20 duplicates after their mains.
+
+The results ZIP SHA-256 is `3a451e364d548fa20af853c980890283382dae7c396be542a00fdef84b467563`. Thirteen of 21 supplied checksum entries match the received bytes directly. The other eight are exactly explained by replacing the original checkout path with `<judge-checkout>`: reversing only that replacement reproduces every original manifest hash. There is no unexplained byte difference in those eight files. Preserve the historical manifests and record new hashes for any relocated copies.
+
+Judge model/CLI identity remains attested by the handover and metadata, rather than independently proven by raw server envelopes. The ten E1 errors retain `RuntimeError: claude CLI exit 1: `; the agent attributes them to quota. Empty stderr and exit 1 alone do not uniquely establish quota exhaustion. Stop on the error, preserve it, and use an actual CLI JSON `result` or equivalent evidence to attribute its cause.
+
+## Corrections before automated resume
+
+1. **Bind every saved or newly produced verdict to its intended input.** `tools/run_queue.py` skips existing slots on the first complete-looking judge object, without checking the complete row, identity or harness. It also copies declared hashes into its ledger without validating packet/request bytes before dispatch. `tools/e8_analyze.py` similarly trusts the first row and does not validate its loaded reuse mapping. A valid result from another corpus with the same ticker/form/draw can therefore be misattributed. The KO/E3 consolidator catches full-row mismatches later; the E8 analyzer does not. Require exact packet, original row, request and contract matching before skipping, dispatching or accepting a slot. The independent audit found no such mismatch in the delivered completed rows.
+2. **Make E8 guarding mandatory.** The generic queue driver permits an E8 index without `--guard-dir`; inherited PATH could invoke the real CLI without the shared ceiling/latch. Refuse that route before a call, or use a separately verified wrapper that cannot omit guarding. E8 has not started, so no actual bypass is alleged.
+3. **Finish relocation explicitly.** The prompt's blanket placeholder replacement is insufficient: `finish-stage.sh` retains the original hardcoded `S`/`W` paths and references analysis helpers outside the ZIP's `tools/` layout. The initializer also asserts the Linux CLI path. Resolve every helper/output/shared-state path and verify the actual existing CLI before use. Initialization must remain single-owner and exactly once; preserve any counter, history and latch.
+
+The new E8 prior charge is **287**, a conservative bound based on the operator's attestation, not an exact independently observed call count: 280 for reused controls, one known original probe, four further probes and two aborted children. That leaves **314 invocations** under the unchanged ceiling of 601 for 160 pending slots. All slots can complete if internal retries fit; the worst case of 320 calls cannot. Do not raise/reset the ceiling. Add any further relevant calls made since the handover before initialization. KO/E3/E1 remain separate programmes.
+
+The supplied E8 analyzer provides descriptive per-cell and duplicate agreement results; it is not, by itself, the complete planned variability analysis or evidence of a causal prompt effect.
+
+## Recommended next sequence
+
+Preserve the validated results and correct the resume tooling first. Then continue **KO's 20 missing → E3 candidate 1 → E3 candidate 2 → E8's 160 pending slots → optional E1's ten error identities**. This is 320 remaining required slots, plus ten optional E1 slots. Do not repeat any completed valid judgment, substitute the judge, or spend new generation budget.
+
+The prompt names two additional archives that were not supplied: `judge-handover-resume-part1-inputs-2026-09-20.zip` and `judge-handover-resume-part2-packets-slots-e8-2026-09-20.zip`. They would provide the original stage drivers, packets and per-slot logs. Their absence does not erase completed work: original inputs already retained locally and the verified consolidated JSON permit reconstruction of missing packets and preservation of first valid verdicts. Reconstructed slot files must be labelled as reconstructed; they cannot reproduce the original per-slot byte hashes or missing execution logs.
+
+No new judging, quota probe, supplied operational script execution, installation, PR mutation or production action was performed. PR #930's current GitHub state and its full diff were not part of this attachment audit.
+
+Evidence: [verdict/provenance audit](verdict-provenance-audit.json), [supplied manifest checks](supplied-checksum-audit.json), [exact path-sanitization proof](path-sanitization-audit.json), [independent tooling review](tooling-review.md), [original results ZIP](received-results.zip), [original takeover prompt](received-takeover-prompt.md).

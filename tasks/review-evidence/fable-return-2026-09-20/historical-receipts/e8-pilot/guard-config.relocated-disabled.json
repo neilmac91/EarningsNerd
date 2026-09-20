@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "real_cli": "/opt/claude-code/bin/claude",
+  "state_path": "<judge-checkout>/work/e8/e8-judge-guard/state.json",
+  "ceiling": 601
+}

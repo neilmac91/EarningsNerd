@@ -1,0 +1,128 @@
+[
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "analysis.txt",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "execution-ledger.jsonl",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "judged.json",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "judged.md",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "ko-hand-review-witnesses.txt",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "overlap-detail.txt",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "packets-index.json",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "receipt.md",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "resume-manifest.json",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "ko-corrected/sha256.txt",
+    "file": "stop-at-50.log",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "accounting-reconciliation.md",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "e8-execution-index.json",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "guard-config.relocated-disabled.json",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "guard-state.uninitialized.json",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "initialize-guard.sh",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "e8-pilot/sha256.txt",
+    "file": "relocation-record.json",
+    "present": true,
+    "match": false
+  },
+  {
+    "manifest": "e1/sha256.txt",
+    "file": "analysis.partial.txt",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e1/sha256.txt",
+    "file": "judge-run.log",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e1/sha256.txt",
+    "file": "judged.partial-60of70.json",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e1/sha256.txt",
+    "file": "judged.partial-60of70.md",
+    "present": true,
+    "match": true
+  },
+  {
+    "manifest": "e1/sha256.txt",
+    "file": "missing-identities-packets-index.json",
+    "present": true,
+    "match": false
+  }
+]

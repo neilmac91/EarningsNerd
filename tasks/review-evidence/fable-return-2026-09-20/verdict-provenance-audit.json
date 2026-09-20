@@ -1,0 +1,397 @@
+{
+  "zip_sha256": "3a451e364d548fa20af853c980890283382dae7c396be542a00fdef84b467563",
+  "frozen_files": {
+    "judge_report.py": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+    "judge.py": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "runner.py": "63b010b7968c3f4bdbcfd62114af82dcfcd8c5eb56e892b0c0da77f4943c0029",
+    "weekly_readout.py": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+    "golden_set.json": "e1ca0cfcb7d0f9f51eff911586437c503a1945a64763284f48c9cd5524498b6b"
+  },
+  "corpora": {
+    "ko-corrected": {
+      "input_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "output_sha256": "5a0983c75ba48ba13e524dc061097cc0d66753a1ae9989d9547365fe42ee74cd",
+      "all_original_rows_unchanged": true,
+      "harness_unchanged_except_judge_metadata": true,
+      "complete": 50,
+      "negative": 27,
+      "missing": [
+        [
+          "baseline",
+          "COIN",
+          "10-Q",
+          0
+        ],
+        [
+          "baseline",
+          "COIN",
+          "10-Q",
+          1
+        ],
+        [
+          "baseline",
+          "BYND",
+          "10-Q",
+          0
+        ],
+        [
+          "baseline",
+          "BYND",
+          "10-Q",
+          1
+        ],
+        [
+          "baseline",
+          "BABA",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "BABA",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "ASML",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "ASML",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "TSM",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "TSM",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "JD",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "JD",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "SE",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "SE",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "NVO",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "NVO",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "PDD",
+          "20-F",
+          0
+        ],
+        [
+          "baseline",
+          "PDD",
+          "20-F",
+          1
+        ],
+        [
+          "baseline",
+          "MELI",
+          "10-K",
+          0
+        ],
+        [
+          "baseline",
+          "MELI",
+          "10-K",
+          1
+        ]
+      ],
+      "errors": [],
+      "gate_attempt_counts": {
+        "G3": 13,
+        "G5": 15,
+        "G4": 14
+      },
+      "dimension_means": {
+        "faithfulness": 3.74,
+        "insight": 3.22,
+        "clarity": 3.6,
+        "specificity": 4.14
+      },
+      "packet_row_request_hashes_verified": 70,
+      "ko_verdicts": [
+        {
+          "identity": [
+            "baseline",
+            "KO",
+            "10-Q",
+            0
+          ],
+          "judge": {
+            "passed": true,
+            "verdict": "PASS",
+            "mean_dimension": 4.25,
+            "gate_failures": [],
+            "dimensions": {
+              "faithfulness": 5,
+              "insight": 3,
+              "clarity": 4,
+              "specificity": 5
+            },
+            "error": null,
+            "input_complete": true,
+            "input_lengths": {
+              "summary_chars": 27258,
+              "excerpt_chars": 95851,
+              "xbrl_chars": 20212
+            },
+            "contract_version": 2
+          }
+        },
+        {
+          "identity": [
+            "baseline",
+            "KO",
+            "10-Q",
+            1
+          ],
+          "judge": {
+            "passed": true,
+            "verdict": "PASS",
+            "mean_dimension": 3.75,
+            "gate_failures": [],
+            "dimensions": {
+              "faithfulness": 4,
+              "insight": 3,
+              "clarity": 4,
+              "specificity": 4
+            },
+            "error": null,
+            "input_complete": true,
+            "input_lengths": {
+              "summary_chars": 27375,
+              "excerpt_chars": 95851,
+              "xbrl_chars": 20212
+            },
+            "contract_version": 2
+          }
+        }
+      ]
+    },
+    "e1": {
+      "input_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "output_sha256": "97e718364dea742f60a1c9b0a102c092bfa6fa56766445909f8984aae89a76ec",
+      "all_original_rows_unchanged": true,
+      "harness_unchanged_except_judge_metadata": true,
+      "complete": 60,
+      "negative": 29,
+      "missing": [],
+      "errors": [
+        {
+          "identity": [
+            "baseline",
+            "JD",
+            "20-F",
+            0
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "JD",
+            "20-F",
+            1
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "SE",
+            "20-F",
+            0
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "SE",
+            "20-F",
+            1
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "NVO",
+            "20-F",
+            0
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "NVO",
+            "20-F",
+            1
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "PDD",
+            "20-F",
+            0
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "PDD",
+            "20-F",
+            1
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "MELI",
+            "10-K",
+            0
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        },
+        {
+          "identity": [
+            "baseline",
+            "MELI",
+            "10-K",
+            1
+          ],
+          "error": "RuntimeError: claude CLI exit 1: "
+        }
+      ],
+      "gate_attempt_counts": {
+        "G5": 18,
+        "G4": 16,
+        "G3": 10
+      },
+      "dimension_means": {
+        "faithfulness": 3.7,
+        "insight": 3.2,
+        "clarity": 3.5166666666666666,
+        "specificity": 4.1
+      },
+      "packet_row_request_hashes_verified": 10,
+      "ko_verdicts": [
+        {
+          "identity": [
+            "baseline",
+            "KO",
+            "10-Q",
+            0
+          ],
+          "judge": {
+            "passed": false,
+            "verdict": "FAIL",
+            "mean_dimension": 3.25,
+            "gate_failures": [
+              "G5 basis_mismatch: Segments table states EMEA \"42% operating margin\" and A. Pacific \"36% operating margin\", but the filing explicitly reports EMEA operating margin of 44.8% and Asia Pacific of 37.6% for the quarter; the summary's figures are computed on a different revenue basis than the source's named segment measure and contradict the stated values."
+            ],
+            "dimensions": {
+              "faithfulness": 3,
+              "insight": 3,
+              "clarity": 3,
+              "specificity": 4
+            },
+            "error": null,
+            "input_complete": true,
+            "input_lengths": {
+              "summary_chars": 25555,
+              "excerpt_chars": 95851,
+              "xbrl_chars": 20212
+            },
+            "contract_version": 2
+          }
+        },
+        {
+          "identity": [
+            "baseline",
+            "KO",
+            "10-Q",
+            1
+          ],
+          "judge": {
+            "passed": false,
+            "verdict": "FAIL",
+            "mean_dimension": 3.5,
+            "gate_failures": [
+              "G5 basis_mismatch: Segments table states EMEA \"42% operating margin\" but the filing explicitly reports EMEA operating margin of 44.8% for the quarter; the summary's derived ratio (OI $1,259M / XBRL revenue $3,012M) is on a different revenue basis than the source's named measure and contradicts it.",
+              "G5 basis_mismatch: Segments table states A. Pacific \"36% operating margin\" but the filing explicitly reports Asia Pacific operating margin of 37.6%; the derived figure ($536M / $1,508M) uses a revenue basis inconsistent with the source's stated segment margin."
+            ],
+            "dimensions": {
+              "faithfulness": 3,
+              "insight": 3,
+              "clarity": 4,
+              "specificity": 4
+            },
+            "error": null,
+            "input_complete": true,
+            "input_lengths": {
+              "summary_chars": 26942,
+              "excerpt_chars": 95851,
+              "xbrl_chars": 20212
+            },
+            "contract_version": 2
+          }
+        }
+      ]
+    },
+    "e2": {
+      "sha256": "d5c6a293aa7fb79b416f0df5c47bf90f67960601c8946b3180248838dbacb54d",
+      "byte_identical_to_previously_audited": true
+    },
+    "e2-control2": {
+      "sha256": "15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa",
+      "byte_identical_to_previously_audited": true
+    }
+  }
+}
