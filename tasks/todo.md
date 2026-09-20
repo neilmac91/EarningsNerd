@@ -1,3 +1,8 @@
+## September 20 — partial-evidence release receipts prepared; actual completion pending
+
+- [x] Prepare [KO/E3 receipt archive](review-evidence/partial-release-2026-09-20/README.md) on actual #931 main; preserve earlier ledger bytes below. Record corrected offline bundle hashes, 828 files/818 verified immutable entries, preserved Fable judgments and 330 missing judgments. No new judging or guard initialization.
+- [ ] KO and dormant E3 final PR/gate/artifact/review/merge/deployment/configuration receipts remain pending in this preparation snapshot. User partial-evidence authority permits bounded engineering releases, not semantic acceptance, attribution activation or a replacement judge. E8 remains inconclusive; E7 reviewer/adjudicator/brief/exposure requirements and universe-wide holds remain.
+
 ## September 20 — E3 dormant claim-context release prepared under a narrow evidence exception
 
 - [x] The founder reports Fable unavailable and authorizes proceeding using partial results and Codex review. Prepared only the bounded verifier claim-context change on actual main `b9c2ca4d9a14b8200bfcdd147cda61cf2263ded4`, preserving subsequent cash-basis, enrichment, issuer-FCF and scorer releases. The [RUNBOOK exception](../backend/evals/RUNBOOK.md#september-20--scoped-dormant-release-exception-authorized-by-the-founder) applies only to this dormant engineering release; both production attribution flags remain false. No generator prompt, source selection, model, content stamp or baseline pin changes.

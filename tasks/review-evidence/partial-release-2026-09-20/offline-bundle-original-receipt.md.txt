@@ -1,0 +1,16 @@
+# Corrected offline Fable bundle
+
+[Download the bundle](fable-resume-corrected-2026-09-20.zip).
+
+**Current mode: use existing partial evidence; no automatic resume.** Fable is unavailable. This package does not execute judging, initialize its guard or install a CLI. Its README supersedes historical automatic-resume instructions while preserving the originals.
+
+Preserved: corrected KO **50/70**, E1 **60/70**, E2 controls **70/70 each**. E3 candidates are **0/70 each**. E8 has **140/280 main judgments**, reused from E2, and **0/20 duplicates**. **330 judgments remain missing.** KO/E1 slot files are explicitly labelled reconstructions from consolidated evidence, not recovered original per-slot bytes/logs. All seven input reports, 300 E8 request hashes, 20 duplicate pairs and 140 E2 reuse bindings were checked.
+
+The archive contains **828 files** (123,221,172 bytes); **818 immutable file hashes** and ZIP CRCs were verified after packaging. Caches and runtime records are excluded. Mutable guard files remain a disabled pristine template; only its frozen shim is in the active immutable manifest, while the original package/configuration remains sealed under `e8/frozen/`.
+
+- Archive SHA-256: `38db06d2c3815893f5d48c96b1f2f8bfd0984f45c538026e19d2e034cc9b5256`
+- `immutable-sha256.json` SHA-256: `0fe5cb9e45c1fca76d2d9d71b0a13f58958ea7242efe34ae2a9f64544402d2c3`
+
+Existing offline proofs are retained: binding and guard gates each pass one test; recovery normal/restored each pass one test; the admission mutation fails with `ValueError not raised`. Final offline inspection confirms the counts above. **No real CLI, model, network, installation or guard-initialization call was made during finalization.**
+
+Readouts are descriptive only. No candidate effect, judge agreement or variability conclusion follows from missing judgments. Any future judging requires explicit resumption, the existing exact CLI **2.1.278**, frozen checkout **73cc31162c3dfe7ec497c8c88c43cf397afce4a7**, unchanged contract2 and validated missing-slot inputs. E8 must reconcile at least **287 prior calls**, retain its absolute **601 ceiling**, and preserve every stop/owner/ledger record. No reset, outer retry or rejudgment of valid results is permitted; the remaining314-call allowance may not complete160 slots if internal retries exhaust it.

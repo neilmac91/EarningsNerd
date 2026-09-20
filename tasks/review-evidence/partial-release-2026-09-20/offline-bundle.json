@@ -1,0 +1,28 @@
+{
+  "status": "retained_offline_not_executed",
+  "archive_task_artifact": "outputs/fable-resume-corrected-2026-09-20.zip",
+  "archive_sha256": "38db06d2c3815893f5d48c96b1f2f8bfd0984f45c538026e19d2e034cc9b5256",
+  "archive_file_bytes": 123221172,
+  "zip_member_count": 828,
+  "uncompressed_member_bytes": 603637276,
+  "immutable_manifest_sha256": "0fe5cb9e45c1fca76d2d9d71b0a13f58958ea7242efe34ae2a9f64544402d2c3",
+  "immutable_entries_verified": 818,
+  "zip_crc_failures": 0,
+  "original_receipt_sha256": "0c8ba583f55a8def331187911ae27eb508a00e90235ddb6a0061332fd876783f",
+  "missing_judgments": 330,
+  "KO_complete": 50,
+  "E1_complete": 60,
+  "E2_complete": [
+    70,
+    70
+  ],
+  "E3_complete": [
+    0,
+    0
+  ],
+  "E8_main_complete": 140,
+  "E8_main_planned": 280,
+  "E8_duplicate_complete": 0,
+  "E8_duplicate_planned": 20,
+  "scope": "ZIP/manifest/CRC verification performed offline; no real CLI, model or provider call; KO/E1 singleton slots reconstructed from consolidated reports and not original per-slot logs."
+}

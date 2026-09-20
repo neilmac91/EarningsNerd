@@ -1,5 +1,7 @@
 # September 19 measurement and fleet evidence reconciliation
 
+**September 20 preparation update:** [KO/E3 release receipts](review-evidence/partial-release-2026-09-20/README.md) are being assembled; final release/deployment fields remain explicitly pending. The [corrected Fable bundle](review-evidence/partial-release-2026-09-20/offline-bundle.md) is retained offline, with no resumed judging. Earlier release and balance observations below remain historical.
+
 This documentation snapshot consolidates retained evidence on E6-release main `4d9398103f46106bbd720ab505bc14b8d5142b36`. It changes no application, workflow, prompt, model, baseline or production state. Earlier ledger entries remain dated history; the latest verified state is below.
 
 The [E1–E9 status and holds page](e1-e9-status-2026-09-20.md) records the latest completed work and outstanding external prerequisites.
