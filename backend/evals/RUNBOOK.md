@@ -1177,3 +1177,61 @@ Acceptance bar for a grounding candidate (from the assessment): the negative con
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
 regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
+
+## Attribution-verifier claim context candidate — September 19, 2026
+
+The verifier request now carries the flagged clause's actual pre-connective subject and its existing
+table metric or segment label, separately labeled as model-authored claim context. Previously it
+received only the slot path and driver clause despite being asked to check the same subject. Subject
+and anchor additions are capped at 600 and 240 characters; clipping is visible and retains both ends,
+so a distinguishing measure at the start and period at the end can survive. Missing or ambiguous
+identity, including information lost to clipping, calls for `unknown` rather than a guessed subject.
+The lexical candidate set, source-window selection, four 600-character passages, twelve-clause cap,
+one-call transport, quote provenance check and fail-open deletion semantics are unchanged.
+
+The main verifier directive accepts a faithful restatement of the same line/amount/period/basis and
+a causal lead-in plus its contiguous bullet within one supplied passage. It still forbids transferring
+a driver between measures, segments, periods or bases, joining separate passages into a new causal
+relationship, or treating matching words/amounts or co-movement as attribution. This is a prepared
+prompt candidate. The Pfizer retained example demonstrates a lost-context mechanism and the new
+unit gate proves that context reaches the request; neither establishes why a live verdict was wrong
+or how accuracy changes. In the retained PFE case, current windowing supplies detached spending
+bullets without the $70M causal lead-in; preserving claim context does not fill that source gap.
+The prompt treats a detached fragment with missing identity/lead-in as insufficient context
+(`unknown`), and this patch does not alter passage construction to recover it. Before release, measure at least two independent generated runs per
+configuration against the current-ranking control, use the same Fable contract-v2 judge, hand-read
+every flagged clause against supplied passages and the retained excerpt, and report precision/rescue
+denominators and per-run ranges. No flag change or baseline re-pin follows from the local gate.
+
+### September 20 — scoped dormant-release exception authorized by the founder
+
+Fable remains unavailable. The founder explicitly asked Codex to use the available partial results
+and its own source review to proceed. For **this verifier claim-context release only**, this instruction
+supersedes the preceding same-Fable-before-release prerequisite for a dormant engineering release.
+It does not replace the semantic acceptance standard, authorize another judge under Fable's name, or
+permit either production attribution flag to be enabled. `AI_ATTRIBUTION_VERIFY=false` and
+`AI_ATTRIBUTION_GATE=false` remain unchanged in Settings and deployment configuration.
+
+The [two-corpus manual review](../../tasks/review-evidence/pr805-path/e3-pooled-clause-read-2026-09-19.md)
+contains 140 generated attempts and 48 flagged clauses. Of 26 prospective drops, 5 were judged
+correct, 4 unsafe and 17 unresolved; 21 rescues include 19 full-source confirmations and 2 unresolved,
+with one separate unknown. No actual deletion occurred. The E2 control review found 9 correct,
+10 unsafe and 9 unresolved among 28 prospective drops. Generated claims differ across corpora;
+these are descriptive counts, not paired effects or proof of improvement. The returned external
+bundle contains **no Fable judgments for either E3 candidate**. Its 50 valid KO judgments concern
+a different change and do not supply E3 acceptance.
+
+The narrow release preserves already-computed subject and anchor context for future verifier
+requests. With verification disabled, the service returns before building or sending that request;
+with deletion disabled, the verifier cannot remove a clause. No generator prompt, source selection,
+model, content stamp, baseline pin or production flag changes. The ordinary committed local gate,
+independent review, hosted release checks and serial deployment verification still apply; this
+exception waives none of those engineering gates.
+
+The [independent manual evidence review](../../tasks/review-evidence/pr805-path/e3-independent-manual-review-2026-09-19.md)
+records concrete unsafe examples: PDD's negated single-driver attribution and KO's explicit
+consolidated revenue bridge. Pfizer's missing source lead-in, unresolved accounting/scope cases,
+Sea's audit/replay checked-count mismatch, JSON repair of partial replies and joined-passage quote
+validation remain limitations. Prompt instructions to answer unknown are not deterministic
+safeguards. Activation and semantic/effect acceptance remain held; no general exception for later
+prompt releases follows from this decision.

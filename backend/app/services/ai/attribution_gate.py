@@ -145,6 +145,10 @@ class Candidate:
     key: Any = None
     value: str = ""
     match: Any = None
+    # Preserve the identity the lexical pass already used; the model decider needs both the
+    # actual pre-connective subject and a table/segment label when the commentary is elliptical.
+    subject: str = ""
+    anchor: str = ""
 
     def record(self) -> Dict[str, Any]:
         """The audit shape — text capped, no container references, no source passages."""
@@ -300,6 +304,7 @@ def find_attributions(sections: Dict[str, Any], source_text: str) -> Tuple[int, 
                 slot=slot, connective=match.group(0), clause=clause, coverage=coverage,
                 evidence=_evidence(clause, index),
                 container=container, key=key, value=value, match=match,
+                subject=_MACHINE_PREFIX_RE.sub('', subject).strip(), anchor=anchor,
             ))
     return checked, candidates
 

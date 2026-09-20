@@ -1,3 +1,19 @@
+## September 20 — E3 dormant claim-context release prepared under a narrow evidence exception
+
+- [x] The founder reports Fable unavailable and authorizes proceeding using partial results and Codex review. Prepared only the bounded verifier claim-context change on actual main `b9c2ca4d9a14b8200bfcdd147cda61cf2263ded4`, preserving subsequent cash-basis, enrichment, issuer-FCF and scorer releases. The [RUNBOOK exception](../backend/evals/RUNBOOK.md#september-20--scoped-dormant-release-exception-authorized-by-the-founder) applies only to this dormant engineering release; both production attribution flags remain false. No generator prompt, source selection, model, content stamp or baseline pin changes.
+- [x] Retain the [E3 manual evidence](review-evidence/pr805-path/e3-pooled-clause-read-2026-09-19.md): 48 flagged clauses across 140 attempts, 26 prospective drops = 5 correct + 4 unsafe + 17 unresolved; 21 rescues = 19 full-source confirmed + 2 unresolved, and 1 unknown. The returned bundle has no E3 Fable judgments; its 50 valid KO judgments are unrelated. No actual deletion, Fable completion, semantic acceptance or causal improvement is claimed. Unsafe drops and uncertainty continue to block activation.
+- [x] Transplant the original source-to-transport invariant unchanged and retain its one constructor-propagation mutation: 1 failed / 2 warnings / 5.70s, restored 45 passed / 2 warnings / 6.07s. These are original candidate proofs, not a new-base full gate. Preserve the prior candidate ledger entry below and all subsequent main history.
+- [ ] Final committed full gate and authorless review, hosted release checks, merge and serial deployment verification remain pending. Coordinate the final base and PostgreSQL slot after the KO release; this entry is preparation, not release completion.
+
+## September 19 — E3 verifier claim context prepared for controlled measurement
+
+- [x] Preserve the existing candidate subject and metric/segment anchor in a separately labeled, bounded prompt context. The prompt distinguishes faithful same-line restatement from a wrong subject, period or basis, and asks for unknown when supplied context is insufficient. Source discovery/ranking and deletion behavior are unchanged.
+- [x] One source-to-transport invariant and one mutation proof: removing constructor propagation fails; restored targeted gate45 passed,2 warnings in6.07s. Independent correctness/rules/gates review found no introduced blocker; locked tests unchanged.
+- [x] Corrected the Pfizer mechanism assumption: its retained excerpt contains the causal lead-in, but selected passages omit it. No rescue or precision improvement is claimed. Unknown-on-insufficient-context is model instructed, not a deterministic override. Existing JSON repair can preserve partial verdicts and quote validation joins passages; corrected the module's overly broad truncation claim to match code. These residuals remain relevant before any future arming decision.
+- [ ] Full committed gate, two generated corpora per configuration, same Fable contract-v2 judging and all-flagged-clause review remain required before release/effect acceptance. Production verifier and deletion flags remain off.
+
+KO #932 merged as `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73` at 2026-09-20T01:44:44Z after 70/70 baseline and 18/18 Copilot audits, all required checks and completed exact-head review. Its actual main deployment 35482183642 remains pending independent verification; E3 will not merge before that serial-deployment gate clears.
+
 ## September 20 — KO release on retained partial evidence (authorized, release pending)
 
 Founder reports Fable unavailable and instructs proceeding on retained evidence. The corrected corpus
