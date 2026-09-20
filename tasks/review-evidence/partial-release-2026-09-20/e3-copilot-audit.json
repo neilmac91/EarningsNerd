@@ -1,0 +1,96 @@
+{
+  "head": "c7d6fa858ed9164504e0d6062243ec13e861db1b",
+  "run": 35482355892,
+  "source_sha": "950ce364c79f01beb563ef43900fdc70041c57c3",
+  "report_sha256": "be2447af5281e98958d9d5858c82f4fcd10e92f5c527510d524be19a47df8a85",
+  "summary": {
+    "expected": 18,
+    "completed": 18,
+    "scored": 18,
+    "errors": 0,
+    "passed": 18,
+    "pass_rate": 1.0
+  },
+  "identity_sets_match_committed_plan": true,
+  "source_files_verified": 24,
+  "database_hash_verified": true,
+  "database_sha256": "07584030984fc8732699b2913a96d3d59c4e8875cf9cf18cbb00464998f18080",
+  "runtime": {
+    "flags": {
+      "ENABLE_FPI_FILINGS": true,
+      "ENABLE_HISTORY_BACKFILL_ON_VISIT": false,
+      "USE_EDGARTOOLS_SECTIONS": true,
+      "USE_STATEMENT_FINANCIALS": true
+    },
+    "versions": {
+      "edgartools": "5.58.0",
+      "openai": "3.13.0",
+      "sqlalchemy": "2.0.52"
+    }
+  },
+  "requested_flags": {
+    "USE_STATEMENT_FINANCIALS": true,
+    "COPILOT_MAX_TOKENS": 2400
+  },
+  "requested_model": "deepseek-flash",
+  "actual_model_note": "Per-call actual identities are in sanitized provider telemetry; not inferred from requested model.",
+  "uncited_figure_advisories": [
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        0
+      ],
+      "count": 1
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        1
+      ],
+      "count": 1
+    },
+    {
+      "identity": [
+        "MSFT",
+        "0000950170-25-100235",
+        "sales-diluted-eps-2025",
+        2
+      ],
+      "count": 1
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        0
+      ],
+      "count": 1
+    },
+    {
+      "identity": [
+        "BABA",
+        "0001193125-26-231755",
+        "native-revenue-2026",
+        2
+      ],
+      "count": 1
+    }
+  ],
+  "sanitized_log_provider_calls": {
+    "count": 36,
+    "models": {
+      "deepseek-flash": 36
+    },
+    "outcomes": {
+      "success": 36
+    },
+    "providers": {
+      "primary": 36
+    }
+  }
+}

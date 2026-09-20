@@ -1,0 +1,136 @@
+{
+  "harness_attribution_verify": false,
+  "harness_attribution_gate": false,
+  "recorded_attribution_audits": 66,
+  "armed_audits": 0,
+  "dropped_clauses": 0,
+  "verification_records": 0,
+  "baseline_provider_operations": {
+    "summary_primary": 70
+  },
+  "baseline_provider_models": {
+    "deepseek-flash": 70
+  },
+  "citation_residuals": [
+    {
+      "ticker": "PDD",
+      "form": "6-K",
+      "run": 0,
+      "score": 0.75,
+      "violations": [
+        "footnote [Convenience translation] evidence not verbatim (near-miss, score 99.4): \"This announcement contains translations of certain Renminbi (\u201cRMB\u201d) amounts into U.S. doll\""
+      ]
+    },
+    {
+      "ticker": "AMZN",
+      "form": "10-K",
+      "run": 0,
+      "score": 0.8571,
+      "violations": [
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.2): \"The net gain of $15.2 billion in 2025 is primarily from an upward adjustment for observabl\""
+      ]
+    },
+    {
+      "ticker": "AMZN",
+      "form": "10-K",
+      "run": 1,
+      "score": 0.8571,
+      "violations": [
+        "P&L takeaway [Net income] evidence not verbatim (near-miss, score 99.2): \"The net gain of $15.2 billion in 2025 is primarily from an upward adjustment for observabl\""
+      ]
+    },
+    {
+      "ticker": "PFE",
+      "form": "10-Q",
+      "run": 1,
+      "score": 0.8571,
+      "violations": [
+        "footnote [Remaining performance obligations and de] evidence not verbatim (near-miss, score 99.2): \"Contracted revenue expected to be recognized from remaining performance obligations for fi\""
+      ]
+    },
+    {
+      "ticker": "BYND",
+      "form": "10-Q",
+      "run": 0,
+      "score": 0.8889,
+      "violations": [
+        "P&L takeaway [Loss from operations] evidence not verbatim (near-miss, score 99.1): \"The reduction in loss from operations was primarily driven by higher gross profit reflecti\""
+      ]
+    },
+    {
+      "ticker": "BYND",
+      "form": "10-Q",
+      "run": 1,
+      "score": 0.875,
+      "violations": [
+        "P&L takeaway [Loss from operations] evidence not verbatim (near-miss, score 99.1): \"The reduction in loss from operations was primarily driven by higher gross profit reflecti\""
+      ]
+    },
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 0,
+      "score": 0.6667,
+      "violations": [
+        "P&L takeaway [Net system sales] evidence not verbatim (near-miss, score 99.4): \"The increase in system sales was primarily driven by higher EUV and DUV immersion system s\"",
+        "P&L takeaway [Selling, general and administrative (SG&A) costs] evidence not verbatim (near-miss, score 98.1): \"Selling, general and administrative (SG&A) costs increased by 7.9% year-over-year, primari\"",
+        "footnote [Equity method investment in Carl Zeiss S] evidence not verbatim (near-miss, score 98.9): \"For the year ended December 31, 2025, we recorded a profit from Equity method investments \"",
+        "footnote [Liability for unrecognized tax benefits] evidence not verbatim (near-miss, score 98.7): \"If recognized, these unrecognized tax benefits would positively affect our effective tax r\"",
+        "footnote [Supplier finance program] evidence not verbatim (near-miss, score 98.5): \"The amount of the obligations outstanding that we have confirmed as valid to the third par\""
+      ]
+    },
+    {
+      "ticker": "TSM",
+      "form": "20-F",
+      "run": 0,
+      "score": 0.8333,
+      "violations": [
+        "P&L takeaway [Net revenue] evidence not verbatim (near-miss, score 99.0): \"Our net revenue in 2025 increased by 31.6% from 2024, which was mainly attributed to an in\""
+      ]
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 0,
+      "score": 0.8571,
+      "violations": [
+        "footnote [Undistributed earnings and unrecognized ] evidence not verbatim (near-miss, score 99.2): \"As of December 31, 2025, the total amount of temporary differences related to foreign undi\""
+      ]
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "run": 1,
+      "score": 0.8571,
+      "violations": [
+        "footnote [Income taxes] evidence not verbatim (near-miss, score 98.2): \"For the year ended December 31, 2025, income tax expenses amounted to RMB21,430 million (U\""
+      ]
+    },
+    {
+      "ticker": "MELI",
+      "form": "10-K",
+      "run": 0,
+      "score": 0.875,
+      "violations": [
+        "footnote [Sale of credit card receivables] evidence not verbatim (near-miss, score 99.1): \"The gain arising from sales of credit card receivables, net of the costs recognized on sal\""
+      ]
+    },
+    {
+      "ticker": "MELI",
+      "form": "10-K",
+      "run": 1,
+      "score": 0.8571,
+      "violations": [
+        "footnote [Transfer of financial assets] evidence not verbatim (near-miss, score 99.1): \"The gain arising from sales of credit card receivables, net of the costs recognized on sal\""
+      ]
+    }
+  ],
+  "currency_residuals": [
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "run": 0,
+      "score": 0.9878
+    }
+  ]
+}

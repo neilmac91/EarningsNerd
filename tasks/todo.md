@@ -1,3 +1,9 @@
+## September 20 — E3 #933 merged; actual artifacts and final balance retained
+
+- [x] Rebase this unpublished documentation onto actual main 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a, preserving the full main ledger as suffix and every earlier documentation entry above it. [E3 #933](review-evidence/partial-release-2026-09-20/e3-release.md) merged at 02:03:28Z after final 3,430-pass gate, original single mutation, six required checks, completed exact-head remote review and actual 70/70 baseline plus 18/18 Copilot audits. Both baseline attribution flags false; zero verifier operations or drops, so these artifacts do not test prompt quality.
+- [x] Retain [USD 73.50 balance](review-evidence/partial-release-2026-09-20/balance-after-releases.json), workflow 35482954147 at 02:03:01.7502071Z. Existing 330 missing Fable judgments, E8 inconclusive status and E7 reviewer/adjudicator/brief/exposure holds remain unchanged; no new judge or spend authority.
+- [ ] E3 main CI 35482983157 deployment awaits independent migration/revision/traffic/health and selected-flag receipts. Earlier pending snapshots below remain historical; KO deployment is already verified.
+
 ## September 20 — KO #932 deployment independently verified
 
 - [x] Retain [actual KO deployment](review-evidence/partial-release-2026-09-20/ko-deploy/README.md): main CI 35482183642 and deploy job 106002302260 succeeded on merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73, completed 01:52:22Z; migrations 0 applied / 39 skipped; revision 00373-cqd Ready at 100%; independent healthy response 01:52:59.933385Z, database 5.41ms. Both attribution flags remain false. Compact original receipts and hashes are retained; full logs remain external.

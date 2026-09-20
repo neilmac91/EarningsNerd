@@ -1,0 +1,14 @@
+{
+  "e3-post-body-review-run.json": {
+    "sha256": "99d44cd02781733cd01b6add0a44dec1c1ef48bf5979a9677acbbc6ec083555e",
+    "source": "Separate later API receipt; postdates original artifact SHA256SUMS inventory",
+    "run": 35482937750,
+    "head": "c7d6fa858ed9164504e0d6062243ec13e861db1b"
+  },
+  "ko-post-body-review-run.json": {
+    "sha256": "4e02683213192e25b9f8c10002208bd2745665b1ac46db661612f75102e8a837",
+    "source": "Separate later API receipt; postdates original artifact SHA256SUMS inventory",
+    "run": 35482136954,
+    "head": "ed4ffde9e2d6d5df6762559cd59becdcc771231a"
+  }
+}
