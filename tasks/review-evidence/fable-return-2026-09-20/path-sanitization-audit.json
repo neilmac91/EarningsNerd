@@ -1,0 +1,70 @@
+{
+  "candidate_original_prefix_source": "results/tools/finish-stage.sh lines6 (S/W assignments)",
+  "candidate_original_prefix": "/tmp/claude-0/-home-user-EarningsNerd/40bee418-8bbf-584f-97e5-bb7b21721c91/scratchpad/earningsnerd-fable-handoff-20260919",
+  "mismatches": [
+    {
+      "path": "ko-corrected/execution-ledger.jsonl",
+      "manifest_hash": "dfbd15dd40d9c93b04a52c39958b2b4d79316d02b9ec8683194e0990cf97f10a",
+      "received_hash": "b1be0168b4cff104af5f2ce7d76ddeea4e514059b43e55ce84cc18fc2f972bc3",
+      "placeholder_count": 50,
+      "restored_original_path_hash": "dfbd15dd40d9c93b04a52c39958b2b4d79316d02b9ec8683194e0990cf97f10a",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "ko-corrected/packets-index.json",
+      "manifest_hash": "3091aa3fafeaa10ec3948677b4513c9c33cf2ff629e2f0e63098830b2c525432",
+      "received_hash": "ed22d6094e8bb114d78b31b0269503c0531d04ad075db3cd3d267c9108c2aa33",
+      "placeholder_count": 71,
+      "restored_original_path_hash": "3091aa3fafeaa10ec3948677b4513c9c33cf2ff629e2f0e63098830b2c525432",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "ko-corrected/resume-manifest.json",
+      "manifest_hash": "b9ae104dc416e2ef3eb00f1dc98fe540d7bd0e9d6de9672f01a2df3ebac386d3",
+      "received_hash": "aa68f379038cec7e715c57cf916a978876d832519b401432944fdd9eec1068f8",
+      "placeholder_count": 71,
+      "restored_original_path_hash": "b9ae104dc416e2ef3eb00f1dc98fe540d7bd0e9d6de9672f01a2df3ebac386d3",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "e8-pilot/e8-execution-index.json",
+      "manifest_hash": "dc8ff2d911ce8301164d1b14be6ec03028ec05f07472f288bda7b7e51646c7df",
+      "received_hash": "6a188d74aae352ebe2a7a117b1dda6e605415a532f6913607e46c281d4d5efcf",
+      "placeholder_count": 300,
+      "restored_original_path_hash": "dc8ff2d911ce8301164d1b14be6ec03028ec05f07472f288bda7b7e51646c7df",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "e8-pilot/guard-config.relocated-disabled.json",
+      "manifest_hash": "1a1a122d1f5fd762066d26a5aace9860a52f69676742cdad8548e62827f05e64",
+      "received_hash": "a8436b2ae6c0de9e20737de49d59e8bd45b02963e3a1ef76e885879ca4b27b2f",
+      "placeholder_count": 1,
+      "restored_original_path_hash": "1a1a122d1f5fd762066d26a5aace9860a52f69676742cdad8548e62827f05e64",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "e8-pilot/initialize-guard.sh",
+      "manifest_hash": "e433eb789620454d6f7b918be3becf578a127bb1b15d2315bc903acf95271f3f",
+      "received_hash": "15095e39f03a8be9e8949533ef3f845ed9d260d3ad7884aafe74dcb81de5bbff",
+      "placeholder_count": 1,
+      "restored_original_path_hash": "e433eb789620454d6f7b918be3becf578a127bb1b15d2315bc903acf95271f3f",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "e8-pilot/relocation-record.json",
+      "manifest_hash": "7f1e3971292e359eab62eaec27e959101bdf892dce0bfbef36b4aa849a2bd3dd",
+      "received_hash": "9175d37859eb52cb46f31aef43c7e9d7ab22b1ddc618edf58bc738cb02d93b59",
+      "placeholder_count": 1,
+      "restored_original_path_hash": "7f1e3971292e359eab62eaec27e959101bdf892dce0bfbef36b4aa849a2bd3dd",
+      "exact_preimage_match_after_path_restoration": true
+    },
+    {
+      "path": "e1/missing-identities-packets-index.json",
+      "manifest_hash": "8a28bff13cea19d13dd283f2084d643a5bbc4ed6bbcd5ce7233e0296e991ab7f",
+      "received_hash": "fbbeacf9e90ab89c98af9677a7305bed1d7278a9aaa13c467bd609f00d82a648",
+      "placeholder_count": 11,
+      "restored_original_path_hash": "8a28bff13cea19d13dd283f2084d643a5bbc4ed6bbcd5ce7233e0296e991ab7f",
+      "exact_preimage_match_after_path_restoration": true
+    }
+  ]
+}

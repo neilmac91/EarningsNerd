@@ -1,0 +1,4 @@
+2026-09-20T00:25:47Z reached 50 completed slots (or driver ended); stopping driver
+driver pid=793 harness pid=4059
+aborting in-flight harness pid=4059 cli child=4060
+2026-09-20T00:25:50Z stop complete
