@@ -1,0 +1,60 @@
+PRIMARY (as specified): nonempty attribution_audit.unverified vs Fable G4 (attempt level, complete verdicts, n=50)
+  G4=14 flagged=13 both=3 G4-only=11 flagged-only=10 neither=26
+SECONDARY (labelled): verifier model verdict 'not_stated' on >=1 clause vs Fable G4
+  G4=14 not_stated=0 both=0 G4-only=14 not_stated-only=0
+  not_stated attempts: []
+  not_stated & G4: []
+  not_stated without G4: []
+
+== Attempts in BOTH sets: flagged clauses (verifier) and the judge's G4 reasons, side by side. No claim that they are the same clause.
+
+* BRK.B 10-K run0 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | attributes the earnings decline to | lower investment gains and to other-than-temporary impairment losses recorded in 2025 on the company's equity method investments in Kraft Heinz and Occidental | model verdict=None
+   JUDGE G4: G4 unsupported_cause: "Equity method earnings swung to a $(9.6)B loss in 2025 from $1.8B of earnings in 2024, reflecting $10.7B of equity method investment impairment losses recorded in operating cash flow adjustments" — the excerpt never states the impairment is recorded within the 'Equity method earnings (losses)' income-statement line (Note 5 is truncated); the linkage is inferred, not stated.
+   JUDGE G4: G4 unsupported_cause (borderline): "The filing attributes the earnings decline to lower investment gains and to other-than-temporary impairment losses" — the MD&A disaggregates net earnings by component but contains no sentence attributing the decline to those items; the summary asserts an attribution the filing does not make.
+
+* FIGS 10-Q run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.key_takeaways[0] | driven by | an increase in orders and higher AOV, per Item 2 MD&A | model verdict=None
+   JUDGE G4: G4 unsupported_cause: "Operating income increased as total operating expenses grew 21.9% while net revenues grew 28.8%" — the source gives no driver for net income from operations; the summary constructs a causal narrative from two co-moving figures and omits the actual arithmetic driver (gross profit +44.6% incl. IEEPA refunds).
+
+* SE 6-K run1 verdict=FAIL
+   VERIFIER flagged: slot=results_that_matter.table[0].commentary | driven by | growth across the reported revenue lines | model verdict=None
+   JUDGE G4: G4 unsupported_cause: "The increase was driven by growth across the reported revenue lines, with service revenue up 48.6% ... and sales of goods up 42.8%" — the source states no driver for consolidated revenue; components summing to the total is arithmetic decomposition, not a cause.
+   JUDGE G4: G4 unsupported_cause: "the increase in current liabilities was driven in part by deposits payable rising to US$4,285,326 thousand from US$3,798,250 thousand" — the filing does not attribute the change in current liabilities to deposits payable; a component moving with the total is not a stated cause.
+
+== Flagged-but-no-G4: flagged clauses and the judge's full verdict
+
+* ASML 6-K run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | attributes the Q2 result to | higher than expected Installed Base Management sales | model verdict=None
+
+* F 10-Q run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the settlement of the $2.3 billion 0.00% Convertible Senior Notes | model verdict=None
+
+* F 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the March 16, 2026 cash settlement of the $2.3 billion 0.00% Convertible Senior Notes | model verdict=None
+
+* INTC 10-Q run0 verdict=FAIL gates=['G5']
+   VERIFIER flagged: slot=segments[2].commentary | attributes the increase primarily to | $696 million of higher server revenue due to a 27% increase in server ASPs | model verdict=None
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for Eye Q products | model verdict=None
+   JUDGE: G5 basis_mismatch / G3 hallucinated_facts — Segments table, Intel Products: "Management attributes the increase to higher DCAI revenue on a 22% increase in server ASPs". The source states DCAI revenue increased 22% and server ASPs increased 27%; the summary relabels the DCAI revenue growth rate as the server ASP growth rate.
+
+* INTC 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for EyeQ products | model verdict=None
+
+* NVDA 10-Q run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | driven by | data center products for accelerated computing and AI solutions | model verdict=None
+
+* PDD 6-K run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | primarily due to | the increase in revenues from transaction services | model verdict=None
+
+* PFE 10-Q run1 verdict=FAIL gates=['G3']
+   VERIFIER flagged: slot=results_that_matter.table[6].commentary | attributed the decrease primarily to | a $100 million reduction in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements | model verdict=None
+   JUDGE: G3 hallucinated_facts: "The filing does not provide full-year 2026 financial guidance" — the source excerpt never states this; the MD&A is truncated and the filing itself repeatedly references "our financial guidance" (e.g., tariff and policy risk language), so an assertion of absence is unsupported by the source.
+
+* RIVN 10-K run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=results_that_matter.table[2].commentary | reflecting | the swing to gross profit and total operating expenses of $3,729 million versus $3,489 million | model verdict=None
+
+* SE 6-K run0 verdict=FAIL gates=['G3', 'G5']
+   VERIFIER flagged: slot=results_that_matter.table[0].commentary | led by | service revenue | model verdict=None
+   JUDGE: G5 basis_mismatch: "Sales of goods consists of sales of products owned and sold by the company on its Shopee platform" — the summary applies the Shopee-specific footnote (Shopee sales of goods US$655,716k) to the consolidated Sales of goods line (US$657,726k), which includes US$2,010k not attributable to Shopee; the filing does not define consolidated sales of goods that way.
+   JUDGE: G3 hallucinated_facts: supporting_evidence for Operating income quotes "Total operating expenses increased by 50.9% to US$2.9 billion in the second quarter of 2026 from US$1.9 billion in the second quarter of 2025." as filing text — no such sentence exists in the source (the figures appear only in the table); the summary fabricates a verbatim quotation.

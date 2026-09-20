@@ -1,0 +1,86 @@
+PRIMARY (as specified): nonempty attribution_audit.unverified vs Fable G4 (attempt level, complete verdicts, n=70)
+  G4=23 flagged=17 both=7 G4-only=16 flagged-only=10 neither=37
+SECONDARY (labelled): verifier model verdict 'not_stated' on >=1 clause vs Fable G4
+  G4=23 not_stated=12 both=7 G4-only=16 not_stated-only=5
+  not_stated attempts: [('ASML', '20-F', 0), ('BRK.B', '10-K', 0), ('F', '10-Q', 0), ('F', '10-Q', 1), ('JPM', '10-K', 1), ('PDD', '20-F', 0), ('PDD', '6-K', 0), ('PDD', '6-K', 1), ('PLD', '10-K', 0), ('SE', '20-F', 0), ('SE', '20-F', 1), ('XOM', '10-K', 0)]
+  not_stated & G4: [('ASML', '20-F', 0), ('JPM', '10-K', 1), ('PDD', '6-K', 0), ('PDD', '6-K', 1), ('PLD', '10-K', 0), ('SE', '20-F', 0), ('SE', '20-F', 1)]
+  not_stated without G4: [('BRK.B', '10-K', 0), ('F', '10-Q', 0), ('F', '10-Q', 1), ('PDD', '20-F', 0), ('XOM', '10-K', 0)]
+
+== The 7 attempts in BOTH sets: flagged clauses (verifier) and the judge's G4 reasons, side by side. No claim that they are the same clause.
+
+* ASML 20-F run0 verdict=FAIL
+   VERIFIER flagged: slot=the_print.key_takeaways[3] | primarily reflecting | a EUR 5,450.0M increase in share repurchases | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: Segments table for "New systems" (+13.1%) states "The increase in system sales was primarily driven by higher EUV and DUV immersion system sales..." — the source states this driver for total net system sales (new + used), not for the New systems component; cause transferred to a different line/scope.
+
+* JPM 10-K run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | reflecting | a reduction in the diluted share count to 2,781.5M from 2,879.0M | model verdict=not_stated
+   VERIFIER flagged: slot=the_print.key_takeaways[1] | reflecting | a lower diluted share count of 2,781.5M versus 2,879.0M | model verdict=not_stated
+   VERIFIER flagged: slot=results_that_matter.table[6].commentary | reflecting | the reduction in the diluted share count to 2,781.5M from 2,879.0M | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Total net revenue increased 3% to $182.4B, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity, largely offset by deposit margin compression and the impact of lower rates" (repeated in the table commentary) — the source states these drivers for net interest income only, not for total net revenue; NIR had different drivers (Markets NIR, asset management fees, Visa gain absence, etc.).
+   JUDGE G4: G4 unsupported_cause: "Net income decreased 2%, reflecting the increase in the provision for credit losses and noninterest expense, partially offset by higher total net revenue" — the source does not attribute the net income decline to these items; this is the summary's own inference.
+   JUDGE G4: G4 unsupported_cause: "Diluted EPS increased 1%, reflecting the reduction in the diluted share count to 2,781.5M from 2,879.0M, which more than offset the decline in net income" — the source nowhere states the share-count reduction as the driver of EPS growth.
+
+* PDD 6-K run0 verdict=FAIL
+   VERIFIER flagged: slot=balance_sheet_liquidity.working_capital | driven mainly by | short-term investments | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "the increase in total current assets was driven mainly by short-term investments, which rose to RMB327.5 billion from RMB313.4 billion, and cash and cash equivalents, which rose to RMB128.9 billion from RMB108.9 billion" — the filing states no driver for the change in total current assets; the summary infers a cause from components moving with the total, which the rubric explicitly excludes as a cause.
+
+* PDD 6-K run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | attributes the revenue increase primarily to | the increase in revenues from transaction services and the operating expense increase primarily to the increase in sales and marketing expenses | model verdict=not_stated
+   VERIFIER flagged: slot=balance_sheet_liquidity.working_capital | driven mainly by | cash and cash equivalents and short-term investments | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Revenue growth of 8% was accompanied by a 12% decline in net income attributable to ordinary shareholders, as total operating expenses grew 13% to RMB36.6 billion and other income/(loss), net moved to a loss of RMB7.4 billion" — the source states no cause for the net income decline; moreover operating profit rose 8% despite the 13% opex growth, so attributing the net income decline to opex growth is contradicted by the source's own income statement.
+   JUDGE G4: G4 unsupported_cause: "the increase in current assets was driven mainly by cash and cash equivalents and short-term investments" — the source gives no driver for the change in total current assets; this is the summary's own component decomposition presented as a cause.
+
+* PLD 10-K run0 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | primarily due to | promote revenue falling to $2M from $139M | model verdict=not_stated
+   VERIFIER flagged: slot=the_print.what_changed | driven by | a $644M rise in rental revenues to $8.16B | model verdict=not_stated
+   VERIFIER flagged: slot=results_that_matter.table[0].commentary | driven by | a $644M rise in rental revenues to $8.16B | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "The decline [in net earnings] was primarily due to lower gains on real estate dispositions and higher interest expense, partially offset by higher rental revenues" — the source states no cause for the net-earnings decline; this is the summary's own decomposition and it omits the $194M drop in foreign currency/derivative/other gains ($209M to $15M), which exceeds the interest-expense increase it names.
+
+* SE 20-F run0 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | attributes the revenue increase to | growth across the e-commerce, digital financial services and digital entertainment businesses, including growth of GMV, growth of loans receivable and an increa | model verdict=not_stated
+   VERIFIER flagged: slot=results_that_matter.table[2].commentary | as a result of | the foregoing revenue, cost of revenue and operating expense movements | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Operating income ... the filing presents this as a result of the foregoing revenue, cost of revenue and operating expense movements" — the filing uses the 'as a result of the foregoing' framing for gross profit, pre-tax income and net income, but contains no such narrative statement for operating income; the cited supporting_evidence is the pre-tax income sentence, not an operating-income statement.
+
+* SE 20-F run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | attributes the revenue increase to | growth across e-commerce, digital financial services and digital entertainment | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: 'Revenue increased 36.4% ... driven by growth across the e-commerce, digital financial services and digital entertainment businesses' — the filing decomposes revenue by segment but does not state this as the driver of the total; segments moving with the total is not a cause (the filing's stated drivers are GMV growth/monetization rate, loans receivable growth, and Game QAU/QPU growth).
+
+== Flagged-but-no-G4 (10): flagged clauses and the judge's full verdict
+
+* ASML 6-K run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | attributes the Q2 result to | higher than expected Installed Base Management sales | model verdict=stated
+
+* ASML 6-K run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | attributes the Q2 revenue and margin levels to | higher than expected Installed Base Management sales | model verdict=stated
+
+* BABA 20-F run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | attributes the decrease primarily to | the decrease in adjusted EBITA and increase in impairment of goodwill | model verdict=stated
+
+* BRK.B 10-K run0 verdict=FAIL gates=['G3', 'G5']
+   VERIFIER flagged: slot=the_print.what_changed | attributes the change to | lower investment gains | model verdict=not_stated
+   JUDGE: G3 hallucinated_facts: "a $1.8B decline in sales and service revenues to $199.5B" — source shows sales and service revenues of $199,524M vs $202,334M, a $2.8B decline, so the $1.8B figure is wrong (and the 'largely offsetting' framing against a $1.4B rise is unsupported).
+   JUDGE: G5 basis_mismatch: "Cash and cash equivalents were $52.6B at December 31, 2025 versus $48.4B" — $52,569M/$48,376M is the cash-flow-statement 'cash and cash equivalents and restricted cash' total (includes $692M/$647M restricted cash); balance-sheet cash and cash equivalents are $51,877M/$47,729M.
+   JUDGE: G5 basis_mismatch: "Net earnings per average equivalent Class B share (diluted)" — the source presents only 'Net earnings per average equivalent Class B share' with no diluted measure; the '(diluted)' label is not in the filing.
+
+* F 10-Q run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the settlement of the $2.3 billion 0.00% Convertible Senior Notes on March 16, 2026 | model verdict=not_stated
+
+* F 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the settlement of the $2.3 billion 0.00% Convertible Senior Notes | model verdict=not_stated
+
+* INTC 10-Q run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for Eye Q products | model verdict=stated
+
+* INTC 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=segments[2].commentary | attributes the increase primarily to | $696 million of higher server revenue due to a 27% increase in server ASPs | model verdict=stated
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for Eye Q products | model verdict=stated
+
+* PDD 20-F run0 verdict=FAIL gates=['G3', 'G5']
+   VERIFIER flagged: slot=results_that_matter.table[6].commentary | reflecting | the operating margin decline and a foreign exchange loss of CNY 2.0B in 2025 versus a foreign exchange gain of CNY 0.6B in 2024 | model verdict=not_stated
+   VERIFIER flagged: slot=earnings_quality.operating_vs_one_time | attributes to | an increase of short-term investments), a foreign exchange loss of CNY 2.0B (versus a gain of CNY 0.6B in 2024), other income, net of CNY 2.7B | model verdict=not_stated
+   JUDGE: G5 basis_mismatch (direction reversed): "with transaction services (CNY 214.1B) slightly exceeding online marketing services and others (CNY 217.8B)" — source shows online marketing services and others (RMB217,783.0M) exceeding transaction services (RMB214,062.7M); the comparison is inverted.
+   JUDGE: G3 hallucinated_facts: the claim that transaction services exceeded online marketing services is contradicted by the source table (49.6% vs 50.4% of revenues).
+   JUDGE: G5 basis_mismatch (unit): "restricted net assets ... were RMB125,917,402 (US$18,005,949)" and "temporary differences related to foreign undistributed earnings amounted to RMB150,575,935 (US$21,532,072)" — source amounts are in thousands of RMB/US$ (i.e., ~RMB125.9B and ~RMB150.6B); the summary presents them as absolute figures, misstating the magnitude by 1,000x.
+
+* XOM 10-K run0 verdict=PASS gates=[]
+   VERIFIER flagged: slot=results_that_matter.table[3].commentary | reflecting | the decline in net income relative to total revenues and other income | model verdict=not_stated

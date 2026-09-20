@@ -1,0 +1,3 @@
+source_sha=e1b52bafb18c4d1cb69f489ccbdfd8ebd7407deb
+filing_concurrency=2
+invocation=python -m evals.runner --candidates baseline --runs 2 --concurrency 2

@@ -1,0 +1,60 @@
+PRIMARY (as specified): nonempty attribution_audit.unverified vs Fable G4 (attempt level, complete verdicts, n=70)
+  G4=25 flagged=12 both=6 G4-only=19 flagged-only=6 neither=39
+SECONDARY (labelled): verifier model verdict 'not_stated' on >=1 clause vs Fable G4
+  G4=25 not_stated=8 both=4 G4-only=21 not_stated-only=4
+  not_stated attempts: [('ASML', '20-F', 1), ('F', '10-Q', 0), ('F', '10-Q', 1), ('INTC', '10-Q', 1), ('JPM', '10-K', 1), ('PDD', '20-F', 0), ('PLD', '10-K', 1), ('SE', '20-F', 1)]
+  not_stated & G4: [('ASML', '20-F', 1), ('F', '10-Q', 0), ('JPM', '10-K', 1), ('PLD', '10-K', 1)]
+  not_stated without G4: [('F', '10-Q', 1), ('INTC', '10-Q', 1), ('PDD', '20-F', 0), ('SE', '20-F', 1)]
+
+== Attempts in BOTH sets: flagged clauses (verifier) and the judge's G4 reasons, side by side. No claim that they are the same clause.
+
+* ASML 20-F run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.key_takeaways[3] | reflecting | a EUR 5,450.0M increase in share repurchases | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: Segments table row "New systems | EUR 23.9B | +13.1% | The increase in system sales was primarily driven by higher EUV and DUV immersion system sales, partially offset by a decrease in ArF dry, KrF and i-line sales volumes" — the source states this driver for total net system sales (€24,474.3M, new + used), not for the 'New systems' segment; a cause stated for one line is transferred to a component line.
+
+* F 10-Q run0 verdict=FAIL
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the settlement of the $2.3 billion 0.00% Convertible Senior Notes | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Ford Blue's higher EBIT reflects the one-time IEEPA tariff benefit of about $700 million recognized in the first quarter of 2026" — the source attributes Ford Blue's higher EBIT to 'favorable market factors, higher parts and accessories profit, and lower regulatory compliance expenses' and explicitly states costs were 'about flat year over year' because the ~$700M IEEPA benefit was offset by higher sourcing costs and commodity prices; the source does not state IEEPA as a driver of Ford Blue's EBIT increase.
+
+* JPM 10-K run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | reflecting | a lower weighted-average diluted share count | model verdict=not_stated
+   VERIFIER flagged: slot=results_that_matter.table[7].commentary | reflecting | a lower weighted-average diluted share count (2,781.5 million versus 2,879.0 million) | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Total net revenue increased 3% to $182.4B, which management attributes to higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity, largely offset by deposit margin compression and the impact of lower rates" (and the identical Total net revenue table commentary) — the source states these drivers for net interest income only; total net revenue is explained by NII +3% and NIR +2% (incl. the absence of the $7.9B Visa gain). The NII cause is transferred to a different line.
+
+* PFE 10-Q run0 verdict=FAIL
+   VERIFIER flagged: slot=results_that_matter.table[5].commentary | attributes the decrease primarily to | a $100 million decrease in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements | model verdict=stated
+   JUDGE G4: G4 unsupported_cause: "The decline reflects a $650 million increase in the provision for taxes on income ... and a $13 million loss from discontinued operations, partially offset by higher income from continuing operations" — the source states no cause for the net income decline; this is the summary's own reconstruction (and mislabels the offsetting component).
+
+* PFE 10-Q run1 verdict=FAIL
+   VERIFIER flagged: slot=results_that_matter.table[6].commentary | attributed the decrease primarily to | a $100 million reduction in marketing and promotional spend on various products from more targeted investments and ongoing productivity improvements | model verdict=stated
+   JUDGE G4: G4 unsupported_cause: "Reported as a component of the increase in income from continuing operations before taxes, which management attributed in part to increases in research and development expenses." — the source says the pretax increase was 'partially offset by' higher R&D; it does not attribute the increase to R&D (role reversed).
+   JUDGE G4: G4 unsupported_cause (borderline): "The decline reflects a higher provision for taxes on income of $461 million versus a benefit of $189 million... partially offset by higher income from continuing operations before taxes." — the source never states a cause for the net income decline; this is the summary's own arithmetic decomposition presented as attribution.
+
+* PLD 10-K run1 verdict=FAIL
+   VERIFIER flagged: slot=the_print.what_changed | reflecting | lower gains on real estate dispositions ($944M combined in 2025 versus $1.32B in 2024) and higher interest expense of $1.00B versus $864M | model verdict=not_stated
+   JUDGE G4: G4 unsupported_cause: "Net earnings attributable to controlling interests fell to $3.33B from $3.73B, and diluted EPS declined to $3.56 from $4.01, reflecting lower gains on real estate dispositions ($944M combined in 2025 versus $1.32B in 2024) and higher interest expense of $1.00B versus $864M" / "Net earnings declined as lower gains on real estate dispositions and higher interest expense of $1.00B versus $864M offset higher rental revenues" — the source never attributes the net earnings/EPS decline to these items; the summary derives the cause from income-statement line items (and omits the ~$194M swing in FX/derivative/other income) and cites the source's interest-expense driver ('principally due to the issuance of senior notes') as supporting evidence, transferring a cause stated for one line to another line.
+   JUDGE G4: G4 unsupported_cause: "Operating income declined as gains on dispositions of development properties and land fell to $258M from $414M and gains on other dispositions of investments in real estate fell to $686M from $904M" — source does not state a cause for the operating income decline; this is an arithmetic decomposition of line items presented as a driver.
+
+== Flagged-but-no-G4: flagged clauses and the judge's full verdict
+
+* ASML 6-K run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=the_print.what_changed | attributes the Q2 revenue and gross margin levels to | higher than expected Installed Base Management sales | model verdict=stated
+
+* F 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=balance_sheet_liquidity.maturities_covenants[0] | reflecting | the settlement of the $2.3 billion 0.00% Convertible Senior Notes | model verdict=not_stated
+
+* INTC 10-Q run0 verdict=FAIL gates=['G5']
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for Eye Q products | model verdict=stated
+   JUDGE: G5 basis_mismatch / G3 (period/status): Risk #4 presents as a live forward risk that 'failure to substantially complete construction of Fab 34 ... could require delay-related liquidated damages to Apollo beginning in the second half of 2026, not to exceed $1.1 billion in total' — the source states this obligation existed 'As of March 28, 2026' (past tense) and that the April 2026 repurchase of Apollo's interest results in 'the substantial termination of existing related operating and other ancillary agreements' and 'the extinguishment of our derivative liability associated with the delay-related liquidated damage provisions'; the source does not support this as an ongoing risk.
+
+* INTC 10-Q run1 verdict=PASS gates=[]
+   VERIFIER flagged: slot=segments[3].commentary | primarily driven by | higher demand for EyeQ products | model verdict=not_stated
+
+* PDD 20-F run0 verdict=FAIL gates=['G3', 'G5']
+   VERIFIER flagged: slot=earnings_quality.operating_vs_one_time | reflecting | the contribution of non-operating income lines | model verdict=not_stated
+   JUDGE: G5 basis_mismatch (direction reversed): "transaction services revenue of RMB 214.1B (49.6% of total) exceeding online marketing services and others of RMB 217.8B (50.4%)" — source shows transaction services (RMB 214.1B, 49.6%) is smaller than online marketing services and others (RMB 217.8B, 50.4%); the stated comparison is the opposite of the source.
+   JUDGE: G3 hallucinated_facts: the claim that transaction services revenue exceeded online marketing services revenue in 2025 is contradicted by the filing's revenue table and MD&A.
+
+* SE 20-F run1 verdict=FAIL gates=['G3']
+   VERIFIER flagged: slot=the_print.what_changed | attributes the revenue increase to | growth across its businesses, including e-commerce service revenue growth of 33.9% on GMV growth of 26.8%, digital financial services revenue growth of 60.1% on | model verdict=not_stated
+   JUDGE: G3 hallucinated_facts / G5 period mismatch: the summary lists under "**Subsequent events**" that "On August 7, 2025, the court issued an order and final judgment approving the class action settlement ... entered by the clerk of court on September 10, 2025" — this occurred within FY2025 (period ended 2025-12-31), not after the balance-sheet date; the source itself states "we have not experienced any significant changes since the date of our audited consolidated financial statements", so presenting it as a post-period event is unsupported and misleading on timing.

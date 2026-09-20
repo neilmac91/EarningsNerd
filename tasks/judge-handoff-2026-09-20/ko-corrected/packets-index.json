@@ -1,0 +1,1547 @@
+{
+  "source_report": "<judge-checkout>/work/ko-corrected-input/eval_20260919T203644Z.json",
+  "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+  "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+  "packets": [
+    {
+      "order": 1,
+      "slot": "001-ASML-6-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/001-ASML-6-K-run0.json",
+      "packet_sha256": "ab8f4a95f217e66342ba32c26c0024b7898ff6b99b7d45c70bd1834fe8e0de2a",
+      "row_sha256": "6e779a86a512b769b7c3eef65976bd6ef0cbb56f4657617ec3864c9542e762e8",
+      "request_sha256": "478da113f24094a9a3b58f1d33d5fdcd916f2d2f44ee209f52511b0fdaf93ce8",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18124,
+        "excerpt_chars": 12957,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 2,
+      "slot": "002-ASML-6-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/002-ASML-6-K-run1.json",
+      "packet_sha256": "2cb23abefa81d4acee6377bc8356d8b6308833ecc843bbfb2a2b2f8b33b965eb",
+      "row_sha256": "34d3b8183ce3a728d9d740afe20122245e0a8002298a577afae82697f56689aa",
+      "request_sha256": "e8c8402cbc514efb52975c732327089c417135f0eb19809ff4df56de52ac3f0a",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16586,
+        "excerpt_chars": 12957,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 3,
+      "slot": "003-SE-6-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/003-SE-6-K-run0.json",
+      "packet_sha256": "1fa0178a0814eb1a698259567820f5e12db6f01ceedfe6697d849f8eee288061",
+      "row_sha256": "dc836f81744793b49735c227f0529ce39770f390603afd7bd4714a641ecfc16b",
+      "request_sha256": "bdbaf36745e843d56accda2ae04b18bfcc995abb436f0ef07c1335c75bc84481",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24841,
+        "excerpt_chars": 57809,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 4,
+      "slot": "004-SE-6-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/004-SE-6-K-run1.json",
+      "packet_sha256": "320f8b321fadb09e5da773987eba064eafb52b0148fc4d7a707ce01a3a61a0c5",
+      "row_sha256": "a10313ad067941020ae13180f72fe66ff3200fd913b4f8e0b3da70d76d7b4533",
+      "request_sha256": "964f6762e847d9cf395d62cf645e17882f8c9a61748ed343c8b73cd67d5b9e7e",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25693,
+        "excerpt_chars": 57809,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 5,
+      "slot": "005-PDD-6-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/005-PDD-6-K-run0.json",
+      "packet_sha256": "3a7b472c4c232958b305413ddf21b0f6800245b48bacd40eb2cc9194ce3a7b7b",
+      "row_sha256": "109b113c271a34a6d4d428e2b9915d5d01804a30d7cdebe4d9c26d55e6c9c4d4",
+      "request_sha256": "6561d471271dee6d7a1326e217a3b51a4dd2f559e8fa48419cd9d536c751cbf7",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18933,
+        "excerpt_chars": 40750,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 6,
+      "slot": "006-PDD-6-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "6-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/006-PDD-6-K-run1.json",
+      "packet_sha256": "e31de7ca2d919a58f5dcbeb48cc258f86761c6f8dc239a85080dd26faa7245a3",
+      "row_sha256": "79a8e204354e62d796d184c6e2875013f833862b07208cb6f558cc20af8af6a1",
+      "request_sha256": "55a8a4d92adabf18cb82dda9ace0cebf5046475c7550b685e431d40f8b0737ae",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16522,
+        "excerpt_chars": 40750,
+        "xbrl_chars": 0
+      }
+    },
+    {
+      "order": 7,
+      "slot": "007-PLD-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLD",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/007-PLD-10-K-run0.json",
+      "packet_sha256": "ce38d130cea61baa32103db1d7f552b7db75d2c223afd37f93dc147ce1092b47",
+      "row_sha256": "cdf0b9239402b580daf25381dc3790466a491c6d826fd3e5beabb2b3f0f9451f",
+      "request_sha256": "a83d4f26400a7dc3b2bf79d5d60696d6f718126cbaeabcff6b046e43607ca50b",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16779,
+        "excerpt_chars": 231325,
+        "xbrl_chars": 13101
+      }
+    },
+    {
+      "order": 8,
+      "slot": "008-PLD-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLD",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/008-PLD-10-K-run1.json",
+      "packet_sha256": "ca45b6943d57bba76d180ced07101b4743b51609f53e386ea56d54adf71c1218",
+      "row_sha256": "fd32ddda8999bb13a36e3eddd07d1000efe6242081666c64ae82fb755cf5bcb6",
+      "request_sha256": "60f6e34404d0a134078d9d11476c3ea04a84ef4615bb8526456ec529e75f915c",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 21039,
+        "excerpt_chars": 231325,
+        "xbrl_chars": 13101
+      }
+    },
+    {
+      "order": 9,
+      "slot": "009-NEE-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NEE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/009-NEE-10-Q-run0.json",
+      "packet_sha256": "682efddc6aca51d1daaef7f5c74ff71645920216c21c0d927a516de0e13c9c98",
+      "row_sha256": "612cc163f26f99a817347bb46675210606b12442485c207c30adedcdf5a5b886",
+      "request_sha256": "d9259cc7a1cfa3ecc4b14030d62e50c39ec6db5f4744268928fbc41a9f6aa123",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 17216,
+        "excerpt_chars": 96406,
+        "xbrl_chars": 13269
+      }
+    },
+    {
+      "order": 10,
+      "slot": "010-NEE-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NEE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/010-NEE-10-Q-run1.json",
+      "packet_sha256": "dcc3217d3b850a5b12dacae95f503e3d4655d79f23cc1c810f1fb83718f4427e",
+      "row_sha256": "beff752df1e98bb895d107c0fd91036bc00dd09eedeb9f53a61946e731ab3162",
+      "request_sha256": "4402559e301f85646e1b4d20d1cd93aa566be9fbaa0b1ab254bec14ea36a4120",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 15981,
+        "excerpt_chars": 96406,
+        "xbrl_chars": 13269
+      }
+    },
+    {
+      "order": 11,
+      "slot": "011-PGR-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PGR",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/011-PGR-10-K-run0.json",
+      "packet_sha256": "00e51acf80bf92557b78fbbbe8535f088852a3a907c53cd897345c15cb7d9eaf",
+      "row_sha256": "e43c2f84f10e8887b1168450ddc092dab773f6fb44edbf1ff05a56a4515288d6",
+      "request_sha256": "68a5b7e2563bec65bde7616761d51ea97a3d4e5bc558f7e5b7515c68656e27b9",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 14922,
+        "excerpt_chars": 175835,
+        "xbrl_chars": 13501
+      }
+    },
+    {
+      "order": 12,
+      "slot": "012-PGR-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PGR",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/012-PGR-10-K-run1.json",
+      "packet_sha256": "a21689c56582d9320ea0bd7aa269313b1c176c62f485acc68a7e1dcdb26f510f",
+      "row_sha256": "866aff95675a40c2406132a7bb433f9c2bd340dc6ca21ae3de8c0f17d3db35f9",
+      "request_sha256": "efbd85e646bb87059c60e72aa12230042fe7c69738957419d3d7eba0016e0949",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 15162,
+        "excerpt_chars": 175835,
+        "xbrl_chars": 13501
+      }
+    },
+    {
+      "order": 13,
+      "slot": "013-FIGS-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "FIGS",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/013-FIGS-10-Q-run0.json",
+      "packet_sha256": "418096726e635f36d214a5e32ca3ad68e2f57c896b72c0046229e7d5f0321d71",
+      "row_sha256": "a3223e623b5a1099241c1ea6e89399df44a5130428bc679a68c3af25811f41ed",
+      "request_sha256": "d246a5ae89e4ebc4268579500c2e3d80dc62883c5f009030c5fc9039152c6949",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 19092,
+        "excerpt_chars": 112432,
+        "xbrl_chars": 14355
+      }
+    },
+    {
+      "order": 14,
+      "slot": "014-FIGS-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "FIGS",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/014-FIGS-10-Q-run1.json",
+      "packet_sha256": "77db634b150e00ad997b9c25239ebd86a285fe2e5a2e2ff1e351ed50ef9e7f75",
+      "row_sha256": "b60103682144a16cd84f877ac5c34354d77e84afdc9b887d1c6bcb1343db6140",
+      "request_sha256": "2b4998c6568a7b0836b6e2eadac6268f1f7b8e9bb225b25b34de90cc3f00ffec",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22177,
+        "excerpt_chars": 112432,
+        "xbrl_chars": 14355
+      }
+    },
+    {
+      "order": 15,
+      "slot": "015-GPRO-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "GPRO",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/015-GPRO-10-K-run0.json",
+      "packet_sha256": "838fc7a3e2e8dfa5bfe39d76c07fb309ed0a2bb4fae096ec11450400dde54eb4",
+      "row_sha256": "39d0ae5b8c92f26687f0dbccbf53d0a6a6c65659d61b0abf7ea3390cd2b6e066",
+      "request_sha256": "637f107d14302c278f787de67ab2799c5de557ba16298e6bbde54f7d6a4d3522",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24414,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18632
+      }
+    },
+    {
+      "order": 16,
+      "slot": "016-GPRO-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "GPRO",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/016-GPRO-10-K-run1.json",
+      "packet_sha256": "915822a2053d02d764e00298fdf1152dcd3372bee92dd40b95b902b850ab78a1",
+      "row_sha256": "0e35b8da292b0a26d9ec1b43db73f44a228204b76063ab02523bf2d1bf971502",
+      "request_sha256": "bb9834880f9b4e957183ad03494afea2400f92ed3bee1d047dc446516c4d6c0b",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24366,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18632
+      }
+    },
+    {
+      "order": 17,
+      "slot": "017-AAPL-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AAPL",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/017-AAPL-10-K-run0.json",
+      "packet_sha256": "ab39a351f18776afcdbee2fc4d6e4205494a9201c274fbd06f427f01b796d017",
+      "row_sha256": "11caaa75c71c92d2b5d11c60aebd3e930d0605d7c798e32e214b0cf909713817",
+      "request_sha256": "0b75a0f8cd872d316cfd5bfbd62d5c6d3d5b7260192461955dfc5d21f58bd6bf",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24762,
+        "excerpt_chars": 124125,
+        "xbrl_chars": 20647
+      }
+    },
+    {
+      "order": 18,
+      "slot": "018-AAPL-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AAPL",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/018-AAPL-10-K-run1.json",
+      "packet_sha256": "b496f21d340797cd0031c76287814b294a221177f4ecd721c74271c37cab6bc4",
+      "row_sha256": "0b8bb9442c2d3aedb175337dd3c8d0d9765fa661a0e326174f94ec8ee19d95e7",
+      "request_sha256": "d3889f68513149951cc6a64c1c5fa92193d47aa5b525554fb3e09836eba0a229",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 29172,
+        "excerpt_chars": 124125,
+        "xbrl_chars": 20647
+      }
+    },
+    {
+      "order": 19,
+      "slot": "019-MSFT-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MSFT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/019-MSFT-10-K-run0.json",
+      "packet_sha256": "effda6d5079065fbc43c4e05463b815587193e236307b91c53290c684e24bc47",
+      "row_sha256": "0f46c55da0073071b032def8afd6711ac9905ec058ebee29e8da48fb50b56a27",
+      "request_sha256": "236b467874bd2eba4a965b7d384da74c8244c4435e9884e8596e1c510ae42f53",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 21401,
+        "excerpt_chars": 164767,
+        "xbrl_chars": 20307
+      }
+    },
+    {
+      "order": 20,
+      "slot": "020-MSFT-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MSFT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/020-MSFT-10-K-run1.json",
+      "packet_sha256": "14e6f195d29efb024bc71df5d67ec7eeac2a6c63b9236f955a87cd665af3d5b0",
+      "row_sha256": "db992ba96872ffaa20da20980d201743bf69b766309cb47c2393e342845bf811",
+      "request_sha256": "9f03d90173b3115586a3860e92d3bc1181823cea89e4fc435317fe8a43355b5a",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 19948,
+        "excerpt_chars": 164767,
+        "xbrl_chars": 20307
+      }
+    },
+    {
+      "order": 21,
+      "slot": "021-NVDA-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVDA",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/021-NVDA-10-Q-run0.json",
+      "packet_sha256": "ce7a0e35a7eab69cf9c4d250f8b0324ec17e90a4c4336910fa4579dedbfbb3dc",
+      "row_sha256": "de845a63dbd9201f5d8dfa2ab82bd6315e14516a2a3537e7deaf68a25f364188",
+      "request_sha256": "f57dfd4306421ade741dc80ba84da258e325cdb9b17e2c17c839453db9b73c23",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25018,
+        "excerpt_chars": 102206,
+        "xbrl_chars": 22500
+      }
+    },
+    {
+      "order": 22,
+      "slot": "022-NVDA-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVDA",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/022-NVDA-10-Q-run1.json",
+      "packet_sha256": "f076bdd2e734544fcfde38774abffbfa07679cccfc6c73190135568ada6e95b7",
+      "row_sha256": "1a4cb5d79dfb41f8dde46b9280ed58cb90244e23553a4106f7756831b7cd4b04",
+      "request_sha256": "51e5adca9b4b730ff39becf804a4016ad51c7c2e4abc3549177811ef9b9def04",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22233,
+        "excerpt_chars": 102206,
+        "xbrl_chars": 22500
+      }
+    },
+    {
+      "order": 23,
+      "slot": "023-JPM-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JPM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/023-JPM-10-K-run0.json",
+      "packet_sha256": "2cf45b458dd18f04c34fc3a9fe67fb510ca3684f0805184d1efc6baa9d5e5b6a",
+      "row_sha256": "ff4ab22b49f88db0a6566ef286725235a52e44744d4b4944c1eab61cd7777591",
+      "request_sha256": "8ee382478a2c52da76f82d89e9e5b3ced0aadfcaece7b8fa0a3f79c233d50f08",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22298,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 14309
+      }
+    },
+    {
+      "order": 24,
+      "slot": "024-JPM-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JPM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/024-JPM-10-K-run1.json",
+      "packet_sha256": "0ccf449167c1e67cd381456b2f73a3124bbe640be6617df162bdc92df0a43e69",
+      "row_sha256": "8bb4fecef5bb6e7e9ba321aac94099f2e4810ac18077f0b209f77aad032d6b85",
+      "request_sha256": "e985eebc97a1be619ee380c7e52bf7114e898b7ed9c76a5c02b4b677e9e2d89d",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 19779,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 14309
+      }
+    },
+    {
+      "order": 25,
+      "slot": "025-KO-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "KO",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/025-KO-10-Q-run0.json",
+      "packet_sha256": "362e3675d1221ca39b4c574b5fd80435c84faa5ddcd72f4bc051dba592431867",
+      "row_sha256": "ecc9736feaa35252ad40c3d0775d4dde8cb1a6cc37a2931dfa0d9e28be65dad3",
+      "request_sha256": "696e5e4c9061e965c310a628fc8db05334e48c0a24db4345c545b8a4527f19fd",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 27258,
+        "excerpt_chars": 95851,
+        "xbrl_chars": 20212
+      }
+    },
+    {
+      "order": 26,
+      "slot": "026-KO-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "KO",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/026-KO-10-Q-run1.json",
+      "packet_sha256": "b9330b27b84c2d1ecbbc0b846a2ffb5fe31b0d0fa170a59ede0fd23191e0d2ce",
+      "row_sha256": "f08e02f67b036bf2e60e78107d729f2e63c335237c1229ac33e40535469fab7c",
+      "request_sha256": "11057254028b0baa56ef5f1af1e564708cd382e6acdaabe0725e9b8f3ff1ea3c",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 27375,
+        "excerpt_chars": 95851,
+        "xbrl_chars": 20212
+      }
+    },
+    {
+      "order": 27,
+      "slot": "027-TSLA-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSLA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/027-TSLA-10-K-run0.json",
+      "packet_sha256": "7e6d71388be28be8343729c19f345d11b58ecc24e873fa5d43f7259a6090b567",
+      "row_sha256": "cec30650961f5471c3fe8c856fc85e9dbc6b8084b741213816d2ae5d413f7bae",
+      "request_sha256": "84ea5ce7b26aadde9060a71b7fb6ebbc7cea393cdf4d8afc35fd2b83d2f6c95d",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 26873,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17417
+      }
+    },
+    {
+      "order": 28,
+      "slot": "028-TSLA-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSLA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/028-TSLA-10-K-run1.json",
+      "packet_sha256": "9884830c5ab527551e2615a9bb7665599eeea78070d4532aea07110730647e37",
+      "row_sha256": "c28a83fb55c7b1e3efdf453900e76a4ecffdf75ccb932b7a0409d59d4d4e5e0e",
+      "request_sha256": "d42a17cd4f49e9e2b8b7f2bda1ac20eb5e1850d6999e99186eae60de2c64175b",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 26035,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17417
+      }
+    },
+    {
+      "order": 29,
+      "slot": "029-AMZN-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AMZN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/029-AMZN-10-K-run0.json",
+      "packet_sha256": "726ea54e40ad21d99edbfb3298ee74d8d8772c15f9d40e866e28ed0133a5004f",
+      "row_sha256": "eefe65d8f8eb9c290add68c18a0003f885c6191c58aea047017e0143a68621e1",
+      "request_sha256": "75b482f3ab08ba719bd3d51fc08c3c5969d4eaca6717b3cb60d53d9f4eaff5c6",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24251,
+        "excerpt_chars": 161529,
+        "xbrl_chars": 17363
+      }
+    },
+    {
+      "order": 30,
+      "slot": "030-AMZN-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "AMZN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/030-AMZN-10-K-run1.json",
+      "packet_sha256": "d831fb5fed97f1f00359cfc4f0c100c38bd8ca84d7f4d8e768b622d4ea427b90",
+      "row_sha256": "375dc486ee9832ccc2e515fd67a6d5a2941c61f1804cbc098e6238c45869a4a6",
+      "request_sha256": "743f1a8396f886e7da17e47c97ac76f93ee585aae88eef6d89a250ddbeaa7fb5",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 30965,
+        "excerpt_chars": 161529,
+        "xbrl_chars": 17363
+      }
+    },
+    {
+      "order": 31,
+      "slot": "031-BRK_B-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BRK.B",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/031-BRK_B-10-K-run0.json",
+      "packet_sha256": "16edbe5798919166c66834e74aa6819488a6238a30a997106d197d68fdc8843e",
+      "row_sha256": "a6e59f494c067a98c14a7b410b6e6d7d4cd25baf17ad6919cb7140be4ca7f372",
+      "request_sha256": "ec9998fb7d3ff2687da8067d2709ac3fd07fc53ad1e9e4aa02aa6a4a768640c8",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22606,
+        "excerpt_chars": 147121,
+        "xbrl_chars": 11145
+      }
+    },
+    {
+      "order": 32,
+      "slot": "032-BRK_B-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BRK.B",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/032-BRK_B-10-K-run1.json",
+      "packet_sha256": "b6e76be91bbe0d84e1c10404400c4470e001bfc52e0a65fbf4127764481ba358",
+      "row_sha256": "3a71ba5f7280a98ef4fb4afb89af1cffc9d0c02ae1348bc18191f2f19e084479",
+      "request_sha256": "8b8602b31bc5a7506fe8bd3cea45e264955ab124ad0dc33f8ebbb078756c048e",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 23818,
+        "excerpt_chars": 147121,
+        "xbrl_chars": 11145
+      }
+    },
+    {
+      "order": 33,
+      "slot": "033-XOM-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "XOM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/033-XOM-10-K-run0.json",
+      "packet_sha256": "98903c82022ad4be0153f6a07d8374fc683dfde68f62c9d1f4012f6b14958b0d",
+      "row_sha256": "e5fdd43661d7bed2b2d0847736e0ccc2787ea2b97c6eed4f9abf1f0baa0a0686",
+      "request_sha256": "4c420c2401710475548a01bd784391356605d9fecf993347b9bdcb56b5448d3b",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18322,
+        "excerpt_chars": 160904,
+        "xbrl_chars": 15261
+      }
+    },
+    {
+      "order": 34,
+      "slot": "034-XOM-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "XOM",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/034-XOM-10-K-run1.json",
+      "packet_sha256": "9d1b6378c38f8fafa965c3713a51acd42157ef160e47fd2fd32fc906428cd11a",
+      "row_sha256": "f99da504496ce3fda00d221d607539f0825b63bcbf51151b4aa1a5661546298f",
+      "request_sha256": "35a7d218075fc14a0e8fe3f672a7d264b85864e815c6a161e90fc261520aaad1",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 23760,
+        "excerpt_chars": 160904,
+        "xbrl_chars": 15261
+      }
+    },
+    {
+      "order": 35,
+      "slot": "035-PFE-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PFE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/035-PFE-10-Q-run0.json",
+      "packet_sha256": "560ae6bee8f1014c37ef4bb601305e75e620c2b17ee2cf75579ecdddeb4342b0",
+      "row_sha256": "40cbb21e1bbceb4acb37165048443ae653ef90bdb65ceca8951b25f2f089fffe",
+      "request_sha256": "886aae06207d7da941c071e6c46803459d95e7291726725b033e13cdf31e4c52",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 19589,
+        "excerpt_chars": 181166,
+        "xbrl_chars": 17423
+      }
+    },
+    {
+      "order": 36,
+      "slot": "036-PFE-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PFE",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/036-PFE-10-Q-run1.json",
+      "packet_sha256": "2fc08b575e0e0887caf11c0cf3d3b9ac210abcda614adc37818a9946636386e6",
+      "row_sha256": "10d75f7d815b3149e96370225b5fe2d1c5f165dfb5f8eb663b74ee1845bf0d6e",
+      "request_sha256": "394a4d4360a0c0842f8eb89f3ad74e74e952536f4274aef57ef61631dfdbcd33",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22611,
+        "excerpt_chars": 181166,
+        "xbrl_chars": 17423
+      }
+    },
+    {
+      "order": 37,
+      "slot": "037-F-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "F",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/037-F-10-Q-run0.json",
+      "packet_sha256": "c5da7082fa68216e0d1d9e6fd6c6552fdb40268db1bcdc27b0f3e23294da2a36",
+      "row_sha256": "a19bc08bf084420706e874c3d04c6162db2d2543beb883a18cbf15dc86f537e1",
+      "request_sha256": "6a483861aca085d2add9d34731c254d9c8ea326cc9e21d4056cf6a3df90fe058",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 27311,
+        "excerpt_chars": 98293,
+        "xbrl_chars": 18604
+      }
+    },
+    {
+      "order": 38,
+      "slot": "038-F-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "F",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/038-F-10-Q-run1.json",
+      "packet_sha256": "b8ab91e86753e93a436290e33a3dbd050c1eade8adf0abd110f098caeb715e02",
+      "row_sha256": "01f1a9e993ac4a54ea23a6019e721ec58e2b93fa99b3e6cb360ae15eb36fcee9",
+      "request_sha256": "ad830b4cc9aecf9e61f9bc074dd20a3542735ab8fe02b69ef6778121e4b483fa",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25910,
+        "excerpt_chars": 98293,
+        "xbrl_chars": 18604
+      }
+    },
+    {
+      "order": 39,
+      "slot": "039-WMT-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "WMT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/039-WMT-10-K-run0.json",
+      "packet_sha256": "ee6e02083fc0ace61a7a45292f5d453f3d57a43804bcc4bd70d346bfa50a57fb",
+      "row_sha256": "d30fc75c48b810e8cdcb47a22cc6b216d0f18eb5c8b370c06725d27fbf390d5a",
+      "request_sha256": "9f0433858076156afed784ac51b1c7180439bcbfec2265b8bafbf6299f903a13",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25530,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18011
+      }
+    },
+    {
+      "order": 40,
+      "slot": "040-WMT-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "WMT",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/040-WMT-10-K-run1.json",
+      "packet_sha256": "6f830d6551b3da2495dc6d47919a5fcfda5de5d5503ac5df1a8767362ee3a3a5",
+      "row_sha256": "a5c1b624c34e6d8f6ac34e08a516f958c3d183033f77d909dddb6e76fae05be2",
+      "request_sha256": "a9bd673353293b2d54d584e3a7ce411b6f436025407fbce45ca8c2d5700c9940",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 23008,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 18011
+      }
+    },
+    {
+      "order": 41,
+      "slot": "041-COST-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COST",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/041-COST-10-Q-run0.json",
+      "packet_sha256": "9be47b5aaf4a3b2a836c5eda2ff7ffe1914f366bfa442e6c0e00ea8e649da53e",
+      "row_sha256": "33815cf868e0e1e2363f1bf22c042f73a9a46204b135c2c327e8788b0f84f621",
+      "request_sha256": "870d4059f0d6d5f45019cd6424878f0071fd07f53792ffa651ab66a8fe5270c0",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24686,
+        "excerpt_chars": 68765,
+        "xbrl_chars": 13908
+      }
+    },
+    {
+      "order": 42,
+      "slot": "042-COST-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COST",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/042-COST-10-Q-run1.json",
+      "packet_sha256": "4dd453c14d783aa9eef25fcbdc782fcfb2c6d67c398dea09d6c1fc717577d13e",
+      "row_sha256": "e30d4cf76211fcf602f513da463dbb3980bae2521fb86eb15931a6939454a25e",
+      "request_sha256": "00ccf41ad8ce7f196b4ca82de42f99258c845fd336aa7a4420ccf0e0a2e1a744",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18139,
+        "excerpt_chars": 68765,
+        "xbrl_chars": 13908
+      }
+    },
+    {
+      "order": 43,
+      "slot": "043-BA-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/043-BA-10-K-run0.json",
+      "packet_sha256": "b259687c3b8004ccf7cda44c299462803a837ad59ac34cf8b58011b0af9d8c0d",
+      "row_sha256": "288b21b5d4c9a60edd44b1756cb2b2cb26c04f38b6e5b36ad8524a7211a964d9",
+      "request_sha256": "9d2831f9edab4dd7bdab0434272955c712b952d916643070da6e5ff48cee34fe",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25673,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17666
+      }
+    },
+    {
+      "order": 44,
+      "slot": "044-BA-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BA",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/044-BA-10-K-run1.json",
+      "packet_sha256": "b05b3620acd428176cf9fa468047214370b0af1f296ff60e64340f96cd0de152",
+      "row_sha256": "8cd0c515103ea0a99fd61170aa8cedf9220f47ba629535b9000bea371006724e",
+      "request_sha256": "94be912d345df953ff5a955f6d0a2cc37aaf5f9a34917a28315fa58661a92cba",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 27507,
+        "excerpt_chars": 170233,
+        "xbrl_chars": 17666
+      }
+    },
+    {
+      "order": 45,
+      "slot": "045-INTC-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "INTC",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/045-INTC-10-Q-run0.json",
+      "packet_sha256": "5c12522db2e62895811d3c084deb8b8a0e98c08bfda8731ac6aba136dae7a66d",
+      "row_sha256": "014d2e4dc55ac1282e9db08595bc897505f62ded77b9849f9f55b694174f0445",
+      "request_sha256": "bc2d9e11cd3da12b6b105f15b27f58625d949e40a24ec34a3b102101a1549cff",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24430,
+        "excerpt_chars": 181072,
+        "xbrl_chars": 19591
+      }
+    },
+    {
+      "order": 46,
+      "slot": "046-INTC-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "INTC",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/046-INTC-10-Q-run1.json",
+      "packet_sha256": "c4994afa8a67e35c6a9eec1ed283d6e0b40c470f4c7d0d026d569787d65bd438",
+      "row_sha256": "5e75b43340f4780ae1cafadf09faecb32f7cf7fa86c375b5e7fd88e04be22e7d",
+      "request_sha256": "18637d79366f3fb9e31b3a16ee46100671ed7a5578d36ea46cfc0049dff46aaf",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 23931,
+        "excerpt_chars": 181072,
+        "xbrl_chars": 19591
+      }
+    },
+    {
+      "order": 47,
+      "slot": "047-PLTR-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLTR",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/047-PLTR-10-Q-run0.json",
+      "packet_sha256": "aa0af4e9954afc4b89f6fd5c5d9611f77fbb7a933d5df67835b619408ed79830",
+      "row_sha256": "f490b5d1639d6d545dc8938ed9f483eea309ca4803c80043aa9bef510cd056d5",
+      "request_sha256": "c3df6398dc80e564e4b38f81b12e95f656a0178128f3e8f7bd85253d7fce10dd",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18286,
+        "excerpt_chars": 116850,
+        "xbrl_chars": 18525
+      }
+    },
+    {
+      "order": 48,
+      "slot": "048-PLTR-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PLTR",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/048-PLTR-10-Q-run1.json",
+      "packet_sha256": "4b8d3d302013f3fb820da5e1c2e6480a2d22958e28abff4bcacea3de1eccde51",
+      "row_sha256": "d6f191c922cfc971e64ba5f56e15becc51566eb9705beccaf282a1c3a447d408",
+      "request_sha256": "03a7728c61f7f4b425ca8ef14470f8a5676341e0f896e5041706e3c56265d358",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 20589,
+        "excerpt_chars": 116850,
+        "xbrl_chars": 18525
+      }
+    },
+    {
+      "order": 49,
+      "slot": "049-RIVN-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "RIVN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/049-RIVN-10-K-run0.json",
+      "packet_sha256": "5323a36d3c5e9aa47558ca703c79633dee558a0ce94127acf64fbf85cf786522",
+      "row_sha256": "745373793a5bbe4d6425aec91ffb87ae69eccc821082ea745fd6af7da0b8af6b",
+      "request_sha256": "80ac466d40812faae6b2137b5bd0642ac8a357ac743b576a4e5f9c1800f708d6",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 29947,
+        "excerpt_chars": 129484,
+        "xbrl_chars": 17764
+      }
+    },
+    {
+      "order": 50,
+      "slot": "050-RIVN-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "RIVN",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/050-RIVN-10-K-run1.json",
+      "packet_sha256": "0181f00acaeb5ed1c4fa2172b600caf02dd64cc8503e4f9cb4099a5dcae3d06f",
+      "row_sha256": "e7650241401ff7f56c21e4e6232cd6ff38e6db7fe9fc9e1eb55aed14f409eb26",
+      "request_sha256": "5dd1c2ddd8b4016819238279dd245abab8325d79173f6351478f6553b923e8af",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 32236,
+        "excerpt_chars": 129484,
+        "xbrl_chars": 17764
+      }
+    },
+    {
+      "order": 51,
+      "slot": "051-COIN-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COIN",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/051-COIN-10-Q-run0.json",
+      "packet_sha256": "ef883d3b87c9ce6d21f00755950aa4cc1aa70e32e57da1e85d9cb12b030151c9",
+      "row_sha256": "00bb8627327afb134c72bc3d5442c0433fc01c72911fabd1e30fd3ff49fe4a18",
+      "request_sha256": "d433973c5c78e2f683dabd57b3d24afb2a15b5036f9af22c4157a0f494b56f92",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 18071,
+        "excerpt_chars": 91192,
+        "xbrl_chars": 18596
+      }
+    },
+    {
+      "order": 52,
+      "slot": "052-COIN-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "COIN",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/052-COIN-10-Q-run1.json",
+      "packet_sha256": "541d80137576b590f348f18dc757cf12c76cbce203d928b3de83df7bda234e31",
+      "row_sha256": "79ea079629d9eae6fc06192d93886886f32bc21646bdbba0993fb8ce5428a4c7",
+      "request_sha256": "ac19eb5681cfe35e325ff20c9134d3614ea849193952b4c3889b346eb2ea59f5",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 21157,
+        "excerpt_chars": 91192,
+        "xbrl_chars": 18596
+      }
+    },
+    {
+      "order": 53,
+      "slot": "053-BYND-10-Q-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BYND",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/053-BYND-10-Q-run0.json",
+      "packet_sha256": "532266cf51101e0c5614c816f2f0d3afcd74644f2b1c211aff04c411904fee3b",
+      "row_sha256": "05084ba7f747b7d4010d7ff32a24d04ea630805c3b4c34ca73a09499b0f6ab4d",
+      "request_sha256": "4f21646020d971476e6312ff8d5cefec7f86a0f21785e3a5003bc0108c2be1ff",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 30356,
+        "excerpt_chars": 177945,
+        "xbrl_chars": 19088
+      }
+    },
+    {
+      "order": 54,
+      "slot": "054-BYND-10-Q-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BYND",
+        "filing_type": "10-Q",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/054-BYND-10-Q-run1.json",
+      "packet_sha256": "cfc0f2a514454357cad091c5702a6dc2ec815df3ad9ecab8fe7bcf90fb429435",
+      "row_sha256": "1d47b8c6e424fff65a7e71a4c4271205e528da41cd5f6c12384a4e6c482220d4",
+      "request_sha256": "5ec2a08ad22113e176602a36ef2d059f566d4501d410cc09a132db409e812984",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 24130,
+        "excerpt_chars": 177945,
+        "xbrl_chars": 19088
+      }
+    },
+    {
+      "order": 55,
+      "slot": "055-BABA-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BABA",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/055-BABA-20-F-run0.json",
+      "packet_sha256": "828b86ecef49dfb537b2da05290f4cb983bb385025d32f15568294adc6182ff6",
+      "row_sha256": "fde279886b5ac568eab5e0dea7f19a37a9837c9f03497517492fc44f6a279249",
+      "request_sha256": "918bab20c9ffd1be4b91751b4db10462128e54e279ca06e655e78446ac43ae64",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 21648,
+        "excerpt_chars": 231089,
+        "xbrl_chars": 15425
+      }
+    },
+    {
+      "order": 56,
+      "slot": "056-BABA-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "BABA",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/056-BABA-20-F-run1.json",
+      "packet_sha256": "108a34e965be77429d44ed4b2caa495f67b24a0f3d9659005641d3ec39793d49",
+      "row_sha256": "76d4404cc9a8b969d3746af84c35f0ab13877eadd21b2eb741e2a78491820496",
+      "request_sha256": "e055457c42ba7ba3440234a4d3277428e6dd1651d16c62dd563ffcf4cb67150d",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 25536,
+        "excerpt_chars": 231089,
+        "xbrl_chars": 15425
+      }
+    },
+    {
+      "order": 57,
+      "slot": "057-ASML-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/057-ASML-20-F-run0.json",
+      "packet_sha256": "1163c635fa4518ce382ced1e78621294ca0db0c9da0c0bb5f98f1df8c8a23db8",
+      "row_sha256": "35aa068ac7beab42e8c9a2b60b547f98b3998d373f5ccb071f8968592bab9e30",
+      "request_sha256": "dbe24a9e04f9bd4f9ff5a1c2237cd1dd03c2cf258ead3f98950bdcdd8b2b9a46",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 27623,
+        "excerpt_chars": 260154,
+        "xbrl_chars": 19704
+      }
+    },
+    {
+      "order": 58,
+      "slot": "058-ASML-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "ASML",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/058-ASML-20-F-run1.json",
+      "packet_sha256": "4e445b48e667b55ad31c6fe032092fd99cc67b9848e14514e504b965dc4e4d4b",
+      "row_sha256": "090b7c170508a47a46f3c273aff4d48e3d32482918a33846a8d0a9107b0aec4f",
+      "request_sha256": "c0e3cab3a9f247b825bdafcd8c1b2fe3b1f242125dd495971255b5188fb7b15f",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 28303,
+        "excerpt_chars": 260154,
+        "xbrl_chars": 19704
+      }
+    },
+    {
+      "order": 59,
+      "slot": "059-TSM-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSM",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/059-TSM-20-F-run0.json",
+      "packet_sha256": "05ed8184a23959bcf268d212685e9a8359e71ee70738c6aa9a8d0cbf2fd1b7ae",
+      "row_sha256": "829719ba9027b724a8fe636f75e5e964054ad81158aacf5520ecdbff90d386ed",
+      "request_sha256": "e180cf04f08c1d843374095054b04edad81f3d69b07b98971b53b4b98afdf919",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16617,
+        "excerpt_chars": 217082,
+        "xbrl_chars": 17302
+      }
+    },
+    {
+      "order": 60,
+      "slot": "060-TSM-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "TSM",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/060-TSM-20-F-run1.json",
+      "packet_sha256": "1f31981867b6e835c26cc008ec6c690d5838cba40ee0b4dfdb04062e1ccfad35",
+      "row_sha256": "55af4f6dbac2995836d2bf8937dc6dff64bb18bc5ccd71932c48b608768ac8c7",
+      "request_sha256": "d98b5a1688527dec689189c6866d21c767f0cf5fdae06dc815ff78f082a7b8b4",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 20909,
+        "excerpt_chars": 217082,
+        "xbrl_chars": 17302
+      }
+    },
+    {
+      "order": 61,
+      "slot": "061-JD-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/061-JD-20-F-run0.json",
+      "packet_sha256": "1200a225704d7cbd0c22151bcd0c6cb233f259520d4f72d2289049e9d57e2c27",
+      "row_sha256": "f422a7079cc8b382eeda948027c18e548bde018a06402da44b68070d94a0fed2",
+      "request_sha256": "5eb0427cea683d9aada158d743c705bc0b8451af83b957ad333bd809c1695352",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16336,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      }
+    },
+    {
+      "order": 62,
+      "slot": "062-JD-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/062-JD-20-F-run1.json",
+      "packet_sha256": "394425ea793156a1865542c115ab3bb15816ce854c456a2aa127c0a01db1930b",
+      "row_sha256": "d9c6b5d03e0cb88478f6db9e30a68076d509e8b5f1f43e0db9a6ad66de04e5ec",
+      "request_sha256": "f9f7b3d2c77f321df799e7955904d285fbc5c9ec84f6975726e34eef85780278",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 29170,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      }
+    },
+    {
+      "order": 63,
+      "slot": "063-SE-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/063-SE-20-F-run0.json",
+      "packet_sha256": "9aa6d831d575faf1ec29648f4df0259f641228619c0f6d6a026ab3cbf7b44d15",
+      "row_sha256": "3623146ac8e84ae2426071cec8b68c211b0f6a3d2b1547332e9dcc9fd6815467",
+      "request_sha256": "5d2ab45ac24fc0a73237954c222bed37ddbc2bfc55f8cba075c7e8fb87fa4b70",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 15826,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      }
+    },
+    {
+      "order": 64,
+      "slot": "064-SE-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/064-SE-20-F-run1.json",
+      "packet_sha256": "3359e8847b4154e75235bc2dfe29015d4f96048551c2e38fa6893f0186c80232",
+      "row_sha256": "2893c0f748ccd0c872904bc9cf218e219ea9d2c4b7cd122cacd9014b12038cd1",
+      "request_sha256": "db76ad91ab26cec192df968565711b4ead43ebd1079cc996995d2b89bd00ee2e",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 16873,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      }
+    },
+    {
+      "order": 65,
+      "slot": "065-NVO-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/065-NVO-20-F-run0.json",
+      "packet_sha256": "af1a1f0c76dd431a540aa5f54adfd379b2c8acd7c99eca2025912af7fab9b379",
+      "row_sha256": "63436a5dc8e5157cc6b5c8baca5564f098f0d0ecfc9807a948f8bcdfb465ce4b",
+      "request_sha256": "8339b7e0e23419ce42232c27b4ea2c7ea2a77ba985d1784a47c68f5907369920",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 21896,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      }
+    },
+    {
+      "order": 66,
+      "slot": "066-NVO-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/066-NVO-20-F-run1.json",
+      "packet_sha256": "d79dfc1aee2327ba96765e3bee49c5a4fa45e48a62655fbc60d2c80ecd27135e",
+      "row_sha256": "35a240f7c8bcb5965609d82e9243af441a8a751d4f8e6a8aca0a6d11f067a5e9",
+      "request_sha256": "e96319ee902bd5359dc71d1520715c8e7d0683628665b965116674c24aaf07ec",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 17670,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      }
+    },
+    {
+      "order": 67,
+      "slot": "067-PDD-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/067-PDD-20-F-run0.json",
+      "packet_sha256": "8e67d15a9f278a19f5d21ef3a5b4f4f7fa336609cbcef8accbc322b67b32ae77",
+      "row_sha256": "dda68b3aa53568e656444123ccdd576931d3e54b88dd8a2435948ca33c2531dd",
+      "request_sha256": "fb01c3da2f7187e6008aa3ebb2bc4460056d4b361bd3c6ffd6c7c98e2e98e3f0",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 22132,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      }
+    },
+    {
+      "order": 68,
+      "slot": "068-PDD-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/068-PDD-20-F-run1.json",
+      "packet_sha256": "8e2172fd352eab9d9f0db3df6e768b81d878b91475bc14ecdc36e36158c810ee",
+      "row_sha256": "2587030b90cac6583eace3352b7b24601297aec7320a3b3daba70ab6e3eb0350",
+      "request_sha256": "9ce7adfc42c516b7c25c6091bf112052e2352cb5f0359d7b1ea87bf02dade8bf",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 20804,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      }
+    },
+    {
+      "order": 69,
+      "slot": "069-MELI-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/069-MELI-10-K-run0.json",
+      "packet_sha256": "68373405a0f543b31a9f411978923d735aea30a9831149ba45d3f75d251f3d8f",
+      "row_sha256": "4b31f48e0089a698b9f9d3677c9f924f94a90ab1a09c99b25f4950c02c33db52",
+      "request_sha256": "e8c20a5f079f6b156a31e0c87475a4e88cae07b6bee621992f54043910137d4c",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 32256,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      }
+    },
+    {
+      "order": 70,
+      "slot": "070-MELI-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/ko-corrected/packets/packets/070-MELI-10-K-run1.json",
+      "packet_sha256": "693dd7096d748342eacb1ce766b56d08bc68d1b754af77a00acd017a4baa70c5",
+      "row_sha256": "34ba5e187a34c11c21e23279a510fe2b386574921a40d4394ff97d8300528271",
+      "request_sha256": "7b0a004e6d5d9a87c04cece0013334fe4af45b858603240b2863283ca2bce921",
+      "source_report_sha256": "57049cab3a997fe4934680e5425ad7816035b6d35f0bb641ee29d0304875dd39",
+      "source_sha": "6af1393efc923b141397e84f91830515ebb50f89",
+      "input_lengths": {
+        "summary_chars": 36970,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      }
+    }
+  ]
+}

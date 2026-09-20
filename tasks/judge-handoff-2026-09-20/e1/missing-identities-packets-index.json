@@ -1,0 +1,227 @@
+{
+  "source_report": "<judge-checkout>/work/e1/eval_20260919T182951Z.json",
+  "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+  "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+  "packets": [
+    {
+      "order": 61,
+      "slot": "061-JD-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/061-JD-20-F-run0.json",
+      "packet_sha256": "5be9fd284bf91124f778e1c6c1d51b34129454046061d8459dd96494984131a7",
+      "row_sha256": "ddb1d003a11d76dd931a508cd0f7c8777911134082dd7446255ab3bef478fc14",
+      "request_sha256": "413b156f259a2e75cca13aa27747a9a030e18500de3450149b8e755991d05fd2",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 26299,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      }
+    },
+    {
+      "order": 62,
+      "slot": "062-JD-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "JD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/062-JD-20-F-run1.json",
+      "packet_sha256": "98c0e4965e11cdd1aa5d612e8cbe1de557a01a4264b9aa0c3d325e0614e20966",
+      "row_sha256": "be580732fa97b86b50e3ee166b6f4927d2c0c78b6ca105b5546998724707c5b0",
+      "request_sha256": "d7abc1606a6f0d6b67e479b3f24a0572a327b6263cd91c6ab141fd62a8308b87",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 18646,
+        "excerpt_chars": 230528,
+        "xbrl_chars": 18662
+      }
+    },
+    {
+      "order": 63,
+      "slot": "063-SE-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/063-SE-20-F-run0.json",
+      "packet_sha256": "1a56f3f983d709bbc96aebd346cb59a9d9e403d6f585d9d686559517acd6b99e",
+      "row_sha256": "246220449cebb140474daacccfe5a3ff4b57b9f94b636ff015f218c5d6f9128e",
+      "request_sha256": "ed592892c7f12d72b229d227301a334353a9f9399d8da10301f24601f73cb826",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 17424,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      }
+    },
+    {
+      "order": 64,
+      "slot": "064-SE-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "SE",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/064-SE-20-F-run1.json",
+      "packet_sha256": "6f07604cd74bf44bfbcb444b658f9caa232437699c637abe529b13ecdeb08d5c",
+      "row_sha256": "3098bd659638ae1adbf19572aa7d19ad6eba6088bdb5ccb7e876e07d15e1a4aa",
+      "request_sha256": "db0e56a100a81af1aa8d250f8b4b9d4f86cb25db56c25792c76976d2b26ef105",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 19189,
+        "excerpt_chars": 123016,
+        "xbrl_chars": 17314
+      }
+    },
+    {
+      "order": 65,
+      "slot": "065-NVO-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/065-NVO-20-F-run0.json",
+      "packet_sha256": "bb87caa8bbe30a5ad7e61457650c02d86d33b3b3dc50d229d14020b4dd4b3fb9",
+      "row_sha256": "c9c4f18b7af57d0fd5e6dd589bcb161ed17f4eb79a813cef46842c8b5cb29132",
+      "request_sha256": "e03c693e6cf19fe85d7b0a7c824507b1b76da54eaa2a2893290f41c04a2dd163",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 20988,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      }
+    },
+    {
+      "order": 66,
+      "slot": "066-NVO-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "NVO",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/066-NVO-20-F-run1.json",
+      "packet_sha256": "6497d2c55260fe1f3bd29b3292dad1cb806e6d98d2d181e69125874b545d8acf",
+      "row_sha256": "2b1e073bb0028486f3d305c7bfe3f745efb34fce642c1da1bb751c79bfaf4b6d",
+      "request_sha256": "58fce627ea22d68fa910e10769eaeb261ca22892b6ebed9cca74d0200ff6d1f7",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 19552,
+        "excerpt_chars": 40972,
+        "xbrl_chars": 16589
+      }
+    },
+    {
+      "order": 67,
+      "slot": "067-PDD-20-F-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/067-PDD-20-F-run0.json",
+      "packet_sha256": "d57eeda37ef725539526d6eae84787826fb1f9253d1ce7c5e06a4639679dd153",
+      "row_sha256": "0cfb7889b7cc84ea06b3774c2a78d2a798ee3aabf9c889e43e59d505c72aabad",
+      "request_sha256": "dfb01de82dcb98897e99850d0d76e294460fa930adda6ac3230c92cf379ac534",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 20460,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      }
+    },
+    {
+      "order": 68,
+      "slot": "068-PDD-20-F-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "PDD",
+        "filing_type": "20-F",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/068-PDD-20-F-run1.json",
+      "packet_sha256": "a2054664dc3d970f9b7edc90f16fb021748b5f5cc915c3d3daea86c9958c4fc1",
+      "row_sha256": "d0a11d4ff3f93d7a6c2134429999cb0a56f2d35b8ca70ece91baedf697753a40",
+      "request_sha256": "cbad96b3f7e32d2a331df88b4973b05f3541c420cda1d885637de3d68014bdb6",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 21850,
+        "excerpt_chars": 226630,
+        "xbrl_chars": 14480
+      }
+    },
+    {
+      "order": 69,
+      "slot": "069-MELI-10-K-run0",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 0
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/069-MELI-10-K-run0.json",
+      "packet_sha256": "534ec10adaf31b4b1c787316e7b6971766ad2c1f0d4b3273949ab44cca8887a2",
+      "row_sha256": "f07906de14f4dddd194d983bd34888b2ca65b1094163b903bf7f74307a68634d",
+      "request_sha256": "f9bf40292b1e1d7f32c121884682a831b295bbf99cdbaf956391ae88f689fe24",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 28484,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      }
+    },
+    {
+      "order": 70,
+      "slot": "070-MELI-10-K-run1",
+      "identity": {
+        "candidate": "baseline",
+        "ticker": "MELI",
+        "filing_type": "10-K",
+        "accession_number": null,
+        "run": 1
+      },
+      "packet_path": "<judge-checkout>/work/e1-stage/packets/packets/070-MELI-10-K-run1.json",
+      "packet_sha256": "ee76b81ff08999a7502496008d56693347ff9205090fc1c6f3a8dd57048cbf74",
+      "row_sha256": "5414d1d7ac96a704a86d6da8363258083b375f2861897b5440becdb5142d4f97",
+      "request_sha256": "b47a0fd27eebcf638b346810cdcdb6ea2a1100b3a37818498cdb064340747aed",
+      "source_report_sha256": "49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4",
+      "source_sha": "44fd9c4425c7139dbaef1b8707327d3561bab0ce",
+      "input_lengths": {
+        "summary_chars": 36163,
+        "excerpt_chars": 250076,
+        "xbrl_chars": 17880
+      }
+    }
+  ]
+}
