@@ -1,0 +1,36 @@
+# KO #932 — actual release-artifact audit, 2026-09-20
+
+Exact candidate ed4ffde9e2d6d5df6762559cd59becdcc771231a. No introduced blocker found in this bounded mechanical/source review. Parent owns release disposition under the founder's partial-evidence authority; this is not Fable, broad semantic acceptance or an effect estimate.
+
+## Actual execution and provenance
+
+- CI35481436217 completed success; baseline job105999861098 completed in9m41s. Actual generation/regression log retained. All six required checks passed: review-gate, backend-tests, e2e-tests, frontend-tests, lighthouse and migrations-postgres. Baseline and Copilot also passed as additional checks. PR deployment skipped as expected.
+- Remote Codex summary actually completed for ed4ffde at2026-09-20T01:30:17.488760Z; bot thumbs-up01:30:20Z; no review/inline findings. This is actual review evidence, not merely a green gate.
+- Baseline report SHA256 f9c1a93387df3381bcb7b0a84e74772b8a1f61e3fab22b3be5b559bb4404fdcc:70/70 exact unique planned/scored attempts, zero errors/retries/hard vetoes. Source1bc5af270925ddea8979cfd600a29cca4fa5bf0f has full tree ebcea70ff94b99de17bbbaa8d749d9b7369679d9, equal to candidate via retained GitHub commit objects.
+- Golden f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c; pin6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387. Harness matches pin except source and2vs3 draws. Both attribution flags false; judge false.70 primary deepseek-flash calls,0 unknown usage calls; zero displayed cost is unmetered, not free.
+- All70 excerpt hashes/accessions checked. Frozen profiles66general/4insurer with own-filing quote provenance checked. Raw filing bodies are not retained for independent rehash; six existing6-K rows lack raw provenance. Means recomputed; pure regression gives zero HARD, one trace WARN1.9, matching actual CI log. Citation mean0.9653 is not universal citation correctness.
+- Ready Copilot35481443648 report c04bcbf403d41bb95bee179d62b2a8cd8a195cb15c637e46fc95c8af0492e2e8:18/18 exact planned/scored/terminal answers, zero errors/vetoes.24 source files and portable DB hash verified; all7 prose citation excerpts occur verbatim after whitespace normalization. Actual sanitized logs show35 successful primary deepseek-flash calls. No KO case exists in its six-accession plan.
+
+## KO direct branch-purpose review
+
+Both five-row raw tables and final rendered segment tables retain revenue/OI/revenue-change cells. Source excerpt, XBRL segment records and displayed cells equal the retained prior #924 first-candidate source packet (this equality is limited to these fields, not all model inputs/outputs or behavior). Current native USD Q1 period2026-04-03 source rows are North America4,893/1,606; EMEA3,012/1,259; Latin America1,678/1,038; Bottling1,640/191; Asia Pacific1,508/536 USD millions. Prior revenue4,361/2,657/1,477/1,463/1,421 supplies the displayed +12.2/+13.4/+13.6/+12.1/+6.1% revenue changes.
+
+No code-owned operating-margin prefix appears in either raw table or final table. All12 retained preview frames per KO draw were inventoried: three complete segment-table frames per draw equal the final table, and earlier frames mentioning segment names contain no machine prefix. Previews are not truncated, but harness final-response association is explicitly `not_observed`; equality of retained table bytes does not claim hidden stream coverage.
+
+All ten commentaries were read against the source's same-segment unit-case-volume paragraphs; run0 additionally uses the explicit price/mix bullet list. Nigeria sale explains the15% category decline, Africa/India explains Bottling growth, and run1's structural-change4% is explicit in the source footnote. No commentary rescue or new cause was invented. The source explicitly shows issuer EMEA44.8% and Asia Pacific37.6% operating margins; neither incompatible derived41.8/35.5 prefix is rendered. Consolidated35.0%/32.9% margin remains a separate supported issuer disclosure.
+
+The generic **Change** header remains ambiguous beside operating income. Its +6.1% Asia Pacific is revenue growth, not OI growth. This branch does not resolve that label issue. Across all70 outputs,28 have segment rows and none has the machine-style prefix; this inventory alone is not semantic coverage of all prose.
+
+## Bounded controls and retained limitations
+
+Sixteen selected control attempts were inspected for the named concerns, not exhaustively rejudged. AAPL retains the code-owned financing/capital block and quoted issuer capital statements; AMZN keeps conventional$7.7B and separately sourced issuer11,194 USD-million FCF with definition, aligned reconciliation and limitations. The previous false128.3>139.5 claim is absent in these two selected AMZN draws, which does not establish a fix/effect. SE20-F keeps explicit statement-position/basis language and3.2x parent-NI cash conversion;6-K does not invent a segment table. ASML keeps EUR and distinguishes above-guidance Q2 context. BABA keeps non-GAAP62% distinct from ordinary NI; no claim that the known qualified-name scorer limitation is solved.
+
+PLD draw0 retains four scored nonverbatim/near-miss evidence strings (citation fidelity0.3333), including compressed revenue/NI assertions. Draw1's “subsequent events” includes November/December2025 trading-plan adoptions although its reporting year ends December2025: the dates are real source statements but their temporal placement is not subsequent to period-end. These are retained model-output limitations; no demonstrated causal link to removal of a deterministic segment margin or a claim that all other outputs are unchanged.
+
+Copilot ASML draws1/2 quote selected2025 cells and attach a revenue-only citation3 to a sentence also naming NI. First refutation: NI is separately correctly tool-cited[2] in the preceding sentence. Second: full supplied table supports the NI9,609.4 cell, and actual citation3 is a verbatim full revenue row. Preserve the narrow citation-scope/compressed-quote limitation; it is not the prior fabricated stitched citation excerpt. Four uncited-figure advisories remain: MSFT0/1/2 and BABA2026 draw0. See copilot-source-read.md for precise witnesses.
+
+Historical same-Fable50/70 (both KO PASS) belongs only to its old corrected-prompt report. No fresh Fable was invoked, no prior verdict transplanted, no model mixed, no retry dispatched. One new70-output corpus cannot estimate improvement. The artifacts support the bounded engineering release review under the explicit partial-evidence fallback; activation of unrelated gates/quality claims remains outside scope.
+
+## Files
+
+baseline-audit.json/log, copilot-audit.json, ko-render-audit.json, segment-inventory.json, source-review-checklist.md and retained source packets document checks. Actual CI/check/review/commit metadata and generation logs remain adjacent. Full downloaded reports and source artifacts remain local under baseline/ and copilot/.

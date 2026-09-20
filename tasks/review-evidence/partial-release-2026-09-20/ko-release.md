@@ -1,14 +1,17 @@
-# KO segment-margin release — pending actual receipts
+# KO #932 — merged; deployment verification pending
 
-Status: authorized engineering release; completion not recorded. Prepared candidate `ed4ffde9e2d6d5df6762559cd59becdcc771231a` on #931 main. The shared owner omits unsupported derived operating-margin prefixes, retains amounts/commentary and removes the obsolete prompt promise. Content stamp p does not schedule historical regeneration.
+[PR #932](https://github.com/neilmac91/EarningsNerd/pull/932) merged as `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73` at 2026-09-20T01:44:44Z. Reviewed head: `ed4ffde9e2d6d5df6762559cd59becdcc771231a`. **Deployment run 35482183642 remains pending independent verification in this receipt.** Migration/revision/traffic/health and post-release flags/balance must be added from actual records.
 
-| Required evidence | Current archive status |
-|---|---|
-| Final PR, reviewed head, merge commit/time | PENDING — read actual final PR |
-| Final committed full gate and one mutation receipt | PENDING — retain exact current-base gate and original proof |
-| Six required checks and completed remote review | PENDING — no inference from early green |
-| Actual baseline 70 / Copilot 18 artifacts | PENDING — retain counts, errors/vetoes, hashes/source parity and KO rows |
-| Main CI/deploy, migrations, Ready revision/traffic, health | PENDING — wait for actual completion |
-| Post-release attribution flags and balance | PENDING — retain fresh observations |
+The shared owner removes unsupported derived operating-margin prefixes while preserving amounts and commentary. The prompt no longer promises this ratio. Content stamp p does not schedule historical regeneration.
 
-Retained earlier corrected corpus: 50/70 complete Fable judgments, 27 negative; both KO draws PASS. Twenty unjudged outputs include all 14 twenty-F outputs. No quality-effect or complete acceptance claim. Inherited Change-heading ambiguity and model-authored margin claims remain outside this correction. Production attribution flags and historical regeneration remain held.
+[Checks and provenance](ko-release-checks.json) retain all six actual required successes: review-gate, backend-tests, frontend-tests, e2e-tests, lighthouse and migrations-postgres. Eval-baseline and Copilot are additional successful checks. Completed Codex summary at 01:30:17.488760Z and subsequent bot thumbs-up are retained separately from the green review gate; no review or inline findings were returned.
+
+The committed full gate passed Ruff/Bandit and **3,429 tests, 78 warnings in 126.51s**, exit 0, with PostgreSQL 15.15 across four lanes and performance enabled. The known post-summary logging trace remains disclosed. Original single margin-prefix mutation failed (1 failed, 2 warnings, 4.92s), then passed restored (1 passed, 2 warnings, 5.11s); original log hashes are retained, without claiming a fresh mutation.
+
+[Baseline audit](ko-baseline-audit.json): CI 35481436217, 70/70 exact planned/scored attempts, zero errors/retries/hard vetoes. Source `1bc5af270925ddea8979cfd600a29cca4fa5bf0f` has the same full tree as the candidate. All 70 excerpt hashes and own-filing profiles (66 general / 4 insurer) were checked. One trace WARN remains at 1.9; citation mean 0.9653 does not certify every citation. Raw filing bodies are not retained for rehash; six existing 6-K slots lack raw provenance.
+
+[Copilot audit](ko-copilot-audit.json): run 35481443648, 18/18 expected/scored/passed terminal answers, zero errors/vetoes; 24 source files and portable DB hash verified. All seven prose citation excerpts match after whitespace normalization. Its six-accession plan contains no KO. Four uncited-figure advisories and ASML compressed-quote/citation-scope limits remain in the [source review](ko-copilot-source-read.md.txt).
+
+[KO render checks](ko-render-audit.json) cover both five-row tables: source-owned cells persist, and no code-owned margin prefix remains. Each draw retains 12 preview frames; its three complete segment-table frames equal the final table. Final-response association is explicitly not_observed, so this does not prove hidden stream coverage. All ten model commentaries received bounded source review. Generic Change remains an ambiguous revenue-change heading. [Full bounded audit](ko-artifact-audit.md.txt) preserves PLD citation/temporal defects and other limits; selected control inspection is not an exhaustive new semantic judgment.
+
+Historical corrected Fable corpus remains separate: 50/70 complete, 27 negative, both KO draws PASS; 20 unjudged include all 14 twenty-F outputs. No new Fable call or verdict transplantation occurred. One new 70-output corpus cannot estimate quality improvement. The founder's partial-evidence authority permits this bounded engineering release, not broad acceptance or production attribution activation.

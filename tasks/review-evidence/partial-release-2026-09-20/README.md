@@ -1,8 +1,8 @@
 # Partial-evidence engineering releases — preparation, 20 September 2026
 
-**Pending receipts; not release completion.** The founder authorizes bounded KO and dormant E3 engineering releases using retained evidence while Fable is unavailable. This archive records preparation and will be completed from actual release artifacts. It does not initiate judging, enable attribution flags or establish semantic acceptance.
+**KO merged; deployment and E3 receipts pending.** The founder authorizes bounded KO and dormant E3 engineering releases using retained evidence while Fable is unavailable. This archive records preparation and will be completed from actual release artifacts. It does not initiate judging, enable attribution flags or establish semantic acceptance.
 
-- [KO release receipt — pending](ko-release.md)
+- [KO merge and premerge evidence; deployment pending](ko-release.md)
 - [E3 dormant release receipt — pending](e3-release.md)
 - [Corrected offline bundle](offline-bundle.md), [verified inventory](offline-bundle.json), [original delivery receipt](offline-bundle-original-receipt.md.txt)
 - [Earlier audited returned judgments](../fable-return-2026-09-20/README.md)

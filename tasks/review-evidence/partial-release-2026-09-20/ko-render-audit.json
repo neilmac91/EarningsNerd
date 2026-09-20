@@ -1,0 +1,84 @@
+[
+  {
+    "run": 0,
+    "preview_frames_total": 12,
+    "segment_preview_frames": 3,
+    "all_segment_tables_equal_final": true,
+    "previews_truncated": false,
+    "preview_final_response_association": "not_observed",
+    "prior_source_xbrl_and_cells_equal": true,
+    "cells": [
+      {
+        "segment": "North America",
+        "revenue": "$4.9B",
+        "operating_income": "$1.6B",
+        "change": "+12.2%"
+      },
+      {
+        "segment": "EMEA",
+        "revenue": "$3.0B",
+        "operating_income": "$1.3B",
+        "change": "+13.4%"
+      },
+      {
+        "segment": "Latin America",
+        "revenue": "$1.7B",
+        "operating_income": "$1.0B",
+        "change": "+13.6%"
+      },
+      {
+        "segment": "Bottling investments",
+        "revenue": "$1.6B",
+        "operating_income": "$191.0M",
+        "change": "+12.1%"
+      },
+      {
+        "segment": "A. Pacific",
+        "revenue": "$1.5B",
+        "operating_income": "$536.0M",
+        "change": "+6.1%"
+      }
+    ]
+  },
+  {
+    "run": 1,
+    "preview_frames_total": 12,
+    "segment_preview_frames": 3,
+    "all_segment_tables_equal_final": true,
+    "previews_truncated": false,
+    "preview_final_response_association": "not_observed",
+    "prior_source_xbrl_and_cells_equal": true,
+    "cells": [
+      {
+        "segment": "North America",
+        "revenue": "$4.9B",
+        "operating_income": "$1.6B",
+        "change": "+12.2%"
+      },
+      {
+        "segment": "EMEA",
+        "revenue": "$3.0B",
+        "operating_income": "$1.3B",
+        "change": "+13.4%"
+      },
+      {
+        "segment": "Latin America",
+        "revenue": "$1.7B",
+        "operating_income": "$1.0B",
+        "change": "+13.6%"
+      },
+      {
+        "segment": "Bottling investments",
+        "revenue": "$1.6B",
+        "operating_income": "$191.0M",
+        "change": "+12.1%"
+      },
+      {
+        "segment": "A. Pacific",
+        "revenue": "$1.5B",
+        "operating_income": "$536.0M",
+        "change": "+6.1%"
+      }
+    ]
+  }
+]

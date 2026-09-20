@@ -1,3 +1,8 @@
+## September 20 — KO #932 merged; actual premerge receipts archived
+
+- [x] Archive [KO #932 actual evidence](review-evidence/partial-release-2026-09-20/ko-release.md): merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73 at 01:44:44Z; committed 3,429-pass full gate, original single mutation, all six required checks (review/backend/frontend/e2e/lighthouse/migrations), completed exact-head remote review, and additional 70/70 baseline plus 18/18 Copilot audits with source/report hashes. Preserve trace/citation/provenance/model-output limitations; no new Fable or quality-effect claim.
+- [ ] Main deployment 35482183642 awaits independent migration/revision/traffic/health verification. E3 remains separately pending; both attribution flags and E7/universe-wide acceptance holds remain unchanged. Earlier preparation entries below remain historical.
+
 ## September 20 — partial-evidence release receipts prepared; actual completion pending
 
 - [x] Prepare [KO/E3 receipt archive](review-evidence/partial-release-2026-09-20/README.md) on actual #931 main; preserve earlier ledger bytes below. Record corrected offline bundle hashes, 828 files/818 verified immutable entries, preserved Fable judgments and 330 missing judgments. No new judging or guard initialization.

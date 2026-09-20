@@ -1,0 +1,122 @@
+{
+  "pr": 932,
+  "candidate_head": "ed4ffde9e2d6d5df6762559cd59becdcc771231a",
+  "merge_sha": "83419e4636c501b0f1a91e1b6d819bfbbe2c3a73",
+  "merged_at": "2026-09-20T01:44:44Z",
+  "deployment_status": "pending_independent_verification",
+  "main_ci": 35482183642,
+  "required_check_names": [
+    "review-gate",
+    "backend-tests",
+    "frontend-tests",
+    "e2e-tests",
+    "lighthouse",
+    "migrations-postgres"
+  ],
+  "actual_checks": [
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481443806/job/105999883795",
+      "name": "review-gate",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481443648/job/105999882764",
+      "name": "copilot-eval",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999861052",
+      "name": "e2e-tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999861007",
+      "name": "migrations-postgres",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999861019",
+      "name": "frontend-tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999861046",
+      "name": "lighthouse",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999861098",
+      "name": "eval-baseline",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35481436217/job/105999860932",
+      "name": "backend-tests",
+      "state": "SUCCESS"
+    }
+  ],
+  "artifact_source_sha": "1bc5af270925ddea8979cfd600a29cca4fa5bf0f",
+  "candidate_tree": "ebcea70ff94b99de17bbbaa8d749d9b7369679d9",
+  "artifact_source_tree": "ebcea70ff94b99de17bbbaa8d749d9b7369679d9",
+  "tree_parity": true,
+  "remote_review": {
+    "summary_comment_id": 5746705635,
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/932#issuecomment-5746705635",
+    "updated_at": "2026-09-20T01:30:18Z",
+    "completed_at": "2026-09-20T01:30:17.488760Z",
+    "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| \ud83d\udcdd **Code Review** | \u2705 **Completed** <relative-time datetime=\"2026-09-20T01:30:17.488760Z\">2026-09-20T01:30:17.488760Z</relative-time> | `ed4ffde` | Draft marked ready |\n\n\n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with \ud83d\udc40 while any review is running, comments if it has suggestions, and reacts with \ud83d\udc4d once all reviews finish with no findings.\n\n</details>",
+    "reviews_count": 0,
+    "inline_comments_count": 0,
+    "bot_reactions": [
+      {
+        "content": "+1",
+        "created_at": "2026-09-20T01:30:20Z",
+        "login": "chatgpt-codex-connector[bot]"
+      }
+    ]
+  },
+  "local_gate": {
+    "head": "ed4ffde9e2d6d5df6762559cd59becdcc771231a",
+    "ruff": "pass",
+    "bandit": "pass",
+    "tail": "3429 passed, 78 warnings in 126.51s (0:02:06)",
+    "exit": 0,
+    "started_at": "2026-09-20T01:24:09Z",
+    "finished_at": "2026-09-20T01:26:21Z",
+    "postgres_version": "15.15",
+    "lanes": [
+      "stripe",
+      "usage",
+      "login",
+      "delivery"
+    ],
+    "performance": true,
+    "log_sha256": "d17a708c8182164de8fabc19c34cb172abf4a8d63e965b9d235389104dbfb53d",
+    "script_sha256": "20d40368e919d1dfbdaee6b0cdf5b4546f0499bef0b5cd34fe43e72714b315da",
+    "limitation": "Known post-summary closed-stream asyncio logging trace retained; successful completion marker and exit zero."
+  },
+  "original_mutation": {
+    "type": "restore unconditional operating-income/revenue margin prefix",
+    "failed_tail": "1 failed, 2 warnings in 4.92s",
+    "restored_tail": "1 passed, 2 warnings in 5.11s",
+    "failed_log_sha256": "f2dd3188c694a1c476ef6a679cc19901f7589408f754966ea8cc31f30d9c2c6d",
+    "restored_log_sha256": "2b1541708f755c44eeeb38db06ae42dfd8db3691f398757f62f3783132d1d820",
+    "scope": "Original proof retained, not rerun after rebase."
+  },
+  "source_file_hashes": {
+    "audit.md": "ea6432209473c53412f85f231869dc24ade9d2c95ae29e9eff70941bce7e1fd8",
+    "baseline-audit.json": "7e55fe5714dffa82bf9aa617d85914d87dc1b2c132da8b747761b60df1c5a40b",
+    "copilot-audit.json": "7251788192a46302cb81a91334f49070abfb39edbaf2b7e00a0c27fd6ea2963b",
+    "ko-render-audit.json": "811b217ac8a799974496825f9db3227fdeb9a38833d1d4420477b97033dbcb6d",
+    "copilot-source-read.md": "c4f448f00f2bcb1f6e6a972b7f6a99aea2e3734620015631d5a8cad8c99779d6",
+    "checks.json": "72cb8cf72dac7d9f2ed84adc85f3b08590ba4e58278101edf7a925ecf85d7149",
+    "head-commit.json": "42289d4323fd1770f1236de7d9f5103f0187bdc0c79709cef03db11fd4ed289e",
+    "copilot-source-commit.json": "afc474371978d81f42e1538d09c43f37e05abf58c492ace5dffaa427462ac7e7",
+    "comments.json": "e5b7a91054ecf5cdb64d63e29aba9e17e16b6db0272d07c07bd85030c4276c4a",
+    "reviews.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "inline-comments.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "reactions.json": "78fc5c8d9f6c6722b6cc0ddbf30ae17da66cb546a73e50b1bfc07125d33cd3c4"
+  },
+  "baseline_report_sha256": "f9c1a93387df3381bcb7b0a84e74772b8a1f61e3fab22b3be5b559bb4404fdcc",
+  "copilot_report_sha256": "c04bcbf403d41bb95bee179d62b2a8cd8a195cb15c637e46fc95c8af0492e2e8"
+}
