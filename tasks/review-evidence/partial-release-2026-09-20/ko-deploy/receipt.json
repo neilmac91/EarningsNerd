@@ -1,0 +1,51 @@
+{
+  "pr": 932,
+  "merge_commit": "83419e4636c501b0f1a91e1b6d819bfbbe2c3a73",
+  "ci_run": 35482183642,
+  "ci_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482183642",
+  "ci_conclusion": "success",
+  "deploy_job": 106002302260,
+  "deploy_started_at": "2026-09-20T01:48:50Z",
+  "deploy_completed_at": "2026-09-20T01:52:22Z",
+  "migration_log_line": "deploy-backend\tApply database migrations\t2026-09-20T01:50:34.6836046Z apply_migrations: applied=0 skipped=39",
+  "revision": "earningsnerd-backend-00373-cqd",
+  "ready": true,
+  "traffic_percent": 100,
+  "selected_flags": {
+    "SENTRY_RELEASE": "83419e4636c501b0f1a91e1b6d819bfbbe2c3a73",
+    "AI_EVIDENCE_SNAP": "true",
+    "AI_FIGURE_TRACE_GATE": "false",
+    "AI_FORWARD_QUOTE_GATE": "false",
+    "AI_ATTRIBUTION_GATE": "false",
+    "AI_ATTRIBUTION_VERIFY": "false"
+  },
+  "health_request_started_at": "2026-09-20T01:52:59.588042+00:00",
+  "health_response_completed_at": "2026-09-20T01:53:00.014131+00:00",
+  "independent_health_utc": "2026-09-20T01:52:59.933385+00:00",
+  "health_observed_after_job_completion": true,
+  "independent_health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 5.41
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1789869179.9333851
+  },
+  "scope": "Verified serving deployment only; no generation, semantic acceptance, dispatch, secret read or production mutation."
+}

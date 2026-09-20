@@ -1,0 +1,76 @@
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "SENTRY_RELEASE",
+                "value": "38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a"
+              },
+              {
+                "name": "AI_EVIDENCE_SNAP",
+                "value": "true"
+              },
+              {
+                "name": "AI_FIGURE_TRACE_GATE",
+                "value": "false"
+              },
+              {
+                "name": "AI_FORWARD_QUOTE_GATE",
+                "value": "false"
+              },
+              {
+                "name": "AI_ATTRIBUTION_GATE",
+                "value": "false"
+              },
+              {
+                "name": "AI_ATTRIBUTION_VERIFY",
+                "value": "false"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-09-20T02:10:22.655997Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-09-20T02:09:58.208603Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2026-09-20T02:10:22.590421Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "earningsnerd-backend-00374-ddw",
+    "latestReadyRevisionName": "earningsnerd-backend-00374-ddw",
+    "traffic": [
+      {
+        "revisionName": "earningsnerd-backend-00022-nic",
+        "tag": "deepseek",
+        "url": "https://deepseek---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "revisionName": "earningsnerd-backend-00029-kev",
+        "tag": "ds-prod",
+        "url": "https://ds-prod---earningsnerd-backend-wej3vtojka-uw.a.run.app"
+      },
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "earningsnerd-backend-00374-ddw"
+      }
+    ]
+  }
+}

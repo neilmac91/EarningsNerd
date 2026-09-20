@@ -1,0 +1,19 @@
+# KO #932 — merged and deployment verified
+
+[PR #932](https://github.com/neilmac91/EarningsNerd/pull/932) merged as `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73` at 2026-09-20T01:44:44Z. Reviewed head: `ed4ffde9e2d6d5df6762559cd59becdcc771231a`. [Independent deployment receipt](ko-deploy/README.md) verifies main CI 35482183642 / deploy job 106002302260 completed at 01:52:22Z, migrations 0 applied / 39 skipped, revision `00373-cqd` Ready at 100%, and healthy independent response at 01:52:59.933385Z (database 5.41ms). Both attribution flags remain false. This completes the bounded engineering release, not semantic acceptance. No final provider-balance observation is claimed here.
+
+The shared owner removes unsupported derived operating-margin prefixes while preserving amounts and commentary. The prompt no longer promises this ratio. Content stamp p does not schedule historical regeneration.
+
+[Checks and provenance](ko-release-checks.json) retain all six actual required successes: review-gate, backend-tests, frontend-tests, e2e-tests, lighthouse and migrations-postgres. Eval-baseline and Copilot are additional successful checks. Completed Codex summary at 01:30:17.488760Z and subsequent bot thumbs-up are retained separately from the green review gate; no review or inline findings were returned.
+
+The committed full gate passed Ruff/Bandit and **3,429 tests, 78 warnings in 126.51s**, exit 0, with PostgreSQL 15.15 across four lanes and performance enabled. The known post-summary logging trace remains disclosed. Original single margin-prefix mutation failed (1 failed, 2 warnings, 4.92s), then passed restored (1 passed, 2 warnings, 5.11s); original log hashes are retained, without claiming a fresh mutation.
+
+[Baseline audit](ko-baseline-audit.json): CI 35481436217, 70/70 exact planned/scored attempts, zero errors/retries/hard vetoes. Source `1bc5af270925ddea8979cfd600a29cca4fa5bf0f` has the same full tree as the candidate. All 70 excerpt hashes and own-filing profiles (66 general / 4 insurer) were checked. One trace WARN remains at 1.9; citation mean 0.9653 does not certify every citation. Raw filing bodies are not retained for rehash; six existing 6-K slots lack raw provenance.
+
+[Copilot audit](ko-copilot-audit.json): run 35481443648, 18/18 expected/scored/passed terminal answers, zero errors/vetoes; 24 source files and portable DB hash verified. All seven prose citation excerpts match after whitespace normalization. Its six-accession plan contains no KO. Four uncited-figure advisories and ASML compressed-quote/citation-scope limits remain in the [source review](ko-copilot-source-read.md.txt).
+
+[KO render checks](ko-render-audit.json) cover both five-row tables: source-owned cells persist, and no code-owned margin prefix remains. Each draw retains 12 preview frames; its three complete segment-table frames equal the final table. Final-response association is explicitly not_observed, so this does not prove hidden stream coverage. All ten model commentaries received bounded source review. Generic Change remains an ambiguous revenue-change heading. [Full bounded audit](ko-artifact-audit.md.txt) preserves PLD citation/temporal defects and other limits; selected control inspection is not an exhaustive new semantic judgment.
+
+Historical corrected Fable corpus remains separate: 50/70 complete, 27 negative, both KO draws PASS; 20 unjudged include all 14 twenty-F outputs. No new Fable call or verdict transplantation occurred. One new 70-output corpus cannot estimate quality improvement. The founder's partial-evidence authority permits this bounded engineering release, not broad acceptance or production attribution activation.
+
+The later [post-body review-gate receipt](ko-post-body-review-run.json) completed successfully on the same head before merge (run 35482136954). Its [separate hash record](later-review-receipts.json) identifies it as subsequent evidence, not part of the original artifact inventory.

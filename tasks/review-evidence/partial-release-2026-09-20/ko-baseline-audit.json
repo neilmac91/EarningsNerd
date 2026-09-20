@@ -1,0 +1,184 @@
+{
+  "head": "ed4ffde9e2d6d5df6762559cd59becdcc771231a",
+  "run": 35481436217,
+  "source_sha": "1bc5af270925ddea8979cfd600a29cca4fa5bf0f",
+  "report_sha256": "f9c1a93387df3381bcb7b0a84e74772b8a1f61e3fab22b3be5b559bb4404fdcc",
+  "golden_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+  "pin_sha256": "6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387",
+  "expected_attempted_scored": 70,
+  "errors": 0,
+  "retries": 0,
+  "row_hard_vetoes": 0,
+  "profiles": {
+    "general": 66,
+    "insurer": 4
+  },
+  "insurer_own_quote_checks": [
+    [
+      "PGR",
+      "10-K",
+      0
+    ],
+    [
+      "PGR",
+      "10-K",
+      1
+    ],
+    [
+      "BRK.B",
+      "10-K",
+      0
+    ],
+    [
+      "BRK.B",
+      "10-K",
+      1
+    ]
+  ],
+  "config_matches_pin_except_source_and_two_vs_three_draws": true,
+  "excerpt_hashes_verified": 70,
+  "raw_source_hash_missing_existing_6k_slots": [
+    [
+      "ASML",
+      "6-K",
+      0
+    ],
+    [
+      "ASML",
+      "6-K",
+      1
+    ],
+    [
+      "SE",
+      "6-K",
+      0
+    ],
+    [
+      "SE",
+      "6-K",
+      1
+    ],
+    [
+      "PDD",
+      "6-K",
+      0
+    ],
+    [
+      "PDD",
+      "6-K",
+      1
+    ]
+  ],
+  "summary_means_recomputed": {
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.7667,
+    "mean_specificity": 0.9961,
+    "mean_currency_consistency": 1.0,
+    "mean_redundancy": 0.9251,
+    "mean_delta_consistency": 1.0,
+    "mean_forward_quote_fidelity": 1.0,
+    "mean_citation_fidelity": 0.9653,
+    "mean_citation_checked": 6.9571
+  },
+  "regression_findings": [
+    {
+      "severity": "WARN",
+      "candidate": "baseline",
+      "metric": "mean_untraceable_dollar_figures",
+      "baseline": null,
+      "candidate_value": 1.9,
+      "delta": null,
+      "label": "absolute advisory: untraceable dollar figures in measured raw prose"
+    }
+  ],
+  "regression_notes": [
+    "baseline: expected=70 attempted=70 scored=70 errors=0; quality means use scored outputs only",
+    "baseline: figure trace measured=70 unavailable=0 errors=0; unavailable is not measured zero"
+  ],
+  "regression_hard_count": 0,
+  "pin_comparison": {
+    "mean_financial_depth": {
+      "pin": 0.7746,
+      "candidate": 0.7667,
+      "delta": -0.0079
+    },
+    "mean_delta_consistency": {
+      "pin": 0.9976,
+      "candidate": 1.0,
+      "delta": 0.0024
+    },
+    "mean_citation_fidelity": {
+      "pin": 0.9648,
+      "candidate": 0.9653,
+      "delta": 0.0005
+    },
+    "mean_citation_checked": {
+      "pin": 7.181,
+      "candidate": 6.9571,
+      "delta": -0.2239
+    },
+    "mean_forward_quote_fidelity": {
+      "pin": 0.9952,
+      "candidate": 1.0,
+      "delta": 0.0048
+    },
+    "mean_redundancy": {
+      "pin": 0.9274,
+      "candidate": 0.9251,
+      "delta": -0.0023
+    },
+    "mean_untraceable_dollar_figures": {
+      "pin": 2.4857,
+      "candidate": 1.9,
+      "delta": -0.5857
+    }
+  },
+  "selected_scores": [
+    {
+      "ticker": "PGR",
+      "form": "10-K",
+      "run": 0,
+      "depth": 0.6667,
+      "delta": 1.0
+    },
+    {
+      "ticker": "PGR",
+      "form": "10-K",
+      "run": 1,
+      "depth": 0.6667,
+      "delta": 1.0
+    },
+    {
+      "ticker": "GPRO",
+      "form": "10-K",
+      "run": 0,
+      "depth": 1.0,
+      "delta": 1.0
+    },
+    {
+      "ticker": "GPRO",
+      "form": "10-K",
+      "run": 1,
+      "depth": 1.0,
+      "delta": 1.0
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 0,
+      "depth": 0.6667,
+      "delta": 1.0
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "run": 1,
+      "depth": 0.6667,
+      "delta": 1.0
+    }
+  ],
+  "delta_residuals": [],
+  "limits": "Raw source-body hashes are declared provenance; bodies are not retained in this baseline report for independent rehash. Deterministic scorer coverage is bounded; no broad semantic or causal quality claim."
+}

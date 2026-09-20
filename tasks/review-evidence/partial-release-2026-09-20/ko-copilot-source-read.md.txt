@@ -1,0 +1,11 @@
+# KO #932 Copilot bounded source review
+
+Report `c04bcbf403d41bb95bee179d62b2a8cd8a195cb15c637e46fc95c8af0492e2e8`, run35481443648; source1bc5af270925ddea8979cfd600a29cca4fa5bf0f full tree equals candidateed4ffde9e2d6d5df6762559cd59becdcc771231a. Mechanical receipt in copilot-audit.json.
+
+All18 answers read; all24 source artifacts and prepared DB independently hashed. All7 non-XBRL citation excerpts are contiguous after whitespace normalization in the actual model-visible filing text. The ordinary XBRL citation values/periods/currencies match the retained tool records and source packets. Six accession cases contain no KO; this is shared downstream coverage, not direct segment validation.
+
+ASML draws1/2 have a limited citation-scope issue: their second sentence quotes selected2025 cells as “Total net sales32,667.3” and “Net income9,609.4” while citation3 quotes only the full revenue row. First refutation: the preceding sentence separately cites the correct revenue and NI tool values[1]/[2], so neither financial value is unsupported. Second refutation: the full model-visible table contains the correct NI row7,571.6/26.8/9,609.4/29.4/26.9 and revenue row28,262.9/100.0/32,667.3/100.0/15.6. These are compressed cell quotations, not the historical fabricated single citation “Total net sales€32.7bn ... Net income€9.6bn”; the actual citation3 is verbatim. Preserve the scope limitation rather than calling the entire answer flawlessly cited.
+
+Four scorer uncited-figure advisories remain: MSFT draws0/1/2, BABA2026 draw0. MSFT answers show the requested revenue and EPS with their respective valid citations; BABA’s extra growth percentage occurs in its verbatim source quote. These advisories remain in the receipt; no scorer or report was altered. BABA2025 draw1 uses an explicit ellipsis in an answer quote while its separate citation is the full verbatim row.
+
+18/18 is the actual deterministic runner result, not Fable or a new semantic-acceptance judgment. Historical partial Fable is separate. No rerun, model call, or code edit was performed for this review.

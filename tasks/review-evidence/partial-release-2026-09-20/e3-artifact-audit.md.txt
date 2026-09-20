@@ -1,0 +1,29 @@
+# Dormant E3 #933 — actual artifact audit, 2026-09-20
+
+Exact candidate c7d6fa858ed9164504e0d6062243ec13e861db1b on base83419e4636c501b0f1a91e1b6d819bfbbe2c3a73. No blocker found in this bounded integrity/configuration review. No model/prose rejudging, rerun, flag change, merge or new paid call was performed by this audit.
+
+## Execution and identity
+
+CI35482347251 completed success. Baseline job106002287211 generated the actual70 report and passed its regression step. All six actual required checks passed: backend-tests, frontend-tests, e2e-tests, lighthouse, migrations-postgres and review-gate. Baseline and Ready Copilot are additional artifact checks. PR deploy-backend was skipped.
+
+Codex actually completed exacthead c7d6fa8 at2026-09-20T01:51:05.989396Z, with bot thumbs-up01:51:08Z and no inline/review findings. Review gate35482356159 passed; completion evidence is retained separately from its status.
+
+Both reports declare synthetic source950ce364c79f01beb563ef43900fdc70041c57c3. Retained API commit receipts show parents actualbase83419e46 and actualheadc7d6fa85, and full treeb33699f6cc3c5df81cd92ee6d5dfb704e1185d17 equals the candidate tree.
+
+## Baseline
+
+Report SHA256 **5de1fc92c11ae0e3dc39ccaea631e0924dc20d2821152abd12392386dca18744**.70/70 exact unique planned/scored attempts, zero errors/retries/hard vetoes. All70 excerpt hashes/accessions verified. Frozen applicability66general/4insurer, including each insurer's source quote, verified. Golden f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c and pin6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387 match local committed files. Harness matches pin except source and2versus3 draws. Mean scores recomputed and pure offline regression matches actual CI: zero HARD; figure-trace WARN2.1.
+
+Both captured attribution flags are **false**, judge false. Retained provider usage and actual sanitized logs show70 successful primary deepseek-flash summary calls and no attribution-verifier operation;0unknown usage calls. Every present attribution audit is unarmed, decider none, drops empty and lacks a verification record. Source guard in openai_service.py147 returns before the verifier request when verification is false. The prompt change is therefore dormant in this corpus; these numbers do not measure its quality or effect.
+
+Declared residuals remain:12 attempts have citation fidelity below1 (PDD6-K0;AMZN0/1;PFE1;BYND0/1;ASML20-F0;TSM0;PDD20-F0/1;MELI0/1). ASML20-F0 currency consistency0.9878; overall mean0.9998. These scorer reports are retained in dormancy-audit.json without asserting their semantic correctness or erasing them. Full raw filing bodies are absent for independent rehash, and six existing6-K slots lack raw provenance. Reported cost0 is unmetered, not free.
+
+## Copilot
+
+Ready run35482355892, actual report SHA256 **be2447af5281e98958d9d5858c82f4fcd10e92f5c527510d524be19a47df8a85**.18/18 exact planned/scored/terminal answers; zero errors/vetoes; committed golden identities/hash match. All24 retained source files and portable DB hash07584030984fc8732699b2913a96d3d59c4e8875cf9cf18cbb00464998f18080 verify. Actual telemetry36successfulprimarydeepseek-flash calls. Requested/runtime statement-financial flags match configuration; recorded6source preparation complete. No declared unverified-excerpt/provenance/currency/fact-adjacency violations. Five uncited-figure advisories remain:MSFTdraws0/1/2 and BABA2026draws0/2. These are actual runner results, not semantic acceptance or evidence of unchanged model behavior.
+
+## Release boundary
+
+The founder's explicit partial-evidence fallback authorizes considering this bounded code change **dormant** after ordinary engineering gates. Historical E3 manual48clause evidence includes26proposed drops:5correct,4unsafe,17unresolved; same-Fable E3 judgments remain absent. Those limits continue to block activation and any quality-improvement claim. Neither successful fresh corpus exercises the new verifier prompt, so neither supplies activation evidence. Parent owns serial release/deployment verification and final disposition.
+
+Actual metadata, logs, complete downloaded artifacts, baseline-audit.json, copilot-audit.json and dormancy-audit.json remain adjacent. SHA256SUMS inventories the retained files.

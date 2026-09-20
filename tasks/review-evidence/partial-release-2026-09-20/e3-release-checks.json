@@ -1,0 +1,102 @@
+{
+  "pr": 933,
+  "candidate_head": "c7d6fa858ed9164504e0d6062243ec13e861db1b",
+  "merge_sha": "38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a",
+  "merged_at": "2026-09-20T02:03:28Z",
+  "main_ci": 35482983157,
+  "deployment_status": "pending_independent_verification",
+  "required_checks": [
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482356159/job/106002311863",
+      "name": "review-gate",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482347251/job/106002287215",
+      "name": "migrations-postgres",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482347251/job/106002287160",
+      "name": "frontend-tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482347251/job/106002287153",
+      "name": "lighthouse",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482347251/job/106002287157",
+      "name": "e2e-tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/neilmac91/EarningsNerd/actions/runs/35482347251/job/106002287120",
+      "name": "backend-tests",
+      "state": "SUCCESS"
+    }
+  ],
+  "artifact_source_sha": "950ce364c79f01beb563ef43900fdc70041c57c3",
+  "candidate_tree": "b33699f6cc3c5df81cd92ee6d5dfb704e1185d17",
+  "artifact_source_tree": "b33699f6cc3c5df81cd92ee6d5dfb704e1185d17",
+  "tree_parity": true,
+  "remote_review": {
+    "summary_comment_id": 5746833657,
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/933#issuecomment-5746833657",
+    "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| \ud83d\udcdd **Code Review** | \u2705 **Completed** <relative-time datetime=\"2026-09-20T01:51:05.989396Z\">2026-09-20T01:51:05.989396Z</relative-time> | `c7d6fa8` | Draft marked ready |\n\n\n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with \ud83d\udc40 while any review is running, comments if it has suggestions, and reacts with \ud83d\udc4d once all reviews finish with no findings.\n\n</details>",
+    "reviews_count": 0,
+    "inline_comments_count": 0,
+    "reactions": [
+      {
+        "login": "chatgpt-codex-connector[bot]",
+        "content": "+1",
+        "created_at": "2026-09-20T01:51:08Z"
+      }
+    ]
+  },
+  "local_gate": {
+    "head": "c7d6fa858ed9164504e0d6062243ec13e861db1b",
+    "tail": "3430 passed, 78 warnings in 114.51s (0:01:54)",
+    "ruff": "pass",
+    "bandit": "pass",
+    "exit": 0,
+    "started_at": "2026-09-20T01:45:43Z",
+    "finished_at": "2026-09-20T01:47:43Z",
+    "postgres": "15.15",
+    "lanes": [
+      "stripe",
+      "usage",
+      "login",
+      "delivery"
+    ],
+    "performance": true,
+    "log_sha256": "759b967b99e00a0dc849a272db57e9b4ed2b27d37279d02d35a0b39494c13bb3",
+    "gate_script_sha256": "e42c4d10ace23f4c07b0ab21359cc97c14fae59dfd7338f5841bbd51688b4d6c",
+    "limit": "Known post-summary logging cleanup trace retained; gate completed with exit zero."
+  },
+  "original_mutation": {
+    "type": "remove subject/anchor constructor propagation",
+    "failure": "1 failed, 2 warnings in 5.70s",
+    "restored": "45 passed, 2 warnings in 6.07s",
+    "failure_log_sha256": "1832b48940166763837f4f775c9ce8c118bc8b9336bed36c1c564eaa3f3db005",
+    "restored_log_sha256": "fcfbd60103ad1ecdce335bf58708b261df29fb5764269f4aacd2dfad7dccd521",
+    "scope": "Original single mutation retained, not a new final-base execution."
+  },
+  "baseline_report_sha256": "5de1fc92c11ae0e3dc39ccaea631e0924dc20d2821152abd12392386dca18744",
+  "copilot_report_sha256": "be2447af5281e98958d9d5858c82f4fcd10e92f5c527510d524be19a47df8a85",
+  "source_receipt_hashes": {
+    "audit.md": "b5f2d3ebc06308cca32ca190fdd0a927c42f8324d189c65793fe43d8c4a044f0",
+    "baseline-audit.json": "2b4db7034d231e8461aef931922c21478233731e1b6df30874b1520de69f60b6",
+    "copilot-audit.json": "18eff7ab30beaa4873b1d14893e8a099f74d278ece3df58f387622b6f8071e83",
+    "dormancy-audit.json": "0e708968cf12c1f3023df9087fe43469d1258330685bce85bb6e597815f02e7a",
+    "head-commit.json": "bcf053b1133d787a62b5013e0c439639dc1d7b110e8bc696e18a60c5f376546f",
+    "artifact-source-commit.json": "d47af602e88a1dc310ea30a0e1e67c056f75aecdbb61e94a9ac4fd7f6f39b7e7",
+    "required-checks.json": "4e85425d170672a1d9009db121009b15184074be5fe4b9121c5f5a9bc496db83",
+    "all-checks.json": "7d057ed29ce62e9d4f6197910c8ed1f6f77e75960caded804cf76dad7c68f40e",
+    "comments.json": "fbe3eb5a0b69c7bc59ff75fa19a08e95a1ef10cb3e490477eaaa44c5f376c3fb",
+    "reviews.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "inline-comments.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "reactions.json": "1bb38ee925ec285ba5725722e1a469c94306164353ffa4964bfa7b3287316269"
+  }
+}

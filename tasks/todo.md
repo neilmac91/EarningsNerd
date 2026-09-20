@@ -1,3 +1,30 @@
+## September 20 — dormant E3 #933 deployment verified; final receipt reconciliation complete
+
+- [x] Archive [actual E3 deployment](review-evidence/partial-release-2026-09-20/e3-deploy/README.md): main CI 35482983157 / deploy job 106004482403 on 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a completed 02:11:10Z; migrations 0 applied / 39 skipped; revision 00374-ddw Ready at 100%; independent healthy response 02:11:39.543493Z, database 6.51ms. Both attribution flags remain false. Compact original records/hashes retained; full run/log remains external.
+- [x] KO and dormant E3 engineering releases and serial deployments are complete. Current status/index supersede older pending snapshots without changing them. E6 warnings distinguish the 105-output pin measurement (2.4857) from its 70-output release corpus (2.3143). Final balance USD 73.50 and corrected offline bundle are retained.
+- [ ] Documentation publication/exact-head review remain; 330 missing Fable judgments, E8 inconclusive status, E7 named human reviewers/adjudicator/briefs/exposure prerequisites, activation and universe-wide holds are unchanged. Already approved budgets and protection are not requested again.
+
+## September 20 — E3 #933 merged; actual artifacts and final balance retained
+
+- [x] Rebase this unpublished documentation onto actual main 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a, preserving the full main ledger as suffix and every earlier documentation entry above it. [E3 #933](review-evidence/partial-release-2026-09-20/e3-release.md) merged at 02:03:28Z after final 3,430-pass gate, original single mutation, six required checks, completed exact-head remote review and actual 70/70 baseline plus 18/18 Copilot audits. Both baseline attribution flags false; zero verifier operations or drops, so these artifacts do not test prompt quality.
+- [x] Retain [USD 73.50 balance](review-evidence/partial-release-2026-09-20/balance-after-releases.json), workflow 35482954147 at 02:03:01.7502071Z. Existing 330 missing Fable judgments, E8 inconclusive status and E7 reviewer/adjudicator/brief/exposure holds remain unchanged; no new judge or spend authority.
+- [ ] E3 main CI 35482983157 deployment awaits independent migration/revision/traffic/health and selected-flag receipts. Earlier pending snapshots below remain historical; KO deployment is already verified.
+
+## September 20 — KO #932 deployment independently verified
+
+- [x] Retain [actual KO deployment](review-evidence/partial-release-2026-09-20/ko-deploy/README.md): main CI 35482183642 and deploy job 106002302260 succeeded on merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73, completed 01:52:22Z; migrations 0 applied / 39 skipped; revision 00373-cqd Ready at 100%; independent healthy response 01:52:59.933385Z, database 5.41ms. Both attribution flags remain false. Compact original receipts and hashes are retained; full logs remain external.
+- [x] Bounded KO engineering release complete. Earlier pending snapshots below remain historical. No Fable substitution, semantic acceptance or quality-effect claim; E3 #933 actual release evidence remains pending, and E7 human acceptance/universe-wide generation remain held.
+
+## September 20 — KO #932 merged; actual premerge receipts archived
+
+- [x] Archive [KO #932 actual evidence](review-evidence/partial-release-2026-09-20/ko-release.md): merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73 at 01:44:44Z; committed 3,429-pass full gate, original single mutation, all six required checks (review/backend/frontend/e2e/lighthouse/migrations), completed exact-head remote review, and additional 70/70 baseline plus 18/18 Copilot audits with source/report hashes. Preserve trace/citation/provenance/model-output limitations; no new Fable or quality-effect claim.
+- [ ] Main deployment 35482183642 awaits independent migration/revision/traffic/health verification. E3 remains separately pending; both attribution flags and E7/universe-wide acceptance holds remain unchanged. Earlier preparation entries below remain historical.
+
+## September 20 — partial-evidence release receipts prepared; actual completion pending
+
+- [x] Prepare [KO/E3 receipt archive](review-evidence/partial-release-2026-09-20/README.md) on actual #931 main; preserve earlier ledger bytes below. Record corrected offline bundle hashes, 828 files/818 verified immutable entries, preserved Fable judgments and 330 missing judgments. No new judging or guard initialization.
+- [ ] KO and dormant E3 final PR/gate/artifact/review/merge/deployment/configuration receipts remain pending in this preparation snapshot. User partial-evidence authority permits bounded engineering releases, not semantic acceptance, attribution activation or a replacement judge. E8 remains inconclusive; E7 reviewer/adjudicator/brief/exposure requirements and universe-wide holds remain.
+
 ## September 20 — E3 dormant claim-context release prepared under a narrow evidence exception
 
 - [x] The founder reports Fable unavailable and authorizes proceeding using partial results and Codex review. Prepared only the bounded verifier claim-context change on actual main `b9c2ca4d9a14b8200bfcdd147cda61cf2263ded4`, preserving subsequent cash-basis, enrichment, issuer-FCF and scorer releases. The [RUNBOOK exception](../backend/evals/RUNBOOK.md#september-20--scoped-dormant-release-exception-authorized-by-the-founder) applies only to this dormant engineering release; both production attribution flags remain false. No generator prompt, source selection, model, content stamp or baseline pin changes.

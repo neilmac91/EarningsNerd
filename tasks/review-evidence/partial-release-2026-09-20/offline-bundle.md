@@ -1,0 +1,9 @@
+# Corrected Fable bundle retained offline
+
+The founder-facing task artifact `outputs/fable-resume-corrected-2026-09-20.zip` remains outside Git. Its SHA256 is `38db06d2c3815893f5d48c96b1f2f8bfd0984f45c538026e19d2e034cc9b5256`. [Inventory](offline-bundle.json) distinguishes compressed archive bytes from uncompressed member bytes; 828 files, all 818 immutable hashes and ZIP CRCs were independently checked. The [original receipt](offline-bundle-original-receipt.md.txt) is retained unchanged as data; its relative download link refers to the original task output directory.
+
+Fable remains unavailable. No real CLI/model call, installation, guard initialization or automatic resume followed packaging. Guard configuration is a disabled pristine template. KO/E1 slot files are labelled reconstructions from consolidated reports, not recovered original per-slot bytes/logs. Frozen requests, valid judgments, errors and originals remain preserved. The absent second original packets/slots archive is not recreated by this packaging.
+
+Completed judgments remain KO 50/70, E1 60/70, both E2 controls 70/70; E3 0/70 each; E8 140/280 mains reused from E2 and 0/20 duplicates. There are 330 missing judgments across the remaining programme. E8's conservative operator-attested prior charge 287 leaves 314 under ceiling 601, below 320 worst-case calls for 160 pending slots. Neither reset nor a new judge is authorized. Readouts are descriptive; variability and semantic effect remain inconclusive.
+
+Future explicit resumption must preserve exact CLI 2.1.278, frozen checkout 73cc31162c3dfe7ec497c8c88c43cf397afce4a7, contract 2, validated missing inputs and durable shared accounting. The reviewed driver binds outputs to inputs, requires the E8 guard, rejects unresolved stops/owners and preserves a pending marker until failure receipts are durable. Offline checks do not prove future provider availability or judge accuracy.

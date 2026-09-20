@@ -1,0 +1,17 @@
+{
+  "workflow_run": 35482954147,
+  "observed_at": "2026-09-20T02:03:01.7502071Z",
+  "provider_response": {
+    "is_available": true,
+    "balance_infos": [
+      {
+        "currency": "USD",
+        "total_balance": "73.50",
+        "granted_balance": "0.00",
+        "topped_up_balance": "73.50"
+      }
+    ]
+  },
+  "source_log_sha256": "ec683e8ba12d261d451fb49ebf4659fe0251527596ebeb99422ae0822a31826f",
+  "scope": "Read-only provider balance observation after release evaluations; not invoice/cost proof and not authority for more spending."
+}
