@@ -1116,6 +1116,17 @@ classified. See [implementation and mutation evidence](../../tasks/cash-card-app
 
 ## Judging a pull request's eval artifact (prompt-candidate acceptance, 2026-09-16)
 
+**September 20 scoped founder disposition.** The founder reported Fable unavailable and instructed
+engineering to proceed on the retained results if the remaining Fable judging could not be completed.
+For the code-owned segment-margin abstention, the retained corrected corpus is 50/70 judged, including
+both KO draws passing contract 2; all 14 planned 20-F outputs remain unjudged. Independent source
+review supports removing the unqualified ratio and its obsolete inline-prompt promise. This permits
+a bounded engineering release after current-base gates, actual CI artifact review and serial deployment
+verification. It is not complete semantic acceptance, a prompt-effect estimate, authority to mix judges,
+or an exception for other candidates. Production flags and historical regeneration remain held.
+No new subscription probe is requested for this unavailable judge; preserved valid verdicts must not
+be repeated when judging resumes.
+
 The weekly readout judges only the fixed cohort. A prompt candidate needs its own semantic acceptance,
 and the September 9 #805 assessment showed why a deterministic-only gate is not enough: correct tables
 with false explanations pass every scorer. `evals.judge_report` judges **any** retained eval report —

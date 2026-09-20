@@ -83,8 +83,8 @@ others across during within between after before while more less most least much
 # Framing words a summary uses around a clause that are not the subject of the movement.
 _FRAMING = frozenset({"management", "company", "filing", "firm", "attribut", "report", "said", "note", "state", "mda"})
 _MIN_SOURCE_SENTENCE = 20
-# The segments filler prefixes the model's commentary with its machine margin ("42% operating margin — ");
-# that prefix is not the subject of the model's sentence.
+# Older retained summaries prefix segment commentary with a machine margin ("42% operating margin — ").
+# Keep their audit parsing compatible; new generation no longer authors this unqualified ratio.
 _MACHINE_PREFIX_RE = re.compile(r"^\s*-?\d+(?:\.\d+)?%\s+operating margin\s*[—–-]\s*")
 _AUDIT_TEXT_CAP = 160
 # What a verifier is shown per flagged clause: the source windows carrying the most of the clause's

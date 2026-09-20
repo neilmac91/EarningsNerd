@@ -1,3 +1,17 @@
+## September 20 — KO release on retained partial evidence (authorized, release pending)
+
+Founder reports Fable unavailable and instructs proceeding on retained evidence. The corrected corpus
+from run 35467365092 remains 50/70 complete (27 negatives); both KO draws pass contract 2. All 14
+20-F outputs are unjudged, so no comparison or complete semantic acceptance is claimed. Independent
+source review confirms issuer EMEA 44.8% and Asia Pacific 37.6% margins differ from the former ratios;
+removing the unsupported prefix and obsolete prompt promise preserves source-owned amounts/commentary.
+The selected change is transplanted onto current main, preserving cash, issuer-FCF and scorer releases.
+The RUNBOOK records this narrow precedence resolution; full current-base gates, actual CI artifacts,
+completed review and serial production verification still precede release. The inherited ambiguous
+“Change” table heading is unchanged. No judge/model substitution, flag arming or historical replay.
+
+The audited evidence archive merged in #931 as `a2dda9254fced809ca927ea3e8ad8fc585cd01dc` at 2026-09-20T01:23:18Z; #930 is closed as superseded. The earlier preparation snapshot below remains historical.
+
 ## September 20 — returned Fable partial evidence audited; bounded engineering fallback authorized
 
 - [x] Preserved the [audited returned-evidence package](review-evidence/fable-return-2026-09-20/README.md) and unchanged original #930 handover as history. E2 is 70+70 complete; corrected KO is 50/70 (both KO draws PASS), E1 60/70 with ten recorded CLI errors attributed to quota by the operator. E3/E8 new judging is unstarted. All eight path-sanitized checksum differences are exactly explained; large reports/ZIP and omitted operator tooling remain external, with hashes/inventory retained.

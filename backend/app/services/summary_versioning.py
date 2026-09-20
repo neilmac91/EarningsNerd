@@ -104,7 +104,11 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   narrowed earnings description form; signed figures support a movement, never a cause. Corrected
 #   re-land of the rejected #805 candidate (tasks/pr805-assessment-2026-09-16.md); e stays unreleased.
 #   Taxonomy unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-o"
+# summary-2026-09-p: segment figures retain revenue, operating income and revenue change, without
+#   manufacturing an operating margin from amounts whose denominator basis is unverified. Align
+#   the shared inline segment rule with that code-owned table; model commentary stays unchanged.
+#   Taxonomy remains v2. The stamp marks older rows stale without scheduling regeneration.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-p"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
