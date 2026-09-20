@@ -217,3 +217,78 @@ async def test_a_failed_verification_drops_nothing_and_records_why(monkeypatch, 
     assert verdicts is None and note['error']
     assert sections == before, 'a failed verification never changes the summary'
     assert audit['dropped'] == [] and audit['decider'] == 'none'
+
+
+@pytest.mark.asyncio
+async def test_claim_identity_reaches_the_verifier_from_filing_slots(monkeypatch):
+    # PFE run0, eval_20260917T221422Z: retain the source's real line/bullet breaks. The lexical
+    # gate flags this SIA clause even though the excerpt carries its lead-in and spending bullets.
+    filing = (
+        "Selling, Informational and Administrative Expenses\n"
+        "Selling, informational and administrative\n"
+        " expenses decreased $70\xa0million in the first quarter of 2026, primarily reflecting:\n"
+        "•\na decrease of $100 million in marketing and promotional spend on various products "
+        "from more targeted investments and ongoing productivity improvements; and\n"
+        "•\nlower spending of $60 million in corporate enabling function"
+    )
+    metric = "Selling, informational and administrative expenses"
+    driver = ("a decrease of $100 million in marketing and promotional spend on various products "
+              "from more targeted investments and ongoing productivity improvements and lower "
+              "spending of $60 million in corporate enabling function")
+    commentary = f"{metric} decreased $70M, primarily reflecting {driver}."
+    long_subject = "Operating expenses in Q1 2026 " + "management discussion " * 60 + "versus Q1 2025,"
+    long_anchor = "Corporate operations " + "regional reporting " * 30 + "prior period Q1 2025"
+    sections = {
+        "results_that_matter": {"table": [
+            {"metric": metric, "commentary": commentary},
+            {"metric": "Cost of sales", "commentary": commentary.replace(metric, "Cost of sales")},
+            {"metric": long_anchor, "commentary": long_subject + " primarily reflecting " + driver + "."},
+        ]},
+        "segments": [{"segment": "Oncology", "commentary": commentary}],
+    }
+    before = copy.deepcopy(sections)
+    checked, candidates = find_attributions(sections, filing)
+    assert checked == len(candidates) == 4
+    assert sections == before  # discovery still only measures
+    monkeypatch.setattr(settings, 'AI_ATTRIBUTION_VERIFY', True)
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return _completion(json.dumps({"claims": [
+            {"claim": i + 1, "verdict": "unknown", "quote": ""} for i in range(len(candidates))
+        ]}))
+
+    async with _service(handler) as service:
+        verdicts, _note = await service._verify_attributions(candidates, '10-Q')
+    assert len(requests) == 1
+    message = requests[0]['messages'][1]['content']
+    contexts = [json.loads(line.removeprefix("  Summary context: "))
+                for line in message.splitlines() if line.startswith("  Summary context: ")]
+    assert len(contexts) == len(candidates)
+    by_slot = {candidate.slot: context for candidate, context in zip(candidates, contexts)}
+    assert by_slot['results_that_matter.table[0].commentary'] == {
+        'subject_before_cause': metric + ' decreased $70M,', 'metric_or_segment': metric,
+    }
+    assert by_slot['results_that_matter.table[1].commentary'] == {
+        'subject_before_cause': 'Cost of sales decreased $70M,', 'metric_or_segment': 'Cost of sales',
+    }
+    assert by_slot['segments[0].commentary'] == {
+        'subject_before_cause': metric + ' decreased $70M,', 'metric_or_segment': 'Oncology',
+    }
+    bounded = by_slot['results_that_matter.table[2].commentary']
+    assert len(bounded['subject_before_cause']) <= 600
+    assert bounded['subject_before_cause'].startswith('Operating expenses in Q1 2026 ')
+    assert bounded['subject_before_cause'].endswith('versus Q1 2025,')
+    assert len(bounded['metric_or_segment']) <= 240
+    assert bounded['metric_or_segment'].startswith('Corporate operations ')
+    assert bounded['metric_or_segment'].endswith('prior period Q1 2025')
+    assert all('[context clipped]' in text for text in bounded.values())
+    pfe = next(c for c in candidates if c.slot == 'results_that_matter.table[0].commentary')
+    # Current windowing supplies detached bullets, not the causal lead-in. Preserve that evidence
+    # limitation rather than fabricating a complete passage in this prompt-context gate.
+    assert any('a decrease of $100 million' in passage for passage in pfe.evidence)
+    assert all(passage in message for passage in pfe.evidence)
+    # Transport's unknown verdict cannot delete the clause, even with the drop flag armed.
+    audit = apply_attributions(checked, candidates, verdicts, armed=True)
+    assert audit['dropped'] == [] and sections == before
