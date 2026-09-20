@@ -1,6 +1,6 @@
-# E3 #933 — dormant change merged; deployment verification pending
+# E3 #933 — dormant release and deployment verified
 
-[PR #933](https://github.com/neilmac91/EarningsNerd/pull/933) merged as `38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a` at 2026-09-20T02:03:28Z. Reviewed head `c7d6fa858ed9164504e0d6062243ec13e861db1b` is based on KO merge `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73`. **Main CI 35482983157 deployment remains pending independent verification here.** Migration/revision/traffic/health and final production-flag receipt still require actual completion evidence.
+[PR #933](https://github.com/neilmac91/EarningsNerd/pull/933) merged as `38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a` at 2026-09-20T02:03:28Z. Reviewed head `c7d6fa858ed9164504e0d6062243ec13e861db1b` is based on KO merge `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73`. [Independent deployment receipt](e3-deploy/README.md) verifies main CI 35482983157 / job 106004482403 completed at 02:11:10Z; migrations 0 applied / 39 skipped; revision `00374-ddw` Ready at 100%; healthy independent response at 02:11:39.543493Z, database 6.51ms. Both attribution flags remain false. The dormant engineering release is complete; activation and semantic acceptance remain held.
 
 The new subject/anchor context is labelled model-authored, capped and visibly clipped. Source selection, parser and deletion mechanics are unchanged. Verification disabled returns before request construction; deletion separately requires an armed flag and not_stated verdict.
 

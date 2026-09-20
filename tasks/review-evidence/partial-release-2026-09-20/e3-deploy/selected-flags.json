@@ -1,0 +1,8 @@
+{
+  "SENTRY_RELEASE": "38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a",
+  "AI_EVIDENCE_SNAP": "true",
+  "AI_FIGURE_TRACE_GATE": "false",
+  "AI_FORWARD_QUOTE_GATE": "false",
+  "AI_ATTRIBUTION_GATE": "false",
+  "AI_ATTRIBUTION_VERIFY": "false"
+}

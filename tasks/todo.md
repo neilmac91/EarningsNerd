@@ -1,3 +1,9 @@
+## September 20 — dormant E3 #933 deployment verified; final receipt reconciliation complete
+
+- [x] Archive [actual E3 deployment](review-evidence/partial-release-2026-09-20/e3-deploy/README.md): main CI 35482983157 / deploy job 106004482403 on 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a completed 02:11:10Z; migrations 0 applied / 39 skipped; revision 00374-ddw Ready at 100%; independent healthy response 02:11:39.543493Z, database 6.51ms. Both attribution flags remain false. Compact original records/hashes retained; full run/log remains external.
+- [x] KO and dormant E3 engineering releases and serial deployments are complete. Current status/index supersede older pending snapshots without changing them. E6 warnings distinguish the 105-output pin measurement (2.4857) from its 70-output release corpus (2.3143). Final balance USD 73.50 and corrected offline bundle are retained.
+- [ ] Documentation publication/exact-head review remain; 330 missing Fable judgments, E8 inconclusive status, E7 named human reviewers/adjudicator/briefs/exposure prerequisites, activation and universe-wide holds are unchanged. Already approved budgets and protection are not requested again.
+
 ## September 20 — E3 #933 merged; actual artifacts and final balance retained
 
 - [x] Rebase this unpublished documentation onto actual main 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a, preserving the full main ledger as suffix and every earlier documentation entry above it. [E3 #933](review-evidence/partial-release-2026-09-20/e3-release.md) merged at 02:03:28Z after final 3,430-pass gate, original single mutation, six required checks, completed exact-head remote review and actual 70/70 baseline plus 18/18 Copilot audits. Both baseline attribution flags false; zero verifier operations or drops, so these artifacts do not test prompt quality.
