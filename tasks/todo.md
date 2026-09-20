@@ -1,3 +1,8 @@
+## September 20 — KO #932 deployment independently verified
+
+- [x] Retain [actual KO deployment](review-evidence/partial-release-2026-09-20/ko-deploy/README.md): main CI 35482183642 and deploy job 106002302260 succeeded on merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73, completed 01:52:22Z; migrations 0 applied / 39 skipped; revision 00373-cqd Ready at 100%; independent healthy response 01:52:59.933385Z, database 5.41ms. Both attribution flags remain false. Compact original receipts and hashes are retained; full logs remain external.
+- [x] Bounded KO engineering release complete. Earlier pending snapshots below remain historical. No Fable substitution, semantic acceptance or quality-effect claim; E3 #933 actual release evidence remains pending, and E7 human acceptance/universe-wide generation remain held.
+
 ## September 20 — KO #932 merged; actual premerge receipts archived
 
 - [x] Archive [KO #932 actual evidence](review-evidence/partial-release-2026-09-20/ko-release.md): merge 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73 at 01:44:44Z; committed 3,429-pass full gate, original single mutation, all six required checks (review/backend/frontend/e2e/lighthouse/migrations), completed exact-head remote review, and additional 70/70 baseline plus 18/18 Copilot audits with source/report hashes. Preserve trace/citation/provenance/model-output limitations; no new Fable or quality-effect claim.

@@ -1,6 +1,6 @@
 # September 19 measurement and fleet evidence reconciliation
 
-**September 20 preparation update:** [KO/E3 release receipts](review-evidence/partial-release-2026-09-20/README.md) now record KO #932 merged with final local/hosted gates and actual 70/18 artifact audits; KO deployment verification and E3 release fields remain pending. The [corrected Fable bundle](review-evidence/partial-release-2026-09-20/offline-bundle.md) is retained offline, with no resumed judging. Earlier release and balance observations below remain historical.
+**September 20 preparation update:** [KO/E3 release receipts](review-evidence/partial-release-2026-09-20/README.md) now record KO #932 released with final local/hosted gates, actual 70/18 artifact audits and independently verified deployment; E3 release fields remain pending. The [corrected Fable bundle](review-evidence/partial-release-2026-09-20/offline-bundle.md) is retained offline, with no resumed judging. Earlier release and balance observations below remain historical.
 
 This documentation snapshot consolidates retained evidence on E6-release main `4d9398103f46106bbd720ab505bc14b8d5142b36`. It changes no application, workflow, prompt, model, baseline or production state. Earlier ledger entries remain dated history; the latest verified state is below.
 

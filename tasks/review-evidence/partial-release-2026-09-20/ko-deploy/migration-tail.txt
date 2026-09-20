@@ -1,0 +1,1 @@
+deploy-backend	Apply database migrations	2026-09-20T01:50:34.6836046Z apply_migrations: applied=0 skipped=39

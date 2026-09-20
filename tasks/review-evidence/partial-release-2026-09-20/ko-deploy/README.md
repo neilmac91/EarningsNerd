@@ -1,0 +1,5 @@
+# KO deployment — independently verified
+
+[Receipt](receipt.json) records successful main CI 35482183642 / deploy job 106002302260 on merged commit 83419e4636c501b0f1a91e1b6d819bfbbe2c3a73, completed 2026-09-20T01:52:22Z. [Migration tail](migration-tail.txt): 0 applied / 39 skipped. [Selected service state](service-selected.json) shows revision earningsnerd-backend-00373-cqd Ready at 100% traffic. [Independent health](health-detailed.json) at 01:52:59.933385Z is healthy, database 5.41ms; the observation follows job completion. [Selected flags](selected-flags.json) retain both attribution flags false.
+
+The original [source hash manifest](sha256.txt) also names full run/log/read-command records kept outside Git. Those hashes were checked before copying; only compact sanitized records are archived here. This verifies serving deployment, not generated-output correctness, semantic acceptance or flag activation. Earlier premerge receipt pending fields remain historical and are superseded by this actual deployment receipt.

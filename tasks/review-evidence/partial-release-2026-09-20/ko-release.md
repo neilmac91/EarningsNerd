@@ -1,6 +1,6 @@
-# KO #932 — merged; deployment verification pending
+# KO #932 — merged and deployment verified
 
-[PR #932](https://github.com/neilmac91/EarningsNerd/pull/932) merged as `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73` at 2026-09-20T01:44:44Z. Reviewed head: `ed4ffde9e2d6d5df6762559cd59becdcc771231a`. **Deployment run 35482183642 remains pending independent verification in this receipt.** Migration/revision/traffic/health and post-release flags/balance must be added from actual records.
+[PR #932](https://github.com/neilmac91/EarningsNerd/pull/932) merged as `83419e4636c501b0f1a91e1b6d819bfbbe2c3a73` at 2026-09-20T01:44:44Z. Reviewed head: `ed4ffde9e2d6d5df6762559cd59becdcc771231a`. [Independent deployment receipt](ko-deploy/README.md) verifies main CI 35482183642 / deploy job 106002302260 completed at 01:52:22Z, migrations 0 applied / 39 skipped, revision `00373-cqd` Ready at 100%, and healthy independent response at 01:52:59.933385Z (database 5.41ms). Both attribution flags remain false. This completes the bounded engineering release, not semantic acceptance. No final provider-balance observation is claimed here.
 
 The shared owner removes unsupported derived operating-margin prefixes while preserving amounts and commentary. The prompt no longer promises this ratio. Content stamp p does not schedule historical regeneration.
 
