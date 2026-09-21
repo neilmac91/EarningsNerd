@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from app.models import Summary
 from evals.acceptance_readiness import _reviewer_artifact, build_blinded_packets, inspect_readiness
 
 
@@ -226,7 +227,9 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
     mapping = json.loads((custodian_root / "mapping.json").read_text())
     assert {row["arm"] for row in mapping["reviewers"]["reviewer-1"]} == {"candidate", "comparator"}
     original = Path(mapping["reviewers"]["reviewer-1"][0]["raw_artifacts"]["canonical"]["path"])
-    assert json.loads(original.read_text())["prompt_version"].startswith("synthetic-")
+    raw = json.loads(original.read_text())
+    assert set(raw) == {column.name for column in Summary.__table__.columns}
+    assert raw["prompt_version"].startswith("synthetic-")
     for reviewer in ("reviewer-1", "reviewer-2"):
         root = reviewer_root / reviewer
         index = json.loads((root / "index.json").read_text())
