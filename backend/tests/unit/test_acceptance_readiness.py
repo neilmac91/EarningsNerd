@@ -77,7 +77,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
         "model": "deepseek-flash", "base_url": "https://api.deepseek.com/v1",
         "official_source": "https://api-docs.deepseek.com/quick_start/pricing",
         "verified_at": observed, "valid_until": "2099-01-02T00:00:00Z",
-        "uncached_input_per_million": 0.1, "max_output_per_million": 0.2})
+        "uncached_input_per_million": "0.1", "max_output_per_million": "0.2"})
     preflight = {
         "schema_version": 1, "approved_manifest_sha256": manifest_sha,
         "reviewers": reviewers, "adjudicator": adjudicator,
@@ -87,7 +87,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                     "official_url": "https://api-docs.deepseek.com/quick_start/pricing"},
         "balance": {**receipt, "observed_at": observed, "available_usd": 10},
         "fable": {**receipt, "observed_at": observed, "contract_version": "2",
-                  "model": "Fable 5.1", "quota_available": True},
+                  "model": "cli:claude-fable-5-1", "quota_available": True},
         "development_smoke": {**receipt, "completed": True, "accession_number": "0000000001-26-000001"},
         "budget_control": {**receipt, "verified": True, "reviewed_commit": "c" * 40,
                            "full_run_worst_case_usd": 9.5,
@@ -108,7 +108,13 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                                        ("export", "html"), ("preview_0", "md")):
                     path = outputs_root / slot / f"{key}.{extension}"
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(f"synthetic {slot} {key}", encoding="utf-8")
+                    if key == "canonical":
+                        path.write_text(json.dumps({"summary": "Revenue rose on the filing basis.",
+                                                    "metadata": {"arm": arm, "draw": draw,
+                                                                 "config_sha256": configs[arm]["sha256"]}}),
+                                        encoding="utf-8")
+                    else:
+                        path.write_text("Revenue rose on the filing basis.", encoding="utf-8")
                     paths[key] = str(path.relative_to(outputs_root))
                     hashes[key] = hashlib.sha256(path.read_bytes()).hexdigest()
                 output_records.append({
@@ -172,6 +178,34 @@ def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path
     assert accepted["ready_for_paid_execution"] is True
 
 
+def test_stale_verified_price_and_wrong_fable_contract_hold_paid_run(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    preflight = json.loads(fixture["preflight"].read_text())
+    price_path = fixture["preflight"].parent / preflight["pricing"]["path"]
+    price = json.loads(price_path.read_text())
+    price["verified_at"] = (fixture["now"] - timedelta(days=3)).isoformat()
+    preflight["pricing"].update(_write(price_path, price))
+    fixture["preflight"].write_text(json.dumps(preflight))
+    stale = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                              expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert stale["ready_for_paid_execution"] is False
+    assert "stale_pricing_verification" in {item["code"] for item in stale["issues"]}
+    price["verified_at"] = preflight["pricing"]["observed_at"]
+    price["uncached_input_per_million"] = "NaN"
+    preflight["pricing"].update(_write(price_path, price))
+    fixture["preflight"].write_text(json.dumps(preflight))
+    bad_rate = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert "pricing_invalid" in {item["code"] for item in bad_rate["issues"]}
+    price["uncached_input_per_million"] = "0.1"
+    preflight["pricing"].update(_write(price_path, price))
+    preflight["fable"]["model"] = "different-judge"
+    fixture["preflight"].write_text(json.dumps(preflight))
+    wrong_judge = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                    expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert "fable_invalid" in {item["code"] for item in wrong_judge["issues"]}
+
+
 def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     reviewer_root, custodian_root = tmp_path / "reviewers", tmp_path / "custodian"
@@ -193,6 +227,9 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
                 assert fixture["manifest_sha"] not in path.read_text(encoding="utf-8")
         assert '"arm"' not in (root / "index.json").read_text()
         assert '"config_sha256"' not in (root / "index.json").read_text()
+        packet = root / index["packets"][0]["packet_dir"] / "canonical.json"
+        assert set(json.loads(packet.read_text())) == {"summary", "metadata"}
+        assert json.loads(packet.read_text())["metadata"] == {}
     outputs = json.loads(fixture["outputs"].read_text())
     outputs["records"][0]["preview_paths"] = []
     fixture["outputs"].write_text(json.dumps(outputs))
@@ -201,3 +238,19 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
                               fixture["outputs"], tmp_path / "no-reviewers", tmp_path / "no-custodian",
                               expected_manifest_sha=fixture["manifest_sha"])
     assert not (tmp_path / "no-reviewers").exists()
+
+
+def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    outputs = json.loads(fixture["outputs"].read_text())
+    row = outputs["records"][0]
+    rendered = fixture["outputs"].parent / row["rendered_path"]
+    rendered.write_text(f"Revenue rose. {row['config_sha256']}", encoding="utf-8")
+    row["artifact_sha256"]["rendered"] = hashlib.sha256(rendered.read_bytes()).hexdigest()
+    fixture["outputs"].write_text(json.dumps(outputs))
+    with pytest.raises(ValueError, match="exposes execution identity"):
+        build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                              fixture["outputs"], tmp_path / "reviewers", tmp_path / "custodian",
+                              expected_manifest_sha=fixture["manifest_sha"])
+    assert not (tmp_path / "reviewers").exists()
+    assert not (tmp_path / "custodian").exists()

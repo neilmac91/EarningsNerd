@@ -16,6 +16,7 @@ import secrets
 import shutil
 import sys
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
@@ -27,6 +28,19 @@ _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _ACCESSION = re.compile(r"\d{10}-\d{2}-\d{6}\Z")
 _FRESHNESS = timedelta(hours=24)
 _ARTIFACTS = ("canonical", "rendered", "export")
+_PRICING_FIELDS = {"model", "base_url", "official_source", "verified_at", "valid_until",
+                   "uncached_input_per_million", "max_output_per_million"}
+_ADMIN_KEYS = {"arm", "draw", "config_sha256", "source_commit", "content_stamp",
+               "provider", "model", "base_url", "dependency_lock_sha256"}
+_ADMIN_KEY_TEXT = re.compile(r'"(?:arm|draw|config_sha256|source_commit|content_stamp|provider|model|base_url|dependency_lock_sha256)"\s*:')
+
+
+def _positive_price(value: Any) -> bool:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return False
+    return not isinstance(value, bool) and amount.is_finite() and amount > 0
 
 
 def _sha256(path: Path) -> str:
@@ -257,11 +271,14 @@ def inspect_readiness(
         try:
             record = prereq.get(f"{arm}_config")
             _, config = _evidence(base, record)
+            base_url = urlparse(str(config.get("base_url", ""))) if config else urlparse("")
             if (config is None or not re.fullmatch(r"[0-9a-f]{40}", str(config.get("source_commit", ""))) or
                     not all(str(config.get(k, "")).strip() for k in ("content_stamp", "provider", "model", "base_url")) or
                     str(config.get("provider", "")).casefold() != "deepseek" or
-                    urlparse(str(config.get("base_url", ""))).scheme != "https" or
-                    urlparse(str(config.get("base_url", ""))).hostname != "api.deepseek.com" or
+                    not str(config.get("model", "")).startswith("deepseek-") or
+                    base_url.scheme != "https" or base_url.hostname != "api.deepseek.com" or
+                    base_url.username or base_url.password or base_url.query or base_url.fragment or
+                    base_url.path.rstrip("/") != "/v1" or
                     not isinstance(config.get("effective_flags"), dict) or not config["effective_flags"] or
                     not isinstance(config.get("effective_settings"), dict) or not config["effective_settings"] or
                     not _SHA256.fullmatch(str(config.get("dependency_lock_sha256", ""))) or
@@ -287,21 +304,24 @@ def inspect_readiness(
             if kind == "pricing":
                 verified = _utc(evidence.get("verified_at")) if evidence else None
                 expires = _utc(evidence.get("valid_until")) if evidence else None
-                if (evidence is None or set(config_models.values()) != {evidence.get("model")} or
+                if (evidence is None or set(evidence) != _PRICING_FIELDS or
+                        set(config_models.values()) != {evidence.get("model")} or
                         len(config_models) != 2 or set(config_bases.values()) != {str(evidence.get("base_url", "")).rstrip("/")} or
                         len(config_bases) != 2 or evidence.get("official_source") != record.get("official_url") or
                         verified is None or verified > observed or expires is None or expires <= verified or
-                        any(not isinstance(evidence.get(key), (int, float)) or isinstance(evidence.get(key), bool) or
-                            evidence[key] < 0 for key in ("uncached_input_per_million", "max_output_per_million"))):
+                        any(not _positive_price(evidence.get(key)) for key in
+                            ("uncached_input_per_million", "max_output_per_million"))):
                     raise ValueError("pricing artifact does not match frozen model/base and official tariff")
+                if now - verified > _FRESHNESS:
+                    _issue(paid_only, "stale_pricing_verification", "official tariff verification older than 24 hours")
                 if expires <= now:
                     _issue(paid_only, "expired_pricing", "pricing artifact validity ended")
             if kind == "balance" and (not isinstance(record.get("available_usd"), (int, float)) or
                                       isinstance(record.get("available_usd"), bool) or record["available_usd"] <= 0):
                 raise ValueError("balance observation missing")
             if kind == "fable" and (record.get("quota_available") is not True or
-                                    not str(record.get("contract_version", "")).strip() or
-                                    not str(record.get("model", "")).strip()):
+                                    record.get("contract_version") != "2" or
+                                    record.get("model") != "cli:claude-fable-5-1"):
                 raise ValueError("Fable quota/model/contract observation missing")
             if now - observed > _FRESHNESS:
                 _issue(paid_only, f"stale_{kind}", "observation older than 24 hours")
@@ -395,6 +415,34 @@ def _check_output_records(
     return checked
 
 
+def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
+                       config: dict[str, Any], holdout_id: str) -> bytes:
+    """Remove canonical administrative fields, then reject remaining identity markers.
+
+    Narrative bytes are never rewritten: a visible marker there stops packet creation.
+    """
+    if key == "canonical":
+        value = _json(source)
+
+        def project(item: Any) -> Any:
+            if isinstance(item, dict):
+                return {name: project(child) for name, child in item.items() if name not in _ADMIN_KEYS}
+            if isinstance(item, list):
+                return [project(child) for child in item]
+            return item
+
+        data = json.dumps(project(value), ensure_ascii=False, indent=2).encode("utf-8")
+    else:
+        data = source.read_bytes()
+    text = data.decode("utf-8")
+    markers = {str(row["config_sha256"]), str(config["content_stamp"]),
+               str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
+               f"{holdout_id}-{row['arm']}-{row['draw']}"}
+    if _ADMIN_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
+        raise ValueError(f"reviewer artifact exposes execution identity: {key}")
+    return data
+
+
 def build_blinded_packets(
     manifest_path: Path, archive_root: Path, prerequisites_path: Path,
     outputs_path: Path, reviewer_root: Path, custodian_root: Path,
@@ -424,10 +472,12 @@ def build_blinded_packets(
     exposure = _json(_safe_file(Path(prerequisites_path).parent, prereq["exposure_attestation"]["path"]))
     if _utc(exposure["signed_at"]) >= earliest_output:
         raise ValueError("exposure attestation must predate every output")
+    configs: dict[str, dict[str, Any]] = {}
     for arm in ("candidate", "comparator"):
         config = _json(_safe_file(Path(prerequisites_path).parent, prereq[f"{arm}_config"]["path"]))
         if _utc(config["frozen_at"]) >= earliest_output:
             raise ValueError("configuration freeze must predate every output")
+        configs[arm] = config
 
     reviewer_root, custodian_root = Path(reviewer_root), Path(custodian_root)
     if (reviewer_root.exists() or custodian_root.exists() or reviewer_root.is_symlink() or
@@ -490,14 +540,18 @@ def build_blinded_packets(
                 packet_dir.mkdir()
                 for key, source_path in item["paths"].items():
                     suffix = source_path.suffix or ".txt"
-                    shutil.copyfile(source_path, packet_dir / f"{key}{suffix}")
+                    (packet_dir / f"{key}{suffix}").write_bytes(_reviewer_artifact(
+                        source_path, key, row, configs[row["arm"]],
+                        by_accession[row["accession_number"]]["holdout_id"]))
                 index.append({"packet_id": packet_id, "source_case_id": case_ids[row["accession_number"]],
                               "accession_number": row["accession_number"],
                               "source_identity": f"sources/{case_ids[row['accession_number']]}/identity.json",
                               "packet_dir": f"packets/{packet_id}"})
                 private_rows.append({"packet_id": packet_id, "accession_number": row["accession_number"],
                                      "arm": row["arm"], "draw": row["draw"],
-                                     "config_sha256": row["config_sha256"]})
+                                     "config_sha256": row["config_sha256"],
+                                     "raw_artifacts": {key: {"path": str(path), "sha256": _sha256(path)}
+                                                       for key, path in item["paths"].items()}})
             (reviewer_dir / "index.json").write_text(json.dumps({"packets": index}, indent=2), encoding="utf-8")
             mapping["reviewers"][reviewer_name] = private_rows
         map_path = custodian_root / "mapping.json"
