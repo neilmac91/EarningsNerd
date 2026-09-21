@@ -1,0 +1,350 @@
+"""Build a packet index from durable E7 slot evidence, without running a model.
+
+The index is deliberately partial until every approved slot has a valid, retained
+production-worker result. Original invocation files remain the custodian record.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256, COMPARATOR_HOLDOUT_IDS
+
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_SLOT = re.compile(r"(H\d{2})-(candidate|comparator)-([123])\Z")
+_EXPECTED = frozenset(
+    f"H{number:02d}-{arm}-{draw}"
+    for number in range(1, 31)
+    for arm in (("candidate", "comparator") if f"H{number:02d}" in COMPARATOR_HOLDOUT_IDS else ("candidate",))
+    for draw in (1, 2, 3)
+)
+_REQUIRED_WORKER_ARTIFACTS = {
+    "canonical_summary", "rendered_summary", "export_html", "raw_previews",
+    "provider_accounting", "events", "grounding", "rendered_sections",
+}
+
+
+class IncompleteSlot(ValueError):
+    """A claimed slot cannot be represented as a completed review output."""
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise IncompleteSlot(f"{path.name} is not a JSON object")
+    return value
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _within(root: Path, relative: str) -> Path:
+    """Return only a regular, unsymlinked file inside the invocation directory."""
+    if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+        raise IncompleteSlot("missing or absolute artifact path")
+    parts = Path(relative).parts
+    if any(part in {"", ".", ".."} for part in parts):
+        raise IncompleteSlot("artifact path traversal")
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            raise IncompleteSlot("artifact symlink")
+    if not current.is_file() or not current.resolve(strict=True).is_relative_to(root.resolve(strict=True)):
+        raise IncompleteSlot("artifact missing or outside invocation")
+    return current
+
+
+def _output_relative(path: Path, output_parent: Path) -> str:
+    try:
+        return path.resolve(strict=True).relative_to(output_parent.resolve(strict=True)).as_posix()
+    except ValueError as error:
+        raise IncompleteSlot("output artifacts must sit below outputs.json parent") from error
+
+
+def _validate_preview_frames(path: Path, reservation_ids: set[int]) -> list[bytes]:
+    raw = path.read_bytes()
+    if raw and not raw.endswith(b"\n"):
+        raise IncompleteSlot("raw preview JSONL ends without a complete newline")
+    frames: list[bytes] = []
+    for ordinal, line in enumerate(raw.splitlines(), start=1):
+        try:
+            frame = json.loads(line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise IncompleteSlot(f"invalid raw preview JSONL line {ordinal}") from error
+        if (not isinstance(frame, dict) or set(frame) != {"generation_ordinal", "provider_attempt", "markdown"}
+                or frame["generation_ordinal"] != 0 or type(frame["provider_attempt"]) is not int
+                or frame["provider_attempt"] <= 0 or frame["provider_attempt"] not in reservation_ids
+                or not isinstance(frame["markdown"], str)):
+            raise IncompleteSlot(f"raw preview line {ordinal} has no valid provider attempt/content")
+        frames.append(frame["markdown"].encode("utf-8"))
+    return frames
+
+
+def _validate_events(path: Path) -> None:
+    raw = path.read_bytes()
+    if not raw or not raw.endswith(b"\n"):
+        raise IncompleteSlot("emitted event JSONL is empty or unterminated")
+    terminals = []
+    last_type = None
+    for ordinal, line in enumerate(raw.splitlines(), start=1):
+        try:
+            event = json.loads(line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise IncompleteSlot(f"invalid emitted event JSONL line {ordinal}") from error
+        if not isinstance(event, dict) or not isinstance(event.get("type"), str):
+            raise IncompleteSlot(f"malformed emitted event JSONL line {ordinal}")
+        last_type = event["type"]
+        if event["type"] in {"complete", "partial", "error"}:
+            terminals.append(event["type"])
+    if terminals != ["complete"] or last_type != "complete":
+        raise IncompleteSlot("emitted events do not end in one clean completion")
+
+
+def _write_preview_files(invocation: Path, frames: list[bytes]) -> list[Path]:
+    directory = invocation / "preview-files"
+    if directory.is_symlink():
+        raise IncompleteSlot("preview directory is a symlink")
+    if not frames and not directory.exists():
+        return []
+    directory.mkdir(exist_ok=True)
+    if not directory.is_dir():
+        raise IncompleteSlot("preview directory is not a directory")
+    expected_names = {f"{number:04d}.md" for number in range(1, len(frames) + 1)}
+    existing_names = {path.name for path in directory.iterdir()}
+    if existing_names - expected_names:
+        raise IncompleteSlot("preview directory contains an unindexed callback file")
+    paths: list[Path] = []
+    for number, content in enumerate(frames, start=1):
+        target = directory / f"{number:04d}.md"
+        if target.exists() or target.is_symlink():
+            if target.is_symlink() or not target.is_file() or target.read_bytes() != content:
+                raise IncompleteSlot(f"existing preview differs from raw callback {number}")
+        else:
+            try:
+                descriptor = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError as error:
+                raise IncompleteSlot(f"preview write race at callback {number}") from error
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        paths.append(target)
+    return paths
+
+
+def _slot_record(
+    programme_root: Path, output_parent: Path, slot_id: str, config_sha: str,
+    request_sha: str, ledger_reservations: list[tuple[int, str, str]],
+) -> dict[str, Any]:
+    match = _SLOT.fullmatch(slot_id)
+    if match is None or slot_id not in _EXPECTED:
+        raise IncompleteSlot("unapproved slot identity")
+    holdout_id, arm, draw_text = match.groups()
+    draw = int(draw_text)
+    if not _SHA256.fullmatch(config_sha) or not _SHA256.fullmatch(request_sha or ""):
+        raise IncompleteSlot("slot has no durable configuration/request hash")
+    slot_dir = programme_root / slot_id
+    if slot_dir.is_symlink() or not slot_dir.is_dir():
+        raise IncompleteSlot("slot directory missing or symlinked")
+    invocation = slot_dir / "attempt-1"
+    if invocation.is_symlink() or not invocation.is_dir():
+        raise IncompleteSlot("invocation directory missing or symlinked")
+    selection_path = _within(slot_dir, "selection.json")
+    request_path = _within(slot_dir, "request.json")
+    receipt_path = _within(invocation, "receipt.json")
+    result_path = _within(invocation, "result.json")
+    selection, request = _read_json(selection_path), _read_json(request_path)
+    receipt, result = _read_json(receipt_path), _read_json(result_path)
+    if _sha256(request_path) != request_sha:
+        raise IncompleteSlot("durable request hash differs from retained request")
+    filing = selection.get("filing")
+    if (not isinstance(filing, dict) or
+            any(not str(filing.get(key, "")).strip() for key in
+                ("holdout_id", "ticker", "cik", "filing_type", "accession_number")) or
+            not _SHA256.fullmatch(str(filing.get("source_sha256", "")))):
+        raise IncompleteSlot("selected filing identity or source hash is missing")
+    if (selection.get("slot_id") != slot_id or
+            selection.get("arm") != arm or selection.get("draw") != draw or
+            selection.get("config_sha256") != config_sha or
+            selection.get("manifest_sha256") != APPROVED_MANIFEST_SHA256 or
+            filing.get("holdout_id") != holdout_id or
+            request.get("slot_id") != slot_id or request.get("config_sha256") != config_sha or
+            request.get("filing") != filing or Path(request.get("invocation_dir", "")).resolve() != invocation.resolve()):
+        raise IncompleteSlot("selection, request, manifest or ledger identity mismatch")
+    expected_identity = {key: str(filing.get(key)) for key in
+                         ("holdout_id", "ticker", "cik", "filing_type", "accession_number")}
+    if ({key: str((receipt.get("identity") or {}).get(key)) for key in expected_identity} != expected_identity or
+            receipt != result or receipt.get("status") != "complete" or
+            receipt.get("eligible_for_measurement") is not True or receipt.get("errors") != [] or
+            receipt.get("source_identity") != "primary_verified" or
+            (receipt.get("source_packets") or {}).get("primary", {}).get("sha256") != filing.get("source_sha256")):
+        raise IncompleteSlot("worker result is incomplete or source/filing identity differs")
+    try:
+        started = datetime.fromisoformat(receipt["started_at"].replace("Z", "+00:00"))
+    except (KeyError, TypeError, ValueError) as error:
+        raise IncompleteSlot("receipt has no valid started_at") from error
+    if started.tzinfo is None:
+        raise IncompleteSlot("receipt started_at lacks timezone")
+    artifacts = receipt.get("artifacts")
+    if not isinstance(artifacts, dict) or not _REQUIRED_WORKER_ARTIFACTS.issubset(artifacts):
+        raise IncompleteSlot("worker artifact inventory is incomplete")
+    resolved = {key: _within(invocation, relative) for key, relative in artifacts.items()}
+    if len(set(resolved.values())) != len(resolved):
+        raise IncompleteSlot("worker artifact path reused")
+    _validate_events(resolved["events"])
+    accounting = _read_json(resolved["provider_accounting"])
+    records = accounting.get("records")
+    ledger_ids = {identity for identity, status, _ in ledger_reservations if status == "settled"}
+    if (accounting.get("slot_id") != slot_id or not isinstance(records, list) or not ledger_ids or
+            len(ledger_ids) != len(ledger_reservations) or len(records) != len(ledger_ids) or
+            {row.get("reservation_id") for row in records if isinstance(row, dict)} != ledger_ids or
+            any(not isinstance(row, dict) or type(row.get("reservation_id")) is not int or
+                row.get("status") != "settled" for row in records)):
+        raise IncompleteSlot("provider accounting does not match settled slot reservations")
+    ledger_requests = {identity: request_hash for identity, _, request_hash in ledger_reservations}
+    for record in records:
+        request_body = record.get("request")
+        if not isinstance(request_body, dict):
+            raise IncompleteSlot("provider request body missing from accounting")
+        request_digest = hashlib.sha256(json.dumps(
+            request_body, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")).hexdigest()
+        if ledger_requests[record["reservation_id"]] != request_digest:
+            raise IncompleteSlot("provider request differs from durable reservation")
+    frames = _validate_preview_frames(resolved["raw_previews"], ledger_ids)
+    preview_files = _write_preview_files(invocation, frames)
+    output_paths = {
+        "canonical": resolved["canonical_summary"],
+        "rendered": resolved["rendered_summary"],
+        "export": resolved["export_html"],
+    }
+    output_paths.update({f"preview_{index}": path for index, path in enumerate(preview_files)})
+    relative = {key: _output_relative(path, output_parent) for key, path in output_paths.items()}
+    return {
+        "accession_number": filing["accession_number"], "arm": arm, "draw": draw,
+        "status": "completed", "error": None, "created_at": receipt["started_at"],
+        "config_sha256": config_sha,
+        "canonical_path": relative["canonical"], "rendered_path": relative["rendered"],
+        "export_path": relative["export"],
+        "preview_paths": [relative[f"preview_{index}"] for index in range(len(preview_files))],
+        "preview_count": len(preview_files), "previews_truncated": False,
+        "retry_preview_attempts_omitted": 0,
+        "artifact_sha256": {key: _sha256(path) for key, path in output_paths.items()},
+        "raw_previews_path": _output_relative(resolved["raw_previews"], output_parent),
+        "raw_previews_sha256": _sha256(resolved["raw_previews"]),
+        "provider_accounting_path": _output_relative(resolved["provider_accounting"], output_parent),
+        "provider_accounting_sha256": _sha256(resolved["provider_accounting"]),
+        "receipt_path": _output_relative(receipt_path, output_parent),
+        "result_path": _output_relative(result_path, output_parent),
+        "slot_id": slot_id,
+    }
+
+
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+    encoded = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    temp = path.with_name(path.name + f".tmp-{os.getpid()}")
+    with temp.open("xb") as stream:
+        stream.write(encoded)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temp.replace(path)
+
+
+def _incomplete_entry(programme_root: Path, output_parent: Path, slot_id: str,
+                      ledger_status: str, error: str) -> dict[str, Any]:
+    entry: dict[str, Any] = {"slot_id": slot_id, "ledger_status": ledger_status, "error": error}
+    slot_dir = programme_root / slot_id
+    if slot_dir.is_symlink() or not slot_dir.is_dir():
+        return entry
+    references: dict[str, str] = {}
+    for key, relative in (("selection", "selection.json"), ("request", "request.json"),
+                          ("worker_log", "worker.log"), ("receipt", "attempt-1/receipt.json"),
+                          ("result", "attempt-1/result.json")):
+        try:
+            references[key] = _output_relative(_within(slot_dir, relative), output_parent)
+        except (IncompleteSlot, OSError, ValueError):
+            continue
+    if references:
+        entry["evidence_paths"] = references
+    if "receipt" in references:
+        try:
+            receipt = _read_json(slot_dir / "attempt-1/receipt.json")
+            entry["worker_status"] = receipt.get("status")
+            entry["worker_errors"] = receipt.get("errors")
+        except (OSError, ValueError, json.JSONDecodeError):
+            entry["worker_errors"] = ["receipt unreadable"]
+    return entry
+
+
+def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
+    """Collect verified completed slots; report every failed/missing slot separately.
+
+    The returned object is also atomically saved at ``output_path``. It is only an
+    index; ``build_blinded_packets`` remains the final identity and readiness gate.
+    """
+    programme_root, output_path = Path(programme_root).resolve(strict=True), Path(output_path).absolute()
+    if output_path.is_symlink() or not programme_root.is_dir():
+        raise ValueError("programme root/output path is invalid")
+    output_parent = output_path.parent.resolve(strict=True)
+    if not programme_root.is_relative_to(output_parent):
+        raise ValueError("outputs.json parent must contain the programme artifacts")
+    ledger = _within(programme_root, "budget.sqlite3")
+    with sqlite3.connect(ledger.as_uri() + "?mode=ro", uri=True) as db:
+        slots = db.execute("SELECT id, config_sha, status, request_sha FROM slots ORDER BY id").fetchall()
+        reservations = db.execute("SELECT slot_id, id, status, request_hash FROM reservations ORDER BY id").fetchall()
+    by_slot: dict[str, list[tuple[int, str, str]]] = {}
+    for slot_id, identity, status, request_hash in reservations:
+        by_slot.setdefault(slot_id, []).append((identity, status, request_hash))
+    records: list[dict[str, Any]] = []
+    incomplete: list[dict[str, Any]] = []
+    smoke: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for slot_id, config_sha, status, request_sha in slots:
+        if slot_id in seen:
+            incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
+                                                status, "duplicate slot claim"))
+            continue
+        seen.add(slot_id)
+        if slot_id == "development-smoke":
+            smoke.append({"slot_id": slot_id, "ledger_status": status,
+                          "reservation_count": len(by_slot.get(slot_id, []))})
+            continue
+        if status != "completed":
+            incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
+                                                status, "durable slot claim is not completed"))
+            continue
+        try:
+            records.append(_slot_record(programme_root, output_parent, slot_id, config_sha,
+                                        request_sha, by_slot.get(slot_id, [])))
+        except (IncompleteSlot, OSError, TypeError, ValueError, KeyError, json.JSONDecodeError) as error:
+            incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
+                                                status, f"{type(error).__name__}: {error}"))
+    missing = sorted(_EXPECTED - seen)
+    unexpected = sorted(seen - _EXPECTED - {"development-smoke"})
+    orphan_reservations = sorted(set(by_slot) - seen)
+    smoke_valid = (len(smoke) == 1 and smoke[0]["ledger_status"] == "completed"
+                   and smoke[0]["reservation_count"] > 0)
+    result = {
+        "schema_version": 1, "records": records, "completed": len(records), "expected": len(_EXPECTED),
+        "complete": (len(records) == len(_EXPECTED) and not incomplete and not unexpected
+                     and not missing and not orphan_reservations and smoke_valid),
+        "incomplete_slots": incomplete, "missing_slot_ids": missing,
+        "unexpected_slot_ids": unexpected, "orphan_reservation_slot_ids": orphan_reservations,
+        "development_smoke": smoke,
+    }
+    _atomic_json(output_path, result)
+    return result
