@@ -115,6 +115,59 @@ def _preflight_sources(filing_spec: Mapping[str, Any], source_root: Path) -> dic
     return evidence
 
 
+def _prepare_sixk_source(filing_spec: Mapping[str, Any], evidence: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
+    """Bind the production 6-K extractor to a verified, embedded SGML submission."""
+    from edgar import Filing as EdgarFiling
+
+    submission = evidence.get("complete_submission")
+    if not submission:
+        raise InvalidMeasurement("6-K complete submission packet is required")
+    try:
+        filing = EdgarFiling.from_sgml_text(Path(submission["path"]).read_text(encoding="utf-8"))
+        if (filing.accession_no != filing_spec["accession_number"] or
+                int(filing.cik) != int(filing_spec["cik"]) or filing.form != "6-K" or
+                str(filing.filing_date) != str(filing_spec["filing_date"])):
+            raise InvalidMeasurement("6-K SGML parsed identity differs from selected filing")
+        sgml = filing.sgml()
+        primary_name = Path(evidence["primary"]["path"]).name
+        attachments = list(sgml.attachments)
+        primary = [a for a in attachments if a.document == primary_name]
+        if len(primary) != 1 or primary[0].sgml_document is None:
+            raise InvalidMeasurement("6-K primary is not embedded in verified SGML")
+        primary_content = primary[0].content
+        primary_bytes = (primary_content.encode("utf-8") if isinstance(primary_content, str)
+                         else primary_content)
+        if (not isinstance(primary_bytes, bytes) or len(primary_bytes) != evidence["primary"]["bytes"] or
+                hashlib.sha256(primary_bytes).hexdigest() != evidence["primary"]["sha256"]):
+            raise InvalidMeasurement("6-K embedded primary differs from retained packet")
+        sixk = filing.obj()
+        releases = sixk.press_releases
+        selected = list(releases.attachments) if releases is not None else [
+            a for a in sixk.exhibits if not a.is_binary()]
+        if any(a.sgml_document is None for a in selected):
+            raise InvalidMeasurement("6-K selected exhibit is not embedded in verified SGML")
+        if "earnings_exhibit" in evidence:
+            name = Path(evidence["earnings_exhibit"]["path"]).name
+            matched = [a for a in selected if a.document == name]
+            if len(matched) != 1:
+                raise InvalidMeasurement("6-K retained earnings exhibit is not selected by production extractor")
+            content = matched[0].content
+            encoded = content.encode("utf-8") if isinstance(content, str) else content
+            if (not isinstance(encoded, bytes) or len(encoded) != evidence["earnings_exhibit"]["bytes"] or
+                    hashlib.sha256(encoded).hexdigest() != evidence["earnings_exhibit"]["sha256"]):
+                raise InvalidMeasurement("6-K embedded earnings exhibit differs from retained packet")
+        detail = {"owner": "edgartools.Filing.from_sgml_text", "accession": filing.accession_no,
+                  "cik": str(filing.cik), "form": filing.form, "filing_date": str(filing.filing_date),
+                  "complete_submission_sha256": submission["sha256"],
+                  "embedded_primary_sha256": evidence["primary"]["sha256"],
+                  "selected_attachments": [a.document for a in selected]}
+        return filing, detail
+    except InvalidMeasurement:
+        raise
+    except (OSError, UnicodeError, ValueError, TypeError, AttributeError) as exc:
+        raise InvalidMeasurement(f"6-K SGML cannot be parsed and bound: {type(exc).__name__}") from exc
+
+
 def _check_configuration(invocation_dir: Path, config: Mapping[str, Any]) -> Any:
     # Import the app only after all source packets have been validated, and refuse a
     # parent process that already bootstrapped a production (or shared) DB engine.
@@ -195,11 +248,9 @@ async def run_invocation(
     invocation_dir = Path(invocation_dir).resolve()
     _validate_identity(filing_spec)
     evidence = _preflight_sources(filing_spec, Path(config["source_root"]))
+    sixk_filing, sixk_source = (None, None)
     if filing_spec["filing_type"] == "6-K":
-        raise InvalidMeasurement(
-            "6-K exhibit text lacks a verifiable packet-to-production-extractor identity mapping; "
-            "refusing provider admission"
-        )
+        sixk_filing, sixk_source = _prepare_sixk_source(filing_spec, evidence)
     database = _check_configuration(invocation_dir, config)
     if budget_meter is None or not callable(getattr(budget_meter, "snapshot", None)):
         raise InvalidMeasurement("A durable provider budget meter with snapshot() is required")
@@ -219,8 +270,9 @@ async def run_invocation(
         "started_at": datetime.now(timezone.utc).isoformat(),
         "status": "incomplete", "eligible_for_measurement": False,
         "source_packets": evidence, "source_identity": "unverified",
-        "source_identity_scope": "Only the fetched primary HTTP-decoded text can be matched byte-for-byte; "
-                                 "edgartools/XBRL results retain accession and CIK but lack packet replay proof.",
+        "source_identity_scope": "Primary HTTP-decoded text is byte-verified; for 6-K the "
+                                 "production extractor is bound to the verified archived SGML. "
+                                 "Other edgartools/XBRL paths retain accession/CIK only.",
         "errors": [], "artifacts": {},
     }
     _write_json(invocation_dir / "frozen_settings.json", dict(config["frozen_settings"]))
@@ -232,7 +284,9 @@ async def run_invocation(
                                 grounding=grounding_path.name)
     grounding: dict[str, Any] = {"production_pipeline": "app.services.summary_pipeline.stream_filing_summary",
                                  "source_calls": [], "summarizer_calls": [], "summarizer_returns": []}
-    source_ok = False
+    if sixk_source is not None:
+        grounding["source_calls"].append(sixk_source)
+    source_ok = sixk_source is not None
     sixk_used = False
     summarizer_return_statuses: list[str] = []
     terminal_events: list[str] = []
@@ -269,12 +323,35 @@ async def run_invocation(
             if accession != filing_spec["accession_number"] or str(cik) != str(filing_spec["cik"]):
                 raise InvalidMeasurement("6-K extractor requested a different accession/CIK")
             sixk_used = True
-            content = await original_sixk(accession, cik)
+            if sixk_filing is None:
+                raise InvalidMeasurement("6-K source binding missing")
+            from app.services.edgar import sixk_extractor
+            from edgar import attachments as edgar_attachments
+            from edgar.attachments import FilingHomepage
+
+            attempted_fallback: list[str] = []
+
+            def refuse_fallback(*_args: Any, **_kwargs: Any) -> Any:
+                attempted_fallback.append("SDK network fallback")
+                raise InvalidMeasurement("6-K SDK attempted network fallback")
+
+            def resolve_embedded(requested_cik: str, requested_accession: str) -> tuple[None, list[Any]]:
+                if (int(requested_cik) != int(filing_spec["cik"]) or
+                        requested_accession != filing_spec["accession_number"]):
+                    raise InvalidMeasurement("6-K SDK requested a different filing")
+                return None, [sixk_filing]
+
+            with patch.object(sixk_extractor, "resolve_filing_by_accession", resolve_embedded), \
+                    patch.object(edgar_attachments, "download_file", refuse_fallback), \
+                    patch.object(FilingHomepage, "load", refuse_fallback):
+                content = await original_sixk(accession, cik)
+            if attempted_fallback:
+                raise InvalidMeasurement("6-K SDK attempted network fallback")
             encoded = content.encode("utf-8") if isinstance(content, str) else b""
             grounding["source_calls"].append({"owner": "get_sixk_text", "accession": accession,
                                                 "cik": str(cik), "bytes": len(encoded),
                                                 "sha256": hashlib.sha256(encoded).hexdigest(),
-                                                "source_packet_match": "unavailable"})
+                                                "source_packet_match": "verified_complete_submission"})
             return content
 
         async def measured_xbrl(accession: str, cik: str, *args: Any, **kwargs: Any) -> Any:
@@ -367,11 +444,10 @@ async def run_invocation(
                     export_service.generate_pdf_html(summary, filing), encoding="utf-8")
                 receipt["artifacts"].update(rendered_summary="rendered_summary.md",
                                             rendered_sections="rendered_sections.json", export_html="export.html")
-        receipt["source_identity"] = "primary_verified" if source_ok and not sixk_used else "incomplete"
+        receipt["source_identity"] = ("archived_sgml_verified" if source_ok and sixk_used else
+                                      "primary_verified" if source_ok else "incomplete")
         if not source_ok:
             receipt["errors"].append("Primary source was not fetched and hash-verified by production SEC service")
-        if sixk_used:
-            receipt["errors"].append("6-K exhibit grounding lacks a packet-to-extractor identity proof")
         if terminal_events != ["complete"]:
             receipt["errors"].append(f"Pipeline terminal events were {terminal_events!r}, not one complete")
         if preview_errors:

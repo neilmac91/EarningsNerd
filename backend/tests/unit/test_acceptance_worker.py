@@ -45,6 +45,37 @@ def _source_fixture(tmp_path, content="FILING DOCUMENT TEXT " * 200):
     return source_root, spec, content
 
 
+def _sixk_fixture(tmp_path, *, with_release=True):
+    primary = "<html><body>Cover page material contained in this report.</body></html>"
+    exhibit = "<html><body>Revenue was 10 million dollars in the quarter.</body></html>"
+    source_root, spec, _ = _source_fixture(tmp_path, primary)
+    spec["filing_type"] = "6-K"
+    folder = source_root / "e7-sources" / "H01"
+    documents = [f"<DOCUMENT>\n<TYPE>6-K\n<SEQUENCE>1\n<FILENAME>filing.htm\n<TEXT>{primary}</TEXT>\n</DOCUMENT>"]
+    if with_release:
+        documents.append(f"<DOCUMENT>\n<TYPE>EX-99.1\n<SEQUENCE>2\n<FILENAME>release.htm\n"
+                         f"<TEXT>{exhibit}</TEXT>\n</DOCUMENT>")
+        path = folder / "release.htm"
+        path.write_text(exhibit, encoding="utf-8")
+        sha = hashlib.sha256(exhibit.encode()).hexdigest()
+        spec["source_packets"].append({"role": "earnings_exhibit", "path": "e7-sources/H01/release.htm",
+                                       "bytes": len(exhibit.encode()), "sha256": sha,
+                                       "provenance": {"representation": "httpx_decoded_response_text_utf8",
+                                                      "sha256": sha, "requested_url": "https://www.sec.gov/release.htm"}})
+    sgml = ("<SUBMISSION>\n<ACCESSION-NUMBER>0000000001-00-000001\n<TYPE>6-K\n"
+            f"<PUBLIC-DOCUMENT-COUNT>{len(documents)}\n<PERIOD>20251231\n<FILING-DATE>20260115\n"
+            "<FILER>\n<COMPANY-DATA>\n<CONFORMED-NAME>Test Company\n<CIK>0000000001\n"
+            "</COMPANY-DATA>\n</FILER>\n" + "\n".join(documents) + "\n</SUBMISSION>")
+    path = folder / "complete.txt"
+    path.write_text(sgml, encoding="utf-8")
+    sha = hashlib.sha256(sgml.encode()).hexdigest()
+    spec["source_packets"].append({"role": "complete_submission", "path": "e7-sources/H01/complete.txt",
+                                   "bytes": len(sgml.encode()), "sha256": sha,
+                                   "provenance": {"representation": "httpx_decoded_response_text_utf8",
+                                                  "sha256": sha, "requested_url": "https://www.sec.gov/complete.txt"}})
+    return source_root, spec, primary, exhibit
+
+
 def _configure(monkeypatch, invocation_dir, source_root):
     invocation_dir.mkdir()
     url = expected_database_url(invocation_dir)
@@ -173,14 +204,72 @@ async def test_stream_disabled_preserves_non_streaming_provider_mode(tmp_path, m
 
 
 @pytest.mark.asyncio
-async def test_sixk_exhibit_without_packet_identity_is_refused_before_provider(tmp_path, monkeypatch):
-    source_root, spec, _ = _source_fixture(tmp_path)
-    spec["filing_type"] = "6-K"
+@pytest.mark.parametrize("with_release", [True, False])
+async def test_sixk_uses_embedded_sdk_extractor_or_verified_primary_fallback(tmp_path, monkeypatch,
+                                                                             with_release):
+    source_root, spec, primary, exhibit = _sixk_fixture(tmp_path, with_release=with_release)
+    invocation_dir = tmp_path / "run"
+    config = _configure(monkeypatch, invocation_dir, source_root)
+    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=primary))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections", AsyncMock(return_value=None))
+    from edgar import attachments as edgar_attachments
+    from edgar.attachments import FilingHomepage
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("SDK network attempted")
+
+    monkeypatch.setattr(edgar_attachments, "download_file", no_network)
+    monkeypatch.setattr(FilingHomepage, "load", no_network)
+    seen = []
+
+    async def fake_summary(text, *_args, **kwargs):
+        seen.append(text)
+        if kwargs["stream_cb"]:
+            await kwargs["stream_cb"]("synthetic preview")
+        return json.loads(json.dumps(CANONICAL_PAYLOAD))
+
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", fake_summary)
+    receipt = await run_invocation(spec, invocation_dir, config, StubMeter())
+    assert receipt["status"] == "complete", receipt["errors"]
+    assert receipt["source_identity"] == "archived_sgml_verified"
+    assert ("Revenue was 10 million dollars" if with_release else primary) in seen[0]
+    calls = json.loads((invocation_dir / "grounding.json").read_text())["source_calls"]
+    assert any(call.get("complete_submission_sha256") == spec["source_packets"][-1]["sha256"] for call in calls)
+    assert any(call.get("source_packet_match") == "verified_complete_submission" for call in calls)
+
+
+@pytest.mark.asyncio
+async def test_sixk_embedded_exhibit_mismatch_stops_before_provider(tmp_path, monkeypatch):
+    source_root, spec, _, _ = _sixk_fixture(tmp_path)
+    exhibit_packet = next(p for p in spec["source_packets"] if p["role"] == "earnings_exhibit")
+    exhibit_path = source_root / exhibit_packet["path"]
+    exhibit_path.write_text(exhibit_path.read_text() + " altered", encoding="utf-8")
+    exhibit_packet["bytes"] = exhibit_path.stat().st_size
+    exhibit_packet["sha256"] = hashlib.sha256(exhibit_path.read_bytes()).hexdigest()
+    exhibit_packet["provenance"]["sha256"] = exhibit_packet["sha256"]
     invocation_dir = tmp_path / "run"
     config = _configure(monkeypatch, invocation_dir, source_root)
     summarize = AsyncMock(return_value=CANONICAL_PAYLOAD)
     monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", summarize)
-    with pytest.raises(InvalidMeasurement, match="6-K exhibit text lacks"):
+    with pytest.raises(InvalidMeasurement, match="embedded earnings exhibit differs"):
         await run_invocation(spec, invocation_dir, config, StubMeter())
     summarize.assert_not_awaited()
+    assert not (invocation_dir / "invocation.sqlite3").exists()
+
+
+@pytest.mark.asyncio
+async def test_sixk_wrong_sgml_identity_stops_before_database(tmp_path, monkeypatch):
+    source_root, spec, _, _ = _sixk_fixture(tmp_path)
+    submission = next(p for p in spec["source_packets"] if p["role"] == "complete_submission")
+    path = source_root / submission["path"]
+    path.write_text(path.read_text().replace("<ACCESSION-NUMBER>0000000001-00-000001",
+                                             "<ACCESSION-NUMBER>0000000001-00-000002"), encoding="utf-8")
+    submission["bytes"] = path.stat().st_size
+    submission["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    submission["provenance"]["sha256"] = submission["sha256"]
+    invocation_dir = tmp_path / "run"
+    config = _configure(monkeypatch, invocation_dir, source_root)
+    with pytest.raises(InvalidMeasurement, match="parsed identity differs"):
+        await run_invocation(spec, invocation_dir, config, StubMeter())
     assert not (invocation_dir / "invocation.sqlite3").exists()
