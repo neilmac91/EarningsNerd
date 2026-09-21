@@ -210,7 +210,7 @@ def test_render_v2_risks_role_and_table():
 def test_render_v2_segments_has_operating_income_column():
     section = _by_title(summary_sections.render_sections(_raw_v2()))["Segments"]
     block = section.blocks[0]
-    assert block.headers == ["Segment", "Revenue", "Operating Income", "Change", "Commentary"]
+    assert block.headers == ["Segment", "Revenue", "Operating Income", "Revenue Change", "Commentary"]
     assert block.rows[0] == ["Datacenter", "$30.8B", "$18.2B", "+112%", "AI demand"]
 
 
