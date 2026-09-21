@@ -273,3 +273,26 @@ async def test_sixk_wrong_sgml_identity_stops_before_database(tmp_path, monkeypa
     with pytest.raises(InvalidMeasurement, match="parsed identity differs"):
         await run_invocation(spec, invocation_dir, config, StubMeter())
     assert not (invocation_dir / "invocation.sqlite3").exists()
+
+
+@pytest.mark.asyncio
+async def test_sixk_swallowed_sdk_fallback_still_marks_receipt_incomplete(tmp_path, monkeypatch):
+    source_root, spec, primary, _ = _sixk_fixture(tmp_path)
+    invocation_dir = tmp_path / "run"
+    config = _configure(monkeypatch, invocation_dir, source_root)
+    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=primary))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections", AsyncMock(return_value=None))
+    from app.services.edgar import sixk_extractor
+    from edgar import attachments as edgar_attachments
+
+    def force_sdk_fallback(*_args):
+        return edgar_attachments.download_file("https://www.sec.gov/unexpected")
+
+    monkeypatch.setattr(sixk_extractor, "_extract_sixk_text_sync", force_sdk_fallback)
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing",
+                        AsyncMock(return_value=CANONICAL_PAYLOAD))
+    receipt = await run_invocation(spec, invocation_dir, config, StubMeter())
+    assert receipt["status"] == "incomplete"
+    assert receipt["source_identity"] == "incomplete"
+    assert "6-K SDK attempted network fallback" in receipt["errors"]

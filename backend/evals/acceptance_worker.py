@@ -288,6 +288,7 @@ async def run_invocation(
         grounding["source_calls"].append(sixk_source)
     source_ok = sixk_source is not None
     sixk_used = False
+    sixk_violations: list[str] = []
     summarizer_return_statuses: list[str] = []
     terminal_events: list[str] = []
     preview_errors: list[str] = []
@@ -321,9 +322,11 @@ async def run_invocation(
         async def measured_sixk(accession: str, cik: str) -> Any:
             nonlocal sixk_used
             if accession != filing_spec["accession_number"] or str(cik) != str(filing_spec["cik"]):
+                sixk_violations.append("6-K extractor requested a different accession/CIK")
                 raise InvalidMeasurement("6-K extractor requested a different accession/CIK")
             sixk_used = True
             if sixk_filing is None:
+                sixk_violations.append("6-K source binding missing")
                 raise InvalidMeasurement("6-K source binding missing")
             from app.services.edgar import sixk_extractor
             from edgar import attachments as edgar_attachments
@@ -346,6 +349,7 @@ async def run_invocation(
                     patch.object(FilingHomepage, "load", refuse_fallback):
                 content = await original_sixk(accession, cik)
             if attempted_fallback:
+                sixk_violations.append("6-K SDK attempted network fallback")
                 raise InvalidMeasurement("6-K SDK attempted network fallback")
             encoded = content.encode("utf-8") if isinstance(content, str) else b""
             grounding["source_calls"].append({"owner": "get_sixk_text", "accession": accession,
@@ -444,8 +448,12 @@ async def run_invocation(
                     export_service.generate_pdf_html(summary, filing), encoding="utf-8")
                 receipt["artifacts"].update(rendered_summary="rendered_summary.md",
                                             rendered_sections="rendered_sections.json", export_html="export.html")
-        receipt["source_identity"] = ("archived_sgml_verified" if source_ok and sixk_used else
+        receipt["source_identity"] = ("archived_sgml_verified" if source_ok and sixk_used and
+                                      not sixk_violations else
                                       "primary_verified" if source_ok else "incomplete")
+        if sixk_violations:
+            receipt["source_identity"] = "incomplete"
+            receipt["errors"].extend(sixk_violations)
         if not source_ok:
             receipt["errors"].append("Primary source was not fetched and hash-verified by production SEC service")
         if terminal_events != ["complete"]:
