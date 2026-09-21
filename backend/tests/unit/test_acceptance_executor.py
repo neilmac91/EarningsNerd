@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +20,54 @@ _MANIFEST = Path(__file__).resolve().parents[3] / "tasks/review-evidence/accepta
 def _write(path: Path, value: dict) -> Path:
     path.write_text(json.dumps(value), encoding="utf-8")
     return path
+
+
+def _git(root: Path, *arguments: str) -> str:
+    return subprocess.check_output(["git", *arguments], cwd=root, text=True).strip()
+
+
+def test_frozen_checkout_requires_reviewed_meter_bytes_in_both_trees(tmp_path: Path, monkeypatch) -> None:
+    checkout, executing = tmp_path / "checkout", tmp_path / "executing"
+    checkout.mkdir()
+    _git(checkout, "init", "-q")
+    for relative in executor.MEASUREMENT_FILES[:-1]:
+        path = checkout / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"reviewed {relative}", encoding="utf-8")
+    requirements = checkout / "backend/requirements.txt"
+    requirements.write_text("synthetic dependency lock\n", encoding="utf-8")
+
+    def commit(message: str) -> str:
+        _git(checkout, "add", ".")
+        _git(checkout, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+             "commit", "-qm", message)
+        return _git(checkout, "rev-parse", "HEAD")
+
+    missing_commit = commit("missing provider hook")
+    hook = checkout / executor.MEASUREMENT_FILES[-1]
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("reviewed provider hook", encoding="utf-8")
+    reviewed_commit = commit("complete reviewed instrumentation")
+    for relative in executor.MEASUREMENT_FILES:
+        destination = executing / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((checkout / relative).read_bytes())
+    monkeypatch.setattr(executor, "__file__", str(executing / "backend/evals/acceptance_executor.py"))
+    config = {"checkout_path": str(checkout), "source_commit": reviewed_commit,
+              "dependency_lock_sha256": executor.sha(requirements)}
+    assert executor.frozen_checkout(config, reviewed_commit) == checkout
+    with pytest.raises(ValueError, match="reviewed instrumentation lacks"):
+        executor.frozen_checkout(config, missing_commit)
+
+    (executing / executor.MEASUREMENT_FILES[0]).write_text("unreviewed controller", encoding="utf-8")
+    with pytest.raises(ValueError, match="executing controller differs"):
+        executor.frozen_checkout(config, reviewed_commit)
+    (executing / executor.MEASUREMENT_FILES[0]).write_bytes(
+        (checkout / executor.MEASUREMENT_FILES[0]).read_bytes())
+    hook.write_text("drifted provider hook", encoding="utf-8")
+    config["source_commit"] = commit("candidate checkout meter drift")
+    with pytest.raises(ValueError, match="frozen checkout differs"):
+        executor.frozen_checkout(config, reviewed_commit)
 
 
 def test_approved_manifest_plans_exact_candidate_and_comparator_slots() -> None:
@@ -45,6 +94,10 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     assert "production.invalid" not in json.dumps(env)
     assert "ambient-key-must-not-cross" not in json.dumps(env)
     assert "ambient-stripe-must-not-cross" not in json.dumps(env)
+    for key in ("PYTHONPATH", "PYTHONHOME", "PATH", "DYLD_INSERT_LIBRARIES"):
+        contaminated = dict(config, effective_flags={key: "/untrusted"})
+        with pytest.raises(ValueError, match="unsupported process"):
+            executor.child_environment(invocation, contaminated, "explicit-fixture-key")
 
 
 def test_slot_meter_retains_anomaly_and_stops_after_settlement_failure(tmp_path: Path) -> None:
@@ -97,7 +150,7 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
         "uncached_input_per_million": "0.01", "max_output_per_million": "0.02"})
     prerequisites = _write(tmp_path / "prerequisites.json", {
         "candidate_config": {"path": config.name}, "pricing": {"path": pricing.name},
-        "budget_control": {"full_run_worst_case_usd": "10"}})
+        "budget_control": {"full_run_worst_case_usd": "10", "reviewed_commit": "a" * 40}})
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {
         "issues": [], "config_sha256": {"candidate": executor.sha(config)}})
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
@@ -129,11 +182,13 @@ async def test_worker_request_cannot_reenter_claimed_slot(tmp_path: Path, monkey
 
     config = _write(tmp_path / "config.json", {"source_commit": "a" * 40})
     ledger = tmp_path / "budget.sqlite3"
+    prerequisites = _write(tmp_path / "prerequisites.json", {
+        "budget_control": {"reviewed_commit": "a" * 40}})
     invocation = tmp_path / "attempt-1"
     invocation.mkdir()
     request = _write(tmp_path / "request.json", {
         "manifest": str(tmp_path / "manifest.json"), "archive": str(tmp_path),
-        "prerequisites": str(tmp_path / "prerequisites.json"), "config_path": str(config),
+        "prerequisites": str(prerequisites), "config_path": str(config),
         "config_sha256": executor.sha(config), "slot_id": "H01-candidate-1",
         "ledger": str(ledger), "pricing": {}, "stop_file": str(tmp_path / "STOP"),
         "invocation_dir": str(invocation), "filing": {}, "config": {}, "smoke_mode": False})
@@ -143,6 +198,7 @@ async def test_worker_request_cannot_reenter_claimed_slot(tmp_path: Path, monkey
                    (executor.sha(config), executor.sha(request)))
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})
     monkeypatch.setattr(executor, "BudgetLedger", lambda *_: object())
+    monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
     calls = []
 
     async def fake_invocation(*_):

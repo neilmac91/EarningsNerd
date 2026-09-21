@@ -1,0 +1,352 @@
+"""One-slot-at-a-time E7 measurement controller; no default paid action.
+
+Run from backend: python -m evals.acceptance_executor inspect --help.
+Each paid slot needs complete readiness and an explicit run-slot command. A failed or
+interrupted slot stops this programme; retained evidence is never redrawn or overwritten.
+The generator runs in a separate process/SQLite database using the frozen checkout's sole
+production orchestrator. This tool neither judges outputs nor grants acceptance.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from decimal import Decimal
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import sqlite3
+import subprocess
+import sys
+
+from evals.acceptance_budget import BudgetLedger, BudgetStopped
+from evals.acceptance_readiness import inspect_readiness
+
+COMPARATOR_SLOTS = {'H01', 'H03', 'H05', 'H07', 'H09', 'H14', 'H18', 'H23', 'H26', 'H29'}
+PROGRAMME = 'E7-2026-09-19-USD10'
+MEASUREMENT_FILES = (
+    'backend/evals/acceptance_executor.py',
+    'backend/evals/acceptance_worker.py',
+    'backend/evals/acceptance_budget.py',
+    'backend/evals/acceptance_readiness.py',
+    'backend/evals/acceptance_outputs.py',
+    'backend/app/services/ai/provider_requests.py',
+)
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text())
+
+
+def write_json(path, value):
+    path = Path(path)
+    temp = path.with_suffix(path.suffix + '.tmp')
+    with temp.open('w') as stream:
+        json.dump(value, stream, indent=2, ensure_ascii=False, allow_nan=False, default=str)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temp.replace(path)
+
+
+def sha(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def planned_slots(manifest):
+    rows = []
+    for filing in manifest['filings']:
+        for arm in ('candidate', 'comparator'):
+            if arm == 'comparator' and filing['holdout_id'] not in COMPARATOR_SLOTS:
+                continue
+            for draw in (1, 2, 3):
+                rows.append({'slot_id': f"{filing['holdout_id']}-{arm}-{draw}",
+                             'arm': arm, 'draw': draw, 'filing': filing})
+    return rows
+
+
+class SlotMeter:
+    """Durably retain each exact request before I/O; never write credentials."""
+    def __init__(self, ledger, slot_id, directory, stop_file):
+        self.ledger, self.slot_id = ledger, slot_id
+        self.directory, self.stop_file = Path(directory), Path(stop_file)
+        self.records = []
+        self.failed = False
+
+    def _stop(self):
+        self.failed = True
+        with self.stop_file.open('a') as stream:
+            stream.flush()
+            os.fsync(stream.fileno())
+
+    def _save(self):
+        write_json(self.directory / 'provider_accounting.json', self.snapshot())
+
+    def reserve(self, request, operation, base_url):
+        if self.failed or self.stop_file.exists():
+            raise BudgetStopped('programme STOP file is present')
+        try:
+            identity = self.ledger.reserve(self.slot_id, request, operation, base_url)
+            self.records.append({'reservation_id': identity, 'request': request,
+                                 'operation': operation, 'base_url': base_url, 'status': 'pending'})
+            self._save()  # Disk errors prevent I/O; the reservation remains charged.
+            return identity
+        except BaseException:
+            self._stop()
+            raise
+
+    def settle(self, identity, usage, actual_model, outcome):
+        try:
+            record = next(row for row in self.records if row['reservation_id'] == identity)
+            record.update(status='settlement_started', usage=usage, actual_model=actual_model, outcome=outcome)
+            self._save()
+            self.ledger.settle(identity, usage, actual_model, outcome)
+            record['status'] = 'settled'
+            self._save()
+        except BaseException:
+            self._stop()
+            raise
+
+    def snapshot(self):
+        return {'ledger': self.ledger.snapshot(), 'slot_id': self.slot_id, 'records': self.records}
+
+
+@contextmanager
+def programme_lock(root):
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / 'programme.lock').open('a') as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream, fcntl.LOCK_UN)
+
+
+def frozen_checkout(config, reviewed_commit):
+    """Require the executing and selected trees to use the reviewed meter code."""
+    if not isinstance(reviewed_commit, str) or not re.fullmatch(r'[0-9a-f]{40}', reviewed_commit):
+        raise ValueError('budget control needs a full reviewed instrumentation commit')
+    root = Path(config['checkout_path']).resolve(strict=True)
+    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=root, text=True).strip()
+    if head != config['source_commit'] or dirty:
+        raise ValueError('generator checkout must be clean and match its frozen full commit')
+    if sha(root / 'backend/requirements.txt') != config['dependency_lock_sha256']:
+        raise ValueError('frozen dependency lock mismatch')
+    if not (root / 'backend/evals/acceptance_worker.py').is_file():
+        raise ValueError('frozen checkout lacks reviewed measurement instrumentation')
+    if (root / 'backend/.env').exists() or (root / '.env').exists():
+        raise ValueError('measurement checkout must not contain dotenv credentials')
+    try:
+        kind = subprocess.check_output(['git', 'cat-file', '-t', reviewed_commit], cwd=root, text=True).strip()
+    except subprocess.CalledProcessError as error:
+        raise ValueError('reviewed instrumentation commit is unavailable') from error
+    if kind != 'commit':
+        raise ValueError('reviewed instrumentation reference is not a commit')
+    executing_root = Path(__file__).resolve().parents[2]
+    for relative in MEASUREMENT_FILES:
+        try:
+            reviewed = subprocess.check_output(['git', 'show', f'{reviewed_commit}:{relative}'], cwd=root)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(f'reviewed instrumentation lacks {relative}') from error
+        for tree, label in ((root, 'frozen checkout'), (executing_root, 'executing controller')):
+            candidate = tree / relative
+            if candidate.is_symlink() or not candidate.is_file() or candidate.read_bytes() != reviewed:
+                raise ValueError(f'{label} differs from reviewed instrumentation: {relative}')
+    return root
+
+
+def child_environment(invocation, config, api_key):
+    from evals.acceptance_worker import REQUIRED_FROZEN_SETTINGS
+    frozen = dict(config['effective_settings'], **config['effective_flags'])
+    if set(frozen) - REQUIRED_FROZEN_SETTINGS:
+        raise ValueError('frozen settings include an unsupported process or credential control')
+    env = {key: os.environ[key] for key in ('PATH', 'DYLD_FALLBACK_LIBRARY_PATH') if key in os.environ}
+    env.update({key: json.dumps(value) if not isinstance(value, str) else value
+                for key, value in frozen.items()})
+    env.update(DATABASE_URL='sqlite:///' + str(invocation / 'invocation.sqlite3'),
+               SECRET_KEY=secrets.token_hex(32), OPENAI_API_KEY=api_key,
+               POSTHOG_API_KEY='', SENTRY_DSN='', RESEND_API_KEY='', STRIPE_SECRET_KEY='',
+               AI_FALLBACK_API_KEY='', AI_FALLBACK_MODEL='', AI_FALLBACK_BASE_URL='',
+               INTERNAL_JOB_TOKEN='', SKIP_REDIS_INIT='true',
+               EDGAR_LOCAL_DATA_DIR=str(invocation.parent / 'edgar-cache'),
+               PYTHONPYCACHEPREFIX=str(invocation.parent / 'pycache'))
+    return env
+
+
+def claim_worker(request_path, request):
+    """Exactly one child may consume the immutable slot request, even after parent death."""
+    with sqlite3.connect(request['ledger']) as db:
+        cursor = db.execute("""UPDATE slots SET status='worker_claimed'
+            WHERE id=? AND status='running' AND config_sha=? AND request_sha=?""",
+            (request['slot_id'], request['config_sha256'], sha(request_path)))
+        if cursor.rowcount != 1:
+            raise BudgetStopped('worker request already claimed or its identity changed')
+
+
+def run_slot(args):
+    """Explicit dispatch only, after all offline/human prerequisites. No automatic next slot."""
+    manifest_path, prerequisites_path = Path(args.manifest).resolve(), Path(args.prerequisites).resolve()
+    status = inspect_readiness(manifest_path, args.archive, prerequisites_path)
+    smoke_mode = args.command == 'run-smoke'
+    blocking = [issue for issue in status['issues']
+                if not (smoke_mode and issue['code'] == 'development_smoke_invalid')]
+    if blocking:
+        raise ValueError('E7 readiness is incomplete: ' + json.dumps(status['issues']))
+    prerequisites = read_json(prerequisites_path)
+    slots = planned_slots(read_json(manifest_path))
+    if smoke_mode:
+        smoke = read_json(args.smoke_spec)
+        if smoke['accession_number'] in {row['filing']['accession_number'] for row in slots}:
+            raise ValueError('development smoke cannot expose an acceptance filing')
+        args.slot = 'development-smoke'
+        selected = {'slot_id': args.slot, 'arm': 'candidate', 'draw': 0, 'filing': smoke}
+    else:
+        selected = next((row for row in slots if row['slot_id'] == args.slot), None)
+    if selected is None:
+        raise ValueError('slot must be one of the 120 frozen candidate/comparator identities')
+    config_ref = prerequisites[selected['arm'] + '_config']
+    config_path = (prerequisites_path.parent / config_ref['path']).resolve()
+    config = read_json(config_path)
+    budget_control = prerequisites['budget_control']
+    checkout = frozen_checkout(config, budget_control['reviewed_commit'])
+    if smoke_mode:
+        goldens = read_json(checkout / 'backend/evals/golden_set.json')
+        goldens = goldens if isinstance(goldens, list) else goldens['filings']
+        identity = ('accession_number', 'cik', 'filing_type', 'document_url', 'ticker')
+        if not any(all(str(item[k]) == str(smoke[k]) for k in identity) for item in goldens):
+            raise ValueError('smoke identity must match an existing development golden')
+    price_path = (prerequisites_path.parent / prerequisites['pricing']['path']).resolve()
+    pricing = read_json(price_path)
+    worst = (Decimal(str(pricing['uncached_input_per_million'])) * 660_000 +
+             Decimal(str(pricing['max_output_per_million'])) * 45_400) * 242 / 1_000_000 + Decimal('0.005088')
+    if Decimal(str(budget_control['full_run_worst_case_usd'])) < worst:
+        raise ValueError('declared programme worst-case cost understates the frozen tariff calculation')
+    api_key = os.environ.get('E7_GENERATOR_API_KEY', '')
+    if not api_key:
+        raise ValueError('explicit E7_GENERATOR_API_KEY is required; no production secret lookup')
+    root = Path(args.programme).resolve()
+    with programme_lock(root):
+        if (root / 'STOP').exists():
+            raise BudgetStopped('programme STOP file is present')
+        ledger_path = root / 'budget.sqlite3'
+        ledger = BudgetLedger(ledger_path, pricing, PROGRAMME)
+        if ledger.snapshot()['pending'] or ledger.snapshot()['stop_reason']:
+            raise BudgetStopped('pending or stopped accounting requires triage')
+        # One physical programme ledger must also include the approved development smoke.
+        # A receipt is insufficient: require its charged reservations in this same ledger.
+        with sqlite3.connect(ledger_path) as db:
+            smoke = db.execute("SELECT COUNT(*) FROM reservations WHERE slot_id='development-smoke'").fetchone()[0]
+            if not smoke and not smoke_mode:
+                raise BudgetStopped('approved development smoke must be charged to this ledger first')
+            binding = json.dumps({'manifest': sha(manifest_path),
+                                 'configs': status['config_sha256']}, sort_keys=True)
+            db.execute('CREATE TABLE IF NOT EXISTS binding (id INTEGER PRIMARY KEY, value TEXT)')
+            previous = db.execute('SELECT value FROM binding WHERE id=1').fetchone()
+            if previous and previous[0] != binding:
+                raise BudgetStopped('manifest or frozen configuration changed during programme')
+            db.execute('INSERT OR IGNORE INTO binding VALUES (1, ?)', (binding,))
+            db.execute('CREATE TABLE IF NOT EXISTS slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)')
+            if db.execute("SELECT COUNT(*) FROM slots WHERE status!='completed'").fetchone()[0]:
+                raise BudgetStopped('failed or interrupted slot requires triage; no redraw')
+            db.execute('INSERT INTO slots VALUES (?, ?, ?, NULL)', (args.slot, sha(config_path), 'preparing'))
+            db.commit()
+        slot_dir = root / args.slot
+        slot_dir.mkdir(exist_ok=False)
+        invocation = slot_dir / 'attempt-1'
+        invocation.mkdir()
+        request = {'filing': selected['filing'], 'config': dict(config, source_root=str(Path(args.archive).resolve()),
+                   expected_commit=config['source_commit'], allow_sec_network=True, allow_provider=True,
+                   frozen_settings=dict(config['effective_settings'], **config['effective_flags'])),
+                   'invocation_dir': str(invocation), 'ledger': str(ledger_path), 'pricing': pricing,
+                   'slot_id': args.slot, 'stop_file': str(root / 'STOP')}
+        request.update(manifest=str(manifest_path), prerequisites=str(prerequisites_path),
+                       archive=str(Path(args.archive).resolve()), smoke_mode=smoke_mode,
+                       config_path=str(config_path), config_sha256=sha(config_path))
+        request_path = slot_dir / 'request.json'
+        write_json(request_path, request)
+        with sqlite3.connect(ledger_path) as db:
+            db.execute("UPDATE slots SET status='running', request_sha=? WHERE id=?",
+                       (sha(request_path), args.slot))
+        write_json(slot_dir / 'selection.json', dict(selected, config_sha256=sha(config_path),
+                   manifest_sha256=sha(manifest_path), started_at=datetime.now(timezone.utc).isoformat()))
+        result = None
+        try:
+            with (slot_dir / 'worker.log').open('w') as log:
+                process = subprocess.run([sys.executable, '-m', 'evals.acceptance_executor',
+                    'worker', '--request', str(request_path)], cwd=checkout / 'backend',
+                    env=child_environment(invocation, config, api_key), stdout=log, stderr=subprocess.STDOUT,
+                    timeout=600, check=False)
+            result_path = invocation / 'result.json'
+            result = read_json(result_path) if result_path.is_file() else None
+            if process.returncode or not result or result.get('status') != 'complete' or not result.get('eligible_for_measurement'):
+                raise BudgetStopped('invocation incomplete; retained artifacts require triage')
+            snapshot = ledger.snapshot()
+            if snapshot['stop_reason'] or snapshot['pending']:
+                raise BudgetStopped('unreconciled or stopped provider accounting')
+            with sqlite3.connect(ledger_path) as db:
+                db.execute("UPDATE slots SET status='completed' WHERE id=?", (args.slot,))
+            return result
+        except BaseException:
+            (root / 'STOP').touch(exist_ok=True)
+            with sqlite3.connect(ledger_path) as db:
+                db.execute("UPDATE slots SET status='incomplete' WHERE id=?", (args.slot,))
+            raise
+
+
+async def worker(args):
+    # Import app code only inside the isolated child after its environment has been set.
+    from evals.acceptance_worker import run_invocation
+    request = read_json(args.request)
+    status = inspect_readiness(request['manifest'], request['archive'], request['prerequisites'])
+    blocking = [issue for issue in status['issues']
+                if not (request.get('smoke_mode') and issue['code'] == 'development_smoke_invalid')]
+    if blocking or sha(request['config_path']) != request['config_sha256']:
+        raise ValueError('child readiness or configuration changed')
+    prerequisites = read_json(request['prerequisites'])
+    frozen_checkout(read_json(request['config_path']), prerequisites['budget_control']['reviewed_commit'])
+    claim_worker(args.request, request)
+    invocation = Path(request['invocation_dir'])
+    meter = SlotMeter(BudgetLedger(request['ledger'], request['pricing'], PROGRAMME),
+                      request['slot_id'], invocation, request['stop_file'])
+    result = await run_invocation(request['filing'], invocation, request['config'], meter)
+    write_json(invocation / 'result.json', result)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest='command', required=True)
+    for name in ('inspect', 'run-slot', 'run-smoke'):
+        command = commands.add_parser(name)
+        command.add_argument('--manifest', required=True)
+        command.add_argument('--archive', required=True)
+        command.add_argument('--prerequisites', required=True)
+        if name in ('run-slot', 'run-smoke'):
+            command.add_argument('--programme', required=True)
+            command.add_argument('--slot' if name == 'run-slot' else '--smoke-spec', required=True)
+    child = commands.add_parser('worker')
+    child.add_argument('--request', required=True)
+    collect = commands.add_parser('collect')
+    collect.add_argument('--programme', required=True)
+    collect.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'inspect':
+        result = inspect_readiness(args.manifest, args.archive, args.prerequisites)
+    elif args.command in ('run-slot', 'run-smoke'):
+        result = run_slot(args)
+    elif args.command == 'collect':
+        from evals.acceptance_outputs import collect_outputs
+        result = collect_outputs(args.programme, args.output)
+    else:
+        result = asyncio.run(worker(args))
+    print(json.dumps(result, indent=2, default=str))
+
+
+if __name__ == '__main__':
+    main()
