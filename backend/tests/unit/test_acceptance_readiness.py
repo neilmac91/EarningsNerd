@@ -150,12 +150,22 @@ def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path) -> 
     assert ready["ready_for_paid_execution"] is True
     assert ready["source_packets_verified"] == 92
     preflight = json.loads(fixture["preflight"].read_text())
-    preflight["reference_briefs"].pop()
+    removed_brief = preflight["reference_briefs"].pop()
     fixture["preflight"].write_text(json.dumps(preflight))
     missing = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
     assert missing["ready_for_paid_execution"] is False
     assert "reference_brief_coverage" in {item["code"] for item in missing["issues"]}
+    preflight["reference_briefs"].append(removed_brief)
+    future = (fixture["now"] + timedelta(days=1)).isoformat()
+    for person in (preflight["reviewers"][0], preflight["adjudicator"]):
+        person["commitment_date"] = future
+        fixture["preflight"].write_text(json.dumps(preflight))
+        not_committed = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                          expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+        assert not_committed["ready_for_paid_execution"] is False
+        assert "human_commitment" in {item["code"] for item in not_committed["issues"]}
+        person["commitment_date"] = (fixture["now"] - timedelta(hours=2)).isoformat()
 
 
 def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path) -> None:
@@ -173,7 +183,26 @@ def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path
     assert "pricing_invalid" in {item["code"] for item in mismatch["issues"]}
 
     price["model"] = "deepseek-flash"
+    price["base_url"] += "/"
     preflight["pricing"].update(_write(price_path, price))
+    fixture["preflight"].write_text(json.dumps(preflight))
+    slash_mismatch = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                       expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert slash_mismatch["ready_for_paid_execution"] is False
+    assert "pricing_invalid" in {item["code"] for item in slash_mismatch["issues"]}
+    price["base_url"] = price["base_url"].rstrip("/")
+    preflight["pricing"].update(_write(price_path, price))
+    config_path = evidence / preflight["candidate_config"]["path"]
+    candidate_config = json.loads(config_path.read_text())
+    candidate_config["base_url"] += "/"
+    preflight["candidate_config"].update(_write(config_path, candidate_config))
+    fixture["preflight"].write_text(json.dumps(preflight))
+    config_slash_mismatch = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                              expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert config_slash_mismatch["ready_for_paid_execution"] is False
+    assert "pricing_invalid" in {item["code"] for item in config_slash_mismatch["issues"]}
+    candidate_config["base_url"] = candidate_config["base_url"].rstrip("/")
+    preflight["candidate_config"].update(_write(config_path, candidate_config))
     preflight["budget_control"]["full_run_worst_case_usd"] = 12
     fixture["preflight"].write_text(json.dumps(preflight))
     over_ceiling = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],

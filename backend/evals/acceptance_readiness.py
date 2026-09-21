@@ -226,7 +226,8 @@ def inspect_readiness(
         if (not isinstance(person, dict) or not str(person.get("competence", "")).strip() or
                 not isinstance(person.get("committed_hours"), (int, float)) or
                 isinstance(person.get("committed_hours"), bool) or person["committed_hours"] <= 0 or
-                _utc(person.get("commitment_date")) is None):
+                _utc(person.get("commitment_date")) is None or
+                _utc(person.get("commitment_date")) > now):
             _issue(issues, "human_commitment", "each person needs competence, hours and dated commitment")
             break
 
@@ -298,7 +299,7 @@ def inspect_readiness(
                 raise ValueError("effective configuration incomplete")
             config_hashes[arm] = record["sha256"]
             config_models[arm] = config["model"]
-            config_bases[arm] = config["base_url"].rstrip("/")
+            config_bases[arm] = config["base_url"]
         except (OSError, TypeError, ValueError) as exc:
             _issue(issues, "config_invalid", f"{arm}: {type(exc).__name__}")
 
@@ -318,7 +319,7 @@ def inspect_readiness(
                 expires = _utc(evidence.get("valid_until")) if evidence else None
                 if (evidence is None or set(evidence) != _PRICING_FIELDS or
                         set(config_models.values()) != {evidence.get("model")} or
-                        len(config_models) != 2 or set(config_bases.values()) != {str(evidence.get("base_url", "")).rstrip("/")} or
+                        len(config_models) != 2 or set(config_bases.values()) != {evidence.get("base_url")} or
                         len(config_bases) != 2 or evidence.get("official_source") != record.get("official_url") or
                         verified is None or verified > observed or expires is None or expires <= verified or
                         any(not _positive_price(evidence.get(key)) for key in
