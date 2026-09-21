@@ -2,15 +2,34 @@
 -- synthetic eligible_ids array and UTC bounds. These are READ-ONLY templates.
 -- Use only verified, non-excluded IDs from db_roster.sql. Empty cohort: do not
 -- execute with [0]; report no eligible users. IDs are not email/person traits.
--- In A and B, edit only the eligible CTE; event filters read that same ID set.
+-- In A and B, edit only the eligible CTE. Events join through PostHog's
+-- resolved person identity; shared/missing numeric account IDs stay unknown.
 
--- A. Per-person observation, activation and generation. One row for EACH eligible
--- user, including people with no observed event. `client_unobserved` is unknown,
--- not a measured inactive/non-consenting account. Backend events do not prove
--- consent. Count distinct people for activation, not repeated render events.
-WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
+-- A. Per-person cohort-associated observation and generation. One row for EACH
+-- eligible user, including people with no observed event. A merged anonymous
+-- view is not proof of signed-in activation at event time. `client_unobserved`
+-- is unknown, not a measured inactive/non-consenting account. Backend events
+-- do not prove consent. See identity/provenance limits in README.md.
+WITH eligible AS (SELECT DISTINCT arrayJoin([1001, 1002]) AS user_id),
+numeric_person_ids AS (
+  -- Current PostHog view: one row per distinct_id; count ALL numeric account
+  -- anchors, not only eligible IDs, so a shared person is never attributed.
+  SELECT person_id, count() AS numeric_id_count
+  FROM person_distinct_ids
+  WHERE match(distinct_id, '^[1-9][0-9]*$')
+  GROUP BY person_id
+),
+linked AS (
+  SELECT e.user_id, pdi.person_id, n.numeric_id_count
+  FROM eligible e
+  INNER JOIN person_distinct_ids pdi ON pdi.distinct_id = toString(e.user_id)
+  INNER JOIN numeric_person_ids n ON n.person_id = pdi.person_id
+),
+resolved AS (
+  SELECT user_id, person_id FROM linked WHERE numeric_id_count = 1
+),
 observed AS (
-  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
+  SELECT r.user_id,
          -- Only names emitted in the browser. Server generation/cost events below
          -- are measured separately and cannot establish client coverage or consent.
          countIf(event IN (
@@ -36,9 +55,10 @@ observed AS (
          countIf(event = 'analysis_inference_cost') AS fresh_analysis_cost_observations,
          sumIf(toFloatOrZero(toString(properties.cost_usd)), event = 'analysis_inference_cost') AS fresh_analysis_cost_usd
   FROM events
+  -- HogQL resolves events.person_id through person-merge overrides.
+  INNER JOIN resolved r ON events.person_id = r.person_id
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-09-28 00:00:00', 'UTC')
-    AND toIntOrZero(toString(distinct_id)) IN (SELECT user_id FROM eligible)
     AND event IN (
       'signup_started', 'signup_submitted', 'login_completed', 'logout',
       'company_searched', 'company_search_result_clicked', 'company_viewed', 'example_cta_clicked',
@@ -53,28 +73,52 @@ observed AS (
       'quick_access_click', '$pageview',
       'generation_started', 'generation_succeeded', 'generation_failed',
       'generation_timed_out', 'analysis_inference_cost')
-  GROUP BY user_id
+  GROUP BY r.user_id
 )
 SELECT e.user_id,
+       if(r.user_id = e.user_id, 'resolved',
+          if(l.user_id = e.user_id, 'ambiguous_numeric_identity', 'unresolved_identity')) AS identity_status,
        if(o.client_events > 0, 'client_observed', 'client_unobserved_unknown') AS client_coverage,
-       if(o.client_events > 0, o.summary_view_events > 0, NULL) AS consumed_summary,
-       if(o.client_events > 0 AND o.summary_view_events > 0, o.first_summary_view_at, NULL) AS first_summary_view_at,
+       if(o.client_events > 0, o.summary_view_events > 0, NULL) AS cohort_associated_summary_view_observed,
+       if(o.client_events > 0 AND o.summary_view_events > 0, o.first_summary_view_at, NULL) AS first_cohort_associated_summary_view_at,
+       NULL AS signed_in_activation,
        o.summary_view_events, o.citation_click_events, o.fresh_generation_attempt_events,
        o.fresh_generation_success_events, o.fresh_generation_partial_events,
        o.fresh_generation_failure_events,
        o.analysis_attempt_events, o.fresh_analysis_cost_observations,
        o.fresh_analysis_cost_usd
-FROM eligible e LEFT JOIN observed o ON e.user_id = o.user_id
+FROM eligible e
+LEFT JOIN linked l ON e.user_id = l.user_id
+LEFT JOIN resolved r ON e.user_id = r.user_id
+LEFT JOIN observed o ON e.user_id = o.user_id
 ORDER BY e.user_id;
 
--- B. Summary weekly return. A second ISO week must contain a DIFFERENT filing.
--- The result reports all eligible users, observed client coverage, observed
--- first views and returners. It cannot classify unobserved people as non-returners.
-WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
+-- B. Cohort-associated summary views in two ISO weeks on DIFFERENT filings.
+-- Retrospective person linkage cannot prove a signed-in weekly return at event
+-- time. Unresolved/ambiguous identities and unobserved clients stay unknown.
+WITH eligible AS (SELECT DISTINCT arrayJoin([1001, 1002]) AS user_id),
+numeric_person_ids AS (
+  -- Same current, deduplicated identity view and all-account ambiguity guard.
+  SELECT person_id, count() AS numeric_id_count
+  FROM person_distinct_ids
+  WHERE match(distinct_id, '^[1-9][0-9]*$')
+  GROUP BY person_id
+),
+linked AS (
+  SELECT e.user_id, pdi.person_id, n.numeric_id_count
+  FROM eligible e
+  INNER JOIN person_distinct_ids pdi ON pdi.distinct_id = toString(e.user_id)
+  INNER JOIN numeric_person_ids n ON n.person_id = pdi.person_id
+),
+resolved AS (
+  SELECT user_id, person_id FROM linked WHERE numeric_id_count = 1
+),
 in_window AS (
-  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
+  SELECT r.user_id,
          event, timestamp, properties.filing_id AS raw_filing_id
   FROM events
+  -- Use canonical person identity, not the raw event distinct_id UUID/string.
+  INNER JOIN resolved r ON events.person_id = r.person_id
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
     AND event IN (
@@ -89,7 +133,6 @@ in_window AS (
       'pricing_viewed', 'billing_cycle_toggled', 'checkout_started', 'error_occurred',
       'data_exported', 'account_deleted', 'pricing_experiment_exposed',
       'quick_access_click', '$pageview')
-    AND toIntOrZero(toString(distinct_id)) IN (SELECT user_id FROM eligible)
 ),
 client_seen AS (
   SELECT user_id FROM in_window GROUP BY user_id
@@ -110,14 +153,20 @@ returners AS (
   GROUP BY v1.user_id
 )
 SELECT count() AS eligible_verified_denominator,
+       countIf(r.user_id = e.user_id) AS identity_resolved_users,
+       countIf(l.user_id = e.user_id) - countIf(r.user_id = e.user_id) AS identity_ambiguous_users,
+       count() - countIf(l.user_id = e.user_id) AS identity_unresolved_users,
        countIf(cs.user_id = e.user_id) AS client_observed_coverage,
        count() - countIf(cs.user_id = e.user_id) AS client_unobserved_unknown,
-       countIf(v.user_id = e.user_id) AS observed_summary_consumers,
-       countIf(r.user_id = e.user_id) AS observed_later_week_new_filing_returners
+       countIf(v.user_id = e.user_id) AS cohort_associated_summary_viewers,
+       countIf(ret.user_id = e.user_id) AS cohort_associated_later_week_new_filing_viewers,
+       NULL AS signed_in_weekly_returners
 FROM eligible e
+LEFT JOIN linked l ON l.user_id = e.user_id
+LEFT JOIN resolved r ON r.user_id = e.user_id
 LEFT JOIN client_seen cs ON cs.user_id = e.user_id
 LEFT JOIN (SELECT user_id FROM views GROUP BY user_id) v ON v.user_id = e.user_id
-LEFT JOIN returners r ON r.user_id = e.user_id;
+LEFT JOIN returners ret ON ret.user_id = e.user_id;
 
 -- C. Notable card engagement; run only for an enabled, impression-bearing
 -- section. A disabled section's zero clicks says nothing about usefulness.

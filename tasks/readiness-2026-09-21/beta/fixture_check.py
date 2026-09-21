@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sqlite3
 import subprocess
 
 import psycopg2
@@ -73,14 +74,67 @@ def check_event_inventory() -> dict:
             "server_events_kept_out_of_coverage": sorted(SERVER_EVENTS_IN_QUERY_A)}
 
 
+def check_identity_schematic() -> dict:
+    """Exercise the identity join shape offline; this does not execute HogQL."""
+    db = sqlite3.connect(":memory:")
+    try:
+        db.executescript("""
+            CREATE TABLE eligible (user_id INTEGER PRIMARY KEY);
+            CREATE TABLE person_distinct_ids (
+              distinct_id TEXT PRIMARY KEY, person_id TEXT, is_numeric_account INTEGER
+            );
+            CREATE TABLE events (event_id TEXT PRIMARY KEY, distinct_id TEXT, person_id TEXT);
+            INSERT INTO eligible VALUES (1), (2), (3), (4);
+            INSERT INTO person_distinct_ids VALUES
+              ('1','p1',1), ('anon-1','p1',0),
+              ('2','p2',1), ('999','p2',1), ('anon-2','p2',0),
+              ('3','p3',1), ('anon-3a','p3',0), ('anon-3b','p3',0);
+            INSERT INTO events VALUES
+              ('numeric','1','p1'), ('linked-uuid','anon-1','p1'),
+              ('shared-person','anon-2','p2'),
+              ('multi-uuid-a','anon-3a','p3'), ('multi-uuid-b','anon-3b','p3'),
+              ('unlinked','orphan','p5');
+        """)
+        assert db.execute("SELECT count() FROM events WHERE distinct_id IN ('1','2','3','4')").fetchone()[0] == 1
+        rows = db.execute("""
+            WITH numeric_person_ids AS (
+              SELECT person_id, count() AS numeric_id_count
+              FROM person_distinct_ids WHERE is_numeric_account = 1 GROUP BY person_id
+            ), linked AS (
+              SELECT e.user_id, p.person_id, n.numeric_id_count FROM eligible e
+              JOIN person_distinct_ids p ON p.distinct_id = CAST(e.user_id AS TEXT)
+              JOIN numeric_person_ids n ON n.person_id = p.person_id
+            ), resolved AS (
+              SELECT user_id, person_id FROM linked WHERE numeric_id_count = 1
+            ), event_counts AS (
+              SELECT r.user_id, count() AS event_count FROM events ev
+              JOIN resolved r ON ev.person_id = r.person_id GROUP BY r.user_id
+            )
+            SELECT e.user_id, coalesce(c.event_count, 0),
+                   CASE WHEN r.user_id IS NOT NULL THEN 'resolved'
+                        WHEN l.user_id IS NOT NULL THEN 'ambiguous'
+                        ELSE 'unresolved' END
+            FROM eligible e LEFT JOIN linked l ON l.user_id = e.user_id
+            LEFT JOIN resolved r ON r.user_id = e.user_id
+            LEFT JOIN event_counts c ON c.user_id = e.user_id ORDER BY e.user_id
+        """).fetchall()
+        assert rows == [(1, 2, "resolved"), (2, 0, "ambiguous"),
+                        (3, 2, "resolved"), (4, 0, "unresolved")], rows
+        return {"raw_numeric_event_count": 1, "linked_event_counts": [2, 0, 2, 0],
+                "ambiguous_and_unresolved_remain_in_denominator": True}
+    finally:
+        db.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn", help="isolated local tranche_beta DSN")
     parser.add_argument("--inventory-only", action="store_true", help="check browser event names without PostgreSQL")
     args = parser.parse_args()
     inventory = check_event_inventory()
+    identity_schematic = check_identity_schematic()
     if args.inventory_only:
-        print(json.dumps(inventory, sort_keys=True))
+        print(json.dumps({**inventory, "identity_schematic": identity_schematic}, sort_keys=True))
         return
     if not args.dsn:
         parser.error("--dsn is required unless --inventory-only is used")
@@ -223,6 +277,7 @@ def main() -> None:
             print(json.dumps({
                 "database": "tranche_beta (temporary tables; transaction rolled back)",
                 "source_inventory": inventory,
+                "identity_schematic": identity_schematic,
                 "eligible_verified_ids": sorted(eligible),
                 "eligible_denominator": len(eligible),
                 "client_observed_fixture": 2,

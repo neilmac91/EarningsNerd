@@ -41,9 +41,9 @@ Repeat this sheet for week 1 and week 2. Use counts and exact denominators; for 
 |---|---|---|---|
 | Invites issued / reachable / redeemed / registrations / verified eligible | `[ ]` | `[ ]` | `db_roster.sql`, distinct eligible IDs; registration is pre-verification |
 | Client event coverage / unknown | `[ ]` | `[ ]` | observed client IDs / all verified eligible; missing is unknown |
-| First summary viewed; fresh generation outcomes | `[ ]` | `[ ]` | observed viewers / all eligible lower bound; fresh attempts/successes separate; exact cached-view count unknown |
+| First summary viewed; fresh generation outcomes | `[ ]` | `[ ]` | cohort-associated views are diagnostic; signed-in activation unknown without event-time account identity; fresh attempts/successes separate; exact cached-view count unknown |
 | First explicitly useful analysis; time to first useful output p50/p95 | `[unknown until session-linked evidence]` | `[ ]` | reviewed sessions with explicit usefulness / eligible; report coverage and timestamp basis |
-| Later ISO-week new-filing return | `[usually immature]` | `[ ]` | observed qualifying users / all eligible lower bound; `posthog.hogql` B |
+| Later ISO-week new-filing return | `[usually immature]` | `[ ]` | cohort-associated two-week views are diagnostic; signed-in return unknown without event-time account identity; `posthog.hogql` B |
 | Citation inspection and reported accuracy problems | `[ ]` | `[ ]` | `source_span_click` / observed summary viewers; support/quality evidence separately |
 | Accepted alert batches / first clicks | `[ ]` | `[ ]` | `db_support_alerts.sql`; all-user trend in OPERATIONS |
 | Feedback new / triaged / resolved; median first response | `[ ]` | `[ ]` | DB status counts; response timing from private owner sheet |
