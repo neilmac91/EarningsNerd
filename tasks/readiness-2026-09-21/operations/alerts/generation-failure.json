@@ -1,7 +1,7 @@
 {
   "displayName": "EarningsNerd: summary generation failed",
   "documentation": {
-    "content": "A backend request or earningsnerd-pregenerate job logged a summary stream exception or timeout. Inspect the filing-scoped log and related request/job execution. A pre-generation job can exit successfully after consuming a terminal error event, so the failed-execution metric alone is insufficient. This catches logged failures, not every handled fallback. See docs/OPERATIONS.md.",
+    "content": "A backend request or earningsnerd-pregenerate job logged a terminal summary error, structured extraction failure, timeout, or failed refresh-stale regeneration. Inspect the filing-scoped log and related request/job execution. A pre-generation job can consume a terminal error event, so the failed-execution metric alone is insufficient. This catches logged failures; see the operations alert source map for silent terminal paths and docs/OPERATIONS.md.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -9,9 +9,9 @@
   "notificationChannels": ["__CHANNEL__"],
   "alertStrategy": {"notificationRateLimit": {"period": "300s"}, "autoClose": "1800s"},
   "conditions": [{
-    "displayName": "Summary stream terminal error",
+    "displayName": "Summary generation terminal failure",
     "conditionMatchedLog": {
-      "filter": "((resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"earningsnerd-backend\") OR (resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"earningsnerd-pregenerate\")) AND ((severity>=ERROR AND (jsonPayload.message:\"Error in streaming summary\" OR textPayload:\"Error in streaming summary\")) OR (severity>=WARNING AND (jsonPayload.message:\"Pipeline timeout after\" OR textPayload:\"Pipeline timeout after\")))"
+      "filter": "((resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"earningsnerd-backend\") OR (resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"earningsnerd-pregenerate\")) AND ((jsonPayload.message:\"Error in streaming summary\" OR textPayload:\"Error in streaming summary\") OR (jsonPayload.message:\"Pipeline timeout after\" OR textPayload:\"Pipeline timeout after\") OR (jsonPayload.message:\"Structured extraction error\" OR textPayload:\"Structured extraction error\") OR (jsonPayload.message:\"drain terminal=error\" OR textPayload:\"drain terminal=error\") OR (jsonPayload.message:\"Filing not found during stream generation\" OR textPayload:\"Filing not found during stream generation\") OR (jsonPayload.message:\"Error fetching SEC document\" OR textPayload:\"Error fetching SEC document\") OR (jsonPayload.message:\"refresh-stale: regeneration failed for filing\" OR textPayload:\"refresh-stale: regeneration failed for filing\") OR (jsonPayload.message:\"refresh-stale: generation ended in a terminal error for filing\" OR textPayload:\"refresh-stale: generation ended in a terminal error for filing\"))"
     }
   }]
 }

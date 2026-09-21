@@ -1,7 +1,7 @@
 {
   "displayName": "EarningsNerd: SEC circuit opened",
   "documentation": {
-    "content": "The process-local sec_edgar breaker opened. Inspect SEC responses and fallback behavior; compare all active revisions/jobs. See docs/OPERATIONS.md.",
+    "content": "The process-local sec_edgar breaker opened or reopened in the backend service or a Cloud Run job. Inspect SEC responses and fallback behavior; compare active revisions and job executions. See the operations alert source map and docs/OPERATIONS.md.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -11,7 +11,7 @@
   "conditions": [{
     "displayName": "SEC breaker open transition",
     "conditionMatchedLog": {
-      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"earningsnerd-backend\" AND severity>=WARNING AND (jsonPayload.message:\"Circuit breaker 'sec_edgar' opened after\" OR textPayload:\"Circuit breaker 'sec_edgar' opened after\" OR jsonPayload.message:\"Circuit breaker 'sec_edgar' reopened after\" OR textPayload:\"Circuit breaker 'sec_edgar' reopened after\")"
+      "filter": "((resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"earningsnerd-backend\") OR resource.type=\"cloud_run_job\") AND ((jsonPayload.message:\"Circuit breaker 'sec_edgar' opened after\" OR textPayload:\"Circuit breaker 'sec_edgar' opened after\") OR (jsonPayload.message:\"Circuit breaker 'sec_edgar' reopened after\" OR textPayload:\"Circuit breaker 'sec_edgar' reopened after\"))"
     }
   }]
 }
