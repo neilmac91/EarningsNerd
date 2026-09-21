@@ -27,7 +27,7 @@ existing_check=$(gcloud monitoring uptime list-configs --project=earnings-nerd -
 if [ -z "$existing_check" ]; then
   gcloud monitoring uptime create "$check_name" --project=earnings-nerd \
     --resource-type=uptime-url --resource-labels=host=api.earningsnerd.io,project_id=earnings-nerd \
-    --protocol=https --path=/health/detailed --request-method=GET --status-codes=200 \
+    --protocol=https --port=443 --validate-ssl=true --path=/health/detailed --request-method=get --status-codes=200 \
     --matcher-type=matches-json-path --json-path='$.status' \
     --json-path-matcher-type=exact-match --matcher-content=healthy --period=1 --timeout=10
   existing_check=$(gcloud monitoring uptime list-configs --project=earnings-nerd --format=json |
@@ -38,8 +38,19 @@ check_id=${existing_check##*/}
 gcloud monitoring uptime describe "$existing_check" --project=earnings-nerd --format=json |
   jq -e '.monitoredResource.type == "uptime_url" and
          .monitoredResource.labels.host == "api.earningsnerd.io" and
+         .monitoredResource.labels.project_id == "earnings-nerd" and
+         .httpCheck.requestMethod == "GET" and .httpCheck.port == 443 and
+         .httpCheck.validateSsl == true and
+         (.httpCheck.acceptedResponseStatusCodes | length) == 1 and
+         .httpCheck.acceptedResponseStatusCodes[0].statusValue == 200 and
+         ((.httpCheck.acceptedResponseStatusCodes[0].statusClass // "STATUS_CLASS_UNSPECIFIED") == "STATUS_CLASS_UNSPECIFIED") and
+         ((.httpCheck.headers // {}) == {}) and ((.httpCheck.body // "") == "") and
+         .httpCheck.authInfo == null and .httpCheck.serviceAgentAuthentication == null and
+         ((.httpCheck.contentType // "TYPE_UNSPECIFIED") == "TYPE_UNSPECIFIED") and
+         ((.httpCheck.customContentType // "") == "") and
          .httpCheck.path == "/health/detailed" and .httpCheck.useSsl == true and
          .period == "60s" and .timeout == "10s" and
+         (.contentMatchers | length) == 1 and
          .contentMatchers[0].matcher == "MATCHES_JSON_PATH" and
          .contentMatchers[0].content == "healthy" and
          .contentMatchers[0].jsonPathMatcher.jsonPath == "$.status" and
