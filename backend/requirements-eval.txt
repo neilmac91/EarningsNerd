@@ -2,8 +2,8 @@
 # weekly readout judges through the subscription CLI and CI no longer installs this file.
 # Install alongside requirements.txt, never in the runtime image.
 # https://pypi.org/project/anthropic/1.5.0/
-anthropic==1.5.0
+anthropic==1.6.0
 # Additional judge-only dependencies; coexist with runtime httpx/OpenAI pins.
 docstring-parser==0.18.0
-httpx2==2.12.0
-httpcore2==2.12.0
+httpx2==2.13.0
+httpcore2==2.13.0
