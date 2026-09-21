@@ -1,0 +1,98 @@
+-- v1. Run each SELECT separately in PostHog SQL Insights after replacing the
+-- synthetic eligible_ids array and UTC bounds. These are READ-ONLY templates.
+-- Use only verified, non-excluded IDs from db_roster.sql. Empty cohort: do not
+-- execute with [0]; report no eligible users. IDs are not email/person traits.
+
+-- A. Per-person observation, activation and generation. One row for EACH eligible
+-- user, including people with no observed event. `client_unobserved` is unknown,
+-- not a measured inactive/non-consenting account. Backend events do not prove
+-- consent. Count distinct people for activation, not repeated render events.
+WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
+observed AS (
+  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
+         countIf(event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click',
+                           'company_viewed', 'analysis_generated', 'homepage_section_viewed')) AS client_events,
+         minIf(timestamp, event = 'summary_viewed') AS first_summary_view_at,
+         countIf(event = 'summary_viewed') AS summary_view_events,
+         countIf(event = 'source_span_click') AS citation_click_events,
+         countIf(event = 'generation_started') AS fresh_generation_attempt_events,
+         countIf(event = 'generation_succeeded') AS fresh_generation_success_events,
+         countIf(event = 'generation_succeeded' AND properties.result_type = 'partial') AS fresh_generation_partial_events,
+         countIf(event IN ('generation_failed', 'generation_timed_out')) AS fresh_generation_failure_events,
+         countIf(event = 'analysis_generated') AS analysis_attempt_events,
+         countIf(event = 'analysis_inference_cost') AS fresh_analysis_cost_observations,
+         sumIf(toFloatOrZero(toString(properties.cost_usd)), event = 'analysis_inference_cost') AS fresh_analysis_cost_usd
+  FROM events
+  WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
+    AND timestamp < toDateTime('2026-09-28 00:00:00', 'UTC')
+    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
+    AND event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click', 'company_viewed',
+                  'homepage_section_viewed', 'generation_started', 'generation_succeeded',
+                  'generation_failed', 'generation_timed_out', 'analysis_generated',
+                  'analysis_inference_cost')
+  GROUP BY user_id
+)
+SELECT e.user_id,
+       if(o.client_events > 0, 'client_observed', 'client_unobserved_unknown') AS client_coverage,
+       if(o.client_events > 0, o.summary_view_events > 0, NULL) AS consumed_summary,
+       if(o.client_events > 0 AND o.summary_view_events > 0, o.first_summary_view_at, NULL) AS first_summary_view_at,
+       o.summary_view_events, o.citation_click_events, o.fresh_generation_attempt_events,
+       o.fresh_generation_success_events, o.fresh_generation_partial_events,
+       o.fresh_generation_failure_events,
+       o.analysis_attempt_events, o.fresh_analysis_cost_observations,
+       o.fresh_analysis_cost_usd
+FROM eligible e LEFT JOIN observed o ON e.user_id = o.user_id
+ORDER BY e.user_id;
+
+-- B. Summary weekly return. A second ISO week must contain a DIFFERENT filing.
+-- The result reports all eligible users, observed client coverage, observed
+-- first views and returners. It cannot classify unobserved people as non-returners.
+WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
+client_seen AS (
+  SELECT toIntOrZero(toString(distinct_id)) AS user_id
+  FROM events
+  WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
+    AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
+    AND event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click',
+                  'company_viewed', 'analysis_generated', 'homepage_section_viewed')
+    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
+  GROUP BY user_id
+),
+views AS (
+  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
+         toIntOrZero(toString(properties.filing_id)) AS filing_id,
+         toStartOfWeek(timestamp, 1) AS iso_week
+  FROM events
+  WHERE event = 'summary_viewed'
+    AND timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
+    AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
+    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
+    AND toIntOrZero(toString(properties.filing_id)) > 0
+  GROUP BY user_id, filing_id, iso_week
+),
+returners AS (
+  SELECT v1.user_id
+  FROM views v1 JOIN views v2 ON v1.user_id = v2.user_id
+  WHERE v2.iso_week > v1.iso_week AND v2.filing_id != v1.filing_id
+  GROUP BY v1.user_id
+)
+SELECT count() AS eligible_verified_denominator,
+       countIf(cs.user_id = e.user_id) AS client_observed_coverage,
+       count() - countIf(cs.user_id = e.user_id) AS client_unobserved_unknown,
+       countIf(v.user_id = e.user_id) AS observed_summary_consumers,
+       countIf(r.user_id = e.user_id) AS observed_later_week_new_filing_returners
+FROM eligible e
+LEFT JOIN client_seen cs ON cs.user_id = e.user_id
+LEFT JOIN (SELECT user_id FROM views GROUP BY user_id) v ON v.user_id = e.user_id
+LEFT JOIN returners r ON r.user_id = e.user_id;
+
+-- C. Notable card engagement; run only for an enabled, impression-bearing
+-- section. A disabled section's zero clicks says nothing about usefulness.
+SELECT countIf(event = 'homepage_section_viewed') AS section_impressions,
+       countIf(event = 'notable_filing_clicked') AS card_clicks,
+       uniqIf(distinct_id, event = 'notable_filing_clicked') AS distinct_clickers
+FROM events
+WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
+  AND timestamp < toDateTime('2026-09-28 00:00:00', 'UTC')
+  AND ((event = 'homepage_section_viewed' AND properties.section = 'notable_filings')
+       OR event = 'notable_filing_clicked');
