@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import subprocess
 
 import psycopg2
 
@@ -37,9 +38,15 @@ def check_event_inventory() -> dict:
     """Guard both client-coverage predicates against browser-emitter drift."""
     frontend_events: set[str] = set()
     frontend_sources: list[str] = []
-    for path in (REPO / "frontend").rglob("*"):
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "frontend/app", "frontend/components",
+         "frontend/features", "frontend/hooks", "frontend/lib", "frontend/types"],
+        cwd=REPO,
+    )
+    for relative in filter(None, tracked.decode().split("\0")):
+        path = REPO / relative
         if (path.suffix not in {".ts", ".tsx"} or
-                any(part in {"tests", "__tests__"} for part in path.parts) or
+                any(part in {"tests", "__tests__", "generated", "__generated__"} for part in path.parts) or
                 ".spec." in path.name or ".test." in path.name):
             continue
         emitted = set(re.findall(r"(?:safeCapture|posthog\.capture)\('([^']+)'", path.read_text()))
