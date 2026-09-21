@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "defect_id": "",
+  "packet_id": "",
+  "adjudicator_id": "",
+  "adjudicated_at": null,
+  "exact_claim": "",
+  "surface": "",
+  "source_role": "",
+  "source_locator": "",
+  "source_context": "",
+  "reviewer_1_decision": "",
+  "reviewer_2_decision": "",
+  "refutation_1": "",
+  "refutation_2": "",
+  "support_status": null,
+  "severity": null,
+  "citation_or_quote_issue": null,
+  "resolution_reason": "",
+  "unresolved": null
+}

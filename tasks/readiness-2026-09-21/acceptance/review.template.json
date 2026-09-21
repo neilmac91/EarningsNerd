@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "",
+  "packet_id": "",
+  "reviewed_at": null,
+  "completeness_1_to_5": null,
+  "usefulness_1_to_5": null,
+  "all_visible_surfaces_checked": null,
+  "every_material_claim_checked": null,
+  "citation_and_quote_checks": [],
+  "defect_ids": [],
+  "source_locators": [],
+  "notes": ""
+}

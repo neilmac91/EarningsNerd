@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "accession_number": "",
+  "reviewer_ids": ["", ""],
+  "adjudicator_id": "",
+  "independent_source_review_attested": null,
+  "frozen_at": null,
+  "material_issues": [
+    {
+      "issue": "",
+      "source_role": "",
+      "source_locator": "",
+      "expected_numbers_basis": "",
+      "importance": "",
+      "disclosure_limits": ""
+    }
+  ]
+}
