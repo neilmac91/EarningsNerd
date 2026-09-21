@@ -30,7 +30,9 @@ def _complete_frozen_config() -> dict:
     from evals.acceptance_worker import REQUIRED_FROZEN_SETTINGS
     settings = {key: "" for key in REQUIRED_FROZEN_SETTINGS if key != "AI_EVIDENCE_SNAP"}
     settings["OPENAI_BASE_URL"] = "https://api.deepseek.com/v1"
-    return {"effective_settings": settings, "effective_flags": {"AI_EVIDENCE_SNAP": True}}
+    settings["AI_DEFAULT_MODEL"] = "deepseek-chat"
+    return {"base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat",
+            "effective_settings": settings, "effective_flags": {"AI_EVIDENCE_SNAP": True}}
 
 
 def test_frozen_checkout_requires_reviewed_meter_bytes_in_both_trees(tmp_path: Path, monkeypatch) -> None:
@@ -143,6 +145,13 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     ("missing", "missing required frozen settings"),
     ("unsupported", "unsupported process or credential control"),
     ("shape", "non-empty objects"),
+    ("base_url", "provider base URL differs"),
+    ("primary_model", "primary model differs"),
+    ("recovery_model", "recovery/verifier model differs"),
+    ("fast_model", "recovery/verifier model differs"),
+    ("fallback_model", "fallback provider route must be blank"),
+    ("fallback_base_url", "fallback provider route must be blank"),
+    ("fallback_whitespace", "fallback provider route must be blank"),
 ])
 def test_invalid_frozen_settings_stop_before_programme_state(
     tmp_path: Path, monkeypatch, fault: str, message: str
@@ -154,8 +163,22 @@ def test_invalid_frozen_settings_stop_before_programme_state(
         del config["effective_settings"]["OPENAI_BASE_URL"]
     elif fault == "unsupported":
         config["effective_flags"]["PYTHONPATH"] = "/untrusted"
-    else:
+    elif fault == "shape":
         config["effective_flags"] = []
+    elif fault == "base_url":
+        config["effective_settings"]["OPENAI_BASE_URL"] = "https://other.invalid/v1"
+    elif fault == "primary_model":
+        config["effective_settings"]["AI_DEFAULT_MODEL"] = "unpriced-model"
+    elif fault == "recovery_model":
+        config["effective_settings"]["AI_SECTION_RECOVERY_MODEL"] = " unpriced-model "
+    elif fault == "fast_model":
+        config["effective_settings"]["AI_FAST_MODEL"] = " unpriced-model "
+    elif fault == "fallback_model":
+        config["effective_settings"]["AI_FALLBACK_MODEL"] = "unpriced-model"
+    elif fault == "fallback_whitespace":
+        config["effective_settings"]["AI_FALLBACK_MODEL"] = " "
+    else:
+        config["effective_settings"]["AI_FALLBACK_BASE_URL"] = "https://other.invalid/v1"
     config_path = _write(tmp_path / "config.json", config)
     prerequisites = _write(tmp_path / "prerequisites.json", {"candidate_config": {"path": config_path.name}})
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})

@@ -225,6 +225,22 @@ def validated_frozen_settings(config):
                          ', '.join(sorted(REQUIRED_FROZEN_SETTINGS - frozen.keys())))
     if frozen.keys() - REQUIRED_FROZEN_SETTINGS:
         raise ValueError('frozen settings include an unsupported process or credential control')
+    if (not isinstance(config.get('base_url'), str) or
+            frozen['OPENAI_BASE_URL'] != config['base_url']):
+        raise ValueError('frozen provider base URL differs from priced config')
+    model = config.get('model')
+    if not isinstance(model, str) or not model or frozen['AI_DEFAULT_MODEL'] != model:
+        raise ValueError('frozen primary model differs from priced config')
+    for key in ('AI_SECTION_RECOVERY_MODEL', 'AI_FAST_MODEL',
+                'AI_FALLBACK_MODEL', 'AI_FALLBACK_BASE_URL'):
+        if not isinstance(frozen[key], str):
+            raise ValueError(f'frozen provider route must be a string: {key}')
+    if frozen['AI_FALLBACK_MODEL'] != '' or frozen['AI_FALLBACK_BASE_URL'] != '':
+        raise ValueError('frozen fallback provider route must be blank')
+    recovery_model = (frozen['AI_SECTION_RECOVERY_MODEL'].strip() or
+                      frozen['AI_FAST_MODEL'].strip() or frozen['AI_DEFAULT_MODEL'])
+    if recovery_model != model:
+        raise ValueError('frozen recovery/verifier model differs from priced config')
     return frozen
 
 
