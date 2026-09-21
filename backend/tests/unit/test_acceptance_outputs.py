@@ -18,7 +18,7 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _fixture(tmp_path: Path, *, sixk: bool = False, primary_fallback: bool = False) -> tuple[Path, Path, Path]:
     root = tmp_path / "programme"
     root.mkdir()
     slot_id = "H01-candidate-1"
@@ -26,12 +26,25 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     invocation = slot / "attempt-1"
     invocation.mkdir(parents=True)
     config_sha = "a" * 64
-    source_sha = "b" * 64
+    primary_text = "Verified 6-K primary text"
+    source_sha = hashlib.sha256(primary_text.encode()).hexdigest() if sixk else "b" * 64
+    submission_sha = "c" * 64
     filing = {
         "holdout_id": "H01", "accession_number": "0000018230-26-000008",
-        "ticker": "CAT", "cik": "18230", "filing_type": "10-K",
+        "ticker": "CAT", "cik": "18230", "filing_type": "6-K" if sixk else "10-K",
         "source_sha256": source_sha,
     }
+    if sixk:
+        filing.update(filing_date="2026-02-13",
+                      document_url="https://www.sec.gov/Archives/edgar/data/18230/filing.htm")
+        filing["source_packets"] = [
+            {"role": "primary", "path": "e7-sources/H01/filing.htm", "sha256": source_sha,
+             "bytes": len(primary_text.encode()),
+             "provenance": {"requested_url": filing["document_url"]}},
+            {"role": "complete_submission", "path": "e7-sources/H01/complete.txt",
+             "sha256": submission_sha, "bytes": 1000,
+             "provenance": {"requested_url": "https://www.sec.gov/Archives/edgar/data/18230/complete.txt"}},
+        ]
     selection = {"slot_id": slot_id, "arm": "candidate", "draw": 1,
                  "filing": filing, "config_sha256": config_sha,
                  "manifest_sha256": APPROVED_MANIFEST_SHA256}
@@ -48,9 +61,17 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     receipt = {
         "identity": {key: filing[key] for key in ("holdout_id", "accession_number", "ticker", "cik", "filing_type")},
         "started_at": "2026-09-21T10:00:00+00:00", "status": "complete",
-        "eligible_for_measurement": True, "errors": [], "source_identity": "primary_verified",
+        "eligible_for_measurement": True, "errors": [],
+        "source_identity": "archived_sgml_verified" if sixk else "primary_verified",
         "source_packets": {"primary": {"sha256": source_sha}}, "artifacts": artifacts,
     }
+    if sixk:
+        receipt["source_packets"] = {
+            packet["role"]: {"path": str(root / packet["path"]), "sha256": packet["sha256"],
+                             "bytes": packet["bytes"],
+                             "requested_url": packet["provenance"]["requested_url"]}
+            for packet in filing["source_packets"]
+        }
     _write(invocation / "receipt.json", receipt)
     _write(invocation / "result.json", receipt)
     _write(invocation / "canonical_summary.json", {"business_overview": "Synthetic result"})
@@ -68,7 +89,30 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "records": [{"reservation_id": 9, "status": "settled", "request": {"model": "synthetic"}}],
     })
     (invocation / "events.jsonl").write_text('{"type":"complete"}\n', encoding="utf-8")
-    _write(invocation / "grounding.json", {"excerpt": "Synthetic"})
+    if sixk:
+        extracted = "" if primary_fallback else "Verified 6-K extracted text"
+        extracted_sha = hashlib.sha256(extracted.encode()).hexdigest()
+        final_text = primary_text if primary_fallback else extracted
+        calls = [
+            {"owner": "edgartools.Filing.from_sgml_text", "accession": filing["accession_number"],
+             "cik": filing["cik"], "form": "6-K", "filing_date": filing["filing_date"],
+             "complete_submission_sha256": submission_sha, "embedded_primary_sha256": source_sha,
+             "selected_attachments": []},
+            {"owner": "get_sixk_text", "accession": filing["accession_number"],
+             "cik": filing["cik"], "bytes": len(extracted.encode()), "sha256": extracted_sha,
+             "source_packet_match": "verified_complete_submission"},
+        ]
+        if primary_fallback:
+            calls.append({"owner": "sec_edgar_service.get_filing_document",
+                          "url": filing["document_url"], "bytes": len(primary_text.encode()),
+                          "sha256": source_sha})
+        calls.append({"owner": "get_or_cache_excerpt", "accession": filing["accession_number"],
+                      "filing_text_sha256": hashlib.sha256(final_text.encode()).hexdigest()})
+        _write(invocation / "grounding.json", {"source_calls": calls,
+                                                 "summarizer_calls": [{"args": [final_text]}]})
+        _write(invocation / "source_evidence.json", receipt["source_packets"])
+    else:
+        _write(invocation / "grounding.json", {"excerpt": "Synthetic"})
     _write(invocation / "rendered_sections.json", [])
     with sqlite3.connect(root / "budget.sqlite3") as db:
         db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)")
@@ -191,3 +235,78 @@ def test_reports_orphan_provider_reservation(tmp_path: Path) -> None:
     result = collect_outputs(root, output)
     assert result["completed"] == 1 and result["complete"] is False
     assert result["orphan_reservation_slot_ids"] == ["unknown-slot"]
+
+
+def test_collects_sixk_only_with_embedded_sgml_proof(tmp_path: Path) -> None:
+    root, output, invocation = _fixture(tmp_path, sixk=True)
+    result = collect_outputs(root, output)
+    assert result["completed"] == 1, result["incomplete_slots"]
+    assert result["records"][0]["accession_number"] == "0000018230-26-000008"
+    assert result["records"][0]["raw_previews_sha256"] == _sha(invocation / "raw_previews.jsonl")
+
+
+def test_collects_sixk_verified_primary_fallback(tmp_path: Path) -> None:
+    root, output, _ = _fixture(tmp_path, sixk=True, primary_fallback=True)
+    result = collect_outputs(root, output)
+    assert result["completed"] == 1, result["incomplete_slots"]
+
+
+def test_rejects_sixk_hash_or_evidence_drift(tmp_path: Path) -> None:
+    root, output, invocation = _fixture(tmp_path, sixk=True)
+    grounding_path = invocation / "grounding.json"
+    grounding = json.loads(grounding_path.read_text())
+    grounding["source_calls"][0]["embedded_primary_sha256"] = "f" * 64
+    _write(grounding_path, grounding)
+    first = collect_outputs(root, output)
+    assert first["completed"] == 0
+    assert "embedded primary or complete submission proof differs" in first["incomplete_slots"][0]["error"]
+    grounding["source_calls"][0]["embedded_primary_sha256"] = json.loads(
+        (invocation / "receipt.json").read_text())["source_packets"]["primary"]["sha256"]
+    _write(grounding_path, grounding)
+    evidence_path = invocation / "source_evidence.json"
+    evidence = json.loads(evidence_path.read_text())
+    evidence["complete_submission"]["sha256"] = "f" * 64
+    _write(evidence_path, evidence)
+    second = collect_outputs(root, output)
+    assert second["completed"] == 0
+    assert "retained source evidence differs" in second["incomplete_slots"][0]["error"]
+
+
+def test_rejects_sixk_missing_extractor_proof_and_non_sixk_status_flip(tmp_path: Path) -> None:
+    root, output, invocation = _fixture(tmp_path, sixk=True)
+    grounding_path = invocation / "grounding.json"
+    grounding = json.loads(grounding_path.read_text())
+    grounding["source_calls"][1]["source_packet_match"] = "unverified"
+    _write(grounding_path, grounding)
+    result = collect_outputs(root, output)
+    assert result["completed"] == 0
+    assert "lacks verified SGML association" in result["incomplete_slots"][0]["error"]
+    other = tmp_path / "other"
+    other.mkdir()
+    root2, output2, invocation2 = _fixture(other)
+    receipt = json.loads((invocation2 / "receipt.json").read_text())
+    receipt["source_identity"] = "archived_sgml_verified"
+    _write(invocation2 / "receipt.json", receipt)
+    _write(invocation2 / "result.json", receipt)
+    non_sixk = collect_outputs(root2, output2)
+    assert non_sixk["completed"] == 0
+    assert "non-6-K" in non_sixk["incomplete_slots"][0]["error"]
+
+
+def test_rejects_sixk_complete_submission_hash_and_missing_primary_fallback(tmp_path: Path) -> None:
+    root, output, invocation = _fixture(tmp_path, sixk=True, primary_fallback=True)
+    grounding_path = invocation / "grounding.json"
+    grounding = json.loads(grounding_path.read_text())
+    grounding["source_calls"][0]["complete_submission_sha256"] = "e" * 64
+    _write(grounding_path, grounding)
+    first = collect_outputs(root, output)
+    assert first["completed"] == 0
+    assert "embedded primary or complete submission proof differs" in first["incomplete_slots"][0]["error"]
+    grounding["source_calls"][0]["complete_submission_sha256"] = json.loads(
+        (invocation / "receipt.json").read_text())["source_packets"]["complete_submission"]["sha256"]
+    grounding["source_calls"] = [call for call in grounding["source_calls"]
+                                 if call["owner"] != "sec_edgar_service.get_filing_document"]
+    _write(grounding_path, grounding)
+    second = collect_outputs(root, output)
+    assert second["completed"] == 0
+    assert "lacks verified primary fallback" in second["incomplete_slots"][0]["error"]

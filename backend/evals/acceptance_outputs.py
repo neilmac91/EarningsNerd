@@ -18,6 +18,7 @@ from typing import Any
 from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256, COMPARATOR_HOLDOUT_IDS
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 _SLOT = re.compile(r"(H\d{2})-(candidate|comparator)-([123])\Z")
 _EXPECTED = frozenset(
     f"H{number:02d}-{arm}-{draw}"
@@ -113,6 +114,90 @@ def _validate_events(path: Path) -> None:
         raise IncompleteSlot("emitted events do not end in one clean completion")
 
 
+def _validate_sixk_source(filing: dict[str, Any], receipt: dict[str, Any], invocation: Path,
+                          grounding_path: Path) -> None:
+    if receipt.get("source_identity") != "archived_sgml_verified":
+        raise IncompleteSlot("6-K lacks archived SGML identity proof")
+    selected = filing.get("source_packets")
+    evidence = receipt.get("source_packets")
+    if not isinstance(selected, list) or not isinstance(evidence, dict):
+        raise IncompleteSlot("6-K source packet inventory missing")
+    packets: dict[str, dict[str, Any]] = {}
+    for packet in selected:
+        if not isinstance(packet, dict) or not isinstance(packet.get("role"), str):
+            raise IncompleteSlot("6-K selected source packet malformed")
+        role = packet["role"]
+        if role in packets:
+            raise IncompleteSlot("6-K selected source packet role duplicated")
+        packets[role] = packet
+    if not {"primary", "complete_submission"}.issubset(packets) or set(evidence) != set(packets):
+        raise IncompleteSlot("6-K primary/complete source roles missing or changed")
+    if _read_json(_within(invocation, "source_evidence.json")) != evidence:
+        raise IncompleteSlot("6-K retained source evidence differs from receipt")
+    for role, packet in packets.items():
+        item = evidence.get(role)
+        relative = packet.get("path")
+        if (not isinstance(item, dict) or not isinstance(relative, str) or
+                not _SHA256.fullmatch(str(packet.get("sha256", ""))) or
+                type(packet.get("bytes")) is not int or packet["bytes"] <= 0 or
+                item.get("sha256") != packet["sha256"] or item.get("bytes") != packet.get("bytes") or
+                item.get("requested_url") != (packet.get("provenance") or {}).get("requested_url") or
+                not isinstance(item.get("path"), str) or
+                tuple(Path(item["path"]).parts[-len(Path(relative).parts):]) != Path(relative).parts):
+            raise IncompleteSlot(f"6-K {role} evidence does not match selected source packet")
+    primary, submission = evidence["primary"], evidence["complete_submission"]
+    if primary["sha256"] != filing["source_sha256"]:
+        raise IncompleteSlot("6-K verified primary hash differs from selected filing")
+    grounding = _read_json(grounding_path)
+    calls = grounding.get("source_calls")
+    if not isinstance(calls, list) or any(not isinstance(call, dict) for call in calls):
+        raise IncompleteSlot("6-K source grounding is malformed")
+    source = [call for call in calls if call.get("owner") == "edgartools.Filing.from_sgml_text"]
+    extractor = [call for call in calls if call.get("owner") == "get_sixk_text"]
+    if len(source) != 1 or len(extractor) != 1:
+        raise IncompleteSlot("6-K archived SGML/extractor proof is missing or duplicated")
+    source, extractor = source[0], extractor[0]
+    attachments = source.get("selected_attachments")
+    if (source.get("accession") != filing["accession_number"] or
+            str(source.get("cik")) != str(filing["cik"]) or source.get("form") != "6-K" or
+            str(source.get("filing_date")) != str(filing.get("filing_date")) or
+            source.get("complete_submission_sha256") != submission["sha256"] or
+            source.get("embedded_primary_sha256") != primary["sha256"] or
+            not isinstance(attachments, list) or
+            any(not isinstance(name, str) or not name for name in attachments) or
+            len(attachments) != len(set(attachments))):
+        raise IncompleteSlot("6-K embedded primary or complete submission proof differs")
+    if "earnings_exhibit" in packets and Path(packets["earnings_exhibit"]["path"]).name not in attachments:
+        raise IncompleteSlot("6-K selected earnings exhibit absent from extraction proof")
+    count, digest = extractor.get("bytes"), extractor.get("sha256")
+    if (extractor.get("accession") != filing["accession_number"] or
+            str(extractor.get("cik")) != str(filing["cik"]) or
+            extractor.get("source_packet_match") != "verified_complete_submission" or
+            type(count) is not int or count < 0 or not _SHA256.fullmatch(str(digest))):
+        raise IncompleteSlot("6-K extractor result lacks verified SGML association")
+    if count == 0:
+        if digest != _EMPTY_SHA256:
+            raise IncompleteSlot("6-K empty extractor hash is not the empty-content hash")
+        fetched = [call for call in calls if call.get("owner") == "sec_edgar_service.get_filing_document"]
+        if (len(fetched) != 1 or fetched[0].get("sha256") != primary["sha256"] or
+                fetched[0].get("bytes") != primary["bytes"] or
+                fetched[0].get("url") != filing.get("document_url")):
+            raise IncompleteSlot("6-K empty extractor lacks verified primary fallback")
+        expected_filing_hash = primary["sha256"]
+    else:
+        expected_filing_hash = digest
+    excerpts = [call for call in calls if call.get("owner") == "get_or_cache_excerpt"]
+    summaries = grounding.get("summarizer_calls")
+    if (len(excerpts) != 1 or excerpts[0].get("accession") != filing["accession_number"] or
+            excerpts[0].get("filing_text_sha256") != expected_filing_hash or
+            not isinstance(summaries, list) or len(summaries) != 1 or
+            not isinstance(summaries[0], dict) or not isinstance(summaries[0].get("args"), list) or
+            not summaries[0]["args"] or not isinstance(summaries[0]["args"][0], str) or
+            hashlib.sha256(summaries[0]["args"][0].encode("utf-8")).hexdigest() != expected_filing_hash or
+            (count > 0 and len(summaries[0]["args"][0].encode("utf-8")) != count)):
+        raise IncompleteSlot("6-K summarizer grounding differs from verified extractor/primary text")
+
+
 def _write_preview_files(invocation: Path, frames: list[bytes]) -> list[Path]:
     directory = invocation / "preview-files"
     if directory.is_symlink():
@@ -189,9 +274,10 @@ def _slot_record(
     if ({key: str((receipt.get("identity") or {}).get(key)) for key in expected_identity} != expected_identity or
             receipt != result or receipt.get("status") != "complete" or
             receipt.get("eligible_for_measurement") is not True or receipt.get("errors") != [] or
-            receipt.get("source_identity") != "primary_verified" or
             (receipt.get("source_packets") or {}).get("primary", {}).get("sha256") != filing.get("source_sha256")):
         raise IncompleteSlot("worker result is incomplete or source/filing identity differs")
+    if filing["filing_type"] != "6-K" and receipt.get("source_identity") != "primary_verified":
+        raise IncompleteSlot("non-6-K worker result lacks verified primary source")
     try:
         started = datetime.fromisoformat(receipt["started_at"].replace("Z", "+00:00"))
     except (KeyError, TypeError, ValueError) as error:
@@ -204,6 +290,8 @@ def _slot_record(
     resolved = {key: _within(invocation, relative) for key, relative in artifacts.items()}
     if len(set(resolved.values())) != len(resolved):
         raise IncompleteSlot("worker artifact path reused")
+    if filing["filing_type"] == "6-K":
+        _validate_sixk_source(filing, receipt, invocation, resolved["grounding"])
     _validate_events(resolved["events"])
     accounting = _read_json(resolved["provider_accounting"])
     records = accounting.get("records")
