@@ -2,6 +2,7 @@
 -- synthetic eligible_ids array and UTC bounds. These are READ-ONLY templates.
 -- Use only verified, non-excluded IDs from db_roster.sql. Empty cohort: do not
 -- execute with [0]; report no eligible users. IDs are not email/person traits.
+-- In A and B, edit only the eligible CTE; event filters read that same ID set.
 
 -- A. Per-person observation, activation and generation. One row for EACH eligible
 -- user, including people with no observed event. `client_unobserved` is unknown,
@@ -37,7 +38,7 @@ observed AS (
   FROM events
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-09-28 00:00:00', 'UTC')
-    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
+    AND toIntOrZero(toString(distinct_id)) IN (SELECT user_id FROM eligible)
     AND event IN (
       'signup_started', 'signup_submitted', 'login_completed', 'logout',
       'company_searched', 'company_search_result_clicked', 'company_viewed', 'example_cta_clicked',
@@ -70,8 +71,9 @@ ORDER BY e.user_id;
 -- The result reports all eligible users, observed client coverage, observed
 -- first views and returners. It cannot classify unobserved people as non-returners.
 WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
-client_seen AS (
-  SELECT toIntOrZero(toString(distinct_id)) AS user_id
+in_window AS (
+  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
+         event, timestamp, properties.filing_id AS raw_filing_id
   FROM events
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
@@ -87,19 +89,18 @@ client_seen AS (
       'pricing_viewed', 'billing_cycle_toggled', 'checkout_started', 'error_occurred',
       'data_exported', 'account_deleted', 'pricing_experiment_exposed',
       'quick_access_click', '$pageview')
-    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
-  GROUP BY user_id
+    AND toIntOrZero(toString(distinct_id)) IN (SELECT user_id FROM eligible)
+),
+client_seen AS (
+  SELECT user_id FROM in_window GROUP BY user_id
 ),
 views AS (
-  SELECT toIntOrZero(toString(distinct_id)) AS user_id,
-         toIntOrZero(toString(properties.filing_id)) AS filing_id,
+  SELECT user_id,
+         toIntOrZero(toString(raw_filing_id)) AS filing_id,
          toStartOfWeek(timestamp, 1) AS iso_week
-  FROM events
+  FROM in_window
   WHERE event = 'summary_viewed'
-    AND timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
-    AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
-    AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
-    AND toIntOrZero(toString(properties.filing_id)) > 0
+    AND toIntOrZero(toString(raw_filing_id)) > 0
   GROUP BY user_id, filing_id, iso_week
 ),
 returners AS (
