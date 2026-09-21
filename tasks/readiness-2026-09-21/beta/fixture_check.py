@@ -14,6 +14,11 @@ import psycopg2
 
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[2]
+SERVER_EVENTS_IN_QUERY_A = {
+    "generation_started", "generation_succeeded", "generation_failed",
+    "generation_timed_out", "analysis_inference_cost",
+}
 PARAMETERS = {
     "cohort": "fixture-beta",
     "window_start": "2026-09-21T00:00:00Z",
@@ -28,10 +33,50 @@ def query(name: str) -> str:
     return re.sub(r":'([a-z_]+)'", r"%(\1)s", source)
 
 
+def check_event_inventory() -> dict:
+    """Guard both client-coverage predicates against browser-emitter drift."""
+    frontend_events: set[str] = set()
+    frontend_sources: list[str] = []
+    for path in (REPO / "frontend").rglob("*"):
+        if (path.suffix not in {".ts", ".tsx"} or
+                any(part in {"tests", "__tests__"} for part in path.parts) or
+                ".spec." in path.name or ".test." in path.name):
+            continue
+        emitted = set(re.findall(r"(?:safeCapture|posthog\.capture)\('([^']+)'", path.read_text()))
+        if emitted:
+            frontend_events.update(emitted)
+            frontend_sources.append(str(path.relative_to(REPO)))
+    sql = (HERE / "posthog.hogql").read_text()
+    a_match = re.search(r"countIf\(event IN\s*\(([^)]*)\)\) AS client_events", sql, re.DOTALL)
+    filters = re.findall(r"AND event IN\s*\(([^)]*)\)", sql, re.DOTALL)
+    assert a_match is not None and len(filters) == 2, "expected Query A and B coverage predicates"
+    a_coverage = re.findall(r"'([^']+)'", a_match.group(1))
+    a_filter, b_coverage = [re.findall(r"'([^']+)'", text) for text in filters]
+    predicates = (a_coverage, a_filter, b_coverage)
+    assert all(len(names) == len(set(names)) for names in predicates), "duplicate event in predicate"
+    assert set(a_coverage) == set(b_coverage) == frontend_events, {
+        "missing_a": sorted(frontend_events - set(a_coverage)),
+        "missing_b": sorted(frontend_events - set(b_coverage)),
+        "extra_a": sorted(set(a_coverage) - frontend_events),
+        "extra_b": sorted(set(b_coverage) - frontend_events),
+    }
+    assert set(a_filter) == frontend_events | SERVER_EVENTS_IN_QUERY_A
+    assert not frontend_events & SERVER_EVENTS_IN_QUERY_A
+    return {"frontend_event_count": len(frontend_events), "frontend_sources": frontend_sources,
+            "server_events_kept_out_of_coverage": sorted(SERVER_EVENTS_IN_QUERY_A)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dsn", required=True, help="isolated local tranche_beta DSN")
+    parser.add_argument("--dsn", help="isolated local tranche_beta DSN")
+    parser.add_argument("--inventory-only", action="store_true", help="check browser event names without PostgreSQL")
     args = parser.parse_args()
+    inventory = check_event_inventory()
+    if args.inventory_only:
+        print(json.dumps(inventory, sort_keys=True))
+        return
+    if not args.dsn:
+        parser.error("--dsn is required unless --inventory-only is used")
     with psycopg2.connect(args.dsn) as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT current_database()")
@@ -158,6 +203,7 @@ def main() -> None:
             assert eligible - client_observed == {2}
             print(json.dumps({
                 "database": "tranche_beta (temporary tables; transaction rolled back)",
+                "source_inventory": inventory,
                 "eligible_verified_ids": sorted(eligible),
                 "eligible_denominator": len(eligible),
                 "client_observed_fixture": 2,

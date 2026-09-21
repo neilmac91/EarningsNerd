@@ -10,8 +10,20 @@
 WITH eligible AS (SELECT arrayJoin([1001, 1002]) AS user_id),
 observed AS (
   SELECT toIntOrZero(toString(distinct_id)) AS user_id,
-         countIf(event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click',
-                           'company_viewed', 'analysis_generated', 'homepage_section_viewed')) AS client_events,
+         -- Only names emitted in the browser. Server generation/cost events below
+         -- are measured separately and cannot establish client coverage or consent.
+         countIf(event IN (
+           'signup_started', 'signup_submitted', 'login_completed', 'logout',
+           'company_searched', 'company_search_result_clicked', 'company_viewed', 'example_cta_clicked',
+           'filing_viewed', 'summary_generated', 'summary_viewed', 'signup_gate_shown',
+           'paywall_prompt_shown', 'paywall_cta_clicked', 'copilot_question_asked',
+           'analysis_generated', 'export_generated', 'copilot_answer_completed',
+           'copilot_answer_errored', 'copilot_entry_clicked', 'source_span_click',
+           'filing_link_copied', 'summary_saved', 'watchlist_added', 'watchlist_removed',
+           'homepage_section_viewed', 'notable_filing_clicked', 'dashboard_feed_clicked',
+           'pricing_viewed', 'billing_cycle_toggled', 'checkout_started', 'error_occurred',
+           'data_exported', 'account_deleted', 'pricing_experiment_exposed',
+           'quick_access_click', '$pageview')) AS client_events,
          minIf(timestamp, event = 'summary_viewed') AS first_summary_view_at,
          countIf(event = 'summary_viewed') AS summary_view_events,
          countIf(event = 'source_span_click') AS citation_click_events,
@@ -26,10 +38,20 @@ observed AS (
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-09-28 00:00:00', 'UTC')
     AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
-    AND event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click', 'company_viewed',
-                  'homepage_section_viewed', 'generation_started', 'generation_succeeded',
-                  'generation_failed', 'generation_timed_out', 'analysis_generated',
-                  'analysis_inference_cost')
+    AND event IN (
+      'signup_started', 'signup_submitted', 'login_completed', 'logout',
+      'company_searched', 'company_search_result_clicked', 'company_viewed', 'example_cta_clicked',
+      'filing_viewed', 'summary_generated', 'summary_viewed', 'signup_gate_shown',
+      'paywall_prompt_shown', 'paywall_cta_clicked', 'copilot_question_asked',
+      'analysis_generated', 'export_generated', 'copilot_answer_completed',
+      'copilot_answer_errored', 'copilot_entry_clicked', 'source_span_click',
+      'filing_link_copied', 'summary_saved', 'watchlist_added', 'watchlist_removed',
+      'homepage_section_viewed', 'notable_filing_clicked', 'dashboard_feed_clicked',
+      'pricing_viewed', 'billing_cycle_toggled', 'checkout_started', 'error_occurred',
+      'data_exported', 'account_deleted', 'pricing_experiment_exposed',
+      'quick_access_click', '$pageview',
+      'generation_started', 'generation_succeeded', 'generation_failed',
+      'generation_timed_out', 'analysis_inference_cost')
   GROUP BY user_id
 )
 SELECT e.user_id,
@@ -53,8 +75,18 @@ client_seen AS (
   FROM events
   WHERE timestamp >= toDateTime('2026-09-21 00:00:00', 'UTC')
     AND timestamp < toDateTime('2026-10-05 00:00:00', 'UTC')
-    AND event IN ('login_completed', 'filing_viewed', 'summary_viewed', 'source_span_click',
-                  'company_viewed', 'analysis_generated', 'homepage_section_viewed')
+    AND event IN (
+      'signup_started', 'signup_submitted', 'login_completed', 'logout',
+      'company_searched', 'company_search_result_clicked', 'company_viewed', 'example_cta_clicked',
+      'filing_viewed', 'summary_generated', 'summary_viewed', 'signup_gate_shown',
+      'paywall_prompt_shown', 'paywall_cta_clicked', 'copilot_question_asked',
+      'analysis_generated', 'export_generated', 'copilot_answer_completed',
+      'copilot_answer_errored', 'copilot_entry_clicked', 'source_span_click',
+      'filing_link_copied', 'summary_saved', 'watchlist_added', 'watchlist_removed',
+      'homepage_section_viewed', 'notable_filing_clicked', 'dashboard_feed_clicked',
+      'pricing_viewed', 'billing_cycle_toggled', 'checkout_started', 'error_occurred',
+      'data_exported', 'account_deleted', 'pricing_experiment_exposed',
+      'quick_access_click', '$pageview')
     AND toIntOrZero(toString(distinct_id)) IN (1001, 1002)
   GROUP BY user_id
 ),

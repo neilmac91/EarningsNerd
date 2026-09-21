@@ -2,6 +2,8 @@
 
 All PostHog captures are best effort. The browser SDK runs only after analytics consent in `frontend/app/posthog-provider.tsx`; the backend SDK does not receive that consent status. `str(user.id)` is the intended cross-surface identity, but a stream can forward the browser's PostHog distinct ID, so verify identity join coverage before interpreting missing generation events.
 
+Client coverage uses the 37 named browser emissions currently in `frontend/lib/analytics.ts`, `frontend/app/posthog-provider.tsx`, `frontend/app/pricing/page.tsx`, and `frontend/features/marketing/components/QuickAccessBar.tsx`. The A/B predicates in `posthog.hogql` are checked against those source files by `fixture_check.py --inventory-only`; the glossary table below explains the signals needed for this readout, rather than listing every browser action. Backend generation and inference-cost events are excluded from client coverage. The backend defines `EVENT_SUMMARY_VIEWED` but has no call site that emits it; the active `summary_viewed` capture is in the filing page.
+
 | Signal | Actual emission point | What it establishes / limit |
 |---|---|---|
 | Invite issued/redeemed | `invite_codes` durable row; `backend/app/routers/auth.py` emits `invite_redeemed` after `redeem_invite` | Persisted `used_at` + `user_id` is authoritative. Exclude revoked/expired from currently reachable invitations, but retain issued counts. |
