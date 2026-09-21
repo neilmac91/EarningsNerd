@@ -431,7 +431,8 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
                        config: dict[str, Any], holdout_id: str) -> bytes:
     """Project known DB columns, then reject remaining execution identity markers.
 
-    Narrative bytes are never rewritten: a visible marker there stops packet creation.
+    Narrative bytes are never rewritten. The known export generation-date metadata
+    is omitted from the reviewer projection; any remaining execution marker stops it.
     """
     if key == "canonical":
         value = _json(source)
@@ -445,6 +446,14 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
     else:
         data = source.read_bytes()
     text = data.decode("utf-8")
+    if key == "export":
+        # This exact header comes from ExportService.generate_pdf_html. Retain the filing
+        # dates and all substantive content; the original export remains custodian-side.
+        text = re.sub(r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=<br>Source: SEC EDGAR)",
+                      r"\1", text, count=1)
+        if re.search(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}", text):
+            raise ValueError("unrecognized export generation-date metadata")
+        data = text.encode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
                str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
                f"{holdout_id}-{row['arm']}-{row['draw']}"}

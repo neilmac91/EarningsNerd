@@ -274,6 +274,14 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
                               expected_manifest_sha=fixture["manifest_sha"])
     assert not (tmp_path / "reviewers").exists()
     assert not (tmp_path / "custodian").exists()
+    export = tmp_path / "export.html"
+    export.write_text("Filing Date: May 01, 2026 · Period End: March 31, 2026 · "
+                      "Generated September 21, 2026<br>Source: SEC EDGAR<p>Revenue rose.</p>")
+    preflight = json.loads(fixture["preflight"].read_text())
+    config = json.loads((fixture["preflight"].parent / preflight["candidate_config"]["path"]).read_text())
+    projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
+    assert "Generated September" not in projected and "Period End: March 31, 2026" in projected
+    assert "Revenue rose." in projected and "Generated September" in export.read_text()
 
 
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:
