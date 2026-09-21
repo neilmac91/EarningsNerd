@@ -1,3 +1,7 @@
+## September 21 — verifier response safety prepared
+
+Strict complete-batch validation and passage-local supporting quotes are implemented with both attribution flags still false. [Local gate and independent review](review-evidence/verifier-response-safety-2026-09-21/README.md): 3,439 tests including performance/four PostgreSQL lanes, two original mutation proofs, no locked-test/prompt/model/pin/flag change. Hosted checks, actual measurement artifacts and release verification follow; this is not semantic acceptance.
+
 ## September 20 — dormant E3 #933 deployment verified; final receipt reconciliation complete
 
 - [x] Archive [actual E3 deployment](review-evidence/partial-release-2026-09-20/e3-deploy/README.md): main CI 35482983157 / deploy job 106004482403 on 38cad16189dc24d1c6b4405b9e7b4ddb4a9ca95a completed 02:11:10Z; migrations 0 applied / 39 skipped; revision 00374-ddw Ready at 100%; independent healthy response 02:11:39.543493Z, database 6.51ms. Both attribution flags remain false. Compact original records/hashes retained; full run/log remains external.
