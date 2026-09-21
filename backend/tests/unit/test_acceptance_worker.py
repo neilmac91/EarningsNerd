@@ -276,7 +276,8 @@ async def test_sixk_wrong_sgml_identity_stops_before_database(tmp_path, monkeypa
 
 
 @pytest.mark.asyncio
-async def test_sixk_swallowed_sdk_fallback_still_marks_receipt_incomplete(tmp_path, monkeypatch):
+@pytest.mark.parametrize("fault", ["network", "wrong_filing"])
+async def test_sixk_swallowed_source_fault_never_reaches_provider(tmp_path, monkeypatch, fault):
     source_root, spec, primary, _ = _sixk_fixture(tmp_path)
     invocation_dir = tmp_path / "run"
     config = _configure(monkeypatch, invocation_dir, source_root)
@@ -286,13 +287,63 @@ async def test_sixk_swallowed_sdk_fallback_still_marks_receipt_incomplete(tmp_pa
     from app.services.edgar import sixk_extractor
     from edgar import attachments as edgar_attachments
 
-    def force_sdk_fallback(*_args):
-        return edgar_attachments.download_file("https://www.sec.gov/unexpected")
+    def force_sdk_fault(*_args):
+        if fault == "network":
+            return edgar_attachments.download_file("https://www.sec.gov/unexpected")
+        return sixk_extractor.resolve_filing_by_accession("999", spec["accession_number"])
 
-    monkeypatch.setattr(sixk_extractor, "_extract_sixk_text_sync", force_sdk_fallback)
-    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing",
-                        AsyncMock(return_value=CANONICAL_PAYLOAD))
+    monkeypatch.setattr(sixk_extractor, "_extract_sixk_text_sync", force_sdk_fault)
+    provider = AsyncMock(return_value=CANONICAL_PAYLOAD)
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", provider)
     receipt = await run_invocation(spec, invocation_dir, config, StubMeter())
     assert receipt["status"] == "incomplete"
     assert receipt["source_identity"] == "incomplete"
-    assert "6-K SDK attempted network fallback" in receipt["errors"]
+    assert ("6-K SDK attempted network fallback" if fault == "network" else
+            "6-K SDK requested a different filing") in receipt["errors"]
+    provider.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sixk_missing_bound_filing_never_reaches_provider(tmp_path, monkeypatch):
+    source_root, spec, primary, _ = _sixk_fixture(tmp_path)
+    invocation_dir = tmp_path / "run"
+    config = _configure(monkeypatch, invocation_dir, source_root)
+    from evals import acceptance_worker
+
+    monkeypatch.setattr(acceptance_worker, "_prepare_sixk_source",
+                        lambda *_args: (None, {"complete_submission_sha256": "synthetic"}))
+    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value=primary))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
+    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections", AsyncMock(return_value=None))
+    provider = AsyncMock(return_value=CANONICAL_PAYLOAD)
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", provider)
+    receipt = await run_invocation(spec, invocation_dir, config, StubMeter())
+    assert receipt["status"] == "incomplete"
+    assert "6-K source binding missing" in receipt["errors"]
+    provider.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sixk_preparation_rejects_swallowed_sdk_network_attempt(tmp_path, monkeypatch):
+    source_root, spec, _, _ = _sixk_fixture(tmp_path)
+    invocation_dir = tmp_path / "run"
+    config = _configure(monkeypatch, invocation_dir, source_root)
+    from edgar import Filing as EdgarFiling
+    from edgar import attachments as edgar_attachments
+
+    original_obj = EdgarFiling.obj
+
+    def obj_with_swallowed_fallback(self):
+        try:
+            edgar_attachments.download_file("https://www.sec.gov/unexpected")
+        except InvalidMeasurement:
+            pass
+        return original_obj(self)
+
+    monkeypatch.setattr(EdgarFiling, "obj", obj_with_swallowed_fallback)
+    provider = AsyncMock(return_value=CANONICAL_PAYLOAD)
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", provider)
+    with pytest.raises(InvalidMeasurement, match="network fallback during source preparation"):
+        await run_invocation(spec, invocation_dir, config, StubMeter())
+    provider.assert_not_awaited()
+    assert not (invocation_dir / "invocation.sqlite3").exists()
