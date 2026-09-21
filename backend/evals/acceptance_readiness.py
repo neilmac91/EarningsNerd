@@ -30,9 +30,21 @@ _FRESHNESS = timedelta(hours=24)
 _ARTIFACTS = ("canonical", "rendered", "export")
 _PRICING_FIELDS = {"model", "base_url", "official_source", "verified_at", "valid_until",
                    "uncached_input_per_million", "max_output_per_million"}
-_ADMIN_KEYS = {"arm", "draw", "config_sha256", "source_commit", "content_stamp",
-               "provider", "model", "base_url", "dependency_lock_sha256"}
-_ADMIN_KEY_TEXT = re.compile(r'"(?:arm|draw|config_sha256|source_commit|content_stamp|provider|model|base_url|dependency_lock_sha256)"\s*:')
+_CANONICAL_COLUMNS = frozenset({
+    "id", "filing_id", "business_overview", "financial_highlights", "risk_factors",
+    "management_discussion", "key_changes", "raw_summary", "schema_version",
+    "prompt_version", "created_at", "updated_at",
+})
+_CANONICAL_PRODUCT_FIELDS = (
+    "business_overview", "financial_highlights", "risk_factors",
+    "management_discussion", "key_changes", "raw_summary",
+)
+# These keys name execution artifacts, regardless of where they occur. Generic words
+# such as model, provider, arm and draw can also be legitimate filing content; removing
+# them recursively would alter the canonical output presented to a reviewer.
+_EXECUTION_KEY_TEXT = re.compile(
+    r'"(?:config_sha256|source_commit|content_stamp|dependency_lock_sha256|base_url|prompt_version)"\s*:'
+)
 
 
 def _positive_price(value: Any) -> bool:
@@ -417,28 +429,26 @@ def _check_output_records(
 
 def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
                        config: dict[str, Any], holdout_id: str) -> bytes:
-    """Remove canonical administrative fields, then reject remaining identity markers.
+    """Project known DB columns, then reject remaining execution identity markers.
 
     Narrative bytes are never rewritten: a visible marker there stops packet creation.
     """
     if key == "canonical":
         value = _json(source)
-
-        def project(item: Any) -> Any:
-            if isinstance(item, dict):
-                return {name: project(child) for name, child in item.items() if name not in _ADMIN_KEYS}
-            if isinstance(item, list):
-                return [project(child) for child in item]
-            return item
-
-        data = json.dumps(project(value), ensure_ascii=False, indent=2).encode("utf-8")
+        if set(value) != _CANONICAL_COLUMNS or not isinstance(value["raw_summary"], dict):
+            raise ValueError("canonical artifact differs from reviewed production Summary shape")
+        # The complete original JSON remains in the custodian mapping. Omit only the
+        # identified database/execution columns; never edit raw_summary or other product
+        # fields, even when they happen to contain words such as 'model' or 'provider'.
+        product = {name: value[name] for name in _CANONICAL_PRODUCT_FIELDS}
+        data = json.dumps(product, ensure_ascii=False, indent=2).encode("utf-8")
     else:
         data = source.read_bytes()
     text = data.decode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
                str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
                f"{holdout_id}-{row['arm']}-{row['draw']}"}
-    if _ADMIN_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
+    if _EXECUTION_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
         raise ValueError(f"reviewer artifact exposes execution identity: {key}")
     return data
 

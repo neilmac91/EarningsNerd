@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from evals.acceptance_readiness import build_blinded_packets, inspect_readiness
+from evals.acceptance_readiness import _reviewer_artifact, build_blinded_packets, inspect_readiness
 
 
 _ACCEPTED = Path(__file__).resolve().parents[3] / "tasks/review-evidence/acceptance-2026-09-19/candidate-manifest.json"
@@ -109,10 +109,20 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                     path = outputs_root / slot / f"{key}.{extension}"
                     path.parent.mkdir(parents=True, exist_ok=True)
                     if key == "canonical":
-                        path.write_text(json.dumps({"summary": "Revenue rose on the filing basis.",
-                                                    "metadata": {"arm": arm, "draw": draw,
-                                                                 "config_sha256": configs[arm]["sha256"]}}),
-                                        encoding="utf-8")
+                        path.write_text(json.dumps({
+                            "id": 1, "filing_id": 1,
+                            "business_overview": "Revenue rose on the filing basis.",
+                            "financial_highlights": None, "risk_factors": [],
+                            "management_discussion": "Operations improved.",
+                            "key_changes": "Higher investment.",
+                            "raw_summary": {"sections": {"business_overview": {
+                                "model": "Subscription business model",
+                                "provider": "Regional care provider",
+                                "arm": "Clinical trial arm", "draw": "Credit facility draw",
+                            }}, "status": "complete", "schema_version": 2},
+                            "schema_version": 2, "prompt_version": f"synthetic-{arm}",
+                            "created_at": observed, "updated_at": None,
+                        }), encoding="utf-8")
                     else:
                         path.write_text("Revenue rose on the filing basis.", encoding="utf-8")
                     paths[key] = str(path.relative_to(outputs_root))
@@ -215,6 +225,8 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
     assert result["packets_per_reviewer"] == 120
     mapping = json.loads((custodian_root / "mapping.json").read_text())
     assert {row["arm"] for row in mapping["reviewers"]["reviewer-1"]} == {"candidate", "comparator"}
+    original = Path(mapping["reviewers"]["reviewer-1"][0]["raw_artifacts"]["canonical"]["path"])
+    assert json.loads(original.read_text())["prompt_version"].startswith("synthetic-")
     for reviewer in ("reviewer-1", "reviewer-2"):
         root = reviewer_root / reviewer
         index = json.loads((root / "index.json").read_text())
@@ -228,8 +240,13 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
         assert '"arm"' not in (root / "index.json").read_text()
         assert '"config_sha256"' not in (root / "index.json").read_text()
         packet = root / index["packets"][0]["packet_dir"] / "canonical.json"
-        assert set(json.loads(packet.read_text())) == {"summary", "metadata"}
-        assert json.loads(packet.read_text())["metadata"] == {}
+        product = json.loads(packet.read_text())
+        assert set(product) == {"business_overview", "financial_highlights", "risk_factors",
+                                "management_discussion", "key_changes", "raw_summary"}
+        assert product["raw_summary"]["sections"]["business_overview"] == {
+            "model": "Subscription business model", "provider": "Regional care provider",
+            "arm": "Clinical trial arm", "draw": "Credit facility draw",
+        }
     outputs = json.loads(fixture["outputs"].read_text())
     outputs["records"][0]["preview_paths"] = []
     fixture["outputs"].write_text(json.dumps(outputs))
@@ -254,3 +271,21 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
                               expected_manifest_sha=fixture["manifest_sha"])
     assert not (tmp_path / "reviewers").exists()
     assert not (tmp_path / "custodian").exists()
+
+
+def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    row = json.loads(fixture["outputs"].read_text())["records"][0]
+    canonical = fixture["outputs"].parent / row["canonical_path"]
+    prereq = json.loads(fixture["preflight"].read_text())
+    config = json.loads((fixture["preflight"].parent / prereq["candidate_config"]["path"]).read_text())
+    value = json.loads(canonical.read_text())
+    value["raw_summary"]["sections"]["business_overview"]["config_sha256"] = "unknown-nested-marker"
+    canonical.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="exposes execution identity"):
+        _reviewer_artifact(canonical, "canonical", row, config, "H01")
+    del value["raw_summary"]["sections"]["business_overview"]["config_sha256"]
+    value["unknown_execution_field"] = "unreviewed"
+    canonical.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="reviewed production Summary shape"):
+        _reviewer_artifact(canonical, "canonical", row, config, "H01")
