@@ -68,24 +68,30 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
     for arm in ("candidate", "comparator"):
         configs[arm] = _write(evidence / f"{arm}.json", {
             "source_commit": "a" * 40, "content_stamp": f"synthetic-{arm}",
-            "provider": "DeepSeek", "model": "deepseek-flash", "effective_flags": {"AI_EVIDENCE_SNAP": True},
+            "provider": "DeepSeek", "model": "deepseek-flash", "base_url": "https://api.deepseek.com/v1",
+            "effective_flags": {"AI_EVIDENCE_SNAP": True},
             "effective_settings": {"temperature": 0.2}, "dependency_lock_sha256": "b" * 64,
             "frozen_at": frozen})
     receipt = _write(evidence / "receipt.json", {"synthetic": True})
+    pricing = _write(evidence / "pricing.json", {
+        "model": "deepseek-flash", "base_url": "https://api.deepseek.com/v1",
+        "official_source": "https://api-docs.deepseek.com/quick_start/pricing",
+        "verified_at": observed, "valid_until": "2099-01-02T00:00:00Z",
+        "uncached_input_per_million": 0.1, "max_output_per_million": 0.2})
     preflight = {
         "schema_version": 1, "approved_manifest_sha256": manifest_sha,
         "reviewers": reviewers, "adjudicator": adjudicator,
         "reference_briefs": briefs, "exposure_attestation": exposure,
         "candidate_config": configs["candidate"], "comparator_config": configs["comparator"],
-        "pricing": {**receipt, "observed_at": observed,
-                    "official_url": "https://api-docs.deepseek.com/quick_start/pricing",
-                    "model": "deepseek-flash", "uncached_input_usd_per_million": 0.1,
-                    "output_usd_per_million": 0.2},
+        "pricing": {**pricing, "observed_at": observed,
+                    "official_url": "https://api-docs.deepseek.com/quick_start/pricing"},
         "balance": {**receipt, "observed_at": observed, "available_usd": 10},
         "fable": {**receipt, "observed_at": observed, "contract_version": "2",
                   "model": "Fable 5.1", "quota_available": True},
         "development_smoke": {**receipt, "completed": True, "accession_number": "0000000001-26-000001"},
-        "budget_control": {**receipt, "verified": True, "reviewed_commit": "c" * 40},
+        "budget_control": {**receipt, "verified": True, "reviewed_commit": "c" * 40,
+                           "full_run_worst_case_usd": 9.5,
+                           "incomplete_stop_risk_accepted_by": "", "incomplete_stop_risk_accepted_at": None},
     }
     preflight_path = evidence / "prerequisites.json"
     preflight_path.write_text(json.dumps(preflight), encoding="utf-8")
@@ -133,6 +139,37 @@ def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path) -> 
                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
     assert missing["ready_for_paid_execution"] is False
     assert "reference_brief_coverage" in {item["code"] for item in missing["issues"]}
+
+
+def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    preflight = json.loads(fixture["preflight"].read_text())
+    evidence = fixture["preflight"].parent
+    price_path = evidence / preflight["pricing"]["path"]
+    price = json.loads(price_path.read_text())
+    price["model"] = "unrequested-model"
+    preflight["pricing"].update(_write(price_path, price))
+    fixture["preflight"].write_text(json.dumps(preflight))
+    mismatch = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert mismatch["ready_for_paid_execution"] is False
+    assert "pricing_invalid" in {item["code"] for item in mismatch["issues"]}
+
+    price["model"] = "deepseek-flash"
+    preflight["pricing"].update(_write(price_path, price))
+    preflight["budget_control"]["full_run_worst_case_usd"] = 12
+    fixture["preflight"].write_text(json.dumps(preflight))
+    over_ceiling = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                     expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert over_ceiling["ready_for_paid_execution"] is False
+    assert "budget_control_invalid" in {item["code"] for item in over_ceiling["issues"]}
+
+    preflight["budget_control"].update(incomplete_stop_risk_accepted_by="Synthetic Sponsor",
+                                        incomplete_stop_risk_accepted_at=fixture["now"].isoformat())
+    fixture["preflight"].write_text(json.dumps(preflight))
+    accepted = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert accepted["ready_for_paid_execution"] is True
 
 
 def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> None:

@@ -252,12 +252,16 @@ def inspect_readiness(
 
     config_hashes: dict[str, str] = {}
     config_models: dict[str, str] = {}
+    config_bases: dict[str, str] = {}
     for arm in ("candidate", "comparator"):
         try:
             record = prereq.get(f"{arm}_config")
             _, config = _evidence(base, record)
             if (config is None or not re.fullmatch(r"[0-9a-f]{40}", str(config.get("source_commit", ""))) or
-                    not all(str(config.get(k, "")).strip() for k in ("content_stamp", "provider", "model")) or
+                    not all(str(config.get(k, "")).strip() for k in ("content_stamp", "provider", "model", "base_url")) or
+                    str(config.get("provider", "")).casefold() != "deepseek" or
+                    urlparse(str(config.get("base_url", ""))).scheme != "https" or
+                    urlparse(str(config.get("base_url", ""))).hostname != "api.deepseek.com" or
                     not isinstance(config.get("effective_flags"), dict) or not config["effective_flags"] or
                     not isinstance(config.get("effective_settings"), dict) or not config["effective_settings"] or
                     not _SHA256.fullmatch(str(config.get("dependency_lock_sha256", ""))) or
@@ -265,13 +269,14 @@ def inspect_readiness(
                 raise ValueError("effective configuration incomplete")
             config_hashes[arm] = record["sha256"]
             config_models[arm] = config["model"]
+            config_bases[arm] = config["base_url"].rstrip("/")
         except (OSError, TypeError, ValueError) as exc:
             _issue(issues, "config_invalid", f"{arm}: {type(exc).__name__}")
 
     for kind in ("pricing", "balance", "fable"):
         record = prereq.get(kind)
         try:
-            _evidence(base, record)
+            _, evidence = _evidence(base, record)
             observed = _utc(record.get("observed_at"))
             if observed is None or observed > now:
                 raise ValueError("observation time invalid")
@@ -279,12 +284,18 @@ def inspect_readiness(
             if kind == "pricing" and (price_url.scheme != "https" or
                                       price_url.hostname not in {"deepseek.com", "api-docs.deepseek.com"}):
                 raise ValueError("official price source missing")
-            if kind == "pricing" and (
-                set(config_models.values()) != {record.get("model")} or len(config_models) != 2 or
-                any(not isinstance(record.get(key), (int, float)) or isinstance(record.get(key), bool) or
-                    record[key] < 0 for key in ("uncached_input_usd_per_million", "output_usd_per_million"))
-            ):
-                raise ValueError("current model tariff numbers missing")
+            if kind == "pricing":
+                verified = _utc(evidence.get("verified_at")) if evidence else None
+                expires = _utc(evidence.get("valid_until")) if evidence else None
+                if (evidence is None or set(config_models.values()) != {evidence.get("model")} or
+                        len(config_models) != 2 or set(config_bases.values()) != {str(evidence.get("base_url", "")).rstrip("/")} or
+                        len(config_bases) != 2 or evidence.get("official_source") != record.get("official_url") or
+                        verified is None or verified > observed or expires is None or expires <= verified or
+                        any(not isinstance(evidence.get(key), (int, float)) or isinstance(evidence.get(key), bool) or
+                            evidence[key] < 0 for key in ("uncached_input_per_million", "max_output_per_million"))):
+                    raise ValueError("pricing artifact does not match frozen model/base and official tariff")
+                if expires <= now:
+                    _issue(paid_only, "expired_pricing", "pricing artifact validity ended")
             if kind == "balance" and (not isinstance(record.get("available_usd"), (int, float)) or
                                       isinstance(record.get("available_usd"), bool) or record["available_usd"] <= 0):
                 raise ValueError("balance observation missing")
@@ -305,8 +316,15 @@ def inspect_readiness(
             if kind == "development_smoke" and (not _ACCESSION.fullmatch(str(record.get("accession_number", ""))) or
                                                 record["accession_number"] in accessions):
                 raise ValueError("development smoke must use a non-holdout accession")
-            if kind == "budget_control" and not re.fullmatch(r"[0-9a-f]{40}", str(record.get("reviewed_commit", ""))):
-                raise ValueError("budget control needs reviewed commit")
+            if kind == "budget_control":
+                worst_case = record.get("full_run_worst_case_usd")
+                if (not re.fullmatch(r"[0-9a-f]{40}", str(record.get("reviewed_commit", ""))) or
+                        not isinstance(worst_case, (int, float)) or isinstance(worst_case, bool) or worst_case < 0):
+                    raise ValueError("budget control needs reviewed commit and full-run estimate")
+                if worst_case > 10 and (not str(record.get("incomplete_stop_risk_accepted_by", "")).strip() or
+                                        _utc(record.get("incomplete_stop_risk_accepted_at")) is None or
+                                        _utc(record.get("incomplete_stop_risk_accepted_at")) > now):
+                    raise ValueError("full-run estimate exceeds $10 without dated incomplete-stop risk acceptance")
         except (OSError, TypeError, ValueError) as exc:
             _issue(issues, f"{kind}_invalid", type(exc).__name__)
 
