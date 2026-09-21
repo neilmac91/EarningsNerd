@@ -752,7 +752,7 @@ def _v2_segments(sections: dict) -> Section:
         section.blocks.append(
             Block(
                 "table",
-                headers=["Segment", "Revenue", "Operating Income", "Change", "Commentary"],
+                headers=["Segment", "Revenue", "Operating Income", "Revenue Change", "Commentary"],
                 rows=rows,
             )
         )
