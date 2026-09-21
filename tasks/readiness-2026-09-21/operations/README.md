@@ -16,7 +16,7 @@ gcloud beta monitoring channels describe projects/earnings-nerd/notificationChan
 
 The local `gcloud` installation used for this preparation lacks the beta channel command group, so the channel's enabled state and owner remain a readback hold. The existing policies prove only the reference. A console read of the channel is an equivalent read-only check; do not create a replacement channel on that basis.
 
-The following is an idempotent apply recipe for an authorized operator. Run from this directory with `jq` and `gcloud`; retain the rendered files and created resource names in the change receipt. It **stops on an existing display name** instead of silently changing drift. Check the listed resource's definition before deciding that a re-run is complete. Do not run until channel ownership, production application and alert-delivery validation are authorized.
+The following is an idempotent apply recipe for an authorized operator. Run from this directory with `jq` and `gcloud`; retain the rendered files and created resource names in the change receipt. It verifies an existing display name and **stops on configuration drift**. Check the listed resource's definition before deciding that a re-run is complete. Do not run until channel ownership, production application and alert-delivery validation are authorized.
 
 ```bash
 set -euo pipefail
@@ -62,8 +62,13 @@ for file in alerts/*.json; do
   else
     test "$(printf '%s\n' "$existing" | wc -l | tr -d ' ')" = 1
     gcloud monitoring policies describe "$existing" --project=earnings-nerd --format=json |
-      jq --argfile desired "$rendered" -e \
-        '. as $actual | ($actual.enabled == $desired.enabled) and ($actual.notificationChannels == $desired.notificationChannels) and (($actual.conditions | map(del(.name))) == $desired.conditions)' >/dev/null
+      jq --slurpfile desired "$rendered" -e \
+        '$desired[0] as $wanted | . as $actual |
+         ($actual.enabled == $wanted.enabled) and
+         ($actual.notificationChannels == $wanted.notificationChannels) and
+         ($actual.combiner == $wanted.combiner) and
+         ($actual.alertStrategy == $wanted.alertStrategy) and
+         (($actual.conditions | map(del(.name))) == $wanted.conditions)' >/dev/null
   fi
   rm "$rendered"
 done
