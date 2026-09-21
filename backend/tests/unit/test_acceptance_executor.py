@@ -31,6 +31,8 @@ def _complete_frozen_config() -> dict:
     settings = {key: "" for key in REQUIRED_FROZEN_SETTINGS if key != "AI_EVIDENCE_SNAP"}
     settings["OPENAI_BASE_URL"] = "https://api.deepseek.com/v1"
     settings["AI_DEFAULT_MODEL"] = "deepseek-chat"
+    settings["RECOVERY_MAX_CONCURRENCY"] = 3
+    settings["AI_SUMMARY_THINKING_MAX_TOKENS"] = 24000
     return {"base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat",
             "effective_settings": settings, "effective_flags": {"AI_EVIDENCE_SNAP": True}}
 
@@ -132,6 +134,7 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     assert env["OPENAI_API_KEY"] == "explicit-fixture-key"
     assert env["STRIPE_SECRET_KEY"] == ""
     assert env["AI_EVIDENCE_SNAP"] == "true"
+    assert env["RECOVERY_MAX_CONCURRENCY"] == "3"
     assert "production.invalid" not in json.dumps(env)
     assert "ambient-key-must-not-cross" not in json.dumps(env)
     assert "ambient-stripe-must-not-cross" not in json.dumps(env)
@@ -152,6 +155,10 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     ("fallback_model", "fallback provider route must be blank"),
     ("fallback_base_url", "fallback provider route must be blank"),
     ("fallback_whitespace", "fallback provider route must be blank"),
+    ("recovery_concurrency", "recovery concurrency must be a positive integer"),
+    ("arm_concurrency", "recovery concurrency differs between acceptance arms"),
+    ("thinking", "thinking mode is unsupported"),
+    ("thinking_ceiling", "thinking token ceiling must match"),
 ])
 def test_invalid_frozen_settings_stop_before_programme_state(
     tmp_path: Path, monkeypatch, fault: str, message: str
@@ -177,10 +184,24 @@ def test_invalid_frozen_settings_stop_before_programme_state(
         config["effective_settings"]["AI_FALLBACK_MODEL"] = "unpriced-model"
     elif fault == "fallback_whitespace":
         config["effective_settings"]["AI_FALLBACK_MODEL"] = " "
+    elif fault == "recovery_concurrency":
+        config["effective_settings"]["RECOVERY_MAX_CONCURRENCY"] = 0
+    elif fault == "thinking":
+        config["effective_settings"]["AI_SUMMARY_THINKING_EFFORT"] = "high"
+    elif fault == "thinking_ceiling":
+        config["effective_settings"]["AI_SUMMARY_THINKING_MAX_TOKENS"] = 240000
+    elif fault == "arm_concurrency":
+        pass
     else:
         config["effective_settings"]["AI_FALLBACK_BASE_URL"] = "https://other.invalid/v1"
     config_path = _write(tmp_path / "config.json", config)
-    prerequisites = _write(tmp_path / "prerequisites.json", {"candidate_config": {"path": config_path.name}})
+    comparator = _complete_frozen_config()
+    if fault == "arm_concurrency":
+        comparator["effective_settings"]["RECOVERY_MAX_CONCURRENCY"] = 2
+    comparator_path = _write(tmp_path / "comparator.json", comparator)
+    prerequisites = _write(tmp_path / "prerequisites.json", {
+        "candidate_config": {"path": config_path.name},
+        "comparator_config": {"path": comparator_path.name}})
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})
 
     def forbidden(*_, **__):
@@ -250,7 +271,8 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
     pricing = _write(tmp_path / "pricing.json", {
         "uncached_input_per_million": "0.01", "max_output_per_million": "0.02"})
     prerequisites = _write(tmp_path / "prerequisites.json", {
-        "candidate_config": {"path": config.name}, "pricing": {"path": pricing.name},
+        "candidate_config": {"path": config.name}, "comparator_config": {"path": config.name},
+        "pricing": {"path": pricing.name},
         "budget_control": {"full_run_worst_case_usd": "10", "reviewed_commit": "a" * 40}})
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {
         "issues": [], "config_sha256": {"candidate": executor.sha(config)}})

@@ -241,6 +241,13 @@ def validated_frozen_settings(config):
                       frozen['AI_FAST_MODEL'].strip() or frozen['AI_DEFAULT_MODEL'])
     if recovery_model != model:
         raise ValueError('frozen recovery/verifier model differs from priced config')
+    if type(frozen['RECOVERY_MAX_CONCURRENCY']) is not int or frozen['RECOVERY_MAX_CONCURRENCY'] < 1:
+        raise ValueError('frozen recovery concurrency must be a positive integer')
+    if frozen['AI_SUMMARY_THINKING_EFFORT'] != '':
+        raise ValueError('thinking mode is unsupported by the acceptance budget')
+    ceiling = frozen['AI_SUMMARY_THINKING_MAX_TOKENS']
+    if type(ceiling) is not int or not 8000 <= ceiling <= 131072:
+        raise ValueError('frozen thinking token ceiling must match application setting bounds')
     return frozen
 
 
@@ -294,6 +301,12 @@ def run_slot(args):
     config_path = (prerequisites_path.parent / config_ref['path']).resolve()
     config = read_json(config_path)
     frozen = validated_frozen_settings(config)
+    other_arm = 'comparator' if selected['arm'] == 'candidate' else 'candidate'
+    other_ref = prerequisites[other_arm + '_config']
+    other_path = (prerequisites_path.parent / other_ref['path']).resolve()
+    other_frozen = validated_frozen_settings(read_json(other_path))
+    if frozen['RECOVERY_MAX_CONCURRENCY'] != other_frozen['RECOVERY_MAX_CONCURRENCY']:
+        raise ValueError('recovery concurrency differs between acceptance arms')
     budget_control = prerequisites['budget_control']
     checkout = frozen_checkout(config, budget_control['reviewed_commit'])
     runtime = verified_runtime(checkout / 'backend/requirements.txt')
