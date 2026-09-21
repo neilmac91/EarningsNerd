@@ -209,11 +209,27 @@ def frozen_checkout(config, reviewed_commit):
     return root
 
 
-def child_environment(invocation, config, api_key):
+def validated_frozen_settings(config):
+    """Validate the exact child setting names before any programme state is created."""
     from evals.acceptance_worker import REQUIRED_FROZEN_SETTINGS
-    frozen = dict(config['effective_settings'], **config['effective_flags'])
-    if set(frozen) - REQUIRED_FROZEN_SETTINGS:
+    settings, flags = config.get('effective_settings'), config.get('effective_flags')
+    if not isinstance(settings, dict) or not settings or not isinstance(flags, dict) or not flags:
+        raise ValueError('effective settings and flags must be non-empty objects')
+    if not all(isinstance(key, str) for key in (*settings, *flags)):
+        raise ValueError('frozen setting names must be strings')
+    if settings.keys() & flags.keys():
+        raise ValueError('frozen setting appears in both settings and flags')
+    frozen = {**settings, **flags}
+    if REQUIRED_FROZEN_SETTINGS - frozen.keys():
+        raise ValueError('missing required frozen settings: ' +
+                         ', '.join(sorted(REQUIRED_FROZEN_SETTINGS - frozen.keys())))
+    if frozen.keys() - REQUIRED_FROZEN_SETTINGS:
         raise ValueError('frozen settings include an unsupported process or credential control')
+    return frozen
+
+
+def child_environment(invocation, config, api_key):
+    frozen = validated_frozen_settings(config)
     env = {key: os.environ[key] for key in ('PATH', 'DYLD_FALLBACK_LIBRARY_PATH') if key in os.environ}
     env.update({key: json.dumps(value) if not isinstance(value, str) else value
                 for key, value in frozen.items()})
@@ -261,6 +277,7 @@ def run_slot(args):
     config_ref = prerequisites[selected['arm'] + '_config']
     config_path = (prerequisites_path.parent / config_ref['path']).resolve()
     config = read_json(config_path)
+    frozen = validated_frozen_settings(config)
     budget_control = prerequisites['budget_control']
     checkout = frozen_checkout(config, budget_control['reviewed_commit'])
     runtime = verified_runtime(checkout / 'backend/requirements.txt')
@@ -280,6 +297,8 @@ def run_slot(args):
     if not api_key:
         raise ValueError('explicit E7_GENERATOR_API_KEY is required; no production secret lookup')
     root = Path(args.programme).resolve()
+    child_invocation = root / args.slot / 'attempt-1'
+    child_env = child_environment(child_invocation, config, api_key)
     with programme_lock(root):
         if (root / 'STOP').exists():
             raise BudgetStopped('programme STOP file is present')
@@ -311,7 +330,7 @@ def run_slot(args):
         invocation.mkdir()
         request = {'filing': selected['filing'], 'config': dict(config, source_root=str(Path(args.archive).resolve()),
                    expected_commit=config['source_commit'], allow_sec_network=True, allow_provider=True,
-                   frozen_settings=dict(config['effective_settings'], **config['effective_flags'])),
+                   frozen_settings=frozen),
                    'invocation_dir': str(invocation), 'ledger': str(ledger_path), 'pricing': pricing,
                    'slot_id': args.slot, 'stop_file': str(root / 'STOP')}
         request.update(manifest=str(manifest_path), prerequisites=str(prerequisites_path),
@@ -330,7 +349,7 @@ def run_slot(args):
             with (slot_dir / 'worker.log').open('w') as log:
                 process = subprocess.run([sys.executable, '-m', 'evals.acceptance_executor',
                     'worker', '--request', str(request_path)], cwd=checkout / 'backend',
-                    env=child_environment(invocation, config, api_key), stdout=log, stderr=subprocess.STDOUT,
+                    env=child_env, stdout=log, stderr=subprocess.STDOUT,
                     timeout=600, check=False)
             result_path = invocation / 'result.json'
             result = read_json(result_path) if result_path.is_file() else None

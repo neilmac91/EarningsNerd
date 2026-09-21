@@ -26,6 +26,13 @@ def _git(root: Path, *arguments: str) -> str:
     return subprocess.check_output(["git", *arguments], cwd=root, text=True).strip()
 
 
+def _complete_frozen_config() -> dict:
+    from evals.acceptance_worker import REQUIRED_FROZEN_SETTINGS
+    settings = {key: "" for key in REQUIRED_FROZEN_SETTINGS if key != "AI_EVIDENCE_SNAP"}
+    settings["OPENAI_BASE_URL"] = "https://api.deepseek.com/v1"
+    return {"effective_settings": settings, "effective_flags": {"AI_EVIDENCE_SNAP": True}}
+
+
 def test_frozen_checkout_requires_reviewed_meter_bytes_in_both_trees(tmp_path: Path, monkeypatch) -> None:
     checkout, executing = tmp_path / "checkout", tmp_path / "executing"
     checkout.mkdir()
@@ -117,8 +124,7 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     monkeypatch.setenv("OPENAI_API_KEY", "ambient-key-must-not-cross")
     monkeypatch.setenv("STRIPE_SECRET_KEY", "ambient-stripe-must-not-cross")
     invocation = tmp_path / "slot" / "attempt-1"
-    config = {"effective_settings": {"OPENAI_BASE_URL": "https://api.deepseek.com/v1"},
-              "effective_flags": {"AI_EVIDENCE_SNAP": True}}
+    config = _complete_frozen_config()
     env = executor.child_environment(invocation, config, "explicit-fixture-key")
     assert env["DATABASE_URL"] == "sqlite:///" + str(invocation / "invocation.sqlite3")
     assert env["OPENAI_API_KEY"] == "explicit-fixture-key"
@@ -128,9 +134,47 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     assert "ambient-key-must-not-cross" not in json.dumps(env)
     assert "ambient-stripe-must-not-cross" not in json.dumps(env)
     for key in ("PYTHONPATH", "PYTHONHOME", "PATH", "DYLD_INSERT_LIBRARIES"):
-        contaminated = dict(config, effective_flags={key: "/untrusted"})
+        contaminated = dict(config, effective_flags={**config["effective_flags"], key: "/untrusted"})
         with pytest.raises(ValueError, match="unsupported process"):
             executor.child_environment(invocation, contaminated, "explicit-fixture-key")
+
+
+@pytest.mark.parametrize("fault, message", [
+    ("missing", "missing required frozen settings"),
+    ("unsupported", "unsupported process or credential control"),
+    ("shape", "non-empty objects"),
+])
+def test_invalid_frozen_settings_stop_before_programme_state(
+    tmp_path: Path, monkeypatch, fault: str, message: str
+) -> None:
+    filing = {"holdout_id": "H02", "accession_number": "0000000001-26-000001"}
+    manifest = _write(tmp_path / "manifest.json", {"filings": [filing]})
+    config = _complete_frozen_config()
+    if fault == "missing":
+        del config["effective_settings"]["OPENAI_BASE_URL"]
+    elif fault == "unsupported":
+        config["effective_flags"]["PYTHONPATH"] = "/untrusted"
+    else:
+        config["effective_flags"] = []
+    config_path = _write(tmp_path / "config.json", config)
+    prerequisites = _write(tmp_path / "prerequisites.json", {"candidate_config": {"path": config_path.name}})
+    monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})
+
+    def forbidden(*_, **__):
+        raise AssertionError("invalid frozen config reached checkout, ledger or child dispatch")
+
+    monkeypatch.setattr(executor, "frozen_checkout", forbidden)
+    monkeypatch.setattr(executor, "BudgetLedger", forbidden)
+    monkeypatch.setattr(executor.subprocess, "run", forbidden)
+    programme = tmp_path / "programme"
+    args = SimpleNamespace(command="run-slot", manifest=str(manifest),
+                           prerequisites=str(prerequisites), archive=tmp_path,
+                           slot="H02-candidate-1", programme=programme)
+    with pytest.raises(ValueError, match=message):
+        executor.run_slot(args)
+    assert not programme.exists()
+    assert not (programme / "budget.sqlite3").exists()
+    assert not (programme / "H02-candidate-1").exists()
 
 
 def test_slot_meter_retains_anomaly_and_stops_after_settlement_failure(tmp_path: Path) -> None:
@@ -178,7 +222,8 @@ def test_missing_human_readiness_never_dispatches(tmp_path: Path, monkeypatch) -
 def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch) -> None:
     filing = {"holdout_id": "H02", "accession_number": "0000000001-26-000001"}
     manifest = _write(tmp_path / "manifest.json", {"filings": [filing]})
-    config = _write(tmp_path / "config.json", {"source_commit": "a" * 40})
+    config = _write(tmp_path / "config.json", {"source_commit": "a" * 40,
+                                               **_complete_frozen_config()})
     pricing = _write(tmp_path / "pricing.json", {
         "uncached_input_per_million": "0.01", "max_output_per_million": "0.02"})
     prerequisites = _write(tmp_path / "prerequisites.json", {
