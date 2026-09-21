@@ -61,37 +61,59 @@ def test_a_stated_verdict_must_quote_a_passage_it_was_given():
     verdicts = verify.parse_verdicts(raw, judged)
     assert verdicts[0] == "stated"
     assert verdicts[1] == "unknown", "an unquotable 'stated' cannot save a clause"
+    # A contiguous quote in the combined string is not a quote from either supplied passage.
+    first = "The filing reports higher revenue in Europe."
+    second = "Operating expenses declined because of lower headcount."
+    judged[0].evidence = [first, second]
+    for quote, expected in [(first + " " + second, "unknown"), (second, "stated")]:
+        raw = json.dumps({"claims": [{"claim": 1, "verdict": "stated", "quote": quote}]})
+        assert verify.parse_verdicts(raw, judged[:1]) == {0: expected}
 
 
 def test_a_too_short_quote_cannot_prove_a_stated_verdict():
     _checked, candidates = _candidates()
     judged = verify.verifiable(candidates)
     raw = json.dumps({"claims": [{"claim": 1, "verdict": "stated", "quote": "revenue"}]})
-    assert verify.parse_verdicts(raw, judged) == {0: "unknown"}
+    assert verify.parse_verdicts(raw, judged[:1]) == {0: "unknown"}
 
 
 @pytest.mark.parametrize("raw", ["", None, "not json at all", '{"claims": "nope"}', '{"other": []}',
                                  '{"claims": [{"claim": 99, "verdict": "not_stated"}]}',
                                  '{"claims": [{"claim": "one", "verdict": "not_stated"}]}',
-                                 '{"claims": [{"claim": true, "verdict": "not_stated"}]}'])
-def test_unusable_responses_yield_no_verdicts(raw):
-    _checked, candidates = _candidates()
-    assert verify.parse_verdicts(raw, verify.verifiable(candidates)) == {}
+                                 '{"claims": [{"claim": true, "verdict": "not_stated"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"},',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 2, "verdict": "unknown"},]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 1, "verdict": "unknown"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 2.5, "verdict": "unknown"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 99, "verdict": "unknown"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 2, "verdict": "maybe"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, null]}',
+                                 '{"claims": [{"claim": 1, "verdict": "unknown", '
+                                 '"verdict": "not_stated"}, {"claim": 2, "verdict": "unknown"}]}',
+                                 '{"claims": [{"claim": 1, "verdict": "not_stated"}, '
+                                 '{"claim": 2, "verdict": "unknown", "quote": NaN}]}'])
+def test_unusable_batches_cannot_make_any_deletion_decision(raw):
+    sections = copy.deepcopy(SECTIONS)
+    checked, candidates = _candidates(sections)
+    verdicts = verify.parse_verdicts(raw, verify.verifiable(candidates))
+    assert verdicts == {}
+    audit = apply_attributions(checked, candidates, verdicts, armed=True)
+    assert audit["dropped"] == [] and sections == SECTIONS
 
 
-def test_fenced_and_damaged_json_is_still_read():
+def test_complete_fenced_json_is_still_read():
     _checked, candidates = _candidates()
     judged = verify.verifiable(candidates)
-    raw = '```json\n{"claims": [{"claim": 1, "verdict": "not_stated", "quote": "",},]}\n```'
-    assert verify.parse_verdicts(raw, judged).get(0) == "not_stated"
-
-
-def test_a_repeated_claim_number_cannot_overwrite_the_first_verdict():
-    _checked, candidates = _candidates()
-    judged = verify.verifiable(candidates)
-    raw = json.dumps({"claims": [{"claim": 1, "verdict": "unknown"},
-                                 {"claim": 1, "verdict": "not_stated"}]})
-    assert verify.parse_verdicts(raw, judged) == {0: "unknown"}
+    payload = {"claims": [{"claim": i + 1, "verdict": "not_stated", "quote": ""}
+                          for i in reversed(range(len(judged)))]}
+    raw = '```json\n' + json.dumps(payload) + '\n```'
+    assert verify.parse_verdicts(raw, judged) == dict.fromkeys(range(len(judged)), "not_stated")
 
 
 def test_only_clauses_with_passages_are_sent_and_the_batch_is_bounded():

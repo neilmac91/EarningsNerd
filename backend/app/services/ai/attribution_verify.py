@@ -16,9 +16,8 @@ Bounded by construction:
 - A "stated" verdict must quote the passage that states it, and the quote is checked in code against
   the passages actually supplied; an unquotable "stated" is downgraded to unknown. A model cannot
   talk a clause into surviving with text it invented.
-- Unknown or absent verdicts never drop. Request failures and timeouts return no verdicts.
-  JSON repair can retain an early verdict from a truncated response; truncation is not a
-  guaranteed whole-batch rejection in the current transport/parser.
+- Unknown verdicts never drop. Request failures, malformed JSON and incomplete or ambiguous
+  claim batches return no verdicts. Supporting quotes must occur within one supplied passage.
 """
 from __future__ import annotations
 
@@ -27,11 +26,6 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from app.services.ai.attribution_gate import MAX_VERIFIABLE_CLAUSES, Candidate
 from app.services.provenance_service import normalize_for_match
-
-try:  # json_repair is a declared dependency; degrade to strict json if it is ever absent.
-    from json_repair import repair_json as _repair_json
-except ImportError:  # pragma: no cover
-    _repair_json = None
 
 VERIFY_SYSTEM_MESSAGE = (
     "You check whether an SEC filing states a cause. You answer only from the passages given to you, "
@@ -100,53 +94,63 @@ def build_prompt(candidates: Sequence[Candidate]) -> str:
 
 
 def _load(raw: Optional[str]) -> Any:
-    """Read the response as JSON, tolerating fences and the usual model JSON damage."""
+    """Read complete JSON, allowing only an enclosing Markdown fence, never JSON repair."""
     text = (raw or "").strip()
     if text.startswith("```"):
-        text = text.split("```")[1] if "```" in text[3:] else text[3:]
-        text = text.split("\n", 1)[1] if text.lower().startswith("json") else text
+        lines = text.splitlines()
+        if len(lines) < 3 or lines[0].lower() not in {"```", "```json"} or lines[-1] != "```":
+            return None
+        text = "\n".join(lines[1:-1])
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> Dict[str, Any]:
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> Any:
+        raise ValueError("non-JSON number")
+
     try:
-        return json.loads(text)
-    except Exception:  # noqa: BLE001
-        pass
-    if _repair_json is None:
-        return None
-    try:
-        repaired = _repair_json(text)
-        return json.loads(repaired) if isinstance(repaired, str) else repaired
-    except Exception:  # noqa: BLE001
+        return json.loads(text, object_pairs_hook=unique_object, parse_constant=reject_constant)
+    except (ValueError, TypeError):
         return None
 
 
 def parse_verdicts(raw: Optional[str], candidates: Sequence[Candidate]) -> Dict[int, str]:
-    """Map candidate index → verdict, keeping only what the response can justify.
+    """Map a complete, uniquely identified claim batch to justified verdicts, or reject it all.
 
-    A "stated" verdict survives only if its quote really appears in that claim's own passages (the
+    A "stated" verdict survives only if its quote really appears in one of its own passages (the
     same normalization every verbatim check in the product uses). Anything else is "unknown"."""
     payload = _load(raw)
     claims = payload.get("claims") if isinstance(payload, dict) else None
-    if not isinstance(claims, list):
+    if not isinstance(claims, list) or len(claims) != len(candidates):
         return {}
     verdicts: Dict[int, str] = {}
     for claim in claims:
         if not isinstance(claim, dict):
-            continue
+            return {}
         number = claim.get("claim")
-        if not isinstance(number, (int, float)) or isinstance(number, bool):
-            continue
-        index = int(number) - 1
+        if not isinstance(number, int) or isinstance(number, bool):
+            return {}
+        index = number - 1
         if not 0 <= index < len(candidates) or index in verdicts:
-            continue
+            return {}
         verdict = str(claim.get("verdict", "")).strip().lower()
         if verdict == "not_stated":
             verdicts[index] = "not_stated"
         elif verdict == "stated":
-            quote = normalize_for_match(str(claim.get("quote", "")))
-            passages = normalize_for_match(" ".join(candidates[index].evidence))
-            verdicts[index] = ("stated" if len(quote) >= _MIN_QUOTE_CHARS and quote in passages
+            raw_quote = claim.get("quote", "")
+            quote = normalize_for_match(raw_quote) if isinstance(raw_quote, str) else ""
+            in_passage = any(quote in normalize_for_match(passage) for passage in candidates[index].evidence)
+            verdicts[index] = ("stated" if len(quote) >= _MIN_QUOTE_CHARS and in_passage
                                else "unknown")
-        else:
+        elif verdict == "unknown":
             verdicts[index] = "unknown"
+        else:
+            return {}
     return verdicts
 
 

@@ -1235,3 +1235,18 @@ Sea's audit/replay checked-count mismatch, JSON repair of partial replies and jo
 validation remain limitations. Prompt instructions to answer unknown are not deterministic
 safeguards. Activation and semantic/effect acceptance remain held; no general exception for later
 prompt releases follows from this decision.
+
+### September 21 — deterministic verifier response safeguards
+
+Verifier responses now require complete strict JSON (an enclosing Markdown fence is allowed) and
+exactly one valid integer identity/verdict for every supplied claim. Malformed or repaired-looking
+JSON, duplicate JSON keys, missing/duplicate/out-of-range claim IDs and unknown verdict tokens reject
+the entire batch. No early `not_stated` survives a partially returned batch. A `stated` quote must
+occur wholly inside one supplied passage; concatenating separate passages cannot prove support.
+Unquotable `stated` claims become `unknown`, which cannot delete text.
+
+These are deterministic checks at the model-output boundary. They change no prompt, source-window
+selection, candidate discovery, content stamp, baseline or production flag. Both attribution flags
+remain false; offline rejection/quote-provenance proofs do not establish semantic accuracy or
+authorize activation. The earlier partial-response and joined-passage findings remain historical
+evidence for these corrections.
