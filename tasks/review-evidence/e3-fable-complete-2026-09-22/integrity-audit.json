@@ -1,0 +1,20 @@
+{
+  "archive_inventory_verified": 712,
+  "supplement_files_identical": 11,
+  "prior_stage_files_identical": 155,
+  "original_immutable_files_verified": 818,
+  "complete_bound_outputs": 210,
+  "new_harness_invocations": 123,
+  "new_failures": 0,
+  "known_AAPL_failed_output_virtually_reused": true,
+  "new_STOP_or_pending": false,
+  "supplemental_readout_rows_and_judges_equal_original_packets_and_validated_slots": true,
+  "frozen_request_builder_used": true,
+  "local_model_calls": 0,
+  "remote_integrity_claim_limitation": "Original bundle copied locally is pinned; remote sealed-file and guard-state readbacks are returned evidence, not direct observation.",
+  "historical_readouts_note": {
+    "readouts-final/e3-candidate1-readout.json": "preserved September21 16/70 report; supplemental readout is current",
+    "readouts-final/e3-candidate2-readout.json": "preserved September21 0/70 report; supplemental readout is current",
+    "historical_null_judgments_replaced_in_supplement": 124
+  }
+}
