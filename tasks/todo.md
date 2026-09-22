@@ -1,3 +1,9 @@
+## September 22 — E7 draft source-binding hold and collector evidence protection
+
+PR #940 remains draft. The current worker does not bind every section/XBRL channel to the frozen archive; the 6-K text adapter does not bind its separate structured path, and the manifest has no frozen companyfacts response. A non-configurable engineering hold now rejects the whole programme before smoke/slot dispatch or claim, direct worker database/provider work, and reviewer packet creation. [Unblock criteria](readiness-2026-09-21/acceptance/execution.md#source-binding-unblock-criteria) require original archive recovery, production-path provenance and independent review, without dropping source channels or filings.
+
+The collector now refuses any output destination inside the permanent programme and refuses unrelated existing external files before inspecting/materializing evidence. Recollection may replace only an index associated with that same programme. Offline targeted acceptance checks: 57 passed, 9 warnings; changed-file Ruff passed. Full gate and hosted review follow. No provider call, budget/brief safeguard change, holdout exposure, flag change or acceptance decision occurred.
+
 ## September 21 — verifier response safety prepared
 
 Strict complete-batch validation and passage-local supporting quotes are implemented with both attribution flags still false. [Local gate and independent review](review-evidence/verifier-response-safety-2026-09-21/README.md): 3,439 tests including performance/four PostgreSQL lanes, two original mutation proofs, no locked-test/prompt/model/pin/flag change. Hosted checks, actual measurement artifacts and release verification follow; this is not semantic acceptance.

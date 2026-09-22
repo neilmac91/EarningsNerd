@@ -3,6 +3,8 @@
 import hashlib
 import json
 import sqlite3
+
+import pytest
 from pathlib import Path
 
 from evals.acceptance_outputs import collect_outputs
@@ -123,13 +125,31 @@ def _fixture(tmp_path: Path, *, sixk: bool = False, primary_fallback: bool = Fal
                                                       separators=(",", ":")).encode()).hexdigest()))
         db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?)",
                    (config_sha, "c" * 64))
-    return root, root / "outputs.json", invocation
+    return root, tmp_path / "outputs.json", invocation
 
 
 def test_collects_actual_raw_frames_and_is_idempotent(tmp_path: Path) -> None:
     root, output, invocation = _fixture(tmp_path)
     originals = {name: _sha(invocation / name) for name in
                  ("raw_previews.jsonl", "canonical_summary.json", "rendered_summary.md", "export.html")}
+    # Reject evidence destinations before even materializing preview files.
+    protected = [root / "budget.sqlite3", root / "outputs.json", invocation / "receipt.json"]
+    before = {path: path.read_bytes() if path.exists() else None for path in protected}
+    for destination in protected:
+        with pytest.raises(ValueError, match="outside the programme"):
+            collect_outputs(root, destination)
+    alias = tmp_path / "programme-alias"
+    alias.symlink_to(root, target_is_directory=True)
+    with pytest.raises(ValueError, match="outside the programme"):
+        collect_outputs(root, alias / "budget.sqlite3")
+    output.write_text('{"source": "original evidence"}\n')
+    original_output = output.read_bytes()
+    with pytest.raises(ValueError, match="not a collector index"):
+        collect_outputs(root, output)
+    assert output.read_bytes() == original_output
+    output.unlink()
+    assert not (invocation / "preview-files").exists()
+    assert before == {path: path.read_bytes() if path.exists() else None for path in protected}
     first = collect_outputs(root, output)
     assert first["completed"] == 1 and first["expected"] == 120 and first["complete"] is False
     assert len(first["missing_slot_ids"]) == 119
@@ -139,11 +159,11 @@ def test_collects_actual_raw_frames_and_is_idempotent(tmp_path: Path) -> None:
     assert row["status"] == "completed" and row["error"] is None
     assert row["preview_count"] == 2 and row["previews_truncated"] is False
     assert row["retry_preview_attempts_omitted"] == 0
-    assert [(root / relative).read_text() for relative in row["preview_paths"]] == [
+    assert [(output.parent / relative).read_text() for relative in row["preview_paths"]] == [
         "First preview\nfull text", "Second preview Ω",
     ]
     assert row["raw_previews_sha256"] == originals["raw_previews.jsonl"]
-    assert row["artifact_sha256"]["preview_0"] == _sha(root / row["preview_paths"][0])
+    assert row["artifact_sha256"]["preview_0"] == _sha(output.parent / row["preview_paths"][0])
     assert first == collect_outputs(root, output)
     assert originals == {name: _sha(invocation / name) for name in originals}
     assert json.loads(output.read_text()) == first

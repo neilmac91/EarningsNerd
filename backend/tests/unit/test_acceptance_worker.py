@@ -77,6 +77,10 @@ def _sixk_fixture(tmp_path, *, with_release=True):
 
 
 def _configure(monkeypatch, invocation_dir, source_root):
+    # These isolated pipeline fixtures supply synthetic source channels. The real
+    # programme-wide hold is exercised at all entry points by the readiness gate.
+    from evals import acceptance_worker
+    monkeypatch.setattr(acceptance_worker, "archive_binding_hold", lambda: None)
     invocation_dir.mkdir()
     url = expected_database_url(invocation_dir)
     engine = create_engine(url, connect_args={"check_same_thread": False})

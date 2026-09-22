@@ -38,6 +38,17 @@ REQUIRED_FROZEN_SETTINGS = frozenset({
 })
 
 
+def archive_binding_hold() -> str | None:
+    """No production arm is admissible until every grounding channel is archive-bound.
+
+    This engineering hold has no configuration override. The 6-K text adapter does
+    not bind its separate XBRL path; smoke/subset execution cannot bypass the hold.
+    """
+    return ("E7 structured grounding is not bound to the frozen archive: sections and "
+            "filing-instance XBRL can resolve live sources, and companyfacts fallback "
+            "has no frozen packet. All programme execution and reviewer packets are held.")
+
+
 def expected_database_url(invocation_dir: Path) -> str:
     """The only database URL permitted in an invocation child process."""
     return "sqlite:///" + str(Path(invocation_dir).resolve() / "invocation.sqlite3")
@@ -256,6 +267,9 @@ async def run_invocation(
     artifact is created. Once execution starts, every event and error is durable in
     the invocation directory and the returned receipt is never a quality verdict.
     """
+    source_hold = archive_binding_hold()
+    if source_hold:
+        raise InvalidMeasurement(source_hold)
     invocation_dir = Path(invocation_dir).resolve()
     _validate_identity(filing_spec)
     evidence = _preflight_sources(filing_spec, Path(config["source_root"]))

@@ -452,9 +452,21 @@ def inspect_outputs(
 
 def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
     """Materialize every raw preview, then atomically retain the durable-evidence index."""
+    programme_root = Path(programme_root).resolve(strict=True)
     output_path = Path(output_path).absolute()
     if output_path.is_symlink():
         raise ValueError("programme root/output path is invalid")
+    output_path = output_path.parent.resolve(strict=True) / output_path.name
+    if output_path.is_relative_to(programme_root):
+        raise ValueError("collector output must be outside the programme directory")
+    if output_path.exists():
+        previous = _read_json(output_path)
+        ledger_path = previous.get("programme_ledger_path")
+        if (previous.get("schema_version") != 1 or previous.get("expected") != len(_EXPECTED) or
+                not isinstance(previous.get("records"), list) or
+                not isinstance(ledger_path, str) or
+                _within(output_path.parent, ledger_path) != programme_root / "budget.sqlite3"):
+            raise ValueError("existing output is not a collector index for this programme")
     result = inspect_outputs(programme_root, output_path.parent, materialize_previews=True)
     _atomic_json(output_path, result)
     return result

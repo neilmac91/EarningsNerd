@@ -127,7 +127,12 @@ def inspect_readiness(
     fresh price, balance and Fable receipts; packet readiness keeps those three historical
     receipts but does not expire them after generation.
     """
+    from evals.acceptance_worker import archive_binding_hold
+
     issues: list[dict[str, str]] = []
+    source_hold = archive_binding_hold()
+    if source_hold:
+        _issue(issues, "structured_source_binding_unavailable", source_hold)
     paid_only: list[dict[str, str]] = []
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:

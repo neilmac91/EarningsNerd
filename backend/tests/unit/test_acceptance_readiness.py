@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from app.models import Summary
+from evals import acceptance_executor, acceptance_worker
 from evals.acceptance_outputs import inspect_outputs
 from evals.acceptance_readiness import _reviewer_artifact, build_blinded_packets, inspect_readiness
 
 
 _ACCEPTED = Path(__file__).resolve().parents[3] / "tasks/review-evidence/acceptance-2026-09-19/candidate-manifest.json"
+_REAL_ARCHIVE_BINDING_HOLD = acceptance_worker.archive_binding_hold
 _COMPARATOR = {"H01", "H03", "H05", "H07", "H09", "H14", "H18", "H23", "H26", "H29"}
+
+
+@pytest.fixture(autouse=True)
+def synthetic_archive_binding(monkeypatch):
+    # Keep testing the downstream independent gates with synthetic bound channels;
+    # the first readiness gate below reinstates and tests the real execution hold.
+    monkeypatch.setattr(acceptance_worker, "archive_binding_hold", lambda: None)
 
 
 def _write(path: Path, value: object) -> dict[str, str]:
@@ -213,12 +224,52 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
             "outputs": outputs_path, "manifest_sha": manifest_sha, "now": now}
 
 
-def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path) -> None:
+def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path, monkeypatch) -> None:
     fixture = _fixture(tmp_path)
     ready = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
                               expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
     assert ready["ready_for_paid_execution"] is True
     assert ready["source_packets_verified"] == 92
+    with monkeypatch.context() as actual:
+        actual.setattr(acceptance_worker, "archive_binding_hold", _REAL_ARCHIVE_BINDING_HOLD)
+        held = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+        assert held["ready_for_paid_execution"] is False and held["ready_for_packets"] is False
+        assert [issue["code"] for issue in held["issues"]] == ["structured_source_binding_unavailable"]
+        def forbidden(*_args, **_kwargs):
+            raise AssertionError("dispatch or database reached before archive binding")
+        actual.setattr(acceptance_executor.subprocess, "run", forbidden)
+        actual.setattr(acceptance_worker, "_check_configuration", forbidden)
+        # Use the real preflight with this synthetic manifest's expected hash.
+        actual.setattr(acceptance_executor, "inspect_readiness", lambda *args: inspect_readiness(
+            *args, expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"]))
+        programme = tmp_path / "unstarted-programme"
+        for command in ("run-smoke", "run-slot"):
+            args = SimpleNamespace(command=command, manifest=fixture["manifest"],
+                                   archive=fixture["archive"], prerequisites=fixture["preflight"],
+                                   programme=programme, slot="H01-candidate-1")
+            with pytest.raises(ValueError, match="structured_source_binding_unavailable"):
+                acceptance_executor.run_slot(args)
+            assert not programme.exists()
+        actual.setattr(acceptance_executor, "claim_worker", forbidden)
+        request = tmp_path / "blocked-worker-request.json"
+        request.write_text(json.dumps({"manifest": str(fixture["manifest"]),
+                                       "archive": str(fixture["archive"]),
+                                       "prerequisites": str(fixture["preflight"]), "smoke_mode": True}))
+        with pytest.raises(ValueError, match="child readiness"):
+            asyncio.run(acceptance_executor.worker(SimpleNamespace(request=request)))
+        # Direct worker use cannot sneak a 6-K subset around the programme gate.
+        for form in ("10-K", "10-Q", "20-F", "6-K"):
+            invocation = tmp_path / ("unstarted-" + form)
+            with pytest.raises(acceptance_worker.InvalidMeasurement, match="not bound to the frozen archive"):
+                asyncio.run(acceptance_worker.run_invocation({"filing_type": form}, invocation, {}, None))
+            assert not invocation.exists()
+        reviewers, custodian = tmp_path / "held-reviewers", tmp_path / "held-custodian"
+        with pytest.raises(ValueError, match="structured_source_binding_unavailable"):
+            build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                  fixture["outputs"], reviewers, custodian,
+                                  expected_manifest_sha=fixture["manifest_sha"])
+        assert not reviewers.exists() and not custodian.exists()
     preflight = json.loads(fixture["preflight"].read_text())
     removed_brief = preflight["reference_briefs"].pop()
     fixture["preflight"].write_text(json.dumps(preflight))
