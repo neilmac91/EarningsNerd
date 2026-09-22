@@ -27,9 +27,13 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
 - the kit's first command is not the zero-effect probe
   ``python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help``.
 
-Only the two named placeholders (``<session-uploads-dir>``, ``<UTC stamp>``) are removed before
-the operator check; any other ``<…>`` span is shell syntax. The evasion cases at the bottom lock
-each of these behaviours against in-memory copies of the kit and rules.
+Only the three named placeholders (``<session-uploads-dir>``, ``<UTC stamp>``, ``<post-run
+stamp>``) are removed before the operator check; any other ``<…>`` span is shell syntax, and each
+placeholder is valid in exactly one command position (the uploads directory in the restore, the
+pre-run stamp in the execute command's attestation path, the post-run stamp in the export
+destination), so the stamp ordering the kit prescribes is enforced, not just described. The
+evasion cases at the bottom lock each of these behaviours against in-memory copies of the kit
+and rules.
 """
 from __future__ import annotations
 
@@ -61,6 +65,23 @@ PROBE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help"
 ALLOWED_FENCES = {"sh", "text", "json"}
 # Operator-substituted values. Any other text between < and > is shell syntax.
 PLACEHOLDERS = re.compile(r"<(?:session-uploads-dir|UTC stamp|post-run stamp)>")
+# Each placeholder is valid in exactly one command position (the kit's stamp rules): the uploads directory only
+# as the restore's --uploads value, the pre-run stamp only in the attestation path the execute command names,
+# and the post-run stamp only in the export destination, which is the only command formed after execution.
+PLACEHOLDER_POSITIONS = {
+    "<session-uploads-dir>": (
+        "the --uploads value of the restore command",
+        re.compile(r"^python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session\.py --uploads /root/\.claude/uploads/<session-uploads-dir>$"),
+    ),
+    "<UTC stamp>": (
+        "the --attestation value of the execute command",
+        re.compile(r"^\S+ /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume\.py .* --attestation /home/user/fable-judging/receipts/e8-attestation-<UTC stamp>\.json( |$)"),
+    ),
+    "<post-run stamp>": (
+        "the --out value of the export command",
+        re.compile(r"^python3 tasks/fable-e8-repin-2026-09-22/export_e8_state\.py .* --out tasks/review-evidence/e8-fable-state-<post-run stamp>$"),
+    ),
+}
 # Variables, the command separators Claude Code recognises (& covers &&, |& and &>; | covers ||),
 # redirections and backticks: each takes a command outside its rule.
 FORBIDDEN_SHELL = ("$", "&", ";", "|", ">", "<", "`")
@@ -192,6 +213,10 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
         for token in FORBIDDEN_SHELL:
             if token in bare:
                 problems.append(f"contains {token!r}, which takes it outside its rule: {command}")
+        for placeholder in sorted(set(PLACEHOLDERS.findall(command))):
+            role, position = PLACEHOLDER_POSITIONS[placeholder]
+            if command.count(placeholder) != 1 or not position.search(command):
+                problems.append(f"placeholder {placeholder} is valid only as {role}: {command}")
     if commands and commands[0] != PROBE:
         problems.append(f"the first command must be the zero-effect probe {PROBE!r}; found {commands[0]!r}")
     return problems
@@ -268,6 +293,10 @@ KIT_EVASIONS = [
     ("unlisted tool in an sh block", lambda kit: kit + "\n```sh\npython3 tasks/fable-e8-repin-2026-09-22/tools/resume.py\n```\n"),
     ("the CLI itself", lambda kit: kit + "\n```sh\n/opt/claude-code/bin/claude -p hi\n```\n"),
     ("prefix without a space", lambda kit: kit.replace(PROBE, PROBE.replace(".py --help", ".pyx --help"))),
+    ("post-run stamp in the attestation path", lambda kit: kit.replace("e8-attestation-<UTC stamp>.json --max-new", "e8-attestation-<post-run stamp>.json --max-new")),
+    ("pre-run stamp in the export destination", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-<UTC stamp>")),
+    ("uploads placeholder in the export destination", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-<session-uploads-dir>")),
+    ("stamp placeholder in the restore command", lambda kit: kit.replace("/root/.claude/uploads/<session-uploads-dir>", "/root/.claude/uploads/<UTC stamp>")),
 ]
 
 
