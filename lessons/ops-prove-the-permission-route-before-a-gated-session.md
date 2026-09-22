@@ -39,13 +39,16 @@ its own receipt or capture the tool result, never wrap the command in shell redi
 denial verbatim (command, cwd, reason, approximate UTC) in the committed receipt, and never re-shape
 a denied command to try again through the shell.
 
-Enforcement lives in the kit, not in CI, as a stated exception to CLAUDE.md rule 12: no repository
-gate can exercise the cloud permission classifier, and the launch kit is an uploaded attachment,
-not a repository file. The next E8 launch kit carries step 0 before step 1 and writes every gated
-command as the literal rule string; `tasks/fable-e8-repin-2026-09-22/README.md` should gain the
-same step and rewrite its `"$REPIN"` / `"$PYTHON_BIN"` command block in rule form when it is next
-revised (it is hash-sealed by `code-sha256.json`, so that revision is a rebuild, not an edit).
-Until then the deferral is the open item in the 22 September E8 entry of `tasks/todo.md`.
+Gate (rule 12): `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`. The launch kit is
+a repository file, `tasks/fable-e8-launch-kit.md`, and the test fails when any gated command in
+its `sh` blocks is not the literal prefix of an allow rule in `.claude/settings.json`, carries a
+shell variable, redirect, pipe or `;`, or when the kit's first gated command is not the `--help`
+probe; it also fails when an allow rule carries a variable or names a script that does not exist.
+No repository gate can exercise the cloud permission classifier itself, so the gate proves that
+the kit and the rules agree before a session starts, and step 0 proves the route inside the
+session. `tasks/fable-e8-repin-2026-09-22/README.md` still shows its command block in `"$REPIN"` /
+`"$PYTHON_BIN"` form; it is hash-sealed by `code-sha256.json`, so bringing it into rule form is a
+rebuild, not an edit, and the kit file is the operative text until then.
 
 ## Evidence
 
