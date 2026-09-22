@@ -20,8 +20,10 @@ message was a bare "PROCEED" rather than the kit's pasted message 3; the kit tex
 attached, so its fixed paths and eight steps were followed. One deliberate difference: step 1 was
 issued in the form the allow rule names, `python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py …`
 from the repository root, not the kit's literal `python3 "$REPIN/restore_e8_session.py" …`. The
-kit's absolute-path form can never match the rule's relative prefix, so the next kit must state
-the command in the rule's form or the rule must also name the absolute path (section 10, option A).
+kit's `"$REPIN"` form can never match the rule's relative prefix, and the same holds for every
+other gated kit command: steps 2, 5, 6 and 7 are written with `"$PYTHON_BIN"` and `"$REPIN"`
+against rules that name expanded paths, and a rule cannot match a shell variable. The next kit
+must state each gated command as the literal rule string (section 10, option A).
 
 ## 2. Pre-flight read-only checks (all passed, before step 1)
 
@@ -62,8 +64,12 @@ further attempt through any route" refers to the restore.
   exact gate value (`restore_e8_session.py::EXPECTED_CLI_VERSION`, `tools/guard_setup.py`,
   `tools/resume.py`). No `auth status`, no model call, no quota probe.
 - `python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help` → denied
-  `[Auto-Mode Bypass]`. An argparse help call exits before any file, network or subprocess action,
-  so this shows the project allow rule is not deciding commands in this session at all.
+  `[Auto-Mode Bypass]`. An argparse help call exits before any file, network or subprocess action
+  (only a read-only resolve of the script's own path precedes `parse_args`), so this shows the rule
+  did not pre-empt the classifier for that command. It was issued after two denials of the same
+  prefix, and the classifier's `Auto-Mode Bypass` rule covers agent-initiated retries (section 6),
+  so its label may reflect the retry as much as the command. A step-0 probe issued before any
+  denial is the clean test (section 10).
 
 ## 4. Steps 2 to 8 — not reached
 
@@ -77,7 +83,10 @@ Nothing below was started, because every step depends on the restored bundle:
 - 4 attestation: none written; `E8_ATTESTATION` never exported.
 - 5 `guard_setup.py --configure-template` / `--prior-count 287`: 0 of 2 run.
 - 6 `e8_resume.py --execute`: not run. No `execution.lock`, no `stages/e8` output anywhere.
-- 7 post-run readback and `export_e8_state.py`: nothing to export. This receipt is the checkpoint.
+- 7 post-run readback and `export_e8_state.py`: nothing to export. This receipt is the checkpoint:
+  committed on `claude/new-session-8v1cg4` (based on `origin/main` `3d836ad`; first commit
+  `43e9fe4`, then verification corrections) and pushed, with draft PR
+  [#946](https://github.com/neilmac91/EarningsNerd/pull/946) open against `main`, as kit step 7 asks.
 - 8 receipt: this file.
 
 ## 5. Receipt figures
@@ -98,7 +107,7 @@ Nothing below was started, because every step depends on the restored bundle:
 | Restore attempts | 2, both denied before execution; then 1 `--help` diagnostic, denied |
 | STOP / quota latch / owner loss / pending / failed | none created; none observable |
 | Judge / contract | `cli:claude-fable-5-1` / contract 2 (unchanged, not exercised) |
-| CLI identity | `2.1.280 (Claude Code)` at `/opt/claude-code/bin/claude`; binary hash not pinned by the package and not computed here |
+| CLI identity | `2.1.280 (Claude Code)` at `/opt/claude-code/bin/claude`; the package pins no binary hash. SHA-256 of the binary, computed read-only after the stop (233,709,640 bytes): `1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b`, an observation for the deferred pin (handover request 5), not a pin. The harness reports `CLAUDE_CODE_VERSION=2.1.42` in the session environment, so the session's own build is not shown to be this binary. |
 
 This is historical control reuse (140, CLI 2.1.278) plus a planned 160-slot continuation (CLI
 2.1.280) that did not start. It is not a randomized or interleaved 300-call execution. No quality,
@@ -137,7 +146,10 @@ harness build running here):
   split on `&&`, `||`, `;`, `|` and newlines, and each part must match on its own.
 - "auto-mode bypass" is named as a built-in soft-block classifier rule, and "downloading and
   executing code" is the first default block; the bracketed reason strings themselves are not
-  printed on the pages.
+  printed on the pages. A read-only string scan of the 2.1.280 binary on disk (`grep -a`, not
+  executed) finds `Auto-Mode Bypass` and `Self-Modification` (the label the earlier session also
+  saw) among its embedded rule names, next to a "bad-faith-tunneling" clause that covers
+  agent-initiated retries; `Code from External` does not occur in it.
 
 Sources: `https://code.claude.com/docs/en/auto-mode-config.md`,
 `https://code.claude.com/docs/en/permission-modes.md`, `https://code.claude.com/docs/en/settings.md`,
@@ -145,11 +157,21 @@ Sources: `https://code.claude.com/docs/en/auto-mode-config.md`,
 
 The third point predicts exactly what was observed: the rules are read but never applied in a
 session that cannot record workspace trust, so every command, the allow-listed one and its
-`--help` included, goes to the classifier. That is the most likely explanation, not a verified
-one. The trust mechanism was not exercised from inside the session (event 3 shows that reading
-permission configuration is itself denied), and the wildcarded-interpreter suspension in the first
-point is a second candidate. Either way the seven rules gave no protection here, and a session of
-this kind cannot inspect or change its own permission configuration; I did not try to.
+`--help` included, goes to the classifier. The earlier session, on a branch with no allow rules,
+drew the same two labels, so the seven rules made no observable difference. The container
+corroborates the hold: the same binary embeds the warning "this workspace has not been trusted"
+together with the `projects[<path>].hasTrustDialogAccepted` lever (string scan, not executed),
+and the harness config `~/.claude.json` (43,951 bytes) has no `projects` key at all. That makes
+the trust hold the best-supported explanation, not a proven one: the harness running this session
+reports `CLAUDE_CODE_VERSION=2.1.42` in its environment (the earlier receipt and a verifier here
+both record it), so the binary on disk is not shown to be the build that decided, and the
+wildcarded-interpreter suspension in the first point is a second candidate. Either way the seven
+rules gave no protection here. My compound read of permission configuration was denied (event 3);
+single read-only reads afterwards succeeded, by a verifier (`~/.claude/settings.json` is `{}`,
+`~/.claude/launcher-settings.json` holds only the harness auto-mode block, a Stop hook and an
+allow rule for `Skill`, `~/.claude/remote-settings.json` is `{}`) and by me (the key names of
+`~/.claude.json`), so the configuration is readable. It is not changeable from inside a session,
+and I did not try to.
 
 ## 7. The CLI-version confound (required statement)
 
@@ -169,9 +191,10 @@ session changes that statement; no new slot was judged.
   or probe calls from other machines or sessions. The founder's answer ("No additional E8 judging
   or probes") remains the only external-history source.
 - Why the allow rules did not take effect is not established; missing workspace trust in an SDK
-  session is the best-supported explanation (section 6), not a verified one.
-- The CLI identity is the self-reported version string; the package defers a binary-hash pin and
-  none was computed here.
+  session is the best-supported explanation, corroborated on disk but not proven against the
+  harness build (section 6).
+- The CLI identity is the self-reported version string; the package defers a binary-hash pin. The
+  binary's SHA-256 is recorded in section 5 as an observation only.
 - Approximate UTC times above are bracketed by `date -u` calls at 21:28:52Z, 21:30:54Z and
   21:32:41Z; the harness does not timestamp denials.
 
@@ -193,8 +216,8 @@ classifier denies the gated commands. Options, with consequences only:
 
 | Option | What changes | Note |
 |---|---|---|
-| A. Same kit, same branch, a web session whose permission mode is not Auto | session setting and two kit lines | Per the docs the cloud dropdown offers Accept edits, Plan and Auto. If the rules are held by missing workspace trust (section 6), leaving Auto does not make them apply, but each gated command then goes to an interactive prompt the operator answers instead of to the classifier; that is workable for the restore, the read-only inspection, the two setup commands and the one execution. Whether a web session can record workspace trust at all is unknown. Add a step 0 to the kit: run `restore_e8_session.py --help` in the exact rule form before "go"; a denial, a prompt or a silent pass tells the operator which regime is in force before any state exists. Also state step 1 in the rule's form (`python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py …` from the repository root), or extend the rule to the kit's absolute `$REPIN` form; today the two cannot match. |
-| B. Keep Auto and get the project rules honored | Claude Code side or session type | If the cause is workspace trust, this needs a session type that records it (an interactive local CLI or desktop session); nothing inside a web session can change it. |
+| A. Same kit, same branch, a web session whose permission mode is not Auto | session setting; kit step 0 and the command text of steps 1, 2, 5, 6 and 7 | Per the docs the cloud dropdown offers Accept edits, Plan and Auto; outside Auto the classifier is not involved. If the project rules are applied they decide silently; if they are held (section 6, workspace trust) each gated command prompts the operator in claude.ai instead, about seven approvals (step 0, restore, inspection, two setup commands, execute, export). Whether a web session can record workspace trust at all is unknown. Step 0 tells the regimes apart before any state exists: as the session's first gated command, run `python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help` from the repository root with no redirect, pipe or `;`; a silent allow means the rules are in effect, a prompt means they are held, a denial is a stop. Every gated kit command must be the literal rule string: steps 1, 2, 5, 6 and 7 are written with `"$REPIN"` / `"$PYTHON_BIN"`, a rule cannot match a shell variable, and variables do not persist between tool calls. Write those commands expanded (relative `tasks/…` for the three `python3` rules, the absolute venv and package paths for the four venv rules), or rewrite the rules to the kit's text. |
+| B. Keep Auto and get the project rules honored | harness side or session type | If the cause is the workspace-trust hold (section 6), the documented lever is the trust record for the repository folder in the harness's `~/.claude.json` (`projects[<path>].hasTrustDialogAccepted`), which is harness-side and not a repository file; whether the cloud harness can record it is the question to settle before choosing B. Nothing inside a web session should change it. |
 | C. Run restore and E8 on a machine the founder controls | environment | The package assumes the container's fixed paths; a path change needs a separately reviewed migration (README, sole-guard policy item 4). |
 | D. Close E8 with real denominators | receipt only | Report 140 reused / 160 never judged; no pass/fail. |
 

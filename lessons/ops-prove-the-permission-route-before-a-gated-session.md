@@ -25,9 +25,13 @@ rule. Nothing was touched, by luck of ordering rather than by design. Evidence:
 
 A launch kit for a permission-gated procedure begins with a step 0 that proves the route: run the
 first allow-listed script with `--help` (or another argparse-level no-op) in the exact rule form,
-from the rule's working directory, with no redirect, pipe or `;`. The kit's command text and the
-rule's prefix must be the same string; write the kit from the rule, not the other way round. A
-denial there is a stop before
+from the rule's working directory, with no redirect, pipe or `;`, as the session's first gated
+command so that no earlier denial colours the verdict. A silent allow, a prompt to the operator
+and a classifier denial are three different results, and the kit says which one it expects. The
+kit's command text and the rule's prefix must be the same string for every gated command, not
+only the first; a rule cannot match a shell variable such as `"$REPIN"`, and variables do not
+persist between tool calls. Write the kit from the rule, not the other way round. A denial there
+is a stop before
 any state exists, and the report is "the permission route is not in effect", not "the restore
 failed". The kit names the session's permission mode explicitly; do not assume project allow rules
 bypass the auto-mode classifier. When an allow-listed command must be logged, let the script write
@@ -35,11 +39,13 @@ its own receipt or capture the tool result, never wrap the command in shell redi
 denial verbatim (command, cwd, reason, approximate UTC) in the committed receipt, and never re-shape
 a denied command to try again through the shell.
 
-Enforcement lives in the kit, not in CI, because CI cannot exercise the cloud classifier and the
-launch kit is not a repository file: the next E8 launch kit carries step 0 before step 1, and
-`tasks/fable-e8-repin-2026-09-22/README.md` should gain the same line when it is next revised (it
-is hash-sealed by `code-sha256.json`, so that revision is a rebuild, not an edit). Until then the
-deferral is the open item in the 22 September E8 entry of `tasks/todo.md`.
+Enforcement lives in the kit, not in CI, as a stated exception to CLAUDE.md rule 12: no repository
+gate can exercise the cloud permission classifier, and the launch kit is an uploaded attachment,
+not a repository file. The next E8 launch kit carries step 0 before step 1 and writes every gated
+command as the literal rule string; `tasks/fable-e8-repin-2026-09-22/README.md` should gain the
+same step and rewrite its `"$REPIN"` / `"$PYTHON_BIN"` command block in rule form when it is next
+revised (it is hash-sealed by `code-sha256.json`, so that revision is a rebuild, not an edit).
+Until then the deferral is the open item in the 22 September E8 entry of `tasks/todo.md`.
 
 ## Evidence
 
