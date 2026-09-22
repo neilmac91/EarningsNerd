@@ -198,13 +198,14 @@ def _validate_sixk_source(filing: dict[str, Any], receipt: dict[str, Any], invoc
         raise IncompleteSlot("6-K summarizer grounding differs from verified extractor/primary text")
 
 
-def _write_preview_files(invocation: Path, frames: list[bytes]) -> list[Path]:
+def _write_preview_files(invocation: Path, frames: list[bytes], *, materialize: bool = True) -> list[Path]:
     directory = invocation / "preview-files"
     if directory.is_symlink():
         raise IncompleteSlot("preview directory is a symlink")
     if not frames and not directory.exists():
         return []
-    directory.mkdir(exist_ok=True)
+    if materialize:
+        directory.mkdir(exist_ok=True)
     if not directory.is_dir():
         raise IncompleteSlot("preview directory is not a directory")
     expected_names = {f"{number:04d}.md" for number in range(1, len(frames) + 1)}
@@ -218,6 +219,8 @@ def _write_preview_files(invocation: Path, frames: list[bytes]) -> list[Path]:
             if target.is_symlink() or not target.is_file() or target.read_bytes() != content:
                 raise IncompleteSlot(f"existing preview differs from raw callback {number}")
         else:
+            if not materialize:
+                raise IncompleteSlot(f"retained preview missing for raw callback {number}")
             try:
                 descriptor = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             except FileExistsError as error:
@@ -233,6 +236,8 @@ def _write_preview_files(invocation: Path, frames: list[bytes]) -> list[Path]:
 def _slot_record(
     programme_root: Path, output_parent: Path, slot_id: str, config_sha: str,
     request_sha: str, ledger_reservations: list[tuple[int, str, str]],
+    *, expected_manifest_sha: str = APPROVED_MANIFEST_SHA256,
+    materialize_previews: bool = True,
 ) -> dict[str, Any]:
     match = _SLOT.fullmatch(slot_id)
     if match is None or slot_id not in _EXPECTED:
@@ -264,7 +269,7 @@ def _slot_record(
     if (selection.get("slot_id") != slot_id or
             selection.get("arm") != arm or selection.get("draw") != draw or
             selection.get("config_sha256") != config_sha or
-            selection.get("manifest_sha256") != APPROVED_MANIFEST_SHA256 or
+            selection.get("manifest_sha256") != expected_manifest_sha or
             filing.get("holdout_id") != holdout_id or
             request.get("slot_id") != slot_id or request.get("config_sha256") != config_sha or
             request.get("filing") != filing or Path(request.get("invocation_dir", "")).resolve() != invocation.resolve()):
@@ -314,7 +319,7 @@ def _slot_record(
         if ledger_requests[record["reservation_id"]] != request_digest:
             raise IncompleteSlot("provider request differs from durable reservation")
     frames = _validate_preview_frames(resolved["raw_previews"], ledger_ids)
-    preview_files = _write_preview_files(invocation, frames)
+    preview_files = _write_preview_files(invocation, frames, materialize=materialize_previews)
     output_paths = {
         "canonical": resolved["canonical_summary"],
         "rendered": resolved["rendered_summary"],
@@ -322,6 +327,8 @@ def _slot_record(
     }
     output_paths.update({f"preview_{index}": path for index, path in enumerate(preview_files)})
     relative = {key: _output_relative(path, output_parent) for key, path in output_paths.items()}
+    evidence = {"selection": selection_path, "request": request_path,
+                "receipt": receipt_path, "result": result_path, **resolved}
     return {
         "accession_number": filing["accession_number"], "arm": arm, "draw": draw,
         "status": "completed", "error": None, "created_at": receipt["started_at"],
@@ -339,6 +346,10 @@ def _slot_record(
         "receipt_path": _output_relative(receipt_path, output_parent),
         "result_path": _output_relative(result_path, output_parent),
         "slot_id": slot_id,
+        "collector_evidence": {
+            key: {"path": _output_relative(path, output_parent), "sha256": _sha256(path)}
+            for key, path in evidence.items()
+        },
     }
 
 
@@ -378,16 +389,15 @@ def _incomplete_entry(programme_root: Path, output_parent: Path, slot_id: str,
     return entry
 
 
-def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
-    """Collect verified completed slots; report every failed/missing slot separately.
-
-    The returned object is also atomically saved at ``output_path``. It is only an
-    index; ``build_blinded_packets`` remains the final identity and readiness gate.
-    """
-    programme_root, output_path = Path(programme_root).resolve(strict=True), Path(output_path).absolute()
-    if output_path.is_symlink() or not programme_root.is_dir():
-        raise ValueError("programme root/output path is invalid")
-    output_parent = output_path.parent.resolve(strict=True)
+def inspect_outputs(
+    programme_root: Path, output_parent: Path, *,
+    expected_manifest_sha: str = APPROVED_MANIFEST_SHA256,
+    materialize_previews: bool = False,
+) -> dict[str, Any]:
+    """Reconstruct the index from durable evidence; read-only unless collecting previews."""
+    programme_root, output_parent = Path(programme_root).resolve(strict=True), Path(output_parent).resolve(strict=True)
+    if not programme_root.is_dir():
+        raise ValueError("programme root is invalid")
     if not programme_root.is_relative_to(output_parent):
         raise ValueError("outputs.json parent must contain the programme artifacts")
     ledger = _within(programme_root, "budget.sqlite3")
@@ -417,7 +427,9 @@ def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
             continue
         try:
             records.append(_slot_record(programme_root, output_parent, slot_id, config_sha,
-                                        request_sha, by_slot.get(slot_id, [])))
+                                        request_sha, by_slot.get(slot_id, []),
+                                        expected_manifest_sha=expected_manifest_sha,
+                                        materialize_previews=materialize_previews))
         except (IncompleteSlot, OSError, TypeError, ValueError, KeyError, json.JSONDecodeError) as error:
             incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
                                                 status, f"{type(error).__name__}: {error}"))
@@ -433,6 +445,16 @@ def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
         "incomplete_slots": incomplete, "missing_slot_ids": missing,
         "unexpected_slot_ids": unexpected, "orphan_reservation_slot_ids": orphan_reservations,
         "development_smoke": smoke,
+        "programme_ledger_path": _output_relative(ledger, output_parent),
     }
+    return result
+
+
+def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
+    """Materialize every raw preview, then atomically retain the durable-evidence index."""
+    output_path = Path(output_path).absolute()
+    if output_path.is_symlink():
+        raise ValueError("programme root/output path is invalid")
+    result = inspect_outputs(programme_root, output_path.parent, materialize_previews=True)
     _atomic_json(output_path, result)
     return result

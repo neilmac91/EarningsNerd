@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from app.models import Summary
+from evals.acceptance_outputs import inspect_outputs
 from evals.acceptance_readiness import _reviewer_artifact, build_blinded_packets, inspect_readiness
 
 
@@ -21,6 +23,72 @@ def _write(path: Path, value: object) -> dict[str, str]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, sort_keys=True), encoding="utf-8")
     return {"path": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
+def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, rows: list[dict]) -> dict:
+    """Synthetic worker/ledger files only; no budget admission or provider execution."""
+    filings = {f["accession_number"]: f for f in manifest["filings"]}
+    def digest(value):
+        return hashlib.sha256(value).hexdigest()
+    provider_request = {"model": "synthetic"}
+    request_hash = digest(json.dumps(provider_request, sort_keys=True, separators=(",", ":")).encode())
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)")
+        db.execute("CREATE TABLE reservations (id INTEGER PRIMARY KEY, slot_id TEXT, status TEXT, request_hash TEXT)")
+        db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?)", ("a" * 64, "b" * 64))
+        db.execute("INSERT INTO reservations VALUES (1, 'development-smoke', 'settled', ?)", (request_hash,))
+        for number, row in enumerate(rows, start=2):
+            filing = filings[row["accession_number"]]
+            slot_id = f"{filing['holdout_id']}-{row['arm']}-{row['draw']}"
+            slot, invocation = root / slot_id, root / slot_id / "attempt-1"
+            artifacts = {"canonical_summary": "canonical.json", "rendered_summary": "rendered.md",
+                         "export_html": "export.html", "raw_previews": "raw_previews.jsonl",
+                         "provider_accounting": "provider_accounting.json", "events": "events.jsonl",
+                         "grounding": "grounding.json", "rendered_sections": "rendered_sections.json"}
+            _write(slot / "selection.json", {"slot_id": slot_id, "arm": row["arm"], "draw": row["draw"],
+                                            "filing": filing, "config_sha256": row["config_sha256"],
+                                            "manifest_sha256": manifest_sha})
+            request = _write(slot / "request.json", {"slot_id": slot_id, "filing": filing,
+                             "config_sha256": row["config_sha256"], "invocation_dir": str(invocation)})
+            db.execute("INSERT INTO slots VALUES (?, ?, 'completed', ?)",
+                       (slot_id, row["config_sha256"], request["sha256"]))
+            db.execute("INSERT INTO reservations VALUES (?, ?, 'settled', ?)",
+                       (number, slot_id, request_hash))
+            evidence = {p["role"]: {"path": str(root / p["path"]), "sha256": p["sha256"],
+                                   "bytes": p["bytes"], "requested_url": p["provenance"]["requested_url"]}
+                        for p in filing["source_packets"]}
+            receipt = {"identity": {key: filing[key] for key in
+                       ("holdout_id", "accession_number", "ticker", "cik", "filing_type")},
+                       "started_at": row["created_at"], "status": "complete", "eligible_for_measurement": True,
+                       "errors": [], "source_identity": "archived_sgml_verified" if filing["filing_type"] == "6-K" else "primary_verified",
+                       "source_packets": evidence, "artifacts": artifacts}
+            _write(invocation / "receipt.json", receipt)
+            _write(invocation / "result.json", receipt)
+            _write(invocation / "provider_accounting.json", {"slot_id": slot_id, "records": [
+                {"reservation_id": number, "status": "settled", "request": provider_request}]})
+            (invocation / "events.jsonl").write_text('{"type":"complete"}\n')
+            frames = ["Incorrect early preview: revenue was $999B.", "Revenue rose on the filing basis."]
+            (invocation / "raw_previews.jsonl").write_text("".join(json.dumps({
+                "generation_ordinal": 0, "provider_attempt": number, "markdown": text}) + "\n" for text in frames))
+            grounding = {}
+            if filing["filing_type"] == "6-K":
+                text = "Synthetic verified extraction"
+                grounding = {"source_calls": [
+                    {"owner": "edgartools.Filing.from_sgml_text", "accession": filing["accession_number"],
+                     "cik": filing["cik"], "form": "6-K", "filing_date": filing["filing_date"],
+                     "complete_submission_sha256": evidence["complete_submission"]["sha256"],
+                     "embedded_primary_sha256": evidence["primary"]["sha256"],
+                     "selected_attachments": [Path(evidence["earnings_exhibit"]["path"]).name]
+                     if "earnings_exhibit" in evidence else []},
+                    {"owner": "get_sixk_text", "accession": filing["accession_number"], "cik": filing["cik"],
+                     "bytes": len(text.encode()), "sha256": digest(text.encode()),
+                     "source_packet_match": "verified_complete_submission"},
+                    {"owner": "get_or_cache_excerpt", "accession": filing["accession_number"],
+                     "filing_text_sha256": digest(text.encode())}], "summarizer_calls": [{"args": [text]}]}
+                _write(invocation / "source_evidence.json", evidence)
+            _write(invocation / "grounding.json", grounding)
+            _write(invocation / "rendered_sections.json", [])
+    return inspect_outputs(root, root, expected_manifest_sha=manifest_sha, materialize_previews=True)
 
 
 def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
@@ -37,6 +105,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
             path.write_text(f"synthetic {filing['accession_number']} {packet['role']}", encoding="utf-8")
             packet.update(path=str(path.relative_to(archive)), bytes=path.stat().st_size,
                           sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+        filing["source_sha256"] = next(p["sha256"] for p in filing["source_packets"] if p["role"] == "primary")
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
@@ -107,7 +176,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                 hashes = {}
                 for key, extension in (("canonical", "json"), ("rendered", "md"),
                                        ("export", "html"), ("preview_0", "md")):
-                    path = outputs_root / slot / f"{key}.{extension}"
+                    path = outputs_root / slot / "attempt-1" / f"{key}.{extension}"
                     path.parent.mkdir(parents=True, exist_ok=True)
                     if key == "canonical":
                         path.write_text(json.dumps({
@@ -138,7 +207,8 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                     "retry_preview_attempts_omitted": 0, "artifact_sha256": hashes,
                 })
     outputs_path = outputs_root / "outputs.json"
-    outputs_path.write_text(json.dumps({"records": output_records}), encoding="utf-8")
+    outputs_path.write_text(json.dumps(_retain_collector_evidence(
+        outputs_root, manifest, manifest_sha, output_records)), encoding="utf-8")
     return {"manifest": manifest_path, "archive": archive, "preflight": preflight_path,
             "outputs": outputs_path, "manifest_sha": manifest_sha, "now": now}
 
@@ -254,11 +324,21 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
                                    expected_manifest_sha=fixture["manifest_sha"])
     assert result["packets_per_reviewer"] == 120
     mapping = json.loads((custodian_root / "mapping.json").read_text())
+    assert mapping["collector_index"]["sha256"] == hashlib.sha256(fixture["outputs"].read_bytes()).hexdigest()
+    assert mapping["programme_ledger"]["sha256"] == hashlib.sha256(
+        (fixture["outputs"].parent / "budget.sqlite3").read_bytes()).hexdigest()
     assert {row["arm"] for row in mapping["reviewers"]["reviewer-1"]} == {"candidate", "comparator"}
     original = Path(mapping["reviewers"]["reviewer-1"][0]["raw_artifacts"]["canonical"]["path"])
     raw = json.loads(original.read_text())
     assert set(raw) == {column.name for column in Summary.__table__.columns}
     assert raw["prompt_version"].startswith("synthetic-")
+    for private in mapping["reviewers"]["reviewer-1"]:
+        assert {"receipt", "events", "raw_previews", "provider_accounting"} <= private["collector_evidence"].keys()
+        for artifact in private["reviewer_artifacts"].values():
+            path = reviewer_root / "reviewer-1" / artifact["path"]
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == artifact["sha256"]
+        early = private["reviewer_artifacts"]["preview_0"]["path"]
+        assert "Incorrect early preview" in (reviewer_root / "reviewer-1" / early).read_text()
     for reviewer in ("reviewer-1", "reviewer-2"):
         root = reviewer_root / reviewer
         index = json.loads((root / "index.json").read_text())
@@ -279,14 +359,62 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
             "model": "Subscription business model", "provider": "Regional care provider",
             "arm": "Clinical trial arm", "draw": "Credit facility draw",
         }
-    outputs = json.loads(fixture["outputs"].read_text())
-    outputs["records"][0]["preview_paths"] = []
+    original_index = fixture["outputs"].read_bytes()
+
+    def refused(message):
+        before = fixture["outputs"].read_bytes()
+        with pytest.raises(ValueError, match=message):
+            build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                  fixture["outputs"], tmp_path / "no-reviewers", tmp_path / "no-custodian",
+                                  expected_manifest_sha=fixture["manifest_sha"])
+        assert fixture["outputs"].read_bytes() == before
+        assert not (tmp_path / "no-reviewers").exists()
+        assert not (tmp_path / "no-custodian").exists()
+
+    # Coherent, self-authored omissions used to pass the row/hash-only packet gate.
+    for omitted in (1, 2):
+        outputs = json.loads(original_index)
+        row = outputs["records"][0]
+        row["preview_paths"] = row["preview_paths"][omitted:]
+        row["preview_count"] = len(row["preview_paths"])
+        row["artifact_sha256"].pop("preview_0")
+        last_hash = row["artifact_sha256"].pop("preview_1")
+        if row["preview_paths"]:
+            row["artifact_sha256"]["preview_0"] = last_hash
+        fixture["outputs"].write_text(json.dumps(outputs))
+        refused("differs from durable collector evidence")
+    outputs = json.loads(original_index)
+    outputs["complete"] = False
     fixture["outputs"].write_text(json.dumps(outputs))
-    with pytest.raises(ValueError, match="preview evidence incomplete"):
-        build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
-                              fixture["outputs"], tmp_path / "no-reviewers", tmp_path / "no-custodian",
-                              expected_manifest_sha=fixture["manifest_sha"])
-    assert not (tmp_path / "no-reviewers").exists()
+    refused("collector evidence is incomplete")
+    fixture["outputs"].write_bytes(original_index)
+    row = outputs["records"][0]
+    root = fixture["outputs"].parent
+    # Revalidation must consult each retained channel, not trust the saved collector flag.
+    for key in ("receipt", "events", "raw_previews", "provider_accounting"):
+        evidence = root / row["collector_evidence"][key]["path"]
+        original = evidence.read_bytes()
+        evidence.write_text('{}\n')
+        refused("collector evidence is incomplete")
+        evidence.write_bytes(original)
+    preview = root / row["preview_paths"][0]
+    original_preview = preview.read_bytes()
+    preview.unlink()
+    refused("collector evidence is incomplete")
+    assert not preview.exists()  # Packet inspection must not reconstruct missing evidence.
+    preview.write_bytes(original_preview)
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        db.execute("UPDATE reservations SET status='pending' WHERE slot_id=?", (row["slot_id"],))
+    refused("collector evidence is incomplete")
+    # A self-authored index without any durable programme association also fails closed.
+    fixture["outputs"].write_text(json.dumps({"records": outputs["records"]}))
+    refused("missing relative file path")
+    fixture["outputs"].write_bytes(original_index)
+    outside = tmp_path / "outside.sqlite3"
+    outside.write_bytes(b"not a programme")
+    outputs["programme_ledger_path"] = "../outside.sqlite3"
+    fixture["outputs"].write_text(json.dumps(outputs))
+    refused("unsafe relative file path")
 
 
 def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
@@ -295,8 +423,9 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
     row = outputs["records"][0]
     rendered = fixture["outputs"].parent / row["rendered_path"]
     rendered.write_text(f"Revenue rose. {row['config_sha256']}", encoding="utf-8")
-    row["artifact_sha256"]["rendered"] = hashlib.sha256(rendered.read_bytes()).hexdigest()
-    fixture["outputs"].write_text(json.dumps(outputs))
+    fixture["outputs"].write_text(json.dumps(inspect_outputs(
+        fixture["outputs"].parent, fixture["outputs"].parent,
+        expected_manifest_sha=fixture["manifest_sha"])))
     with pytest.raises(ValueError, match="exposes execution identity"):
         build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
                               fixture["outputs"], tmp_path / "reviewers", tmp_path / "custodian",

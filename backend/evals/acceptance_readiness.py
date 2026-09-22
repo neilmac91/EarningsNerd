@@ -470,8 +470,9 @@ def build_blinded_packets(
 ) -> dict[str, Any]:
     """Copy verified sources/outputs into two blind reviewer directories.
 
-    The output JSON is an object with ``records``. It and artifact paths live under the same
-    directory. Neither destination may exist; mapping and random seed are custodian-only.
+    The output JSON must be the complete durable collector index. Reconstruct it read-only
+    before trusting its record or preview inventory. Neither destination may exist; execution
+    evidence, mapping and random seed are custodian-only.
     """
     readiness = inspect_readiness(manifest_path, archive_root, prerequisites_path,
                                   expected_manifest_sha=expected_manifest_sha)
@@ -483,9 +484,27 @@ def build_blinded_packets(
               for b in prereq["reference_briefs"]}
     brief_frozen = {acc: _utc(brief["frozen_at"]) for acc, brief in briefs.items()}
     output_obj = _json(Path(outputs_path))
+    # Import lazily: the collector shares this module's frozen manifest/slot constants.
+    from evals.acceptance_outputs import inspect_outputs
+
+    output_parent = Path(outputs_path).parent
+    ledger = _safe_file(output_parent, output_obj.get("programme_ledger_path"))
+    if ledger.name != "budget.sqlite3":
+        raise ValueError("collector programme ledger identity invalid")
+    collected = inspect_outputs(ledger.parent, output_parent,
+                                expected_manifest_sha=expected_manifest_sha)
+    if collected["complete"] is not True or output_obj.get("complete") is not True:
+        raise ValueError("collector evidence is incomplete")
+    if collected != output_obj:
+        raise ValueError("outputs index differs from durable collector evidence")
     records = output_obj.get("records")
     if not isinstance(records, list):
         raise ValueError("outputs JSON needs records list")
+    filings = {filing["accession_number"]: filing for filing in manifest["filings"]}
+    for row in records:
+        selection = _json(_safe_file(output_parent, row["collector_evidence"]["selection"]["path"]))
+        if selection["filing"] != filings.get(row["accession_number"]):
+            raise ValueError("collector selection differs from approved filing manifest")
     checked = _check_output_records(manifest, records, Path(outputs_path).parent,
                                     readiness["config_sha256"], brief_frozen)
     earliest_output = min(_utc(item["row"]["created_at"]) for item in checked)
@@ -512,6 +531,9 @@ def build_blinded_packets(
     rng = random.Random(int(seed, 16))
     by_accession = {f["accession_number"]: f for f in manifest["filings"]}
     mapping: dict[str, Any] = {"schema_version": 1, "seed": seed, "manifest_sha256": readiness["manifest_sha256"],
+                               "collector_index": {"path": str(Path(outputs_path).resolve()),
+                                                   "sha256": _sha256(Path(outputs_path))},
+                               "programme_ledger": {"path": str(ledger), "sha256": _sha256(ledger)},
                                "reviewers": {}}
     created_reviewer = False
     created_custodian = False
@@ -558,11 +580,15 @@ def build_blinded_packets(
                 packet_id = packet_ids[id(item)]
                 packet_dir = packets_dir / packet_id
                 packet_dir.mkdir()
+                reviewer_artifacts = {}
                 for key, source_path in item["paths"].items():
                     suffix = source_path.suffix or ".txt"
-                    (packet_dir / f"{key}{suffix}").write_bytes(_reviewer_artifact(
+                    projected = packet_dir / f"{key}{suffix}"
+                    projected.write_bytes(_reviewer_artifact(
                         source_path, key, row, configs[row["arm"]],
                         by_accession[row["accession_number"]]["holdout_id"]))
+                    reviewer_artifacts[key] = {"path": str(projected.relative_to(reviewer_dir)),
+                                               "sha256": _sha256(projected)}
                 index.append({"packet_id": packet_id, "source_case_id": case_ids[row["accession_number"]],
                               "accession_number": row["accession_number"],
                               "source_identity": f"sources/{case_ids[row['accession_number']]}/identity.json",
@@ -570,6 +596,8 @@ def build_blinded_packets(
                 private_rows.append({"packet_id": packet_id, "accession_number": row["accession_number"],
                                      "arm": row["arm"], "draw": row["draw"],
                                      "config_sha256": row["config_sha256"],
+                                     "collector_evidence": row["collector_evidence"],
+                                     "reviewer_artifacts": reviewer_artifacts,
                                      "raw_artifacts": {key: {"path": str(path), "sha256": _sha256(path)}
                                                        for key, path in item["paths"].items()}})
             (reviewer_dir / "index.json").write_text(json.dumps({"packets": index}, indent=2), encoding="utf-8")
