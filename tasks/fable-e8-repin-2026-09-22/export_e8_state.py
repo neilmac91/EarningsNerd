@@ -40,6 +40,27 @@ from pathlib import Path
 
 GUARD_FILES = ('config.json', 'state.json', 'TEMPLATE.json', 'initialization.json',
                'template-configuration.json', 'sha256.txt')
+# The two receipt classes README.md's recovery policy requires before a source may be retired:
+# the operator's accounting attestation (schema pinned by the add-on) and a live guard readback.
+ATTESTATION_SCHEMA = 'fable-e8-accounting-attestation-v1'
+READBACK_KEYS = frozenset({'observed_at_utc', 'guard_dir'})
+
+
+def receipt_classes(receipts: Path) -> dict:
+    """Which recovery-critical receipt classes the directory holds, by parsing every JSON file."""
+    found = {'attestation': False, 'readback': False}
+    for path in sorted(receipts.rglob('*.json')):
+        try:
+            value = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(value, dict):
+            continue
+        if value.get('schema') == ATTESTATION_SCHEMA:
+            found['attestation'] = True
+        if READBACK_KEYS <= set(value):
+            found['readback'] = True
+    return found
 
 
 def sha(path: Path) -> str:
@@ -91,9 +112,14 @@ def main() -> None:
     receipts = args.receipts.resolve() if args.receipts else None
     if receipts is not None and not receipts.is_dir():
         raise SystemExit(f'REFUSE: --receipts path is not a directory: {receipts}')
-    if initialized and (receipts is None or not any(p.is_file() for p in receipts.rglob('*'))):
-        raise SystemExit('REFUSE: an initialized guard export requires --receipts pointing at a non-empty '
-                         'receipts directory (attestation, readbacks, restore receipts)')
+    if initialized:
+        if receipts is None:
+            raise SystemExit('REFUSE: an initialized guard export requires --receipts')
+        missing_classes = [name for name, present in receipt_classes(receipts).items() if not present]
+        if missing_classes:
+            raise SystemExit(f'REFUSE: receipts directory lacks the recovery-critical classes {missing_classes} '
+                             f'(an operator attestation with schema {ATTESTATION_SCHEMA!r} and a guard readback '
+                             f'record with {sorted(READBACK_KEYS)}); a restore receipt alone is not enough')
     for name in GUARD_FILES:
         path = guard / name
         if path.exists():
