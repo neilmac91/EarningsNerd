@@ -5696,3 +5696,10 @@ Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:2
 
 
 September 13 closing correction: #805 remains open and held at b6a3272e03ea397e3b434bfeba1e764ff91b099e after its rejected first financial assessment. Broader signed-item, causal and measure-basis work is not closed by the narrower releases above. No wholesale revival or second #805 assessment occurred. Latest read-only DeepSeek balance: USD 85.58, workflow 34737324323, 2026-09-13T04:12:01.4240532Z.
+
+
+## September 22 — E3 Fable completion audited; gates remain held
+
+All four returned transport parts verified and reassembled to archive SHA256 `281095aa83f560ded61961c09479f9b9d917947c21ffac887be338d729019ed6`. [Completion audit](review-evidence/e3-fable-complete-2026-09-22/README.md): 140/140 E3 verdicts complete, 44/70 and 39/70 negative; controls were 38/70 and 42/70. Original AAPL FAIL virtually reused, 123 new harness invocations bound, 155 prior stage files unchanged. No causal-improvement or deletion/quality acceptance follows. The supplemental readouts supersede preserved September 21 readouts; CLI process coverage misses the initial continuation slot, so 125 reported continuation calls are reconstructed/attested rather than fully independently counted.
+
+Founder confirmed no additional E8 judging/probes beyond returned history. Prepare a separate reconciliation-aware E8-only continuation under the unchanged 601-call guard and conservative prior charge 287; remote sole-guard verification remains required. No E8 dispatch or new generation was performed in this audit. Current structured-source gaps keep E7 draft and execution held; source-owner residuals and the code-owned period-end return-label collision are triaged separately.

@@ -1,0 +1,730 @@
+{
+  "e2_control_1": {
+    "path": "preserved/e2/judged.json",
+    "sha256": "d5c6a293aa7fb79b416f0df5c47bf90f67960601c8946b3180248838dbacb54d",
+    "outputs": 70,
+    "negative": 38,
+    "negative_percent": 54.3,
+    "gate_attempt_counts": {
+      "G2": 2,
+      "G3": 14,
+      "G4": 23,
+      "G5": 22
+    },
+    "dimension_means": {
+      "faithfulness": 3.6571,
+      "insight": 3.1571,
+      "clarity": 3.5714,
+      "specificity": 4.0571
+    },
+    "form_counts": {
+      "6-K": {
+        "outputs": 6,
+        "negative": 4
+      },
+      "10-K": {
+        "outputs": 28,
+        "negative": 13
+      },
+      "10-Q": {
+        "outputs": 22,
+        "negative": 10
+      },
+      "20-F": {
+        "outputs": 14,
+        "negative": 11
+      }
+    },
+    "two_draw_filing_clusters_all_negative": [
+      {
+        "ticker": "SE",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PDD",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "PLD",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "JPM",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "KO",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "BRK.B",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      },
+      {
+        "ticker": "WMT",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      },
+      {
+        "ticker": "COIN",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "BYND",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "ASML",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "TSM",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 0,
+        "g5": 1
+      },
+      {
+        "ticker": "SE",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "PDD",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      }
+    ],
+    "g4_finder_attempt_overlap": null,
+    "unclassified_reasons": []
+  },
+  "e2_control_2": {
+    "path": "preserved/e2-control2/judged.json",
+    "sha256": "15ec6a1c23cdaeda1a56432c152d45fc7c6a9c6e9cd790e073d63db58f207faa",
+    "outputs": 70,
+    "negative": 42,
+    "negative_percent": 60.0,
+    "gate_attempt_counts": {
+      "G2": 2,
+      "G3": 12,
+      "G4": 25,
+      "G5": 24
+    },
+    "dimension_means": {
+      "faithfulness": 3.6571,
+      "insight": 3.1429,
+      "clarity": 3.5571,
+      "specificity": 4.1
+    },
+    "form_counts": {
+      "6-K": {
+        "outputs": 6,
+        "negative": 3
+      },
+      "10-K": {
+        "outputs": 28,
+        "negative": 16
+      },
+      "10-Q": {
+        "outputs": 22,
+        "negative": 12
+      },
+      "20-F": {
+        "outputs": 14,
+        "negative": 11
+      }
+    },
+    "two_draw_filing_clusters_all_negative": [
+      {
+        "ticker": "SE",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PLD",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "PGR",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 0,
+        "g5": 1
+      },
+      {
+        "ticker": "FIGS",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "AAPL",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 0
+      },
+      {
+        "ticker": "MSFT",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "JPM",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "KO",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "BRK.B",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PFE",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 2,
+        "g5": 1
+      },
+      {
+        "ticker": "COIN",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "BABA",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "ASML",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "TSM",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "JD",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "SE",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 0,
+        "g5": 1
+      }
+    ],
+    "g4_finder_attempt_overlap": null,
+    "unclassified_reasons": []
+  },
+  "e3_candidate_1": {
+    "path": "readouts-supplement/e3-candidate1.json",
+    "sha256": "9e9dcc6e86fa2db72aa7d774caacf7fb041f90a8646841f989c7213dd69fb91d",
+    "outputs": 70,
+    "negative": 44,
+    "negative_percent": 62.9,
+    "gate_attempt_counts": {
+      "G2": 1,
+      "G3": 15,
+      "G4": 24,
+      "G5": 23
+    },
+    "dimension_means": {
+      "faithfulness": 3.6429,
+      "insight": 3.1429,
+      "clarity": 3.4286,
+      "specificity": 4.0857
+    },
+    "form_counts": {
+      "6-K": {
+        "outputs": 6,
+        "negative": 4
+      },
+      "10-K": {
+        "outputs": 28,
+        "negative": 16
+      },
+      "10-Q": {
+        "outputs": 22,
+        "negative": 14
+      },
+      "20-F": {
+        "outputs": 14,
+        "negative": 10
+      }
+    },
+    "two_draw_filing_clusters_all_negative": [
+      {
+        "ticker": "SE",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "PDD",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "FIGS",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 0
+      },
+      {
+        "ticker": "JPM",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "KO",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      },
+      {
+        "ticker": "AMZN",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "BRK.B",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PFE",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "WMT",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "COIN",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "ASML",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "TSM",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 0,
+        "g5": 0
+      },
+      {
+        "ticker": "SE",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PDD",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "MELI",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      }
+    ],
+    "g4_finder_attempt_overlap": {
+      "g4_attempts": 24,
+      "also_any_finder_candidate": 6,
+      "no_finder_candidate": 17,
+      "null_audit": 1
+    },
+    "unclassified_reasons": [
+      {
+        "ticker": "AAPL",
+        "form": "10-K",
+        "run": 0,
+        "reason": "Internal inconsistency: total net sales change stated as \"+6.5%\" in the results table but \"up 6.4% YoY\" in financial highlights (source/XBRL: 6.4%)."
+      }
+    ]
+  },
+  "e3_candidate_2": {
+    "path": "readouts-supplement/e3-candidate2.json",
+    "sha256": "56218e3156deb80c0eb666ad4d724311556bc296adb671a2b8ee8287865ab86e",
+    "outputs": 70,
+    "negative": 39,
+    "negative_percent": 55.7,
+    "gate_attempt_counts": {
+      "G2": 0,
+      "G3": 11,
+      "G4": 23,
+      "G5": 27
+    },
+    "dimension_means": {
+      "faithfulness": 3.5714,
+      "insight": 3.1286,
+      "clarity": 3.5286,
+      "specificity": 4.1286
+    },
+    "form_counts": {
+      "6-K": {
+        "outputs": 6,
+        "negative": 3
+      },
+      "10-K": {
+        "outputs": 28,
+        "negative": 13
+      },
+      "10-Q": {
+        "outputs": 22,
+        "negative": 10
+      },
+      "20-F": {
+        "outputs": 14,
+        "negative": 13
+      }
+    },
+    "two_draw_filing_clusters_all_negative": [
+      {
+        "ticker": "SE",
+        "form": "6-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "NVDA",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 2,
+        "g5": 0
+      },
+      {
+        "ticker": "JPM",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "KO",
+        "form": "10-Q",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      },
+      {
+        "ticker": "AMZN",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 0,
+        "g5": 2
+      },
+      {
+        "ticker": "BRK.B",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "RIVN",
+        "form": "10-K",
+        "negative": 2,
+        "g4": 1,
+        "g5": 1
+      },
+      {
+        "ticker": "BABA",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "ASML",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 2
+      },
+      {
+        "ticker": "TSM",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "JD",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 2,
+        "g5": 1
+      },
+      {
+        "ticker": "SE",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      },
+      {
+        "ticker": "PDD",
+        "form": "20-F",
+        "negative": 2,
+        "g4": 1,
+        "g5": 2
+      }
+    ],
+    "g4_finder_attempt_overlap": {
+      "g4_attempts": 23,
+      "also_any_finder_candidate": 9,
+      "no_finder_candidate": 14,
+      "null_audit": 0
+    },
+    "unclassified_reasons": []
+  },
+  "e2_pooled_descriptive": {
+    "outputs": 140,
+    "negative": 80,
+    "gate_attempt_counts": {
+      "G2": 4,
+      "G3": 26,
+      "G4": 48,
+      "G5": 46
+    },
+    "dimension_means": {
+      "faithfulness": 3.6571,
+      "insight": 3.15,
+      "clarity": 3.5643,
+      "specificity": 4.0785
+    },
+    "forms": {
+      "6-K": {
+        "outputs": 12,
+        "negative": 7
+      },
+      "10-K": {
+        "outputs": 56,
+        "negative": 29
+      },
+      "10-Q": {
+        "outputs": 44,
+        "negative": 22
+      },
+      "20-F": {
+        "outputs": 28,
+        "negative": 22
+      }
+    }
+  },
+  "e3_pooled_descriptive": {
+    "outputs": 140,
+    "negative": 83,
+    "gate_attempt_counts": {
+      "G2": 1,
+      "G3": 26,
+      "G4": 47,
+      "G5": 50
+    },
+    "dimension_means": {
+      "faithfulness": 3.6071,
+      "insight": 3.1357,
+      "clarity": 3.4786,
+      "specificity": 4.1071
+    },
+    "forms": {
+      "6-K": {
+        "outputs": 12,
+        "negative": 7
+      },
+      "10-K": {
+        "outputs": 56,
+        "negative": 29
+      },
+      "10-Q": {
+        "outputs": 44,
+        "negative": 24
+      },
+      "20-F": {
+        "outputs": 28,
+        "negative": 23
+      }
+    }
+  },
+  "e3_four_draw_all_negative_filing_clusters": [
+    {
+      "ticker": "AMZN",
+      "form": "10-K",
+      "e3_negative": 4,
+      "e2_negative": 2,
+      "e3_g4": 2,
+      "e3_g5": 2
+    },
+    {
+      "ticker": "ASML",
+      "form": "20-F",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 4,
+      "e3_g5": 4
+    },
+    {
+      "ticker": "BRK.B",
+      "form": "10-K",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 3,
+      "e3_g5": 4
+    },
+    {
+      "ticker": "JPM",
+      "form": "10-K",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 4,
+      "e3_g5": 4
+    },
+    {
+      "ticker": "KO",
+      "form": "10-Q",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 0,
+      "e3_g5": 4
+    },
+    {
+      "ticker": "PDD",
+      "form": "20-F",
+      "e3_negative": 4,
+      "e2_negative": 3,
+      "e3_g4": 2,
+      "e3_g5": 3
+    },
+    {
+      "ticker": "SE",
+      "form": "20-F",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 2,
+      "e3_g5": 4
+    },
+    {
+      "ticker": "SE",
+      "form": "6-K",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 3,
+      "e3_g5": 2
+    },
+    {
+      "ticker": "TSM",
+      "form": "20-F",
+      "e3_negative": 4,
+      "e2_negative": 4,
+      "e3_g4": 1,
+      "e3_g5": 2
+    }
+  ],
+  "interpretation": {
+    "unit": "same 35 filing identities, two regenerated outputs per corpus; outcomes correlated within filing",
+    "causal_effect_identified": false,
+    "gate_activation_supported": false,
+    "fable_verdicts_validate_later_deterministic_safeguards": false
+  }
+}
