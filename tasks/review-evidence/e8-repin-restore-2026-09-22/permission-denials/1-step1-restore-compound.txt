@@ -1,0 +1,9 @@
+observed_at_utc: 2026-09-22T21:29Z (approx; between 21:28:52Z and 21:30:54Z)
+step: 1 (restore)
+denied_command: python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --uploads /root/.claude/uploads/a714ff2c-4c51-5ab5-9478-bd7f0ac9d3fa > <scratchpad>/logs/step1-restore.log 2>&1; echo "restore exit=$?" >> <scratchpad>/logs/step1-restore.log
+cwd: /home/user/EarningsNerd
+denial_source: Claude Code auto mode classifier
+denial_reason: [Code from External]
+note: the command was a compound (redirect + trailing echo) and so did not match the project allow rule
+      Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*). One attempt in the exact
+      allow-listed form followed (file 2); that second denial was the stop.

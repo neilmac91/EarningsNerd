@@ -1,0 +1,11 @@
+observed_at_utc: 2026-09-22T21:30Z (approx; immediately after denial 1, before 21:30:54Z)
+step: 1 (restore)
+denied_command: python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --uploads /root/.claude/uploads/a714ff2c-4c51-5ab5-9478-bd7f0ac9d3fa
+cwd: /home/user/EarningsNerd
+denial_source: Claude Code auto mode classifier
+denial_reason: [Auto-Mode Bypass]
+note: this is the exact form covered by the project allow rule
+      Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*) in .claude/settings.json
+      on this branch (HEAD 3d836ad == origin/main). The rule did not prevent the classifier from
+      deciding. STOP per the E8 kit: no further attempt through any route. The script never started;
+      none of its target paths exist.
