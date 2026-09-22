@@ -40,10 +40,13 @@ denial verbatim (command, cwd, reason, approximate UTC) in the committed receipt
 a denied command to try again through the shell.
 
 Gate (rule 12): `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`. The launch kit is
-a repository file, `tasks/fable-e8-launch-kit.md`, and the test fails when any gated command in
-its `sh` blocks is not the literal prefix of an allow rule in `.claude/settings.json`, carries a
-shell variable, redirect, pipe or `;`, or when the kit's first gated command is not the `--help`
-probe; it also fails when an allow rule carries a variable or names a script that does not exist.
+a repository file, `tasks/fable-e8-launch-kit.md`, and the test fails when any command in its
+`sh` blocks is not the literal prefix of an allow rule in `.claude/settings.json`, is covered by a
+deny or ask rule, or carries a shell variable, a separator (`&`, `;`, `|`), a redirection or a
+backtick; when a fence is spelled anything other than `sh`, `text` or `json`, or an interpreter
+or the CLI is invoked outside an `sh` block; or when the kit's first command is not the `--help`
+probe. It also fails when an allow entry carries a variable or names a script that does not
+exist, and its evasion cases lock each of those behaviours against in-memory copies.
 No repository gate can exercise the cloud permission classifier itself, so the gate proves that
 the kit and the rules agree before a session starts, and step 0 proves the route inside the
 session. `tasks/fable-e8-repin-2026-09-22/README.md` still shows its command block in `"$REPIN"` /
