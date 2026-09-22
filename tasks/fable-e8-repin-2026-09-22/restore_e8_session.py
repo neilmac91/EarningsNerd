@@ -238,7 +238,14 @@ def step_worktree(repo_root: Path, log: dict) -> None:
         head = subprocess.run(['git', '-C', str(FROZEN_REPO), 'rev-parse', 'HEAD'], capture_output=True, text=True, check=True).stdout.strip()
         if head != FROZEN_COMMIT:
             raise Refuse(f'existing frozen worktree is at {head}, not {FROZEN_COMMIT}')
-        log['worktree'] = 'already present'
+        # The five pinned files import unpinned modules and step_venv trusts requirements.txt,
+        # so an existing checkout is accepted only when git reports it clean: no tracked
+        # modification and no untracked file (gitignored __pycache__ from the harness is fine).
+        dirty = subprocess.run(['git', '-C', str(FROZEN_REPO), 'status', '--porcelain'],
+                               capture_output=True, text=True, check=True).stdout.strip()
+        if dirty:
+            raise Refuse(f'existing frozen worktree is not clean:\n{dirty[:2000]}')
+        log['worktree'] = 'already present at the frozen commit and clean'
     else:
         subprocess.run(['git', '-C', str(repo_root), 'fetch', 'origin', FROZEN_COMMIT], check=True)
         subprocess.run(['git', '-C', str(repo_root), 'worktree', 'add', '--detach', str(FROZEN_REPO), FROZEN_COMMIT], check=True)
