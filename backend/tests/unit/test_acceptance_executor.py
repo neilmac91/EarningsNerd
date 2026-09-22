@@ -159,6 +159,7 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     ("arm_concurrency", "recovery concurrency differs between acceptance arms"),
     ("thinking", "thinking mode is unsupported"),
     ("thinking_ceiling", "thinking token ceiling must match"),
+    ("schema_bool", "fail the application Settings schema"),
 ])
 def test_invalid_frozen_settings_stop_before_programme_state(
     tmp_path: Path, monkeypatch, fault: str, message: str
@@ -166,6 +167,21 @@ def test_invalid_frozen_settings_stop_before_programme_state(
     filing = {"holdout_id": "H02", "accession_number": "0000000001-26-000001"}
     manifest = _write(tmp_path / "manifest.json", {"filings": [filing]})
     config = _complete_frozen_config()
+    if fault == "schema_bool":
+        from app.config import settings
+        from evals.acceptance_worker import REQUIRED_FROZEN_SETTINGS
+        config["effective_settings"].update({
+            key: getattr(settings, key) for key in REQUIRED_FROZEN_SETTINGS
+            if key not in config["effective_flags"]
+        })
+        config["effective_settings"].update(
+            OPENAI_BASE_URL=config["base_url"], AI_DEFAULT_MODEL=config["model"],
+            AI_FALLBACK_MODEL="", AI_FALLBACK_BASE_URL="",
+            AI_FAST_MODEL="", AI_SECTION_RECOVERY_MODEL="",
+            AI_SUMMARY_THINKING_EFFORT="",
+        )
+        executor.preflight_frozen_settings(config, Path(__file__).resolve().parents[3])
+        config["effective_settings"]["USE_STRUCTURED_OUTPUT"] = "definitely-not-a-bool"
     if fault == "missing":
         del config["effective_settings"]["OPENAI_BASE_URL"]
     elif fault == "unsupported":
@@ -190,7 +206,7 @@ def test_invalid_frozen_settings_stop_before_programme_state(
         config["effective_settings"]["AI_SUMMARY_THINKING_EFFORT"] = "high"
     elif fault == "thinking_ceiling":
         config["effective_settings"]["AI_SUMMARY_THINKING_MAX_TOKENS"] = 240000
-    elif fault == "arm_concurrency":
+    elif fault in {"arm_concurrency", "schema_bool"}:
         pass
     else:
         config["effective_settings"]["AI_FALLBACK_BASE_URL"] = "https://other.invalid/v1"
@@ -201,15 +217,21 @@ def test_invalid_frozen_settings_stop_before_programme_state(
     comparator_path = _write(tmp_path / "comparator.json", comparator)
     prerequisites = _write(tmp_path / "prerequisites.json", {
         "candidate_config": {"path": config_path.name},
-        "comparator_config": {"path": comparator_path.name}})
+        "comparator_config": {"path": comparator_path.name},
+        "budget_control": {"reviewed_commit": "unused-in-offline-test"}})
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})
 
     def forbidden(*_, **__):
         raise AssertionError("invalid frozen config reached checkout, ledger or child dispatch")
 
-    monkeypatch.setattr(executor, "frozen_checkout", forbidden)
+    if fault == "schema_bool":
+        monkeypatch.setattr(executor, "frozen_checkout", lambda *_: Path(__file__).resolve().parents[3])
+        monkeypatch.setattr(executor, "verified_runtime", lambda *_: {})
+    else:
+        monkeypatch.setattr(executor, "frozen_checkout", forbidden)
     monkeypatch.setattr(executor, "BudgetLedger", forbidden)
-    monkeypatch.setattr(executor.subprocess, "run", forbidden)
+    if fault != "schema_bool":
+        monkeypatch.setattr(executor.subprocess, "run", forbidden)
     programme = tmp_path / "programme"
     args = SimpleNamespace(command="run-slot", manifest=str(manifest),
                            prerequisites=str(prerequisites), archive=tmp_path,

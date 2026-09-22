@@ -266,6 +266,28 @@ def child_environment(invocation, config, api_key):
     return env
 
 
+def preflight_frozen_settings(config, checkout):
+    """Load the real Settings schema offline before a slot can be claimed."""
+    frozen = validated_frozen_settings(config)
+    # Match the worker's environment without exposing a credential or creating programme files.
+    env = {key: json.dumps(value) if not isinstance(value, str) else value
+           for key, value in frozen.items()}
+    env.update(DATABASE_URL='sqlite:///:memory:', SECRET_KEY='a' * 32,
+               OPENAI_API_KEY='', SKIP_REDIS_INIT='true',
+               PYTHONDONTWRITEBYTECODE='1')
+    script = ("import json, sys; sys.path.insert(0, sys.argv[1]); "
+              "from app.config import settings; "
+              "frozen = json.load(sys.stdin); "
+              "assert all(getattr(settings, key) == value for key, value in frozen.items())")
+    result = subprocess.run(
+        [sys.executable, '-B', '-c', script, str(checkout / 'backend')],
+        input=json.dumps(frozen), text=True, capture_output=True, env=env,
+        cwd=checkout / 'backend', check=False,
+    )
+    if result.returncode:
+        raise ValueError('frozen settings fail the application Settings schema or change on load')
+
+
 def claim_worker(request_path, request):
     """Exactly one child may consume the immutable slot request, even after parent death."""
     with sqlite3.connect(request['ledger']) as db:
@@ -310,6 +332,8 @@ def run_slot(args):
     budget_control = prerequisites['budget_control']
     checkout = frozen_checkout(config, budget_control['reviewed_commit'])
     runtime = verified_runtime(checkout / 'backend/requirements.txt')
+    preflight_frozen_settings(config, checkout)
+    preflight_frozen_settings(read_json(other_path), checkout)
     if smoke_mode:
         goldens = read_json(checkout / 'backend/evals/golden_set.json')
         goldens = goldens if isinstance(goldens, list) else goldens['filings']
