@@ -145,14 +145,29 @@ def step_assemble(uploads: Path, log: dict) -> Path:
 
 
 def step_extract(archive_path: Path, expected_sha: str, dest: Path, top: str | None, log: dict, key: str) -> None:
-    target = dest / top if top else dest
-    if target.exists():
-        log[key] = f'already extracted at {target}'
-        return
+    """Extract a verified archive, or prove an existing extraction is byte-for-byte that archive.
+
+    The archive hash is checked on every run, before any early return, so a stale but
+    internally consistent prior extraction can never stand in for the supplied sealed kit.
+    """
     archive = check_zip(archive_path, expected_sha)
+    members = [i for i in archive.infolist() if not i.is_dir()]
     tops = {n.split('/')[0] for n in archive.namelist()}
     if top and tops != {top}:
         raise Refuse(f'{archive_path.name} top-level entries {sorted(tops)} != {top}')
+    target = dest / top if top else dest
+    if target.exists():
+        differing = []
+        for info in members:
+            path = dest / info.filename
+            if not path.is_file() or hashlib.sha256(archive.read(info)).hexdigest() != sha(path):
+                differing.append(info.filename)
+                if len(differing) >= 5:
+                    break
+        if differing:
+            raise Refuse(f'existing extraction at {target} differs from {archive_path.name}: {differing}')
+        log[key] = f'already extracted at {target}; {len(members)} members re-verified against the archive'
+        return
     dest.mkdir(parents=True, exist_ok=True)
     archive.extractall(dest)
     log[key] = f'extracted {len(archive.namelist())} members to {target}'
@@ -235,14 +250,21 @@ def step_worktree(repo_root: Path, log: dict) -> None:
 
 
 def step_venv(log: dict) -> None:
+    """Create the venv, or reuse it only if a marker proves its install completed for this requirements file."""
     python = VENV / 'bin/python'
-    if not python.exists():
-        subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True)
-        subprocess.run([str(VENV / 'bin/pip'), 'install', '--disable-pip-version-check', '-q', '-r',
-                        str(FROZEN_REPO / 'backend/requirements.txt')], check=True)
-        log['venv'] = f'created at {VENV}'
+    requirements = FROZEN_REPO / 'backend/requirements.txt'
+    marker = VENV / '.requirements-installed.sha256'
+    if python.exists() and marker.exists() and marker.read_text().strip() == sha(requirements):
+        log['venv'] = 'already present; completion marker matches the frozen requirements'
     else:
-        log['venv'] = 'already present'
+        if python.exists():
+            log['venv_note'] = 'existing venv had no completion marker; reinstalling requirements'
+        else:
+            subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True)
+        subprocess.run([str(VENV / 'bin/pip'), 'install', '--disable-pip-version-check', '-q', '-r',
+                        str(requirements)], check=True)
+        marker.write_text(sha(requirements) + '\n')  # written only after pip exited 0
+        log['venv'] = f'installed into {VENV}'
     log['venv_python'] = subprocess.run([str(python), '--version'], capture_output=True, text=True, check=True).stdout.strip()
 
 
@@ -251,11 +273,17 @@ def step_cli(log: dict) -> None:
     version = subprocess.run([str(REAL_CLI), '--version'], capture_output=True, text=True, timeout=30, env=env)
     auth = subprocess.run([str(REAL_CLI), 'auth', 'status'], capture_output=True, text=True, timeout=30, env=env)
     log['cli'] = {'path': str(REAL_CLI.resolve()), 'version_stdout': version.stdout.strip(), 'version_exit': version.returncode}
+    if version.returncode:
+        raise Refuse(f'claude --version exited {version.returncode}')
     try:
         status = json.loads(auth.stdout)
-        log['cli']['auth'] = {k: status.get(k) for k in ('loggedIn', 'authMethod', 'apiProvider')}
-    except ValueError:
-        log['cli']['auth'] = {'raw_exit': auth.returncode}
+    except ValueError as exc:
+        raise Refuse(f'claude auth status did not return JSON (exit {auth.returncode})') from exc
+    observed = {k: status.get(k) for k in ('loggedIn', 'authMethod', 'apiProvider')}
+    log['cli']['auth'] = observed
+    expected = {'loggedIn': True, 'authMethod': 'oauth_token', 'apiProvider': 'firstParty'}
+    if auth.returncode or observed != expected:
+        raise Refuse(f'CLI auth state {observed} (exit {auth.returncode}) is not the subscription route {expected}')
 
 
 def main() -> None:
