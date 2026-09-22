@@ -159,7 +159,9 @@ def resolve_source_contract(
                 record.get("new_role") != record.get("original_role") or
                 not isinstance(provenance, dict) or
                 provenance.get("sha256") != record.get("new_sha256") or
-                provenance.get("requested_url") != (original.get("provenance") or {}).get("requested_url")):
+                provenance.get("requested_url") != (original.get("provenance") or {}).get("requested_url") or
+                provenance.get("representation") != "httpx_decoded_response_text_utf8" or
+                not isinstance(provenance.get("final_url"), str) or not provenance["final_url"]):
             raise ValueError(f"revised source identity differs: {holdout}")
         reference = _ref(root, record["new_path"], record["new_sha256"], record["new_bytes"])
         packet = {"role": record["new_role"], **reference, "provenance": provenance}

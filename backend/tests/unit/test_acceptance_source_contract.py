@@ -53,7 +53,8 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pat
                 "original_bytes": len(original_path), "original_sha256": original_sha,
                 "new_role": role, "new_path": path.relative_to(root).as_posix(),
                 "new_bytes": len(payload), "new_sha256": hashlib.sha256(payload).hexdigest(),
-                "new_provenance": {"requested_url": url,
+                "new_provenance": {"requested_url": url, "final_url": url,
+                                   "representation": "httpx_decoded_response_text_utf8",
                                    "sha256": hashlib.sha256(payload).hexdigest()},
             })
         filings.append({
