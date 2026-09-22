@@ -94,6 +94,15 @@ def test_verified_runtime_rejects_mismatched_or_unsupported_lock(tmp_path: Path,
     assert len(receipt["distributions_sha256"]) == 64
     assert receipt["pinned_distribution_count"] == 2
 
+    # The same interpreter must not leak a candidate-only dependency into the comparator.
+    comparator_lock = tmp_path / "comparator-requirements.txt"
+    comparator_lock.write_text("alpha-package==1.2.3\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="absent from dependency lock.*beta-pkg"):
+        executor.verified_runtime(comparator_lock)
+    candidate_only = distributions.pop()
+    assert executor.verified_runtime(comparator_lock)["pinned_distribution_count"] == 1
+    distributions.append(candidate_only)
+
     distributions[1] = SimpleNamespace(metadata={"Name": "beta-pkg"}, version="4.6")
     with pytest.raises(ValueError, match="installed distributions differ"):
         executor.verified_runtime(lock)

@@ -104,6 +104,10 @@ def verified_runtime(lock_path):
                   for name, version in pins.items() if installed.get(name) != version}
     if mismatches:
         raise ValueError('installed distributions differ from dependency lock: ' + json.dumps(mismatches, sort_keys=True))
+    undeclared = installed.keys() - pins.keys()
+    if undeclared:
+        raise ValueError('installed distributions absent from dependency lock: ' +
+                         json.dumps(sorted(undeclared)))
     inventory = json.dumps(installed, sort_keys=True, separators=(',', ':')).encode()
     return {'interpreter': sys.executable, 'python_version': python_version,
             'implementation': platform.python_implementation(),

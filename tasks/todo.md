@@ -1,10 +1,14 @@
+## September 22 — E7 exact runtime dependency inventory
+
+The hosted review found that required pins alone allowed a candidate-only package to remain importable in the comparator. Runtime admission now rejects any installed distribution absent from either selected lock; the child rechecks the inventory before claiming its request. A single shared interpreter cannot run arms with different dependency sets. The pinned Python 3.11 runtime has exactly all 99 locked packages and no extras. The existing runtime gate now proves rejection of a comparator missing a candidate dependency and acceptance once that extra package is removed. The existing executor suite passed 26 tests. Removing only the new comparison failed the targeted gate; exact restoration passed it. Full pre-push verification and independent review follow.
+
 ## September 22 — E7 actual review contexts and deterministic findings
 
 The version 3 role protocol freezes model/prompt identity while version 2 source evidence records a fresh actual context per filing and role. All 60 brief and 30 reconciliation contexts must be unique. Output reviews bind their observed contexts to raw responses and cannot reuse source contexts or cross quality/challenge roles. This removes the earlier five-global-context limitation before any formal review seal.
 
 The latest hosted review finding is corrected: rejected findings cannot clear deterministic quote, citation or arithmetic failures. The matching finding must be confirmed; existing material-defect and fabricated-quote vetoes remain. An offline mutation reproduces the former false pass. Source-context reuse, cross-role reuse and response-context mismatches have fail/restore proofs too.
 
-Two fresh independent Sol contexts have produced source-only drafts for NIO holdout H30 (12 and 11 material-issue entries). A third source-only context is reconciling them. The drafts retain coverage/runtime-observation limits and are not counted as readiness-eligible completed references. No candidate/comparator output, paid E7 generation, Fable call, E8 queue change or production activation occurred. The remaining 29 filings, formal reference custody, frozen execution arms, provider evidence and metered smoke remain engineering work.
+Two fresh independent Sol contexts have produced source-only drafts for NIO holdout H30 (12 and 11 material-issue entries). A third source-only context reconciled all 23 original entries into 11 draft issues, with 12 disagreement records. The drafts retain coverage/runtime-observation limits and are not counted as readiness-eligible completed references. No candidate/comparator output, paid E7 generation, Fable call, E8 queue change or production activation occurred. The remaining 29 filings, formal reference custody, frozen execution arms, provider evidence and metered smoke remain engineering work.
 
 ## E7 solo-founder direction — 2026-09-22
 
