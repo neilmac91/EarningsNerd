@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/fable-judging/fable-resume-corrected-2026-09-20/tools/guard_setup.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/fable-judging/fable-e8-continuation-2026-09-22/tools/e8_resume.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/fable-judging/fable-reconciliation-2026-09-22/tools/readout.py:*)"
+    ]
+  }
+}
