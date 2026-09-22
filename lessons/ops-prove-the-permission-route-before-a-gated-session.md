@@ -12,15 +12,19 @@ can touch anything. The official docs say narrow allow rules are evaluated befor
 and that a repository's `.claude/settings.json` is read in web sessions; the session behaved as if
 the rules did not exist. The kit had no step that would have discovered this before step 1, and
 the first attempt had already been wrapped in a log redirect and a trailing `echo`, which takes a
-compound command outside a `Bash(prefix:*)` rule regardless. Nothing was touched, by luck of
-ordering rather than by design. Evidence:
+compound command outside a `Bash(prefix:*)` rule regardless. The kit and the rule also disagreed
+on the command text itself: the kit wrote step 1 with an absolute `"$REPIN/…"` path while the
+rule named the relative `tasks/…` path, so the kit's literal command could never have matched the
+rule. Nothing was touched, by luck of ordering rather than by design. Evidence:
 `tasks/review-evidence/e8-repin-restore-2026-09-22/receipt.md`.
 
 ## Rule
 
 A launch kit for a permission-gated procedure begins with a step 0 that proves the route: run the
 first allow-listed script with `--help` (or another argparse-level no-op) in the exact rule form,
-from the rule's working directory, with no redirect, pipe or `;`. A denial there is a stop before
+from the rule's working directory, with no redirect, pipe or `;`. The kit's command text and the
+rule's prefix must be the same string; write the kit from the rule, not the other way round. A
+denial there is a stop before
 any state exists, and the report is "the permission route is not in effect", not "the restore
 failed". The kit names the session's permission mode explicitly; do not assume project allow rules
 bypass the auto-mode classifier. When an allow-listed command must be logged, let the script write
