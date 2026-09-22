@@ -14,11 +14,12 @@ The scanner, job, stored candidates, homepage mount and client events already ex
 | Section impressions / card clicks / CTR | `[ ] / [ ] / [ ]`, only if section enabled and impressions observed |
 | Reviewer recommendation; founder decision/date | `[retain/kill/pending with rationale]`; `[ ]` |
 
-Read-only source queries below are candidate diagnostics; they require an authorized DB read and are not a substitute for inspecting EDGAR source documents. Replace the two UTC bounds and read actual job outcome semantics before running. The job-ledger role may lack `SELECT`; record `unavailable` rather than retrying or broadening that grant. `notable_filings` is pruned after 14 days, so the table cannot reconstruct missing older runs.
+Read-only source queries below are candidate diagnostics; they require an authorized DB read and are not a substitute for inspecting EDGAR source documents. Replace the two UTC bounds and read actual job outcome semantics before running. Use the `ALL REASONS` row for the worksheet's cohort-wide distinct counts and age p50/p95/max; the other rows show the reason mix. The job-ledger role may lack `SELECT`; record `unavailable` rather than retrying or broadening that grant. `notable_filings` is pruned after 14 days, so the table cannot reconstruct missing older runs.
 
 ```sql
 -- Candidate freshness, issuer diversity and reason mix in [start,end).
-SELECT reason, count(*) AS candidates, count(DISTINCT accession_number) AS distinct_accessions,
+SELECT CASE WHEN GROUPING(reason) = 1 THEN 'ALL REASONS' ELSE reason END AS reason,
+       count(*) AS candidates, count(DISTINCT accession_number) AS distinct_accessions,
        count(DISTINCT ticker) AS distinct_issuers,
        min(filed_date) AS oldest_filing, max(filed_date) AS newest_filing,
        percentile_cont(0.5) WITHIN GROUP
@@ -30,7 +31,8 @@ SELECT reason, count(*) AS candidates, count(DISTINCT accession_number) AS disti
 FROM notable_filings
 WHERE first_seen_at >= :'window_start'::timestamptz
   AND first_seen_at < :'window_end'::timestamptz
-GROUP BY reason ORDER BY candidates DESC;
+GROUP BY ROLLUP(reason)
+ORDER BY GROUPING(reason) DESC, candidates DESC;
 
 -- At least seven consecutive scheduled days; inspect every expected slot.
 SELECT id, started_at, finished_at, status, error_type, counters
