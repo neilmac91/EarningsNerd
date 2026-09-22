@@ -113,7 +113,7 @@ is the numbered list at the foot of this file.
 | E6 | Scorer profiles | BRK.B financial depth (an insurer's highlights are premiums and float) and GPRO delta sign on a negative base. Touching a scorer is a listed re-pin trigger. |
 | E7 | Quality acceptance specification (master plan P0) | Freeze the rubric, severity definitions, the 30-filing × 3 unseen holdout manifest and a spending ceiling ([plan](ceo-implementation-plan-2026-09-08.md), section "What world-class acceptance must demonstrate"). Prepare offline; the founder accepts it. |
 | E8 | `o` variance lead | Generation is complete but judging remains inconclusive: 160 slots missing, conservative prior charge 287 of 601 leaves at most 314 calls for slots and retries. The founder's “No additional E8 judging or probes” answered a past-history question, not a future STOP or authorization. Prepare a guarded continuation only after remote accounting and sole-guard verification. [Status](e1-e9-status-2026-09-20.md). |
-| E9 | E09 proposal | Read the database job-outcome table (the last unread item) and finish the proposal ([package](e09-proposal-next-2026-09-13.md)). Proposal only. |
+| E9 | Fleet proposal and protection | The [proposal](fleet-coordination-proposal-2026-09-19.md) is complete, with filing ownership and SEC admission still inactive. [September 22 protection readback](review-evidence/fleet-2026-09-22/README.md) confirms backups/PITR enabled and a recent completed backup; monthly lifecycle-managed export and a restore rehearsal remain unverified. Job-outcome reads remain blocked by missing SELECT on `earningsnerd_job_runs`. |
 
 **Recurring:** the weekly readout. `data-quality-weekly.yml` generates on Mondays and the judging
 runs on the Fable subscription (`.claude/skills/meta/judge-readout/SKILL.md` is the procedure). The
@@ -123,7 +123,7 @@ next generation is Monday 2026-09-21.
 
 | Decision | Why it matters |
 | --- | --- |
-| **Cloud SQL automated backups and point-in-time recovery are disabled** on the live database | The largest open operational risk; a restore rehearsal into an isolated target is also unproven. Also found: a stopped Postgres 18 instance still billed, and a Monday schedule overlap at 50 connections against a 25 default. |
+| **Cloud SQL recovery proof and monthly export remain open** | The September 19 authorized change enabled automated backups and seven-day PITR; September 22 [readback](review-evidence/fleet-2026-09-22/README.md) confirms both and a completed automated backup. No restore rehearsal or monthly lifecycle-managed export was verified. A stopped Postgres 18 instance and the configured Monday connection-demand scenario remain separate matters. |
 | Notable filings: retain or kill | The review week ended 2026-09-15; the decision is overdue. |
 | Analysis (W3-10): run the companyfacts warm-up and name a Pro test account | `scripts/sync_companyfacts.py` has never run as a job. |
 | Arming `AI_ATTRIBUTION_VERIFY`, then `AI_ATTRIBUTION_GATE`, in production | Only after E2–E4 show the drop decision no longer deletes sourced analysis. |
