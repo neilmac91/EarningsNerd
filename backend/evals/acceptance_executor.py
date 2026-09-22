@@ -25,6 +25,7 @@ import secrets
 import sqlite3
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 from evals.acceptance_budget import BudgetLedger, BudgetStopped
 from evals.acceptance_readiness import inspect_readiness
@@ -279,11 +280,12 @@ def preflight_frozen_settings(config, checkout):
               "from app.config import settings; "
               "frozen = json.load(sys.stdin); "
               "assert all(getattr(settings, key) == value for key, value in frozen.items())")
-    result = subprocess.run(
-        [sys.executable, '-B', '-c', script, str(checkout / 'backend')],
-        input=json.dumps(frozen), text=True, capture_output=True, env=env,
-        cwd=checkout / 'backend', check=False,
-    )
+    with TemporaryDirectory(prefix='e7-settings-preflight-') as directory:
+        result = subprocess.run(
+            [sys.executable, '-B', '-c', script, str(checkout / 'backend')],
+            input=json.dumps(frozen), text=True, capture_output=True, env=env,
+            cwd=directory, check=False, timeout=30,
+        )
     if result.returncode:
         raise ValueError('frozen settings fail the application Settings schema or change on load')
 
@@ -326,14 +328,16 @@ def run_slot(args):
     other_arm = 'comparator' if selected['arm'] == 'candidate' else 'candidate'
     other_ref = prerequisites[other_arm + '_config']
     other_path = (prerequisites_path.parent / other_ref['path']).resolve()
-    other_frozen = validated_frozen_settings(read_json(other_path))
+    other_config = read_json(other_path)
+    other_frozen = validated_frozen_settings(other_config)
     if frozen['RECOVERY_MAX_CONCURRENCY'] != other_frozen['RECOVERY_MAX_CONCURRENCY']:
         raise ValueError('recovery concurrency differs between acceptance arms')
     budget_control = prerequisites['budget_control']
     checkout = frozen_checkout(config, budget_control['reviewed_commit'])
     runtime = verified_runtime(checkout / 'backend/requirements.txt')
     preflight_frozen_settings(config, checkout)
-    preflight_frozen_settings(read_json(other_path), checkout)
+    other_checkout = frozen_checkout(other_config, budget_control['reviewed_commit'])
+    preflight_frozen_settings(other_config, other_checkout)
     if smoke_mode:
         goldens = read_json(checkout / 'backend/evals/golden_set.json')
         goldens = goldens if isinstance(goldens, list) else goldens['filings']

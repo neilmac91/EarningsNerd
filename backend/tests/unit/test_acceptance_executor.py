@@ -300,6 +300,7 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
         "issues": [], "config_sha256": {"candidate": executor.sha(config)}})
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
     monkeypatch.setattr(executor, "verified_runtime", lambda *_: {"distributions_sha256": "fixture"})
+    monkeypatch.setattr(executor, "preflight_frozen_settings", lambda *_: None)
     monkeypatch.setenv("E7_GENERATOR_API_KEY", "offline-fixture-only")
     monkeypatch.setattr(executor, "BudgetLedger", lambda *_: SimpleNamespace(
         snapshot=lambda: {"pending": 0, "stop_reason": None}))
