@@ -370,8 +370,11 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     challenge = json.loads(challenge_path.read_text())
     quality["machine_inventory_sha256"] = assessment["machine_inventory"]["sha256"]
     challenge["machine_inventory_sha256"] = assessment["machine_inventory"]["sha256"]
+    source_text = (fixture["archive"] / primary["path"]).read_text(encoding="utf-8")
     finding = {"id": "F-Q1", "claim": "Synthetic quote differs from source",
-               "source_locator": "line 1", "source_context": "Synthetic source text",
+               "source_locator": "line 1", "source_context": source_text,
+               "source_role": "primary", "source_sha256": primary["sha256"],
+               "source_range": [0, len(source_text)],
                "reason": "Source challenge records the mismatch", "severity": "S2",
                "disposition": "rejected", "category": "claim",
                "refutations": ["Checked the byte span", "Checked the filing identity"],
@@ -396,6 +399,19 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
     properly_challenged = _decide(fixture)
     assert properly_challenged["status"] == "pass"
+
+    # Rehash a coherently edited challenge: hashes alone must not bless an
+    # invented passage used to dismiss a real machine allegation.
+    finding["source_context"] = "Invented passage from a different filing"
+    assessment["challenge_response"].update(_write(challenge_path, challenge))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    with pytest.raises(ValueError, match="passage differs from the frozen source"):
+        _decide(fixture)
+    finding["source_context"] = source_text
+    assessment["challenge_response"].update(_write(challenge_path, challenge))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
 
     original_assessment = json.loads(assessment_path.read_text())
     assessment["completeness"] = 1

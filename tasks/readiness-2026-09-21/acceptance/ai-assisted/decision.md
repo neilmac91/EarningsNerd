@@ -55,7 +55,10 @@ Every machine failure requires exactly one finding with its `machine_check_id`, 
 `surface`, and `original_allegation` equal to `machine:<id>:<code>`. Incomplete machine
 checks hold the decision. Model/source review supplies semantic coverage beyond exact spans.
 
-Each finding retains a unique `id`, `surface`, `claim`, source locator/context, severity
+Each finding retains a unique `id`, `surface`, `claim`, source locator/context, selected
+`source_role` and `source_sha256`, and a zero-based, half-open `source_range`. The exact
+`source_context` must match that span in the frozen source, including for rejected claims.
+It also records severity
 `S0`–`S3`, category (`claim`, `omission`, `fabricated_quote`, `misleading_citation`),
 disposition (`confirmed`, `rejected`, `unresolved`), reason and two independent source-based
 `refutations`. All original quality/Fable allegations survive via `original_allegation`;

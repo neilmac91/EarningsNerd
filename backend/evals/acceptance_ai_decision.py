@@ -320,6 +320,7 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
                 source_review.get("claim_inventory_coverage") != "all_detected_claims_inventoried"):
             raise ValueError("claim inventory was not independently reviewed by both contexts")
         filing = filing_by_accession[packet["accession_number"]]
+        _verify_challenge_sources(row["findings"], filing, archive)
         if inventory.get("selected") != {k: str(filing[k]) for k in ("accession_number", "cik")}:
             raise ValueError("machine inventory refers to a different filing")
         for source in filing["source_packets"]:
@@ -358,6 +359,25 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
     report["generator_spend"] = spend
     report["limitations"].append("Claim discovery, financial basis and source interpretation remain AI-reviewed; exact checks cover inventoried claims only.")
     return report
+
+
+def _verify_challenge_sources(findings: list[dict[str, Any]], filing: dict[str, Any], archive: Path) -> None:
+    """A rejected allegation needs a real passage from this selected filing too."""
+    sources = {p["role"]: p for p in filing["source_packets"]}
+    texts: dict[str, str] = {}
+    for finding in findings:
+        role, span = finding.get("source_role"), finding.get("source_range")
+        if (not isinstance(role, str) or role not in sources or
+                finding.get("source_sha256") != sources[role]["sha256"] or
+                not isinstance(span, list) or len(span) != 2 or
+                any(type(offset) is not int for offset in span)):
+            raise ValueError("source challenge is not bound to the selected filing")
+        if role not in texts:
+            texts[role] = _safe_file(archive, sources[role]["path"]).read_text(encoding="utf-8")
+        start, end = span
+        if (start < 0 or end <= start or end > len(texts[role]) or
+                finding.get("source_context") != texts[role][start:end]):
+            raise ValueError("source challenge passage differs from the frozen source")
 
 
 def _judge_input_sha(canonical: dict[str, Any], grounding: dict[str, Any]) -> str:

@@ -1,8 +1,8 @@
 """Offline E7 preflight and blinded packet builder; never invokes a provider or judge.
 
-The accepted accession manifest is immutable. Human materials and source bytes live outside
+The accepted accession manifest is immutable. Source and review evidence live outside
 the repository. This module checks their declared identity and integrity before a paid run or
-review packet can be considered ready. Attestations remain human claims, not machine proof.
+review packet can be considered ready. Retained declarations are not proof that review occurred.
 """
 
 from __future__ import annotations
@@ -498,7 +498,7 @@ def _check_output_records(
             raise ValueError("output error or incomplete status")
         created = _utc(row.get("created_at"))
         if created is None or created <= brief_frozen.get(accession, datetime.max.replace(tzinfo=timezone.utc)):
-            raise ValueError("output predates frozen human brief")
+            raise ValueError("output predates frozen source reference")
         if row.get("config_sha256") != config_hashes.get(arm):
             raise ValueError("output config fingerprint mismatch")
         previews = row.get("preview_paths")

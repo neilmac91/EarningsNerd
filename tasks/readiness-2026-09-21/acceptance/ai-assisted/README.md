@@ -56,6 +56,9 @@ gate still apply. These templates contain no observations or verdicts.
 
 ## Retained Fable CLI calls
 
+The [E7 judge runner](judge-runner.md) reserves each explicit call before
+dispatch and captures immutable CLI evidence for this ledger.
+
 After generation, keep a separate JSON invocation ledger with
 `schema_version: 1`, `programme_id: "E7"`, `kind: "e7_fable_cli_ledger"`,
 `model: "cli:claude-fable-5-1"`, `contract_version: "2"`,
