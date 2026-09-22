@@ -1,0 +1,10 @@
+observed_at_utc: 2026-09-22T21:36Z (approx; after the stop, as a permission-route diagnostic)
+step: diagnostic only (not an E8 step; the command cannot restore anything)
+denied_command: python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help
+cwd: /home/user/EarningsNerd
+denial_source: Claude Code auto mode classifier
+denial_reason: [Auto-Mode Bypass]
+note: argparse --help exits before any file, network or subprocess action. It is the exact prefix the
+      project allow rule Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*) covers.
+      Its denial shows the rule is not deciding this session's commands at all; the classifier is.
+      In the same minute, /opt/claude-code/bin/claude --version ran and printed "2.1.280 (Claude Code)".

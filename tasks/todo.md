@@ -1,3 +1,9 @@
+## September 22 — E8 re-pin judging session stopped before restore (permission denial)
+
+- [x] Session `session_01DJicvUd1iyrfzFjCPxV6f4` on `claude/new-session-8v1cg4` (= main `3d836ad`) received all nine kit attachments with matching hashes and verified the re-pin manifests; the auto-mode classifier then denied `restore_e8_session.py` in the exact allow-listed form (`[Auto-Mode Bypass]`) and afterwards its `--help`. Stopped at kit step 1. [Receipt](review-evidence/e8-repin-restore-2026-09-22/receipt.md).
+- [x] Zero side effects: no bundle, guard readback, attestation, setup, model call, STOP or export. E8 remains 140 reused E2 controls (CLI 2.1.278) / 0 new / 160 missing; the container CLI reads `2.1.280 (Claude Code)`, the re-pin gate value.
+- [ ] Founder decision: which permission mode the judging session runs in, since the seven project allow rules on main did not decide commands under Auto. Proposed kit step 0 and rule: [prove the permission route first](../lessons/ops-prove-the-permission-route-before-a-gated-session.md). No quality or activation claim.
+
 ## September 21 — verifier response safety prepared
 
 Strict complete-batch validation and passage-local supporting quotes are implemented with both attribution flags still false. [Local gate and independent review](review-evidence/verifier-response-safety-2026-09-21/README.md): 3,439 tests including performance/four PostgreSQL lanes, two original mutation proofs, no locked-test/prompt/model/pin/flag change. Hosted checks, actual measurement artifacts and release verification follow; this is not semantic acceptance.

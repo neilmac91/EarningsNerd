@@ -1,0 +1,15 @@
+# Nine kit attachments as received in session_01DJicvUd1iyrfzFjCPxV6f4
+# (uploads dir /root/.claude/uploads/a714ff2c-4c51-5ab5-9478-bd7f0ac9d3fa).
+# Uploaded names carry an id prefix; the name after the prefix is shown.
+# All nine match the launch-kit table in E8-SESSION-PROMPT.md. Computed with sha256sum at 21:26-21:27 UTC.
+9bde2e064132a9fe246aae0aff38453e7412d39f274dba65edd158508448ef60  fable-upload-01-of-05.zip
+3e33f6a25c3114dda1f166dead2aaf6ae3a6493b9911712895bf2c54c66371ea  fable-upload-02-of-05.zip
+b5cfee264ad5faf926f27125efb58581af6f69f33bd387ceb6ae30396d5a5f44  fable-upload-03-of-05.zip
+80ce0eacb07db479a079057fd289e2d9244a051192df2df77863e70c02847622  fable-upload-04-of-05.zip
+eb390b28130f5ec7c55ff740d1c08b2fb14930922b50dd43c906487cc59f45ab  fable-upload-05-of-05.zip
+0ac918a0f38456250b5db634728a3461f6b2f921c1efbd11f599320aa4e5c1bd  fable-reconciliation-2026-09-22.zip
+5298a21e818c105a2a33f12859813446b1cde635d7bb48f3ce46e4a58f140909  fable-e8-continuation-2026-09-22.zip
+281095aa83f560ded61961c09479f9b9d917947c21ffac887be338d729019ed6  fable-judging-e3-complete-2026-09-22.zip
+e30ed42bc8e610a6cda7357e9911632f7fb07409f0b45689e25bf688d30a80ba  transport-manifest.json
+# Launch-kit prompt (not one of the nine; read as the operating instructions for this session)
+600d012b6fcca659b589724a3654a8df0e291b6553155ba24d31ace9f8f6cf4e  E8-SESSION-PROMPT.md

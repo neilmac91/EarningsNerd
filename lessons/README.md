@@ -129,3 +129,4 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [evals-accept-a-prompt-change-on-two-runs-not-one.md](evals-accept-a-prompt-change-on-two-runs-not-one.md) — one generated run sets a direction, never an effect size; report the range across two
 - [ops-the-subscription-judge-has-a-usage-limit.md](ops-the-subscription-judge-has-a-usage-limit.md) — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
 - [ops-judge-cli-pins-need-a-drift-plan.md](ops-judge-cli-pins-need-a-drift-plan.md) — Pin the judge CLI by version, but decide in advance what happens when the container image drifts
+- [ops-prove-the-permission-route-before-a-gated-session.md](ops-prove-the-permission-route-before-a-gated-session.md) — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore
