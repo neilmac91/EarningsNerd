@@ -1,0 +1,21 @@
+{
+  "displayName": "EarningsNerd: detailed health unavailable",
+  "documentation": {
+    "content": "Check https://api.earningsnerd.io/health/detailed and Cloud Run revision health. The check requires status=healthy, so a degraded response also alerts. See docs/OPERATIONS.md.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": ["__CHANNEL__"],
+  "conditions": [{
+    "displayName": "Detailed health check failed",
+    "conditionThreshold": {
+      "filter": "resource.type = \"uptime_url\" AND metric.type = \"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id = \"__CHECK_ID__\"",
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 0,
+      "duration": "120s",
+      "aggregations": [{"alignmentPeriod": "120s", "perSeriesAligner": "ALIGN_NEXT_OLDER", "crossSeriesReducer": "REDUCE_COUNT_FALSE", "groupByFields": ["resource.label.*"]}],
+      "trigger": {"count": 1}
+    }
+  }]
+}

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 tasks/fable-e8-repin-2026-09-22/build_repin.py:*)",
+      "Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*)",
+      "Bash(python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/guard_setup.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/readout.py:*)",
+      "Bash(/home/user/fable-judging/venv/bin/python -m unittest:*)"
+    ]
+  }
+}

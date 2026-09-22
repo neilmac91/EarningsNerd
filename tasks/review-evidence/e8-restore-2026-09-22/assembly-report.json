@@ -1,0 +1,93 @@
+{
+  "output": "/home/user/fable-assembly/fable-resume-corrected-2026-09-20.zip",
+  "bytes": 123221172,
+  "sha256": "38db06d2c3815893f5d48c96b1f2f8bfd0984f45c538026e19d2e034cc9b5256",
+  "parts": [
+    {
+      "attachment": "fable-upload-01-of-05.zip",
+      "attachment_path": "/root/.claude/uploads/66fe03de-951a-525f-aa53-e5a28e978d53/71e29957-4ecee27d-fable-upload-01-of-05.zip",
+      "attachment_sha256": "9bde2e064132a9fe246aae0aff38453e7412d39f274dba65edd158508448ef60",
+      "members": [
+        {
+          "name": "fable-bundle.zip.part-01",
+          "file_size": 27000000,
+          "compress_size": 27000000,
+          "crc32": "fe63be42",
+          "compress_type": 0
+        }
+      ],
+      "payload_bytes": 27000000,
+      "payload_sha256": "2f818e0d7628889f8ca679c6b80ae40127013821b6fe054f65c8794a271d8fee",
+      "status": "OK"
+    },
+    {
+      "attachment": "fable-upload-02-of-05.zip",
+      "attachment_path": "/root/.claude/uploads/66fe03de-951a-525f-aa53-e5a28e978d53/680d1100-e63b00c5-fable-upload-02-of-05.zip",
+      "attachment_sha256": "3e33f6a25c3114dda1f166dead2aaf6ae3a6493b9911712895bf2c54c66371ea",
+      "members": [
+        {
+          "name": "fable-bundle.zip.part-02",
+          "file_size": 27000000,
+          "compress_size": 27000000,
+          "crc32": "21db40a5",
+          "compress_type": 0
+        }
+      ],
+      "payload_bytes": 27000000,
+      "payload_sha256": "e338d29958fa4b7b65a23961b92aafd734a8f21bc19b6fcfafb34402690c6b61",
+      "status": "OK"
+    },
+    {
+      "attachment": "fable-upload-03-of-05.zip",
+      "attachment_path": "/root/.claude/uploads/66fe03de-951a-525f-aa53-e5a28e978d53/a34709e4-4fa54a08-fable-upload-03-of-05.zip",
+      "attachment_sha256": "b5cfee264ad5faf926f27125efb58581af6f69f33bd387ceb6ae30396d5a5f44",
+      "members": [
+        {
+          "name": "fable-bundle.zip.part-03",
+          "file_size": 27000000,
+          "compress_size": 27000000,
+          "crc32": "484d86e8",
+          "compress_type": 0
+        }
+      ],
+      "payload_bytes": 27000000,
+      "payload_sha256": "4334e00e2edb2d6816794310242905d59c213812d582f1ec8ae680a84403aa1c",
+      "status": "OK"
+    },
+    {
+      "attachment": "fable-upload-04-of-05.zip",
+      "attachment_path": "/root/.claude/uploads/66fe03de-951a-525f-aa53-e5a28e978d53/cc814907-3701fc0f-fable-upload-04-of-05.zip",
+      "attachment_sha256": "80ce0eacb07db479a079057fd289e2d9244a051192df2df77863e70c02847622",
+      "members": [
+        {
+          "name": "fable-bundle.zip.part-04",
+          "file_size": 27000000,
+          "compress_size": 27000000,
+          "crc32": "142bf560",
+          "compress_type": 0
+        }
+      ],
+      "payload_bytes": 27000000,
+      "payload_sha256": "5669155746df1716d88001d83c4cb2c8c190599970fbef762933a9b1609ab7a7",
+      "status": "OK"
+    },
+    {
+      "attachment": "fable-upload-05-of-05.zip",
+      "attachment_path": "/root/.claude/uploads/66fe03de-951a-525f-aa53-e5a28e978d53/a3d03318-ff42f0fc-fable-upload-05-of-05.zip",
+      "attachment_sha256": "eb390b28130f5ec7c55ff740d1c08b2fb14930922b50dd43c906487cc59f45ab",
+      "members": [
+        {
+          "name": "fable-bundle.zip.part-05",
+          "file_size": 15221172,
+          "compress_size": 15221172,
+          "crc32": "dfa2b34d",
+          "compress_type": 0
+        }
+      ],
+      "payload_bytes": 15221172,
+      "payload_sha256": "6433b2f4beec9ba5ac26be174c371438a69c3d5978791ca76a5bcb9251c0292c",
+      "status": "OK"
+    }
+  ],
+  "manifest_match": true
+}

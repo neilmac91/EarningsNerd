@@ -1,0 +1,7 @@
+2ac8b75ab6609ac7b7256818e19f46aeb2a0e8e064012cc6e267296e6110fed7  ./attachments-sha256.txt
+9cce0b712ac73fe06ed944ac9022bd6d40b89eb42c16461370631befce464bd6  ./permission-denials/1-step1-restore-compound.txt
+20a312b0c00f12225c8c3617c4f4b742a722dfa51e36031e4eba5ae9cb0e705b  ./permission-denials/2-step1-restore-exact-allowlisted-form.txt
+4e20d78bad9f95c51e6af973f8e3d54bb578b3e071db1a7163e1d88e4ff2d6bb  ./permission-denials/3-readonly-settings-inspection.txt
+46923914a882d01cefdb9aaaabca84f61c3f2954240c7b8a0b1886f5312acb0f  ./permission-denials/4-receipt-dir-assembly-via-shell.txt
+f1c74d5c0357274461926c7b4213e13bdbde172e210ddf1fa4ed61fec96801f8  ./permission-denials/5-restore-help-diagnostic.txt
+0fbd639972522b1a01fde5704645b2dc223e5fc3fad82a788e25937554149668  ./receipt.md

@@ -1,0 +1,41 @@
+# Pin the judge CLI by version, but decide in advance what happens when the image drifts
+
+**Date:** 2026-09-22 · **Area:** ops / evals
+
+## Context
+
+The Fable E8 variability panel sealed its tooling around the exact Claude CLI build `2.1.278`
+(regex fullmatch in `guard_setup.py::_real_cli` and `resume.py::verified_cli`, both hash-pinned).
+The Claude Code web container image was replaced between the 22 September E3 session and the
+next session; the same path now reports `2.1.280` and no `2.1.278` binary exists anywhere in the
+container. Every dispatch path fail-closed, correctly, and the run could not start. The handoff
+rules forbade installing a replacement, so the only ways forward were a new reviewed package
+re-pinned to the current build (with a documented version confound) or closing the panel.
+
+## Rule
+
+When an evaluation pins an external executable by exact version, the same package must state,
+before the first run, which of these applies if that exact build is no longer available:
+(a) the study closes with real denominators, or (b) a new reviewed sibling package re-pins to the
+current build and every readout carries the version confound. Never edit the sealed pin in place,
+never wrap or spoof the version string, and never let a session discover the choice mid-restore.
+Make the CLI version attributable per slot from the data, not only from prose: either record the
+observed version in every per-slot execution record, or, where the per-slot record is a sealed
+derivation that cannot be widened without founder approval (the E8 re-pin), rely on the package's
+exact-version gate that runs before every slot and retain each session's `environment.supplement.json`
+in its committed export. A second re-pin must add the per-row field.
+
+When deriving a sibling package, separate historical evidence identity from current runtime
+identity. The first five-line E8 re-pin regenerated a manifest that `expected_reconciliation()`
+also used to validate the completed E3 record; six offline tests then refused the unchanged
+record. The founder approved a sixth substitution pinning that historical identity to the
+original supplement manifest. Runtime tools remain checked against their regenerated manifest.
+The existing `test_completed_e3_admits_only_the_frozen_e8_missing_panel` is the regression gate:
+the five-line build failed it; the six-line build must pass without rewriting historical evidence.
+
+## Evidence
+
+- `tasks/fable-e8-repin-2026-09-22/README.md` (the re-pin package and its confound statement)
+- `tasks/handover-astra-2026-09-22-e8-repin.md` (restore receipt summary, option table)
+- `backend/evals/judge.py` resolves bare `claude` from PATH and does no version check; the pin
+  lives only in the judging tools.
