@@ -13,8 +13,9 @@ Claude Code's own semantics (code.claude.com/docs/en/permissions.md): ``prefix:*
 covers the prefix alone or followed by a space and anything; any other ``*`` matches any text, so
 ``Bash(*)`` is the blanket rule; a pattern without ``*`` matches only itself. The gate fails when:
 
-- an allow entry contains a shell variable, or an allow rule names a repository script that does
-  not exist;
+- the allow set is not exactly the seven pinned narrow rules (so a blanket ``Bash(*)`` or any
+  wildcard beyond a trailing ``:*`` fails), an allow rule contains a shell variable, or an allow
+  rule names a repository script that does not exist;
 - any command in one of the kit's ``sh`` blocks is not covered by an allow rule, is covered by a
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
@@ -42,6 +43,17 @@ KIT = REPO_ROOT / "tasks" / "fable-e8-launch-kit.md"
 
 # The repository root as the judging container mounts it; absolute rule paths under it map to REPO_ROOT.
 CONTAINER_REPO = "/home/user/EarningsNerd"
+# The permission route is these seven narrow rules and nothing else (handover section 4). A wider
+# allow set, such as a blanket Bash(*), would let the gate certify unrestricted shell execution.
+EXPECTED_ALLOW_RULES = (
+    "Bash(python3 tasks/fable-e8-repin-2026-09-22/build_repin.py:*)",
+    "Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*)",
+    "Bash(python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py:*)",
+    "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/guard_setup.py:*)",
+    "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py:*)",
+    "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/readout.py:*)",
+    "Bash(/home/user/fable-judging/venv/bin/python -m unittest:*)",
+)
 PROBE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help"
 # Fence info strings the kit may use: sh blocks are commands, the others are data. Anything else fails.
 ALLOWED_FENCES = {"sh", "text", "json"}
@@ -132,13 +144,15 @@ def _sh_commands(lines: list[str]) -> list[str]:
 
 
 def rule_problems(settings: dict) -> list[str]:
-    """Every way the permission rules themselves are unfit: variables, or scripts that do not exist."""
+    """Every way the allow rules are unfit: not the pinned set, variables, wildcards, or missing scripts."""
     allow = settings.get("permissions", {}).get("allow", [])
-    problems = [f"allow entry carries a shell variable, which can never match: {entry}" for entry in allow if "$" in entry]
-    rules = _bash_rules(allow)
-    if not rules:
-        problems.append("no Bash allow rules")
-    for pattern, _ in rules:
+    problems = [f"allow entry is not one of the pinned launch-kit rules: {entry}" for entry in allow if entry not in EXPECTED_ALLOW_RULES]
+    problems += [f"pinned launch-kit allow rule is missing: {entry}" for entry in EXPECTED_ALLOW_RULES if entry not in allow]
+    for pattern, _ in _bash_rules(allow):
+        if "$" in pattern:
+            problems.append(f"allow rule carries a shell variable, which can never match: {pattern}")
+        if "*" in (pattern[:-2] if pattern.endswith((":*", " *")) else pattern):
+            problems.append(f"allow rule is overbroad; only a trailing :* is allowed: {pattern}")
         path = _script_path(pattern)
         if path is not None and not path.is_file():
             problems.append(f"allow rule names a script that does not exist: {pattern} -> {path}")
@@ -181,8 +195,16 @@ def _settings() -> dict:
     return json.loads(SETTINGS.read_text())
 
 
-def test_allow_rules_are_literal_and_name_existing_scripts() -> None:
+def test_allow_rules_are_the_pinned_narrow_set_and_name_existing_scripts() -> None:
     assert rule_problems(_settings()) == []
+
+
+def test_script_path_resolves_repository_paths_in_every_rule_form() -> None:
+    absent = REPO_ROOT / "tasks/fable-e8-repin-2026-09-22/absent.py"
+    assert _script_path("python3 tasks/fable-e8-repin-2026-09-22/absent.py:*") == absent
+    assert _script_path(f"/x/venv/bin/python {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22/absent.py:*") == absent
+    assert _script_path("/x/venv/bin/python -m unittest:*") is None
+    assert not absent.exists()
 
 
 def test_every_kit_command_is_covered_by_an_allow_rule_and_the_probe_comes_first() -> None:
@@ -254,6 +276,9 @@ RULE_EVASIONS = [
     ("blanket ask", "ask", "Bash(*)"),
     ("space-star deny shadowing the probe", "deny", "Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py *)"),
     ("mid-pattern wildcard deny", "deny", "Bash(python3 * --help)"),
+    ("blanket allow", "allow", "Bash(*)"),
+    ("overbroad allow", "allow", "Bash(python3 *)"),
+    ("unpinned narrow allow", "allow", "Bash(ls:*)"),
 ]
 
 
@@ -262,3 +287,11 @@ def test_gate_rejects_rule_evasion(name: str, key: str, entry: str) -> None:
     settings = _settings()
     settings["permissions"].setdefault(key, []).append(entry)
     assert rule_problems(settings) or kit_problems(KIT.read_text(), settings), f"the gate accepted {name!r}"
+
+
+def test_gate_rejects_a_missing_pinned_allow_rule_and_a_blanket_replacement() -> None:
+    settings = _settings()
+    settings["permissions"]["allow"].remove(EXPECTED_ALLOW_RULES[2])
+    assert rule_problems(settings) and kit_problems(KIT.read_text(), settings)
+    settings["permissions"]["allow"] = ["Bash(*)"]
+    assert rule_problems(settings), "a blanket allow set covering every command was accepted"
