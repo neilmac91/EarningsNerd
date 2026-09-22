@@ -54,6 +54,15 @@ ATTESTATION_KEYS = frozenset({
 ATTESTATION_AFFIRMATIVES = ('no_untracked_e8_or_probe_calls', 'sole_persistent_guard',
                             'exclusive_e8_dispatch_during_continuation')
 PRIOR_COUNT = 287
+# The sealed evidence an attestation must be bound to: the same constants tools/e8_resume.py
+# pins (prior-evidence, founder statement, original immutable manifest) plus this package's
+# regenerated supplement manifest (build-summary.json: repin_supplement_manifest_sha256).
+SEALED_HASHES = {
+    'prior_evidence_sha256': 'ef5ef4dda0ac71dbc3480381f2d9febe3c2f09ffc4c0ce391c5814769a62f26c',
+    'founder_statement_sha256': '67527fd115135ae78c7e339423f7c798d53e78bb878d820ac77262e45d36ec8c',
+    'original_manifest_sha256': '0fe5cb9e45c1fca76d2d9d71b0a13f58958ea7242efe34ae2a9f64544402d2c3',
+    'e3_supplement_manifest_sha256': '1ef772b3157106bcf9bee52675f89bdf0cf643f0457eb405b6ce28e5fe950f6f',
+}
 
 
 def utc_timestamp(value: object) -> bool:
@@ -75,9 +84,7 @@ def valid_attestation(value: dict, guard: Path) -> bool:
             and utc_timestamp(value.get('observed_at_utc'))
             and type(value.get('prior_count')) is int and value['prior_count'] == PRIOR_COUNT
             and all(value.get(k) is True for k in ATTESTATION_AFFIRMATIVES)
-            and all(isinstance(value.get(k), str) and len(value[k]) == 64 for k in
-                    ('prior_evidence_sha256', 'founder_statement_sha256',
-                     'original_manifest_sha256', 'e3_supplement_manifest_sha256'))
+            and all(value.get(k) == expected for k, expected in SEALED_HASHES.items())
             and value.get('guard_state_path') == str(guard / 'state.json'))
 
 
