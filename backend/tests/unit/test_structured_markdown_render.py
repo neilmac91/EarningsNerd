@@ -660,8 +660,8 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
         "(prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment)."
     )
     assert vd["returns_on_capital"] == (
-        "Return on equity was 151.3% (prior 164.6%) (period net income / period-end equity, not annualized); "
-        "return on assets 28.4% (prior 25.7%) (period net income / period-end assets, not annualized)."
+        "Period net income / period-end equity, not annualized: 151.3% (prior 164.6%); "
+        "period net income / period-end assets, not annualized: 28.4% (prior 25.7%)."
     )
     assert "free cash flow" not in vd["shareholder_returns"].lower()
 
@@ -751,7 +751,7 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Return on assets 17.9% (period net income / period-end assets, not annualized)."
+        "Period net income / period-end assets, not annualized: 17.9%."
     )
 
     honest_loss: dict = {}
@@ -759,7 +759,7 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
         "return_on_equity": {"current": {"value": -12.3, "period": "FY2025"}},
     })
     assert honest_loss["value_drivers"]["returns_on_capital"] == (
-        "Return on equity was -12.3% (period net income / period-end equity, not annualized)."
+        "Period net income / period-end equity, not annualized: -12.3%."
     )
 
 
@@ -776,8 +776,8 @@ def test_apply_structured_fallbacks_returns_read_authors_for_banks():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Return on equity was 17.2% (prior 15.8%) (period net income / period-end equity, not annualized); "
-        "return on assets 1.4% (period net income / period-end assets, not annualized)."
+        "Period net income / period-end equity, not annualized: 17.2% (prior 15.8%); "
+        "period net income / period-end assets, not annualized: 1.4%."
     )
 
 
