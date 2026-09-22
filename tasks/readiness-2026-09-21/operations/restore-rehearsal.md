@@ -1,6 +1,6 @@
 # Isolated Cloud SQL restore rehearsal
 
-The copied 2026-09-20 [inventory](observations-2026-09-20.json) verifies PostgreSQL 15 instance `earningsnerd-db` in project `earnings-nerd`, daily backups enabled with retention configured for seven copies, seven-day PITR log retention and `deletionProtectionEnabled=false`. These are settings, not evidence that seven backups exist or the full recovery window is available. The [earlier receipt](../../review-evidence/fleet-2026-09-19/README.md) records one successful initial backup. A successful backup is not restore evidence. This procedure is prepared; no clone, query, setting change or deletion has been performed.
+The copied 2026-09-20 [inventory](observations-2026-09-20.json) verifies PostgreSQL 15 instance `earningsnerd-db` in project `earnings-nerd`, daily backups enabled with retention configured for seven copies, seven-day PITR log retention and `deletionProtectionEnabled=false`. These are settings, not evidence that seven backups exist or the full recovery window is available. The [earlier receipt](../../review-evidence/fleet-2026-09-19/README.md) records one successful initial backup; a [September 22 readback](../../review-evidence/fleet-2026-09-22/README.md) confirms a later completed automated backup and leaves monthly export unverified. A successful backup is not restore evidence. This procedure is prepared; no clone, query, setting change or deletion has been performed.
 
 ## Scope and cost gate
 
