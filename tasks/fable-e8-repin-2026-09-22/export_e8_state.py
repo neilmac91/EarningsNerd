@@ -88,16 +88,43 @@ def valid_attestation(value: dict, guard: Path) -> bool:
             and value.get('guard_state_path') == str(guard / 'state.json'))
 
 
-def valid_readback(value: dict, guard: Path) -> bool:
-    """A live readback of this guard: bound to its directory, with a real UTC observation."""
-    return (READBACK_KEYS <= set(value)
-            and value.get('guard_dir') == str(guard)
-            and utc_timestamp(value.get('observed_at_utc')))
+def guard_observation(guard: Path) -> dict:
+    """The live guard values a readback must agree with (the readback.json shape the operator writes)."""
+    state = json.loads((guard / 'state.json').read_text())
+    config = json.loads((guard / 'config.json').read_text())
+    return {
+        'config_enabled': config.get('enabled'),
+        'state_accounting_reconciled': state.get('accounting_reconciled'),
+        'state_real_cli_invocations': state.get('real_cli_invocations'),
+        'state_stop_reason': state.get('stop_reason'),
+        'state_active_owners': len(state.get('active', {}) or {}),
+        'state_completed_calls': len(state.get('completed', []) or []),
+        'initialization_json_present': (guard / 'initialization.json').is_file(),
+        'template_configuration_json_present': (guard / 'template-configuration.json').is_file(),
+    }
+
+
+def valid_readback(value: dict, guard: Path, observation: dict) -> bool:
+    """A readback of THIS guard in ITS CURRENT state: path, UTC observation and every live value.
+
+    A pre-initialization readback (count 0, nothing initialized) therefore stops qualifying the
+    moment the guard is initialized; the operator must take a fresh readback after the run.
+    """
+    if not (READBACK_KEYS <= set(value) and value.get('guard_dir') == str(guard)
+            and utc_timestamp(value.get('observed_at_utc'))):
+        return False
+    recorded_active = value.get('state_active', value.get('state_active_owners'))
+    recorded_active = len(recorded_active) if isinstance(recorded_active, (dict, list)) else recorded_active
+    recorded_completed = value.get('state_completed', value.get('state_completed_calls'))
+    recorded_completed = len(recorded_completed) if isinstance(recorded_completed, list) else recorded_completed
+    recorded = dict(value, state_active_owners=recorded_active, state_completed_calls=recorded_completed)
+    return all(recorded.get(key) == expected for key, expected in observation.items())
 
 
 def receipt_classes(receipts: Path, guard: Path) -> dict:
     """Which recovery-critical receipt classes the directory holds, validated against this guard."""
     found = {'attestation': False, 'readback': False}
+    observation = guard_observation(guard)
     for path in sorted(receipts.rglob('*.json')):
         try:
             value = json.loads(path.read_text())
@@ -107,7 +134,7 @@ def receipt_classes(receipts: Path, guard: Path) -> dict:
             continue
         if valid_attestation(value, guard):
             found['attestation'] = True
-        if valid_readback(value, guard):
+        if valid_readback(value, guard, observation):
             found['readback'] = True
     return found
 
@@ -169,7 +196,9 @@ def main() -> None:
             raise SystemExit(f'REFUSE: receipts directory lacks valid recovery-critical records {missing_classes}: '
                              f'an operator attestation (full {ATTESTATION_SCHEMA!r} shape, named operator, '
                              f'prior_count {PRIOR_COUNT}, all three affirmatives true, guard_state_path bound to '
-                             f'{guard / "state.json"}) and a guard readback bound to {guard} with a UTC observation')
+                             f'{guard / "state.json"}) and a guard readback bound to {guard} with a UTC observation '
+                             f'whose recorded counter, reconciliation, latch, owners, completed calls, config and '
+                             f'initialization/template records equal the live guard (take a fresh readback after the run)')
     for name in GUARD_FILES:
         path = guard / name
         if path.exists():

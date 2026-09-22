@@ -53,6 +53,7 @@ FROZEN_REPO = Path('/home/user/earningsnerd-fable-frozen')
 VENV = JUDGING / 'venv'
 RECEIPTS = JUDGING / 'receipts'
 REAL_CLI = Path('/opt/claude-code/bin/claude')
+EXPECTED_CLI_VERSION = '2.1.280 (Claude Code)'  # the re-pin package's exact gate (tools/guard_setup.py, tools/resume.py)
 FROZEN_COMMIT = '73cc31162c3dfe7ec497c8c88c43cf397afce4a7'
 
 BUNDLE_ZIP_SHA256 = '38db06d2c3815893f5d48c96b1f2f8bfd0984f45c538026e19d2e034cc9b5256'
@@ -282,6 +283,9 @@ def step_cli(log: dict) -> None:
     log['cli'] = {'path': str(REAL_CLI.resolve()), 'version_stdout': version.stdout.strip(), 'version_exit': version.returncode}
     if version.returncode:
         raise Refuse(f'claude --version exited {version.returncode}')
+    if version.stdout.strip() != EXPECTED_CLI_VERSION:
+        raise Refuse(f'CLI reports {version.stdout.strip()!r}; this package is pinned to {EXPECTED_CLI_VERSION!r} '
+                     '(guard_setup.py and resume.py would refuse it too; a drift is a founder decision, not a restore)')
     try:
         status = json.loads(auth.stdout)
     except ValueError as exc:
