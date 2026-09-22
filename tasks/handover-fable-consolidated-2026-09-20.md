@@ -1,8 +1,8 @@
-Continue the existing EarningsNerd evaluation judging task for `neilmac91/EarningsNerd`. This is the consolidated handoff, replacing earlier sequencing and availability-probe instructions. The founder has arranged for this task to resume automatically when the current Fable limit resets. Once that scheduled resumption occurs, proceed with the work below without requesting another availability confirmation. Until then, make no judge calls or probes.
+**Historical September 20 handoff; superseded for execution on September 22.** For the next E8 run, use the separate E8-only package `outputs/fable-e8-continuation-2026-09-22.zip` (SHA-256 `5298a21e818c105a2a33f12859813446b1cde635d7bb48f3ce46e4a58f140909`) and its `outputs/fable-e8-continuation-prompt-2026-09-22.md` in the founder's persistent Fable environment. That reviewed prompt and add-on, not this older sequence or command examples, govern actual inspection, guard setup, dispatch and return. KO and both E3 corpora are complete. The current queue is E8 only; optional E1 is outside it. No automatic resume or new probe is inferred from this historical document.
 
-**September 22 status correction:** This September 20 handoff preserves its original procedure, but both E3 candidate corpora have since completed 70/70 Fable judgments; use the [completion audit](review-evidence/e3-fable-complete-2026-09-22/README.md) rather than treating Stage 2 as pending. The founder's later answer “No additional E8 judging or probes” answered a question about **past** activity beyond the returned handover files. It did not cancel or authorize future E8 work. Any E8 continuation still needs its separate accounting and sole-guard verification below.
+**September 22 status correction:** Both E3 candidate corpora have since completed 70/70 Fable judgments; use the [completion audit](review-evidence/e3-fable-complete-2026-09-22/README.md) rather than treating Stage 2 as pending. The founder's later answer “No additional E8 judging or probes” answered a question about **past** activity beyond the returned handover files. It did not cancel or authorize future E8 work. The E8-only package requires fresh accounting and sole-guard verification before any dispatch.
 
-The order is: preserve completed work → corrected KO corpus → both E3 verifier-candidate corpora → E8 remaining mains and duplicates → optional unfinished E1. Complete and deliver each stage before starting the next, but do not wait for another founder message between successful stages. Do not let optional E1 consume the renewed quota ahead of required work. If an old E1 process is still active, inspect its actual state and preserve its completed results; coordinate a safe checkpoint without discarding them before scheduling the required stages. Never start duplicate workers.
+The original September 20 order was: preserve completed work → corrected KO corpus → both E3 verifier-candidate corpora → E8 remaining mains and duplicates → optional unfinished E1. This is retained as history. The September 22 add-on admits only the E8 stage after it validates completed prerequisites; it does not dispatch E1. Never start duplicate E8 workers.
 
 ## Boundaries and common execution contract
 
@@ -39,7 +39,7 @@ python -m evals.judge_report /absolute/path/original-row-packet.json \
 
 Use real paths and your established Python environment. E8 additionally requires its shared wrapper, described below. Do not route KO, E3 or E1 through E8's programme counter.
 
-## Stage 0 — preserve completed E2 and unfinished E1
+## Historical Stage 0 — preserve completed E2 and unfinished E1
 
 Both E2 controls are finished and independently validated by Codex. **Do not rejudge either control.** Preserve the five delivered files for each (`judged.json`, `judged.md`, `receipt.md`, `analysis.txt`, `overlap-detail.txt`) and their original timestamps.
 
@@ -52,7 +52,7 @@ Codex verified all 140 non-judge input rows and harness fields against their ori
 
 E1 was last visible in screenshots at 56/70, but may have advanced. Inspect saved results and process state rather than treating 56 as a current count. Preserve any completed/partial E1 work and defer only its missing identities until Stage 4. Recover prior actual invocation records, including the original probe, failures and internal retries, for E8 accounting. Completed verdict counts are not exact CLI-call counts.
 
-## Stage 1 — corrected KO semantic review: 70 attempts
+## Historical Stage 1 — corrected KO semantic review: 70 attempts
 
 Download the exact retained artifact if it is not already available:
 
@@ -74,7 +74,7 @@ Complete the 70-identity corpus by judging only its missing identities, then ret
 
 Keep the earlier pre-correction corpus separate: run `35466463047`, report `eval_20260919T201840Z.json`, SHA-256 `cee471deb3ab3a925f44099dd53ed8148f6c2bbbe05120dbf6b78cc6764c091e`. Reuse valid existing judgments if any, but no new judging or generation of that older corpus is requested. It is not a second corrected corpus.
 
-## Stage 2 — E3 verifier candidates: two separate 70-attempt corpora
+## Historical Stage 2 — E3 verifier candidates: two separate 70-attempt corpora
 
 | Corpus | Actions run / artifact | Report | Input SHA-256 | Recorded source SHA |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@ Judge and deliver candidate 1, then candidate 2. Preserve per-corpus denominator
 
 If comparing candidates with the two completed E2 controls, report both per-run results and their ranges, with the same judge/contract. Generated claims differ across these corpora, so do not present the comparison as a controlled causal attribution or turn-on approval. Production verification/deletion flags remain off.
 
-## Stage 3 — E8: reuse 140 control mains, judge 140 n mains and 20 duplicates
+## Historical Stage 3 design — E8 reuse and frozen panel; execute through September 22 add-on
 
 Required attached data files:
 
@@ -115,17 +115,9 @@ Before enabling, reconcile all prior E8-relevant invocations, including reused E
 
 The absolute programme ceiling is **601 actual CLI invocations**. With the conservative 287 charged, **at most 314 remain** for the 160 planned new slots and permitted internal retries. At two calls per slot, the queue could require 320 calls, so completion is not guaranteed; stop at the ceiling and preserve partial results. A lower remaining allowance is not permission to raise/reset the ceiling. KO, E3 and optional E1 are separate programmes; exclude their calls from this E8 ledger, though all consume the same subscription quota. No extra availability probe is requested.
 
-Resolve the existing real **2.1.278** executable. The ZIP's local Mac configuration originally points to 2.1.273; do not silently run that version. Relocate only the scratch configuration's executable/state/lock paths as necessary, record the old/new configuration, and preserve one shared durable state. Leave the shim/harness/packets unchanged. In one documented initialization, set `state.json.real_cli_invocations` to the reconciled prior count and `state.json.accounting_reconciled` to true, then set `config.json.enabled` to true after all prerequisites pass. Preserve existing invocation history, active-owner records, `stop_reason` and the 601 ceiling. On later resumptions inspect the existing initialized state; never initialize it again, clear a latched stop, reset the counter, bypass the wrapper or switch billing/model to finish.
+The existing real **2.1.278** executable and the sole original persistent E8 guard must be verified live. The older manual `state.json`/`config.json` editing instruction is superseded: do **not** edit those files by hand. The September 22 E8-only prompt requires a fresh operator attestation and verification that the original guard is a disabled, unreconciled, never-configured pristine template with no live owner, call, stop latch or interrupted setup. Only after those checks pass, use the unchanged original `tools/guard_setup.py` with `--configure-template`, then its one-time `--prior-count 287` path, recording both commands and readbacks. If any state is already initialized, unexpected, latched or uncertain, stop and reconcile; never reset, overwrite, fork or repeat setup to make it appear pristine. The reviewed E8 adapter then performs admission before each frozen slot through the same guard.
 
-For each remaining slot in frozen order, check guard state, confirm PATH resolves `claude` to the shim, then from the pinned backend run once:
-
-```sh
-PATH="/absolute/path/e8-judge-guard:$PATH" python -m evals.judge_report \
-  /absolute/path/selected-packet.json \
-  --judge cli:claude-fable-5-1 \
-  --output-dir /absolute/path/unique-slot-output \
-  --concurrency 1
-```
+The older direct singleton command is historical and is no longer an operator step. Actual E8 execution uses the September 22 add-on's `tools/e8_resume.py` inspection and `--execute` route with the attestation, original guard and unchanged frozen harness; follow the reviewed prompt's exact arguments and stop conditions.
 
 Check the guard and actual result after each call. Stop all further E8 calls on quota, owner-loss, uncertain transport or exhausted allowance; retain the complete state and partial results. Do not reset a stop latch on a later automatic wake-up. An accounting/lifecycle ambiguity needs resolution before more calls, and the fixed ceiling still applies.
 
@@ -133,11 +125,11 @@ Keep an append-only execution ledger with reused-main references, exact identity
 
 Deliver full slot outputs and ledger, invocation attestation/final state, main completion out of 280 and duplicate completion out of 20. Report n1/n2/o1/o2 separately, all negatives and gate counts, errors/incomplete inputs, and duplicate agreement/disagreement separately. Missing slots leave E8 incomplete; do not shrink the denominator or substitute identities. Do not claim a proven causal prompt-variability effect.
 
-## Stage 4 — optional E1, only after the required queue
+## Historical Stage 4 — optional E1; excluded from the current E8-only queue
 
-Recover and validate its existing results, then judge only genuinely missing identities if quota remains. Source artifact: run `35460844028`, `eval-report-35460844028`, report `eval_20260919T182951Z.json`, input SHA-256 `49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4`, generation source `44fd9c4425c7139dbaef1b8707327d3561bab0ce`. Expected 70 outputs, prompt `summary-2026-09-o`, verification/deletion false. Verify matching frozen judge/golden provenance before continuing. If already complete, return it without new calls. Use its own execution records, outside the E8 counter.
+The September 20 optional E1 record used source artifact run `35460844028`, `eval-report-35460844028`, report `eval_20260919T182951Z.json`, input SHA-256 `49ca1e622e2d59ecbe67012f973e804378af608db6051dc45a653160dba58fe4`, generation source `44fd9c4425c7139dbaef1b8707327d3561bab0ce`. It remains a separate programme and is **not** part of the September 22 E8-only continuation; no E1 calls are directed by this handoff.
 
-## Return package and checkpoints
+## Historical return package and checkpoints
 
 After each stage, publish its files here immediately and continue to the next eligible stage. Return full `judged.json`/`judged.md` (or all immutable per-slot equivalents plus an indexed consolidated result), a compact receipt and complete per-attempt reasons. Include input/output hashes, original artifact/run/source, frozen code/golden hashes, actual CLI version and attested judge identity/contract, execution times, planned/judgeable/completely judged/error/missing counts, negative rate over complete verdicts, G2/G3/G4/G5 counts, rubric means, and grounding completeness. Preserve exact error text where available; distinguish missing raw CLI envelopes or server-version proof from an attested identity. Do not call incomplete outputs clean.
 
