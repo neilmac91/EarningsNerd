@@ -1,3 +1,7 @@
+## E7 solo-founder direction — 2026-09-22
+
+The founder clarified that full human review has not occurred and is not feasible. [AI-assisted plan](readiness-2026-09-21/acceptance/ai-assisted-plan.md) replaces the expectation that the founder supplies a full human panel with an engineering-owned alternative, explicitly weaker than independent expert review. Current runtime remains human-only and source-held until a versioned alternative and frozen-source adapter are implemented; no completed review/acceptance is claimed. Preserve the 30/90+30 identities, USD 10 generator cap, 243 Fable-call cap and material-defect rules. New reference-evidence binding prevents coherent post-output edits without freezing renewable provider observations.
+
 ## September 22 — E7 completion artifacts bound to durable digests
 
 The worker now records final-byte digests for every declared output/evidence artifact, including raw preview callbacks, before completion. The controller binds the result SHA256 to its one-time completed slot; the collector verifies that digest and the exact artifact inventory before materializing previews or publishing output records. [Execution evidence limits](readiness-2026-09-21/acceptance/execution.md) prohibit retroactive re-sealing and distinguish change detection against the retained ledger from coordinated rewriting of all evidence. The source-binding hold, budget and human prerequisites remain intact; no E7 generation or live provider call occurred.
