@@ -20,8 +20,9 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
   (separators per the same docs page);
-- a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter or
-  the CLI is invoked anywhere outside an ``sh`` block, where the operator check would not see it;
+- a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter,
+  the CLI or a shell ``date`` is invoked anywhere outside an ``sh`` block, where the operator
+  check would not see it (the kit takes timestamps from files the tools wrote, not from a command);
 - the kit's first command is not the zero-effect probe
   ``python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help``.
 
@@ -62,9 +63,10 @@ PLACEHOLDERS = re.compile(r"<(?:session-uploads-dir|UTC stamp)>")
 # Variables, the command separators Claude Code recognises (& covers &&, |& and &>; | covers ||),
 # redirections and backticks: each takes a command outside its rule.
 FORBIDDEN_SHELL = ("$", "&", ";", "|", ">", "<", "`")
-# An interpreter or the CLI followed by an argument, outside an sh block, is a command the gate would not see.
+# An interpreter or the CLI followed by an argument, or a shell `date` with flags (the timestamp source must be
+# a file the tools wrote, not a command), anywhere outside an sh block, is a command the gate would not see.
 INVOCATION = re.compile(
-    r"(?:^|[\s`\"'(])(?:python3?|/home/user/fable-judging/venv/bin/python|/opt/claude-code/bin/claude)\s+\S"
+    r"(?:^|[\s`\"'(])(?:(?:python3?|/home/user/fable-judging/venv/bin/python|/opt/claude-code/bin/claude)\s+\S|date\s+-)"
 )
 
 _BASH_ENTRY = re.compile(r"^Bash\((.+)\)$")
@@ -251,6 +253,8 @@ KIT_EVASIONS = [
     ("bash fence", lambda kit: kit.replace(EXPORT_FENCE, EXPORT_FENCE.replace("```sh", "```bash"))),
     ("tilde fence", lambda kit: kit.replace(EXPORT_FENCE, EXPORT_FENCE.replace("```sh", "~~~shell")) + "\n~~~\n"),
     ("command in prose", lambda kit: kit + "\nRun `python3 tasks/fable-e8-repin-2026-09-22/tools/resume.py --execute` now.\n"),
+    ("shell timestamp in prose", lambda kit: kit + "\nTake the stamp from `date -u +%Y%m%dT%H%M%SZ`.\n"),
+    ("shell timestamp in an sh block", lambda kit: kit + "\n```sh\ndate -u +%Y%m%dT%H%M%SZ\n```\n"),
     ("unlisted tool in an sh block", lambda kit: kit + "\n```sh\npython3 tasks/fable-e8-repin-2026-09-22/tools/resume.py\n```\n"),
     ("the CLI itself", lambda kit: kit + "\n```sh\n/opt/claude-code/bin/claude -p hi\n```\n"),
     ("prefix without a space", lambda kit: kit.replace(PROBE, PROBE.replace(".py --help", ".pyx --help"))),
