@@ -86,6 +86,14 @@ def main() -> None:
         raise SystemExit(f'REFUSE: guard export would be incomplete; missing {missing} in {guard}')
     if not (bundle / 'stages/e8/index.json').is_file():
         raise SystemExit(f'REFUSE: stages/e8 tree is missing or has no index.json under {bundle}')
+    # A supplied receipts path must exist, and an initialized checkpoint must carry the operator's
+    # attestations and readbacks: the recovery policy requires them before the source is retired.
+    receipts = args.receipts.resolve() if args.receipts else None
+    if receipts is not None and not receipts.is_dir():
+        raise SystemExit(f'REFUSE: --receipts path is not a directory: {receipts}')
+    if initialized and (receipts is None or not any(p.is_file() for p in receipts.rglob('*'))):
+        raise SystemExit('REFUSE: an initialized guard export requires --receipts pointing at a non-empty '
+                         'receipts directory (attestation, readbacks, restore receipts)')
     for name in GUARD_FILES:
         path = guard / name
         if path.exists():
@@ -94,8 +102,8 @@ def main() -> None:
             shutil.copy2(path, out / rel)
             inventory[str(rel)] = {'sha256': sha(path), 'bytes': path.stat().st_size}
     copy_tree(bundle / 'stages/e8', out, Path('stages/e8'), inventory)
-    if args.receipts and args.receipts.exists():
-        copy_tree(args.receipts.resolve(), out, Path('receipts'), inventory)
+    if receipts is not None:
+        copy_tree(receipts, out, Path('receipts'), inventory)
     summary = {
         'exported_at_utc': datetime.now(timezone.utc).isoformat(),
         'bundle': str(bundle),

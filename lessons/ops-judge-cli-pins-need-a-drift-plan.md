@@ -19,8 +19,11 @@ before the first run, which of these applies if that exact build is no longer av
 (a) the study closes with real denominators, or (b) a new reviewed sibling package re-pins to the
 current build and every readout carries the version confound. Never edit the sealed pin in place,
 never wrap or spoof the version string, and never let a session discover the choice mid-restore.
-Record the observed CLI version in every per-slot execution record so a confound is visible in
-the data, not only in prose.
+Make the CLI version attributable per slot from the data, not only from prose: either record the
+observed version in every per-slot execution record, or, where the per-slot record is a sealed
+derivation that cannot be widened without founder approval (the E8 re-pin), rely on the package's
+exact-version gate that runs before every slot and retain each session's `environment.supplement.json`
+in its committed export. A second re-pin must add the per-row field.
 
 When deriving a sibling package, separate historical evidence identity from current runtime
 identity. The first five-line E8 re-pin regenerated a manifest that `expected_reconciliation()`
