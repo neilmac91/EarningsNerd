@@ -111,6 +111,10 @@ def _evidence(root: Path, record: Any) -> tuple[Path, dict[str, Any] | None]:
 
 def review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any]) -> dict[str, Any]:
     """Freeze review commitments and evidence bytes, excluding renewable execution receipts."""
+    if prereq.get("schema_version") == 2 and prereq.get("review_protocol") == "ai_assisted":
+        from evals.acceptance_ai_protocol import ai_review_evidence_inventory
+
+        return ai_review_evidence_inventory(prerequisites_path, prereq)
     prerequisites_path = Path(prerequisites_path).resolve(strict=True)
 
     def reference(record: Any) -> dict[str, Any]:
@@ -227,6 +231,7 @@ def inspect_readiness(
     ids: list[str] = []
     packet_count = 0
     source_roles: dict[str, set[str]] = {}
+    source_hashes: dict[str, dict[str, str]] = {}
     for filing in filings:
         if not isinstance(filing, dict):
             _issue(issues, "invalid_filing", "manifest filing is not an object")
@@ -246,6 +251,9 @@ def inspect_readiness(
         packet_count += len(packets)
         roles = {p.get("role") for p in packets if isinstance(p, dict)}
         source_roles[accession] = {r for r in roles if isinstance(r, str)}
+        source_hashes[accession] = {p["role"]: p["sha256"] for p in packets
+                                    if isinstance(p, dict) and isinstance(p.get("role"), str)
+                                    and isinstance(p.get("sha256"), str)}
         if not {"primary", "index", "complete_submission"}.issubset(roles):
             _issue(issues, "missing_source_role", accession)
     if len(filings) != 30 or len(set(accessions)) != 30 or set(ids) != {f"H{i:02d}" for i in range(1, 31)}:
@@ -282,74 +290,89 @@ def inspect_readiness(
     else:
         _issue(issues, "missing_prerequisites", "human and execution evidence file unavailable")
     base = prerequisites_path.parent
-    if prereq.get("schema_version") != 1 or prereq.get("approved_manifest_sha256") != expected_manifest_sha:
+    version = prereq.get("schema_version")
+    ai_mode = type(version) is int and version == 2 and prereq.get("review_protocol") == "ai_assisted"
+    if (type(version) is not int or version not in {1, 2} or
+            (prereq.get("schema_version") == 2 and not ai_mode) or
+            prereq.get("approved_manifest_sha256") != expected_manifest_sha):
         _issue(issues, "prerequisite_manifest_binding", "preflight must bind approved manifest SHA")
 
-    reviewers = prereq.get("reviewers")
-    if not isinstance(reviewers, list):
-        reviewers = []
-    adjudicator = prereq.get("adjudicator")
-    people = reviewers + ([adjudicator] if isinstance(adjudicator, dict) else [])
-    ids_people = [p.get("id") for p in people if isinstance(p, dict)]
-    names = [p.get("name") for p in people if isinstance(p, dict)]
-    if (len(reviewers) != 2 or len(people) != 3 or
-            any(not isinstance(v, str) or not v.strip() for v in ids_people + names) or
-            len(set(ids_people)) != 3 or len(set(names)) != 3):
-        _issue(issues, "human_roles", "two distinct named reviewers and one adjudicator required")
-    for person in people:
-        if (not isinstance(person, dict) or not str(person.get("competence", "")).strip() or
-                not isinstance(person.get("committed_hours"), (int, float)) or
-                isinstance(person.get("committed_hours"), bool) or person["committed_hours"] <= 0 or
-                _utc(person.get("commitment_date")) is None or
-                _utc(person.get("commitment_date")) > now):
-            _issue(issues, "human_commitment", "each person needs competence, hours and dated commitment")
-            break
-
-    briefs = prereq.get("reference_briefs")
-    if not isinstance(briefs, list):
-        briefs = []
-    if len(briefs) != 30 or {b.get("accession_number") for b in briefs if isinstance(b, dict)} != set(accessions):
-        _issue(issues, "reference_brief_coverage", "one frozen brief per approved accession required")
     brief_frozen: dict[str, datetime] = {}
-    for item in briefs:
-        accession = item.get("accession_number") if isinstance(item, dict) else None
-        try:
-            _, brief = _evidence(base, item)
-            if brief is None or brief.get("accession_number") != accession:
-                raise ValueError("brief accession mismatch")
-            authors = brief.get("reviewer_ids")
-            if (set(authors or []) != set(ids_people[:2]) or len(authors or []) != 2 or
-                    brief.get("adjudicator_id") != (ids_people[2] if len(ids_people) == 3 else None) or
-                    brief.get("independent_source_review_attested") is not True):
-                raise ValueError("independent authorship/adjudication missing")
-            frozen = _utc(brief.get("frozen_at"))
-            if frozen is None or frozen > now:
-                raise ValueError("brief freeze timestamp invalid")
-            material = brief.get("material_issues")
-            if not isinstance(material, list) or not material:
-                raise ValueError("brief needs material issues")
-            for issue in material:
-                if (not isinstance(issue, dict) or issue.get("source_role") not in source_roles.get(accession, set()) or
-                        any(not str(issue.get(key, "")).strip() for key in
-                            ("issue", "source_locator", "expected_numbers_basis", "importance", "disclosure_limits"))):
-                    raise ValueError("brief issue lacks source or assessment fields")
-            brief_frozen[accession] = frozen
-        except (TypeError, KeyError, OSError, ValueError) as exc:
-            _issue(issues, "reference_brief_invalid", f"{accession}: {type(exc).__name__}")
+    exposure_status = None
+    evidence_limitations: list[str] = []
+    if ai_mode:
+        from evals.acceptance_ai_protocol import validate_ai_prerequisites
 
-    try:
-        _, exposure = _evidence(base, prereq.get("exposure_attestation"))
-        if (exposure is None or not str(exposure.get("custodian_name", "")).strip() or
-                _utc(exposure.get("signed_at")) is None or _utc(exposure.get("signed_at")) > now or
-                set(exposure.get("checked_accessions", [])) != set(accessions) or
-                len(exposure.get("checked_accessions", [])) != 30 or
-                exposure.get("untracked_sources_checked") is not True or
-                exposure.get("unseen_confirmed") is not True or
-                exposure.get("exposed_accessions") != [] or
-                not str(exposure.get("external_artifact_inventory", "")).strip()):
-            raise ValueError("exposure attestation incomplete")
-    except (TypeError, OSError, ValueError) as exc:
-        _issue(issues, "exposure_attestation_invalid", type(exc).__name__)
+        ai_issues, brief_frozen, exposure_status, evidence_limitations = validate_ai_prerequisites(
+            prereq, base, accessions, source_hashes, now,
+        )
+        issues.extend(ai_issues)
+    else:
+        reviewers = prereq.get("reviewers")
+        if not isinstance(reviewers, list):
+            reviewers = []
+        adjudicator = prereq.get("adjudicator")
+        people = reviewers + ([adjudicator] if isinstance(adjudicator, dict) else [])
+        ids_people = [p.get("id") for p in people if isinstance(p, dict)]
+        names = [p.get("name") for p in people if isinstance(p, dict)]
+        if (len(reviewers) != 2 or len(people) != 3 or
+                any(not isinstance(v, str) or not v.strip() for v in ids_people + names) or
+                len(set(ids_people)) != 3 or len(set(names)) != 3):
+            _issue(issues, "human_roles", "two distinct named reviewers and one adjudicator required")
+        for person in people:
+            if (not isinstance(person, dict) or not str(person.get("competence", "")).strip() or
+                    not isinstance(person.get("committed_hours"), (int, float)) or
+                    isinstance(person.get("committed_hours"), bool) or person["committed_hours"] <= 0 or
+                    _utc(person.get("commitment_date")) is None or
+                    _utc(person.get("commitment_date")) > now):
+                _issue(issues, "human_commitment", "each person needs competence, hours and dated commitment")
+                break
+
+        briefs = prereq.get("reference_briefs")
+        if not isinstance(briefs, list):
+            briefs = []
+        if len(briefs) != 30 or {b.get("accession_number") for b in briefs if isinstance(b, dict)} != set(accessions):
+            _issue(issues, "reference_brief_coverage", "one frozen brief per approved accession required")
+        brief_frozen: dict[str, datetime] = {}
+        for item in briefs:
+            accession = item.get("accession_number") if isinstance(item, dict) else None
+            try:
+                _, brief = _evidence(base, item)
+                if brief is None or brief.get("accession_number") != accession:
+                    raise ValueError("brief accession mismatch")
+                authors = brief.get("reviewer_ids")
+                if (set(authors or []) != set(ids_people[:2]) or len(authors or []) != 2 or
+                        brief.get("adjudicator_id") != (ids_people[2] if len(ids_people) == 3 else None) or
+                        brief.get("independent_source_review_attested") is not True):
+                    raise ValueError("independent authorship/adjudication missing")
+                frozen = _utc(brief.get("frozen_at"))
+                if frozen is None or frozen > now:
+                    raise ValueError("brief freeze timestamp invalid")
+                material = brief.get("material_issues")
+                if not isinstance(material, list) or not material:
+                    raise ValueError("brief needs material issues")
+                for issue in material:
+                    if (not isinstance(issue, dict) or issue.get("source_role") not in source_roles.get(accession, set()) or
+                            any((not isinstance(issue.get(key), str) or not issue[key].strip()) for key in
+                                ("issue", "source_locator", "expected_numbers_basis", "importance", "disclosure_limits"))):
+                        raise ValueError("brief issue lacks source or assessment fields")
+                brief_frozen[accession] = frozen
+            except (TypeError, KeyError, OSError, ValueError) as exc:
+                _issue(issues, "reference_brief_invalid", f"{accession}: {type(exc).__name__}")
+
+        try:
+            _, exposure = _evidence(base, prereq.get("exposure_attestation"))
+            if (exposure is None or not str(exposure.get("custodian_name", "")).strip() or
+                    _utc(exposure.get("signed_at")) is None or _utc(exposure.get("signed_at")) > now or
+                    set(exposure.get("checked_accessions", [])) != set(accessions) or
+                    len(exposure.get("checked_accessions", [])) != 30 or
+                    exposure.get("untracked_sources_checked") is not True or
+                    exposure.get("unseen_confirmed") is not True or
+                    exposure.get("exposed_accessions") != [] or
+                    not str(exposure.get("external_artifact_inventory", "")).strip()):
+                raise ValueError("exposure attestation incomplete")
+        except (TypeError, OSError, ValueError) as exc:
+            _issue(issues, "exposure_attestation_invalid", type(exc).__name__)
 
     config_hashes: dict[str, str] = {}
     config_models: dict[str, str] = {}
@@ -438,7 +461,10 @@ def inspect_readiness(
             _issue(issues, f"{kind}_invalid", type(exc).__name__)
 
     return {
-        "schema_version": 1,
+        "schema_version": 2 if ai_mode else 1,
+        "review_protocol": "ai_assisted" if ai_mode else "human",
+        "exposure_status": exposure_status,
+        "evidence_limitations": evidence_limitations,
         "manifest_sha256": manifest_sha,
         "approved_accessions": len(set(accessions)),
         "source_packets_verified": verified_sources,
@@ -556,8 +582,11 @@ def build_blinded_packets(
         raise ValueError("preflight incomplete: " + ",".join(i["code"] for i in readiness["issues"]))
     manifest = _json(Path(manifest_path))
     prereq = _json(Path(prerequisites_path))
+    ai_mode = prereq.get("schema_version") == 2 and prereq.get("review_protocol") == "ai_assisted"
+    brief_records = (prereq["ai_assisted"]["reconciled_references"] if ai_mode
+                     else prereq["reference_briefs"])
     briefs = {b["accession_number"]: _json(_safe_file(Path(prerequisites_path).parent, b["path"]))
-              for b in prereq["reference_briefs"]}
+              for b in brief_records}
     brief_frozen = {acc: _utc(brief["frozen_at"]) for acc, brief in briefs.items()}
     output_obj = _json(Path(outputs_path))
     # Import lazily: the collector shares this module's frozen manifest/slot constants.
@@ -585,9 +614,12 @@ def build_blinded_packets(
     checked = _check_output_records(manifest, records, Path(outputs_path).parent,
                                     readiness["config_sha256"], brief_frozen)
     earliest_output = min(_utc(item["row"]["created_at"]) for item in checked)
-    exposure = _json(_safe_file(Path(prerequisites_path).parent, prereq["exposure_attestation"]["path"]))
-    if _utc(exposure["signed_at"]) >= earliest_output:
-        raise ValueError("exposure attestation must predate every output")
+    exposure_record = (prereq["ai_assisted"]["exposure_review"] if ai_mode
+                       else prereq["exposure_attestation"])
+    exposure = _json(_safe_file(Path(prerequisites_path).parent, exposure_record["path"]))
+    exposure_time = exposure["observed_at"] if ai_mode else exposure["signed_at"]
+    if _utc(exposure_time) >= earliest_output:
+        raise ValueError("exposure review must predate every output")
     configs: dict[str, dict[str, Any]] = {}
     for arm in ("candidate", "comparator"):
         config = _json(_safe_file(Path(prerequisites_path).parent, prereq[f"{arm}_config"]["path"]))
@@ -607,11 +639,15 @@ def build_blinded_packets(
     seed = secrets.token_hex(32)
     rng = random.Random(int(seed, 16))
     by_accession = {f["accession_number"]: f for f in manifest["filings"]}
-    mapping: dict[str, Any] = {"schema_version": 1, "seed": seed, "manifest_sha256": readiness["manifest_sha256"],
+    mapping: dict[str, Any] = {"schema_version": 2 if ai_mode else 1,
+                               "review_protocol": "ai_assisted" if ai_mode else "human",
+                               "exposure_status": readiness["exposure_status"],
+                               "evidence_limitations": readiness["evidence_limitations"],
+                               "seed": seed, "manifest_sha256": readiness["manifest_sha256"],
                                "collector_index": {"path": str(Path(outputs_path).resolve()),
                                                    "sha256": _sha256(Path(outputs_path))},
                                "programme_ledger": {"path": str(ledger), "sha256": _sha256(ledger)},
-                               "reviewers": {}}
+                               ("packet_sets" if ai_mode else "reviewers"): {}}
     created_reviewer = False
     created_custodian = False
     try:
@@ -620,7 +656,8 @@ def build_blinded_packets(
         custodian_root.mkdir(mode=0o700)
         created_custodian = True
         for reviewer_index in (1, 2):
-            reviewer_name = f"reviewer-{reviewer_index}"
+            reviewer_name = (f"ai-packet-{reviewer_index}" if ai_mode else
+                             f"reviewer-{reviewer_index}")
             reviewer_dir = reviewer_root / reviewer_name
             reviewer_dir.mkdir(mode=0o700)
             case_ids = {acc: secrets.token_hex(12) for acc in by_accession}
@@ -646,6 +683,9 @@ def build_blinded_packets(
                 }, indent=2), encoding="utf-8")
                 (case_dir / "reference-brief.json").write_text(json.dumps({
                     "accession_number": accession,
+                    "evidence_kind": "ai_source_reconciliation" if ai_mode else "human_reference_brief",
+                    "exposure_status": readiness["exposure_status"],
+                    "evidence_limitations": readiness["evidence_limitations"],
                     "material_issues": briefs[accession]["material_issues"],
                 }, indent=2), encoding="utf-8")
             index = []
@@ -678,7 +718,7 @@ def build_blinded_packets(
                                      "raw_artifacts": {key: {"path": str(path), "sha256": _sha256(path)}
                                                        for key, path in item["paths"].items()}})
             (reviewer_dir / "index.json").write_text(json.dumps({"packets": index}, indent=2), encoding="utf-8")
-            mapping["reviewers"][reviewer_name] = private_rows
+            mapping["packet_sets" if ai_mode else "reviewers"][reviewer_name] = private_rows
         map_path = custodian_root / "mapping.json"
         map_path.write_text(json.dumps(mapping, indent=2), encoding="utf-8")
         map_path.chmod(0o600)
@@ -688,7 +728,12 @@ def build_blinded_packets(
         if created_custodian:
             shutil.rmtree(custodian_root)
         raise
-    return {"reviewers": 2, "packets_per_reviewer": 120, "source_cases_per_reviewer": 30,
+    return {"review_protocol": "ai_assisted" if ai_mode else "human",
+            "exposure_status": readiness["exposure_status"],
+            "evidence_limitations": readiness["evidence_limitations"],
+            ("packet_sets" if ai_mode else "reviewers"): 2,
+            "packets_per_set" if ai_mode else "packets_per_reviewer": 120,
+            "source_cases_per_set" if ai_mode else "source_cases_per_reviewer": 30,
             "mapping_path": str(map_path)}
 
 

@@ -310,6 +310,25 @@ def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path, mon
         person["commitment_date"] = (fixture["now"] - timedelta(hours=2)).isoformat()
 
 
+@pytest.mark.parametrize("field", [
+    "issue", "source_locator", "expected_numbers_basis", "importance", "disclosure_limits",
+])
+def test_human_brief_rejects_null_material_issue_field(tmp_path: Path, field: str) -> None:
+    fixture = _fixture(tmp_path)
+    prereq = json.loads(fixture["preflight"].read_text())
+    record = prereq["reference_briefs"][0]
+    path = fixture["preflight"].parent / record["path"]
+    brief = json.loads(path.read_text())
+    brief["material_issues"][0][field] = None
+    record.update(_write(path, brief))
+    fixture["preflight"].write_text(json.dumps(prereq))
+
+    result = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                               expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert "reference_brief_invalid" in {issue["code"] for issue in result["issues"]}
+    assert result["ready_for_paid_execution"] is False
+
+
 def test_rehashed_review_evidence_after_output_cannot_reach_collection_or_packets(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     prerequisites_path = fixture["preflight"]
