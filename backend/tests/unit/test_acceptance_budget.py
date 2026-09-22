@@ -90,10 +90,41 @@ def test_actual_model_mismatch_stops_without_refund(tmp_path):
     assert ledger.snapshot()["pending"] == 1 and ledger.snapshot()["stop_reason"]
 
 
-def test_reopening_with_changed_pricing_latches_original_programme(tmp_path):
+@pytest.mark.parametrize(("field", "value"), [
+    ("model", "deepseek-other"),
+    ("base_url", "https://api.deepseek.com/v1/"),
+    ("official_source", "https://deepseek.com/pricing"),
+    ("uncached_input_per_million", "2"),
+    ("max_output_per_million", "2"),
+])
+def test_reopening_with_changed_pricing_latches_original_programme(tmp_path, field, value):
     path = tmp_path / "budget.sqlite"
     original = BudgetLedger(path, _pricing(), "approved-e7")
-    changed = dict(original.pricing, max_output_per_million="2")
+    changed = dict(original.pricing, **{field: value})
     with pytest.raises(BudgetStopped):
         BudgetLedger(path, changed, "approved-e7")
     assert original.snapshot()["stop_reason"] == "programme or pricing identity changed"
+
+
+def test_newer_pricing_observation_preserves_tariff_and_reservations(tmp_path):
+    path = tmp_path / "budget.sqlite"
+    original = BudgetLedger(path, _pricing(), "approved-e7")
+    reservation = original.reserve(
+        "slot-1", _request(), "summary_primary", "https://api.deepseek.com/v1")
+    original.settle(reservation, {"prompt_tokens": 1, "completion_tokens": 1},
+                    "deepseek-flash", "success")
+    original_snapshot = original.snapshot()
+
+    now = datetime.now(timezone.utc)
+    refreshed = dict(original.pricing, verified_at=now.isoformat(),
+                     valid_until=(now + timedelta(days=2)).isoformat())
+    reopened = BudgetLedger(path, refreshed, "approved-e7")
+    refreshed_snapshot = reopened.snapshot()
+    assert refreshed_snapshot["pricing_hash"] == original_snapshot["pricing_hash"]
+    assert refreshed_snapshot["requests"] == 1
+    assert refreshed_snapshot["reserved_usd"] == original_snapshot["reserved_usd"]
+    assert refreshed_snapshot["stop_reason"] is None
+
+    with pytest.raises(BudgetStopped, match="pricing observation moved backwards"):
+        BudgetLedger(path, original.pricing, "approved-e7")
+    assert reopened.snapshot()["stop_reason"] == "pricing observation moved backwards"

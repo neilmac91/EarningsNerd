@@ -238,6 +238,9 @@ def _slot_record(
     programme_root: Path, output_parent: Path, slot_id: str, config_sha: str,
     request_sha: str, result_sha: str, ledger_reservations: list[tuple[int, str, str]],
     *, expected_manifest_sha: str = APPROVED_MANIFEST_SHA256,
+    expected_filing: dict[str, Any] | None = None,
+    expected_source_binding: dict[str, Any] | None = None,
+    expected_source_root: Path | None = None,
     materialize_previews: bool = True,
 ) -> dict[str, Any]:
     match = _SLOT.fullmatch(slot_id)
@@ -277,6 +280,8 @@ def _slot_record(
             request.get("slot_id") != slot_id or request.get("config_sha256") != config_sha or
             request.get("filing") != filing or Path(request.get("invocation_dir", "")).resolve() != invocation.resolve()):
         raise IncompleteSlot("selection, request, manifest or ledger identity mismatch")
+    if expected_filing is not None and filing != expected_filing:
+        raise IncompleteSlot("selected filing differs from frozen effective source contract")
     expected_identity = {key: str(filing.get(key)) for key in
                          ("holdout_id", "ticker", "cik", "filing_type", "accession_number")}
     if ({key: str((receipt.get("identity") or {}).get(key)) for key in expected_identity} != expected_identity or
@@ -284,7 +289,12 @@ def _slot_record(
             receipt.get("eligible_for_measurement") is not True or receipt.get("errors") != [] or
             (receipt.get("source_packets") or {}).get("primary", {}).get("sha256") != filing.get("source_sha256")):
         raise IncompleteSlot("worker result is incomplete or source/filing identity differs")
-    if filing["filing_type"] != "6-K" and receipt.get("source_identity") != "primary_verified":
+    if expected_source_binding is not None:
+        if receipt.get("source_identity") != "frozen_archive_verified":
+            raise IncompleteSlot("worker result lacks frozen archive source identity")
+        if receipt.get("source_binding") != expected_source_binding:
+            raise IncompleteSlot("worker supplemental source binding differs from frozen contract")
+    elif filing["filing_type"] != "6-K" and receipt.get("source_identity") != "primary_verified":
         raise IncompleteSlot("non-6-K worker result lacks verified primary source")
     try:
         started = datetime.fromisoformat(receipt["started_at"].replace("Z", "+00:00"))
@@ -295,10 +305,85 @@ def _slot_record(
     artifacts = receipt.get("artifacts")
     if not isinstance(artifacts, dict) or not _REQUIRED_WORKER_ARTIFACTS.issubset(artifacts):
         raise IncompleteSlot("worker artifact inventory is incomplete")
+    if expected_source_binding is not None and not {"source_evidence", "frozen_settings"}.issubset(artifacts):
+        raise IncompleteSlot("worker frozen source artifact inventory is incomplete")
     resolved = {key: _within(invocation, relative) for key, relative in artifacts.items()}
     if len(set(resolved.values())) != len(resolved):
         raise IncompleteSlot("worker artifact path reused")
-    if filing["filing_type"] == "6-K":
+    if expected_source_binding is not None:
+        source_evidence = _read_json(resolved["source_evidence"])
+        if source_evidence != receipt.get("source_packets"):
+            raise IncompleteSlot("retained source evidence differs from worker receipt")
+        packets = filing.get("source_packets")
+        if not isinstance(packets, list):
+            raise IncompleteSlot("effective filing source packets are missing")
+        for packet in packets:
+            if not isinstance(packet, dict) or not isinstance(packet.get("role"), str):
+                raise IncompleteSlot("effective filing source packet is malformed")
+            observed = source_evidence.get(packet["role"])
+            relative = packet.get("path")
+            if (not isinstance(observed, dict) or not isinstance(relative, str) or
+                    any(observed.get(field) != packet.get(field) for field in ("sha256", "bytes")) or
+                    observed.get("requested_url") != (packet.get("provenance") or {}).get("requested_url") or
+                    not isinstance(observed.get("path"), str) or
+                    tuple(Path(observed["path"]).parts[-len(Path(relative).parts):]) != Path(relative).parts):
+                raise IncompleteSlot(f"{packet['role']} evidence differs from effective source packet")
+        grounding = _read_json(resolved["grounding"])
+        archive = grounding.get("archive_binding")
+        if (not isinstance(archive, dict) or archive.get("source_evidence") != source_evidence or
+                archive.get("source_violations") != [] or
+                archive.get("grounding_complete") is not True or
+                archive.get("source_binding") != "frozen_complete_submission_and_raw_sec_json"):
+            raise IncompleteSlot("archive binding report is missing, changed or violated")
+        trace = archive.get("source_calls")
+        if not isinstance(trace, list) or not trace or any(not isinstance(row, dict) for row in trace):
+            raise IncompleteSlot("archive source trace is missing or malformed")
+        terminal = {
+            "edgar.resolve_filing_by_accession": {"bound"},
+            "edgar.Filing.sgml": {"bound"},
+            "sec_edgar_service.get_filing_document": {"bound"},
+            "edgar.companyfacts": {"bound"},
+            "edgar.get_xbrl_data": {"returned"},
+            "edgar.get_filing_sections": {"returned"},
+            "edgar.get_sixk_text": {"bound", "returned_empty"},
+            "statement_source": {"bound"},
+            "filing_excerpt": {"returned"},
+            "edgar.attachments.download_file": {"bound", "sgml_embedded_alias"},
+            "edgar.FilingHomepage.load": {"bound"},
+        }
+        if not any(row.get("path") == "archive.grounding" and row.get("outcome") == "complete"
+                   for row in trace):
+            raise IncompleteSlot("archive grounding completion event is missing")
+        for path in {row.get("path") for row in trace if row.get("outcome") == "attempted"}:
+            attempted = sum(row.get("path") == path and row.get("outcome") == "attempted"
+                            for row in trace)
+            completed = sum(row.get("path") == path and row.get("outcome") in terminal.get(path, set())
+                            for row in trace)
+            if path not in terminal or completed < attempted:
+                raise IncompleteSlot(f"archive source trace has no terminal binding for {path}")
+        for key, evidence_key in (("submissions", "company_submissions"),
+                                  ("companyfacts", "companyfacts"),
+                                  ("embedding", "embedding_contract")):
+            record = expected_source_binding[key]
+            observed = source_evidence.get(evidence_key)
+            if (not isinstance(observed, dict) or
+                    any(observed.get(field) != record.get(field) for field in ("sha256", "bytes")) or
+                    not isinstance(observed.get("path"), str) or
+                    tuple(Path(observed["path"]).parts[-len(Path(record["path"]).parts):]) !=
+                    Path(record["path"]).parts):
+                raise IncompleteSlot(f"{key} evidence differs from frozen supplemental source")
+        seeded = grounding.get("seeded_company_metadata")
+        submissions_record = expected_source_binding["submissions"]
+        if expected_source_root is None:
+            raise IncompleteSlot("frozen source root is unavailable")
+        submissions_path = expected_source_root.joinpath(*Path(submissions_record["path"]).parts)
+        submissions = _read_json(submissions_path)
+        expected_sic = submissions.get("sic")
+        expected_sic = str(expected_sic) if expected_sic is not None else None
+        if (not isinstance(seeded, dict) or seeded.get("sic") != expected_sic or
+                seeded.get("source_sha256") != submissions_record["sha256"]):
+            raise IncompleteSlot("seeded company metadata differs from frozen submissions source")
+    elif filing["filing_type"] == "6-K":
         _validate_sixk_source(filing, receipt, invocation, resolved["grounding"])
     _validate_events(resolved["events"])
     accounting = _read_json(resolved["provider_accounting"])
@@ -414,6 +499,26 @@ def inspect_outputs(
             raise ValueError("programme lacks durable completion seals; do not reconstruct or reset evidence")
         slots = db.execute("SELECT id, config_sha, status, request_sha, result_sha FROM slots ORDER BY id").fetchall()
         reservations = db.execute("SELECT slot_id, id, status, request_hash FROM reservations ORDER BY id").fetchall()
+        binding_row = db.execute("SELECT value FROM binding WHERE id = 1").fetchone()
+    source_contract = None
+    effective_by_holdout: dict[str, dict[str, Any]] = {}
+    source_bindings: dict[str, dict[str, Any]] = {}
+    source_inventory = None
+    source_root = None
+    if binding_row is not None:
+        try:
+            binding = json.loads(binding_row[0])
+            source_inventory = binding["review_evidence"].get("source_contract")
+            if source_inventory is not None:
+                from evals.acceptance_source_contract import verify_source_contract_inventory
+
+                source_contract = verify_source_contract_inventory(source_inventory)
+                effective_by_holdout = {row["holdout_id"]: row
+                                        for row in source_contract.effective_filings}
+                source_bindings = source_contract.bindings_by_holdout
+                source_root = Path(source_contract.inventory["source_root"])
+        except (OSError, KeyError, TypeError, ValueError, AttributeError, json.JSONDecodeError) as error:
+            raise ValueError("programme source contract binding is unavailable or changed") from error
     by_slot: dict[str, list[tuple[int, str, str]]] = {}
     for slot_id, identity, status, request_hash in reservations:
         by_slot.setdefault(slot_id, []).append((identity, status, request_hash))
@@ -436,9 +541,13 @@ def inspect_outputs(
                                                 status, "durable slot claim is not completed"))
             continue
         try:
+            holdout_id = slot_id.split("-", 1)[0]
             records.append(_slot_record(programme_root, output_parent, slot_id, config_sha,
                                         request_sha, result_sha, by_slot.get(slot_id, []),
                                         expected_manifest_sha=expected_manifest_sha,
+                                        expected_filing=effective_by_holdout.get(holdout_id),
+                                        expected_source_binding=source_bindings.get(holdout_id),
+                                        expected_source_root=source_root,
                                         materialize_previews=materialize_previews))
         except (IncompleteSlot, OSError, TypeError, ValueError, KeyError, json.JSONDecodeError) as error:
             incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
@@ -457,6 +566,8 @@ def inspect_outputs(
         "development_smoke": smoke,
         "programme_ledger_path": _output_relative(ledger, output_parent),
     }
+    if source_contract is not None:
+        result["source_contract"] = source_inventory
     return result
 
 

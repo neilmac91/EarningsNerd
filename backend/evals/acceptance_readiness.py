@@ -109,12 +109,24 @@ def _evidence(root: Path, record: Any) -> tuple[Path, dict[str, Any] | None]:
     return path, _json(path) if path.suffix == ".json" else None
 
 
-def review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any]) -> dict[str, Any]:
+def review_evidence_inventory(
+    prerequisites_path: Path, prereq: dict[str, Any], *, source_contract: Any | None = None,
+) -> dict[str, Any]:
     """Freeze review commitments and evidence bytes, excluding renewable execution receipts."""
     if prereq.get("schema_version") == 2 and prereq.get("review_protocol") == "ai_assisted":
         from evals.acceptance_ai_protocol import ai_review_evidence_inventory
 
-        return ai_review_evidence_inventory(prerequisites_path, prereq)
+        inventory = ai_review_evidence_inventory(prerequisites_path, prereq)
+        if "development_source" in prereq:
+            path, _ = _evidence(Path(prerequisites_path).resolve(strict=True).parent,
+                                prereq["development_source"])
+            inventory["development_source"] = {
+                "record": prereq["development_source"], "resolved_path": str(path.resolve(strict=True)),
+                "bytes_sha256": _sha256(path),
+            }
+        if source_contract is not None:
+            inventory["source_contract"] = source_contract.inventory
+        return inventory
     prerequisites_path = Path(prerequisites_path).resolve(strict=True)
 
     def reference(record: Any) -> dict[str, Any]:
@@ -123,7 +135,7 @@ def review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any]) 
                 "bytes_sha256": _sha256(path)}
 
     briefs = prereq["reference_briefs"]
-    return {
+    inventory = {
         "prerequisites_path": str(prerequisites_path),
         "reviewers": prereq["reviewers"], "adjudicator": prereq["adjudicator"],
         "reference_briefs": sorted(
@@ -132,6 +144,11 @@ def review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any]) 
         ),
         "exposure_attestation": reference(prereq["exposure_attestation"]),
     }
+    if source_contract is not None:
+        inventory["source_contract"] = source_contract.inventory
+    if "development_source" in prereq:
+        inventory["development_source"] = reference(prereq["development_source"])
+    return inventory
 
 
 def verify_review_evidence_binding(programme_root: Path, prerequisites_path: Path | None = None) -> None:
@@ -147,7 +164,12 @@ def verify_review_evidence_binding(programme_root: Path, prerequisites_path: Pat
         bound_path = Path(frozen["prerequisites_path"])
         if prerequisites_path is not None and Path(prerequisites_path).resolve(strict=True) != bound_path:
             raise ValueError("review evidence prerequisites path differs from programme binding")
-        current = review_evidence_inventory(bound_path, _json(bound_path))
+        source_contract = None
+        if "source_contract" in frozen:
+            from evals.acceptance_source_contract import verify_source_contract_inventory
+
+            source_contract = verify_source_contract_inventory(frozen["source_contract"])
+        current = review_evidence_inventory(bound_path, _json(bound_path), source_contract=source_contract)
     except (sqlite3.Error, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise ValueError("programme review evidence binding is unavailable") from error
     if current != frozen:
@@ -200,12 +222,7 @@ def inspect_readiness(
     fresh price, balance and Fable receipts; packet readiness keeps those three historical
     receipts but does not expire them after generation.
     """
-    from evals.acceptance_worker import archive_binding_hold
-
     issues: list[dict[str, str]] = []
-    source_hold = archive_binding_hold()
-    if source_hold:
-        _issue(issues, "structured_source_binding_unavailable", source_hold)
     paid_only: list[dict[str, str]] = []
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -264,12 +281,34 @@ def inspect_readiness(
     if audit.get("candidate_accession_matches") != {} or audit.get("candidate_structured_issuer_matches_in_eval_or_review_paths") != {}:
         _issue(issues, "exclusion_audit", "retained exclusion audit has candidate matches")
 
+    source_contract = None
+    effective_filings = filings
+    if expected_manifest_sha == APPROVED_MANIFEST_SHA256:
+        try:
+            from evals.acceptance_source_contract import resolve_source_contract
+
+            source_contract = resolve_source_contract(manifest_path, archive_root)
+            effective_filings = list(source_contract.effective_filings)
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            _issue(issues, "source_contract_invalid", type(exc).__name__)
+    if source_contract is None:
+        from evals.acceptance_worker import archive_binding_hold
+
+        source_hold = archive_binding_hold()
+        if source_hold:
+            _issue(issues, "structured_source_binding_unavailable", source_hold)
+    source_roles = {row["accession_number"]: {p["role"] for p in row.get("source_packets", [])}
+                    for row in effective_filings if isinstance(row, dict)}
+    source_hashes = {row["accession_number"]: {p["role"]: p["sha256"]
+                                                for p in row.get("source_packets", [])}
+                     for row in effective_filings if isinstance(row, dict)}
+
     verified_sources = 0
     archive_root = Path(archive_root)
     if not archive_root.is_dir() or archive_root.is_symlink():
         _issue(issues, "missing_source_archive", "source archive work directory unavailable")
     else:
-        for filing in filings:
+        for filing in effective_filings:
             if not isinstance(filing, dict):
                 continue
             for packet in filing.get("source_packets", []):
@@ -296,6 +335,22 @@ def inspect_readiness(
             (prereq.get("schema_version") == 2 and not ai_mode) or
             prereq.get("approved_manifest_sha256") != expected_manifest_sha):
         _issue(issues, "prerequisite_manifest_binding", "preflight must bind approved manifest SHA")
+    if expected_manifest_sha == APPROVED_MANIFEST_SHA256:
+        try:
+            _, development_source = _evidence(base, prereq.get("development_source"))
+            filing = development_source.get("filing") if development_source else None
+            binding = development_source.get("source_binding") if development_source else None
+            if (development_source is None or development_source.get("schema_version") != 1 or
+                    development_source.get("kind") != "e7_development_source_contract" or
+                    not isinstance(filing, dict) or
+                    any(not str(filing.get(key, "")).strip() for key in
+                        ("accession_number", "cik", "filing_type")) or
+                    not isinstance(filing.get("source_packets"), list) or
+                    not filing["source_packets"] or not isinstance(binding, dict) or
+                    set(binding) != {"submissions", "companyfacts", "embedding", "contract"}):
+                raise ValueError("development source contract shape invalid")
+        except (OSError, TypeError, ValueError) as exc:
+            _issue(issues, "development_source_contract_missing", type(exc).__name__)
 
     brief_frozen: dict[str, datetime] = {}
     exposure_status = None
@@ -468,6 +523,7 @@ def inspect_readiness(
         "manifest_sha256": manifest_sha,
         "approved_accessions": len(set(accessions)),
         "source_packets_verified": verified_sources,
+        "source_contract": source_contract.inventory if source_contract is not None else None,
         "reference_briefs_verified": len(brief_frozen),
         "config_sha256": config_hashes,
         "issues": issues + paid_only,
@@ -581,6 +637,11 @@ def build_blinded_packets(
     if not readiness["ready_for_packets"]:
         raise ValueError("preflight incomplete: " + ",".join(i["code"] for i in readiness["issues"]))
     manifest = _json(Path(manifest_path))
+    if readiness.get("source_contract") is not None:
+        from evals.acceptance_source_contract import verify_source_contract_inventory
+
+        contract = verify_source_contract_inventory(readiness["source_contract"])
+        manifest = {**manifest, "filings": list(contract.effective_filings)}
     prereq = _json(Path(prerequisites_path))
     ai_mode = prereq.get("schema_version") == 2 and prereq.get("review_protocol") == "ai_assisted"
     brief_records = (prereq["ai_assisted"]["reconciled_references"] if ai_mode
@@ -674,7 +735,12 @@ def build_blinded_packets(
                     original = _safe_file(Path(archive_root), source["path"])
                     extension = original.suffix.lower() or ".txt"
                     relative = f"sources/{case_ids[accession]}/{source['role']}{extension}"
-                    shutil.copyfile(original, reviewer_dir / relative)
+                    copied = reviewer_dir / relative
+                    if _sha256(original) != source["sha256"]:
+                        raise ValueError("source packet changed before reviewer copy")
+                    shutil.copyfile(original, copied)
+                    if _sha256(copied) != source["sha256"]:
+                        raise ValueError("reviewer source copy differs from frozen source packet")
                     sources.append({"role": source["role"], "path": relative,
                                     "official_url": source["provenance"]["final_url"]})
                 (case_dir / "identity.json").write_text(json.dumps({

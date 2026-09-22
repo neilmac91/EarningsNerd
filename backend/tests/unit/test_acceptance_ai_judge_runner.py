@@ -99,6 +99,22 @@ def _cleanup_recorded_fake_cli(root: Path, fake: Path) -> None:
         pass
 
 
+def _process_is_terminated(pid: int) -> bool:
+    """A killed orphan may remain as an unreaped Linux zombie."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    proc_status = Path(f"/proc/{pid}/status")
+    try:
+        return proc_status.is_file() and any(
+            line.startswith("State:") and line.split()[1] == "Z"
+            for line in proc_status.read_text().splitlines()
+        )
+    except (OSError, IndexError):
+        return False
+
+
 def test_reservation_verdict_and_immutable_export(tmp_path: Path) -> None:
     root, fake = _programme(tmp_path)
     result = run_one(root, "H01-candidate-1", cli=fake)
@@ -297,13 +313,10 @@ def test_guardian_crash_stops_programme_and_kills_recorded_cli(tmp_path: Path) -
         assert inspect(root)["stop_reason"] == "transport_uncertain"
         assert inspect(root)["pending"] == ["H01-candidate-1"]
         while time.monotonic() < deadline:
-            try:
-                os.kill(cli_pid, 0)
-            except ProcessLookupError:
+            if _process_is_terminated(cli_pid):
                 break
             time.sleep(0.05)
-        with pytest.raises(ProcessLookupError):
-            os.kill(cli_pid, 0)
+        assert _process_is_terminated(cli_pid)
     finally:
         if controller.poll() is None:
             controller.kill()

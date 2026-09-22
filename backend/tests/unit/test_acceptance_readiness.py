@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.models import Summary
-from evals import acceptance_executor, acceptance_worker
+from evals import acceptance_executor, acceptance_readiness, acceptance_worker
 from evals.acceptance_outputs import collect_outputs, inspect_outputs
 from evals.acceptance_readiness import (_reviewer_artifact, build_blinded_packets,
                                         inspect_readiness, review_evidence_inventory,
@@ -282,7 +282,7 @@ def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path, mon
         # Direct worker use cannot sneak a 6-K subset around the programme gate.
         for form in ("10-K", "10-Q", "20-F", "6-K"):
             invocation = tmp_path / ("unstarted-" + form)
-            with pytest.raises(acceptance_worker.InvalidMeasurement, match="not bound to the frozen archive"):
+            with pytest.raises(acceptance_worker.InvalidMeasurement, match="requires a verified frozen archive"):
                 asyncio.run(acceptance_worker.run_invocation({"filing_type": form}, invocation, {}, None))
             assert not invocation.exists()
         reviewers, custodian = tmp_path / "held-reviewers", tmp_path / "held-custodian"
@@ -591,6 +591,24 @@ def test_blinding_keeps_arm_private_and_rejects_lost_preview(tmp_path: Path) -> 
     outputs["programme_ledger_path"] = "../outside.sqlite3"
     fixture["outputs"].write_text(json.dumps(outputs))
     refused("unsafe relative file path")
+
+
+def test_blinding_rejects_corrupted_source_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fixture = _fixture(tmp_path)
+    original_copy = acceptance_readiness.shutil.copyfile
+
+    def corrupt_source_copy(source: Path, destination: Path) -> None:
+        original_copy(source, destination)
+        if "sources" in Path(destination).parts:
+            Path(destination).write_bytes(Path(destination).read_bytes() + b"corrupt")
+
+    monkeypatch.setattr(acceptance_readiness.shutil, "copyfile", corrupt_source_copy)
+    reviewers, custodian = tmp_path / "reviewers", tmp_path / "custodian"
+    with pytest.raises(ValueError, match="copy differs from frozen source packet"):
+        build_blinded_packets(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                              fixture["outputs"], reviewers, custodian,
+                              expected_manifest_sha=fixture["manifest_sha"])
+    assert not reviewers.exists() and not custodian.exists()
 
 
 def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:

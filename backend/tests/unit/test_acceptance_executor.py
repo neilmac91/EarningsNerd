@@ -319,7 +319,12 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
     monkeypatch.setattr(executor, "verified_runtime", lambda *_: {"distributions_sha256": "fixture"})
     monkeypatch.setattr(executor, "preflight_frozen_settings", lambda *_: None)
-    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": True})
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_, **__: {"fixture": True})
+    monkeypatch.setattr(executor, "resolve_source_contract", lambda *_: SimpleNamespace(
+        filing=lambda _: filing, bindings_by_holdout={"H02": {
+            "submissions": {}, "companyfacts": {}, "embedding": {}}}, inventory={}))
+    from evals import acceptance_archive
+    monkeypatch.setattr(acceptance_archive, "prepare_archive_binding", lambda *_: None)
     monkeypatch.setenv("E7_GENERATOR_API_KEY", "offline-fixture-only")
     monkeypatch.setattr(executor, "BudgetLedger", lambda *_: SimpleNamespace(
         snapshot=lambda: {"pending": 0, "stop_reason": None}))
@@ -339,10 +344,10 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
                            archive=tmp_path, slot="H02-candidate-1", programme=programme)
     with pytest.raises(executor.BudgetStopped, match="failed or interrupted slot"):
         executor.run_slot(args)
-    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": "edited"})
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_, **__: {"fixture": "edited"})
     with pytest.raises(executor.BudgetStopped, match="review evidence changed"):
         executor.run_slot(args)
-    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": True})
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_, **__: {"fixture": True})
     # A legacy completed ledger cannot be resumed and retroactively sealed either.
     with sqlite3.connect(programme / "budget.sqlite3") as db:
         db.execute("UPDATE slots SET status='completed'")
@@ -367,7 +372,8 @@ async def test_worker_request_cannot_reenter_claimed_slot(tmp_path: Path, monkey
         "prerequisites": str(prerequisites), "config_path": str(config),
         "config_sha256": executor.sha(config), "slot_id": "H01-candidate-1",
         "ledger": str(ledger), "pricing": {}, "stop_file": str(tmp_path / "STOP"),
-        "invocation_dir": str(invocation), "filing": {}, "config": {}, "smoke_mode": False,
+        "invocation_dir": str(invocation), "filing": {"holdout_id": "H01"},
+        "config": {"source_binding": {}}, "smoke_mode": False,
         "runtime": {"distributions_sha256": "fixture"}})
     with sqlite3.connect(ledger) as db:
         db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)")
@@ -378,6 +384,8 @@ async def test_worker_request_cannot_reenter_claimed_slot(tmp_path: Path, monkey
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
     monkeypatch.setattr(executor, "verify_review_evidence_binding", lambda *_: None)
     monkeypatch.setattr(executor, "verified_runtime", lambda *_: {"distributions_sha256": "drifted"})
+    monkeypatch.setattr(executor, "resolve_source_contract", lambda *_: SimpleNamespace(
+        effective_filings=[{"holdout_id": "H01"}], bindings_by_holdout={"H01": {}}, inventory={}))
     calls = []
 
     async def fake_invocation(*_):

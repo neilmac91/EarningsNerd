@@ -184,6 +184,11 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
     readiness = inspect_readiness(manifest_path, archive, prerequisites_path,
                                   expected_manifest_sha=expected_manifest_sha)
     prereq, manifest, mapping, evidence = map(_json, (prerequisites_path, manifest_path, mapping_path, evidence_path))
+    if readiness.get("source_contract") is not None:
+        from evals.acceptance_source_contract import verify_source_contract_inventory
+
+        source_contract = verify_source_contract_inventory(readiness["source_contract"])
+        manifest = {**manifest, "filings": list(source_contract.effective_filings)}
     if prereq.get("schema_version") != 2 or prereq.get("review_protocol") != "ai_assisted":
         raise ValueError("decision requires explicit AI-assisted prerequisites")
     outputs = _json(outputs_path)

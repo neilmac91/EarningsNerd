@@ -3,11 +3,13 @@
 import hashlib
 import json
 import sqlite3
+from types import SimpleNamespace
 
 import pytest
 from pathlib import Path
 
 from evals.acceptance_executor import BudgetStopped, complete_worker
+from evals import acceptance_source_contract
 from evals.acceptance_outputs import collect_outputs
 from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256, review_evidence_inventory
 
@@ -261,6 +263,98 @@ def test_rejects_unknown_preview_attempt_without_imputing_completion(tmp_path: P
     assert result["incomplete_slots"][0]["slot_id"] == "H01-candidate-1"
     assert "provider attempt" in result["incomplete_slots"][0]["error"]
     assert not (invocation / "preview-files").exists()
+
+
+def test_collector_revalidates_frozen_source_contract_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, output, invocation = _fixture(tmp_path)
+    slot = root / "H01-candidate-1"
+    selection = json.loads((slot / "selection.json").read_text())
+    filing = selection["filing"]
+    source_root = tmp_path / "frozen-source"
+    primary = source_root / "packets" / "primary.txt"
+    primary.parent.mkdir(parents=True)
+    primary.write_text("frozen primary", encoding="utf-8")
+    packet = {"role": "primary", "path": "packets/primary.txt", "bytes": primary.stat().st_size,
+              "sha256": _sha(primary), "provenance": {"requested_url": "https://www.sec.gov/frozen"}}
+    filing.update(source_sha256=packet["sha256"], source_packets=[packet])
+    selection["filing"] = filing
+    _write(slot / "selection.json", selection)
+    request = json.loads((slot / "request.json").read_text())
+    request["filing"] = filing
+    _write(slot / "request.json", request)
+
+    bindings = {}
+    for key, value in (("submissions", {"cik": filing["cik"], "sic": "1234"}),
+                       ("companyfacts", {"cik": filing["cik"], "facts": {}}),
+                       ("embedding", {"schema_version": 1})):
+        path = source_root / f"{key}.json"
+        _write(path, value)
+        bindings[key] = {"path": path.relative_to(source_root).as_posix(),
+                         "bytes": path.stat().st_size, "sha256": _sha(path)}
+    bindings["contract"] = {"schema_version": 1, "kind": "fixture"}
+    source_evidence = {
+        "primary": {"path": str(primary), "bytes": packet["bytes"], "sha256": packet["sha256"],
+                    "requested_url": packet["provenance"]["requested_url"]},
+        "company_submissions": {**bindings["submissions"],
+                                "path": str(source_root / bindings["submissions"]["path"])},
+        "companyfacts": {**bindings["companyfacts"],
+                         "path": str(source_root / bindings["companyfacts"]["path"])},
+        "embedding_contract": {**bindings["embedding"],
+                               "path": str(source_root / bindings["embedding"]["path"])},
+    }
+    trace = [
+        {"path": "sec_edgar_service.get_filing_document", "outcome": "attempted"},
+        {"path": "sec_edgar_service.get_filing_document", "outcome": "bound"},
+        {"path": "filing_excerpt", "outcome": "attempted"},
+        {"path": "filing_excerpt", "outcome": "returned"},
+        {"path": "archive.grounding", "outcome": "complete"},
+    ]
+    grounding = {"seeded_company_metadata": {"sic": "1234",
+                                               "source_sha256": bindings["submissions"]["sha256"]},
+                 "archive_binding": {"source_evidence": source_evidence, "source_calls": trace,
+                                     "source_violations": [], "grounding_complete": True,
+                                     "source_binding": "frozen_complete_submission_and_raw_sec_json"}}
+    _write(invocation / "grounding.json", grounding)
+    _write(invocation / "source_evidence.json", source_evidence)
+    _write(invocation / "frozen_settings.json", {"fixture": True})
+    receipt = json.loads((invocation / "receipt.json").read_text())
+    receipt.update(source_identity="frozen_archive_verified", source_packets=source_evidence,
+                   source_binding=bindings)
+    receipt["artifacts"].update(source_evidence="source_evidence.json",
+                                frozen_settings="frozen_settings.json")
+    receipt["artifact_sha256"] = {key: _sha(invocation / relative)
+                                  for key, relative in receipt["artifacts"].items()}
+    _write(invocation / "receipt.json", receipt)
+    _write(invocation / "result.json", receipt)
+    inventory = {"schema_version": 1, "kind": "fixture", "source_root": str(source_root)}
+
+    contract = SimpleNamespace(effective_filings=(filing,), bindings_by_holdout={"H01": bindings},
+                               inventory=inventory)
+
+    monkeypatch.setattr(acceptance_source_contract, "verify_source_contract_inventory",
+                        lambda frozen: contract if frozen == inventory else (_ for _ in ()).throw(ValueError()))
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        frozen = json.loads(db.execute("SELECT value FROM binding WHERE id=1").fetchone()[0])
+        frozen["review_evidence"]["source_contract"] = inventory
+        db.execute("UPDATE binding SET value=? WHERE id=1", (json.dumps(frozen),))
+        db.execute("UPDATE slots SET request_sha=?, result_sha=? WHERE id='H01-candidate-1'",
+                   (_sha(slot / "request.json"), _sha(invocation / "result.json")))
+    result = collect_outputs(root, output)
+    assert result["completed"] == 1 and result["source_contract"] == inventory
+
+    grounding["archive_binding"]["grounding_complete"] = False
+    _write(invocation / "grounding.json", grounding)
+    receipt["artifact_sha256"]["grounding"] = _sha(invocation / "grounding.json")
+    _write(invocation / "receipt.json", receipt)
+    _write(invocation / "result.json", receipt)
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id='H01-candidate-1'",
+                   (_sha(invocation / "result.json"),))
+    rejected = collect_outputs(root, output)
+    assert rejected["completed"] == 0
+    assert "archive binding report" in rejected["incomplete_slots"][0]["error"]
 
 
 def test_rejects_source_mismatch_and_preserves_failed_slot(tmp_path: Path) -> None:

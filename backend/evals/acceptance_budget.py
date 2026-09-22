@@ -33,6 +33,7 @@ REQUEST_FIELDS = {"model", "messages", "temperature", "max_tokens", "response_fo
                   "stream", "stream_options", "extra_body"}
 ROUND = Decimal("0.000000001")
 PER_REQUEST_PAD = Decimal("0.000001")
+RENEWABLE_PRICING_FIELDS = frozenset({"verified_at", "valid_until"})
 
 
 class BudgetStopped(RuntimeError):
@@ -94,28 +95,41 @@ class BudgetLedger:
         self.input_rate = _money(pricing["uncached_input_per_million"])
         self.output_rate = _money(pricing["max_output_per_million"])
         self.programme_id = programme_id
-        self.pricing_hash = hashlib.sha256(_canonical(pricing).encode()).hexdigest()
+        self.pricing_verified_at, self.pricing_valid_until = verified, expires
+        tariff = {key: value for key, value in pricing.items() if key not in RENEWABLE_PRICING_FIELDS}
+        self.pricing_hash = hashlib.sha256(_canonical(tariff).encode()).hexdigest()
+        verified_text, expires_text = verified.isoformat(), expires.isoformat()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS programme (
                 id INTEGER PRIMARY KEY CHECK (id = 1), programme_id TEXT NOT NULL,
-                pricing_hash TEXT NOT NULL, stop_reason TEXT)""")
+                pricing_hash TEXT NOT NULL, pricing_verified_at TEXT NOT NULL,
+                pricing_valid_until TEXT NOT NULL, stop_reason TEXT)""")
             db.execute("""CREATE TABLE IF NOT EXISTS reservations (
                 id INTEGER PRIMARY KEY, slot_id TEXT NOT NULL, operation TEXT NOT NULL,
                 request_hash TEXT NOT NULL, input_bound INTEGER NOT NULL, output_max INTEGER NOT NULL,
                 reserved_usd TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
                 usage_json TEXT, known_usage_upper_usd TEXT, actual_model TEXT, outcome TEXT)""")
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT programme_id, pricing_hash FROM programme WHERE id=1").fetchone()
+            row = db.execute("""SELECT programme_id, pricing_hash, pricing_verified_at,
+                pricing_valid_until FROM programme WHERE id=1""").fetchone()
             if row is None:
-                db.execute("INSERT INTO programme VALUES (1, ?, ?, NULL)",
-                           (programme_id, self.pricing_hash))
-            elif row != (programme_id, self.pricing_hash):
+                db.execute("INSERT INTO programme VALUES (1, ?, ?, ?, ?, NULL)",
+                           (programme_id, self.pricing_hash, verified_text, expires_text))
+            elif row[:2] != (programme_id, self.pricing_hash):
                 db.execute("UPDATE programme SET stop_reason=COALESCE(stop_reason, ?)",
                            ("programme or pricing identity changed",))
+            elif verified < _utc(row[2]) or expires < _utc(row[3]):
+                db.execute("UPDATE programme SET stop_reason=COALESCE(stop_reason, ?)",
+                           ("pricing observation moved backwards",))
+            else:
+                db.execute("""UPDATE programme SET pricing_verified_at=?, pricing_valid_until=?
+                    WHERE id=1""", (verified_text, expires_text))
             db.commit()
-        if row is not None and row != (programme_id, self.pricing_hash):
+        if row is not None and row[:2] != (programme_id, self.pricing_hash):
             raise BudgetStopped("programme or pricing identity changed")
+        if row is not None and (verified < _utc(row[2]) or expires < _utc(row[3])):
+            raise BudgetStopped("pricing observation moved backwards")
 
     @contextmanager
     def _connect(self):
@@ -134,11 +148,16 @@ class BudgetLedger:
         raise BudgetStopped(reason)
 
     def _check(self, db: sqlite3.Connection, *, admission: bool) -> None:
-        row = db.execute("SELECT programme_id, pricing_hash, stop_reason FROM programme WHERE id=1").fetchone()
+        row = db.execute("""SELECT programme_id, pricing_hash, pricing_verified_at,
+            pricing_valid_until, stop_reason
+            FROM programme WHERE id=1""").fetchone()
         if row is None or row[:2] != (self.programme_id, self.pricing_hash):
             self._stop(db, "programme or pricing identity changed")
-        if row[2] and admission:
-            raise BudgetStopped(row[2])
+        if row[4] and admission:
+            raise BudgetStopped(row[4])
+        if admission and (self.pricing_verified_at < _utc(row[2]) or
+                          self.pricing_valid_until < _utc(row[3])):
+            self._stop(db, "pricing observation moved backwards")
         now = datetime.now(timezone.utc)
         if admission and (now >= _utc(self.pricing["valid_until"])
                           or now - _utc(self.pricing["verified_at"]) > timedelta(hours=24)):

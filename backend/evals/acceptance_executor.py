@@ -29,7 +29,8 @@ from tempfile import TemporaryDirectory
 
 from evals.acceptance_budget import BudgetLedger, BudgetStopped
 from evals.acceptance_readiness import (inspect_readiness, review_evidence_inventory,
-                                        verify_review_evidence_binding)
+                                        verify_review_evidence_binding, _evidence)
+from evals.acceptance_source_contract import resolve_source_contract
 
 COMPARATOR_SLOTS = {'H01', 'H03', 'H05', 'H07', 'H09', 'H14', 'H18', 'H23', 'H26', 'H29'}
 PROGRAMME = 'E7-2026-09-19-USD10'
@@ -39,6 +40,9 @@ MEASUREMENT_FILES = (
     'backend/evals/acceptance_budget.py',
     'backend/evals/acceptance_readiness.py',
     'backend/evals/acceptance_outputs.py',
+    'backend/evals/acceptance_archive.py',
+    'backend/evals/acceptance_source_contract.py',
+    'backend/evals/acceptance_ai_protocol.py',
     'backend/app/services/ai/provider_requests.py',
 )
 
@@ -322,7 +326,10 @@ def run_slot(args):
     prerequisites = read_json(prerequisites_path)
     slots = planned_slots(read_json(manifest_path))
     if smoke_mode:
-        smoke = read_json(args.smoke_spec)
+        smoke_path, smoke_contract = _evidence(prerequisites_path.parent, prerequisites['development_source'])
+        if Path(args.smoke_spec).resolve(strict=True) != smoke_path.resolve(strict=True):
+            raise ValueError('development smoke differs from frozen source contract')
+        smoke = smoke_contract['filing']
         if smoke['accession_number'] in {row['filing']['accession_number'] for row in slots}:
             raise ValueError('development smoke cannot expose an acceptance filing')
         args.slot = 'development-smoke'
@@ -349,12 +356,22 @@ def run_slot(args):
     other_checkout = frozen_checkout(other_config, budget_control['reviewed_commit'])
     verified_runtime(other_checkout / 'backend/requirements.txt')
     preflight_frozen_settings(other_config, other_checkout)
+    source_contract = resolve_source_contract(manifest_path, Path(args.archive))
     if smoke_mode:
+        source_binding = smoke_contract['source_binding']
         goldens = read_json(checkout / 'backend/evals/golden_set.json')
         goldens = goldens if isinstance(goldens, list) else goldens['filings']
         identity = ('accession_number', 'cik', 'filing_type', 'document_url', 'ticker')
         if not any(all(str(item[k]) == str(smoke[k]) for k in identity) for item in goldens):
             raise ValueError('smoke identity must match an existing development golden')
+    else:
+        selected['filing'] = source_contract.filing(selected['filing']['holdout_id'])
+        source_binding = source_contract.bindings_by_holdout[selected['filing']['holdout_id']]
+    # Hash coverage alone does not establish parser compatibility. Refuse an invalid
+    # selected binding before claiming an immutable slot or creating programme state.
+    from evals.acceptance_archive import prepare_archive_binding
+    prepare_archive_binding(selected['filing'], Path(args.archive), source_binding['submissions'],
+                            source_binding['companyfacts'], source_binding['embedding'])
     price_path = (prerequisites_path.parent / prerequisites['pricing']['path']).resolve()
     pricing = read_json(price_path)
     worst = (Decimal(str(pricing['uncached_input_per_million'])) * 660_000 +
@@ -367,7 +384,7 @@ def run_slot(args):
     root = Path(args.programme).resolve()
     child_invocation = root / args.slot / 'attempt-1'
     child_env = child_environment(child_invocation, config, api_key)
-    review_evidence = review_evidence_inventory(prerequisites_path, prerequisites)
+    review_evidence = review_evidence_inventory(prerequisites_path, prerequisites, source_contract=source_contract)
     with programme_lock(root):
         if (root / 'STOP').exists():
             raise BudgetStopped('programme STOP file is present')
@@ -408,7 +425,8 @@ def run_slot(args):
         invocation = slot_dir / 'attempt-1'
         invocation.mkdir()
         request = {'filing': selected['filing'], 'config': dict(config, source_root=str(Path(args.archive).resolve()),
-                   expected_commit=config['source_commit'], allow_sec_network=True, allow_provider=True,
+                   expected_commit=config['source_commit'], allow_sec_network=False, allow_provider=True,
+                   source_binding=source_binding,
                    frozen_settings=frozen),
                    'invocation_dir': str(invocation), 'ledger': str(ledger_path), 'pricing': pricing,
                    'slot_id': args.slot, 'stop_file': str(root / 'STOP')}
@@ -461,6 +479,19 @@ async def worker(args):
     if verified_runtime(checkout / 'backend/requirements.txt') != request['runtime']:
         raise ValueError('child interpreter or installed distributions changed after admission')
     claim_worker(args.request, request)
+    source_contract = resolve_source_contract(Path(request['manifest']), Path(request['archive']))
+    if request.get('smoke_mode'):
+        _, smoke = _evidence(Path(request['prerequisites']).parent, prerequisites['development_source'])
+        expected_filing, expected_binding = smoke['filing'], smoke['source_binding']
+    else:
+        selected = next((row for row in planned_slots({'filings': source_contract.effective_filings})
+                         if row['slot_id'] == request['slot_id']), None)
+        if selected is None:
+            raise ValueError('child slot is outside the frozen programme')
+        expected_filing = selected['filing']
+        expected_binding = source_contract.bindings_by_holdout[expected_filing['holdout_id']]
+    if request['filing'] != expected_filing or request['config'].get('source_binding') != expected_binding:
+        raise ValueError('child source selection differs from frozen contract')
     invocation = Path(request['invocation_dir'])
     meter = SlotMeter(BudgetLedger(request['ledger'], request['pricing'], PROGRAMME),
                       request['slot_id'], invocation, request['stop_file'])
