@@ -5708,3 +5708,15 @@ E8 history clarification (September 22): asked, “For the next E8 variability-j
 ## September 22 (later) — E8 restore blocked on CLI drift; founder chose to re-pin to 2.1.280
 
 A fresh Claude Code web container restored the E8 kit (12 attachments verified, bundle 818/818, E3 deliverable 712/712, frozen worktree 73cc311, venv) but could not dispatch: the container's CLI reports `2.1.280` and the sealed tools pin `2.1.278`; no 2.1.278 build exists there. Zero model calls, guard pristine, no attestation. The E3 overlay and the re-pin build were both declined by the session's permission classifier. Receipt: [review-evidence/e8-restore-2026-09-22/receipt.md](review-evidence/e8-restore-2026-09-22/receipt.md). Founder decision: continue on the latest CLI via a new reviewed sibling package, never by editing sealed files; the version confound between the 140 reused controls and the 160 new slots must appear in every E8 readout. Package scaffold, restore and export tools: [fable-e8-repin-2026-09-22/](fable-e8-repin-2026-09-22/README.md) (build and offline proofs NOT yet run). Handover to Astra: [handover-astra-2026-09-22-e8-repin.md](handover-astra-2026-09-22-e8-repin.md). E1 and E7 untouched.
+
+
+## September 22 — E8 sibling re-pin verified offline
+
+- [x] Founder-approved six-line derivation preserves historical E3 reconciliation identity and
+  pins the continuation runtime to CLI 2.1.280. Sealed kit unchanged; original add-on suite
+  10/10 passes. [Verification](fable-e8-repin-2026-09-22/verification.md).
+- [x] Exact seven judging-branch allow rules installed; README defines sole-guard recovery
+  conditions, external freshness/exclusivity evidence and ledger continuity requirements.
+- [ ] Separately authorized E8 session remains outstanding: 140 controls reused under 2.1.278,
+  zero new judgments, 160 slots planned under 2.1.280. Every readout must state that CLI-version
+  confound. No quality conclusion, production change or universe-wide generation authorized here.

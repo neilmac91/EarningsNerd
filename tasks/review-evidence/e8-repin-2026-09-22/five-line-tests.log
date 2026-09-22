@@ -1,0 +1,120 @@
+test_attestation_time_must_be_fresh_utc (test_e8_addon.E8AddonOffline.test_attestation_time_must_be_fresh_utc) ... ok
+test_completed_e3_admits_only_the_frozen_e8_missing_panel (test_e8_addon.E8AddonOffline.test_completed_e3_admits_only_the_frozen_e8_missing_panel) ... ERROR
+test_e8_stop_and_changed_order_refuse_admission (test_e8_addon.E8AddonOffline.test_e8_stop_and_changed_order_refuse_admission) ... FAIL
+test_inter_slot_stop_and_prerequisite_change_block_next_pending (test_e8_addon.E8AddonOffline.test_inter_slot_stop_and_prerequisite_change_block_next_pending) ... ERROR
+test_missing_completed_e3_output_refuses_e8 (test_e8_addon.E8AddonOffline.test_missing_completed_e3_output_refuses_e8) ... FAIL
+test_original_aapl_stop_cannot_be_changed_or_ignored (test_e8_addon.E8AddonOffline.test_original_aapl_stop_cannot_be_changed_or_ignored) ... ok
+test_remote_guard_setup_is_a_hard_hold (test_e8_addon.E8AddonOffline.test_remote_guard_setup_is_a_hard_hold) ... ok
+test_synthetic_counter_rejects_an_unrecorded_call (test_e8_addon.E8AddonOffline.test_synthetic_counter_rejects_an_unrecorded_call) ... ok
+test_two_successful_synthetic_slots_advance_queue (test_e8_addon.E8AddonOffline.test_two_successful_synthetic_slots_advance_queue) ... ERROR
+test_unlogged_valid_looking_e8_output_is_not_admitted (test_e8_addon.E8AddonOffline.test_unlogged_valid_looking_e8_output_is_not_admitted) ... FAIL
+
+======================================================================
+ERROR: test_completed_e3_admits_only_the_frozen_e8_missing_panel (test_e8_addon.E8AddonOffline.test_completed_e3_admits_only_the_frozen_e8_missing_panel)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 47, in test_completed_e3_admits_only_the_frozen_e8_missing_panel
+    index, status = self.tool.admit(self.bundle, self.common, self.validator)
+                    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py", line 166, in admit
+    _, c2 = common.admit(root, 'e3-candidate2', validator)
+            ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 208, in admit
+    index, status = inspect_stage(root, name, validator)
+                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 165, in inspect_stage
+    recovered = reconciled_output(root, stage, p['slot'], validator, index)
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 124, in reconciled_output
+    verify_reconciliation_record(record)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 89, in verify_reconciliation_record
+    raise ValueError('Reconciliation record changed')
+ValueError: Reconciliation record changed
+
+======================================================================
+ERROR: test_inter_slot_stop_and_prerequisite_change_block_next_pending (test_e8_addon.E8AddonOffline.test_inter_slot_stop_and_prerequisite_change_block_next_pending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 113, in test_inter_slot_stop_and_prerequisite_change_block_next_pending
+    index, status = self.tool.admit(self.bundle, self.common, self.validator)
+                    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py", line 166, in admit
+    _, c2 = common.admit(root, 'e3-candidate2', validator)
+            ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 208, in admit
+    index, status = inspect_stage(root, name, validator)
+                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 165, in inspect_stage
+    recovered = reconciled_output(root, stage, p['slot'], validator, index)
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 124, in reconciled_output
+    verify_reconciliation_record(record)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 89, in verify_reconciliation_record
+    raise ValueError('Reconciliation record changed')
+ValueError: Reconciliation record changed
+
+======================================================================
+ERROR: test_two_successful_synthetic_slots_advance_queue (test_e8_addon.E8AddonOffline.test_two_successful_synthetic_slots_advance_queue)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 192, in test_two_successful_synthetic_slots_advance_queue
+    index, status = self.tool.admit(bundle, self.common, self.validator)
+                    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py", line 166, in admit
+    _, c2 = common.admit(root, 'e3-candidate2', validator)
+            ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 208, in admit
+    index, status = inspect_stage(root, name, validator)
+                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 165, in inspect_stage
+    recovered = reconciled_output(root, stage, p['slot'], validator, index)
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 124, in reconciled_output
+    verify_reconciliation_record(record)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/resume.py", line 89, in verify_reconciliation_record
+    raise ValueError('Reconciliation record changed')
+ValueError: Reconciliation record changed
+
+======================================================================
+FAIL: test_e8_stop_and_changed_order_refuse_admission (test_e8_addon.E8AddonOffline.test_e8_stop_and_changed_order_refuse_admission)
+----------------------------------------------------------------------
+ValueError: Reconciliation record changed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 96, in test_e8_stop_and_changed_order_refuse_admission
+    with self.assertRaisesRegex(ValueError, 'E8 STOP or pending'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "E8 STOP or pending" does not match "Reconciliation record changed"
+
+======================================================================
+FAIL: test_missing_completed_e3_output_refuses_e8 (test_e8_addon.E8AddonOffline.test_missing_completed_e3_output_refuses_e8)
+----------------------------------------------------------------------
+ValueError: Reconciliation record changed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 67, in test_missing_completed_e3_output_refuses_e8
+    with self.assertRaisesRegex(ValueError, 'Completed ledger output is missing'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "Completed ledger output is missing" does not match "Reconciliation record changed"
+
+======================================================================
+FAIL: test_unlogged_valid_looking_e8_output_is_not_admitted (test_e8_addon.E8AddonOffline.test_unlogged_valid_looking_e8_output_is_not_admitted)
+----------------------------------------------------------------------
+ValueError: Reconciliation record changed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Documents/Codex/2026-09-22/github-plugin-github-openai-curated-remote/work/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py", line 87, in test_unlogged_valid_looking_e8_output_is_not_admitted
+    with self.assertRaisesRegex(ValueError, 'no immutable or execution-ledger provenance'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "no immutable or execution-ledger provenance" does not match "Reconciliation record changed"
+
+----------------------------------------------------------------------
+Ran 10 tests in 16.573s
+
+FAILED (failures=3, errors=3)

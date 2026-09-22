@@ -26,7 +26,7 @@ were read from the founder's transport manifest and the 22 September handoff pro
 Usage (from the repository root, in the judging session):
 
   python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py \
-      --uploads /root/.claude/uploads/<session-uploads-dir> --repin tasks/fable-e8-repin-2026-09-22
+      --uploads /root/.claude/uploads/<session-uploads-dir>
 
 Add ``--skip-venv`` to leave the venv for a later step. Exit status 0 means every step verified.
 """

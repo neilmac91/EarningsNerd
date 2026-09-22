@@ -1,0 +1,13 @@
+{
+  "overlay": {
+    "copied": 656,
+    "already_present": 0,
+    "slot_dirs": {
+      "ko-corrected": 70,
+      "e3-candidate1": 69,
+      "e3-candidate2": 70
+    },
+    "shim_mode": "0o755",
+    "immutable_ok": 818
+  }
+}

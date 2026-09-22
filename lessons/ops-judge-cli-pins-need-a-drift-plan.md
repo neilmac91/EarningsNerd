@@ -22,6 +22,14 @@ never wrap or spoof the version string, and never let a session discover the cho
 Record the observed CLI version in every per-slot execution record so a confound is visible in
 the data, not only in prose.
 
+When deriving a sibling package, separate historical evidence identity from current runtime
+identity. The first five-line E8 re-pin regenerated a manifest that `expected_reconciliation()`
+also used to validate the completed E3 record; six offline tests then refused the unchanged
+record. The founder approved a sixth substitution pinning that historical identity to the
+original supplement manifest. Runtime tools remain checked against their regenerated manifest.
+The existing `test_completed_e3_admits_only_the_frozen_e8_missing_panel` is the regression gate:
+the five-line build failed it; the six-line build must pass without rewriting historical evidence.
+
 ## Evidence
 
 - `tasks/fable-e8-repin-2026-09-22/README.md` (the re-pin package and its confound statement)

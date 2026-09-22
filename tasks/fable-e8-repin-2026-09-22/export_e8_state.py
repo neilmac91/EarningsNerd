@@ -15,10 +15,12 @@ Exported, with relative paths and a SHA-256 inventory:
   receipts/**                                                (attestations, readbacks, restore
                                                               receipts written by the operator)
 
-Restoring an exported guard into a new container is a founder-level decision (the E8 rules forbid
-copying or forking an initialized guard); the add-on's ``attest()`` re-derives the counter from the
-ledger and refuses any guard state that disagrees, which is the safeguard that makes a faithful
-restore of the *sole* guard distinguishable from a fork. This tool only exports.
+Restore is governed by README.md's sole-guard recovery policy. ``attest()`` checks internal
+ledger continuity; it cannot distinguish a consistent stale checkpoint or fork. This copier
+takes no lock and hashes the source after copying: keep the source quiescent throughout export,
+verify the destination inventory, and establish latest-checkpoint provenance and source
+retirement externally. A failed-stop export is evidence, not permission to resume. This tool
+only exports.
 
 Usage:
 

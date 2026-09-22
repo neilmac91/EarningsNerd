@@ -1,4 +1,4 @@
-"""Build the E8 re-pin package from the sealed E3 supplement and E8 add-on, changing one literal.
+"""Build the approved six-line E8 re-pin from the sealed E3 supplement and E8 add-on.
 
 The founder chose to continue E8 on the Claude CLI now installed in the judging containers
 (2.1.280) after the pinned 2.1.278 build disappeared with a container image change. The sealed
@@ -8,6 +8,7 @@ packages cannot be edited (their hashes are pinned by ``immutable-sha256.json``,
   tools/binding.py, tools/readout.py       byte-identical copies of the E3 supplement's
   tools/guard_setup.py                     supplement copy with the version literal 2.1.278 -> 2.1.280
   tools/resume.py                          supplement copy with the version literal 2.1.278 -> 2.1.280
+                                           and historical E3 reconciliation manifest pinned to its original
   supplement-sha256.json                   regenerated for the four tools above
   tools/e8_resume.py                       add-on copy with E3_SUPPLEMENT_MANIFEST_SHA256 pointing at
                                            the regenerated supplement manifest
@@ -62,6 +63,9 @@ SUBSTITUTIONS = [
     ('tools/resume.py',
      "raise ValueError('Existing Claude CLI 2.1.278 required; no replacement or model probe performed')",
      "raise ValueError('Existing Claude CLI 2.1.280 required; no replacement or model probe performed')"),
+    ('tools/resume.py',
+     "'supplement_manifest_sha256': sha(Path(__file__).resolve().parents[1] / 'supplement-sha256.json'),",
+     f"'supplement_manifest_sha256': '{SUPPLEMENT_MANIFEST_SHA256}',"),
 ]
 HAND_WRITTEN = ('README.md', 'verification.md')
 
@@ -104,7 +108,7 @@ def main() -> None:
     (out / 'tests').mkdir(parents=True, exist_ok=True)
     diff_chunks: list[str] = []
 
-    # Supplement tools: two byte-identical, two with the single literal changed.
+    # Keep historical E3 evidence bound to its original manifest; runtime tools use the new one.
     supplement_manifest: dict[str, str] = {}
     for rel in SUPPLEMENT_TOOL_HASHES:
         source = (supplement / rel).read_text()
