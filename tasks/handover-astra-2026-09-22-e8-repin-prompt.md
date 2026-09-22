@@ -1,5 +1,12 @@
 # Launch prompt — GPT-6 Astra, E8 re-pin review and build, 2026-09-22
 
+**Superseded on 2026-09-22 (later the same day).** The chief engineer completed this task in
+commit `51b5dcf`: the package is built with a founder-approved SIXTH substitution (the historical
+E3 manifest pin in `resume.py`), its 10 offline tests pass, and the allow rules are on the judging
+branch. Do not paste this prompt into a new session as-is; the current state is the "Chief-engineer
+completion update" at the top of `tasks/handover-astra-2026-09-22-e8-repin.md`. The text below is
+kept as the record of what was asked.
+
 For the founder. Paste everything below the rule as the first message of a `gpt-6-astra` session
 (reasoning effort high; leave sampling parameters unset). The full state is in
 [`tasks/handover-astra-2026-09-22-e8-repin.md`](handover-astra-2026-09-22-e8-repin.md); this prompt
@@ -62,7 +69,10 @@ verdicts (judged under 2.1.278) and the 160 new slots must be stated in every E8
 # Stop and report if
 
 - A sealed hash in the kit does not match the values in `build_repin.py`.
-- `repin.diff` shows anything beyond the five expected lines.
+- `repin.diff` shows anything beyond the six expected lines (two in `guard_setup.py`, three in
+  `resume.py` including the historical E3 manifest pin, one in `e8_resume.py`). The original
+  version of this prompt said five; the sixth was approved by the founder after the five-line
+  build failed historical E3 reconciliation admission.
 - The offline suite fails for a reason other than the fixture layout.
 - You believe the confound makes the E8 panel not worth running; say so with the reasoning and let
   the founder decide.

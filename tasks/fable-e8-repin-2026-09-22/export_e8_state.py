@@ -73,6 +73,19 @@ def main() -> None:
         raise SystemExit(f'REFUSE: output directory exists: {out}')
     inventory: dict = {}
     guard = bundle / 'e8/guard'
+    # Refuse an incomplete checkpoint rather than exporting one an operator could retire the
+    # source against. A guard that has been initialized (or even had its template configured)
+    # must export all six recovery-critical files; a pristine template has only four.
+    state_path = guard / 'state.json'
+    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    initialized = ((guard / 'initialization.json').exists() or (guard / 'template-configuration.json').exists()
+                   or state.get('accounting_reconciled') is True)
+    required = set(GUARD_FILES) if initialized else set(GUARD_FILES) - {'initialization.json', 'template-configuration.json'}
+    missing = sorted(name for name in required if not (guard / name).is_file())
+    if missing:
+        raise SystemExit(f'REFUSE: guard export would be incomplete; missing {missing} in {guard}')
+    if not (bundle / 'stages/e8/index.json').is_file():
+        raise SystemExit(f'REFUSE: stages/e8 tree is missing or has no index.json under {bundle}')
     for name in GUARD_FILES:
         path = guard / name
         if path.exists():
@@ -80,11 +93,9 @@ def main() -> None:
             (out / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, out / rel)
             inventory[str(rel)] = {'sha256': sha(path), 'bytes': path.stat().st_size}
-    if (bundle / 'stages/e8').exists():
-        copy_tree(bundle / 'stages/e8', out, Path('stages/e8'), inventory)
+    copy_tree(bundle / 'stages/e8', out, Path('stages/e8'), inventory)
     if args.receipts and args.receipts.exists():
         copy_tree(args.receipts.resolve(), out, Path('receipts'), inventory)
-    state = json.loads((guard / 'state.json').read_text()) if (guard / 'state.json').exists() else {}
     summary = {
         'exported_at_utc': datetime.now(timezone.utc).isoformat(),
         'bundle': str(bundle),
