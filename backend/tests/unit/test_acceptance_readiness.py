@@ -44,9 +44,9 @@ def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, ro
     provider_request = {"model": "synthetic"}
     request_hash = digest(json.dumps(provider_request, sort_keys=True, separators=(",", ":")).encode())
     with sqlite3.connect(root / "budget.sqlite3") as db:
-        db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)")
+        db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)")
         db.execute("CREATE TABLE reservations (id INTEGER PRIMARY KEY, slot_id TEXT, status TEXT, request_hash TEXT)")
-        db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?)", ("a" * 64, "b" * 64))
+        db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?, NULL)", ("a" * 64, "b" * 64))
         db.execute("INSERT INTO reservations VALUES (1, 'development-smoke', 'settled', ?)", (request_hash,))
         for number, row in enumerate(rows, start=2):
             filing = filings[row["accession_number"]]
@@ -61,7 +61,7 @@ def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, ro
                                             "manifest_sha256": manifest_sha})
             request = _write(slot / "request.json", {"slot_id": slot_id, "filing": filing,
                              "config_sha256": row["config_sha256"], "invocation_dir": str(invocation)})
-            db.execute("INSERT INTO slots VALUES (?, ?, 'completed', ?)",
+            db.execute("INSERT INTO slots VALUES (?, ?, 'completed', ?, NULL)",
                        (slot_id, row["config_sha256"], request["sha256"]))
             db.execute("INSERT INTO reservations VALUES (?, ?, 'settled', ?)",
                        (number, slot_id, request_hash))
@@ -99,6 +99,11 @@ def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, ro
                 _write(invocation / "source_evidence.json", evidence)
             _write(invocation / "grounding.json", grounding)
             _write(invocation / "rendered_sections.json", [])
+            receipt["artifact_sha256"] = {key: digest((invocation / relative).read_bytes())
+                                          for key, relative in artifacts.items()}
+            _write(invocation / "receipt.json", receipt)
+            result = _write(invocation / "result.json", receipt)
+            db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], slot_id))
     return inspect_outputs(root, root, expected_manifest_sha=manifest_sha, materialize_previews=True)
 
 
@@ -513,6 +518,14 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
     row = outputs["records"][0]
     rendered = fixture["outputs"].parent / row["rendered_path"]
     rendered.write_text(f"Revenue rose. {row['config_sha256']}", encoding="utf-8")
+    # This fixture represents an identity leak present at generation, not a later edit.
+    receipt_path = rendered.parent / "receipt.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["artifact_sha256"]["rendered_summary"] = hashlib.sha256(rendered.read_bytes()).hexdigest()
+    _write(receipt_path, receipt)
+    result = _write(rendered.parent / "result.json", receipt)
+    with sqlite3.connect(fixture["outputs"].parent / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], row["slot_id"]))
     fixture["outputs"].write_text(json.dumps(inspect_outputs(
         fixture["outputs"].parent, fixture["outputs"].parent,
         expected_manifest_sha=fixture["manifest_sha"])))

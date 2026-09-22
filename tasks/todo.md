@@ -1,3 +1,7 @@
+## September 22 — E7 completion artifacts bound to durable digests
+
+The worker now records final-byte digests for every declared output/evidence artifact, including raw preview callbacks, before completion. The controller binds the result SHA256 to its one-time completed slot; the collector verifies that digest and the exact artifact inventory before materializing previews or publishing output records. [Execution evidence limits](readiness-2026-09-21/acceptance/execution.md) prohibit retroactive re-sealing and distinguish change detection against the retained ledger from coordinated rewriting of all evidence. The source-binding hold, budget and human prerequisites remain intact; no E7 generation or live provider call occurred.
+
 ## September 22 — E7 balance and Fable claims bound to hashed observations
 
 The draft readiness gate now validates typed balance/Fable receipt contents, matches inline claims and observation times, rejects nonfinite or boolean balances and mismatched model/contract/quota, and evaluates freshness from the receipt. [Receipt formats and limits](readiness-2026-09-21/acceptance/README.md) distinguish content/hash agreement from authenticated provider evidence; real retained readbacks remain required before use. The unconditional archive-binding hold, USD 10 admission and human-brief safeguards are unchanged. No live balance/quota inspection or provider call was made.

@@ -7,6 +7,7 @@ import sqlite3
 import pytest
 from pathlib import Path
 
+from evals.acceptance_executor import BudgetStopped, complete_worker
 from evals.acceptance_outputs import collect_outputs
 from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256
 
@@ -116,15 +117,20 @@ def _fixture(tmp_path: Path, *, sixk: bool = False, primary_fallback: bool = Fal
     else:
         _write(invocation / "grounding.json", {"excerpt": "Synthetic"})
     _write(invocation / "rendered_sections.json", [])
+    receipt["artifact_sha256"] = {key: _sha(invocation / relative) for key, relative in artifacts.items()}
+    _write(invocation / "receipt.json", receipt)
+    _write(invocation / "result.json", receipt)
     with sqlite3.connect(root / "budget.sqlite3") as db:
-        db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)")
+        db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)")
         db.execute("CREATE TABLE reservations (id INTEGER PRIMARY KEY, slot_id TEXT, status TEXT, request_hash TEXT)")
-        db.execute("INSERT INTO slots VALUES (?, ?, 'completed', ?)", (slot_id, config_sha, _sha(slot / "request.json")))
+        db.execute("INSERT INTO slots VALUES (?, ?, 'worker_claimed', ?, NULL)",
+                   (slot_id, config_sha, _sha(slot / "request.json")))
         db.execute("INSERT INTO reservations VALUES (9, ?, 'settled', ?)",
                    (slot_id, hashlib.sha256(json.dumps({"model": "synthetic"}, sort_keys=True,
                                                       separators=(",", ":")).encode()).hexdigest()))
-        db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?)",
+        db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?, NULL)",
                    (config_sha, "c" * 64))
+    complete_worker(root / "budget.sqlite3", slot_id, invocation / "result.json")
     return root, tmp_path / "outputs.json", invocation
 
 
@@ -150,6 +156,63 @@ def test_collects_actual_raw_frames_and_is_idempotent(tmp_path: Path) -> None:
     output.unlink()
     assert not (invocation / "preview-files").exists()
     assert before == {path: path.read_bytes() if path.exists() else None for path in protected}
+    receipt_path, result_path = invocation / "receipt.json", invocation / "result.json"
+    original_receipt, original_result = receipt_path.read_bytes(), result_path.read_bytes()
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        completion_sha = db.execute("SELECT result_sha FROM slots WHERE id='H01-candidate-1'").fetchone()[0]
+    assert completion_sha == _sha(result_path)
+    # These edits remain structurally valid, so only the completion seal can reject them.
+    edits = {
+        "canonical_summary.json": b'{"business_overview":"Edited after completion"}\n',
+        "rendered_summary.md": b"Edited rendered output",
+        "export.html": b"<p>Edited export</p>",
+        "grounding.json": b'{"excerpt":"Edited grounding"}\n',
+        "rendered_sections.json": b'["Edited section"]\n',
+        "events.jsonl": b'{"type":"progress","message":"Edited"}\n{"type":"complete"}\n',
+    }
+    accounting = json.loads((invocation / "provider_accounting.json").read_text())
+    edits["provider_accounting.json"] = json.dumps({**accounting, "edited": True}).encode()
+    frames = [json.loads(line) for line in (invocation / "raw_previews.jsonl").read_text().splitlines()]
+    frames[0]["markdown"] = "Edited wrong preview to look correct"
+    edits["raw_previews.jsonl"] = ("".join(json.dumps(frame) + "\n" for frame in frames)).encode()
+    for name, changed in edits.items():
+        artifact = invocation / name
+        original = artifact.read_bytes()
+        artifact.write_bytes(changed)
+        rejected = collect_outputs(root, output)
+        assert rejected["completed"] == 0 and rejected["records"] == [], name
+        assert "completion seal" in rejected["incomplete_slots"][0]["error"], name
+        assert not (invocation / "preview-files").exists()
+        artifact.write_bytes(original)
+    # Replacing both copies of the completion receipt cannot rewrite the ledger seal.
+    forged = json.loads(original_receipt)
+    forged["artifact_sha256"]["canonical_summary"] = "f" * 64
+    _write(receipt_path, forged)
+    _write(result_path, forged)
+    rejected = collect_outputs(root, output)
+    assert rejected["records"] == []
+    assert "durable completion hash" in rejected["incomplete_slots"][0]["error"]
+    with pytest.raises(BudgetStopped, match="no matching claimed slot"):
+        complete_worker(root / "budget.sqlite3", "H01-candidate-1", result_path)
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        assert db.execute("SELECT result_sha FROM slots WHERE id='H01-candidate-1'").fetchone()[0] == completion_sha
+    # Even a ledger-bound completion is invalid without an exact artifact inventory.
+    original_hashes = json.loads(original_receipt)["artifact_sha256"]
+    for hashes in (None, {key: value for key, value in original_hashes.items() if key != "raw_previews"}):
+        incomplete_seal = json.loads(original_receipt)
+        incomplete_seal["artifact_sha256"] = hashes
+        _write(receipt_path, incomplete_seal)
+        _write(result_path, incomplete_seal)
+        with sqlite3.connect(root / "budget.sqlite3") as db:
+            db.execute("UPDATE slots SET result_sha=? WHERE id='H01-candidate-1'", (_sha(result_path),))
+        rejected = collect_outputs(root, output)
+        assert rejected["records"] == []
+        assert "completion seal" in rejected["incomplete_slots"][0]["error"]
+        assert not (invocation / "preview-files").exists()
+    receipt_path.write_bytes(original_receipt)
+    result_path.write_bytes(original_result)
+    with sqlite3.connect(root / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id='H01-candidate-1'", (completion_sha,))
     first = collect_outputs(root, output)
     assert first["completed"] == 1 and first["expected"] == 120 and first["complete"] is False
     assert len(first["missing_slot_ids"]) == 119
@@ -189,7 +252,8 @@ def test_rejects_source_mismatch_and_preserves_failed_slot(tmp_path: Path) -> No
     _write(invocation / "receipt.json", receipt)
     _write(invocation / "result.json", receipt)
     with sqlite3.connect(root / "budget.sqlite3") as db:
-        db.execute("INSERT INTO slots VALUES ('H02-candidate-1', ?, 'incomplete', ?)", ("a" * 64, "c" * 64))
+        db.execute("UPDATE slots SET result_sha=? WHERE id='H01-candidate-1'", (_sha(invocation / "result.json"),))
+        db.execute("INSERT INTO slots VALUES ('H02-candidate-1', ?, 'incomplete', ?, NULL)", ("a" * 64, "c" * 64))
     result = collect_outputs(root, output)
     assert result["records"] == []
     assert {item["slot_id"] for item in result["incomplete_slots"]} == {
@@ -308,6 +372,8 @@ def test_rejects_sixk_missing_extractor_proof_and_non_sixk_status_flip(tmp_path:
     receipt["source_identity"] = "archived_sgml_verified"
     _write(invocation2 / "receipt.json", receipt)
     _write(invocation2 / "result.json", receipt)
+    with sqlite3.connect(root2 / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id='H01-candidate-1'", (_sha(invocation2 / "result.json"),))
     non_sixk = collect_outputs(root2, output2)
     assert non_sixk["completed"] == 0
     assert "non-6-K" in non_sixk["incomplete_slots"][0]["error"]

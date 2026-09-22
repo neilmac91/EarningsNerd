@@ -120,6 +120,11 @@ async def test_worker_runs_real_pipeline_and_retains_every_raw_preview(tmp_path,
     receipt = await run_invocation(spec, invocation_dir, config, StubMeter())
     assert receipt["status"] == "complete", receipt["errors"]
     assert receipt["source_identity"] == "primary_verified"
+    assert receipt["artifact_sha256"] == {
+        key: hashlib.sha256((invocation_dir / relative).read_bytes()).hexdigest()
+        for key, relative in receipt["artifacts"].items()
+    }
+    assert json.loads((invocation_dir / "receipt.json").read_text()) == receipt
     previews = [json.loads(line) for line in (invocation_dir / "raw_previews.jsonl").read_text().splitlines()]
     assert [item["markdown"] for item in previews] == ["first raw preview", "second raw preview"]
     assert [item["provider_attempt"] for item in previews] == [17, 17]

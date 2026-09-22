@@ -235,7 +235,7 @@ def _write_preview_files(invocation: Path, frames: list[bytes], *, materialize: 
 
 def _slot_record(
     programme_root: Path, output_parent: Path, slot_id: str, config_sha: str,
-    request_sha: str, ledger_reservations: list[tuple[int, str, str]],
+    request_sha: str, result_sha: str, ledger_reservations: list[tuple[int, str, str]],
     *, expected_manifest_sha: str = APPROVED_MANIFEST_SHA256,
     materialize_previews: bool = True,
 ) -> dict[str, Any]:
@@ -258,6 +258,8 @@ def _slot_record(
     result_path = _within(invocation, "result.json")
     selection, request = _read_json(selection_path), _read_json(request_path)
     receipt, result = _read_json(receipt_path), _read_json(result_path)
+    if not _SHA256.fullmatch(result_sha or "") or _sha256(result_path) != result_sha:
+        raise IncompleteSlot("durable completion hash differs from retained worker result")
     if _sha256(request_path) != request_sha:
         raise IncompleteSlot("durable request hash differs from retained request")
     filing = selection.get("filing")
@@ -319,6 +321,11 @@ def _slot_record(
         if ledger_requests[record["reservation_id"]] != request_digest:
             raise IncompleteSlot("provider request differs from durable reservation")
     frames = _validate_preview_frames(resolved["raw_previews"], ledger_ids)
+    completion_hashes = receipt.get("artifact_sha256")
+    if (not isinstance(completion_hashes, dict) or set(completion_hashes) != set(resolved) or
+            any(not _SHA256.fullmatch(str(completion_hashes[key])) or
+                _sha256(path) != completion_hashes[key] for key, path in resolved.items())):
+        raise IncompleteSlot("worker artifact differs from its completion seal")
     preview_files = _write_preview_files(invocation, frames, materialize=materialize_previews)
     output_paths = {
         "canonical": resolved["canonical_summary"],
@@ -402,7 +409,9 @@ def inspect_outputs(
         raise ValueError("outputs.json parent must contain the programme artifacts")
     ledger = _within(programme_root, "budget.sqlite3")
     with sqlite3.connect(ledger.as_uri() + "?mode=ro", uri=True) as db:
-        slots = db.execute("SELECT id, config_sha, status, request_sha FROM slots ORDER BY id").fetchall()
+        if "result_sha" not in {column[1] for column in db.execute("PRAGMA table_info(slots)")}:
+            raise ValueError("programme lacks durable completion seals; do not reconstruct or reset evidence")
+        slots = db.execute("SELECT id, config_sha, status, request_sha, result_sha FROM slots ORDER BY id").fetchall()
         reservations = db.execute("SELECT slot_id, id, status, request_hash FROM reservations ORDER BY id").fetchall()
     by_slot: dict[str, list[tuple[int, str, str]]] = {}
     for slot_id, identity, status, request_hash in reservations:
@@ -411,7 +420,7 @@ def inspect_outputs(
     incomplete: list[dict[str, Any]] = []
     smoke: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for slot_id, config_sha, status, request_sha in slots:
+    for slot_id, config_sha, status, request_sha, result_sha in slots:
         if slot_id in seen:
             incomplete.append(_incomplete_entry(programme_root, output_parent, slot_id,
                                                 status, "duplicate slot claim"))
@@ -427,7 +436,7 @@ def inspect_outputs(
             continue
         try:
             records.append(_slot_record(programme_root, output_parent, slot_id, config_sha,
-                                        request_sha, by_slot.get(slot_id, []),
+                                        request_sha, result_sha, by_slot.get(slot_id, []),
                                         expected_manifest_sha=expected_manifest_sha,
                                         materialize_previews=materialize_previews))
         except (IncompleteSlot, OSError, TypeError, ValueError, KeyError, json.JSONDecodeError) as error:

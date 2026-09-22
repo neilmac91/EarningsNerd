@@ -519,6 +519,13 @@ async def run_invocation(
             receipt["artifacts"]["provider_accounting"] = "provider_accounting.json"
         except Exception as error:  # noqa: BLE001 - unknown charges remain incomplete
             receipt["errors"].append(f"Provider accounting unavailable: {type(error).__name__}: {error}")
+        try:
+            receipt["artifact_sha256"] = {
+                key: _digest_file(invocation_dir / relative)[1]
+                for key, relative in receipt["artifacts"].items()
+            }
+        except OSError as error:
+            receipt["errors"].append(f"Artifact completion seal failed: {type(error).__name__}: {error}")
         receipt["finished_at"] = datetime.now(timezone.utc).isoformat()
         receipt["eligible_for_measurement"] = not receipt["errors"]
         receipt["status"] = "complete" if receipt["eligible_for_measurement"] else "incomplete"

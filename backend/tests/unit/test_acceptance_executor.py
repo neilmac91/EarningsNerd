@@ -320,6 +320,12 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
                            archive=tmp_path, slot="H02-candidate-1", programme=programme)
     with pytest.raises(executor.BudgetStopped, match="failed or interrupted slot"):
         executor.run_slot(args)
+    # A legacy completed ledger cannot be resumed and retroactively sealed either.
+    with sqlite3.connect(programme / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET status='completed'")
+    with pytest.raises(executor.BudgetStopped, match="lacks durable completion seals"):
+        executor.run_slot(args)
+    assert not (programme / "H02-candidate-1").exists()
 
 
 @pytest.mark.asyncio

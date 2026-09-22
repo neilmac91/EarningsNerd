@@ -300,6 +300,15 @@ def claim_worker(request_path, request):
             raise BudgetStopped('worker request already claimed or its identity changed')
 
 
+def complete_worker(ledger_path, slot_id, result_path):
+    """Bind the worker's sealed result bytes when committing its durable completion."""
+    with sqlite3.connect(ledger_path) as db:
+        cursor = db.execute("""UPDATE slots SET status='completed', result_sha=?
+            WHERE id=? AND status='worker_claimed'""", (sha(result_path), slot_id))
+        if cursor.rowcount != 1:
+            raise BudgetStopped('worker completion has no matching claimed slot')
+
+
 def run_slot(args):
     """Explicit dispatch only, after all offline/human prerequisites. No automatic next slot."""
     manifest_path, prerequisites_path = Path(args.manifest).resolve(), Path(args.prerequisites).resolve()
@@ -376,10 +385,12 @@ def run_slot(args):
             if previous and previous[0] != binding:
                 raise BudgetStopped('manifest or frozen configuration changed during programme')
             db.execute('INSERT OR IGNORE INTO binding VALUES (1, ?)', (binding,))
-            db.execute('CREATE TABLE IF NOT EXISTS slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT)')
+            db.execute('CREATE TABLE IF NOT EXISTS slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)')
             if db.execute("SELECT COUNT(*) FROM slots WHERE status!='completed'").fetchone()[0]:
                 raise BudgetStopped('failed or interrupted slot requires triage; no redraw')
-            db.execute('INSERT INTO slots VALUES (?, ?, ?, NULL)', (args.slot, sha(config_path), 'preparing'))
+            if 'result_sha' not in {column[1] for column in db.execute('PRAGMA table_info(slots)')}:
+                raise BudgetStopped('programme lacks durable completion seals; do not reconstruct or reset evidence')
+            db.execute('INSERT INTO slots (id, config_sha, status, request_sha) VALUES (?, ?, ?, NULL)', (args.slot, sha(config_path), 'preparing'))
             db.commit()
         slot_dir = root / args.slot
         slot_dir.mkdir(exist_ok=False)
@@ -415,8 +426,7 @@ def run_slot(args):
             snapshot = ledger.snapshot()
             if snapshot['stop_reason'] or snapshot['pending']:
                 raise BudgetStopped('unreconciled or stopped provider accounting')
-            with sqlite3.connect(ledger_path) as db:
-                db.execute("UPDATE slots SET status='completed' WHERE id=?", (args.slot,))
+            complete_worker(ledger_path, args.slot, result_path)
             return result
         except BaseException:
             (root / 'STOP').touch(exist_ok=True)
