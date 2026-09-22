@@ -35,7 +35,7 @@ import argparse
 import hashlib
 import json
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 GUARD_FILES = ('config.json', 'state.json', 'TEMPLATE.json', 'initialization.json',
@@ -46,8 +46,50 @@ ATTESTATION_SCHEMA = 'fable-e8-accounting-attestation-v1'
 READBACK_KEYS = frozenset({'observed_at_utc', 'guard_dir'})
 
 
-def receipt_classes(receipts: Path) -> dict:
-    """Which recovery-critical receipt classes the directory holds, by parsing every JSON file."""
+ATTESTATION_KEYS = frozenset({
+    'schema', 'operator', 'observed_at_utc', 'prior_count', 'prior_evidence_sha256',
+    'founder_statement_sha256', 'original_manifest_sha256', 'e3_supplement_manifest_sha256',
+    'guard_state_path', 'no_untracked_e8_or_probe_calls', 'sole_persistent_guard',
+    'exclusive_e8_dispatch_during_continuation'})
+ATTESTATION_AFFIRMATIVES = ('no_untracked_e8_or_probe_calls', 'sole_persistent_guard',
+                            'exclusive_e8_dispatch_during_continuation')
+PRIOR_COUNT = 287
+
+
+def utc_timestamp(value: object) -> bool:
+    """True for a parseable ISO-8601 timestamp carrying an explicit UTC offset."""
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset() == timedelta(0)
+
+
+def valid_attestation(value: dict, guard: Path) -> bool:
+    """The add-on's attestation shape and bindings, minus freshness (an export follows a run)."""
+    return (set(value) == ATTESTATION_KEYS
+            and value.get('schema') == ATTESTATION_SCHEMA
+            and isinstance(value.get('operator'), str) and bool(value['operator'].strip())
+            and utc_timestamp(value.get('observed_at_utc'))
+            and type(value.get('prior_count')) is int and value['prior_count'] == PRIOR_COUNT
+            and all(value.get(k) is True for k in ATTESTATION_AFFIRMATIVES)
+            and all(isinstance(value.get(k), str) and len(value[k]) == 64 for k in
+                    ('prior_evidence_sha256', 'founder_statement_sha256',
+                     'original_manifest_sha256', 'e3_supplement_manifest_sha256'))
+            and value.get('guard_state_path') == str(guard / 'state.json'))
+
+
+def valid_readback(value: dict, guard: Path) -> bool:
+    """A live readback of this guard: bound to its directory, with a real UTC observation."""
+    return (READBACK_KEYS <= set(value)
+            and value.get('guard_dir') == str(guard)
+            and utc_timestamp(value.get('observed_at_utc')))
+
+
+def receipt_classes(receipts: Path, guard: Path) -> dict:
+    """Which recovery-critical receipt classes the directory holds, validated against this guard."""
     found = {'attestation': False, 'readback': False}
     for path in sorted(receipts.rglob('*.json')):
         try:
@@ -56,9 +98,9 @@ def receipt_classes(receipts: Path) -> dict:
             continue
         if not isinstance(value, dict):
             continue
-        if value.get('schema') == ATTESTATION_SCHEMA:
+        if valid_attestation(value, guard):
             found['attestation'] = True
-        if READBACK_KEYS <= set(value):
+        if valid_readback(value, guard):
             found['readback'] = True
     return found
 
@@ -115,11 +157,12 @@ def main() -> None:
     if initialized:
         if receipts is None:
             raise SystemExit('REFUSE: an initialized guard export requires --receipts')
-        missing_classes = [name for name, present in receipt_classes(receipts).items() if not present]
+        missing_classes = [name for name, present in receipt_classes(receipts, guard).items() if not present]
         if missing_classes:
-            raise SystemExit(f'REFUSE: receipts directory lacks the recovery-critical classes {missing_classes} '
-                             f'(an operator attestation with schema {ATTESTATION_SCHEMA!r} and a guard readback '
-                             f'record with {sorted(READBACK_KEYS)}); a restore receipt alone is not enough')
+            raise SystemExit(f'REFUSE: receipts directory lacks valid recovery-critical records {missing_classes}: '
+                             f'an operator attestation (full {ATTESTATION_SCHEMA!r} shape, named operator, '
+                             f'prior_count {PRIOR_COUNT}, all three affirmatives true, guard_state_path bound to '
+                             f'{guard / "state.json"}) and a guard readback bound to {guard} with a UTC observation')
     for name in GUARD_FILES:
         path = guard / name
         if path.exists():
