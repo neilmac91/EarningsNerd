@@ -29,11 +29,12 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
 
 Only the three named placeholders (``<session-uploads-dir>``, ``<UTC stamp>``, ``<post-run
 stamp>``) are removed before the operator check; any other ``<…>`` span is shell syntax, and each
-placeholder is valid in exactly one command position (the uploads directory in the restore, the
-pre-run stamp in the execute command's attestation path, the post-run stamp in the export
-destination), so the stamp ordering the kit prescribes is enforced, not just described. The
-evasion cases at the bottom lock each of these behaviours against in-memory copies of the kit
-and rules.
+placeholder must appear exactly once across the kit's commands, in exactly one position (the
+uploads directory in the restore, the pre-run stamp in the execute command's attestation path,
+the post-run stamp in the export destination), so the stamp ordering the kit prescribes is
+enforced, not just described, and cannot be removed by hard-coding a value or dropping an
+argument. The evasion cases at the bottom lock each of these behaviours against in-memory
+copies of the kit and rules.
 """
 from __future__ import annotations
 
@@ -219,6 +220,12 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
                 problems.append(f"placeholder {placeholder} is valid only as {role}: {command}")
     if commands and commands[0] != PROBE:
         problems.append(f"the first command must be the zero-effect probe {PROBE!r}; found {commands[0]!r}")
+    for placeholder, (role, _) in PLACEHOLDER_POSITIONS.items():
+        occurrences = sum(command.count(placeholder) for command in commands)
+        if occurrences != 1:
+            problems.append(
+                f"placeholder {placeholder} must appear exactly once across the kit's commands, as {role}; found {occurrences}"
+            )
     return problems
 
 
@@ -297,6 +304,10 @@ KIT_EVASIONS = [
     ("pre-run stamp in the export destination", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-<UTC stamp>")),
     ("uploads placeholder in the export destination", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-<session-uploads-dir>")),
     ("stamp placeholder in the restore command", lambda kit: kit.replace("/root/.claude/uploads/<session-uploads-dir>", "/root/.claude/uploads/<UTC stamp>")),
+    ("hard-coded attestation stamp", lambda kit: kit.replace("e8-attestation-<UTC stamp>.json --max-new", "e8-attestation-20260922T220300Z.json --max-new")),
+    ("attestation argument removed", lambda kit: kit.replace(" --attestation /home/user/fable-judging/receipts/e8-attestation-<UTC stamp>.json", "")),
+    ("hard-coded export stamp", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-20260922T220300Z")),
+    ("hard-coded uploads directory", lambda kit: kit.replace("/root/.claude/uploads/<session-uploads-dir>", "/root/.claude/uploads/a714ff2c")),
 ]
 
 
