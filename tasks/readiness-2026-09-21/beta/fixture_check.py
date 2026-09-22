@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import re
 import sqlite3
 import subprocess
+from pathlib import Path
 
 import psycopg2
-
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
@@ -25,7 +24,7 @@ PARAMETERS = {
     "cohort": "fixture-beta",
     "window_start": "2026-09-21T00:00:00Z",
     "window_end": "2026-09-28T00:00:00Z",
-    "excluded_user_ids": [3],
+    "excluded_user_ids": [3, 11],
     "excluded_invite_ids": [106],
 }
 
@@ -175,7 +174,8 @@ def main() -> None:
                   (6,'2026-09-21 09:00Z',true,true),
                   (8,'2026-09-21 09:00Z',true,true),
                   (9,'2026-09-29 09:00Z',true,true),
-                  (10,'2026-09-28 00:00Z',true,true);
+                  (10,'2026-09-28 00:00Z',true,true),
+                  (11,'2026-09-29 09:00Z',true,true);
                 INSERT INTO invite_codes VALUES
                   (101,1,'fixture-beta','2026-09-21 08:00Z','2026-09-21 09:00Z','2026-10-01',false),
                   (102,2,'fixture-beta','2026-09-21 08:00Z','2026-09-21 09:00Z','2026-10-01',false),
@@ -190,7 +190,8 @@ def main() -> None:
                   (111,9,'fixture-beta','2026-09-21 08:00Z','2026-09-29 09:00Z','2026-10-01',false),
                   (112,10,'fixture-beta','2026-09-21 08:00Z','2026-09-28 00:00Z','2026-10-01',false),
                   (113,NULL,'fixture-beta','2026-09-28 00:00Z',NULL,'2026-10-01',false),
-                  (114,NULL,'fixture-beta','2026-09-21 08:00Z',NULL,'2026-09-28 00:00Z',false);
+                  (114,NULL,'fixture-beta','2026-09-21 08:00Z',NULL,'2026-09-28 00:00Z',false),
+                  (115,11,'fixture-beta','2026-09-21 08:00Z','2026-09-29 09:00Z','2026-10-01',false);
                 INSERT INTO feedback VALUES
                   (201,1,'2026-09-22 09:00Z','new'),
                   (202,2,'2026-09-22 09:00Z','resolved'),
@@ -217,7 +218,7 @@ def main() -> None:
             roster = [dict(zip(cols, row)) for row in cursor.fetchall()]
             eligible = {row["user_id"] for row in roster if row["eligible_verified"]}
             assert eligible == {1, 2, 6}, eligible
-            assert len(roster) == 12, len(roster)
+            assert len(roster) == 13, len(roster)
             revoked = next(row for row in roster if row["invite_id"] == 105)
             assert revoked["roster_state"] == "no linked user"
             assert revoked["pending_reachable_at_window_end_current_state"] is False
@@ -233,6 +234,10 @@ def main() -> None:
             assert next(row for row in roster if row["invite_id"] == 101)["pending_reachable_at_window_end_current_state"] is False
             assert all(row["invite_id"] != 113 for row in roster), "invite created at window end is outside the window"
             assert next(row for row in roster if row["invite_id"] == 114)["pending_reachable_at_window_end_current_state"] is False
+            excluded_late = next(row for row in roster if row["invite_id"] == 115)
+            assert excluded_late["excluded_user"] is True
+            assert excluded_late["redeemed_by_window_end"] is False
+            assert excluded_late["pending_reachable_at_window_end_current_state"] is False
             assert next(row for row in roster if row["invite_id"] == 108)["roster_state"] == "duplicate invite for user"
             assert next(row for row in roster if row["invite_id"] == 103)["excluded_user"]
             assert next(row for row in roster if row["invite_id"] == 106)["excluded_invite"]

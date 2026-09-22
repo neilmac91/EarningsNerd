@@ -25,7 +25,8 @@ SELECT now() AS roster_observed_at, s.invite_id, s.user_id, s.invite_created_at,
        s.registered_at, s.email_verified, s.is_beta,
        s.excluded_invite, s.excluded_user,
        ((s.used_at IS NULL OR s.used_at >= p.window_end) AND s.is_revoked IS FALSE
-          AND s.expires_at > p.window_end AND NOT s.excluded_invite) AS pending_reachable_at_window_end_current_state,
+          AND s.expires_at > p.window_end AND NOT s.excluded_invite
+          AND NOT s.excluded_user) AS pending_reachable_at_window_end_current_state,
        (s.used_at IS NOT NULL AND s.used_at < p.window_end AND s.user_id IS NOT NULL) AS redeemed_by_window_end,
        (s.user_id IS NOT NULL AND s.registered_at IS NOT NULL
           AND s.registered_at < p.window_end) AS registered_by_window_end,
