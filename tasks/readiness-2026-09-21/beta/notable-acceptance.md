@@ -25,6 +25,7 @@ SELECT reason, count(*) AS candidates, count(DISTINCT accession_number) AS disti
          (ORDER BY extract(epoch FROM (first_seen_at - (filed_date::timestamp AT TIME ZONE 'UTC')))/86400) AS age_days_p50,
        percentile_cont(0.95) WITHIN GROUP
          (ORDER BY extract(epoch FROM (first_seen_at - (filed_date::timestamp AT TIME ZONE 'UTC')))/86400) AS age_days_p95,
+       max(extract(epoch FROM (first_seen_at - (filed_date::timestamp AT TIME ZONE 'UTC')))/86400) AS age_days_max,
        count(*) - count(DISTINCT accession_number) AS duplicate_accessions
 FROM notable_filings
 WHERE first_seen_at >= :'window_start'::timestamptz

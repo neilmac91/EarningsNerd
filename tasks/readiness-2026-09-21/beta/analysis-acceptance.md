@@ -7,7 +7,7 @@ This adds the missing Analysis proof to the existing acceptance plan. The Vercel
 | Candidate deployment SHA / backend revision / frontend preview | `[ ]` / `[ ]` / `[ ]` |
 | Exact warm-up cohort tickers and source | `[explicit tickers; no broad watchlist default]` |
 | Warm-up command and UTC start/end | `cd backend && python scripts/sync_companyfacts.py --tickers TICKER1,TICKER2` (replace with frozen cohort); `[ ]` |
-| Warm-up attempted / synced / unsupported / error | `[ ] / [ ] / [ ] / [ ]`; counts must reconcile to attempted |
+| Warm-up companies attempted / refreshed / fresh / failed; unsupported IFRS subset | `[ ] / [ ] / [ ] / [ ]; [ ]`; `companies = refreshed + fresh + failed`, and `unsupported_ifrs <= refreshed` (not an additional outcome) |
 | Per-ticker supported annual/quarterly periods and latest facts timestamp | `[ ]` |
 | Named Pro-account alias (no credential), entitlement source and observation time | `[ ]` |
 | Frontend flag evidence and observation time | `[ ]` |

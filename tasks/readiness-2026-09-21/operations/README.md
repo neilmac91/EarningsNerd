@@ -16,10 +16,16 @@ gcloud beta monitoring channels describe projects/earnings-nerd/notificationChan
 
 The local `gcloud` installation used for this preparation lacks the beta channel command group, so the channel's enabled state and owner remain a readback hold. The existing policies prove only the reference. A console read of the channel is an equivalent read-only check; do not create a replacement channel on that basis.
 
-The following is an idempotent apply recipe for an authorized operator. Run from this directory with `jq` and `gcloud`; retain the rendered files and created resource names in the change receipt. It verifies an existing display name and **stops on configuration drift**. Check the listed resource's definition before deciding that a re-run is complete. Do not run until channel ownership, production application and alert-delivery validation are authorized.
+The following is an idempotent apply recipe for an authorized operator. Run from this directory with `jq` and `gcloud`. Set `POLICY_RECEIPT_DIR` to a new, private, absolute directory in the approved change-receipt location; the recipe saves the exact rendered request bodies there. Retain that directory and the created resource names together. It verifies an existing display name and **stops on configuration drift**. Check the listed resource's definition before deciding that a re-run is complete. Do not run until channel ownership, production application and alert-delivery validation are authorized.
 
 ```bash
 set -euo pipefail
+receipt_dir=${POLICY_RECEIPT_DIR:?Set POLICY_RECEIPT_DIR to a new private absolute receipt directory}
+case "$receipt_dir" in
+  /*) ;;
+  *) echo 'POLICY_RECEIPT_DIR must be absolute' >&2; exit 1 ;;
+esac
+mkdir -m 700 -- "$receipt_dir"
 channel='projects/earnings-nerd/notificationChannels/2698479126467110226'
 check_name='EarningsNerd: detailed health healthy'
 existing_check=$(gcloud monitoring uptime list-configs --project=earnings-nerd --format=json |
@@ -57,7 +63,7 @@ gcloud monitoring uptime describe "$existing_check" --project=earnings-nerd --fo
          .contentMatchers[0].jsonPathMatcher.jsonMatcher == "EXACT_MATCH"' >/dev/null
 
 for file in alerts/*.json; do
-  rendered=$(mktemp)
+  rendered="$receipt_dir/${file##*/}"
   if [ "$file" = alerts/uptime-failure.json ]; then
     jq --arg c "$channel" --arg id "$check_id" \
       '.notificationChannels=[$c] | .conditions[0].conditionThreshold.filter |= gsub("__CHECK_ID__"; $id)' \
@@ -81,7 +87,6 @@ for file in alerts/*.json; do
          ($actual.alertStrategy == $wanted.alertStrategy) and
          (($actual.conditions | map(del(.name))) == $wanted.conditions)' >/dev/null
   fi
-  rm "$rendered"
 done
 ```
 
