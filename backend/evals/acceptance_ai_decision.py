@@ -207,6 +207,14 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
         raise ValueError("assessment inventory is not bound to AI protocol and packet mapping")
     _, protocol = _evidence(prerequisites_path.parent, prereq["ai_assisted"]["protocol"])
     roles = {r["role"]: r for r in protocol["roles"]}
+    source_context_ids = {r.get("context_id") for r in prereq["ai_assisted"]["source_briefs"]}
+    for reference_record in prereq["ai_assisted"]["reconciled_references"]:
+        _, reference = _evidence(prerequisites_path.parent, reference_record)
+        source_context_ids.add(reference.get("context_id"))
+    if any(not _nonempty(context_id) for context_id in source_context_ids):
+        raise ValueError("source review context identity missing")
+    quality_context_ids: set[str] = set()
+    challenge_context_ids: set[str] = set()
     identities = expected_identities(manifest)
     slots = {(v["accession_number"], v["arm"], v["draw"]): k for k, v in identities.items()}
     retained = {r["slot_id"]: r for r in actual["records"]}
@@ -301,9 +309,16 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
         raw = retained.get(slot)
         if raw is None:
             raise ValueError("assessment refers to an incomplete output")
+        quality_context_id = row.get("quality_context_id")
+        challenge_context_id = row.get("challenge_context_id")
+        if (not _nonempty(quality_context_id) or not _nonempty(challenge_context_id) or
+                quality_context_id == challenge_context_id or
+                quality_context_id in source_context_ids or challenge_context_id in source_context_ids or
+                quality_context_id in challenge_context_ids or challenge_context_id in quality_context_ids):
+            raise ValueError("assessment context is missing or reused across review roles")
+        quality_context_ids.add(quality_context_id)
+        challenge_context_ids.add(challenge_context_id)
         if (row.get("review_protocol") != "ai_assisted" or row.get("schema_version") != 1 or
-                row.get("quality_context_id") != roles["blind_quality"]["context_id"] or
-                row.get("challenge_context_id") != roles["source_challenge"]["context_id"] or
                 row.get("reviewer_artifacts") != packet["reviewer_artifacts"] or
                 row.get("surfaces_checked") != sorted(packet["reviewer_artifacts"]) or
                 row.get("grounding_sha256") != raw["collector_evidence"]["grounding"]["sha256"] or
@@ -342,8 +357,10 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
                        f.get("machine_check_id") == failure["id"]]
             allegation = f"machine:{failure['id']}:{failure['code']}"
             if (len(matches) != 1 or matches[0].get("surface") != failure["surface"] or
-                    matches[0].get("original_allegation") != allegation):
-                machine_issues.append(f"{slot}: deterministic failure {failure['id']} lacks its own source challenge")
+                    matches[0].get("original_allegation") != allegation or
+                    matches[0].get("disposition") != "confirmed"):
+                machine_issues.append(
+                    f"{slot}: deterministic failure {failure['id']} lacks its own confirmed source challenge")
         assessments.append({**row, "slot_id": slot})
     issues = ([] if readiness["ready_for_packets"] else
               [f"readiness:{i['code']}" for i in readiness["issues"]])
@@ -447,11 +464,13 @@ def _validate_responses(base: Path, row: dict[str, Any], packet: dict[str, Any],
     _, quality = _evidence(base, row.get("quality_response"))
     _, semantic = _evidence(base, row.get("semantic_response"))
     _, source = _evidence(base, row.get("challenge_response"))
-    for response, role, binding in ((quality, "blind_quality", packet),
-                                    (source, "source_challenge", challenge)):
+    for response, role, binding, context_key in (
+            (quality, "blind_quality", packet, "quality_context_id"),
+            (source, "source_challenge", challenge, "challenge_context_id")):
         if (response is None or response.get("schema_version") != 1 or
                 response.get("review_protocol") != "ai_assisted" or
                 response.get("role_identity") != roles[role] or
+                response.get("context_id") != row.get(context_key) or
                 response.get("packet_id") != binding["packet_id"] or
                 response.get("reviewer_artifacts") != binding["reviewer_artifacts"] or
                 response.get("reference_sha256") != row.get("reference_sha256") or

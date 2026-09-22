@@ -1,4 +1,4 @@
-# E7 AI-assisted evidence, schema version 2
+# E7 AI-assisted evidence: role protocol 3, evidence schema 2
 
 Use a private evidence directory outside the repository. The enclosing
 `prerequisites.json` uses `schema_version: 2`, `review_protocol: "ai_assisted"`,
@@ -9,13 +9,19 @@ object with `protocol`, `source_briefs`, `reconciled_references` and
 
 The protocol lists five separate roles: `source_reference_a`,
 `source_reference_b`, `source_reconciliation`, `blind_quality` and
-`source_challenge`. Each records the actual provider, model, version and unique
-context ID, plus hash-bound prompt and contract files. A role declaration does
+`source_challenge`. The role protocol uses `schema_version: 3`. Each role records the actual provider,
+model and version, plus hash-bound prompt and contract files. Context IDs belong
+to actual evidence records, not to the frozen role descriptors. The enclosing
+prerequisites, source briefs, references and context receipts keep schema version 2. A role declaration does
 not imply that a model has run; retain the actual source briefs, reconciliation
 and later rating/challenge records. The first two roles must produce one
 independent source-only brief per approved accession, for 60 briefs. The
 reconciliation role produces one source-only reference per accession, for 30
-references. No candidate output may enter these contexts before their evidence
+references. Each source-brief index row includes `accession_number`, `role`,
+`context_id`, `path` and `sha256`. Use a fresh actual context for each filing and
+source role: all 60 brief contexts and 30 reconciliation contexts must be unique.
+This permits bounded filing reads without placing all 30 filings in one context.
+No candidate output may enter these contexts before their evidence
 is sealed in the programme ledger. The protocol freeze follows all briefs,
 reconciliations and the exposure observation, and precedes generation.
 
@@ -47,6 +53,13 @@ Neither field is a human unseen attestation. The AI evidence provides different,
 weaker assurance than the original human acceptance protocol. It cannot be
 reported as human-reviewed acceptance or used alone to turn on a production
 flag.
+
+After generation, each quality/challenge response records its actual `context_id`
+and the frozen role identity separately. Contexts may be reused within one review
+role only when that is what actually ran. A quality context cannot also be a
+challenge context, and neither may reuse any source-stage context. Actual IDs need
+not be invented before those reviews run. Retain coverage limitations for each
+reviewed output.
 
 All AI protocol files, prompts/contracts, briefs, references and exposure bytes
 are included in the ledger's immutable `review_evidence` inventory before

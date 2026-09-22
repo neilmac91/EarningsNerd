@@ -1,13 +1,13 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "review_protocol": "ai_assisted",
   "frozen_at": "",
   "approved_manifest_sha256": "68242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66",
   "roles": [
-    {"role": "source_reference_a", "provider": "", "model": "", "model_version": "", "context_id": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
-    {"role": "source_reference_b", "provider": "", "model": "", "model_version": "", "context_id": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
-    {"role": "source_reconciliation", "provider": "", "model": "", "model_version": "", "context_id": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
-    {"role": "blind_quality", "provider": "", "model": "", "model_version": "", "context_id": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
-    {"role": "source_challenge", "provider": "", "model": "", "model_version": "", "context_id": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}}
+    {"role": "source_reference_a", "provider": "", "model": "", "model_version": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
+    {"role": "source_reference_b", "provider": "", "model": "", "model_version": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
+    {"role": "source_reconciliation", "provider": "", "model": "", "model_version": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
+    {"role": "blind_quality", "provider": "", "model": "", "model_version": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}},
+    {"role": "source_challenge", "provider": "", "model": "", "model_version": "", "prompt": {"path": "", "sha256": ""}, "contract": {"path": "", "sha256": ""}}
   ]
 }

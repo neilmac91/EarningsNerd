@@ -31,8 +31,11 @@ nonempty reasons, `semantic`, `checks`, `findings`, and hash-bound `quality_resp
 `semantic_response`, `challenge_response` and `machine_inventory` files.
 
 Quality and challenge responses carry version 1, `review_protocol: "ai_assisted"`, the exact
-frozen `role_identity`, their independently blinded packet ID/artifact inventory, reference
-and grounding hashes. Quality supplies both scores/reasons and its complete `allegations`
+frozen `role_identity` from role protocol version 3, their actual `context_id`,
+independently blinded packet ID/artifact inventory, reference and grounding hashes.
+The actual context must match the assessment and cannot reuse any source-stage
+context or a context used for the other review role. Actual reuse within one review
+role is retained rather than represented as a new context. Quality supplies both scores/reasons and its complete `allegations`
 list. Challenge supplies the complete `checks` and `findings`; normalized values must equal
 these retained response contents. Both must bind `machine_inventory_sha256` and record
 `claim_inventory_coverage: "all_detected_claims_inventoried"`. This is a model claim, not a
@@ -51,8 +54,11 @@ used for the actual judging handoff so the ceiling is enforced before invocation
 `checks` must cover `numeric_claims`, `causal_claims`, `financial_basis`, `quotations` and
 `citations`, each with `checked`, `defect` or `unresolved`. The decision reruns the
 [exact deterministic checks](checks.md) over the actual packet files and frozen sources.
-Every machine failure requires exactly one finding with its `machine_check_id`, matching
-`surface`, and `original_allegation` equal to `machine:<id>:<code>`. Incomplete machine
+Every machine failure requires exactly one confirmed finding with its `machine_check_id`,
+matching `surface`, and `original_allegation` equal to `machine:<id>:<code>`. A rejected
+or unresolved finding cannot clear a deterministic mismatch; the decision remains
+incomplete unless the required confirmed finding is retained, and that defect still
+participates in the ordinary materiality/acceptance rules. Incomplete machine
 checks hold the decision. Model/source review supplies semantic coverage beyond exact spans.
 
 Each finding retains a unique `id`, `surface`, `claim`, source locator/context, selected

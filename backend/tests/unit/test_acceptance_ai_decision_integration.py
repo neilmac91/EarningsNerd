@@ -42,11 +42,11 @@ def _v2_evidence(fixture: dict) -> dict:
     for role in ("source_reference_a", "source_reference_b", "source_reconciliation",
                  "blind_quality", "source_challenge"):
         roles.append({"role": role, "provider": "synthetic-codex", "model": "gpt-6-astra",
-                      "model_version": "synthetic-2026-09", "context_id": f"ctx-{role}",
+                      "model_version": "synthetic-2026-09",
                       "prompt": _write(base / f"{role}-prompt.json", {"task": role}),
                       "contract": _write(base / f"{role}-contract.json", {"version": 2})})
     protocol = _write(base / "ai-protocol.json", {
-        "schema_version": 2, "review_protocol": "ai_assisted", "frozen_at": frozen,
+        "schema_version": 3, "review_protocol": "ai_assisted", "frozen_at": frozen,
         "approved_manifest_sha256": fixture["manifest_sha"], "roles": roles})
     briefs = []
     references = []
@@ -60,8 +60,10 @@ def _v2_evidence(fixture: dict) -> dict:
                  "amounts_and_bases": "USD, current filing", "qualifiers": "synthetic",
                  "importance": "material", "disclosure_limits": "only the supplied text"}
         brief_hashes = {}
+        brief_contexts = {}
         for role in ("source_reference_a", "source_reference_b"):
-            context = f"ctx-{role}"
+            context = f"ctx-{name}-{role}"
+            brief_contexts[role] = context
             receipt = _write(base / f"{name}-{role}-context.json", {
                 "schema_version": 2, "review_protocol": "ai_assisted", "accession_number": accession,
                 "context_id": context, "role": role, "observed_at": prior,
@@ -76,22 +78,24 @@ def _v2_evidence(fixture: dict) -> dict:
                 "coverage_limits": "synthetic complete packet set", "material_issues": [issue],
                 "context_evidence": receipt})
             brief_hashes[role] = brief["sha256"]
-            briefs.append({"accession_number": accession, "context_id": context, **brief})
+            briefs.append({"accession_number": accession, "role": role,
+                           "context_id": context, **brief})
+        reconciliation_context = f"ctx-{name}-source_reconciliation"
         recon_receipt = _write(base / f"{name}-recon-context.json", {
             "schema_version": 2, "review_protocol": "ai_assisted", "accession_number": accession,
-            "context_id": "ctx-source_reconciliation", "role": "source_reconciliation",
+            "context_id": reconciliation_context, "role": "source_reconciliation",
             "observed_at": prior, "input_source_packets": packets,
             "input_brief_sha256": brief_hashes, "candidate_output_artifacts": [],
             "source_only": True, "context_window_truncated": False})
         ref = _write(base / f"{name}-reference.json", {
             "schema_version": 2, "review_protocol": "ai_assisted", "accession_number": accession,
-            "context_id": "ctx-source_reconciliation", "frozen_at": prior,
+            "context_id": reconciliation_context, "frozen_at": prior,
             "source_only": True, "candidate_outputs_seen": False,
             "source_packets": packets, "coverage_status": "complete",
             "context_window_truncated": False, "coverage_limits": "synthetic complete packet set",
             "source_brief_sha256": brief_hashes, "context_evidence": recon_receipt,
             "material_issues": [issue], "disagreements": [],
-            "issue_dispositions": [{"source_context_id": f"ctx-{role}",
+            "issue_dispositions": [{"source_context_id": brief_contexts[role],
                                     "source_issue_id": "i1", "status": "supported",
                                     "reason": "synthetic source match", "source_role": "primary",
                                     "source_sha256": source_sha, "source_locator": "line 1",
@@ -235,13 +239,17 @@ def _review_evidence(fixture: dict, prereq: dict, mapping_path: Path) -> Path:
                   "reference_sha256": reference_sha, "grounding_sha256": grounding_sha,
                   "machine_inventory_sha256": machine_ref["sha256"],
                   "claim_inventory_coverage": "all_detected_claims_inventoried"}
+        quality_context = "ctx-blind-quality-shared"
+        challenge_context = "ctx-source-challenge-shared"
         quality = {**common, "role_identity": roles["blind_quality"],
+                   "context_id": quality_context,
                    "packet_id": packet["packet_id"],
                    "reviewer_artifacts": packet["reviewer_artifacts"],
                    "completeness": 5, "usefulness": 5,
                    "completeness_reason": "synthetic complete", "usefulness_reason": "synthetic clear",
                    "allegations": []}
         source = {**common, "role_identity": roles["source_challenge"],
+                  "context_id": challenge_context,
                   "packet_id": challenge["packet_id"],
                   "reviewer_artifacts": challenge["reviewer_artifacts"],
                   "checks": {k: "checked" for k in
@@ -254,8 +262,8 @@ def _review_evidence(fixture: dict, prereq: dict, mapping_path: Path) -> Path:
                     "grounding_truncated": False, "raw": raw_verdict}
         assessment = {"schema_version": 1, "review_protocol": "ai_assisted",
                       "packet_id": packet["packet_id"],
-                      "quality_context_id": roles["blind_quality"]["context_id"],
-                      "challenge_context_id": roles["source_challenge"]["context_id"],
+                      "quality_context_id": quality_context,
+                      "challenge_context_id": challenge_context,
                       "reviewer_artifacts": packet["reviewer_artifacts"],
                       "surfaces_checked": sorted(packet["reviewer_artifacts"]),
                       "grounding_sha256": grounding_sha, "reference_sha256": reference_sha,
@@ -349,6 +357,37 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     assessment_ref = evidence["assessments"][0]
     assessment_path = fixture["evidence"].parent / assessment_ref["path"]
     assessment = json.loads(assessment_path.read_text())
+    original_quality_context = assessment["quality_context_id"]
+    quality_context_path = fixture["evidence"].parent / assessment["quality_response"]["path"]
+    quality_context_response = json.loads(quality_context_path.read_text())
+    source_context = json.loads(fixture["preflight"].read_text())["ai_assisted"]["source_briefs"][0]["context_id"]
+    assessment["quality_context_id"] = source_context
+    quality_context_response["context_id"] = source_context
+    assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    with pytest.raises(ValueError, match="reused across review roles"):
+        _decide(fixture)
+
+    assessment["quality_context_id"] = assessment["challenge_context_id"]
+    quality_context_response["context_id"] = assessment["challenge_context_id"]
+    assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    with pytest.raises(ValueError, match="reused across review roles"):
+        _decide(fixture)
+
+    assessment["quality_context_id"] = "ctx-unbound-quality-response"
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    with pytest.raises(ValueError, match="raw review response identity"):
+        _decide(fixture)
+    assessment["quality_context_id"] = original_quality_context
+    quality_context_response["context_id"] = original_quality_context
+    assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+
     packet = next(p for p in mapping["packet_sets"]["ai-packet-1"]
                   if p["packet_id"] == assessment["packet_id"])
     manifest = json.loads(fixture["manifest"].read_text())
@@ -388,7 +427,7 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
     wrong_surface = _decide(fixture)
     assert wrong_surface["status"] == "incomplete"
-    assert any("lacks its own source challenge" in reason
+    assert any("lacks its own confirmed source challenge" in reason
                for reason in wrong_surface["incomplete_reasons"])
 
     finding["surface"] = "rendered"
@@ -397,8 +436,22 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     assessment["challenge_response"].update(_write(challenge_path, challenge))
     assessment_ref.update(_write(assessment_path, assessment))
     fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
-    properly_challenged = _decide(fixture)
-    assert properly_challenged["status"] == "pass"
+    rejected_machine_finding = _decide(fixture)
+    assert rejected_machine_finding["status"] == "incomplete"
+    assert any("lacks its own confirmed source challenge" in reason
+               for reason in rejected_machine_finding["incomplete_reasons"])
+
+    finding["disposition"] = "confirmed"
+    finding["category"] = "fabricated_quote"
+    challenge["findings"] = [finding]
+    assessment["findings"] = [finding]
+    assessment["challenge_response"].update(_write(challenge_path, challenge))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    confirmed_machine_finding = _decide(fixture)
+    assert confirmed_machine_finding["status"] == "fail"
+    assert any("confirmed S2 fabricated_quote" in reason
+               for reason in confirmed_machine_finding["failures"])
 
     # Rehash a coherently edited challenge: hashes alone must not bless an
     # invented passage used to dismiss a real machine allegation.

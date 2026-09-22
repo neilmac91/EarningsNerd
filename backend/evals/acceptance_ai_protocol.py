@@ -1,4 +1,4 @@
-"""Version 2, AI-assisted E7 source-reference protocol (offline validation only).
+"""Version 3 role protocol with version 2 AI source evidence (offline validation only).
 
 These records are model evidence, never human review or proof that a model read every
 byte. All source-only and coverage claims are explicit, hash-bound assertions.
@@ -130,7 +130,8 @@ def ai_review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any
             "contract": _artifact(base, role["contract"])[0],
         } for role in roles), key=lambda row: row["role"]),
         "source_briefs": sorted(({
-            "accession_number": row["accession_number"], "context_id": row["context_id"],
+            "accession_number": row["accession_number"], "role": row["role"],
+            "context_id": row["context_id"],
             **_reference(base, row)[0],
             "context_evidence": _reference(base, _reference(base, row)[1]["context_evidence"])[0],
         } for row in ai["source_briefs"]), key=lambda row: (row["accession_number"], row["context_id"])),
@@ -162,7 +163,7 @@ def validate_ai_prerequisites(
         _, protocol = _reference(base, ai["protocol"])
         if (set(protocol) != {"schema_version", "review_protocol", "frozen_at",
                               "approved_manifest_sha256", "roles"} or
-                protocol["schema_version"] != 2 or protocol["review_protocol"] != "ai_assisted" or
+                protocol["schema_version"] != 3 or protocol["review_protocol"] != "ai_assisted" or
                 protocol["approved_manifest_sha256"] != prereq["approved_manifest_sha256"] or
                 utc(protocol["frozen_at"]) is None or utc(protocol["frozen_at"]) > now):
             raise ValueError("protocol version, manifest or freeze invalid")
@@ -170,37 +171,39 @@ def validate_ai_prerequisites(
         if not isinstance(roles, list) or len(roles) != len(ROLE_NAMES):
             raise ValueError("AI role inventory incomplete")
         names = [role.get("role") for role in roles if isinstance(role, dict)]
-        contexts = [role.get("context_id") for role in roles if isinstance(role, dict)]
-        if set(names) != ROLE_NAMES or len(set(contexts)) != len(ROLE_NAMES):
-            raise ValueError("AI roles or contexts duplicated")
+        if set(names) != ROLE_NAMES:
+            raise ValueError("AI roles duplicated")
         for role in roles:
-            if (set(role) != {"role", "provider", "model", "model_version", "context_id",
+            if (set(role) != {"role", "provider", "model", "model_version",
                               "prompt", "contract"} or
                     any(not _nonempty(role.get(k)) for k in
-                        ("provider", "model", "model_version", "context_id"))):
+                        ("provider", "model", "model_version"))):
                 raise ValueError("AI role identity incomplete")
             _artifact(base, role["prompt"])
             _artifact(base, role["contract"])
-        context_by_role = {role["role"]: role["context_id"] for role in roles}
         protocol_frozen = utc(protocol["frozen_at"])
     except (OSError, KeyError, TypeError, ValueError) as exc:
         issue(issues, "ai_protocol_invalid", type(exc).__name__)
         return issues, freezes, exposure_status, limitations
 
     briefs = ai["source_briefs"]
-    expected_pairs = {(acc, context_by_role[role]) for acc in accessions
+    expected_pairs = {(acc, role) for acc in accessions
                       for role in ("source_reference_a", "source_reference_b")}
     if (not isinstance(briefs, list) or len(briefs) != 2 * len(accessions) or
-            _record_ids(briefs, ("accession_number", "context_id")) != expected_pairs):
+            _record_ids(briefs, ("accession_number", "role")) != expected_pairs or
+            _record_ids(briefs, ("context_id",)) is None or
+            len(_record_ids(briefs, ("context_id",))) != len(briefs)):
         issue(issues, "ai_brief_coverage", "two independent source-only briefs per accession required")
         briefs = []
+    source_contexts = {row["context_id"] for row in briefs}
+    context_by_unit = {(row["accession_number"], row["role"]): row["context_id"] for row in briefs}
     brief_hashes: dict[tuple[str, str], str] = {}
     brief_freezes: dict[tuple[str, str], datetime] = {}
     brief_issue_ids: dict[tuple[str, str], set[str]] = {}
     for row in briefs:
         accession, context = row["accession_number"], row["context_id"]
         try:
-            if set(row) != {"accession_number", "context_id", "path", "sha256"}:
+            if set(row) != {"accession_number", "role", "context_id", "path", "sha256"}:
                 raise ValueError("brief record shape invalid")
             _, brief = _reference(base, row)
             expected_sources = source_packets_by_accession[accession]
@@ -219,8 +222,7 @@ def validate_ai_prerequisites(
             brief_hashes[(accession, context)] = row["sha256"]
             brief_freezes[(accession, context)] = frozen
             brief_issue_ids[(accession, context)] = {item["issue_id"] for item in brief["material_issues"]}
-            role = ("source_reference_a" if context == context_by_role["source_reference_a"]
-                    else "source_reference_b")
+            role = row["role"]
             _context_receipt(base, brief, accession, context, role, expected_sources, frozen)
         except (OSError, KeyError, TypeError, ValueError) as exc:
             issue(issues, "ai_brief_invalid", f"{accession}: {type(exc).__name__}")
@@ -236,9 +238,13 @@ def validate_ai_prerequisites(
             if set(row) != {"accession_number", "path", "sha256"}:
                 raise ValueError("reference record shape invalid")
             _, ref = _reference(base, row)
+            context = ref.get("context_id")
+            if not _nonempty(context) or context in source_contexts:
+                raise ValueError("source reconciliation context reused or missing")
+            source_contexts.add(context)
             expected_sources = source_packets_by_accession[accession]
             frozen = utc(ref.get("frozen_at"))
-            expected_hashes = {role: brief_hashes[(accession, context_by_role[role])]
+            expected_hashes = {role: brief_hashes[(accession, context_by_unit[(accession, role)])]
                                for role in ("source_reference_a", "source_reference_b")}
             if (set(ref) != {"schema_version", "review_protocol", "accession_number", "context_id",
                              "frozen_at", "source_only", "candidate_outputs_seen", "source_packets",
@@ -248,9 +254,8 @@ def validate_ai_prerequisites(
                              "context_evidence"} or
                     ref["schema_version"] != 2 or ref["review_protocol"] != "ai_assisted" or
                     ref["accession_number"] != accession or
-                    ref["context_id"] != context_by_role["source_reconciliation"] or
                     frozen is None or frozen > protocol_frozen or frozen > now or
-                    any(frozen < brief_freezes[(accession, context_by_role[role])]
+                    any(frozen < brief_freezes[(accession, context_by_unit[(accession, role)])]
                         for role in ("source_reference_a", "source_reference_b")) or
                     ref["source_only"] is not True or ref["candidate_outputs_seen"] is not False or
                     ref["coverage_status"] != "complete" or ref["context_window_truncated"] is not False or
@@ -261,9 +266,9 @@ def validate_ai_prerequisites(
                     not isinstance(ref["issue_dispositions"], list) or
                     not _material_issues(ref["material_issues"], expected_sources)):
                 raise ValueError("reconciliation source, coverage or brief binding invalid")
-            expected_issues = {(context_by_role[role], issue_id)
+            expected_issues = {(context_by_unit[(accession, role)], issue_id)
                                for role in ("source_reference_a", "source_reference_b")
-                               for issue_id in brief_issue_ids[(accession, context_by_role[role])]}
+                               for issue_id in brief_issue_ids[(accession, context_by_unit[(accession, role)])]}
             dispositions = ref["issue_dispositions"]
             if (len(dispositions) != len(expected_issues) or
                     any(not isinstance(item, dict) or set(item) != {
@@ -297,7 +302,7 @@ def validate_ai_prerequisites(
             if any(item["status"] == "unresolved" for item in ref["disagreements"]):
                 issue(issues, "ai_source_disagreement_unresolved",
                       f"{accession}: unresolved source-reference disagreement")
-            _context_receipt(base, ref, accession, context_by_role["source_reconciliation"],
+            _context_receipt(base, ref, accession, context,
                              "source_reconciliation", expected_sources, frozen, expected_hashes)
             freezes[accession] = frozen
         except (OSError, KeyError, TypeError, ValueError) as exc:
