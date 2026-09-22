@@ -28,7 +28,8 @@ import sys
 from tempfile import TemporaryDirectory
 
 from evals.acceptance_budget import BudgetLedger, BudgetStopped
-from evals.acceptance_readiness import inspect_readiness
+from evals.acceptance_readiness import (inspect_readiness, review_evidence_inventory,
+                                        verify_review_evidence_binding)
 
 COMPARATOR_SLOTS = {'H01', 'H03', 'H05', 'H07', 'H09', 'H14', 'H18', 'H23', 'H26', 'H29'}
 PROGRAMME = 'E7-2026-09-19-USD10'
@@ -366,10 +367,26 @@ def run_slot(args):
     root = Path(args.programme).resolve()
     child_invocation = root / args.slot / 'attempt-1'
     child_env = child_environment(child_invocation, config, api_key)
+    review_evidence = review_evidence_inventory(prerequisites_path, prerequisites)
     with programme_lock(root):
         if (root / 'STOP').exists():
             raise BudgetStopped('programme STOP file is present')
         ledger_path = root / 'budget.sqlite3'
+        binding_record = {'manifest': sha(manifest_path),
+                          'configs': status['config_sha256'],
+                          'review_evidence': review_evidence}
+        binding = json.dumps(binding_record, sort_keys=True)
+        with sqlite3.connect(ledger_path) as db:
+            db.execute('CREATE TABLE IF NOT EXISTS binding (id INTEGER PRIMARY KEY, value TEXT)')
+            previous = db.execute('SELECT value FROM binding WHERE id=1').fetchone()
+            if previous:
+                frozen_binding = json.loads(previous[0])
+                if (frozen_binding.get('manifest') != binding_record['manifest'] or
+                        frozen_binding.get('configs') != binding_record['configs']):
+                    raise BudgetStopped('manifest or frozen configuration changed during programme')
+                if frozen_binding.get('review_evidence') != review_evidence:
+                    raise BudgetStopped('review evidence changed during programme')
+            db.execute('INSERT OR IGNORE INTO binding VALUES (1, ?)', (binding,))
         ledger = BudgetLedger(ledger_path, pricing, PROGRAMME)
         if ledger.snapshot()['pending'] or ledger.snapshot()['stop_reason']:
             raise BudgetStopped('pending or stopped accounting requires triage')
@@ -379,13 +396,6 @@ def run_slot(args):
             smoke = db.execute("SELECT COUNT(*) FROM reservations WHERE slot_id='development-smoke'").fetchone()[0]
             if not smoke and not smoke_mode:
                 raise BudgetStopped('approved development smoke must be charged to this ledger first')
-            binding = json.dumps({'manifest': sha(manifest_path),
-                                 'configs': status['config_sha256']}, sort_keys=True)
-            db.execute('CREATE TABLE IF NOT EXISTS binding (id INTEGER PRIMARY KEY, value TEXT)')
-            previous = db.execute('SELECT value FROM binding WHERE id=1').fetchone()
-            if previous and previous[0] != binding:
-                raise BudgetStopped('manifest or frozen configuration changed during programme')
-            db.execute('INSERT OR IGNORE INTO binding VALUES (1, ?)', (binding,))
             db.execute('CREATE TABLE IF NOT EXISTS slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)')
             if db.execute("SELECT COUNT(*) FROM slots WHERE status!='completed'").fetchone()[0]:
                 raise BudgetStopped('failed or interrupted slot requires triage; no redraw')
@@ -445,6 +455,7 @@ async def worker(args):
                 if not (request.get('smoke_mode') and issue['code'] == 'development_smoke_invalid')]
     if blocking or sha(request['config_path']) != request['config_sha256']:
         raise ValueError('child readiness or configuration changed')
+    verify_review_evidence_binding(Path(request['ledger']).parent, request['prerequisites'])
     prerequisites = read_json(request['prerequisites'])
     checkout = frozen_checkout(read_json(request['config_path']), prerequisites['budget_control']['reviewed_commit'])
     if verified_runtime(checkout / 'backend/requirements.txt') != request['runtime']:

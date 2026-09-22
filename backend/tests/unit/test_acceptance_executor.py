@@ -319,6 +319,7 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
     monkeypatch.setattr(executor, "verified_runtime", lambda *_: {"distributions_sha256": "fixture"})
     monkeypatch.setattr(executor, "preflight_frozen_settings", lambda *_: None)
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": True})
     monkeypatch.setenv("E7_GENERATOR_API_KEY", "offline-fixture-only")
     monkeypatch.setattr(executor, "BudgetLedger", lambda *_: SimpleNamespace(
         snapshot=lambda: {"pending": 0, "stop_reason": None}))
@@ -338,6 +339,10 @@ def test_interrupted_slot_refuses_controller_redraw(tmp_path: Path, monkeypatch)
                            archive=tmp_path, slot="H02-candidate-1", programme=programme)
     with pytest.raises(executor.BudgetStopped, match="failed or interrupted slot"):
         executor.run_slot(args)
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": "edited"})
+    with pytest.raises(executor.BudgetStopped, match="review evidence changed"):
+        executor.run_slot(args)
+    monkeypatch.setattr(executor, "review_evidence_inventory", lambda *_: {"fixture": True})
     # A legacy completed ledger cannot be resumed and retroactively sealed either.
     with sqlite3.connect(programme / "budget.sqlite3") as db:
         db.execute("UPDATE slots SET status='completed'")
@@ -371,6 +376,7 @@ async def test_worker_request_cannot_reenter_claimed_slot(tmp_path: Path, monkey
     monkeypatch.setattr(executor, "inspect_readiness", lambda *_: {"issues": []})
     monkeypatch.setattr(executor, "BudgetLedger", lambda *_: object())
     monkeypatch.setattr(executor, "frozen_checkout", lambda *_: tmp_path)
+    monkeypatch.setattr(executor, "verify_review_evidence_binding", lambda *_: None)
     monkeypatch.setattr(executor, "verified_runtime", lambda *_: {"distributions_sha256": "drifted"})
     calls = []
 

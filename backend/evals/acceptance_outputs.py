@@ -15,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256, COMPARATOR_HOLDOUT_IDS
+from evals.acceptance_readiness import (APPROVED_MANIFEST_SHA256, COMPARATOR_HOLDOUT_IDS,
+                                        verify_review_evidence_binding)
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
@@ -462,6 +463,7 @@ def inspect_outputs(
 def collect_outputs(programme_root: Path, output_path: Path) -> dict[str, Any]:
     """Materialize every raw preview, then atomically retain the durable-evidence index."""
     programme_root = Path(programme_root).resolve(strict=True)
+    verify_review_evidence_binding(programme_root)
     output_path = Path(output_path).absolute()
     if output_path.is_symlink():
         raise ValueError("programme root/output path is invalid")

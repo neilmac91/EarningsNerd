@@ -9,7 +9,7 @@ from pathlib import Path
 
 from evals.acceptance_executor import BudgetStopped, complete_worker
 from evals.acceptance_outputs import collect_outputs
-from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256
+from evals.acceptance_readiness import APPROVED_MANIFEST_SHA256, review_evidence_inventory
 
 
 def _write(path: Path, value: object) -> None:
@@ -121,6 +121,24 @@ def _fixture(tmp_path: Path, *, sixk: bool = False, primary_fallback: bool = Fal
     _write(invocation / "receipt.json", receipt)
     _write(invocation / "result.json", receipt)
     with sqlite3.connect(root / "budget.sqlite3") as db:
+        evidence = tmp_path / "review-evidence"
+        brief = evidence / "brief.json"
+        exposure = evidence / "exposure.json"
+        _write(brief, {"frozen": True})
+        _write(exposure, {"unseen": True})
+        prerequisites_path = evidence / "prerequisites.json"
+        prerequisites = {
+            "reviewers": [{"id": "reviewer-1"}, {"id": "reviewer-2"}],
+            "adjudicator": {"id": "adjudicator-1"},
+            "reference_briefs": [{"accession_number": filing["accession_number"],
+                                  "path": brief.name, "sha256": _sha(brief)}],
+            "exposure_attestation": {"path": exposure.name, "sha256": _sha(exposure)},
+        }
+        _write(prerequisites_path, prerequisites)
+        db.execute("CREATE TABLE binding (id INTEGER PRIMARY KEY, value TEXT)")
+        db.execute("INSERT INTO binding VALUES (1, ?)", (json.dumps({
+            "review_evidence": review_evidence_inventory(prerequisites_path, prerequisites),
+        }, sort_keys=True),))
         db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)")
         db.execute("CREATE TABLE reservations (id INTEGER PRIMARY KEY, slot_id TEXT, status TEXT, request_hash TEXT)")
         db.execute("INSERT INTO slots VALUES (?, ?, 'worker_claimed', ?, NULL)",

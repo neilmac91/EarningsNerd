@@ -14,6 +14,7 @@ import random
 import re
 import secrets
 import shutil
+import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -106,6 +107,47 @@ def _evidence(root: Path, record: Any) -> tuple[Path, dict[str, Any] | None]:
     if _sha256(path) != record["sha256"]:
         raise ValueError("evidence SHA256 mismatch")
     return path, _json(path) if path.suffix == ".json" else None
+
+
+def review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any]) -> dict[str, Any]:
+    """Freeze review commitments and evidence bytes, excluding renewable execution receipts."""
+    prerequisites_path = Path(prerequisites_path).resolve(strict=True)
+
+    def reference(record: Any) -> dict[str, Any]:
+        path, _ = _evidence(prerequisites_path.parent, record)
+        return {"record": record, "resolved_path": str(path.resolve(strict=True)),
+                "bytes_sha256": _sha256(path)}
+
+    briefs = prereq["reference_briefs"]
+    return {
+        "prerequisites_path": str(prerequisites_path),
+        "reviewers": prereq["reviewers"], "adjudicator": prereq["adjudicator"],
+        "reference_briefs": sorted(
+            ({"accession_number": item["accession_number"], **reference(item)} for item in briefs),
+            key=lambda item: item["accession_number"],
+        ),
+        "exposure_attestation": reference(prereq["exposure_attestation"]),
+    }
+
+
+def verify_review_evidence_binding(programme_root: Path, prerequisites_path: Path | None = None) -> None:
+    """Reject changed review evidence before collection or packet construction."""
+    ledger = Path(programme_root) / "budget.sqlite3"
+    if ledger.is_symlink() or not ledger.is_file():
+        raise ValueError("programme review evidence binding ledger missing")
+    try:
+        with sqlite3.connect(ledger.as_uri() + "?mode=ro", uri=True) as db:
+            row = db.execute("SELECT value FROM binding WHERE id=1").fetchone()
+        binding = json.loads(row[0]) if row else None
+        frozen = binding["review_evidence"]
+        bound_path = Path(frozen["prerequisites_path"])
+        if prerequisites_path is not None and Path(prerequisites_path).resolve(strict=True) != bound_path:
+            raise ValueError("review evidence prerequisites path differs from programme binding")
+        current = review_evidence_inventory(bound_path, _json(bound_path))
+    except (sqlite3.Error, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise ValueError("programme review evidence binding is unavailable") from error
+    if current != frozen:
+        raise ValueError("review evidence differs from programme binding")
 
 
 def _validate_observation_receipt(
@@ -525,6 +567,7 @@ def build_blinded_packets(
     ledger = _safe_file(output_parent, output_obj.get("programme_ledger_path"))
     if ledger.name != "budget.sqlite3":
         raise ValueError("collector programme ledger identity invalid")
+    verify_review_evidence_binding(ledger.parent, prerequisites_path)
     collected = inspect_outputs(ledger.parent, output_parent,
                                 expected_manifest_sha=expected_manifest_sha)
     if collected["complete"] is not True or output_obj.get("complete") is not True:

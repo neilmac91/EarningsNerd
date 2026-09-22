@@ -14,8 +14,10 @@ import pytest
 
 from app.models import Summary
 from evals import acceptance_executor, acceptance_worker
-from evals.acceptance_outputs import inspect_outputs
-from evals.acceptance_readiness import _reviewer_artifact, build_blinded_packets, inspect_readiness
+from evals.acceptance_outputs import collect_outputs, inspect_outputs
+from evals.acceptance_readiness import (_reviewer_artifact, build_blinded_packets,
+                                        inspect_readiness, review_evidence_inventory,
+                                        verify_review_evidence_binding)
 
 
 _ACCEPTED = Path(__file__).resolve().parents[3] / "tasks/review-evidence/acceptance-2026-09-19/candidate-manifest.json"
@@ -36,7 +38,8 @@ def _write(path: Path, value: object) -> dict[str, str]:
     return {"path": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
-def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, rows: list[dict]) -> dict:
+def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str,
+                               rows: list[dict], prerequisites_path: Path) -> dict:
     """Synthetic worker/ledger files only; no budget admission or provider execution."""
     filings = {f["accession_number"]: f for f in manifest["filings"]}
     def digest(value):
@@ -44,6 +47,13 @@ def _retain_collector_evidence(root: Path, manifest: dict, manifest_sha: str, ro
     provider_request = {"model": "synthetic"}
     request_hash = digest(json.dumps(provider_request, sort_keys=True, separators=(",", ":")).encode())
     with sqlite3.connect(root / "budget.sqlite3") as db:
+        prereq = json.loads(prerequisites_path.read_text())
+        db.execute("CREATE TABLE binding (id INTEGER PRIMARY KEY, value TEXT)")
+        db.execute("INSERT INTO binding VALUES (1, ?)", (json.dumps({
+            "manifest": manifest_sha, "configs": {
+                arm: prereq[f"{arm}_config"]["sha256"] for arm in ("candidate", "comparator")},
+            "review_evidence": review_evidence_inventory(prerequisites_path, prereq),
+        }, sort_keys=True),))
         db.execute("CREATE TABLE slots (id TEXT PRIMARY KEY, config_sha TEXT, status TEXT, request_sha TEXT, result_sha TEXT)")
         db.execute("CREATE TABLE reservations (id INTEGER PRIMARY KEY, slot_id TEXT, status TEXT, request_hash TEXT)")
         db.execute("INSERT INTO slots VALUES ('development-smoke', ?, 'completed', ?, NULL)", ("a" * 64, "b" * 64))
@@ -230,7 +240,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
                 })
     outputs_path = outputs_root / "outputs.json"
     outputs_path.write_text(json.dumps(_retain_collector_evidence(
-        outputs_root, manifest, manifest_sha, output_records)), encoding="utf-8")
+        outputs_root, manifest, manifest_sha, output_records, preflight_path)), encoding="utf-8")
     return {"manifest": manifest_path, "archive": archive, "preflight": preflight_path,
             "outputs": outputs_path, "manifest_sha": manifest_sha, "now": now}
 
@@ -298,6 +308,58 @@ def test_preflight_fails_closed_on_missing_independent_brief(tmp_path: Path, mon
         assert not_committed["ready_for_paid_execution"] is False
         assert "human_commitment" in {item["code"] for item in not_committed["issues"]}
         person["commitment_date"] = (fixture["now"] - timedelta(hours=2)).isoformat()
+
+
+def test_rehashed_review_evidence_after_output_cannot_reach_collection_or_packets(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    prerequisites_path = fixture["preflight"]
+    original_prerequisites = prerequisites_path.read_bytes()
+    programme = fixture["outputs"].parent
+    for kind in ("reviewer", "adjudicator", "brief", "exposure"):
+        prereq = json.loads(original_prerequisites)
+        changed_path = None
+        original_evidence = None
+        if kind == "reviewer":
+            prereq["reviewers"][0]["committed_hours"] += 1
+        elif kind == "adjudicator":
+            prereq["adjudicator"]["committed_hours"] += 1
+        else:
+            record = (prereq["reference_briefs"][0] if kind == "brief"
+                      else prereq["exposure_attestation"])
+            changed_path = prerequisites_path.parent / record["path"]
+            original_evidence = changed_path.read_bytes()
+            payload = json.loads(original_evidence)
+            if kind == "brief":
+                payload["material_issues"][0]["importance"] = "Changed after output"
+            else:
+                payload["external_artifact_inventory"] = "Changed after output"
+            record["sha256"] = _write(changed_path, payload)["sha256"]
+        prerequisites_path.write_text(json.dumps(prereq), encoding="utf-8")
+        ready = inspect_readiness(fixture["manifest"], fixture["archive"], prerequisites_path,
+                                  expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+        assert ready["ready_for_packets"] is True, kind
+        with pytest.raises(ValueError, match="review evidence"):
+            collect_outputs(programme, tmp_path / "collected.json")
+        reviewer_root, custodian_root = tmp_path / "reviewers", tmp_path / "custodian"
+        with pytest.raises(ValueError, match="review evidence"):
+            build_blinded_packets(fixture["manifest"], fixture["archive"], prerequisites_path,
+                                  fixture["outputs"], reviewer_root, custodian_root,
+                                  expected_manifest_sha=fixture["manifest_sha"])
+        assert not reviewer_root.exists() and not custodian_root.exists()
+        prerequisites_path.write_bytes(original_prerequisites)
+        if changed_path is not None:
+            changed_path.write_bytes(original_evidence)
+    # A fresh, internally consistent balance observation is renewable.
+    prereq = json.loads(original_prerequisites)
+    balance_path = prerequisites_path.parent / prereq["balance"]["path"]
+    balance = json.loads(balance_path.read_text())
+    balance["available_usd"] = prereq["balance"]["available_usd"] = 9
+    prereq["balance"]["sha256"] = _write(balance_path, balance)["sha256"]
+    prerequisites_path.write_text(json.dumps(prereq), encoding="utf-8")
+    ready = inspect_readiness(fixture["manifest"], fixture["archive"], prerequisites_path,
+                              expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert ready["ready_for_paid_execution"] is True
+    verify_review_evidence_binding(programme, prerequisites_path)
 
 
 def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path) -> None:
