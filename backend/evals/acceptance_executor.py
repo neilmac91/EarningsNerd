@@ -346,6 +346,7 @@ def run_slot(args):
     runtime = verified_runtime(checkout / 'backend/requirements.txt')
     preflight_frozen_settings(config, checkout)
     other_checkout = frozen_checkout(other_config, budget_control['reviewed_commit'])
+    verified_runtime(other_checkout / 'backend/requirements.txt')
     preflight_frozen_settings(other_config, other_checkout)
     if smoke_mode:
         goldens = read_json(checkout / 'backend/evals/golden_set.json')

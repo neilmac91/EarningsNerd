@@ -157,6 +157,7 @@ def test_child_environment_uses_only_isolated_database_and_explicit_key(tmp_path
     ("fallback_whitespace", "fallback provider route must be blank"),
     ("recovery_concurrency", "recovery concurrency must be a positive integer"),
     ("arm_concurrency", "recovery concurrency differs between acceptance arms"),
+    ("other_arm_runtime", "installed distributions differ from dependency lock"),
     ("thinking", "thinking mode is unsupported"),
     ("thinking_ceiling", "thinking token ceiling must match"),
     ("schema_bool", "fail the application Settings schema"),
@@ -206,14 +207,17 @@ def test_invalid_frozen_settings_stop_before_programme_state(
         config["effective_settings"]["AI_SUMMARY_THINKING_EFFORT"] = "high"
     elif fault == "thinking_ceiling":
         config["effective_settings"]["AI_SUMMARY_THINKING_MAX_TOKENS"] = 240000
-    elif fault in {"arm_concurrency", "schema_bool"}:
+    elif fault in {"arm_concurrency", "schema_bool", "other_arm_runtime"}:
         pass
     else:
         config["effective_settings"]["AI_FALLBACK_BASE_URL"] = "https://other.invalid/v1"
-    config_path = _write(tmp_path / "config.json", config)
     comparator = _complete_frozen_config()
     if fault == "arm_concurrency":
         comparator["effective_settings"]["RECOVERY_MAX_CONCURRENCY"] = 2
+    if fault == "other_arm_runtime":
+        config["checkout_path"] = str(tmp_path / "candidate")
+        comparator["checkout_path"] = str(tmp_path / "comparator")
+    config_path = _write(tmp_path / "config.json", config)
     comparator_path = _write(tmp_path / "comparator.json", comparator)
     prerequisites = _write(tmp_path / "prerequisites.json", {
         "candidate_config": {"path": config_path.name},
@@ -224,7 +228,21 @@ def test_invalid_frozen_settings_stop_before_programme_state(
     def forbidden(*_, **__):
         raise AssertionError("invalid frozen config reached checkout, ledger or child dispatch")
 
-    if fault == "schema_bool":
+    if fault == "other_arm_runtime":
+        for arm in ("candidate", "comparator"):
+            lock = tmp_path / arm / "backend" / "requirements.txt"
+            lock.parent.mkdir(parents=True)
+            lock.write_text("fixture==1.0\n", encoding="utf-8")
+        monkeypatch.setattr(executor, "frozen_checkout", lambda cfg, *_: Path(cfg["checkout_path"]))
+
+        def runtime(lock: Path) -> dict:
+            if lock.parents[1].name == "comparator":
+                raise ValueError("installed distributions differ from dependency lock")
+            return {"distributions_sha256": "fixture"}
+
+        monkeypatch.setattr(executor, "verified_runtime", runtime)
+        monkeypatch.setattr(executor, "preflight_frozen_settings", lambda *_: None)
+    elif fault == "schema_bool":
         monkeypatch.setattr(executor, "frozen_checkout", lambda *_: Path(__file__).resolve().parents[3])
         monkeypatch.setattr(executor, "verified_runtime", lambda *_: {})
     else:
