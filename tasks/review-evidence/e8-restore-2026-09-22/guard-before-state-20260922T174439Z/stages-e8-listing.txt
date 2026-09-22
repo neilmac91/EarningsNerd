@@ -1,0 +1,4 @@
+total 328
+drwxr-xr-x 2 root root   4096 Sep 22 17:35 .
+drwxr-xr-x 7 root root   4096 Sep 22 17:35 ..
+-rw-r--r-- 1 root root 325598 Sep 22 17:35 index.json
