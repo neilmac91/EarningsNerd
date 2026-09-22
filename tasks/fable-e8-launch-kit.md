@@ -20,8 +20,9 @@ hashes. Four changes, each from
 
 `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py` checks this file: every gated
 command in its `sh` blocks must start with an allow-rule prefix and carry no shell syntax, and
-step 0 must be the first gated command. It runs in CI once this branch is merged; launch from a
-`main` that carries both files. Edit the commands here only together with the rules.
+step 0 must be the first gated command. It runs in CI on every pull request and push to `main`
+(the `backend-tests` job has no path filter); launch from a `main` that carries both files. Edit
+the commands here only together with the rules.
 
 Start a new Claude Code web session on `neilmac91/EarningsNerd`, branch `main` (it carries
 `tasks/fable-e8-repin-2026-09-22/` and the seven allow rules in `.claude/settings.json`).
