@@ -8,16 +8,17 @@ that no ``Bash(prefix:*)`` rule can ever match, and nothing proved the permissio
 step 1. Receipt: ``tasks/review-evidence/e8-repin-restore-2026-09-22/receipt.md``.
 
 ``kit_problems`` reads the committed launch kit (``tasks/fable-e8-launch-kit.md``) and the project
-permission rules and reports every disagreement. Bash rules come in two shapes, both handled:
-``Bash(prefix:*)`` covers the prefix alone or followed by a space, and ``Bash(command)`` covers
-exactly that command. The gate fails when:
+permission rules and reports every disagreement. ``Bash(<pattern>)`` rules are matched under
+Claude Code's own semantics (code.claude.com/docs/en/permissions.md): ``prefix:*`` or ``prefix *``
+covers the prefix alone or followed by a space and anything; any other ``*`` matches any text, so
+``Bash(*)`` is the blanket rule; a pattern without ``*`` matches only itself. The gate fails when:
 
 - an allow entry contains a shell variable, or an allow rule names a repository script that does
   not exist;
 - any command in one of the kit's ``sh`` blocks is not covered by an allow rule, is covered by a
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
-  (separators per code.claude.com/docs/en/permissions.md);
+  (separators per the same docs page);
 - a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter or
   the CLI is invoked anywhere outside an ``sh`` block, where the operator check would not see it;
 - the kit's first command is not the zero-effect probe
@@ -54,29 +55,31 @@ INVOCATION = re.compile(
     r"(?:^|[\s`\"'(])(?:python3?|/home/user/fable-judging/venv/bin/python|/opt/claude-code/bin/claude)\s+\S"
 )
 
-_RULE = re.compile(r"^Bash\((.+?)(:\*)?\)$")
+_BASH_ENTRY = re.compile(r"^Bash\((.+)\)$")
 _FENCE = re.compile(r"^(`{3,}|~{3,})\s*(\S*)$")
 
 
-def _bash_rules(entries: list[str]) -> tuple[list[str], list[str]]:
-    """(prefixes of Bash(prefix:*) entries, commands of exact Bash(command) entries)."""
-    prefixes: list[str] = []
-    exact: list[str] = []
-    for entry in entries:
-        if match := _RULE.fullmatch(entry):
-            (prefixes if match.group(2) else exact).append(match.group(1))
-    return prefixes, exact
+def _rule_regex(pattern: str) -> re.Pattern[str]:
+    """The matcher for one Bash(<pattern>) rule under Claude Code's semantics (module docstring)."""
+    if pattern.endswith((":*", " *")):
+        return re.compile(re.escape(pattern[:-2]) + r"(?: .*)?", re.DOTALL)
+    return re.compile(".*".join(re.escape(part) for part in pattern.split("*")), re.DOTALL)
 
 
-def _covered(command: str, rules: tuple[list[str], list[str]]) -> bool:
-    """A Bash(prefix:*) rule matches the prefix alone or followed by a space; an exact rule matches by equality."""
-    prefixes, exact = rules
-    return command in exact or any(command == p or command.startswith(p + " ") for p in prefixes)
+def _bash_rules(entries: list[str]) -> list[tuple[str, re.Pattern[str]]]:
+    """(pattern, matcher) for every Bash(...) entry; entries for other tools are ignored."""
+    return [(m.group(1), _rule_regex(m.group(1))) for entry in entries if (m := _BASH_ENTRY.fullmatch(entry))]
 
 
-def _script_path(rule: str) -> Path | None:
-    """The repository script a rule names, or None when it names no repository path."""
-    for token in rule.split():
+def _covered(command: str, rules: list[tuple[str, re.Pattern[str]]]) -> bool:
+    return any(matcher.fullmatch(command) for _, matcher in rules)
+
+
+def _script_path(pattern: str) -> Path | None:
+    """The repository script a rule names literally, or None when it names no repository path."""
+    for token in pattern.split():
+        if "*" in token:
+            continue
         if token.startswith(CONTAINER_REPO + "/"):
             return REPO_ROOT / token[len(CONTAINER_REPO) + 1 :]
         if token.startswith("tasks/"):
@@ -131,13 +134,13 @@ def rule_problems(settings: dict) -> list[str]:
     """Every way the permission rules themselves are unfit: variables, or scripts that do not exist."""
     allow = settings.get("permissions", {}).get("allow", [])
     problems = [f"allow entry carries a shell variable, which can never match: {entry}" for entry in allow if "$" in entry]
-    prefixes, exact = _bash_rules(allow)
-    if not prefixes and not exact:
+    rules = _bash_rules(allow)
+    if not rules:
         problems.append("no Bash allow rules")
-    for rule in prefixes + exact:
-        path = _script_path(rule)
+    for pattern, _ in rules:
+        path = _script_path(pattern)
         if path is not None and not path.is_file():
-            problems.append(f"allow rule names a script that does not exist: {rule} -> {path}")
+            problems.append(f"allow rule names a script that does not exist: {pattern} -> {path}")
     return problems
 
 
@@ -190,10 +193,22 @@ def test_every_kit_command_is_covered_by_an_allow_rule_and_the_probe_comes_first
     )
 
 
-def test_exact_allow_entries_cover_their_command_and_nothing_else() -> None:
-    exact_only = {"permissions": {"allow": [f"Bash({PROBE})"]}}
-    assert kit_problems("```sh\n" + PROBE + "\n```\n", exact_only) == []
-    assert kit_problems("```sh\n" + PROBE + "\n" + PROBE + " --verbose\n```\n", exact_only)
+RULE_SEMANTICS = [
+    ("exact matches itself only", "Bash(ls -la)", "ls -la", "ls -la /tmp"),
+    ("colon-star matches the prefix alone or followed by a space", "Bash(ls:*)", "ls", "lsblk"),
+    ("colon-star matches the prefix followed by anything after a space", "Bash(ls:*)", "ls -la /tmp", "ls-la"),
+    ("space-star is the colon-star form", "Bash(ls *)", "ls -la", "lsblk"),
+    ("a wildcard inside the pattern matches any text", "Bash(git * main)", "git checkout main", "git checkout dev"),
+    ("the blanket rule matches everything", "Bash(*)", "anything at all", None),
+]
+
+
+@pytest.mark.parametrize(("name", "entry", "covered", "uncovered"), RULE_SEMANTICS, ids=[r[0] for r in RULE_SEMANTICS])
+def test_bash_rule_matching_follows_the_documented_semantics(name: str, entry: str, covered: str, uncovered) -> None:
+    rules = _bash_rules([entry])
+    assert _covered(covered, rules), f"{name}: {entry} should cover {covered!r}"
+    if uncovered is not None:
+        assert not _covered(uncovered, rules), f"{name}: {entry} should not cover {uncovered!r}"
 
 
 # Each evasion mutates an in-memory copy of the real kit or rules; the gate must reject every one.
@@ -234,6 +249,10 @@ RULE_EVASIONS = [
     ("exact deny shadowing the probe", "deny", f"Bash({PROBE})"),
     ("exact ask shadowing the probe", "ask", f"Bash({PROBE})"),
     ("wildcard ask shadowing step 2", "ask", "Bash(/home/user/fable-judging/venv/bin/python:*)"),
+    ("blanket deny", "deny", "Bash(*)"),
+    ("blanket ask", "ask", "Bash(*)"),
+    ("space-star deny shadowing the probe", "deny", "Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py *)"),
+    ("mid-pattern wildcard deny", "deny", "Bash(python3 * --help)"),
 ]
 
 
