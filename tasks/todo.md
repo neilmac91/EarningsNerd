@@ -1,3 +1,7 @@
+## September 22 — E7 balance and Fable claims bound to hashed observations
+
+The draft readiness gate now validates typed balance/Fable receipt contents, matches inline claims and observation times, rejects nonfinite or boolean balances and mismatched model/contract/quota, and evaluates freshness from the receipt. [Receipt formats and limits](readiness-2026-09-21/acceptance/README.md) distinguish content/hash agreement from authenticated provider evidence; real retained readbacks remain required before use. The unconditional archive-binding hold, USD 10 admission and human-brief safeguards are unchanged. No live balance/quota inspection or provider call was made.
+
 ## September 22 — E7 draft source-binding hold and collector evidence protection
 
 PR #940 remains draft. The current worker does not bind every section/XBRL channel to the frozen archive; the 6-K text adapter does not bind its separate structured path, and the manifest has no frozen companyfacts response. A non-configurable engineering hold now rejects the whole programme before smoke/slot dispatch or claim, direct worker database/provider work, and reviewer packet creation. [Unblock criteria](readiness-2026-09-21/acceptance/execution.md#source-binding-unblock-criteria) require original archive recovery, production-path provenance and independent review, without dropping source channels or filings.

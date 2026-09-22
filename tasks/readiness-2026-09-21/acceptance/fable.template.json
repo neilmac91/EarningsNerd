@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "kind": "fable",
+  "observed_at": null,
+  "contract_version": "2",
+  "model": "cli:claude-fable-5-1",
+  "quota_available": null
+}

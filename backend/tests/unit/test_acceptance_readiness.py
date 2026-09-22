@@ -154,6 +154,12 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
             "effective_settings": {"temperature": 0.2}, "dependency_lock_sha256": "b" * 64,
             "frozen_at": frozen})
     receipt = _write(evidence / "receipt.json", {"synthetic": True})
+    balance = _write(evidence / "balance.json", {
+        "schema_version": 1, "kind": "balance", "observed_at": observed,
+        "provider": "deepseek", "currency": "USD", "available_usd": 10})
+    fable = _write(evidence / "fable.json", {
+        "schema_version": 1, "kind": "fable", "observed_at": observed,
+        "contract_version": "2", "model": "cli:claude-fable-5-1", "quota_available": True})
     pricing = _write(evidence / "pricing.json", {
         "model": "deepseek-flash", "base_url": "https://api.deepseek.com/v1",
         "official_source": "https://api-docs.deepseek.com/quick_start/pricing",
@@ -166,8 +172,8 @@ def _fixture(tmp_path: Path) -> dict[str, Path | str | datetime]:
         "candidate_config": configs["candidate"], "comparator_config": configs["comparator"],
         "pricing": {**pricing, "observed_at": observed,
                     "official_url": "https://api-docs.deepseek.com/quick_start/pricing"},
-        "balance": {**receipt, "observed_at": observed, "available_usd": 10},
-        "fable": {**receipt, "observed_at": observed, "contract_version": "2",
+        "balance": {**balance, "observed_at": observed, "available_usd": 10},
+        "fable": {**fable, "observed_at": observed, "contract_version": "2",
                   "model": "cli:claude-fable-5-1", "quota_available": True},
         "development_smoke": {**receipt, "completed": True, "accession_number": "0000000001-26-000001"},
         "budget_control": {**receipt, "verified": True, "reviewed_commit": "c" * 40,
@@ -342,6 +348,39 @@ def test_pricing_identity_and_over_ceiling_decision_hold_paid_run(tmp_path: Path
 def test_stale_verified_price_and_wrong_fable_contract_hold_paid_run(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     preflight = json.loads(fixture["preflight"].read_text())
+    for kind in ("balance", "fable"):
+        path = fixture["preflight"].parent / preflight[kind]["path"]
+        original = json.loads(path.read_text())
+        changes = ([{"available_usd": 0}, {"available_usd": True}, {"available_usd": float("inf")},
+                    {"available_usd": float("nan")}, {"available_usd": 9}, {"currency": "CNY"},
+                    {"provider": "other"}] if kind == "balance" else
+                   [{"quota_available": False}, {"quota_available": "true"},
+                    {"contract_version": "1"}, {"model": "other-judge"}])
+        invalid = [{"synthetic": True}, {**original, "schema_version": True},
+                   {**original, "kind": "unrelated"},
+                   {**original, "observed_at": (fixture["now"] - timedelta(days=3)).isoformat()},
+                   {**original, "observed_at": (fixture["now"] + timedelta(days=1)).isoformat()},
+                   *({**original, **change} for change in changes)]
+        for payload in invalid:
+            # Rehash the bad receipt: this exercises its contents, not a SHA mismatch.
+            preflight[kind].update(_write(path, payload))
+            fixture["preflight"].write_text(json.dumps(preflight))
+            held = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                     expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+            assert f"{kind}_invalid" in {issue["code"] for issue in held["issues"]}, payload
+            assert held["ready_for_paid_execution"] is False and held["ready_for_packets"] is False
+        stale = {**original, "observed_at": (fixture["now"] - timedelta(days=3)).isoformat()}
+        preflight[kind].update(_write(path, stale), observed_at=stale["observed_at"])
+        fixture["preflight"].write_text(json.dumps(preflight))
+        held = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                                 expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+        assert f"stale_{kind}" in {issue["code"] for issue in held["issues"]}
+        assert held["ready_for_paid_execution"] is False and held["ready_for_packets"] is True
+        preflight[kind].update(_write(path, original), observed_at=original["observed_at"])
+    fixture["preflight"].write_text(json.dumps(preflight))
+    ready = inspect_readiness(fixture["manifest"], fixture["archive"], fixture["preflight"],
+                              expected_manifest_sha=fixture["manifest_sha"], now=fixture["now"])
+    assert ready["ready_for_paid_execution"] is True
     price_path = fixture["preflight"].parent / preflight["pricing"]["path"]
     price = json.loads(price_path.read_text())
     price["verified_at"] = (fixture["now"] - timedelta(days=3)).isoformat()

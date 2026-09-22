@@ -108,6 +108,33 @@ def _evidence(root: Path, record: Any) -> tuple[Path, dict[str, Any] | None]:
     return path, _json(path) if path.suffix == ".json" else None
 
 
+def _validate_observation_receipt(
+    kind: str, record: dict[str, Any], evidence: dict[str, Any] | None, observed: datetime,
+) -> datetime:
+    """Bind inline balance/quota claims to the retained typed observation receipt.
+
+    Hash/content agreement proves what was retained, not the observer's authority
+    or that a provider authenticated this locally supplied receipt.
+    """
+    receipt_observed = _utc(evidence.get("observed_at")) if evidence else None
+    if (evidence is None or type(evidence.get("schema_version")) is not int or
+            evidence["schema_version"] != 1 or evidence.get("kind") != kind or
+            receipt_observed is None or receipt_observed != observed):
+        raise ValueError("observation receipt schema, kind or timestamp differs")
+    if kind == "balance":
+        amount = evidence.get("available_usd")
+        if (evidence.get("provider") != "deepseek" or evidence.get("currency") != "USD" or
+                not isinstance(amount, (int, float)) or not _positive_price(amount) or
+                not _positive_price(record.get("available_usd")) or
+                Decimal(str(amount)) != Decimal(str(record["available_usd"]))):
+            raise ValueError("balance receipt identity or available USD differs")
+    elif (evidence.get("quota_available") is not True or
+          evidence.get("contract_version") != record.get("contract_version") or
+          evidence.get("model") != record.get("model")):
+        raise ValueError("Fable receipt quota, contract or model differs")
+    return receipt_observed
+
+
 def _issue(issues: list[dict[str, str]], code: str, detail: str) -> None:
     issues.append({"code": code, "detail": detail})
 
@@ -341,6 +368,8 @@ def inspect_readiness(
                                     record.get("contract_version") != "2" or
                                     record.get("model") != "cli:claude-fable-5-1"):
                 raise ValueError("Fable quota/model/contract observation missing")
+            if kind in {"balance", "fable"}:
+                observed = _validate_observation_receipt(kind, record, evidence, observed)
             if now - observed > _FRESHNESS:
                 _issue(paid_only, f"stale_{kind}", "observation older than 24 hours")
         except (OSError, TypeError, ValueError) as exc:
