@@ -101,18 +101,18 @@ is the numbered list at the foot of this file.
 
 ## 5. What remains — reconciled open list
 
-**Engineering, unblocked (do these):**
+**Engineering ledger (September 19 plan; E3/E8 status corrected below):**
 
 | # | Item | Next step |
 | --- | --- | --- |
 | E1 | Dependabot #916, #917 | Take both through one `codex/wave3-*` branch (precedent #870, #872): full gate, `eval-baseline`, one Copilot run, merge, serial deploy verification; then close the Dependabot PRs as superseded. |
 | E2 | Verifier, step 1 | Re-measure with the #912 ranking fix: measurement-only branch with `AI_ATTRIBUTION_VERIFY` on in the eval env, judge the artifact, hand-read every flagged clause against its excerpt. |
-| E3 | Verifier, step 2 | Tighten the verify prompt against the Pfizer failure: a verbatim same-line, same-amount restatement was rejected as "not stated" with the passage in hand. |
+| E3 | Verifier, step 2 | September 22: both retained candidates now have 70/70 Fable judgments. The dormant context release is complete, but results do not justify prompt retuning, attribution activation, deletion or a quality-effect claim. Keep both flags off. The bounded formula-first return-label correction is a separate [draft #942](https://github.com/neilmac91/EarningsNerd/pull/942), not G4 remediation. [Evidence](review-evidence/e3-fable-complete-2026-09-22/README.md). |
 | E4 | Verifier, step 3 | Recall: the lexical finder surfaces about 45% of judge-G4 attempts. Study the 12 misses in the Fable-judged verification artifact before designing anything. |
 | E5 | Code-owned residuals | KO segment operating margins (segments filler divides by XBRL segment revenue that includes intersegment amounts); AMZN issuer-defined versus conventional free cash flow in the cash card; SE cash-conversion line on a different net-income basis from the prose; AAPL distributions versus operating cash flow ([plan](financial-relationship-next-2026-09-13.md)); BABA 20-F filing 327 returns `partial` on regeneration (XBRL enrichment). |
 | E6 | Scorer profiles | BRK.B financial depth (an insurer's highlights are premiums and float) and GPRO delta sign on a negative base. Touching a scorer is a listed re-pin trigger. |
 | E7 | Quality acceptance specification (master plan P0) | Freeze the rubric, severity definitions, the 30-filing × 3 unseen holdout manifest and a spending ceiling ([plan](ceo-implementation-plan-2026-09-08.md), section "What world-class acceptance must demonstrate"). Prepare offline; the founder accepts it. |
-| E8 | `o` variance lead | Test whether the `o` prompt makes generation less consistent: more paired runs, same judge. |
+| E8 | `o` variance lead | Generation is complete but judging remains inconclusive: 160 slots missing, conservative prior charge 287 of 601 leaves at most 314 calls for slots and retries. The founder's “No additional E8 judging or probes” answered a past-history question, not a future STOP or authorization. Prepare a guarded continuation only after remote accounting and sole-guard verification. [Status](e1-e9-status-2026-09-20.md). |
 | E9 | E09 proposal | Read the database job-outcome table (the last unread item) and finish the proposal ([package](e09-proposal-next-2026-09-13.md)). Proposal only. |
 
 **Recurring:** the weekly readout. `data-quality-weekly.yml` generates on Mondays and the judging
