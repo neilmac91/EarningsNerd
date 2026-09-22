@@ -119,27 +119,37 @@ written with the dedicated file-write tool instead, which is the ordinary way to
 files and is what this directory now contains.
 
 What the official Claude Code documentation says, per a read-only docs lookup made from this
-session (URLs below; not verified against the harness build running here):
+session and re-checked by an independent read-only verifier (URLs below; not verified against the
+harness build running here):
 
-- In auto mode, `permissions` allow/deny rules are evaluated before the classifier; narrow `Bash`
-  rules stay in effect, broad ones such as `Bash(*)` are suspended.
+- In auto mode, `permissions` allow/deny rules are evaluated before the classifier. Entering auto
+  mode suspends broad rules: blanket `Bash(*)`, wildcarded interpreters such as `Bash(python*)`,
+  and package-manager run commands; narrow rules such as `Bash(npm test)` stay in effect. The
+  docs do not say which side a rule of the form `Bash(python3 <script path>:*)` falls on.
 - In Claude Code on the web with one repository, the repository's `.claude/settings.json` is read;
   `~/.claude/settings.json` and `.claude/settings.local.json` are not.
+- A project's `permissions.allow` rules grant capability, so they are applied only after the
+  workspace trust dialog has been accepted for that folder. The dialog is shown in interactive
+  sessions only; a `claude -p` or SDK session never shows it, and the docs list project allow
+  rules as "Not used" there. This session runs inside the Claude Agent SDK, and the verifier found
+  no trust record for this folder in the container's `~/.claude.json`.
 - `Bash(prefix:*)` matches only commands beginning exactly with the prefix; compound commands are
-  split and each part must match on its own.
-- The reason strings `[Auto-Mode Bypass]` and `[Code from External]` are not in the published
-  list of classifier rules.
+  split on `&&`, `||`, `;`, `|` and newlines, and each part must match on its own.
+- "auto-mode bypass" is named as a built-in soft-block classifier rule, and "downloading and
+  executing code" is the first default block; the bracketed reason strings themselves are not
+  printed on the pages.
 
 Sources: `https://code.claude.com/docs/en/auto-mode-config.md`,
 `https://code.claude.com/docs/en/permission-modes.md`, `https://code.claude.com/docs/en/settings.md`,
 `https://code.claude.com/docs/en/permissions.md`, `https://code.claude.com/docs/en/claude-code-on-the-web.md`.
 
-Observed behaviour contradicts the first two points: the exact allow-listed command and its
-`--help` form both went to the classifier and were denied. Why is unknown from inside the session.
-Unverified possibilities: the project settings were not loaded for this session; the classifier in
-this managed environment decides before or over allow rules; or the harness normalizes the command
-text in a way the rule does not match. A session cannot inspect or change its own permission
-configuration (event 3), and I did not try to.
+The third point predicts exactly what was observed: the rules are read but never applied in a
+session that cannot record workspace trust, so every command, the allow-listed one and its
+`--help` included, goes to the classifier. That is the most likely explanation, not a verified
+one. The trust mechanism was not exercised from inside the session (event 3 shows that reading
+permission configuration is itself denied), and the wildcarded-interpreter suspension in the first
+point is a second candidate. Either way the seven rules gave no protection here, and a session of
+this kind cannot inspect or change its own permission configuration; I did not try to.
 
 ## 7. The CLI-version confound (required statement)
 
@@ -158,7 +168,8 @@ session changes that statement; no new slot was judged.
   (pristine, counter 0, never initialized, no latch) is the last observation; I cannot observe E8
   or probe calls from other machines or sessions. The founder's answer ("No additional E8 judging
   or probes") remains the only external-history source.
-- Why the allow rules did not take effect is not established (section 6).
+- Why the allow rules did not take effect is not established; missing workspace trust in an SDK
+  session is the best-supported explanation (section 6), not a verified one.
 - The CLI identity is the self-reported version string; the package defers a binary-hash pin and
   none was computed here.
 - Approximate UTC times above are bracketed by `date -u` calls at 21:28:52Z, 21:30:54Z and
@@ -177,15 +188,15 @@ session changes that statement; no new slot was judged.
 
 ## 10. Founder decision needed
 
-E8 cannot proceed in a session where the seven project allow rules do not decide. Options, with
-consequences only:
+E8 cannot proceed in a session where the seven project allow rules do not decide and the
+classifier denies the gated commands. Options, with consequences only:
 
 | Option | What changes | Note |
 |---|---|---|
-| A. Same kit, same branch, a web session whose permission mode is not Auto | session setting and two kit lines | Per the docs the cloud dropdown offers Accept edits, Plan and Auto; outside Auto the project rules decide directly and anything else prompts the operator. Add a step 0 to the kit: run `restore_e8_session.py --help` in the exact rule form before "go"; a denial is a stop before any state exists. Also state step 1 in the rule's form (`python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py …` from the repository root), or extend the rule to the kit's absolute `$REPIN` form; today the two cannot match. |
-| B. Keep Auto and get the project rules honored | Claude Code side | Nothing inside a session can change this; needs the reason from section 6 to be established first. |
+| A. Same kit, same branch, a web session whose permission mode is not Auto | session setting and two kit lines | Per the docs the cloud dropdown offers Accept edits, Plan and Auto. If the rules are held by missing workspace trust (section 6), leaving Auto does not make them apply, but each gated command then goes to an interactive prompt the operator answers instead of to the classifier; that is workable for the restore, the read-only inspection, the two setup commands and the one execution. Whether a web session can record workspace trust at all is unknown. Add a step 0 to the kit: run `restore_e8_session.py --help` in the exact rule form before "go"; a denial, a prompt or a silent pass tells the operator which regime is in force before any state exists. Also state step 1 in the rule's form (`python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py …` from the repository root), or extend the rule to the kit's absolute `$REPIN` form; today the two cannot match. |
+| B. Keep Auto and get the project rules honored | Claude Code side or session type | If the cause is workspace trust, this needs a session type that records it (an interactive local CLI or desktop session); nothing inside a web session can change it. |
 | C. Run restore and E8 on a machine the founder controls | environment | The package assumes the container's fixed paths; a path change needs a separately reviewed migration (README, sole-guard policy item 4). |
 | D. Close E8 with real denominators | receipt only | Report 140 reused / 160 never judged; no pass/fail. |
 
-Option A is the smallest change and is testable in under a minute with the step-0 smoke test. It
-is a founder decision, not a restore.
+Option A is the smallest change, and the step-0 smoke test settles in under a minute whether it
+works. It is a founder decision, not a restore.

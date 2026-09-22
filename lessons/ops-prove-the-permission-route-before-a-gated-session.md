@@ -10,7 +10,10 @@ auto-mode classifier still denied `restore_e8_session.py` in the exact allow-lis
 (`[Auto-Mode Bypass]`), and afterwards denied the same script's `--help`, which exits before it
 can touch anything. The official docs say narrow allow rules are evaluated before the classifier
 and that a repository's `.claude/settings.json` is read in web sessions; the session behaved as if
-the rules did not exist. The kit had no step that would have discovered this before step 1, and
+the rules did not exist. The same docs also hold a repository's `permissions.allow` rules until
+workspace trust is recorded for the folder, which `-p` and SDK sessions never prompt for, and a
+web session runs inside the SDK, so "read" did not mean "applied". The kit had no step that
+would have discovered any of this before step 1, and
 the first attempt had already been wrapped in a log redirect and a trailing `echo`, which takes a
 compound command outside a `Bash(prefix:*)` rule regardless. The kit and the rule also disagreed
 on the command text itself: the kit wrote step 1 with an absolute `"$REPIN/…"` path while the
@@ -32,9 +35,11 @@ its own receipt or capture the tool result, never wrap the command in shell redi
 denial verbatim (command, cwd, reason, approximate UTC) in the committed receipt, and never re-shape
 a denied command to try again through the shell.
 
-Enforcement lives in the kit, not in CI: the next E8 launch kit carries step 0 before step 1, and
+Enforcement lives in the kit, not in CI, because CI cannot exercise the cloud classifier and the
+launch kit is not a repository file: the next E8 launch kit carries step 0 before step 1, and
 `tasks/fable-e8-repin-2026-09-22/README.md` should gain the same line when it is next revised (it
-is hash-sealed by `code-sha256.json`, so that revision is a rebuild, not an edit).
+is hash-sealed by `code-sha256.json`, so that revision is a rebuild, not an edit). Until then the
+deferral is the open item in the 22 September E8 entry of `tasks/todo.md`.
 
 ## Evidence
 
