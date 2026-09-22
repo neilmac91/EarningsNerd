@@ -1,0 +1,17 @@
+test_attestation_time_must_be_fresh_utc (test_e8_addon.E8AddonOffline.test_attestation_time_must_be_fresh_utc) ... ok
+test_completed_e3_admits_only_the_frozen_e8_missing_panel (test_e8_addon.E8AddonOffline.test_completed_e3_admits_only_the_frozen_e8_missing_panel) ... ok
+test_e8_stop_and_changed_order_refuse_admission (test_e8_addon.E8AddonOffline.test_e8_stop_and_changed_order_refuse_admission) ... ok
+test_inter_slot_stop_and_prerequisite_change_block_next_pending (test_e8_addon.E8AddonOffline.test_inter_slot_stop_and_prerequisite_change_block_next_pending) ... ok
+test_missing_completed_e3_output_refuses_e8 (test_e8_addon.E8AddonOffline.test_missing_completed_e3_output_refuses_e8) ... ok
+test_original_aapl_stop_cannot_be_changed_or_ignored (test_e8_addon.E8AddonOffline.test_original_aapl_stop_cannot_be_changed_or_ignored) ... ok
+test_remote_guard_setup_is_a_hard_hold (test_e8_addon.E8AddonOffline.test_remote_guard_setup_is_a_hard_hold) ... ok
+test_synthetic_counter_rejects_an_unrecorded_call (test_e8_addon.E8AddonOffline.test_synthetic_counter_rejects_an_unrecorded_call) ... ok
+test_two_successful_synthetic_slots_advance_queue (test_e8_addon.E8AddonOffline.test_two_successful_synthetic_slots_advance_queue) ... {"slot": "001-J-74cc0b901eb3c17d", "complete": true, "failure": null}
+{"slot": "005-J-4ceb720c55caf532", "complete": true, "failure": null}
+ok
+test_unlogged_valid_looking_e8_output_is_not_admitted (test_e8_addon.E8AddonOffline.test_unlogged_valid_looking_e8_output_is_not_admitted) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 73.329s
+
+OK

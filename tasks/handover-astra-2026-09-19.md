@@ -5,6 +5,15 @@ handover or with an unchecked row in `tasks/todo.md`, this file wins and the old
 Every identifier below was read from GitHub, the Actions logs or the live service on 2026-09-19;
 re-read GitHub `main` before acting, because the repository will have moved.
 
+**Addendum, 2026-09-22 (E8 judging state).** The E8 row in the ledger below is superseded for
+E8 only: the judging containers' Claude CLI moved from `2.1.278` to `2.1.280`, the sealed E8
+tools refused to dispatch, and the founder chose to continue on the latest CLI through a new
+reviewed sibling package with a six-line derivation. The current E8 state, package, allow rules,
+sole-guard recovery ruling and next steps live in
+[`handover-astra-2026-09-22-e8-repin.md`](handover-astra-2026-09-22-e8-repin.md), which this
+file defers to for E8. E8 remains 140 reused E2 controls / 0 new / 160 missing; no model call,
+guard initialization or attestation has occurred. Everything else in this file stands.
+
 ## 1. Where things stand
 
 **Product and production.** The Cloud Run service `earningsnerd-backend` serves revision

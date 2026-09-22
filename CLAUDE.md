@@ -117,7 +117,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (config + markers in
   `backend/pytest.ini`; conftest auto-sets hermetic mock env incl. `SKIP_REDIS_INIT=true` — patch
   `settings`, not env vars) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
-  these does not run in CI.
+  these does not run in CI. Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one
+  exemption is a hash-sealed judging fixture pinned by a `code-sha256.json` in its package
+  (offline proof run by the operator, not by CI).
 - **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
   root. **Plans** → `tasks/todo.md`; finished plans → `tasks/archive/`; **lessons** → `lessons/`
   (one file per rule; never back into a monolith). **Prompts** → `backend/prompts/*.md`.

@@ -14,12 +14,18 @@ path and would otherwise be silently skipped — see `test-deselected-markers-ne
 CI runs performance explicitly with `python -m pytest -o addopts= -m performance
 tests/performance`). Frontend: `frontend/tests/unit/**/*.spec.*` + `frontend/tests/e2e` —
 one home, one suffix. Never create a test file outside these paths; if you find one,
-it is dead until moved.
+it is dead until moved. The single exemption is a hash-sealed evidence fixture: a test file
+listed, at its package-relative path and with a matching SHA-256, in a `code-sha256.json` in an
+ancestor directory (today only `tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py`, which
+the sealed Fable E8 add-on pins by path so it cannot be moved). Such a file is an offline proof
+the operator runs from its package, never something CI is expected to collect; the gate
+anchors the exemption to that one path so a second one is a deliberate edit.
 
 **Evidence**: Wave 0a (PR #546) — pytest.ini creation, orphan-suite triage; F3 test-dir
 merge (PR #559); `frontend/vitest.config.mts` include line. Machine-enforced since
-2026-09-13 by `frontend/tests/unit/testHomesAllowlist.spec.ts`, which walks the repo and
-fails on any test file outside the six homes — including a `.test.ts` inside
+2026-09-13 by `frontend/tests/unit/testHomesAllowlist.spec.ts`, which lists the repo's tracked
+files and fails on any test file outside the six homes (the sealed-fixture exemption above is
+mechanical: manifest listing plus hash match, since 2026-09-22) — including a `.test.ts` inside
 `frontend/tests/unit`, which sits in the right folder but matches nothing in vitest's
 `*.spec.ts?(x)` include. The `addopts` quoted above was stale until the same change: it read
 `-m "not performance and not slow"` against a `pytest.ini` that deselects performance only.

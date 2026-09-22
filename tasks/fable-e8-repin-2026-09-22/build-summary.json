@@ -1,0 +1,30 @@
+{
+  "old_version": "2.1.278",
+  "new_version": "2.1.280",
+  "sealed_supplement_manifest_sha256": "8e43ac912126d5253f5a46b4e5cc88ffbaa5b4ab4e5d49bb37f3189d1b0c568c",
+  "repin_supplement_manifest_sha256": "1ef772b3157106bcf9bee52675f89bdf0cf643f0457eb405b6ce28e5fe950f6f",
+  "repin_supplement_tools": {
+    "tools/binding.py": "f4f1d409af97a747f5785a33e582396d1edb0dfe6de933e31e9079bc9e7706bc",
+    "tools/guard_setup.py": "566fcde047be6ec436f9560bd939e6dab153417d1687a98e56c6c6104601e098",
+    "tools/readout.py": "ccb07da61854769fd0489c684714a1f297a2d8de6a4a4a5e26ae777e9b353e37",
+    "tools/resume.py": "e45109dce2eb4a5ba2e2b53f1291d0988bf8354ab41cec535bf55c53983ad33b"
+  },
+  "repin_code_manifest": {
+    "README.md": "537aca6a0152db544bced1650d8bb2abdc1b3dd1986810f1c6c7d0bb5c4b4b33",
+    "founder-history-attestation.md": "67527fd115135ae78c7e339423f7c798d53e78bb878d820ac77262e45d36ec8c",
+    "tests/test_e8_addon.py": "d79de7571e66257a5d60b318f409af6ddfd93cc5ef4abbd82b1cf9cc3f7c7456",
+    "tools/e8_resume.py": "3531be3ac3f55fd5a5a72f92d698ea45a6ca42075013479af30405d3be07ddb7",
+    "verification.md": "0ead016012a0bca31e4e02369e16bed7b4afd58045ab56850efbd18ab0c2a0b2"
+  },
+  "byte_identical": [
+    "tools/binding.py",
+    "tools/readout.py",
+    "founder-history-attestation.md",
+    "tests/test_e8_addon.py"
+  ],
+  "changed": [
+    "tools/guard_setup.py",
+    "tools/resume.py",
+    "tools/e8_resume.py"
+  ]
+}

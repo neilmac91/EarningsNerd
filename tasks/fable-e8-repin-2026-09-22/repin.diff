@@ -1,0 +1,46 @@
+--- sealed/tools/guard_setup.py
++++ repin/tools/guard_setup.py
+@@ -106,8 +106,8 @@
+                               env={k: v for k, v in os.environ.items() if k not in BILLING_ENV})
+     except (OSError, subprocess.SubprocessError) as exc:
+         raise GuardError('Version-only CLI check failed') from exc
+-    if proc.returncode or not re.fullmatch(r'2\.1\.278(?: \(Claude Code\))?\s*', proc.stdout) or proc.stderr.strip():
+-        raise GuardError('Real CLI must report exactly 2.1.278 (Claude Code)')
++    if proc.returncode or not re.fullmatch(r'2\.1\.280(?: \(Claude Code\))?\s*', proc.stdout) or proc.stderr.strip():
++        raise GuardError('Real CLI must report exactly 2.1.280 (Claude Code)')
+     return str(path)
+ 
+ 
+--- sealed/tools/resume.py
++++ repin/tools/resume.py
+@@ -79,7 +79,7 @@
+ def expected_reconciliation():
+     return {'schema': 'fable-known-stop-reconciliation-v1', 'policy_id': POLICY_ID,
+             'authorized_user_directive': AUTHORIZATION,
+-            'supplement_manifest_sha256': sha(Path(__file__).resolve().parents[1] / 'supplement-sha256.json'),
++            'supplement_manifest_sha256': '8e43ac912126d5253f5a46b4e5cc88ffbaa5b4ab4e5d49bb37f3189d1b0c568c',
+             'original_immutable_manifest_sha256': ORIGINAL_MANIFEST_SHA256,
+             'known': KNOWN}
+ 
+@@ -217,8 +217,8 @@
+     p = Path(value).resolve(strict=True)
+     if not p.is_file() or not os.access(p, os.X_OK): raise ValueError('CLI is not executable')
+     result = subprocess.run([str(p), '--version'], capture_output=True, text=True, timeout=20)
+-    if result.returncode or not re.match(r'^2\.1\.278(?:\s|$)', result.stdout.strip()):
+-        raise ValueError('Existing Claude CLI 2.1.278 required; no replacement or model probe performed')
++    if result.returncode or not re.match(r'^2\.1\.280(?:\s|$)', result.stdout.strip()):
++        raise ValueError('Existing Claude CLI 2.1.280 required; no replacement or model probe performed')
+     return p, result.stdout.strip()
+ 
+ def main():
+--- sealed/tools/e8_resume.py
++++ repin/tools/e8_resume.py
+@@ -21,7 +21,7 @@
+ import uuid
+ 
+ ORIGINAL_MANIFEST_SHA256 = '0fe5cb9e45c1fca76d2d9d71b0a13f58958ea7242efe34ae2a9f64544402d2c3'
+-E3_SUPPLEMENT_MANIFEST_SHA256 = '8e43ac912126d5253f5a46b4e5cc88ffbaa5b4ab4e5d49bb37f3189d1b0c568c'
++E3_SUPPLEMENT_MANIFEST_SHA256 = '1ef772b3157106bcf9bee52675f89bdf0cf643f0457eb405b6ce28e5fe950f6f'
+ PRIOR_EVIDENCE_SHA256 = 'ef5ef4dda0ac71dbc3480381f2d9febe3c2f09ffc4c0ce391c5814769a62f26c'
+ FOUNDER_STATEMENT_SHA256 = '67527fd115135ae78c7e339423f7c798d53e78bb878d820ac77262e45d36ec8c'
+ MIN_PRIOR = 287
