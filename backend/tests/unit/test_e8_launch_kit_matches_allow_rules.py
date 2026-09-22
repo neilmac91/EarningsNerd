@@ -20,9 +20,10 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
   (separators per the same docs page);
-- a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter,
-  the CLI or a shell ``date`` is invoked anywhere outside an ``sh`` block, where the operator
-  check would not see it (the kit takes timestamps from files the tools wrote, not from a command);
+- a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter
+  or the CLI is invoked anywhere outside an ``sh`` block, or the token ``date`` appears there in
+  any form, where the operator check would not see it (the kit takes timestamps from files the
+  tools wrote, not from a command, and has no other use for the word);
 - the kit's first command is not the zero-effect probe
   ``python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help``.
 
@@ -63,12 +64,13 @@ PLACEHOLDERS = re.compile(r"<(?:session-uploads-dir|UTC stamp|post-run stamp)>")
 # Variables, the command separators Claude Code recognises (& covers &&, |& and &>; | covers ||),
 # redirections and backticks: each takes a command outside its rule.
 FORBIDDEN_SHELL = ("$", "&", ";", "|", ">", "<", "`")
-# An interpreter or the CLI followed by an argument, or a shell `date` (bare or path-qualified) followed by a
-# flag, a format or a quoted argument, anywhere outside an sh block, is a command the gate would not see. The
-# kit's timestamps come from files the tools wrote, never from a command.
+# An interpreter or the CLI followed by an argument, anywhere outside an sh block, is a command the gate would
+# not see; so is the token `date` in any form (bare, backticked, path-qualified, with or without arguments),
+# because the kit's timestamps come from files the tools wrote, never from a command, and the kit has no other
+# use for the word.
 INVOCATION = re.compile(
-    r"(?:^|[\s`\"'(])(?:(?:python3?|/home/user/fable-judging/venv/bin/python|/opt/claude-code/bin/claude)\s+\S"
-    r"|(?:/usr/bin/|/bin/)?date\s+[-+\"'])"
+    r"(?:^|[\s`\"'(])(?:python3?|/home/user/fable-judging/venv/bin/python|/opt/claude-code/bin/claude)\s+\S"
+    r"|(?<![\w-])(?:/usr/bin/|/bin/)?date(?![\w-])"
 )
 
 _BASH_ENTRY = re.compile(r"^Bash\((.+)\)$")
@@ -257,7 +259,10 @@ KIT_EVASIONS = [
     ("command in prose", lambda kit: kit + "\nRun `python3 tasks/fable-e8-repin-2026-09-22/tools/resume.py --execute` now.\n"),
     ("shell timestamp in prose", lambda kit: kit + "\nTake the stamp from `date -u +%Y%m%dT%H%M%SZ`.\n"),
     ("shell timestamp without flags in prose", lambda kit: kit + "\nTake the stamp from `date +%Y%m%dT%H%M%SZ`.\n"),
+    ("bare backticked shell timestamp in prose", lambda kit: kit + "\nRun `date` now.\n"),
+    ("bare unquoted shell timestamp in prose", lambda kit: kit + "\nRun date now.\n"),
     ("path-qualified shell timestamp in prose", lambda kit: kit + "\nRun /bin/date -u first.\n"),
+    ("bare path-qualified shell timestamp in prose", lambda kit: kit + "\nRun /usr/bin/date now.\n"),
     ("shell timestamp in an sh block", lambda kit: kit + "\n```sh\ndate -u +%Y%m%dT%H%M%SZ\n```\n"),
     ("bare shell timestamp in an sh block", lambda kit: kit + "\n```sh\ndate\n```\n"),
     ("unlisted tool in an sh block", lambda kit: kit + "\n```sh\npython3 tasks/fable-e8-repin-2026-09-22/tools/resume.py\n```\n"),
