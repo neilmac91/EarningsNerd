@@ -77,7 +77,8 @@ def _covered(command: str, rules: list[tuple[str, re.Pattern[str]]]) -> bool:
 
 def _script_path(pattern: str) -> Path | None:
     """The repository script a rule names literally, or None when it names no repository path."""
-    for token in pattern.split():
+    literal = pattern[:-2] if pattern.endswith((":*", " *")) else pattern
+    for token in literal.split():
         if "*" in token:
             continue
         if token.startswith(CONTAINER_REPO + "/"):
