@@ -106,14 +106,17 @@ parses under its script's argparse (`findings.json`, `coverage`).
   mirrors the sealed `validate_guard` checks except the CLI identity (latch, owners, enabled,
   reconciled, counter range and floor, config path and ceiling, initialization record bindings),
   `attest()`'s prior count 287 and accounting continuity (supplement ledger chained from 287 in
-  steps of one or two to the counter, completed history 288..counter), `inspect_e8`'s ledger rules,
-  the quota and owner-loss markers and every terminal marker; corrupt owner or history values are
-  reported, not a crash. It verifies each copy, re-lists the source and records `inventory_sha256`; a file
+  steps of one or two to the counter, completed history 288..counter), `inspect_e8`'s ledger, index
+  and output-binding rules, the quota and owner-loss markers and every terminal marker; corrupt
+  owner, history or slot values are reported, not a crash. Because full admission also validates
+  every output against its packet through the frozen checkout, which the export cannot do, an
+  eligible verdict also requires the saved step 7 post-run inspection, the sealed admission's own
+  verdict, with counts and missing slots equal to the export's; kit step 7 now always saves it. It verifies each copy, re-lists the source and records `inventory_sha256`; a file
   that vanishes mid-export is recorded, not a crash. It lists directories, pending markers, STOP
   files and failed entries.
 - `.gitignore`: `!tasks/review-evidence/**/*.log`.
 - Gates: `test_e8_launch_kit_matches_allow_rules.py` (86 cases), new `test_e8_export_state.py`
-  (45), `test_e8_restore_session.py` (14), `test_e8_repin_package_is_sealed.py` (7, including
+  (55), `test_e8_restore_session.py` (14), `test_e8_repin_package_is_sealed.py` (7, including
   the package's exact file set: an added `tools/*.py` would otherwise run, since the sealed tools
   put `tools/` first on `sys.path`).
 - Handovers (`handover-astra-2026-09-19.md`, `handover-astra-2026-09-22-e8-repin.md`,
@@ -123,7 +126,7 @@ parses under its script's argparse (`findings.json`, `coverage`).
 
 ## 7. Verification
 
-- New and extended E8 gates: 152 passed (86 + 45 + 14 + 7), ruff clean on `backend/` and on
+- New and extended E8 gates: 162 passed (86 + 55 + 14 + 7), ruff clean on `backend/` and on
   both edited scripts.
 - Mutation proofs, each reverted afterwards. Nine single-defect reversions of the restore and
   export fixes each failed exactly one test: null-`active` normalisation, copy verification,
@@ -134,7 +137,7 @@ parses under its script's argparse (`findings.json`, `coverage`).
   mode sentence) and 6 new rule evasions are all rejected.
 - Full backend gate (`ruff check .`, `bandit -r app -ll`, `pytest`): before round 2, 3,512 passed,
   39 skipped, 2 deselected; after round 2, 3,521 passed; after the pre-merge fixes, 3,538 passed; after the
-  Codex fix, 3,550 passed, 39 skipped, 2 deselected.
+  Codex fix, 3,550 passed; after the second Codex round, 3,560 passed, 39 skipped, 2 deselected.
 - Adversarial review of this diff (workflow `wf_0966267a-99b`), with three lenses: restore, export,
   and kit, gates and docs. The restore and export findings were each checked by two refuters,
   and every one was confirmed as minor:
@@ -178,6 +181,18 @@ parses under its script's argparse (`findings.json`, `coverage`).
   unrepeated rows, no original ledger, a `judged.json` in every slot and a ledger row for each
   slot output). A consistent two-slot ledger with a retried slot stays ELIGIBLE, and eleven
   broken variants are each refused. Removing any rule fails its test.
+- Codex review of `7986914`: one P1 and one P2, both fixed:
+  - P1: slot names were not checked against the frozen index. The export now requires the
+    160-slot index, rows and `slots/` entries that name indexed slots (and only directories), and
+    rows bound to their `judged.json` and indexed packet hashes.
+  - P2: a non-string `slot` crashed the dedup step. It is now a named blocker.
+
+  To end the class of findings where the export's verdict lags the sealed admission, an eligible
+  verdict now also needs the saved step 7 read-only inspection. That is the sealed admission's own
+  post-run verdict, which validates every output through the frozen checkout. Its counts and missing
+  slots must equal the export's, and a pre-run inspection, other counts or other slots are each
+  refused. Kit step 7 now always reruns and saves it; the command is the unchanged step-2 command.
+  Every new rule is mutation-proved.
 
 ## 8. Correction to earlier records
 

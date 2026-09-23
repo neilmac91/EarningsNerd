@@ -57,8 +57,26 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
         _write(guard / "initialization.json", {"status": "complete", "prior_count": 287,
                                                "state_path": str(guard / "state.json"),
                                                "real_cli": "/opt/claude-code/bin/claude"})
-    _write(bundle / "stages" / "e8" / "index.json", {"packets": []})
+    _write(bundle / "stages" / "e8" / "index.json", {"programme": "e8", "packets": PACKETS})
     return bundle
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+# The frozen 160-slot panel, with the packet bindings a ledger row must repeat.
+PACKETS = [{"slot": f"{n:03d}", "packet_sha256": _digest(f"packet {n}"), "request_sha256": _digest(f"request {n}"),
+            "row_sha256": _digest(f"row {n}")} for n in range(1, 161)]
+
+
+def inspection(bundle: Path) -> dict:
+    """What the read-only inspection prints for this bundle once the sealed admission accepts it."""
+    slots = bundle / "stages" / "e8" / "slots"
+    done = {p.name for p in slots.iterdir() if (p / "judged.json").is_file()} if slots.is_dir() else set()
+    missing = [p["slot"] for p in PACKETS if p["slot"] not in done]
+    return {"stage": "e8", "reused_control_mains": 140, "new_planned": 160, "new_complete": len(done),
+            "new_missing": len(missing), "missing_slots": missing}
 
 
 def attestation(export, guard: Path) -> dict:
@@ -116,6 +134,7 @@ def test_an_initialized_guard_with_matching_receipts_is_an_eligible_checkpoint(e
     receipts = tmp_path / "receipts"
     _write(receipts / "e8-attestation-20260923T132122Z.json", attestation(export, guard))
     _write(receipts / "readback-post-run.json", readback(guard))
+    _write(receipts / "inspection-post-run.json", inspection(bundle))
     out = tmp_path / "out"
     code, summary = run(export, monkeypatch, bundle, out, receipts)
     assert code == 0
@@ -194,6 +213,7 @@ def test_each_terminal_marker_blocks_recovery_on_its_own(export, monkeypatch, tm
     receipts = tmp_path / "receipts"
     _write(receipts / "attestation.json", attestation(export, guard))
     _write(receipts / "readback.json", readback(guard))
+    _write(receipts / "inspection-post-run.json", inspection(bundle))
     code, summary = run(export, monkeypatch, bundle, tmp_path / "out", receipts)
     assert code == 0
     assert summary["recovery_blockers"] == [blocker]
@@ -347,24 +367,30 @@ def _ledger_bundle(tmp_path: Path) -> Path:
     """An initialized guard after two slots: 001 used one call (288), 005 used two (289, 290)."""
     bundle = make_bundle(tmp_path, "initialized")
     stages = bundle / "stages" / "e8"
-    rows = [{"slot": "001", "complete": True, "failure": None,
-             "guard_before": {"real_cli_invocations": 287}, "guard_after": {"real_cli_invocations": 288}},
-            {"slot": "005", "complete": True, "failure": None,
-             "guard_before": {"real_cli_invocations": 288}, "guard_after": {"real_cli_invocations": 290}}]
-    _write(stages / "execution-ledger.supplement.jsonl", "".join(json.dumps(row) + "\n" for row in rows))
     for slot in ("001", "005"):
-        _write(stages / "slots" / slot / "judged.json", {"results": []})
+        _write(stages / "slots" / slot / "judged.json", {"results": [], "slot": slot})
+
+    def row(slot: str, before: int, after: int) -> dict:
+        packet = next(p for p in PACKETS if p["slot"] == slot)
+        return {"slot": slot, "complete": True, "failure": None, **{k: packet[k] for k in ("packet_sha256", "request_sha256", "row_sha256")},
+                "judged_json_sha256": hashlib.sha256((stages / "slots" / slot / "judged.json").read_bytes()).hexdigest(),
+                "guard_before": {"real_cli_invocations": before}, "guard_after": {"real_cli_invocations": after}}
+
+    rows = [row("001", 287, 288), row("005", 288, 290)]
+    _write(stages / "execution-ledger.supplement.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
     state_path = bundle / "e8" / "guard" / "state.json"
     _write(state_path, {**json.loads(state_path.read_text()), "real_cli_invocations": 290,
                         "completed": [{"invocation": n} for n in (288, 289, 290)]})
     return bundle
 
 
-def _run_with_receipts(export, monkeypatch, tmp_path: Path, bundle: Path) -> dict:
+def _run_with_receipts(export, monkeypatch, tmp_path: Path, bundle: Path, with_inspection=True) -> dict:
     guard = bundle / "e8" / "guard"
     receipts = tmp_path / "receipts"
     _write(receipts / "attestation.json", attestation(export, guard))
     _write(receipts / "readback.json", matching_readback(guard))
+    if with_inspection:
+        _write(receipts / "inspection-post-run.json", inspection(bundle) if with_inspection is True else with_inspection)
     code, summary = run(export, monkeypatch, bundle, tmp_path / "out", receipts)
     assert code == 0 and summary["receipt_classes"] == {"attestation": True, "readback": True}
     return summary
@@ -414,6 +440,21 @@ LEDGER_REFUSALS = [
      lambda b: (b / "stages/e8/slots/005/judged.json").unlink(), "slot directory without judged.json: 005"),
     ("a ledger that is not JSON lines", lambda b: _write(b / "stages/e8/execution-ledger.supplement.jsonl", "{\n"),
      "is not JSON lines"),
+    ("a slot name that is not a string", lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[0].update(slot=["001"])),
+     "slot is not a name"),
+    ("a slot outside the frozen index",
+     lambda b: (_rewrite_rows(b / "stages/e8", lambda rows: rows[1].update(slot="161")),
+                (b / "stages/e8/slots/005").rename(b / "stages/e8/slots/161")),
+     "references slots outside the frozen index: ['161']"),
+    ("a stray file in slots/", lambda b: _write(b / "stages/e8/slots/notes.txt", "x"), "slots/ entry is not a directory: notes.txt"),
+    ("an output the ledger does not bind", lambda b: _write(b / "stages/e8/slots/005/judged.json", {"results": ["edited"]}),
+     "ledger row for 005 does not bind its judged.json"),
+    ("a row bound to another packet",
+     lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[0].update(request_sha256="0" * 64)),
+     "ledger row for 001 does not match its indexed packet"),
+    ("an index that is not the frozen panel",
+     lambda b: _write(b / "stages/e8/index.json", {"programme": "e8", "packets": PACKETS[:159]}),
+     "is not the frozen 160-slot E8 index"),
 ]
 
 
@@ -426,3 +467,38 @@ def test_broken_accounting_continuity_is_never_an_eligible_checkpoint(
     summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle)
     assert summary["recovery_eligible"] is False
     assert any(blocker in b for b in summary["recovery_blockers"]), summary["recovery_blockers"]
+
+
+def _wrong_counts(bundle: Path) -> dict:
+    value = inspection(bundle)
+    return {**value, "new_complete": value["new_complete"] - 1, "new_missing": value["new_missing"] + 1}
+
+
+def _pre_run(bundle: Path) -> dict:
+    """The step 2 inspection taken before any slot ran: 0 complete, 160 missing."""
+    return {"stage": "e8", "reused_control_mains": 140, "new_planned": 160, "new_complete": 0, "new_missing": 160,
+            "missing_slots": [p["slot"] for p in PACKETS]}
+
+
+def _other_slots(bundle: Path) -> dict:
+    """Right counts, wrong slots: an inspection of a different checkpoint of the same size."""
+    value = inspection(bundle)
+    return {**value, "missing_slots": ["001"] + [slot for slot in value["missing_slots"] if slot != "002"]}
+
+
+ADMISSION_EVIDENCE = [
+    ("no saved inspection", None),
+    ("an inspection with other counts", _wrong_counts),
+    ("the pre-run inspection only", _pre_run),
+    ("an inspection of other slots", _other_slots),
+]
+
+
+@pytest.mark.parametrize(("name", "make_inspection"), ADMISSION_EVIDENCE, ids=[case[0] for case in ADMISSION_EVIDENCE])
+def test_eligibility_needs_the_sealed_admissions_own_post_run_verdict(export, monkeypatch, tmp_path, name, make_inspection) -> None:
+    """The export cannot validate judged outputs against their packets; the saved step 7 inspection did."""
+    bundle = _ledger_bundle(tmp_path)
+    saved = make_inspection(bundle) if make_inspection else False
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=saved)
+    assert summary["recovery_blockers"] == [
+        "no saved post-run inspection (launch kit step 7) in which the sealed admission accepted this state"]

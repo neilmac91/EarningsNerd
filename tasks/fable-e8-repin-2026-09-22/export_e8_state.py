@@ -24,8 +24,10 @@ counter within 287..600 and not below its recorded prior count, config state pat
 initialization record bound to the config) except the CLI identity check, which needs the real
 binary; ``attest()``'s prior count 287 and its accounting continuity (the supplement ledger chains
 from 287 to the counter in steps of one or two, and the completed history is 288..counter);
-``inspect_e8``'s ledger rules; e8_resume's quota and owner-loss markers; README condition 6's
-terminal states (STOP, pending, failed); and the receipts. Only a missing bundle or ``stages/e8/index.json``,
+``inspect_e8``'s ledger, index and output-binding rules; e8_resume's quota and owner-loss markers;
+README condition 6's terminal states (STOP, pending, failed); and the receipts, including the saved
+post-run read-only inspection, the sealed admission's own verdict, which validates every output
+against its packet through the frozen checkout, something this tool cannot do. Only a missing bundle or ``stages/e8/index.json``,
 an existing output directory or a ``--receipts`` path that is not a directory refuses outright.
 
 README.md condition 1 requires the copied files to be verified against the inventory and the
@@ -100,6 +102,13 @@ LEDGER = 'execution-ledger.supplement.jsonl'
 ORIGINAL_LEDGER = 'execution-ledger.jsonl'
 # The guard's absolute ceiling (tools/guard_setup.py CEILING): a counter at it can admit no call.
 CEILING = 601
+# The frozen E8 panel (tools/resume.py::load_index, tools/e8_resume.py::verify_panel).
+E8_PACKETS = 160
+REUSED_CONTROLS = 140
+PACKET_BINDINGS = ('packet_sha256', 'request_sha256', 'row_sha256')
+# What the read-only inspection (e8_resume.py without --execute) prints once full admission passes.
+INSPECTION_KEYS = frozenset({'stage', 'reused_control_mains', 'new_planned', 'new_complete', 'new_missing',
+                             'missing_slots'})
 
 
 def utc_timestamp(value: object) -> bool:
@@ -283,11 +292,26 @@ def terminal_markers(stages: Path) -> dict:
     }
 
 
-def ledger_blockers(stages: Path, state: dict) -> list[str]:
-    """The accounting continuity the sealed tools require before any slot: attest() chains the
-    supplement ledger from prior count 287 in steps of one or two real calls to the guard counter and
-    requires the completed history 288..counter; inspect_e8 requires complete, failure-free,
-    unrepeated rows, no original ledger and a judged.json in every slot directory."""
+def frozen_packets(stages: Path) -> tuple[dict, list[str]]:
+    """The frozen index's packets by slot, or a blocker when it is not the 160-slot E8 index."""
+    index = read_json(stages / 'index.json')
+    packets = index.get('packets')
+    if index.get('programme') != 'e8' or not isinstance(packets, list) or len(packets) != E8_PACKETS:
+        return {}, [f'stages/e8/index.json is not the frozen {E8_PACKETS}-slot E8 index']
+    by_slot = {p['slot']: p for p in packets if isinstance(p, dict) and isinstance(p.get('slot'), str)}
+    if len(by_slot) != E8_PACKETS:
+        return {}, ['stages/e8/index.json has missing, malformed or repeated slot names']
+    return by_slot, []
+
+
+def ledger_blockers(stages: Path, state: dict, packets: dict) -> tuple[list[str], set]:
+    """The accounting continuity the sealed tools require before any slot, and the completed slots.
+
+    attest() chains the supplement ledger from prior count 287 in steps of one or two real calls to
+    the guard counter and requires the completed history 288..counter. inspect_e8/inspect_stage
+    require complete, failure-free, unrepeated rows naming indexed slots, no original ledger, only
+    indexed slot directories each holding a judged.json, and rows bound to their output and packet.
+    """
     blockers = []
     if (stages / ORIGINAL_LEDGER).exists():
         blockers.append(f'unexpected original E8 ledger {ORIGINAL_LEDGER}')
@@ -296,9 +320,15 @@ def ledger_blockers(stages: Path, state: dict) -> list[str]:
         try:
             rows = [json.loads(line) for line in (stages / LEDGER).read_text().splitlines()]
         except ValueError:
-            return blockers + [f'{LEDGER} is not JSON lines']
+            return blockers + [f'{LEDGER} is not JSON lines'], set()
     if not all(isinstance(row, dict) for row in rows):
-        return blockers + [f'{LEDGER} holds a row that is not an object']
+        return blockers + [f'{LEDGER} holds a row that is not an object'], set()
+    unnamed = [row.get('slot') for row in rows if not isinstance(row.get('slot'), str)]
+    if unnamed:
+        return blockers + [f'{LEDGER} has rows whose slot is not a name: {unnamed!r}'], set()
+    if packets and {row['slot'] for row in rows} - set(packets):
+        blockers.append(f'{LEDGER} references slots outside the frozen index: '
+                        f'{sorted({row["slot"] for row in rows} - set(packets))}')
     if any(not row.get('complete') or row.get('failure') for row in rows):
         blockers.append(f'{LEDGER} has an unresolved execution')
     slots = [row.get('slot') for row in rows]
@@ -324,17 +354,50 @@ def ledger_blockers(stages: Path, state: dict) -> list[str]:
         if invocations != list(range(PRIOR_COUNT + 1, count + 1)):
             blockers.append(f'guard completion history is not the sequence {PRIOR_COUNT + 1}..{count}')
     slot_dir = stages / 'slots'
-    outputs = {p.name for p in slot_dir.iterdir() if p.is_dir()} if slot_dir.is_dir() else set()
+    entries = sorted(slot_dir.iterdir()) if slot_dir.is_dir() else []
+    blockers += [f'slots/ entry is not a directory: {p.name}' for p in entries if not p.is_dir()]
+    if packets:
+        blockers += [f'slots/ entry outside the frozen index: {p.name}' for p in entries if p.name not in packets]
+    outputs = {p.name for p in entries if p.is_dir()}
     blockers += [f'slot directory without judged.json: {name}' for name in sorted(outputs)
                  if not (slot_dir / name / 'judged.json').is_file()]
-    completed_slots = {row.get('slot') for row in rows if row.get('complete')}
+    completed_slots = {row['slot'] for row in rows if row.get('complete')}
     blockers += [f'slot output without a ledger row: {name}' for name in sorted(outputs - completed_slots)]
-    blockers += [f'ledger row without a slot output: {name}' for name in sorted(completed_slots - outputs, key=str)]
-    return blockers
+    blockers += [f'ledger row without a slot output: {name}' for name in sorted(completed_slots - outputs)]
+    for row in rows:
+        judged = slot_dir / row['slot'] / 'judged.json'
+        if row.get('complete') and judged.is_file() and row.get('judged_json_sha256') != sha(judged):
+            blockers.append(f'ledger row for {row["slot"]} does not bind its judged.json')
+        packet = packets.get(row['slot'], {})
+        if any(field in packet and row.get(field) != packet[field] for field in PACKET_BINDINGS):
+            blockers.append(f'ledger row for {row["slot"]} does not match its indexed packet')
+    return blockers, {name for name in outputs if (slot_dir / name / 'judged.json').is_file()}
 
 
-def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, classes: dict | None,
-                      markers: dict) -> list[str]:
+def admission_blockers(receipts: Path | None, packets: dict, done: set) -> list[str]:
+    """The sealed admission's own verdict on this state, which the export cannot recompute.
+
+    Full admission also validates every judged.json against its packet through the frozen checkout.
+    The launch kit's step 7 therefore saves the post-run read-only inspection (e8_resume.py without
+    --execute), which prints this JSON only after that admission passes. An eligible checkpoint needs
+    one whose counts and missing slots are exactly this export's.
+    """
+    if receipts is not None and packets:
+        expected_missing = sorted(set(packets) - done)
+        for path in sorted(receipts.rglob('*.json')):
+            value = read_json(path)
+            missing = value.get('missing_slots')
+            if (set(value) == INSPECTION_KEYS and value.get('stage') == 'e8'
+                    and value.get('reused_control_mains') == REUSED_CONTROLS and value.get('new_planned') == E8_PACKETS
+                    and value.get('new_complete') == len(done) and value.get('new_missing') == E8_PACKETS - len(done)
+                    and isinstance(missing, list) and all(isinstance(s, str) for s in missing)
+                    and sorted(missing) == expected_missing):
+                return []
+    return ['no saved post-run inspection (launch kit step 7) in which the sealed admission accepted this state']
+
+
+def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, receipts: Path | None,
+                      classes: dict | None, markers: dict) -> list[str]:
     """Every reason this export cannot serve as a sole-guard recovery checkpoint (README.md)."""
     if stage == 'pristine':
         return ['guard never initialized: nothing to recover; a new session starts from the sealed template']
@@ -389,7 +452,9 @@ def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, classe
     if markers['failed_entries']:
         blockers.append(f'failed invocations: {markers["failed_entries"]}')
     if stage == 'initialized':
-        blockers += ledger_blockers(stages, state)
+        packets, index_blockers = frozen_packets(stages)
+        continuity, done = ledger_blockers(stages, state, packets)
+        blockers += index_blockers + continuity + admission_blockers(receipts, packets, done)
     return blockers
 
 
@@ -430,7 +495,7 @@ def main() -> int:
     markers = terminal_markers(stages)
     classes = receipt_classes(receipts, guard) if receipts is not None else None
     blockers = [f'guard file missing for a {stage} guard: {name}' for name in missing]
-    blockers += [b for b in recovery_blockers(guard, stages, stage, state, classes, markers) if b not in blockers]
+    blockers += [b for b in recovery_blockers(guard, stages, stage, state, receipts, classes, markers) if b not in blockers]
     destination_verified = not mismatches
     source_unchanged = not source_changes
     if not destination_verified:
