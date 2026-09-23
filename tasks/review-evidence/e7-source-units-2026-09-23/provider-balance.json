@@ -1,0 +1,14 @@
+{
+  "attempted_at_utc": "between 2026-09-23T19:21Z and 19:22Z (bracketed by local artifact timestamps; the API returned no server timestamp)",
+  "action": "workflow_dispatch of .github/workflows/deepseek-balance.yml on main via the session GitHub integration",
+  "result": "denied: 403 Resource not accessible by integration",
+  "retried_or_alternate_route": false,
+  "latest_existing_reading": {
+    "workflow_run": 35839909018,
+    "created_at": "2026-09-23T08:55:36Z",
+    "reported_total_balance_usd": "66.21 (as recorded in PR #951 body; not re-read here)"
+  },
+  "current_balance_read": false,
+  "consequence": "The bounded paid-CI precondition (current balance read) is unmet in this session; opening the PR would start eval-baseline because backend/evals changed.",
+  "provider_or_model_call": false
+}

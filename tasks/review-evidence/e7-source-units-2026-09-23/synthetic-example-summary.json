@@ -1,0 +1,25 @@
+{
+  "accession_number": "0000000000-26-000001",
+  "admission_approved": false,
+  "context_span_bytes_not_counted_as_coverage": 2,
+  "context_span_count": 1,
+  "coverage_bytes": 6,
+  "declared_packet_byte_partition": "exact",
+  "declared_packet_bytes": 6,
+  "kind": "e7_offline_source_unit_validation",
+  "limitations": [
+    "Byte custody only: the declared accession, packet roles, structural kinds and registrant scopes are unverified declarations.",
+    "The declared packets are not every source in the filing; other exhibits, submission members, supplements and graphics remain separate obligations.",
+    "A byte-valid span boundary is not a semantically safe text, table, footnote or UTF-8 character split.",
+    "Tables, hidden inline-XBRL facts, images, encoded archives and decoded members are neither inventoried nor dispositioned.",
+    "No source review, model-context custody, issue propagation, E7 coverage_status or E7 admission is attested."
+  ],
+  "manifest_sha256": "ea73eff3b57db48cd9f3c127e719ca389d60d5afd93f4861ea496464fc521e7b",
+  "member_modality_completeness_attested": false,
+  "packet_count": 1,
+  "schema_version": 1,
+  "semantic_labels_verified": false,
+  "semantic_review_attested": false,
+  "source_set_completeness_attested": false,
+  "unit_count": 2
+}
