@@ -351,7 +351,7 @@ async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
         assert "period net income / period-end equity, not annualized: 15.7%" in text.lower()
         assert "period net income / period-end assets, not annualized: 1.3%" in text.lower()
         assert "Return on Equity" not in text and "Return on Assets" not in text
-    assert "ROE/ROA" not in prompt
+    assert "ROE" not in prompt and "ROA" not in prompt
     assert "prior 17.0%" in rendered and "prior 1.5%" in rendered
 
 
