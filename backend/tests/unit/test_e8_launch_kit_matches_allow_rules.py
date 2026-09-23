@@ -29,12 +29,14 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
 
 Only the three named placeholders (``<session-uploads-dir>``, ``<UTC stamp>``, ``<post-run
 stamp>``) are removed before the operator check; any other ``<…>`` span is shell syntax, and each
-placeholder must appear exactly once across the kit's commands, in exactly one position (the
-uploads directory in the restore, the pre-run stamp in the execute command's attestation path,
-the post-run stamp in the export destination), so the stamp ordering the kit prescribes is
-enforced, not just described, and cannot be removed by hard-coding a value or dropping an
-argument. The evasion cases at the bottom lock each of these behaviours against in-memory
-copies of the kit and rules.
+placeholder must appear exactly once across the kit's commands, in the one command that carries
+it (the uploads directory in the restore, the pre-run stamp in the execute command's attestation
+path, the post-run stamp in the export destination), and that command must equal the exact
+string the gate pins, so the stamp ordering the kit prescribes is enforced, not just described,
+and cannot be removed by hard-coding a value, dropping an argument, or appending a second
+occurrence of a single-value option (argparse keeps the last one, so an unanchored check would
+certify an attestation path the tool never reads). The evasion cases at the bottom lock each of
+these behaviours against in-memory copies of the kit and rules.
 """
 from __future__ import annotations
 
@@ -66,22 +68,33 @@ PROBE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help"
 ALLOWED_FENCES = {"sh", "text", "json"}
 # Operator-substituted values. Any other text between < and > is shell syntax.
 PLACEHOLDERS = re.compile(r"<(?:session-uploads-dir|UTC stamp|post-run stamp)>")
-# Each placeholder is valid in exactly one command position (the kit's stamp rules): the uploads directory only
-# as the restore's --uploads value, the pre-run stamp only in the attestation path the execute command names,
-# and the post-run stamp only in the export destination, which is the only command formed after execution.
-PLACEHOLDER_POSITIONS = {
-    "<session-uploads-dir>": (
-        "the --uploads value of the restore command",
-        re.compile(r"^python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session\.py --uploads /root/\.claude/uploads/<session-uploads-dir>$"),
-    ),
-    "<UTC stamp>": (
-        "the --attestation value of the execute command",
-        re.compile(r"^\S+ /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume\.py .* --attestation /home/user/fable-judging/receipts/e8-attestation-<UTC stamp>\.json( |$)"),
-    ),
-    "<post-run stamp>": (
-        "the --out value of the export command",
-        re.compile(r"^python3 tasks/fable-e8-repin-2026-09-22/export_e8_state\.py .* --out tasks/review-evidence/e8-fable-state-<post-run stamp>$"),
-    ),
+# Each placeholder is valid in exactly one command (the kit's stamp rules): the uploads directory only as the
+# restore's --uploads value, the pre-run stamp only in the attestation path the execute command names, and the
+# post-run stamp only in the export destination, which is the only command formed after execution. The gate pins
+# each of those commands whole: argparse keeps the last occurrence of a single-value option, so a check anchored
+# only at the placeholder would certify an execute command that goes on to name a different attestation file.
+RESTORE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --uploads /root/.claude/uploads/<session-uploads-dir>"
+EXECUTE = (
+    f"/home/user/fable-judging/venv/bin/python {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py"
+    " --bundle /home/user/fable-judging/fable-resume-corrected-2026-09-20"
+    f" --supplement {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22"
+    " --repo /home/user/earningsnerd-fable-frozen"
+    " --python /home/user/fable-judging/venv/bin/python"
+    " --cli /opt/claude-code/bin/claude"
+    " --guard-dir /home/user/fable-judging/fable-resume-corrected-2026-09-20/e8/guard"
+    " --attestation /home/user/fable-judging/receipts/e8-attestation-<UTC stamp>.json"
+    " --max-new 160 --execute"
+)
+EXPORT = (
+    "python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py"
+    " --bundle /home/user/fable-judging/fable-resume-corrected-2026-09-20"
+    " --receipts /home/user/fable-judging/receipts"
+    " --out tasks/review-evidence/e8-fable-state-<post-run stamp>"
+)
+PLACEHOLDER_COMMANDS = {
+    "<session-uploads-dir>": ("the restore command", RESTORE),
+    "<UTC stamp>": ("the execute command", EXECUTE),
+    "<post-run stamp>": ("the export command", EXPORT),
 }
 # Variables, the command separators Claude Code recognises (& covers &&, |& and &>; | covers ||),
 # redirections and backticks: each takes a command outside its rule.
@@ -215,12 +228,12 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
             if token in bare:
                 problems.append(f"contains {token!r}, which takes it outside its rule: {command}")
         for placeholder in sorted(set(PLACEHOLDERS.findall(command))):
-            role, position = PLACEHOLDER_POSITIONS[placeholder]
-            if command.count(placeholder) != 1 or not position.search(command):
-                problems.append(f"placeholder {placeholder} is valid only as {role}: {command}")
+            role, expected = PLACEHOLDER_COMMANDS[placeholder]
+            if command != expected:
+                problems.append(f"placeholder {placeholder} is valid only in {role}, pinned whole as {expected!r}: {command}")
     if commands and commands[0] != PROBE:
         problems.append(f"the first command must be the zero-effect probe {PROBE!r}; found {commands[0]!r}")
-    for placeholder, (role, _) in PLACEHOLDER_POSITIONS.items():
+    for placeholder, (role, _) in PLACEHOLDER_COMMANDS.items():
         occurrences = sum(command.count(placeholder) for command in commands)
         if occurrences != 1:
             problems.append(
@@ -273,7 +286,7 @@ def test_bash_rule_matching_follows_the_documented_semantics(name: str, entry: s
 
 
 # Each evasion mutates an in-memory copy of the real kit or rules; the gate must reject every one.
-STEP_1 = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --uploads /root/.claude/uploads/<session-uploads-dir>"
+STEP_1 = RESTORE
 EXPORT_FENCE = "```sh\npython3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py"
 KIT_EVASIONS = [
     ("variable form", lambda kit: kit.replace(STEP_1, 'python3 "$REPIN/restore_e8_session.py" --uploads x')),
@@ -308,6 +321,11 @@ KIT_EVASIONS = [
     ("attestation argument removed", lambda kit: kit.replace(" --attestation /home/user/fable-judging/receipts/e8-attestation-<UTC stamp>.json", "")),
     ("hard-coded export stamp", lambda kit: kit.replace("e8-fable-state-<post-run stamp>", "e8-fable-state-20260922T220300Z")),
     ("hard-coded uploads directory", lambda kit: kit.replace("/root/.claude/uploads/<session-uploads-dir>", "/root/.claude/uploads/a714ff2c")),
+    ("second attestation after --execute", lambda kit: kit.replace(EXECUTE, EXECUTE + " --attestation /tmp/hardcoded.json")),
+    ("second attestation in equals form", lambda kit: kit.replace("--max-new 160 --execute", "--attestation=/tmp/hardcoded.json --max-new 160 --execute")),
+    ("second uploads directory on the restore", lambda kit: kit.replace(STEP_1, STEP_1 + " --uploads /tmp/other")),
+    ("second export destination", lambda kit: kit.replace(EXPORT, EXPORT + " --out /tmp/other")),
+    ("execute ceiling altered", lambda kit: kit.replace("--max-new 160 --execute", "--max-new 161 --execute")),
 ]
 
 
