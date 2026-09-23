@@ -1,0 +1,46 @@
+{
+ "posthog": "7.58.0",
+ "init_params": [
+  "self",
+  "project_api_key",
+  "host"
+ ],
+ "capture_sig": "(self, event: str, **kwargs: typing_extensions.Unpack[posthog.args.OptionalCaptureArgs]) -> Optional[str]",
+ "flush_sig": "(self, timeout_seconds: Optional[float] = 10) -> None",
+ "delivered": [
+  [
+   "v0",
+   "https://offline.invalid",
+   "$delete",
+   "42",
+   [
+    "deletion_timestamp"
+   ]
+  ],
+  [
+   "v0",
+   "https://offline.invalid",
+   "generation_succeeded",
+   "user-1",
+   [
+    "duration_ms"
+   ]
+  ],
+  [
+   "v0",
+   "https://offline.invalid",
+   "copilot_inference_cost",
+   "user-1",
+   [
+    "tokens",
+    "usd"
+   ]
+  ]
+ ],
+ "traces_config_default": null,
+ "new_threads": [
+  "Thread-1",
+  "Thread-2"
+ ]
+}
+POSTHOG_SHAPES_OK 7.58.0
