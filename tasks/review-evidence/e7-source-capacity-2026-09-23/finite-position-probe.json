@@ -6,7 +6,7 @@
     "provenance": "new explicit finite probe; earlier exploratory token corpus was not retained",
     "tokens": [
       "text",
-      "é",
+      "\u00e9",
       "\n",
       "\r\n",
       "<p>",
@@ -64,5 +64,12 @@
       "type": "ValueError"
     }
   },
-  "status": "passed"
+  "status": "passed",
+  "runner": {
+    "artifact": "finite-position-probe.py.txt",
+    "sha256": "651ac36370d13ecd582977cd968bbc1b6d0b94969ea05f375fc662c0f73438f6",
+    "kind": "exact executed runner retained as text evidence",
+    "command_from_backend": "PYTHONPATH=. python /path/to/finite-position-probe.py.txt --module evals/acceptance_source_capacity.py --expected-module-sha256 ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7 --output /path/to/new-probe.json",
+    "oracle": "Before calling the implementation, decode raw bytes preceding cursor and independently compute (count of LF + 1, Unicode length after last LF); compare to HTMLParser.getpos. Record accepted cases and aggregate mismatch counts. This deliberately does not reuse the implementation position state."
+  }
 }

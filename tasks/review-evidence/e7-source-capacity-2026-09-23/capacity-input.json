@@ -1,0 +1,1189 @@
+{
+  "custody_finding": {
+    "candidate_original_comparison": "historical identity comparison only; all three primaries are four bytes larger there and have different SHA-256 values",
+    "current_revised_files_status": "all three primary files match governing revised size and SHA-256",
+    "exact_four_byte_cause_known": false,
+    "governing_capacity_identity": "approved revised source contract bound by source-map-final/source-manifest",
+    "identity_rule": "Preserve the existing custody rule: bind one declared contract and never mix original and revised packet identities.",
+    "new_hold_created_by_this_reconnaissance": false,
+    "not_current_filesystem_drift_against_revised_contract": true,
+    "not_http_content_length_confusion": true,
+    "reason_exact_cause_unavailable": "The revised source manifest records changed new SEC service fetches and retains both identities, but the original primary bytes are unavailable for byte comparison."
+  },
+  "filings": [
+    {
+      "accession_number": "0000018230-26-000008",
+      "declared_content_types": [
+        {
+          "content_bytes": 6100468,
+          "declared_type": "10-K",
+          "max_content_bytes": 6100468,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 180050,
+          "declared_type": "EX-101.CAL",
+          "max_content_bytes": 180050,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 836126,
+          "declared_type": "EX-101.DEF",
+          "max_content_bytes": 836126,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1511191,
+          "declared_type": "EX-101.LAB",
+          "max_content_bytes": 1511191,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1145827,
+          "declared_type": "EX-101.PRE",
+          "max_content_bytes": 1145827,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 123530,
+          "declared_type": "EX-101.SCH",
+          "max_content_bytes": 123530,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 216809,
+          "declared_type": "EX-19",
+          "max_content_bytes": 216809,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 262387,
+          "declared_type": "EX-21",
+          "max_content_bytes": 262387,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2532,
+          "declared_type": "EX-23",
+          "max_content_bytes": 2532,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 12408,
+          "declared_type": "EX-31.1",
+          "max_content_bytes": 12408,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 12496,
+          "declared_type": "EX-31.2",
+          "max_content_bytes": 12496,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 11477,
+          "declared_type": "EX-32",
+          "max_content_bytes": 11477,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 35649,
+          "declared_type": "EX-97",
+          "max_content_bytes": 35649,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1718825,
+          "declared_type": "GRAPHIC",
+          "max_content_bytes": 1064718,
+          "members": 5,
+          "routes": [
+            "visual_or_binary_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1962421,
+          "declared_type": "JSON",
+          "max_content_bytes": 1962421,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 16877892,
+          "declared_type": "XML",
+          "max_content_bytes": 7469968,
+          "members": 142,
+          "routes": [
+            "structured_data_review_required",
+            "structured_rendering_review_required",
+            "unclassified_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2167214,
+          "declared_type": "ZIP",
+          "max_content_bytes": 2167214,
+          "members": 1,
+          "routes": [
+            "encoded_archive_inventory_required"
+          ]
+        }
+      ],
+      "document_members": 162,
+      "filing_type": "10-K",
+      "holdout_id": "H01",
+      "largest_member": {
+        "content_bytes": 7469968,
+        "declared_type": "XML",
+        "filename": "cat-20251231_htm.xml",
+        "format_wrapper": "XML",
+        "header_bytes": 106,
+        "ordinal": 162,
+        "route": "structured_data_review_required"
+      },
+      "map_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-23/source-map-final/H01.json",
+      "map_sha256": "a00268b95da8b69d0f7a63ba86e287c90868e6b5394ca80f316ad93efa1c114b",
+      "members_over_2mib": 3,
+      "members_over_64mib": 0,
+      "packets": [
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 33197476,
+          "candidate_original_sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972",
+          "content_type": "text/plain",
+          "current_revised_bytes": 33197476,
+          "current_revised_sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972",
+          "filesystem_bytes": 33197476,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H01/0000018230-26-000008.txt",
+          "role": "complete_submission",
+          "source_view_64mib_status": "not_direct_html_input"
+        },
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 14404,
+          "candidate_original_sha256": "7afcc54daeced3e411f83a15c3dd9423c2021433ede080d0c00bf54efd4bc56c",
+          "content_type": "text/html; charset=UTF-8",
+          "current_revised_bytes": 14404,
+          "current_revised_sha256": "7afcc54daeced3e411f83a15c3dd9423c2021433ede080d0c00bf54efd4bc56c",
+          "filesystem_bytes": 14404,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H01/0000018230-26-000008-index.htm",
+          "role": "index",
+          "source_view_64mib_status": "within_limit"
+        },
+        {
+          "bytes_delta_revised_minus_candidate": -4,
+          "candidate_identity_matches_revised": false,
+          "candidate_original_bytes": 6100583,
+          "candidate_original_sha256": "fb9bdf42368dc77660f1fc85085edf3d2b3b33c19e38d5d999dfede447d31ffc",
+          "content_type": "text/html",
+          "current_revised_bytes": 6100579,
+          "current_revised_sha256": "3c749d4d1d3a8ed558180c8f186861796c2da1f76a6daac5c7e23c94223d2047",
+          "filesystem_bytes": 6100579,
+          "filesystem_exists": true,
+          "filesystem_hash_matches_candidate_original": false,
+          "filesystem_hash_matches_revised_map": true,
+          "filesystem_sha256": "3c749d4d1d3a8ed558180c8f186861796c2da1f76a6daac5c7e23c94223d2047",
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H01/cat-20251231.htm",
+          "revised_manifest_capture_method": "new_sec_service_fetch",
+          "revised_manifest_diff_status": "changed",
+          "role": "primary",
+          "source_view_64mib_status": "within_limit"
+        }
+      ],
+      "parser_unit_2mib_status": "unresolved_from_member_metadata; limit is per parser event byte span, not per member",
+      "raw_2mib_span_lower_bound": 3,
+      "readable_members": 8,
+      "readable_members_over_2mib": 1,
+      "readable_members_over_64mib": 0,
+      "readable_raw_2mib_span_lower_bound": 10,
+      "route_counts": {
+        "encoded_archive_inventory_required": 1,
+        "readable_document_review_required": 8,
+        "structured_data_review_required": 8,
+        "structured_rendering_review_required": 138,
+        "unclassified_review_required": 2,
+        "visual_or_binary_review_required": 5
+      },
+      "route_payload_bytes": {
+        "encoded_archive_inventory_required": 2167215,
+        "readable_document_review_required": 6654249,
+        "structured_data_review_required": 13314648,
+        "structured_rendering_review_required": 9319013,
+        "unclassified_review_required": 3625,
+        "visual_or_binary_review_required": 1718830
+      },
+      "selected_primary_member": {
+        "content_bytes": 6100468,
+        "declared_type": "10-K",
+        "filename": "cat-20251231.htm",
+        "format_wrapper": "XBRL",
+        "header_bytes": 86,
+        "inline_xbrl_markers_present": true,
+        "ordinal": 1,
+        "payload_bytes": 6100484,
+        "route": "readable_document_review_required"
+      },
+      "semantic_coverage_attested": false,
+      "ticker": "CAT"
+    },
+    {
+      "accession_number": "0001326160-26-000014",
+      "declared_content_types": [
+        {
+          "content_bytes": 16080175,
+          "declared_type": "10-K",
+          "max_content_bytes": 16080175,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 255949,
+          "declared_type": "EX-101.CAL",
+          "max_content_bytes": 255949,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2531882,
+          "declared_type": "EX-101.DEF",
+          "max_content_bytes": 2531882,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2200915,
+          "declared_type": "EX-101.LAB",
+          "max_content_bytes": 2200915,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2875892,
+          "declared_type": "EX-101.PRE",
+          "max_content_bytes": 2875892,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 240580,
+          "declared_type": "EX-101.SCH",
+          "max_content_bytes": 240580,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 51238,
+          "declared_type": "EX-21",
+          "max_content_bytes": 51238,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2365,
+          "declared_type": "EX-23.11",
+          "max_content_bytes": 2365,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2039,
+          "declared_type": "EX-23.12",
+          "max_content_bytes": 2039,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1955,
+          "declared_type": "EX-23.13",
+          "max_content_bytes": 1955,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1953,
+          "declared_type": "EX-23.14",
+          "max_content_bytes": 1953,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1923,
+          "declared_type": "EX-23.15",
+          "max_content_bytes": 1923,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1955,
+          "declared_type": "EX-23.16",
+          "max_content_bytes": 1955,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 22653,
+          "declared_type": "EX-24.1",
+          "max_content_bytes": 22653,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 5099,
+          "declared_type": "EX-24.2",
+          "max_content_bytes": 5099,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7874,
+          "declared_type": "EX-31.11",
+          "max_content_bytes": 7874,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 8080,
+          "declared_type": "EX-31.12",
+          "max_content_bytes": 8080,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7864,
+          "declared_type": "EX-31.13",
+          "max_content_bytes": 7864,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7868,
+          "declared_type": "EX-31.14",
+          "max_content_bytes": 7868,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7867,
+          "declared_type": "EX-31.15",
+          "max_content_bytes": 7867,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7853,
+          "declared_type": "EX-31.16",
+          "max_content_bytes": 7853,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7855,
+          "declared_type": "EX-31.17",
+          "max_content_bytes": 7855,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7813,
+          "declared_type": "EX-31.18",
+          "max_content_bytes": 7813,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7696,
+          "declared_type": "EX-31.21",
+          "max_content_bytes": 7696,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7711,
+          "declared_type": "EX-31.22",
+          "max_content_bytes": 7711,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7706,
+          "declared_type": "EX-31.23",
+          "max_content_bytes": 7706,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7710,
+          "declared_type": "EX-31.24",
+          "max_content_bytes": 7710,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7709,
+          "declared_type": "EX-31.25",
+          "max_content_bytes": 7709,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7695,
+          "declared_type": "EX-31.26",
+          "max_content_bytes": 7695,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7697,
+          "declared_type": "EX-31.27",
+          "max_content_bytes": 7697,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 7655,
+          "declared_type": "EX-31.28",
+          "max_content_bytes": 7655,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3812,
+          "declared_type": "EX-32.11",
+          "max_content_bytes": 3812,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3891,
+          "declared_type": "EX-32.12",
+          "max_content_bytes": 3891,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3848,
+          "declared_type": "EX-32.13",
+          "max_content_bytes": 3848,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3811,
+          "declared_type": "EX-32.14",
+          "max_content_bytes": 3811,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3807,
+          "declared_type": "EX-32.15",
+          "max_content_bytes": 3807,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3798,
+          "declared_type": "EX-32.16",
+          "max_content_bytes": 3798,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3814,
+          "declared_type": "EX-32.17",
+          "max_content_bytes": 3814,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3788,
+          "declared_type": "EX-32.18",
+          "max_content_bytes": 3788,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3655,
+          "declared_type": "EX-32.21",
+          "max_content_bytes": 3655,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3688,
+          "declared_type": "EX-32.22",
+          "max_content_bytes": 3688,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3665,
+          "declared_type": "EX-32.23",
+          "max_content_bytes": 3665,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3684,
+          "declared_type": "EX-32.24",
+          "max_content_bytes": 3684,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3680,
+          "declared_type": "EX-32.25",
+          "max_content_bytes": 3680,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3669,
+          "declared_type": "EX-32.26",
+          "max_content_bytes": 3669,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3685,
+          "declared_type": "EX-32.27",
+          "max_content_bytes": 3685,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3659,
+          "declared_type": "EX-32.28",
+          "max_content_bytes": 3659,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1389698,
+          "declared_type": "GRAPHIC",
+          "max_content_bytes": 814526,
+          "members": 6,
+          "routes": [
+            "visual_or_binary_review_required"
+          ]
+        },
+        {
+          "content_bytes": 2744563,
+          "declared_type": "JSON",
+          "max_content_bytes": 2744563,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 49611394,
+          "declared_type": "XML",
+          "max_content_bytes": 21628456,
+          "members": 213,
+          "routes": [
+            "structured_data_review_required",
+            "structured_rendering_review_required",
+            "unclassified_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3366291,
+          "declared_type": "ZIP",
+          "max_content_bytes": 3366291,
+          "members": 1,
+          "routes": [
+            "encoded_archive_inventory_required"
+          ]
+        }
+      ],
+      "document_members": 268,
+      "filing_type": "10-K",
+      "holdout_id": "H02",
+      "largest_member": {
+        "content_bytes": 21628456,
+        "declared_type": "XML",
+        "filename": "duk-20251231_htm.xml",
+        "format_wrapper": "XML",
+        "header_bytes": 106,
+        "ordinal": 268,
+        "route": "structured_data_review_required"
+      },
+      "map_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-23/source-map-final/H02.json",
+      "map_sha256": "fe77a66936036dc64de076e9bace97dcc1e7df2756c75b6e19ff8761cc758008",
+      "members_over_2mib": 7,
+      "members_over_64mib": 0,
+      "packets": [
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 81613612,
+          "candidate_original_sha256": "38548af7359d2d9145c8375285848ea4caded860d5e80ba44f32a8d552aa30af",
+          "content_type": "text/plain",
+          "current_revised_bytes": 81613612,
+          "current_revised_sha256": "38548af7359d2d9145c8375285848ea4caded860d5e80ba44f32a8d552aa30af",
+          "filesystem_bytes": 81613612,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H02/0001326160-26-000014.txt",
+          "role": "complete_submission",
+          "source_view_64mib_status": "not_direct_html_input"
+        },
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 38152,
+          "candidate_original_sha256": "b6d2d7f1b1975f6c52a05a211052bc31d61e1f343232194ea93fcade6579d793",
+          "content_type": "text/html; charset=UTF-8",
+          "current_revised_bytes": 38152,
+          "current_revised_sha256": "b6d2d7f1b1975f6c52a05a211052bc31d61e1f343232194ea93fcade6579d793",
+          "filesystem_bytes": 38152,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H02/0001326160-26-000014-index.htm",
+          "role": "index",
+          "source_view_64mib_status": "within_limit"
+        },
+        {
+          "bytes_delta_revised_minus_candidate": -4,
+          "candidate_identity_matches_revised": false,
+          "candidate_original_bytes": 16080290,
+          "candidate_original_sha256": "6c451cbcbd57e32dc676240ad2e6cb2355299e6c39ef3cbfa0a460a94758b15a",
+          "content_type": "text/html",
+          "current_revised_bytes": 16080286,
+          "current_revised_sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9",
+          "filesystem_bytes": 16080286,
+          "filesystem_exists": true,
+          "filesystem_hash_matches_candidate_original": false,
+          "filesystem_hash_matches_revised_map": true,
+          "filesystem_sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9",
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H02/duk-20251231.htm",
+          "revised_manifest_capture_method": "new_sec_service_fetch",
+          "revised_manifest_diff_status": "changed",
+          "role": "primary",
+          "source_view_64mib_status": "within_limit"
+        }
+      ],
+      "parser_unit_2mib_status": "unresolved_from_member_metadata; limit is per parser event byte span, not per member",
+      "raw_2mib_span_lower_bound": 8,
+      "readable_members": 42,
+      "readable_members_over_2mib": 1,
+      "readable_members_over_64mib": 0,
+      "readable_raw_2mib_span_lower_bound": 49,
+      "route_counts": {
+        "encoded_archive_inventory_required": 1,
+        "readable_document_review_required": 42,
+        "structured_data_review_required": 8,
+        "structured_rendering_review_required": 209,
+        "unclassified_review_required": 2,
+        "visual_or_binary_review_required": 6
+      },
+      "route_payload_bytes": {
+        "encoded_archive_inventory_required": 3366292,
+        "readable_document_review_required": 16356019,
+        "structured_data_review_required": 32616052,
+        "structured_rendering_review_required": 27841818,
+        "unclassified_review_required": 3625,
+        "visual_or_binary_review_required": 1389704
+      },
+      "selected_primary_member": {
+        "content_bytes": 16080175,
+        "declared_type": "10-K",
+        "filename": "duk-20251231.htm",
+        "format_wrapper": "XBRL",
+        "header_bytes": 90,
+        "inline_xbrl_markers_present": true,
+        "ordinal": 1,
+        "payload_bytes": 16080191,
+        "route": "readable_document_review_required"
+      },
+      "semantic_coverage_attested": false,
+      "ticker": "DUK"
+    },
+    {
+      "accession_number": "0001089113-26-000010",
+      "declared_content_types": [
+        {
+          "content_bytes": 57158447,
+          "declared_type": "20-F",
+          "max_content_bytes": 57158447,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 417252,
+          "declared_type": "EX-101.CAL",
+          "max_content_bytes": 417252,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3069127,
+          "declared_type": "EX-101.DEF",
+          "max_content_bytes": 3069127,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3863742,
+          "declared_type": "EX-101.LAB",
+          "max_content_bytes": 3863742,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3556313,
+          "declared_type": "EX-101.PRE",
+          "max_content_bytes": 3556313,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 584923,
+          "declared_type": "EX-101.SCH",
+          "max_content_bytes": 584923,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 64796,
+          "declared_type": "EX-11.1",
+          "max_content_bytes": 64796,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 4069,
+          "declared_type": "EX-12.1",
+          "max_content_bytes": 4069,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 4081,
+          "declared_type": "EX-12.2",
+          "max_content_bytes": 4081,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1437,
+          "declared_type": "EX-13.1",
+          "max_content_bytes": 1437,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1149,
+          "declared_type": "EX-15.1",
+          "max_content_bytes": 1149,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 1672,
+          "declared_type": "EX-15.6",
+          "max_content_bytes": 1672,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 231635,
+          "declared_type": "EX-2.1",
+          "max_content_bytes": 231635,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 4667,
+          "declared_type": "EX-4.5",
+          "max_content_bytes": 4667,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 23365,
+          "declared_type": "EX-97",
+          "max_content_bytes": 23365,
+          "members": 1,
+          "routes": [
+            "readable_document_review_required"
+          ]
+        },
+        {
+          "content_bytes": 77408063,
+          "declared_type": "GRAPHIC",
+          "max_content_bytes": 3350631,
+          "members": 250,
+          "routes": [
+            "visual_or_binary_review_required"
+          ]
+        },
+        {
+          "content_bytes": 3353492,
+          "declared_type": "JSON",
+          "max_content_bytes": 3353492,
+          "members": 1,
+          "routes": [
+            "structured_data_review_required"
+          ]
+        },
+        {
+          "content_bytes": 106107271,
+          "declared_type": "XML",
+          "max_content_bytes": 48246190,
+          "members": 283,
+          "routes": [
+            "structured_data_review_required",
+            "structured_rendering_review_required",
+            "unclassified_review_required"
+          ]
+        },
+        {
+          "content_bytes": 41293306,
+          "declared_type": "ZIP",
+          "max_content_bytes": 41293306,
+          "members": 1,
+          "routes": [
+            "encoded_archive_inventory_required"
+          ]
+        }
+      ],
+      "document_members": 550,
+      "filing_type": "20-F",
+      "holdout_id": "H25",
+      "largest_member": {
+        "content_bytes": 57158447,
+        "declared_type": "20-F",
+        "filename": "hsbc-20251231.htm",
+        "format_wrapper": "XBRL",
+        "header_bytes": 87,
+        "ordinal": 1,
+        "route": "readable_document_review_required"
+      },
+      "map_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-23/source-map-final/H25.json",
+      "map_sha256": "879cb2ce5eed2949cc6a1c3c30b05bf1d2749f1d0732cff5ee8f03844b101fe9",
+      "members_over_2mib": 15,
+      "members_over_64mib": 0,
+      "packets": [
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 297209475,
+          "candidate_original_sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+          "content_type": "text/plain",
+          "current_revised_bytes": 297209475,
+          "current_revised_sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+          "filesystem_bytes": 297209475,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H25/0001089113-26-000010.txt",
+          "role": "complete_submission",
+          "source_view_64mib_status": "not_direct_html_input"
+        },
+        {
+          "candidate_identity_matches_revised": true,
+          "candidate_original_bytes": 95290,
+          "candidate_original_sha256": "193c9c201f48e87f48a4ecb727b12d80be734eeb97bffa7fc99b7d24e04cf4eb",
+          "content_type": "text/html; charset=UTF-8",
+          "current_revised_bytes": 95290,
+          "current_revised_sha256": "193c9c201f48e87f48a4ecb727b12d80be734eeb97bffa7fc99b7d24e04cf4eb",
+          "filesystem_bytes": 95290,
+          "filesystem_exists": true,
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H25/0001089113-26-000010-index.htm",
+          "role": "index",
+          "source_view_64mib_status": "within_limit"
+        },
+        {
+          "bytes_delta_revised_minus_candidate": -4,
+          "candidate_identity_matches_revised": false,
+          "candidate_original_bytes": 57158562,
+          "candidate_original_sha256": "4b60b424ae531503aefced8e583f8d3cb08e89b0adb9bb8af0d6e6af88c60ace",
+          "content_type": "text/html",
+          "current_revised_bytes": 57158558,
+          "current_revised_sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+          "filesystem_bytes": 57158558,
+          "filesystem_exists": true,
+          "filesystem_hash_matches_candidate_original": false,
+          "filesystem_hash_matches_revised_map": true,
+          "filesystem_sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+          "filesystem_size_matches_revised_map": true,
+          "path": "e7-sources/H25/hsbc-20251231.htm",
+          "revised_manifest_capture_method": "new_sec_service_fetch",
+          "revised_manifest_diff_status": "changed",
+          "role": "primary",
+          "source_view_64mib_status": "within_limit"
+        }
+      ],
+      "parser_unit_2mib_status": "unresolved_from_member_metadata; limit is per parser event byte span, not per member",
+      "raw_2mib_span_lower_bound": 28,
+      "readable_members": 10,
+      "readable_members_over_2mib": 1,
+      "readable_members_over_64mib": 0,
+      "readable_raw_2mib_span_lower_bound": 37,
+      "route_counts": {
+        "encoded_archive_inventory_required": 1,
+        "readable_document_review_required": 10,
+        "structured_data_review_required": 8,
+        "structured_rendering_review_required": 279,
+        "unclassified_review_required": 2,
+        "visual_or_binary_review_required": 250
+      },
+      "route_payload_bytes": {
+        "encoded_archive_inventory_required": 41293307,
+        "readable_document_review_required": 57495343,
+        "structured_data_review_required": 63282409,
+        "structured_rendering_review_required": 57666476,
+        "unclassified_review_required": 3625,
+        "visual_or_binary_review_required": 77408313
+      },
+      "selected_primary_member": {
+        "content_bytes": 57158447,
+        "declared_type": "20-F",
+        "filename": "hsbc-20251231.htm",
+        "format_wrapper": "XBRL",
+        "header_bytes": 87,
+        "inline_xbrl_markers_present": true,
+        "ordinal": 1,
+        "payload_bytes": 57158463,
+        "route": "readable_document_review_required"
+      },
+      "semantic_coverage_attested": false,
+      "ticker": "HSBC"
+    }
+  ],
+  "inputs": {
+    "candidate_manifest": "/private/tmp/earningsnerd-acceptance-20260921/tasks/review-evidence/acceptance-2026-09-19/candidate-manifest.json",
+    "candidate_manifest_sha256": "68242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66",
+    "document_map_index": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-23/source-map-final/index.json",
+    "document_map_index_sha256": "d7f2556fd48c05a20327c8ed48b53b23f6f7ef1c66d9c19d32c0e0a4036b7d48",
+    "frozen_revised_source_root": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e7-ai-source-snapshot-2026-09-22",
+    "revised_source_manifest": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/work/e7-ai-source-snapshot-2026-09-22/source-manifest.json",
+    "revised_source_manifest_sha256": "f65b783c0d73f98eb49f4d91acc79fbada546be7133decb3f2094679b2aaa708"
+  },
+  "kind": "e7_hierarchy_capacity_reconnaissance",
+  "schema_version": 1,
+  "scope": {
+    "holdout_ids": [
+      "H01",
+      "H02",
+      "H25"
+    ],
+    "html_projection_run": false,
+    "network_or_provider_calls": false,
+    "raw_files_hashed": [
+      "e7-sources/H01/cat-20251231.htm",
+      "e7-sources/H02/duk-20251231.htm",
+      "e7-sources/H25/hsbc-20251231.htm"
+    ],
+    "raw_files_otherwise_read": false,
+    "semantic_source_review_run": false
+  },
+  "smallest_next_implementation": {
+    "deliverable": "identity-bound parser-event capacity preflight for the three declared revised primary HTML packets",
+    "does_not_establish": [
+      "structural projection memory safety",
+      "model-context fit",
+      "table, image, or other modality coverage"
+    ],
+    "requirements": [
+      "require the approved revised source contract identity and preserve the existing no-mixing custody rule",
+      "stream size and SHA-256 verification before tokenization",
+      "use a bounded whole-input tokenizer without constructing the structural projection",
+      "preserve logical parser-event boundaries across feed chunks or explicitly coalesce split fragments; fixed-size feed fragments must not be treated as distinct logical events",
+      "report maximum parser-event byte span and event kind",
+      "stop on any event above 2 MiB, any source above 64 MiB, or any identity mismatch",
+      "retain capacity metadata only; do not alter admission, protocol, budget, or source-brief guards"
+    ]
+  },
+  "source_view_limits": {
+    "implementation": "/private/tmp/earningsnerd-acceptance-20260921/backend/evals/acceptance_source_view.py",
+    "meaning": "source limit applies to the complete raw HTML input; parser-unit limit applies to each emitted parser event byte span",
+    "parser_unit_bytes": 2097152,
+    "source_bytes": 67108864
+  },
+  "status": "offline_metadata_reconnaissance_only",
+  "summary": {
+    "all_packet_paths_exist_and_sizes_match_revised_maps": true,
+    "all_three_primary_hashes_match_approved_revised_contract": true,
+    "complete_submission_bytes": 412020563,
+    "document_members": 980,
+    "filings": 3,
+    "parser_unit_2mib_status": "unresolved_without_bounded_event-length preflight",
+    "readable_members_over_64mib": 0,
+    "selected_revised_primary_packets_within_64mib": true
+  },
+  "unmeasured": [
+    "maximum logical parser-event byte span for each selected primary",
+    "structural JSON expansion and peak memory",
+    "actual model-context sizing",
+    "table, image, and other modality capacity"
+  ]
+}

@@ -15,3 +15,5 @@ The correction closes that class without restoring the large per-character byte-
 
 I reviewed the committed objects read-only and did not run tests or edit the capacity worktree. The author reported the focused invariant and Ruff passing. Root's full gate and real-source pilots remain separate evidence.
 
+
+Packaging note: the historical `independent-review.md` referenced above is retained here as [independent-review-b73492dd.md](independent-review-b73492dd.md).

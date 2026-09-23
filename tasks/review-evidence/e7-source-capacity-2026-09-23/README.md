@@ -12,7 +12,9 @@ Measured code `abf4ca640d48b35be5099b2b6883c3298cf2d3b3` under Python 3.11.16. A
 | H02 | 16,080,286 | 355,227 | 2,186 | 1.165 | 65.02 |
 | H25 | 57,158,558 | 1,278,811 | 941 | 3.490 | 141.56 |
 
-[Pilot receipt](pilot-receipt.json) binds code, source, audit and measurement identities. All final audit bytes match the provisional b73492dd results; final code, timing and RSS were measured again after the callback correction. Peak memory applies only to this preflight on this machine. Full structural projection, model context, all 980 submission members, graphics and other modalities remain separate capacity obligations. No leaf size or hierarchy admission policy is selected by these results.
+[Pilot receipt](pilot-receipt.json) binds code, source, audits, the retained input inventory, both runner and raw-profile identities. The [executed measurement runner](capacity-pilot-runner.py.txt) is retained as text evidence; the receipt names every raw profile and stdout artifact with SHA-256. Wall seconds are the Python monotonic subprocess interval, rounded to three decimals; the raw BSD-time profile reports its own interval to two decimals. RSS is the macOS time maximum resident set size in bytes. The [exact runner input](capacity-input.json) is retained separately from the older reconnaissance snapshot; its later planning wording does not alter the revised source identities. All final audit bytes match the provisional b73492dd results; final code, timing and RSS were measured again after the callback correction. Peak memory applies only to this preflight on this machine. Full structural projection, model context, all 980 submission members, graphics and other modalities remain separate capacity obligations. No leaf size or hierarchy admission policy is selected by these results.
+
+Archived runners retain their original absolute paths and measured-commit assertions. For a local replay, use the receipt command shapes with matching source identities and new output paths; preserve the archived runners. Replayed timings will vary.
 
 ## Verification
 
@@ -23,7 +25,7 @@ The existing single invariant compares representative UTF-8/multiline events wit
 - [Raw event-size guard](mutation-proof.json), b73492dd: `1 failed, 2 warnings in 4.88s` after removal; `1 passed, 2 warnings in 0.76s` after byte-identical restoration.
 - [Callback-position guard](cursor-mutation-proof.json), abf4ca64: `1 failed, 2 warnings in 0.77s` after removal; `1 passed, 2 warnings in 4.90s` after byte-identical restoration.
 
-Root review found that ignored `</>` markup could be absorbed into a following comment span. The [finding](cursor-finding.json) preserves that evidence, and the [corrective independent review](independent-review-abf4ca64.md) supersedes the explicitly historical b73492dd review. A [new finite 4,096-combination probe](finite-position-probe.json) checks accepted callback mappings after the fix; it is bounded verification, not a general HTML-parser correctness claim.
+Root review found that ignored `</>` markup could be absorbed into a following comment span. The [finding](cursor-finding.json) preserves that evidence, and the [corrective independent review](independent-review-abf4ca64.md) supersedes the explicitly historical b73492dd review. A [new finite 4,096-combination probe](finite-position-probe.json) checks accepted callback mappings after the fix. Its [executed runner](finite-position-probe.py.txt), SHA-256, exact command shape and independent raw-prefix oracle are retained; it is bounded verification, not a general HTML-parser correctness claim.
 
 ## Scope and next step
 

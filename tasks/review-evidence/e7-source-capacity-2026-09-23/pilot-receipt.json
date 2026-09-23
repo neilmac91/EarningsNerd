@@ -22,7 +22,11 @@
       "max_rss_bytes": 47398912,
       "audit_file": "H01-audit.json",
       "audit_sha256": "144e30313587aa11b0ef63566105f5eb3a50b09308f8345ff3a96c6a32bb2fd8",
-      "exit_code": 0
+      "exit_code": 0,
+      "profile_artifact": "H01-profile.log",
+      "profile_sha256": "24216e25bdd9a97666aec262f489848be0baff37e61dcb88593d5dfeb78abcaf",
+      "stdout_artifact": "H01-stdout.log",
+      "stdout_sha256": "7ef87eb30aebe35aed8d4b48ec4dc61811e8615d17d060b22584bbc9c2aa5de6"
     },
     {
       "holdout_id": "H02",
@@ -42,7 +46,11 @@
       "max_rss_bytes": 68173824,
       "audit_file": "H02-audit.json",
       "audit_sha256": "231360d773936e714068a140d3fd89a5600b4f34bed5474f0e5a1fcc76741614",
-      "exit_code": 0
+      "exit_code": 0,
+      "profile_artifact": "H02-profile.log",
+      "profile_sha256": "7392b866b71b3c256ce701c2c0dfd011a58feed1fd3e1a398ceda9abdd730b97",
+      "stdout_artifact": "H02-stdout.log",
+      "stdout_sha256": "3aa5a0154e94776ffda1bd6520129a18cf4bea7adde21f8143594391bd669432"
     },
     {
       "holdout_id": "H25",
@@ -62,7 +70,11 @@
       "max_rss_bytes": 148439040,
       "audit_file": "H25-audit.json",
       "audit_sha256": "875f671d356efa026919ba75758a1bc9931816a090e36140fa950dc6a59ee72e",
-      "exit_code": 0
+      "exit_code": 0,
+      "profile_artifact": "H25-profile.log",
+      "profile_sha256": "df16e159eca4ada7bb3cad15bd55b33d478a5d441051eee681b6f667845d2903",
+      "stdout_artifact": "H25-stdout.log",
+      "stdout_sha256": "6dd09fb192b419708888202b4ee69b1fa55ed760d0ec92a16b99db8c7bbcfe01"
     }
   ],
   "full_projection_built": false,
@@ -72,5 +84,32 @@
   "limitations": [
     "Measured RSS is for the capacity preflight only, not source projection or model context."
   ],
-  "audit_bytes_identical_to_provisional_b73492dd": true
+  "audit_bytes_identical_to_provisional_b73492dd": true,
+  "capacity_input_artifact": "capacity-input.json",
+  "capacity_input_note": "Exact local input read by the executed runner; shares approved revised primary identities with the older reconnaissance snapshot but contains later planning wording. Retained separately rather than relabeling historical evidence.",
+  "measurement": {
+    "runner_artifact": "capacity-pilot-runner.py.txt",
+    "runner_sha256": "aa3f2b5023a7ab1d2dc2d08c8c6697cc220b08e041afe73fc85e73b432293607",
+    "platform": "macOS-26.7-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "resource_tool": "/usr/bin/time -l (macOS BSD time)",
+    "wall_seconds_definition": "Python time.monotonic() delta around subprocess.run, rounded to three decimals; includes wrapper startup/return overhead. The BSD time real line uses its own interval and two decimals.",
+    "max_rss_bytes_definition": "Integer maximum resident set size from each macOS time -l profile, in bytes.",
+    "execution": "Sequential files, each in a fresh Python 3.11.16 process and fresh bytecode-cache directory after the full gate completed. No structural projection constructed.",
+    "command_template": [
+      "/usr/bin/time",
+      "-l",
+      "/private/tmp/earningsnerd-dependency-refresh-20260923-venv/bin/python",
+      "-m",
+      "evals.acceptance_source_capacity",
+      "--source",
+      "<audit.source.path>",
+      "--expected-sha256",
+      "<source_sha256>",
+      "--expected-bytes",
+      "<source_bytes>",
+      "--output",
+      "<profiled-final>/<audit_file>"
+    ]
+  }
 }
