@@ -51,7 +51,7 @@ Three findings survived refutation and are fixed in `f6a0fb98`:
 
 Two lenses independently recomputed the golden vectors from the specification alone. These reviews are not Agent B's independent verification.
 
-The provider-balance read for paid PR CI was **denied** (`403 Resource not accessible by integration`) and was not retried by another route; see [provider-balance.json](provider-balance.json). The latest existing reading is run 35839909018 from 08:55 UTC, which is not current.
+The provider-balance read for paid PR CI was **denied** (`403 Resource not accessible by integration`) and was not retried by another route; see [provider-balance.json](provider-balance.json). The latest existing reading is run 35839909018 from 08:55 UTC, which is not current. The founder then supplied a current DeepSeek console reading (topped-up balance USD 65.69 at 23:40 local, 23 September), which is recorded there and is the basis for ordinary PR CI only.
 
 ## Real-source availability
 

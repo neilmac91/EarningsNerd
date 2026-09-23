@@ -8,7 +8,14 @@
     "created_at": "2026-09-23T08:55:36Z",
     "reported_total_balance_usd": "66.21 (as recorded in PR #951 body; not re-read here)"
   },
-  "current_balance_read": false,
-  "consequence": "The bounded paid-CI precondition (current balance read) is unmet in this session; opening the PR would start eval-baseline because backend/evals changed.",
-  "provider_or_model_call": false
+  "current_balance_read": true,
+  "consequence": "The founder-supplied current reading satisfies the balance precondition for ordinary bounded PR CI (eval-baseline, about USD 0.30). No new E7 or Fable programme spend is authorized by it.",
+  "provider_or_model_call": false,
+  "founder_supplied_reading": {
+    "source": "DeepSeek platform console screenshot supplied by the founder in the session (not the balance workflow, whose dispatch was denied to this integration)",
+    "observed_local_clock": "Wed 23 Sep 23:40 (founder's Mac clock; the console states GMT+2)",
+    "topped_up_balance_usd": "65.69",
+    "total_cost_usd": "104.30",
+    "last_30_days_cost_usd": "74.86"
+  }
 }
