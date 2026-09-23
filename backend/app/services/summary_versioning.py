@@ -108,7 +108,11 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   manufacturing an operating margin from amounts whose denominator basis is unverified. Align
 #   the shared inline segment rule with that code-owned table; model commentary stays unchanged.
 #   Taxonomy remains v2. The stamp marks older rows stale without scheduling regeneration.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-p"
+# summary-2026-09-q: name derived return ratios by their actual period-net-income / period-end
+#   equity-or-assets formulas in both generator grounding and deterministic rendering, rather than
+#   reusing issuer-facing ROE/ROA names for a different basis. Taxonomy remains v2. The stamp marks
+#   older rows stale without scheduling regeneration or historical replay.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-q"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
