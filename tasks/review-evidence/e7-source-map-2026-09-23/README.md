@@ -31,3 +31,5 @@ admission safeguard was mutated.
 The original 232-million-character flattened queue is retained as an incomplete prototype.
 Neither it nor this document map establishes semantic coverage. The [mapper instructions](../../readiness-2026-09-21/acceptance/source-document-map.md)
 state the remaining structured/image/unknown-format review requirements.
+
+[Selected-source capacity profile](capacity.md): 18.78 million text characters remain, including large table/inline-XBRL workloads. The map removes an extraction bottleneck; a section-aware review method is the next critical dependency.

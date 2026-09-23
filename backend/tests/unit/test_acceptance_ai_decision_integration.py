@@ -354,7 +354,13 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     evidence["judge_ledger"].update(_write(ledger_path, judge_ledger))
     fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
 
-    assessment_ref = evidence["assessments"][0]
+    # Packet order is deliberately randomized. The absolute fabricated-quote veto
+    # belongs to the candidate arm; comparator defects remain descriptive.
+    candidate_ids = {p["packet_id"] for p in mapping["packet_sets"]["ai-packet-1"]
+                     if p["arm"] == "candidate"}
+    assessment_ref = next(ref for ref in evidence["assessments"]
+                          if json.loads((fixture["evidence"].parent / ref["path"]).read_text())["packet_id"]
+                          in candidate_ids)
     assessment_path = fixture["evidence"].parent / assessment_ref["path"]
     assessment = json.loads(assessment_path.read_text())
     original_quality_context = assessment["quality_context_id"]
