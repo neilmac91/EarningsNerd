@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from evals.acceptance_source_units import build_unit_manifest, validate_unit_manifest
+from evals.acceptance_source_units import build_unit_manifest, load_unit_manifest, validate_unit_manifest
 
 
 ACCESSION = "0000000000-26-000001"
@@ -116,6 +116,16 @@ class _LyingBytes(bytes):
         return 1
 
 
+class _MasqueradingKey(str):
+    """A key that hashes and compares like another key while serializing as itself."""
+
+    def __hash__(self) -> int:
+        return hash("kind")
+
+    def __eq__(self, other: object) -> bool:
+        return other == "kind"
+
+
 def test_units_partition_declared_packets_and_bind_recomputable_identities() -> None:
     declared = _declared()
     pristine = copy.deepcopy(declared)
@@ -130,7 +140,8 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
     assert "coverage_status" not in manifest and all(manifest[flag] is False for flag in FLAGS)
     disclaimers = " ".join(manifest["limitations"])
     for required in ("unverified declarations", "not every source in the filing", "not a semantically safe",
-                     "hidden inline-XBRL facts, images", "E7 coverage_status or E7 admission"):
+                     "hidden inline-XBRL facts, images", "model-context custody",
+                     "E7 coverage_status or E7 admission"):
         assert required in disclaimers
 
     # A JSON round trip validates; repeated context is reported separately and never counted as coverage.
@@ -195,13 +206,21 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         build_unit_manifest(**_declared(units=context_only))
     with pytest.raises(ValueError, match="declared packet graphic has no coverage units"):
         build_unit_manifest(**_declared(units=_units()[1:]))
+    for edge, message in (({"start": 1, "end": len(GRAPHIC)}, "coverage gap in packet graphic at byte 0"),
+                          ({"start": 0, "end": len(GRAPHIC) - 1}, f"coverage gap in packet graphic at byte {len(GRAPHIC) - 1}")):
+        with pytest.raises(ValueError, match=message):
+            build_unit_manifest(**_declared(units=[{**_units()[0], "coverage_spans": [edge]}, *_units()[1:]]))
 
     # Validator custody: each tampered manifest is rejected and left exactly as supplied.
     _rejected({**manifest, "units": manifest["units"][:3]}, f"coverage gap in packet primary at byte {row_2['end']}")
     _rejected({**manifest, "units": [*manifest["units"], manifest["units"][3]]}, "duplicate unit_id")
     _rejected({**manifest, "units": [manifest["units"][0], manifest["units"][2], manifest["units"][1],
                                      manifest["units"][3]]}, "units must be ordered")
+    _rejected({**manifest, "declared_packets": manifest["declared_packets"][::-1]}, "ascending role order")
     _rejected({**manifest, "declared_packets": []}, "declared_packets must be a non-empty list", {})
+    masquerade = {(_MasqueradingKey("coverage_status") if key == "kind" else key): value
+                  for key, value in manifest.items()}
+    _rejected(masquerade, "source unit manifest must be an object")
     changed_byte = PRIMARY.replace(b"1,318", b"1,319")
     for packet_bytes, message in (
         ({**RAW_BY_ROLE, "primary": changed_byte}, "primary bytes do not match"),
@@ -210,6 +229,7 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         ({**RAW_BY_ROLE, "graphic": _LyingBytes(GRAPHIC)}, "immutable bytes"),
         ({"primary": PRIMARY}, "exactly the declared packet roles"),
         ({**RAW_BY_ROLE, "index": b"extra"}, "exactly the declared packet roles"),
+        ({"graphic": GRAPHIC, _MasqueradingKey("primary"): PRIMARY}, "exactly the declared packet roles"),
     ):
         _rejected(manifest, message, packet_bytes)
     _rejected(_tampered(manifest, ("accession_number",), OTHER_ACCESSION), "declares a different accession")
@@ -241,7 +261,7 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         _rejected(_tampered(manifest, path, value), message, accession=accession)
 
 
-def test_unit_payload_framing_separates_fragment_boundaries() -> None:
+def test_unit_encoding_separates_fragment_boundaries_and_pins_canonical_bytes() -> None:
     def framed_unit(raw: bytes, first: tuple[int, int], second: tuple[int, int]) -> dict[str, Any]:
         gap = {"start": first[1], "end": second[0]}
         return build_unit_manifest(
@@ -290,6 +310,24 @@ def test_unit_payload_framing_separates_fragment_boundaries() -> None:
         ("e575eeaf1918dc720ecc75be88cb6a4d5fc7bffba553afbc59eb3fc2b55d2f4e",
          "b031a940ab59b3a68f207048db42605a357d1aafd08a06c1d5adc4be62502d83"),
     ]
+    # One whole-manifest vector freezes the limitation text, flags, key sets, kind and encoding:
+    # changing any of them without a new schema_version fails here.
+    stored = _canonical(manifest)
+    assert _sha(stored) == "ea73eff3b57db48cd9f3c127e719ca389d60d5afd93f4861ea496464fc521e7b"
+    summary = validate_unit_manifest(load_unit_manifest(stored), accession_number=ACCESSION,
+                                     packet_bytes={"primary": raw})
+    assert summary["manifest_sha256"] == _sha(stored)
+
+    # Stored bytes must be exactly the canonical form: variants would give one manifest two hashes,
+    # and a duplicate key would hash one claim while parsing another.
+    duplicate_flag = stored.replace(b'"admission_approved":false', b'"admission_approved":true,"admission_approved":false')
+    for variant in (json.dumps(manifest, indent=2, sort_keys=True).encode("ascii") + b"\n", stored + b"\n",
+                    duplicate_flag, stored.replace(b'"schema_version":1', b'"schema_version":1e0')):
+        assert variant != stored
+        with pytest.raises(ValueError, match="not canonical JSON"):
+            load_unit_manifest(variant)
+    with pytest.raises(ValueError, match="must be bytes"):
+        load_unit_manifest(stored.decode("ascii"))
 
 
 def _with(unit_index: int, field: str, value: Any) -> dict[str, Any]:
@@ -320,7 +358,9 @@ def _with_packet(field: str, value: Any) -> dict[str, Any]:
     (_with(1, "coverage_spans", []), "at least one byte"),
     (_with(1, "coverage_spans", ({"start": 0, "end": 10},)), "must be a list"),
     (_with(2, "context_spans", [_range(HEADER), _range(CAPTION)]), "context_spans must be ascending"),
-    (_with(2, "context_spans", [_range(ROW_2)]), "must not overlap the unit's own coverage"),
+    (_with(2, "context_spans", [_range(CAPTION), _range(HEADER),
+                                {"start": _range(FOOTNOTE)["start"] - 2, "end": _range(FOOTNOTE)["start"] + 1}]),
+     "must not overlap the unit's own coverage"),
     (_with(0, "structural_kind", "Binary Image"), "invalid structural_kind"),
     (_with(0, "registrant_scope", ""), "invalid registrant_scope"),
     (_with(0, "registrant_scope", "r" * 129), "invalid registrant_scope"),

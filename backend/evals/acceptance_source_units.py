@@ -24,7 +24,7 @@ LIMITATIONS = (
     "The declared packets are not every source in the filing; other exhibits, submission members, supplements and graphics remain separate obligations.",
     "A byte-valid span boundary is not a semantically safe text, table, footnote or UTF-8 character split.",
     "Tables, hidden inline-XBRL facts, images, encoded archives and decoded members are neither inventoried nor dispositioned.",
-    "No source review, context custody, issue propagation, E7 coverage_status or E7 admission is attested.",
+    "No source review, model-context custody, issue propagation, E7 coverage_status or E7 admission is attested.",
 )
 ATTESTATION_FLAGS = (
     "semantic_review_attested",
@@ -67,7 +67,7 @@ def _sha(*parts: bytes | memoryview) -> str:
 
 
 def _object(value: Any, keys: frozenset[str], name: str) -> dict[str, Any]:
-    if type(value) is not dict or set(value) != keys:
+    if type(value) is not dict or any(type(key) is not str for key in value) or set(value) != keys:
         raise ValueError(f"{name} must be an object with exactly: {', '.join(sorted(keys))}")
     return value
 
@@ -107,7 +107,8 @@ def _declared_packets(accession: str, value: Any, keys: frozenset[str]) -> list[
 
 def _packet_bytes(packets: list[dict[str, Any]], supplied: Any) -> dict[str, bytes]:
     """Require exactly one immutable buffer per declared packet, matching its length and SHA-256."""
-    if type(supplied) is not dict or set(supplied) != {packet["role"] for packet in packets}:
+    if (type(supplied) is not dict or any(type(role) is not str for role in supplied)
+            or set(supplied) != {packet["role"] for packet in packets}):
         raise ValueError("packet bytes must be supplied for exactly the declared packet roles")
     for packet in packets:
         data = supplied[packet["role"]]
@@ -285,6 +286,26 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
         **{flag: False for flag in ATTESTATION_FLAGS},
         "limitations": list(LIMITATIONS),
     }
+
+
+def load_unit_manifest(raw: Any) -> dict[str, Any]:
+    """Parse stored manifest bytes, requiring exactly ``canonical_json(manifest)``.
+
+    The round trip rejects duplicate JSON keys and indentation, key-order, exponent or ``-0``
+    spellings, so the stored bytes, their file hash and ``manifest_sha256`` stay one identity.
+    A decimal such as ``6.0`` survives the round trip and is left to the validator's exact-int rule.
+    Call ``validate_unit_manifest`` on the result; loading proves nothing about the source bytes.
+    """
+    if type(raw) is not bytes:
+        raise ValueError("stored source unit manifest must be bytes")
+    try:
+        manifest = json.loads(raw.decode("ascii"))
+        canonical = _canonical(manifest)
+    except (UnicodeDecodeError, ValueError, TypeError, RecursionError) as exc:
+        raise ValueError("stored source unit manifest is not canonical JSON") from exc
+    if canonical != raw or type(manifest) is not dict:
+        raise ValueError("stored source unit manifest is not canonical JSON")
+    return manifest
 
 
 def build_unit_manifest(

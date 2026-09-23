@@ -39,8 +39,9 @@ validator unchanged.
 
 ```python
 import hashlib
+import json
 
-from evals.acceptance_source_units import build_unit_manifest, validate_unit_manifest
+from evals.acceptance_source_units import build_unit_manifest, load_unit_manifest, validate_unit_manifest
 
 raw = b"abXcde"
 manifest = build_unit_manifest(
@@ -57,6 +58,9 @@ manifest = build_unit_manifest(
 )
 summary = validate_unit_manifest(manifest, accession_number="0000000000-26-000001",
                                  packet_bytes={"primary": raw})
+stored = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("ascii")  # canonical_json
+assert validate_unit_manifest(load_unit_manifest(stored), accession_number="0000000000-26-000001",
+                              packet_bytes={"primary": raw}) == summary
 ```
 
 Both functions are pure. They do no file, network or clock access and never mutate their
@@ -64,11 +68,25 @@ arguments. Invalid input raises `ValueError`; nothing is repaired, coerced, sort
 
 The builder records packets and units in the order declared, then runs the same validator over
 its own output, so it cannot emit a manifest that the validator rejects. That self-check is not
-trust: a consumer must call the validator with its own expected accession and its own bytes.
+trust: a consumer must call the validator with its own expected accession and its own bytes. The
+key set of `packet_bytes` is the consumer's independent expectation of which packets belong in
+scope (for example the frozen source-contract roles for that accession). It must never be
+derived from `manifest["declared_packets"]`: that key set is the only mechanism that detects a
+manifest which silently omits a packet and all of its units.
+
+`load_unit_manifest(raw)` parses stored bytes and accepts them only if they are exactly
+`canonical_json(manifest)` (see below). Stored manifests **must** be written in that form, which
+deliberately differs from the indented `json.dumps(..., indent=2) + "\n"` used by the existing
+acceptance writers. Consumers **must** load stored bytes through it before validating. The
+round trip rejects duplicate JSON keys (a file that hashes one claim while parsing another),
+indentation, key-order, exponent and `-0` spellings, so the file hash, the stored bytes and
+`manifest_sha256` remain one identity. A decimal such as `6.0` survives the round trip and is then
+rejected by the validator's exact-`int` rule. Loading proves nothing about the source bytes; it only
+precedes `validate_unit_manifest`.
 
 ## Declarations
 
-Type identity is exact; subclasses are rejected.
+Type identity is exact, including every object key and `packet_bytes` key; subclasses are rejected.
 
 | Value | Rule |
 | --- | --- |
@@ -76,7 +94,7 @@ Type identity is exact; subclasses are rejected.
 | Integers (`schema_version`, `byte_length`, `start`, `end`) | `type(v) is int`, so `True` and `1.0` are rejected. |
 | Attestation flags | `v is False`. |
 | Packet bytes | `type(v) is bytes`, immutable. `bytearray`, `memoryview` and `bytes` subclasses are rejected. |
-| `accession_number` | `re.fullmatch(r"[0-9]{10}-[0-9]{2}-[0-9]{6}", v)` on a `str`. There is no `\d`, so non-ASCII digits and trailing newlines fail. |
+| `accession_number` | `re.fullmatch(r"[0-9]{10}-[0-9]{2}-[0-9]{6}", v)` on a `str`. `fullmatch` rejects trailing newlines, and the explicit `[0-9]` (no `\d`) rejects non-ASCII digits. |
 | `role`, `structural_kind`, `registrant_scope` | `re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,127}", v)`. These are supplied declarations: the library checks only their form and binds them into identities. |
 | Hashes and IDs | `re.fullmatch(r"[0-9a-f]{64}", v)`. |
 
@@ -95,6 +113,12 @@ Manifest objects:
 - unit: `{"unit_id", "packet_id", "structural_kind", "registrant_scope", "coverage_spans",
   "context_spans", "unit_sha256"}`
 - span: `{"start", "end", "sha256"}`
+
+**Field names.** Spans carry `{start, end, sha256}` and deliberately omit the derived `bytes`
+length used by `acceptance_source_view` and `acceptance_document_map` spans. Packets use
+`byte_length`, following the hierarchy proposal, rather than the source contract's `bytes`.
+Adapters from those owners must project `{start, end}` explicitly. Later fragment and ledger
+spans should reuse `{start, end, sha256}`.
 
 **Spans.** Offsets are zero-based byte offsets with exclusive ends, never character indexes, and
 must satisfy `0 <= start < end <= byte_length`. A unit needs at least one coverage span.
@@ -135,7 +159,7 @@ rejected. Declare such a packet outside this format with its own explicit dispos
 All hashes are lowercase hexadecimal SHA-256. `canonical_json(v)` is
 `json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)`
 encoded as ASCII, with no trailing newline. Validated values contain only restricted ASCII
-strings, `int`, `list` and `dict`, so this encoding is deterministic. `u64(n)` is an unsigned
+strings, `int`, `bool` (the `false` flags), `list` and `dict`, so this encoding is deterministic. `u64(n)` is an unsigned
 64-bit big-endian integer, and `||` is byte concatenation. Each domain tag is its ASCII bytes
 followed by a single `0x00` byte.
 
@@ -148,10 +172,8 @@ followed by a single `0x00` byte.
 - `unit_id` = `SHA-256("e7-source-unit-id-v1" || 0x00 || canonical_json({"accession_number": accession_number, "packet_id": packet_id, "structural_kind": structural_kind, "registrant_scope": registrant_scope, "coverage_spans": coverage_spans, "context_spans": context_spans, "unit_sha256": unit_sha256}))`.
   Both span lists keep their declared order, and each span is `{"start", "end", "sha256"}`.
 - The manifest's serialized form is `canonical_json(manifest)`. The summary's `manifest_sha256`
-  is the plain SHA-256 of those bytes, which equals the file hash when the manifest is stored in
-  canonical form. A consumer that reads stored bytes should also require
-  `canonical_json(json.loads(raw)) == raw`. That rules out duplicate JSON keys, whitespace
-  variants and non-integer number text before validation.
+  is the plain SHA-256 of those bytes, which is also the stored file's hash. It is the only
+  manifest identity later slices may bind.
 
 The identities exclude manifest position, other units, the attestation flags, the limitations
 text and any semantic review. A caller who recomputes a consistent manifest for a different
@@ -170,6 +192,11 @@ recomputed from this specification during design review:
 | unit 1 `unit_id` | `a4f6def0bfa75f139b4f145b01ad19b18ed202de5758fc19ed9b579bf721044a` |
 | unit 2 `unit_sha256` | `b031a940ab59b3a68f207048db42605a357d1aafd08a06c1d5adc4be62502d83` |
 | unit 2 `unit_id` | `e575eeaf1918dc720ecc75be88cb6a4d5fc7bffba553afbc59eb3fc2b55d2f4e` |
+| `manifest_sha256` | `ea73eff3b57db48cd9f3c127e719ca389d60d5afd93f4861ea496464fc521e7b` |
+
+The `manifest_sha256` vector covers the limitation text, the flags, every key set, the kind and
+the encoding together. The regression test pins it, so changing any of them without a new
+`schema_version` fails CI.
 
 ## Validation summary
 
@@ -198,7 +225,10 @@ recomputed from this specification during design review:
 `context_span_bytes_not_counted_as_coverage` sums every context span's length once per unit that
 declares it, so a header repeated in two units counts twice there and never in `coverage_bytes`.
 `declared_packet_byte_partition: "exact"` is a mechanical statement about the declared packets
-only. It is deliberately not named `coverage_status`.
+only. It is deliberately not named `coverage_status`. The summary is a return value with its own
+kind; it repeats the flags and limitations so that a quoted summary keeps its disclaimers, and
+it binds the validated manifest through `manifest_sha256`. It is not a stored evidence format:
+changing a summary-only field changes its own `schema_version`, not the manifest's.
 
 ## Limitations
 
@@ -209,7 +239,7 @@ together with every flag `false`:
 2. The declared packets are not every source in the filing; other exhibits, submission members, supplements and graphics remain separate obligations.
 3. A byte-valid span boundary is not a semantically safe text, table, footnote or UTF-8 character split.
 4. Tables, hidden inline-XBRL facts, images, encoded archives and decoded members are neither inventoried nor dispositioned.
-5. No source review, context custody, issue propagation, E7 coverage_status or E7 admission is attested.
+5. No source review, model-context custody, issue propagation, E7 coverage_status or E7 admission is attested.
 
 Any change to these strings, the flags, a key set or the encoding needs a new `schema_version`.
 Existing version-1 manifests stay valid only under the version-1 rules. This format adds no
