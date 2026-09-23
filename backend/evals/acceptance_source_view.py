@@ -74,6 +74,7 @@ class _ProjectionParser(HTMLParser):
         self.elements: list[dict[str, Any]] = []
         self.table_stack: list[dict[str, Any]] = []
         self.element_stack: list[dict[str, Any]] = []
+        self.open_p_count = 0
 
     @staticmethod
     def _reject_unsupported_implicit_boundary(detail: str) -> None:
@@ -90,7 +91,7 @@ class _ProjectionParser(HTMLParser):
         return False
 
     def _validate_start_boundary(self, tag: str) -> None:
-        if tag in P_IMPLICIT_CLOSE_START_TAGS and any(element["tag"] == "p" for element in self.element_stack):
+        if tag in P_IMPLICIT_CLOSE_START_TAGS and self.open_p_count:
             self._reject_unsupported_implicit_boundary(f"<{tag}> would close an open <p>")
 
         scoped_rules = (
@@ -346,6 +347,8 @@ class _ProjectionParser(HTMLParser):
             )
         if tag not in VOID_TAGS:
             self.element_stack.append(element)
+            if tag == "p":
+                self.open_p_count += 1
 
     @staticmethod
     def _span_value(values: dict[str, list[str | None]], name: str) -> int:
@@ -376,6 +379,8 @@ class _ProjectionParser(HTMLParser):
         event = self._event("end_tag", start, end, tag=tag)
         element = self.element_stack[matching]
         self.element_stack.pop()
+        if tag == "p":
+            self.open_p_count -= 1
         node = element["node"]
         node["end_event_id"] = event["id"]
         if tag in {"script", "style"}:
