@@ -31,6 +31,10 @@ P_IMPLICIT_CLOSE_START_TAGS = {
 }
 IMPLIED_END_TAGS = {"dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt", "rtc"}
 TABLE_SIBLING_START_TAGS = {"caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"}
+NON_NESTABLE_TAGS = {"a", "button", "form", "nobr"}
+HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+TABLE_DIRECT_START_TAGS = TABLE_SIBLING_START_TAGS | {"script", "style"}
+HTML_ASCII_WHITESPACE = "\t\n\f\r "
 BREAK_TAGS = {
     "address", "article", "aside", "blockquote", "br", "caption", "dd", "div", "dl", "dt",
     "figcaption", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li",
@@ -90,9 +94,33 @@ class _ProjectionParser(HTMLParser):
                 return False
         return False
 
+    def _in_table_flow_context(self) -> bool:
+        if not self.table_stack:
+            return False
+        state = self.table_stack[-1]
+        return state["cell"] is not None or state["caption"]
+
     def _validate_start_boundary(self, tag: str) -> None:
         if tag in P_IMPLICIT_CLOSE_START_TAGS and self.open_p_count:
             self._reject_unsupported_implicit_boundary(f"<{tag}> would close an open <p>")
+
+        if tag == "select":
+            self._reject_unsupported_implicit_boundary("<select> requires unsupported selection-mode parsing")
+        if tag in NON_NESTABLE_TAGS and any(element["tag"] == tag for element in self.element_stack):
+            self._reject_unsupported_implicit_boundary(f"<{tag}> conflicts with an open <{tag}>")
+        if tag in HEADING_TAGS and any(element["tag"] in HEADING_TAGS for element in self.element_stack):
+            self._reject_unsupported_implicit_boundary(f"<{tag}> conflicts with an open heading")
+
+        if tag in TABLE_SIBLING_START_TAGS and not self.table_stack:
+            self._reject_unsupported_implicit_boundary(f"stray table part <{tag}>")
+        if (
+            self.table_stack
+            and not self._in_table_flow_context()
+            and tag not in TABLE_DIRECT_START_TAGS
+        ):
+            self._reject_unsupported_implicit_boundary(f"<{tag}> requires table foster parenting")
+        if tag in {"td", "th"} and self.table_stack and self.table_stack[-1]["row"] is None:
+            self._reject_unsupported_implicit_boundary(f"<{tag}> requires an implicit <tr>")
 
         scoped_rules = (
             ({"li"}, {"li"}, {"menu", "ol", "ul"}),
@@ -101,9 +129,9 @@ class _ProjectionParser(HTMLParser):
             ({"rp", "rt"}, IMPLIED_END_TAGS - {"rtc"}, {"ruby"}),
             ({"option", "optgroup", "hr"}, {"option"}, {"datalist", "select"}),
             ({"optgroup", "hr"}, {"optgroup"}, {"datalist", "select"}),
-            ({"td", "th"}, {"td", "th"}, {"tr"}),
-            ({"tr"}, {"tr"}, {"table"}),
-            ({"tbody", "tfoot", "thead"}, {"tbody", "tfoot", "thead"}, {"table"}),
+            (TABLE_SIBLING_START_TAGS, {"td", "th"}, {"table", "tr"}),
+            (TABLE_SIBLING_START_TAGS - {"td", "th"}, {"tr"}, {"table"}),
+            (TABLE_SIBLING_START_TAGS - {"td", "th", "tr"}, {"tbody", "tfoot", "thead"}, {"table"}),
             (TABLE_SIBLING_START_TAGS, {"caption"}, {"table"}),
             (TABLE_SIBLING_START_TAGS - {"col"}, {"colgroup"}, {"table"}),
         )
@@ -305,7 +333,9 @@ class _ProjectionParser(HTMLParser):
             self.tables.append(table)
             if parent_cell is not None:
                 parent_cell["nested_table_ids"].append(table["id"])
-            self.table_stack.append({"table": table, "row": None, "cell": None})
+            self.table_stack.append({"table": table, "row": None, "cell": None, "caption": False})
+        elif tag == "caption" and self.table_stack:
+            self.table_stack[-1]["caption"] = True
         elif tag == "tr" and self.table_stack:
             state = self.table_stack[-1]
             state["cell"] = None
@@ -400,6 +430,8 @@ class _ProjectionParser(HTMLParser):
             self.table_stack[-1]["row"]["end_event_id"] = event["id"]
         if tag in {"td", "th", "tr"}:
             self._close_table_part(tag)
+        elif tag == "caption" and self.table_stack:
+            self.table_stack[-1]["caption"] = False
         elif tag == "table":
             if not self.table_stack:
                 raise ValueError("unmatched table end tag")
@@ -407,6 +439,13 @@ class _ProjectionParser(HTMLParser):
             state["table"]["end_event_id"] = event["id"]
 
     def _text(self, decoded: str, start: int, end: int, event_kind: str) -> None:
+        if (
+            decoded.strip(HTML_ASCII_WHITESPACE)
+            and self.table_stack
+            and not self._in_table_flow_context()
+            and not any(element["tag"] in {"script", "style"} for element in self.element_stack)
+        ):
+            self._reject_unsupported_implicit_boundary("text requires table foster parenting")
         excluded = any(element["tag"] in {"script", "style"} for element in self.element_stack)
         event = self._event(event_kind, start, end, included_in_compact_text=not excluded)
         unit = {

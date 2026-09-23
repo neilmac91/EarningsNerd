@@ -167,6 +167,23 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         b"<table><tbody><tr><td>A</td></tr><tfoot></tfoot></tbody></table>",
         b"<table><caption>A<tbody></tbody></caption></table>",
         b"<table><colgroup hidden><tbody></tbody></colgroup></table>",
+        b"<a hidden>A<a>B</a></a>",
+        b"<a hidden>A<em>B<a>C</a></em></a>",
+        b"<button hidden>A<button>B</button></button>",
+        b"<nobr hidden>A<nobr>B</nobr></nobr>",
+        b"<form hidden>A<form>B</form>C</form>",
+        b"<select><option>A</option></select>",
+        b"<select hidden>A<select>B</select>C</select>",
+        b"<h1 hidden>A<h2>B</h2></h1>",
+        b"<table hidden>A<tr><td>B</td></tr></table>",
+        b"<table>&nbsp;<tr><td>A</td></tr></table>",
+        b"<table hidden><div>A</div></table>",
+        b"<table hidden><table><tr><td>A</td></tr></table></table>",
+        b"<table><tbody><tr><div>A</div></tr></tbody></table>",
+        b"<table><tbody><tr><td>A<caption>B</caption></td></tr></tbody></table>",
+        b"<table><tbody><tr>A<caption>B</caption></tr></tbody></table>",
+        b"<table><tbody>A<caption>B</caption></tbody></table>",
+        b"<tr><td>A</td></tr>",
         b"<div><span>A</div></span>",
         b"<div>A",
         b"<div hidden/>B",
@@ -177,7 +194,8 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
 
     explicit_nested = (
         b"<html><body><ul><li hidden>outer<ul><li>inner</li></ul></li></ul>"
-        b"<table><tbody><tr><td>outer<table><tbody><tr><td>inner</td></tr></tbody>"
+        b"<table><style>.excluded{}</style><script>excluded()</script><tbody><tr>"
+        b"<td>outer<table><tbody><tr><td>inner</td></tr></tbody>"
         b"</table></td></tr></tbody></table>"
     )
     explicit_projected = source_view.project_html(explicit_nested)
