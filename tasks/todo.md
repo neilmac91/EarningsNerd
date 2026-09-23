@@ -5779,3 +5779,9 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - PR940 source reader `2f59c73b` rejects unsupported nested controls and table foster parenting; 3655 passed, 40 warnings in 160.73s (0:02:40), all PostgreSQL/performance lanes, Ruff/Bandit/dependency checks pass. Six H29 views/24 artifacts are unchanged.
 - PR942 `aab234fb` aligns the actual generator instruction with shared formula labels; 3,500 tests pass. Same-contract generated-output comparison remains required.
 - Hierarchy implementation is sequenced as custody, reconciliation and downstream admission. No E7 generation, Fable call, production flag or deployment; earlier denied proof holds remain.
+
+### September 23 — offline source-event capacity
+
+- Implemented the non-admitting capacity CLI and one invariant on a separate branch stacked on #940. Corrective code `abf4ca64` passes 3,656 tests, all four PostgreSQL lanes, performance, Ruff/Bandit/dependency checks.
+- Measured revised H01/H02/H25 primary identities: largest raw events 1,499/2,186/941 bytes; H25 is 57,158,558 bytes, 1,278,811 events, 3.49 seconds and about 142 MiB preflight peak RSS. [Receipts](review-evidence/e7-source-capacity-2026-09-23/README.md) preserve the skipped-prefix correction, both guard proofs and bounded independent review.
+- Source custody, issue propagation/reconciliation, admission integration and actual quality evidence remain next. No E7 generation, Fable calls or production deployment; prior denied proof holds remain.

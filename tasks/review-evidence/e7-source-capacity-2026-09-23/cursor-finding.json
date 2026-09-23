@@ -1,0 +1,27 @@
+{
+  "source_head": "b73492dddf4224bafa96e174e66ff72f59e5f1e9",
+  "finding": "A monotonic assumed raw cursor can absorb bytes ignored by HTMLParser into a later delimiter-based callback.",
+  "reproduction": "</><!--x-->",
+  "preflight_observed": {
+    "event_count": 1,
+    "kind": "comment",
+    "start": 0,
+    "end": 11,
+    "bytes": 11
+  },
+  "actual_callback": {
+    "kind": "comment",
+    "line": 1,
+    "column": 3,
+    "start": 3,
+    "end": 11,
+    "bytes": 8
+  },
+  "independent_source_view_result": "ValueError: parser events do not partition the source bytes",
+  "bounded_probe": {
+    "token_combinations": 4096,
+    "accepted": 2334,
+    "accepted_with_callback_position_mismatch": 59
+  },
+  "disposition": "Correct callback-position validation and rerun exact-head verification; earlier measurements remain provisional."
+}

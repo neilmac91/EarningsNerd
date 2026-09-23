@@ -63,3 +63,17 @@ the full union of issues. This view module does not implement or freeze that hie
 The [actual H29 pilot](../../review-evidence/e7-source-view-2026-09-23/source-pilot.md) produced one individually frozen A brief; B experienced context compaction and remains ineligible. No complete filing reference follows. The hierarchy is now a demonstrated requirement for robust scaling, not an implemented feature.
 
 The follow-up nesting guard rejects nested anchors/buttons/forms/nobr/headings, all `select` mode, stray table parts, and table content requiring foster parenting. HTML ASCII whitespace is preserved; non-breaking-space entities are substantive table text. This conservative rule does not implement browser tree repair. Valid explicit table cells, captions and nested tables retain their original artifacts. See the [correction receipt](../../review-evidence/e7-source-view-2026-09-23/markup-nesting-fix/README.md).
+
+## Parser-event capacity preflight
+
+Before building a large structural view, use the separate offline preflight with the frozen source identity:
+
+```bash
+python -m evals.acceptance_source_capacity \
+  --source /path/to/frozen-primary.htm \
+  --expected-sha256 APPROVED_SHA256 \
+  --expected-bytes APPROVED_BYTE_COUNT \
+  --output /path/to/new-capacity-audit.json
+```
+
+The output must not exist. The preflight verifies and parses the same bounded source buffer, preserves whole-input callbacks and checks their actual positions and byte spans. It records event counts and the first maximum event under the existing 64 MiB source and 2 MiB event ceilings. It does not build the structural view or attest grammar, source meaning or admission. [H01/H02/H25 measurements and verification](../../review-evidence/e7-source-capacity-2026-09-23/README.md) close primary event sizing only; projection, model-context, all-member and modality capacity remain open.

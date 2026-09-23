@@ -1,0 +1,10 @@
+# Validate parser callback positions before trusting sequential raw spans
+
+**Date:** 2026-09-23  
+**Area:** Acceptance source tooling / parser capacity
+
+**Context:** Python's `HTMLParser` can consume malformed source bytes without emitting a callback for them. For `</><!--x-->`, the comment callback starts at byte 3, but a recorder that assumes every callback starts at its previous byte cursor can incorrectly label the comment as bytes 0–11. Its final cursor still reaches EOF, so a final coverage check alone does not expose the absorbed prefix. Feeding fixed-size chunks creates a separate problem by splitting logical data callbacks and understating their raw event sizes.
+
+**Rule:** At the declared source path, verify the expected byte count and SHA-256 against the same bounded buffer that will be parsed. Feed that complete buffer to `HTMLParser` once. Before recording every callback, require `getpos()` to equal the line and column derived incrementally from previously accepted UTF-8 raw spans; advance that position only after accepting the current span. Reject any position mismatch and also require the final byte cursor to equal the complete source length. Keep the parser-event size limit on these whole-input logical callbacks. Enforce this through the existing single capacity invariant rather than adding a second gate.
+
+**Evidence:** [`acceptance_source_capacity.py`](../backend/evals/acceptance_source_capacity.py) contains the central callback-position and final-coverage checks. [`test_acceptance_source_capacity.py`](../backend/tests/unit/test_acceptance_source_capacity.py) compares representative whole-input event boundaries with the source-view parser, rejects the `</><!--x-->` skipped-prefix case, and retains the existing uninterrupted event-limit checks. The corrective commit is `abf4ca640d48b35be5099b2b6883c3298cf2d3b3`; independent review is recorded in [`independent-review-abf4ca64.md`](../tasks/review-evidence/e7-source-capacity-2026-09-23/independent-review-abf4ca64.md).

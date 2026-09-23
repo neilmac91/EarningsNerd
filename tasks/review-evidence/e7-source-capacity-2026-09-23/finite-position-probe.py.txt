@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Finite callback-position probe for the E7 capacity parser.
+
+This is a new explicit 16-token, length-three Cartesian corpus. It is not a
+reconstruction of any earlier exploratory corpus.
+"""
+
+from __future__ import annotations
+
+import argparse
+from collections import Counter
+import hashlib
+from itertools import product
+import json
+from pathlib import Path
+import platform
+from typing import Any
+
+from evals import acceptance_source_capacity as capacity
+from evals.acceptance_source_view import project_html
+
+
+TOKENS = (
+    "text",
+    "é",
+    "\n",
+    "\r\n",
+    "<p>",
+    "</p>",
+    "<br/>",
+    "&amp;",
+    "&#x20AC;",
+    "<!--x-->",
+    "<!doctype html>",
+    "<?pi?>",
+    "<script>",
+    "</script>",
+    "</>",
+    "<",
+)
+EXPECTED_CASES = 16 ** 3
+REPRODUCTION = b"</><!--x-->"
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+class _PositionOracle(capacity._CapacityParser):
+    """Independently compare callback getpos with the raw prefix position."""
+
+    def __init__(self, raw: bytearray) -> None:
+        super().__init__(raw)
+        self.oracle_checks = 0
+        self.oracle_mismatches: list[dict[str, Any]] = []
+
+    def _record_span(self, kind: str, end: int) -> None:
+        prefix = bytes(self.raw[: self.cursor]).decode("utf-8", "strict")
+        expected = (prefix.count("\n") + 1, len(prefix.rsplit("\n", 1)[-1]))
+        observed = self.getpos()
+        if observed != expected:
+            self.oracle_mismatches.append(
+                {
+                    "kind": kind,
+                    "cursor": self.cursor,
+                    "expected": list(expected),
+                    "observed": list(observed),
+                }
+            )
+        super()._record_span(kind, end)
+        self.oracle_checks += 1
+
+
+def _error(call: Any) -> dict[str, str]:
+    try:
+        call()
+    except Exception as exc:  # This probe records exact fail-closed behavior.
+        return {"type": type(exc).__name__, "message": str(exc)}
+    return {"type": "none", "message": "accepted"}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--module", type=Path, required=True)
+    parser.add_argument("--expected-module-sha256", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+
+    observed_module_sha256 = _file_sha256(args.module)
+    if observed_module_sha256 != args.expected_module_sha256:
+        raise SystemExit("capacity module SHA-256 does not match the committed corrective version")
+    if args.output.exists() or args.output.is_symlink():
+        raise SystemExit("probe output already exists")
+
+    accepted = 0
+    rejected = 0
+    accepted_callbacks = 0
+    accepted_position_mismatches: list[dict[str, Any]] = []
+    rejection_messages: Counter[str] = Counter()
+    transcript = hashlib.sha256()
+
+    for ordinal, parts in enumerate(product(TOKENS, repeat=3), start=1):
+        text = "".join(parts)
+        raw = text.encode("utf-8")
+        probe = _PositionOracle(bytearray(raw))
+        try:
+            measurement = probe.measure(text)
+        except ValueError as exc:
+            rejected += 1
+            rejection_messages[str(exc)] += 1
+            record = {
+                "ordinal": ordinal,
+                "parts": parts,
+                "source_sha256": hashlib.sha256(raw).hexdigest(),
+                "accepted": False,
+                "error": str(exc),
+            }
+        else:
+            accepted += 1
+            accepted_callbacks += probe.oracle_checks
+            if probe.oracle_mismatches:
+                accepted_position_mismatches.append(
+                    {"ordinal": ordinal, "parts": parts, "mismatches": probe.oracle_mismatches}
+                )
+            record = {
+                "ordinal": ordinal,
+                "parts": parts,
+                "source_sha256": hashlib.sha256(raw).hexdigest(),
+                "accepted": True,
+                "oracle_checks": probe.oracle_checks,
+                "measurement": measurement,
+            }
+        transcript.update(json.dumps(record, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+        transcript.update(b"\n")
+
+    if accepted + rejected != EXPECTED_CASES:
+        raise AssertionError("finite corpus case count mismatch")
+
+    reproduction = {
+        "source_utf8": REPRODUCTION.decode("ascii"),
+        "source_sha256": hashlib.sha256(REPRODUCTION).hexdigest(),
+        "capacity": _error(
+            lambda: capacity._CapacityParser(bytearray(REPRODUCTION)).measure(
+                REPRODUCTION.decode("utf-8")
+            )
+        ),
+        "source_view": _error(lambda: project_html(REPRODUCTION)),
+    }
+
+    result = {
+        "schema_version": 1,
+        "kind": "e7_capacity_finite_callback_position_probe",
+        "status": "passed" if not accepted_position_mismatches else "failed",
+        "corpus": {
+            "provenance": "new explicit finite probe; earlier exploratory token corpus was not retained",
+            "tokens": list(TOKENS),
+            "product_length": 3,
+            "expected_cases": EXPECTED_CASES,
+            "observed_cases": accepted + rejected,
+        },
+        "implementation": {
+            "module_path": str(args.module),
+            "module_sha256": observed_module_sha256,
+            "expected_module_sha256": args.expected_module_sha256,
+            "python": platform.python_version(),
+        },
+        "results": {
+            "accepted_cases": accepted,
+            "rejected_cases": rejected,
+            "accepted_callbacks_checked": accepted_callbacks,
+            "accepted_position_mismatch_count": len(accepted_position_mismatches),
+            "accepted_position_mismatches": accepted_position_mismatches,
+            "rejection_messages": dict(sorted(rejection_messages.items())),
+            "case_transcript_sha256": transcript.hexdigest(),
+        },
+        "skipped_prefix_reproduction": reproduction,
+        "limits": [
+            "Finite synthetic corpus only; this is not fuzzing or a grammar proof.",
+            "No actual filing source was parsed and no structural projection capacity was measured.",
+            "The probe checks callback-position mapping for accepted cases, not semantic coverage or admission.",
+        ],
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("x", encoding="utf-8") as stream:
+        json.dump(result, stream, indent=2, sort_keys=True, ensure_ascii=False)
+        stream.write("\n")
+    if accepted_position_mismatches:
+        raise SystemExit("accepted callback-position mismatch found")
+
+
+if __name__ == "__main__":
+    main()
+
