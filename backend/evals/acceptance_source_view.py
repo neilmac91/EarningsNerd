@@ -23,6 +23,14 @@ VOID_TAGS = {
     "meta", "param", "source", "track", "wbr",
 }
 TABLE_TAGS = {"table", "tr", "td", "th"}
+P_IMPLICIT_CLOSE_START_TAGS = {
+    "address", "article", "aside", "blockquote", "center", "dd", "details", "dialog", "dir",
+    "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2",
+    "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "li", "listing", "main", "menu",
+    "nav", "ol", "p", "plaintext", "pre", "search", "section", "summary", "table", "ul", "xmp",
+}
+IMPLIED_END_TAGS = {"dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt", "rtc"}
+TABLE_SIBLING_START_TAGS = {"caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"}
 BREAK_TAGS = {
     "address", "article", "aside", "blockquote", "br", "caption", "dd", "div", "dl", "dt",
     "figcaption", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li",
@@ -66,6 +74,42 @@ class _ProjectionParser(HTMLParser):
         self.elements: list[dict[str, Any]] = []
         self.table_stack: list[dict[str, Any]] = []
         self.element_stack: list[dict[str, Any]] = []
+
+    @staticmethod
+    def _reject_unsupported_implicit_boundary(detail: str) -> None:
+        """Keep projection ancestry exact instead of approximating browser error recovery."""
+        raise ValueError(f"unsupported implicit HTML boundary: {detail}")
+
+    def _has_open_in_scope(self, targets: set[str], boundaries: set[str]) -> bool:
+        for element in reversed(self.element_stack):
+            tag = element["tag"]
+            if tag in targets:
+                return True
+            if tag in boundaries:
+                return False
+        return False
+
+    def _validate_start_boundary(self, tag: str) -> None:
+        if tag in P_IMPLICIT_CLOSE_START_TAGS and any(element["tag"] == "p" for element in self.element_stack):
+            self._reject_unsupported_implicit_boundary(f"<{tag}> would close an open <p>")
+
+        scoped_rules = (
+            ({"li"}, {"li"}, {"menu", "ol", "ul"}),
+            ({"dd", "dt"}, {"dd", "dt"}, {"dl"}),
+            ({"rb", "rtc"}, IMPLIED_END_TAGS, {"ruby"}),
+            ({"rp", "rt"}, IMPLIED_END_TAGS - {"rtc"}, {"ruby"}),
+            ({"option", "optgroup", "hr"}, {"option"}, {"datalist", "select"}),
+            ({"optgroup", "hr"}, {"optgroup"}, {"datalist", "select"}),
+            ({"td", "th"}, {"td", "th"}, {"tr"}),
+            ({"tr"}, {"tr"}, {"table"}),
+            ({"tbody", "tfoot", "thead"}, {"tbody", "tfoot", "thead"}, {"table"}),
+            (TABLE_SIBLING_START_TAGS, {"caption"}, {"table"}),
+            (TABLE_SIBLING_START_TAGS - {"col"}, {"colgroup"}, {"table"}),
+        )
+        for triggers, targets, boundaries in scoped_rules:
+            if tag in triggers and self._has_open_in_scope(targets, boundaries):
+                open_tags = "/".join(sorted(targets))
+                self._reject_unsupported_implicit_boundary(f"<{tag}> would close an open <{open_tags}>")
 
     def _byte_position(self) -> int:
         line, column = self.getpos()
@@ -213,6 +257,7 @@ class _ProjectionParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
         del attrs_list
         tag = tag.lower()
+        self._validate_start_boundary(tag)
         start = self._byte_position()
         raw_tag = self.get_starttag_text()
         if raw_tag is None:
@@ -310,23 +355,27 @@ class _ProjectionParser(HTMLParser):
         return int(raw_value)
 
     def handle_startendtag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
-        self.handle_starttag(tag, attrs_list)
         if tag.lower() not in VOID_TAGS:
-            self.element_stack.pop()
+            self._reject_unsupported_implicit_boundary(f"self-closing non-void <{tag.lower()}/>")
+        self.handle_starttag(tag, attrs_list)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
         start = self._byte_position()
         end = self._markup_end(start)
-        event = self._event("end_tag", start, end, tag=tag)
         matching = next((index for index in range(len(self.element_stack) - 1, -1, -1) if self.element_stack[index]["tag"] == tag), None)
         if matching is None:
             # Historical SEC HTML commonly carries harmless unmatched formatting closes.
             if tag in TABLE_TAGS or tag in {"script", "style"}:
                 raise ValueError(f"unmatched structural end tag: {tag}")
+            self._event("end_tag", start, end, tag=tag)
             return
+        if matching != len(self.element_stack) - 1:
+            descendants = ", ".join(item["tag"] for item in self.element_stack[matching + 1 :])
+            self._reject_unsupported_implicit_boundary(f"</{tag}> would discard open descendants: {descendants}")
+        event = self._event("end_tag", start, end, tag=tag)
         element = self.element_stack[matching]
-        del self.element_stack[matching:]
+        self.element_stack.pop()
         node = element["node"]
         node["end_event_id"] = event["id"]
         if tag in {"script", "style"}:
@@ -424,9 +473,11 @@ class _ProjectionParser(HTMLParser):
 
     def finish(self) -> dict[str, Any]:
         self.close()
-        unclosed_structural = [item["tag"] for item in self.element_stack if item["tag"] in TABLE_TAGS | {"script", "style"}]
-        if unclosed_structural or self.table_stack:
-            raise ValueError(f"truncated structural markup: {unclosed_structural}")
+        open_tags = [item["tag"] for item in self.element_stack]
+        if open_tags not in ([], ["html"], ["body"], ["html", "body"]):
+            self._reject_unsupported_implicit_boundary(f"EOF with open elements: {', '.join(open_tags)}")
+        if self.table_stack:
+            raise ValueError("truncated structural markup: open table state")
         cursor = 0
         for event in self.events:
             if event["start"] != cursor or event["end"] < cursor:

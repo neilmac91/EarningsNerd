@@ -149,6 +149,47 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         source_view.project_html(b"<p>123456789</p>")
     monkeypatch.setattr(source_view, "MAX_UNIT_BYTES", 2 * 1024 * 1024)
 
+    for implicit_boundary in (
+        b"<div><p hidden>A<p>B</p></p></div>",
+        b"<p hidden>A<div>B</div></p>",
+        b"<p hidden>A<dialog>B</dialog></p>",
+        b"<p hidden>A<center>B</center></p>",
+        b"<p hidden>A<li>B</li></p>",
+        b"<ul><li hidden>A<li>B</li></li></ul>",
+        b"<dl><dt hidden>A<dd>B</dd></dt></dl>",
+        b"<ruby><rt hidden>A<rp>B</rp></rt></ruby>",
+        b"<ruby><rb hidden>A<rt>B</rt></rb></ruby>",
+        b"<ruby><rtc hidden>A<rb>B</rb></rtc></ruby>",
+        b"<select><option hidden>A<option>B</option></option></select>",
+        b"<select><optgroup hidden><hr></optgroup></select>",
+        b"<table><tr><td hidden>A<td>B</td></td></tr></table>",
+        b"<table><tr hidden><tr></tr></tr></table>",
+        b"<table><tbody><tr><td>A</td></tr><tfoot></tfoot></tbody></table>",
+        b"<table><caption>A<tbody></tbody></caption></table>",
+        b"<table><colgroup hidden><tbody></tbody></colgroup></table>",
+        b"<div><span>A</div></span>",
+        b"<div>A",
+        b"<div hidden/>B",
+        b"<ix:hidden/>",
+    ):
+        with pytest.raises(ValueError, match="unsupported implicit HTML boundary"):
+            source_view.project_html(implicit_boundary)
+
+    explicit_nested = (
+        b"<html><body><ul><li hidden>outer<ul><li>inner</li></ul></li></ul>"
+        b"<table><tbody><tr><td>outer<table><tbody><tr><td>inner</td></tr></tbody>"
+        b"</table></td></tr></tbody></table>"
+    )
+    explicit_projected = source_view.project_html(explicit_nested)
+    source_view.verify_projection(explicit_nested, explicit_projected)
+    assert explicit_projected["compact_text"] == "outerinnerouterinner"
+    inner_list_unit = next(unit for unit in explicit_projected["units"] if unit["decoded"] == "inner")
+    assert inner_list_unit["hidden_reasons"] == ["hidden_attribute"]
+    void_self_closing = source_view.project_html(b"<p>A<br/>B</p>")
+    assert void_self_closing["compact_text"] == "AB"
+    explicit_ruby = source_view.project_html(b"<ruby><rtc><rt>A</rt><rp>B</rp></rtc></ruby>")
+    assert explicit_ruby["compact_text"] == "AB"
+
     source = tmp_path / "source.htm"
     source.write_bytes(raw)
     output = tmp_path / "view"

@@ -22,12 +22,17 @@ python -m evals.acceptance_source_view \
   --output /absolute/path/to/new-view-directory
 ```
 
-Read `reader.txt` for the compact ordered narrative and table rows; use `review.txt`
-and `source-view.json` for detailed locators, attributes and nesting. `compact.txt` is
-only the normalized text invariant, not sufficient financial-table review input. Both
-structural renderings reproduce that exact text stream. `manifest.json` binds all files.
-Unknown declarations (including CDATA), ambiguous spans, invalid UTF-8 and truncated
-structural markup are rejected. An existing output is never overwritten.
+Read `reader.txt` for the compact ordered narrative and table rows; use `source-view.json`
+for detailed locators, attributes and nesting. `compact.txt` is only the normalized text
+invariant, not sufficient financial-table review input. The reader reproduces that exact
+text stream. `manifest.json` binds all three generated content files. The exporter does
+not create a `review.txt` file.
+Unknown declarations (including CDATA), ambiguous spans, invalid UTF-8 and markup requiring
+unsupported implicit element boundaries are rejected. The reader requires explicit closes
+for content elements; only trailing `html`/`body` wrapper closes may be omitted. It rejects
+non-void self-closing tags, including foreign/XML forms, instead of approximating browser
+repair or namespace semantics. Properly closed nested lists and tables remain supported.
+An existing output is never overwritten.
 
 The module is a review aid only. It has no path to enable paid execution or mark a source
 brief complete. Unsupported syntax, uncertain display behavior and material visual content
