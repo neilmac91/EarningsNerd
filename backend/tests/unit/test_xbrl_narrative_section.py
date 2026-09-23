@@ -302,7 +302,8 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
     assert "quarter" not in text.lower() and "average" not in text.lower()
 
 
-def test_jpm_derived_returns_do_not_take_issuer_ratio_names():
+@pytest.mark.asyncio
+async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
     """JPM reports named ROE/ROA on average balances; these selected ratios use period-end bases."""
     from app.services.openai_service import openai_service
 
@@ -321,11 +322,36 @@ def test_jpm_derived_returns_do_not_take_issuer_ratio_names():
     openai_service._apply_structured_fallbacks(sections, {}, metrics)
     rendered = sections["value_drivers"]["returns_on_capital"]
     grounding = build_xbrl_narrative_section(metrics)
+    captured: dict = {}
 
-    for text in (rendered, grounding):
+    monkeypatch.setattr(openai_service, "_parse_and_clean_text", lambda *_args: {
+        "filing_sample": "Retained JPM filing excerpt.",
+        "financial_data": {
+            "revenue": [], "net_income": [], "cash_flow": [], "segments": [], "guidance": [],
+        },
+        "recovery_sources": (),
+    })
+
+    async def capture_request(create_kwargs, **_kwargs):
+        captured.update(create_kwargs)
+        return "{}"
+
+    async def finish_without_recovery(*_args, **_kwargs):
+        return {}
+
+    monkeypatch.setattr(openai_service, "_request_content", capture_request)
+    monkeypatch.setattr(openai_service, "_assemble_structured_summary", finish_without_recovery)
+    await openai_service.generate_structured_summary(
+        "Retained JPM filing excerpt.", "JPMorgan Chase", "10-K", metrics,
+        filing_excerpt="Retained JPM filing excerpt.",
+    )
+    prompt = captured["messages"][1]["content"]
+
+    for text in (rendered, grounding, prompt):
         assert "period net income / period-end equity, not annualized: 15.7%" in text.lower()
         assert "period net income / period-end assets, not annualized: 1.3%" in text.lower()
         assert "Return on Equity" not in text and "Return on Assets" not in text
+    assert "ROE/ROA" not in prompt
     assert "prior 17.0%" in rendered and "prior 1.5%" in rendered
 
 
