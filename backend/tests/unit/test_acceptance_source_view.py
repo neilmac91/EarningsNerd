@@ -84,6 +84,39 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         span = unit["span"]
         assert span["sha256"] == hashlib.sha256(raw[span["start"] : span["end"]]).hexdigest()
 
+    style_raw = (
+        '<section style=" DISPLAY : none!important ; color:red"><span>Important display descendant</span></section>'
+        '<div style="visibility:hidden ! IMPORTANT"><strong>Important visibility descendant</strong></div>'
+        '<aside style="display : none"><span>Plain hidden descendant</span></aside>'
+        '<p style="display:block!important;visibility:visible !important;xdisplay:none;visibility:hiddenly;display:none!importantx;color:red display:none">Near miss visible</p>'
+    ).encode("utf-8")
+    style_projected = source_view.project_html(style_raw)
+    source_view.verify_projection(style_raw, style_projected)
+    assert style_projected["compact_text"] == (
+        "Important display descendantImportant visibility descendant"
+        "Plain hidden descendantNear miss visible"
+    )
+    style_units = {unit["decoded"]: unit for unit in style_projected["units"]}
+    for inherited_hidden in (
+        "Important display descendant",
+        "Important visibility descendant",
+        "Plain hidden descendant",
+    ):
+        assert "inline_style_hidden" in style_units[inherited_hidden]["hidden_reasons"]
+    assert style_units["Near miss visible"]["hidden_reasons"] == []
+    style_values = {item["value"] for item in style_projected["attributes"] if item["name"] == "style"}
+    assert style_values == {
+        " DISPLAY : none!important ; color:red",
+        "visibility:hidden ! IMPORTANT",
+        "display : none",
+        "display:block!important;visibility:visible !important;xdisplay:none;visibility:hiddenly;display:none!importantx;color:red display:none",
+    }
+    style_reader = source_view.render_reader(style_projected)
+    important_line = next(line for line in style_reader.splitlines() if "Important display descendant" in line)
+    near_miss_line = next(line for line in style_reader.splitlines() if "Near miss visible" in line)
+    assert "hidden=inline_style_hidden" in important_line
+    assert "hidden=-" in near_miss_line
+
     dropped = copy.deepcopy(projected)
     dropped["units"] = [unit for unit in dropped["units"] if "Quarterly" not in unit["decoded"]]
     with pytest.raises(ValueError, match="events and units differ"):

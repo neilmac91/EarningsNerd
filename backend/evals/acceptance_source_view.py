@@ -28,7 +28,11 @@ BREAK_TAGS = {
     "figcaption", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li",
     "main", "nav", "ol", "p", "pre", "section", "table", "td", "th", "title", "tr", "ul",
 }
-HIDDEN_STYLE = re.compile(r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\s*(?:;|$)", re.I)
+HIDDEN_STYLE = re.compile(
+    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)"
+    r"\s*(?:!\s*important\s*)?(?:;|$)",
+    re.I,
+)
 
 
 def _sha(data: bytes) -> str:
