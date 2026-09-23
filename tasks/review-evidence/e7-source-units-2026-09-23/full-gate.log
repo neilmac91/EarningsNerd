@@ -1,0 +1,189 @@
+head=f6a0fb981469b8ed06e34d8a51a5e6da193e64b2
+2026-09-23T19:21:08Z
+All checks passed!
+ruff=pass
+bandit=pass
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+......................                                                   [100%]
+=============================== warnings summary ===============================
+app/config.py:21
+  /home/user/EarningsNerd/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /home/user/EarningsNerd/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:110
+  /home/user/EarningsNerd/backend/app/schemas/summary.py:110: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../../../tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:168
+  /home/user/EarningsNerd/backend/app/schemas/summary.py:168: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /home/user/EarningsNerd/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /home/user/EarningsNerd/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:134
+  /home/user/EarningsNerd/backend/app/routers/filings.py:134: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /home/user/EarningsNerd/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:85
+  /home/user/EarningsNerd/backend/app/routers/summaries.py:85: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /home/user/EarningsNerd/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /home/user/EarningsNerd/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /home/user/EarningsNerd/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /home/user/EarningsNerd/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+tests/integration/test_stream_latency.py::test_stream_handles_high_latency_fetch
+  /tmp/claude-0/-home-user-EarningsNerd/03da7320-2ba3-53aa-a31f-2bf219186de5/scratchpad/venv/lib/python3.11/site-packages/httpxthrottlecache/httpxclientmanager.py:189: DeprecationWarning: <class 'httpx.Timeout'> passed: migrate to httpx2.Timeout
+    self._normalize_timeout(params)
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /home/user/EarningsNerd/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 1A'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /home/user/EarningsNerd/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 7'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /home/user/EarningsNerd/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 8'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_earnings_alerts.py::test_free_cap_blocks_fourth_alert
+tests/unit/test_earnings_alerts.py::test_disable_frees_a_slot_and_reenable_works
+tests/unit/test_earnings_alerts.py::test_reenable_same_company_is_idempotent_not_a_new_slot
+tests/unit/test_earnings_alerts.py::test_pro_cap_is_100_and_flagged_pro
+tests/unit/test_earnings_alerts.py::test_enabled_tickers_lists_only_enabled
+  /home/user/EarningsNerd/backend/tests/unit/test_earnings_alerts.py:75: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    u = db.query(User).get(uid)
+
+tests/unit/test_notification_delivery.py::test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_realtime
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[write_error]
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[ownership_collision]
+tests/unit/test_notification_delivery.py::test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_same_run
+tests/unit/test_notification_delivery.py::test_retry_freezes_complete_envelope_and_rejects_changed_recipient
+  /home/user/EarningsNerd/backend/app/services/notification_delivery_service.py:173: SAWarning: Identity map already had an identity for (<class 'app.models.notification_delivery.DeliveryItem'>, (1,), None), replacing it with newly flushed object.   Are there load operations occurring inside of an event handler within the flush?
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3694 passed, 2 deselected, 40 warnings in 222.50s (0:03:42)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/logging/__init__.py", line 1113, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/user/EarningsNerd/backend/app/routers/companies.py", line 117, in _close_yahoo_client_sync
+    asyncio.run(_async_close())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 189, in run
+    with Runner(debug=debug) as runner:
+  File "/usr/lib/python3.11/asyncio/runners.py", line 59, in __enter__
+    self._lazy_init()
+  File "/usr/lib/python3.11/asyncio/runners.py", line 137, in _lazy_init
+    self._loop = events.new_event_loop()
+  File "/usr/lib/python3.11/asyncio/events.py", line 810, in new_event_loop
+    return get_event_loop_policy().new_event_loop()
+  File "/usr/lib/python3.11/asyncio/events.py", line 699, in new_event_loop
+    return self._loop_factory()
+  File "/usr/lib/python3.11/asyncio/unix_events.py", line 64, in __init__
+    super().__init__(selector)
+  File "/usr/lib/python3.11/asyncio/selector_events.py", line 54, in __init__
+    logger.debug('Using selector: %s', selector.__class__.__name__)
+Message: 'Using selector: %s'
+Arguments: ('EpollSelector',)
+pytest_exit=0
+2026-09-23T19:25:00Z
