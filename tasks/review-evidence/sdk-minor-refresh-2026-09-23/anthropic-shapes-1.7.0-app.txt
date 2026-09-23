@@ -1,0 +1,29 @@
+{
+ "anthropic": "1.7.0",
+ "error_classes": {
+  "400": "BadRequestError",
+  "401": "AuthenticationError",
+  "409": "ConflictError",
+  "429": "RateLimitError",
+  "503": "InternalServerError",
+  "ConnectError": "APIConnectionError",
+  "ReadTimeout": "APITimeoutError"
+ },
+ "judge_verdict": "PASS",
+ "judge_error": null,
+ "bakeoff_candidate": "claude-sonnet",
+ "bakeoff_tokens": [
+  11,
+  7
+ ],
+ "runner_is_transient": {
+  "400": false,
+  "401": false,
+  "409": true,
+  "429": true,
+  "503": true,
+  "ConnectError": true,
+  "ReadTimeout": true
+ }
+}
+ANTHROPIC_SHAPES_OK 1.7.0 app

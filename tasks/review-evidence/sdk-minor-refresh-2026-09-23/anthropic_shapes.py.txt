@@ -1,0 +1,104 @@
+"""Offline Anthropic SDK interface check (no provider call): the eval harness's exact
+AsyncAnthropic(...).messages.create shapes, response parsing and error classification run
+against the installed SDK through an httpx2 MockTransport. Pass --app to drive the real
+evals.judge/_call_anthropic functions (needs the backend on sys.path and hermetic env)."""
+import asyncio
+import inspect
+import json
+import os
+import sys
+
+import anthropic
+import httpx2
+
+APP = "--app" in sys.argv
+requests_seen = []
+mode = {"status": 200, "raise": None}
+
+def handler(request):
+    requests_seen.append(request)
+    if mode["raise"]:
+        raise mode["raise"]("offline transport fault", request=request)
+    if mode["status"] != 200:
+        return httpx2.Response(mode["status"], json={"type": "error", "error": {"type": "api_error", "message": "offline"}})
+    return httpx2.Response(200, json={
+        "id": "msg_offline", "type": "message", "role": "assistant", "model": "claude-opus-4-8",
+        "content": [{"type": "text", "text": '{"verdict": "PASS", "gates": {}, "rationale": "offline"}'}],
+        "stop_reason": "end_turn", "stop_sequence": None,
+        "usage": {"input_tokens": 11, "output_tokens": 7},
+    })
+
+Real = anthropic.AsyncAnthropic
+
+class Offline(Real):
+    def __init__(self, *a, **kw):
+        kw.setdefault("http_client", httpx2.AsyncClient(transport=httpx2.MockTransport(handler)))
+        kw.setdefault("base_url", "https://offline.invalid")
+        super().__init__(*a, **kw)
+
+anthropic.AsyncAnthropic = Offline
+create_params = set(inspect.signature(Real(api_key="x").messages.create).parameters)
+for name in ("model", "max_tokens", "system", "messages", "output_config"):
+    assert name in create_params, name
+
+async def pure_sdk():
+    client = anthropic.AsyncAnthropic(api_key="offline")
+    resp = await client.messages.create(model="claude-opus-4-8", max_tokens=64, system="s",
+                                        messages=[{"role": "user", "content": "u"}],
+                                        output_config={"format": {"type": "json_schema", "schema": {"type": "object"}}})
+    text = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
+    body = json.loads(requests_seen[-1].content)
+    assert requests_seen[-1].url.path == "/v1/messages"
+    assert body["output_config"]["format"]["type"] == "json_schema" and "temperature" not in body
+    assert json.loads(text)["verdict"] == "PASS" and resp.usage.input_tokens == 11
+    errors = {}
+    for status in (400, 401, 409, 429, 503):
+        mode.update(status=status)
+        try:
+            await anthropic.AsyncAnthropic(api_key="offline", max_retries=0).messages.create(
+                model="m", max_tokens=1, messages=[{"role": "user", "content": "u"}])
+        except anthropic.APIStatusError as exc:
+            errors[status] = exc
+    mode.update(status=200)
+    for fault in (httpx2.ConnectError, httpx2.ReadTimeout):
+        mode.update(raise_=None)
+        mode["raise"] = fault
+        try:
+            await anthropic.AsyncAnthropic(api_key="offline", max_retries=0).messages.create(
+                model="m", max_tokens=1, messages=[{"role": "user", "content": "u"}])
+        except anthropic.APIConnectionError as exc:  # APITimeoutError subclasses it
+            errors[fault.__name__] = exc
+    mode["raise"] = None
+    return errors
+
+async def main():
+    errors = await pure_sdk()
+    report = {"anthropic": anthropic.__version__, "error_classes": {str(k): type(v).__name__ for k, v in errors.items()}}
+    if APP:
+        from evals import judge, runner
+        from evals.models import REGISTRY as MODEL_REGISTRY, _call_anthropic
+        os.environ["ANTHROPIC_API_KEY"] = "offline"
+        judge._anthropic_client = None
+        n = len(requests_seen)
+        verdict = await judge._judge_via_anthropic("system text", "user text", "claude-opus-4-8", 512)
+        body = json.loads(requests_seen[n].content)
+        assert body["system"] == "system text" and body["messages"] == [{"role": "user", "content": "user text"}]
+        assert body["model"] == "claude-opus-4-8" and body["max_tokens"] == 512 and "temperature" not in body
+        report["judge_verdict"] = verdict.verdict if hasattr(verdict, "verdict") else str(verdict)
+        report["judge_error"] = getattr(verdict, "error", None)
+        cfg = next(c for c in (MODEL_REGISTRY.values() if isinstance(MODEL_REGISTRY, dict) else MODEL_REGISTRY)
+                   if c.provider == "anthropic")
+        os.environ[cfg.api_key_env] = "offline"
+        raw, in_tok, out_tok = await _call_anthropic(cfg, "sys", "usr", 256)
+        body = json.loads(requests_seen[-1].content)
+        assert body["output_config"]["format"]["type"] == "json_schema"
+        report["bakeoff_candidate"] = cfg.name
+        report["bakeoff_tokens"] = [in_tok, out_tok]
+        report["runner_is_transient"] = {k: runner._is_transient(v) for k, v in errors.items()}
+        expected = {"400": False, "401": False, "409": True, "429": True, "503": True, "ConnectError": True, "ReadTimeout": True}
+        assert {str(k): v for k, v in report["runner_is_transient"].items()} == expected, report["runner_is_transient"]
+        assert report["judge_verdict"] == "PASS" and report["bakeoff_tokens"] == [11, 7]
+    print(json.dumps(report, indent=1))
+    print("ANTHROPIC_SHAPES_OK", anthropic.__version__, "app" if APP else "sdk-only")
+
+asyncio.run(main())
