@@ -20,8 +20,10 @@ receipt or a STOP: README.md says to export after every stop. Whether the export
 sole-guard recovery checkpoint is a separate verdict, written to ``export-summary.json`` as
 ``recovery_eligible`` with every blocker named. The verdict applies the checks the sealed
 ``guard_setup.validate_guard`` makes before every slot (no latch, no owner, enabled, reconciled,
-counter within 287..600), e8_resume's quota and owner-loss markers, README condition 6's terminal
-states (STOP, pending, failed) and the receipts. Only a missing bundle or ``stages/e8/index.json``,
+counter within 287..600 and not below its recorded prior count, config state path and ceiling,
+initialization record bound to the config) except the CLI identity check, which needs the real
+binary; ``attest()``'s prior count 287; e8_resume's quota and owner-loss markers; README condition
+6's terminal states (STOP, pending, failed); and the receipts. Only a missing bundle or ``stages/e8/index.json``,
 an existing output directory or a ``--receipts`` path that is not a directory refuses outright.
 
 README.md condition 1 requires the copied files to be verified against the inventory and the
@@ -127,6 +129,16 @@ def read_json(path: Path) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def count(value: object, default: dict | list) -> object:
+    """A collection by its length; an absent value as its empty default; anything else as is.
+
+    A corrupt ``active`` or ``completed`` (a number or a flag) must not crash the export before
+    its summary is written: it is reported as the raw value and blocks recovery instead.
+    """
+    value = default if value is None else value
+    return len(value) if isinstance(value, (dict, list)) else value
+
+
 def guard_observation(guard: Path) -> dict:
     """The live guard values a readback must agree with (the readback.json shape the operator writes)."""
     state = read_json(guard / 'state.json')
@@ -136,8 +148,8 @@ def guard_observation(guard: Path) -> dict:
         'state_accounting_reconciled': state.get('accounting_reconciled'),
         'state_real_cli_invocations': state.get('real_cli_invocations'),
         'state_stop_reason': state.get('stop_reason'),
-        'state_active_owners': len(state.get('active', {}) or {}),
-        'state_completed_calls': len(state.get('completed', []) or []),
+        'state_active_owners': count(state.get('active'), {}),
+        'state_completed_calls': count(state.get('completed'), []),
         'initialization_json_present': (guard / INIT_RECORD).is_file(),
         'template_configuration_json_present': (guard / TEMPLATE_RECORD).is_file(),
     }
@@ -256,11 +268,11 @@ def source_listing(guard: Path, stages: Path, receipts: Path | None) -> dict:
 
 def terminal_markers(stages: Path) -> dict:
     """What tools/e8_resume.py treats as terminal, listed explicitly because git drops empty directories."""
-    pending = sorted(p for p in stages.glob('.pending-*') if p.is_dir())
+    pending = sorted(stages.glob('.pending-*'))
     failed = stages / 'failed'
     return {
         'directories': sorted(str(p.relative_to(stages)) for p in stages.rglob('*') if p.is_dir()),
-        'pending_markers': [{'name': p.name, 'empty': not any(p.iterdir())} for p in pending],
+        'pending_markers': [{'name': p.name, 'empty': p.is_dir() and not any(p.iterdir())} for p in pending],
         'stop_files': [name for name in STOP_FILES if (stages / name).exists()],
         'failed_entries': sorted(p.name for p in failed.iterdir()) if failed.is_dir() else [],
     }
@@ -281,8 +293,9 @@ def recovery_blockers(guard: Path, stage: str, state: dict, classes: dict | None
     else:
         blockers += [f'receipts lack a valid {name} bound to the live guard'
                      for name, present in classes.items() if not present]
-    # The same idle and initialized checks the sealed guard_setup.validate_guard applies before
-    # every slot, so a verdict can never be ELIGIBLE for a guard the tools would refuse.
+    # The idle, initialized, path, ceiling and record checks the sealed guard_setup.validate_guard
+    # applies before every slot, and attest()'s prior-count binding. The CLI identity check needs the
+    # real binary and is left to the resumed session's own admission.
     config = read_json(guard / 'config.json')
     if not state or not config:
         blockers.append('guard state.json or config.json is missing or not a JSON object')
@@ -304,6 +317,17 @@ def recovery_blockers(guard: Path, stage: str, state: dict, classes: dict | None
     used = state.get('real_cli_invocations')
     if type(used) is not int or not PRIOR_COUNT <= used < CEILING:
         blockers.append(f'guard counter {used!r} is outside {PRIOR_COUNT}..{CEILING - 1}: no call can be admitted')
+    # guard_setup._state_path and validate_guard's record checks, and attest()'s prior-count binding.
+    if config.get('state_path') != str(guard / 'state.json') or type(config.get('ceiling')) is not int or config.get('ceiling') != CEILING:
+        blockers.append(f'guard config state_path/ceiling is not {guard / "state.json"} / {CEILING}')
+    record = read_json(guard / INIT_RECORD)
+    if (guard / INIT_RECORD).is_file():
+        if type(record.get('prior_count')) is not int or record.get('prior_count') != PRIOR_COUNT:
+            blockers.append(f'initialization.json prior_count {record.get("prior_count")!r} is not the attested {PRIOR_COUNT}')
+        if record.get('state_path') != config.get('state_path') or record.get('real_cli') != config.get('real_cli'):
+            blockers.append('initialization.json state_path/real_cli differ from config.json')
+        if type(used) is int and type(record.get('prior_count')) is int and used < record['prior_count']:
+            blockers.append('guard counter fell below its initialization prior_count')
     blockers += [f'STOP present: {name}' for name in markers['stop_files']]
     blockers += [f'pending invocation marker: {m["name"]}' for m in markers['pending_markers']]
     if markers['failed_entries']:
@@ -364,8 +388,8 @@ def main() -> int:
         'guard_real_cli_invocations': state.get('real_cli_invocations'),
         'guard_accounting_reconciled': state.get('accounting_reconciled'),
         'guard_stop_reason': state.get('stop_reason'),
-        'guard_active_owners': len(state.get('active', {}) or {}),
-        'guard_completed_calls': len(state.get('completed', []) or []),
+        'guard_active_owners': count(state.get('active'), {}),
+        'guard_completed_calls': count(state.get('completed'), []),
         'files': len(inventory),
         'inventory_sha256': hashlib.sha256(inventory_bytes).hexdigest(),
         'destination_verified': destination_verified,

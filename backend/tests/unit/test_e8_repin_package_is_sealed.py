@@ -16,6 +16,7 @@ import ast
 import hashlib
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -82,6 +83,16 @@ def test_e8_resume_pins_the_regenerated_supplement_manifest() -> None:
     assert sealed_constants()["E3_SUPPLEMENT_MANIFEST_SHA256"] == _sha(PACKAGE / "supplement-sha256.json")
 
 
+def test_the_package_holds_exactly_the_sealed_and_operator_files() -> None:
+    """An added file would pass every hash check yet run: the sealed tools put tools/ first on sys.path."""
+    tracked = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", "--", str(PACKAGE.relative_to(REPO_ROOT))],
+                             capture_output=True, text=True, check=True).stdout.split()
+    expected = set(_json("code-sha256.json")) | set(_json("supplement-sha256.json")) | set(SEALED) | UNSEALED
+    assert {str(Path(p).relative_to(PACKAGE.relative_to(REPO_ROOT))) for p in tracked} == expected
+    on_disk = {str(p.relative_to(PACKAGE)) for p in PACKAGE.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
+    assert on_disk == expected, f"files in the package outside the seal: {sorted(on_disk - expected)}"
+
+
 def test_operator_tools_stay_outside_the_seal() -> None:
     sealed_files = set(_json("code-sha256.json")) | set(_json("supplement-sha256.json"))
     assert not {name for name in sealed_files if Path(name).name in UNSEALED}
@@ -95,6 +106,8 @@ def test_export_tool_mirrors_the_sealed_attestation_contract() -> None:
     constants = sealed_constants()
     assert export.ATTESTATION_KEYS == sealed_attestation_keys()
     assert export.PRIOR_COUNT == constants["MIN_PRIOR"]
+    assert export.CEILING == constants["CEILING"]
+    assert set(export.STOP_FILES) == {"STOP.json", constants["STOP"]}
     assert export.SEALED_HASHES == {
         "prior_evidence_sha256": constants["PRIOR_EVIDENCE_SHA256"],
         "founder_statement_sha256": constants["FOUNDER_STATEMENT_SHA256"],

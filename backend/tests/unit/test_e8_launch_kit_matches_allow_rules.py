@@ -276,6 +276,9 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
         f"a deny or ask rule on a Bash input parameter shadows every gated command, step 6's background run included: {pattern}"
         for pattern, _ in blocked if _PARAMETER_RULE.match(pattern)
     ]
+    # A bare tool name is the whole-tool rule (the same as Bash(*)) and shadows every gated command.
+    problems += [f"a whole-tool {entry!r} deny or ask rule shadows every gated command"
+                 for entry in permissions.get("deny", []) + permissions.get("ask", []) if entry.strip() == "Bash"]
     commands: list[str] = []
     for info, first_line, lines in _segments(markdown):
         if info == "sh":
@@ -357,10 +360,10 @@ def restore_pins() -> dict:
 
 def table_problems(markdown: str) -> list[str]:
     """The kit's attachment table against the hashes the restore refuses on."""
-    table = dict(m.groups() for line in markdown.splitlines() if (m := TABLE_ROW.match(line.strip())))
+    rows = [m.groups() for line in markdown.splitlines() if (m := TABLE_ROW.match(line.strip()))]
     pins = restore_pins()
-    if table != pins:
-        return [f"attachment table {table} != restore_e8_session.KIT_ATTACHMENTS {pins}"]
+    if sorted(rows) != sorted(pins.items()):
+        return [f"attachment table rows {rows} != restore_e8_session.KIT_ATTACHMENTS {pins} (one row per attachment)"]
     return []
 
 
@@ -477,6 +480,9 @@ KIT_EVASIONS = [
     ("attachment table row altered", lambda kit: kit.replace("| 5298a21e818c", "| 5298a21e818d")),
     ("attachment table row removed", lambda kit: "\n".join(line for line in kit.splitlines() if not line.startswith("| transport-manifest.json"))),
     ("permission mode not named", lambda kit: kit.replace(MODE_SENTENCE, "select a mode")),
+    ("stale duplicate table row before the right one", lambda kit: kit.replace(
+        "| fable-e8-continuation-2026-09-22.zip | 5298a21e", "| fable-e8-continuation-2026-09-22.zip | " + "0" * 64
+        + " |\n| fable-e8-continuation-2026-09-22.zip | 5298a21e")),
 ]
 
 
@@ -508,6 +514,8 @@ RULE_EVASIONS = [
     ("parameter ask on background runs", "ask", "Bash(run_in_background:true)"),
     ("parameter deny on timeouts", "deny", "Bash(timeout:*)"),
     ("parameter deny with a spaced colon", "deny", "Bash(run_in_background : true)"),
+    ("whole-tool deny", "deny", "Bash"),
+    ("whole-tool ask", "ask", "Bash"),
 ]
 
 

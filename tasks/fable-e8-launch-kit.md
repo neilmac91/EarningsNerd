@@ -1,9 +1,9 @@
 # E8 judging session — launch kit, revision 3 (2026-09-23, after the readiness review)
 
 Supersedes the 22 September upload `E8-SESSION-PROMPT.md` (SHA-256 `600d012b…6cf4e`), whose
-eight steps it keeps in substance, and revision 2, whose nine attachments, steps 0 to 8, fixed
-values, hashes and seven gated commands it keeps byte for byte. Revision 2 made four changes to
-the upload, each from
+eight steps it keeps in substance, and revision 2, whose nine attachments, fixed values, hashes
+and seven gated commands it keeps byte for byte; the prose of steps 0 to 8 changes as items 6 to
+11 below describe. Revision 2 made four changes to the upload, each from
 [the stopped session's receipt](review-evidence/e8-repin-restore-2026-09-22/receipt.md):
 
 1. **Step 0** proves the permission route with a zero-effect command before any state exists,

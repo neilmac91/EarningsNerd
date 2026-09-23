@@ -103,13 +103,17 @@ parses under its script's argparse (`findings.json`, `coverage`).
   attachment, and prints the partial log on refusal.
 - `tasks/fable-e8-repin-2026-09-22/export_e8_state.py` (unsealed). It follows the guard's lifecycle
   and never withholds evidence, writing `recovery_eligible` with named blockers. The verdict
-  mirrors the sealed `validate_guard` checks, the quota and owner-loss markers and the exhausted
-  601 ceiling. It verifies each copy, re-lists the source and records `inventory_sha256`; a file
+  mirrors the sealed `validate_guard` checks except the CLI identity (latch, owners, enabled,
+  reconciled, counter range and floor, config path and ceiling, initialization record bindings),
+  `attest()`'s prior count 287, the quota and owner-loss markers and every terminal marker; corrupt
+  owner or history values are reported, not a crash. It verifies each copy, re-lists the source and records `inventory_sha256`; a file
   that vanishes mid-export is recorded, not a crash. It lists directories, pending markers, STOP
   files and failed entries.
 - `.gitignore`: `!tasks/review-evidence/**/*.log`.
-- Gates: `test_e8_launch_kit_matches_allow_rules.py` (83 cases), new `test_e8_export_state.py`
-  (20), `test_e8_restore_session.py` (14), `test_e8_repin_package_is_sealed.py` (6).
+- Gates: `test_e8_launch_kit_matches_allow_rules.py` (86 cases), new `test_e8_export_state.py`
+  (33), `test_e8_restore_session.py` (14), `test_e8_repin_package_is_sealed.py` (7, including
+  the package's exact file set: an added `tools/*.py` would otherwise run, since the sealed tools
+  put `tools/` first on `sys.path`).
 - Handovers (`handover-astra-2026-09-19.md`, `handover-astra-2026-09-22-e8-repin.md`,
   `handover-fable-consolidated-2026-09-20.md`), lessons
   (`ops-prove-the-permission-route-before-a-gated-session.md` updated,
@@ -117,7 +121,7 @@ parses under its script's argparse (`findings.json`, `coverage`).
 
 ## 7. Verification
 
-- New and extended E8 gates: 123 passed (83 + 20 + 14 + 6), ruff clean on `backend/` and on
+- New and extended E8 gates: 140 passed (86 + 33 + 14 + 7), ruff clean on `backend/` and on
   both edited scripts.
 - Mutation proofs, each reverted afterwards. Nine single-defect reversions of the restore and
   export fixes each failed exactly one test: null-`active` normalisation, copy verification,
@@ -127,7 +131,8 @@ parses under its script's argparse (`findings.json`, `coverage`).
   kit gate's 15 new evasion cases (prior count, setup order, attestation values, table rows,
   mode sentence) and 6 new rule evasions are all rejected.
 - Full backend gate (`ruff check .`, `bandit -r app -ll`, `pytest`): before round 2, 3,512 passed,
-  39 skipped, 2 deselected; after round 2, 3,521 passed, 39 skipped, 2 deselected.
+  39 skipped, 2 deselected; after round 2, 3,521 passed; after the pre-merge fixes, 3,538 passed, 39
+  skipped, 2 deselected.
 - Adversarial review of this diff (workflow `wf_0966267a-99b`), with three lenses: restore, export,
   and kit, gates and docs. The restore and export findings were each checked by two refuters,
   and every one was confirmed as minor:
@@ -147,6 +152,22 @@ parses under its script's argparse (`findings.json`, `coverage`).
   removing the ceiling, empty-string latch, enabled/reconciled or quota/owner-loss checks, the
   vanish handling, the `shim_mode` format or the whitespace-tolerant parameter regex each fails
   its test. The malformed-owners check is tested but was not separately mutated.
+- Pre-merge review (the repository's `premerge-review` workflow, run `wf_95211c81-491`): three
+  lenses (correctness, rules and brief, tests and gates), each serious finding refuted twice. No
+  blocker. Five confirmed should-fix items, all fixed with tests:
+  - the verdict ignored the initialization record's prior count and paths, the config ceiling and
+    state path, and the counter floor;
+  - a scalar `active` or `completed` crashed the export before its summary;
+  - no test pinned the STOP, pending or failed blocker alone, and a `.pending-*` file was not
+    counted;
+  - the seal gate did not pin the package's file set;
+  - a bare `Bash` deny or ask rule passed the kit gate.
+
+  Nits also fixed: the kit header's byte-for-byte claim, a stale "idempotent" in the re-pin
+  handover, duplicate attachment-table rows, and the export's `CEILING` and `STOP` mirror.
+  Mutation proofs: removing each new check (prior count, config path and ceiling, record binding,
+  counter floor, scalar-safe count, STOP, pending, failed, pending files, whole-tool rule, table
+  dedup) or adding a stray `tools/tempfile.py` fails its test.
 
 ## 8. Correction to earlier records
 

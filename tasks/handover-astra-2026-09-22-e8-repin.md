@@ -24,7 +24,9 @@ are superseded for the next attempt by [`fable-e8-launch-kit.md`](fable-e8-launc
 (revision 3): a fresh web session in **Accept edits** mode, not Auto and not Plan, per the 22
 September founder decision and the
 [23 September readiness review](review-evidence/e8-launch-readiness-2026-09-23/README.md). The
-allow rules alone did not change the classifier's verdict (#946 receipt, section 6).
+allow rules alone did not change the classifier's verdict (#946 receipt, section 6). The
+restore and export tools described in section 3 changed in #952; their docstrings now govern
+(the restore checks every input before writing and is re-runnable only until guard setup).
 
 ## 1. What happened today
 

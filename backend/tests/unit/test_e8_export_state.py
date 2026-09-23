@@ -55,7 +55,8 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
         _write(guard / "template-configuration.json", {"status": "complete"})
     if initialized:
         _write(guard / "initialization.json", {"status": "complete", "prior_count": 287,
-                                               "state_path": str(guard / "state.json")})
+                                               "state_path": str(guard / "state.json"),
+                                               "real_cli": "/opt/claude-code/bin/claude"})
     _write(bundle / "stages" / "e8" / "index.json", {"packets": []})
     return bundle
 
@@ -173,6 +174,31 @@ def test_terminal_markers_are_listed_and_block_recovery(export, monkeypatch, tmp
     assert (out / "stages" / "e8" / "failed" / ".pending-002-KO-2-Q-run0-def" / "run.log").is_file()
 
 
+TERMINAL_MARKERS = [
+    ("STOP alone", lambda s: _write(s / "STOP.supplement.json", {"failure": "Uncertain accounting"}),
+     "STOP present: STOP.supplement.json"),
+    ("original STOP", lambda s: _write(s / "STOP.json", {}), "STOP present: STOP.json"),
+    ("pending directory alone", lambda s: _write(s / ".pending-003-x-abc" / "owner.json", {}),
+     "pending invocation marker: .pending-003-x-abc"),
+    ("pending file", lambda s: _write(s / ".pending-004-x-def", "partial"), "pending invocation marker: .pending-004-x-def"),
+    ("failed entry alone", lambda s: _write(s / "failed" / ".pending-005-x-ghi" / "run.log", "STDOUT\n"),
+     "failed invocations: ['.pending-005-x-ghi']"),
+]
+
+
+@pytest.mark.parametrize(("name", "make_marker", "blocker"), TERMINAL_MARKERS, ids=[case[0] for case in TERMINAL_MARKERS])
+def test_each_terminal_marker_blocks_recovery_on_its_own(export, monkeypatch, tmp_path, name, make_marker, blocker) -> None:
+    bundle = make_bundle(tmp_path, "initialized")
+    guard = bundle / "e8" / "guard"
+    make_marker(bundle / "stages" / "e8")
+    receipts = tmp_path / "receipts"
+    _write(receipts / "attestation.json", attestation(export, guard))
+    _write(receipts / "readback.json", readback(guard))
+    code, summary = run(export, monkeypatch, bundle, tmp_path / "out", receipts)
+    assert code == 0
+    assert summary["recovery_blockers"] == [blocker]
+
+
 def test_a_copy_that_differs_from_its_source_keeps_the_evidence_and_fails(export, monkeypatch, tmp_path) -> None:
     bundle = make_bundle(tmp_path, "initialized")
     real_copy = export.shutil.copy2
@@ -256,25 +282,37 @@ def matching_readback(guard: Path) -> dict:
 
 GUARD_REFUSALS = [
     ("ceiling exhausted", {"real_cli_invocations": 601, "completed": [{"invocation": n} for n in range(288, 602)]},
-     {}, "outside 287..600"),
+     {}, {}, "outside 287..600"),
     ("quota latch on a completed call", {"real_cli_invocations": 288, "completed": [{"invocation": 288, "quota": True}]},
-     {}, "quota or owner-loss latch on invocations [288]"),
+     {}, {}, "quota or owner-loss latch on invocations [288]"),
     ("owner loss on a completed call", {"real_cli_invocations": 288, "completed": [{"invocation": 288, "owner_lost": True}]},
-     {}, "quota or owner-loss latch on invocations [288]"),
-    ("empty stop latch", {"stop_reason": ""}, {}, "guard stop latch set: ''"),
-    ("malformed owner records", {"active": []}, {}, "active or malformed owner records"),
-    ("initialization recorded but guard left disabled", {}, {"enabled": False}, "not enabled and reconciled"),
+     {}, {}, "quota or owner-loss latch on invocations [288]"),
+    ("empty stop latch", {"stop_reason": ""}, {}, {}, "guard stop latch set: ''"),
+    ("malformed owner records", {"active": []}, {}, {}, "active or malformed owner records"),
+    ("scalar owner count", {"active": 1}, {}, {}, "active or malformed owner records"),
+    ("owner flag", {"active": True}, {}, {}, "active or malformed owner records"),
+    ("scalar completed history", {"completed": 3}, {}, {}, "completed history is not a list"),
+    ("initialization recorded but guard left disabled", {}, {"enabled": False}, {}, "not enabled and reconciled"),
+    ("initialized with the wrong prior count", {"real_cli_invocations": 300}, {}, {"prior_count": 300},
+     "prior_count 300 is not the attested 287"),
+    ("counter below its recorded prior count", {"real_cli_invocations": 287}, {}, {"prior_count": 290},
+     "fell below its initialization prior_count"),
+    ("ceiling changed in config", {}, {"ceiling": 700}, {}, "state_path/ceiling"),
+    ("state path elsewhere in config", {}, {"state_path": "/tmp/other/state.json"}, {}, "state_path/ceiling"),
+    ("initialization bound to another CLI", {}, {}, {"real_cli": "/usr/local/bin/claude"}, "state_path/real_cli differ"),
 ]
 
 
-@pytest.mark.parametrize(("name", "state_change", "config_change", "blocker"), GUARD_REFUSALS,
+@pytest.mark.parametrize(("name", "state_change", "config_change", "init_change", "blocker"), GUARD_REFUSALS,
                          ids=[case[0] for case in GUARD_REFUSALS])
 def test_a_guard_the_sealed_tools_would_refuse_is_never_an_eligible_checkpoint(
-        export, monkeypatch, tmp_path, name, state_change, config_change, blocker) -> None:
-    """Mirrors guard_setup.validate_guard, e8_resume's quota/owner-loss latch and README condition 6."""
+        export, monkeypatch, tmp_path, name, state_change, config_change, init_change, blocker) -> None:
+    """Mirrors guard_setup.validate_guard, attest()'s prior count, e8_resume's quota/owner-loss latch and
+    README condition 6; corrupt values are reported, never a crash before the summary is written."""
     bundle = make_bundle(tmp_path, "initialized")
     guard = bundle / "e8" / "guard"
-    for file_name, change in (("state.json", state_change), ("config.json", config_change)):
+    for file_name, change in (("state.json", state_change), ("config.json", config_change),
+                              ("initialization.json", init_change)):
         _write(guard / file_name, {**json.loads((guard / file_name).read_text()), **change})
     receipts = tmp_path / "receipts"
     _write(receipts / "attestation.json", attestation(export, guard))
