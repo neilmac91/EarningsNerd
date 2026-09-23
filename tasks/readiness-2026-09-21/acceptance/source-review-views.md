@@ -61,3 +61,5 @@ need a separately reviewed hierarchy that binds leaf reviews, all member disposi
 the full union of issues. This view module does not implement or freeze that hierarchy.
 
 The [actual H29 pilot](../../review-evidence/e7-source-view-2026-09-23/source-pilot.md) produced one individually frozen A brief; B experienced context compaction and remains ineligible. No complete filing reference follows. The hierarchy is now a demonstrated requirement for robust scaling, not an implemented feature.
+
+The follow-up nesting guard rejects nested anchors/buttons/forms/nobr/headings, all `select` mode, stray table parts, and table content requiring foster parenting. HTML ASCII whitespace is preserved; non-breaking-space entities are substantive table text. This conservative rule does not implement browser tree repair. Valid explicit table cells, captions and nested tables retain their original artifacts. See the [correction receipt](../../review-evidence/e7-source-view-2026-09-23/markup-nesting-fix/README.md).

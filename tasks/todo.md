@@ -5773,3 +5773,9 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - [ ] Separately authorized E8 session remains outstanding: 140 controls reused under 2.1.278,
   zero new judgments, 160 slots planned under 2.1.280. Every readout must state that CLI-version
   confound. No quality conclusion, production change or universe-wide generation authorized here.
+
+### September 23 — nesting and ratio review corrections
+
+- PR940 source reader `2f59c73b` rejects unsupported nested controls and table foster parenting; 3655 passed, 40 warnings in 160.73s (0:02:40), all PostgreSQL/performance lanes, Ruff/Bandit/dependency checks pass. Six H29 views/24 artifacts are unchanged.
+- PR942 `aab234fb` aligns the actual generator instruction with shared formula labels; 3,500 tests pass. Same-contract generated-output comparison remains required.
+- Hierarchy implementation is sequenced as custody, reconciliation and downstream admission. No E7 generation, Fable call, production flag or deployment; earlier denied proof holds remain.

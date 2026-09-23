@@ -43,3 +43,5 @@ The [important-style fix](important-style-fix/README.md) at `a0fea57b` corrects 
 ## Current markup-boundary checkpoint
 
 The [markup-boundary correction](markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes and corrects the exporter guide. Full final validation: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips, all PostgreSQL/performance lanes, lint/security/dependency checks. One committed-state guard mutation failed and exact restoration passed; independent review found no remaining issue after also removing an introduced repeated ancestry scan. All six H29 views/24 files remain byte-identical. This supersedes the code checkpoint above without altering historical pilot evidence.
+
+The latest [unsupported-nesting correction](markup-nesting-fix/README.md) supersedes earlier parser validation: all 3,655 tests pass, independent review found no remaining issue in the bounded correction, and all 24 H29 files remain byte-identical. The [next implementation sequence](../../readiness-2026-09-21/acceptance/source-review-hierarchy-implementation-plan.md) keeps source custody separate from admission.

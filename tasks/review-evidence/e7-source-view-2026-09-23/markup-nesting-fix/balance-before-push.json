@@ -1,0 +1,8 @@
+{
+  "workflow_run": 35835464099,
+  "observed_at": "2026-09-23T08:08:42.9350356Z",
+  "is_available": true,
+  "currency": "USD",
+  "total_balance": "66.89",
+  "scope": "Read-only balance before bounded routine PR regression, separate from E7 programme."
+}

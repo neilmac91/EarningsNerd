@@ -1,0 +1,24 @@
+{
+  "source_head": "2f59c73be3568a69fb5454abf993b95d8c896dc1",
+  "python": "3.11.16",
+  "pytest_summary": "3655 passed, 40 warnings in 160.73s (0:02:40)",
+  "tests": 3655,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "lanes": {
+    "test_subscription_event_transactions": 24,
+    "test_usage_counter_transactions": 29,
+    "test_login_lockout_transactions": 6,
+    "test_notification_delivery_transactions": 5,
+    "tests.performance": 2
+  },
+  "source_view_sha256": "b78931856eb448ef8a2f2d21f3c2d9c30ead0e4db1265a3966bb66a3c282f6a6",
+  "xml_sha256": "4b7143968a06d7f827fd91cc3932342ff372a29779e26e58e7609daefe2460ca",
+  "log_sha256": "73bb5dcf34c41b4cc0c8e56a7dd52bda3a82a8789cf53d08b61ef08a5bed0b51",
+  "exit_code": 0,
+  "ruff": "pass",
+  "bandit": "pass",
+  "pip_check": "pass",
+  "existing_rejection_helper_ast_unchanged_since_proof": "e50afcbd"
+}
