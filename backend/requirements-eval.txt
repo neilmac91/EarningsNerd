@@ -2,7 +2,7 @@
 # weekly readout judges through the subscription CLI and CI no longer installs this file.
 # Install alongside requirements.txt, never in the runtime image.
 # https://pypi.org/project/anthropic/
-anthropic==1.6.0
+anthropic==1.7.0
 # Judge-only parser.
 docstring-parser==0.18.0
 # Shared transport versions are constrained by the runtime lock.
