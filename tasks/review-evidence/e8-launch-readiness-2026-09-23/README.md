@@ -143,9 +143,10 @@ parses under its script's argparse (`findings.json`, `coverage`).
   upload, the subagent-lifetime wording, "two intervening receipts" when there are three, the
   exit-1 wording, whitespace in parameter rules, and a missing F15 row. Its refuters were stopped
   so the fixes could land; I checked each against the files and docs myself. All eleven are fixed
-  in round 2, with new tests. Mutation proofs: removing the ceiling, latch (empty-string), owner,
-  enabled/reconciled or quota/owner-loss checks, the vanish handling, the `shim_mode` format or
-  the whitespace-tolerant parameter regex each fails its test.
+  in round 2: the code findings with new tests, the kit and README ones as prose. Mutation proofs:
+  removing the ceiling, empty-string latch, enabled/reconciled or quota/owner-loss checks, the
+  vanish handling, the `shim_mode` format or the whitespace-tolerant parameter regex each fails
+  its test. The malformed-owners check is tested but was not separately mutated.
 
 ## 8. Correction to earlier records
 
