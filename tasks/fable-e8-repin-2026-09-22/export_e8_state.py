@@ -22,8 +22,10 @@ sole-guard recovery checkpoint is a separate verdict, written to ``export-summar
 ``guard_setup.validate_guard`` makes before every slot (no latch, no owner, enabled, reconciled,
 counter within 287..600 and not below its recorded prior count, config state path and ceiling,
 initialization record bound to the config) except the CLI identity check, which needs the real
-binary; ``attest()``'s prior count 287; e8_resume's quota and owner-loss markers; README condition
-6's terminal states (STOP, pending, failed); and the receipts. Only a missing bundle or ``stages/e8/index.json``,
+binary; ``attest()``'s prior count 287 and its accounting continuity (the supplement ledger chains
+from 287 to the counter in steps of one or two, and the completed history is 288..counter);
+``inspect_e8``'s ledger rules; e8_resume's quota and owner-loss markers; README condition 6's
+terminal states (STOP, pending, failed); and the receipts. Only a missing bundle or ``stages/e8/index.json``,
 an existing output directory or a ``--receipts`` path that is not a directory refuses outright.
 
 README.md condition 1 requires the copied files to be verified against the inventory and the
@@ -93,6 +95,9 @@ SEALED_HASHES = {
 }
 # stages/e8 entries that make a checkpoint terminal (tools/e8_resume.py::inspect_e8).
 STOP_FILES = ('STOP.json', 'STOP.supplement.json')
+# The supplement ledger e8_resume appends one row to per slot, and the original ledger it refuses.
+LEDGER = 'execution-ledger.supplement.jsonl'
+ORIGINAL_LEDGER = 'execution-ledger.jsonl'
 # The guard's absolute ceiling (tools/guard_setup.py CEILING): a counter at it can admit no call.
 CEILING = 601
 
@@ -278,7 +283,58 @@ def terminal_markers(stages: Path) -> dict:
     }
 
 
-def recovery_blockers(guard: Path, stage: str, state: dict, classes: dict | None, markers: dict) -> list[str]:
+def ledger_blockers(stages: Path, state: dict) -> list[str]:
+    """The accounting continuity the sealed tools require before any slot: attest() chains the
+    supplement ledger from prior count 287 in steps of one or two real calls to the guard counter and
+    requires the completed history 288..counter; inspect_e8 requires complete, failure-free,
+    unrepeated rows, no original ledger and a judged.json in every slot directory."""
+    blockers = []
+    if (stages / ORIGINAL_LEDGER).exists():
+        blockers.append(f'unexpected original E8 ledger {ORIGINAL_LEDGER}')
+    rows: list = []
+    if (stages / LEDGER).is_file():
+        try:
+            rows = [json.loads(line) for line in (stages / LEDGER).read_text().splitlines()]
+        except ValueError:
+            return blockers + [f'{LEDGER} is not JSON lines']
+    if not all(isinstance(row, dict) for row in rows):
+        return blockers + [f'{LEDGER} holds a row that is not an object']
+    if any(not row.get('complete') or row.get('failure') for row in rows):
+        blockers.append(f'{LEDGER} has an unresolved execution')
+    slots = [row.get('slot') for row in rows]
+    if len(set(slots)) != len(slots):
+        blockers.append(f'{LEDGER} repeats a slot')
+    count = PRIOR_COUNT
+    for row in rows:
+        before, after = row.get('guard_before'), row.get('guard_after')
+        if not isinstance(before, dict) or not isinstance(after, dict) or before.get('real_cli_invocations') != count:
+            blockers.append(f'ledger/guard continuity broken before slot {row.get("slot")!r}')
+            break
+        new_count = after.get('real_cli_invocations')
+        if type(new_count) is not int or new_count - count not in (1, 2) or new_count > CEILING:
+            blockers.append(f'ledger/guard delta invalid at slot {row.get("slot")!r}')
+            break
+        count = new_count
+    else:
+        if state.get('real_cli_invocations') != count:
+            blockers.append(f'guard counter {state.get("real_cli_invocations")!r} differs from the ledger total {count}: '
+                            'unaccounted calls since initialization')
+        completed = state.get('completed')
+        invocations = [x.get('invocation') if isinstance(x, dict) else None for x in completed] if isinstance(completed, list) else None
+        if invocations != list(range(PRIOR_COUNT + 1, count + 1)):
+            blockers.append(f'guard completion history is not the sequence {PRIOR_COUNT + 1}..{count}')
+    slot_dir = stages / 'slots'
+    outputs = {p.name for p in slot_dir.iterdir() if p.is_dir()} if slot_dir.is_dir() else set()
+    blockers += [f'slot directory without judged.json: {name}' for name in sorted(outputs)
+                 if not (slot_dir / name / 'judged.json').is_file()]
+    completed_slots = {row.get('slot') for row in rows if row.get('complete')}
+    blockers += [f'slot output without a ledger row: {name}' for name in sorted(outputs - completed_slots)]
+    blockers += [f'ledger row without a slot output: {name}' for name in sorted(completed_slots - outputs, key=str)]
+    return blockers
+
+
+def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, classes: dict | None,
+                      markers: dict) -> list[str]:
     """Every reason this export cannot serve as a sole-guard recovery checkpoint (README.md)."""
     if stage == 'pristine':
         return ['guard never initialized: nothing to recover; a new session starts from the sealed template']
@@ -332,6 +388,8 @@ def recovery_blockers(guard: Path, stage: str, state: dict, classes: dict | None
     blockers += [f'pending invocation marker: {m["name"]}' for m in markers['pending_markers']]
     if markers['failed_entries']:
         blockers.append(f'failed invocations: {markers["failed_entries"]}')
+    if stage == 'initialized':
+        blockers += ledger_blockers(stages, state)
     return blockers
 
 
@@ -372,7 +430,7 @@ def main() -> int:
     markers = terminal_markers(stages)
     classes = receipt_classes(receipts, guard) if receipts is not None else None
     blockers = [f'guard file missing for a {stage} guard: {name}' for name in missing]
-    blockers += [b for b in recovery_blockers(guard, stage, state, classes, markers) if b not in blockers]
+    blockers += [b for b in recovery_blockers(guard, stages, stage, state, classes, markers) if b not in blockers]
     destination_verified = not mismatches
     source_unchanged = not source_changes
     if not destination_verified:

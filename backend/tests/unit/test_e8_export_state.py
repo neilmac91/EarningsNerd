@@ -341,3 +341,88 @@ def test_a_file_that_vanishes_during_export_is_recorded_not_a_crash(export, monk
     assert [m["path"] for m in summary["mismatches"]] == ["stages/e8/.pending-001-KO-1-Q-run0-abc/owner.json"]
     assert "stages/e8/.pending-001-KO-1-Q-run0-abc/owner.json" in summary["source_changes"]
     assert (tmp_path / "out" / "sha256-inventory.json").is_file()
+
+
+def _ledger_bundle(tmp_path: Path) -> Path:
+    """An initialized guard after two slots: 001 used one call (288), 005 used two (289, 290)."""
+    bundle = make_bundle(tmp_path, "initialized")
+    stages = bundle / "stages" / "e8"
+    rows = [{"slot": "001", "complete": True, "failure": None,
+             "guard_before": {"real_cli_invocations": 287}, "guard_after": {"real_cli_invocations": 288}},
+            {"slot": "005", "complete": True, "failure": None,
+             "guard_before": {"real_cli_invocations": 288}, "guard_after": {"real_cli_invocations": 290}}]
+    _write(stages / "execution-ledger.supplement.jsonl", "".join(json.dumps(row) + "\n" for row in rows))
+    for slot in ("001", "005"):
+        _write(stages / "slots" / slot / "judged.json", {"results": []})
+    state_path = bundle / "e8" / "guard" / "state.json"
+    _write(state_path, {**json.loads(state_path.read_text()), "real_cli_invocations": 290,
+                        "completed": [{"invocation": n} for n in (288, 289, 290)]})
+    return bundle
+
+
+def _run_with_receipts(export, monkeypatch, tmp_path: Path, bundle: Path) -> dict:
+    guard = bundle / "e8" / "guard"
+    receipts = tmp_path / "receipts"
+    _write(receipts / "attestation.json", attestation(export, guard))
+    _write(receipts / "readback.json", matching_readback(guard))
+    code, summary = run(export, monkeypatch, bundle, tmp_path / "out", receipts)
+    assert code == 0 and summary["receipt_classes"] == {"attestation": True, "readback": True}
+    return summary
+
+
+def test_a_consistent_ledger_after_real_calls_is_an_eligible_checkpoint(export, monkeypatch, tmp_path) -> None:
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, _ledger_bundle(tmp_path))
+    assert summary["recovery_blockers"] == [] and summary["recovery_eligible"] is True
+
+
+def _edit_json(path: Path, **changes) -> None:
+    _write(path, {**json.loads(path.read_text()), **changes})
+
+
+def _rewrite_rows(stages: Path, edit) -> None:
+    path = stages / "execution-ledger.supplement.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    edit(rows)
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+
+LEDGER_REFUSALS = [
+    ("a call the ledger never recorded",
+     lambda b: _edit_json(b / "e8/guard/state.json", real_cli_invocations=291,
+                          completed=[{"invocation": n} for n in (288, 289, 290, 291)]),
+     "differs from the ledger total 290"),
+    ("a gap in the completed history",
+     lambda b: _edit_json(b / "e8/guard/state.json", completed=[{"invocation": n} for n in (288, 290)]),
+     "completion history is not the sequence 288..290"),
+    ("a slot that charged three calls",
+     lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[1]["guard_after"].update(real_cli_invocations=291)),
+     "delta invalid at slot '005'"),
+    ("a row that does not start where the last ended",
+     lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[1]["guard_before"].update(real_cli_invocations=289)),
+     "continuity broken before slot '005'"),
+    ("an incomplete row", lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[0].update(complete=False)),
+     "has an unresolved execution"),
+    ("a row with a failure", lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[0].update(failure="x")),
+     "has an unresolved execution"),
+    ("a repeated slot", lambda b: _rewrite_rows(b / "stages/e8", lambda rows: rows[1].update(slot="001")),
+     "repeats a slot"),
+    ("the original ledger", lambda b: _write(b / "stages/e8/execution-ledger.jsonl", ""),
+     "unexpected original E8 ledger"),
+    ("a slot directory without output", lambda b: _write(b / "stages/e8/slots/009/run.log", "STDOUT\n"),
+     "slot directory without judged.json: 009"),
+    ("a completed row without its output",
+     lambda b: (b / "stages/e8/slots/005/judged.json").unlink(), "slot directory without judged.json: 005"),
+    ("a ledger that is not JSON lines", lambda b: _write(b / "stages/e8/execution-ledger.supplement.jsonl", "{\n"),
+     "is not JSON lines"),
+]
+
+
+@pytest.mark.parametrize(("name", "break_it", "blocker"), LEDGER_REFUSALS, ids=[case[0] for case in LEDGER_REFUSALS])
+def test_broken_accounting_continuity_is_never_an_eligible_checkpoint(
+        export, monkeypatch, tmp_path, name, break_it, blocker) -> None:
+    """attest() and inspect_e8 refuse each of these before any slot, so the export must say so too."""
+    bundle = _ledger_bundle(tmp_path)
+    break_it(bundle)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle)
+    assert summary["recovery_eligible"] is False
+    assert any(blocker in b for b in summary["recovery_blockers"]), summary["recovery_blockers"]
