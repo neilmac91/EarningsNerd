@@ -44,9 +44,13 @@ For each independent role, retain the exact prompt, source/view identities, obse
 context identity, complete input ranges, image observations and output bytes. The roles
 must not see one another's briefs or generated candidate/comparator outputs. Use a separate
 context for reconciliation, carrying every original issue and its source-backed disposition.
-Any incomplete delivery, unresolved material source or observed truncation keeps the result
-partial. These are AI source references, never human acceptance.
+Any incomplete delivery, unresolved material source, unresolved tool-output truncation or
+context compaction keeps the result partial. Resolved tool-output truncation must retain its
+warning and the complete replacement read ranges; a compaction summary is not a replacement
+for the original context. These are AI source references, never human acceptance.
 
 Single-context H29 work uses the existing source evidence contract. Larger filings still
 need a separately reviewed hierarchy that binds leaf reviews, all member dispositions and
 the full union of issues. This view module does not implement or freeze that hierarchy.
+
+The [actual H29 pilot](../../review-evidence/e7-source-view-2026-09-23/source-pilot.md) produced one individually frozen A brief; B experienced context compaction and remains ineligible. No complete filing reference follows. The hierarchy is now a demonstrated requirement for robust scaling, not an implemented feature.

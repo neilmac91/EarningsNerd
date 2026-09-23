@@ -31,3 +31,7 @@ this implementation receipt claims no complete reference or quality acceptance.
 The two earlier automatically denied E7 mutation proofs remain unresolved and were not retried.
 The founder marked #940 ready for review during this tranche; that UI state is preserved.
 The PR remains unmerged and its outstanding evidence requirements remain in force.
+
+The [actual H29 source pilot](source-pilot.md) is now recorded: one individually frozen A brief, B partial/ineligible following automatic context compaction, and no complete pair or reconciliation. The implementation remains usable as an offline aid; this result is the concrete trigger for the hierarchical evidence work.
+
+[Hosted artifact audit](hosted-ci-audit.md): the measured `829d95cb` head produced 70/70 baseline outputs and 18/18 Copilot answers passing configured hard gates. Advisory untraceable figures/citation findings remain explicit. This is regression evidence, not E7 quality acceptance. Exact-head automated review was still pending at the audit snapshot. [Development dependency alert triage](dependabot-alert-triage.md) found no emergency production dependency release was warranted.

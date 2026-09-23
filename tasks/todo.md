@@ -1,3 +1,9 @@
+## September 23 — bounded source-review implementation
+
+Integrated verified main `ebdc4c44` into #940 and added an offline source reader that preserves text, table relationships, attributes, image/exclusion inventories and exact raw byte locators. Six H29 views passed independent text/count checks and byte-identical regeneration. Full local validation passed 3,655 tests with all PostgreSQL and performance lanes; the new dropped-text mutation failed and exact restoration passed. [Implementation evidence](review-evidence/e7-source-view-2026-09-23/README.md).
+
+The founder-account ready-for-review action on #940 is preserved. The PR remains unmerged; the two earlier denied guard-removal proof requirements remain unresolved and were not retried. The [actual H29 pilot](review-evidence/e7-source-view-2026-09-23/source-pilot.md) has one individually frozen A brief; B is partial/ineligible after context compaction, with no complete pair/reconciliation. Hierarchical evidence work is next. No E7 holdout generation or Fable call was made in this source-method tranche. [Updated continuation and master-plan position](continuation-plan-2026-09-23.md).
+
 ## September 23 — reconciled Fable work and E7 document mapping
 
 Latest Fable ZIPs contain no new judgments; E3/KO completion is retained and E8 remains 140 reused / 0 new / 160 missing. Current main #947 deployment is verified at revision 00378-jlg, migrations 0/39, independent healthy response. Closed obsolete draft #943 as superseded by #945 without deleting its branch. [Current continuation and master-plan position](continuation-plan-2026-09-23.md).

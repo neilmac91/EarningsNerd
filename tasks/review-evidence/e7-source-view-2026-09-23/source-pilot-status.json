@@ -1,0 +1,41 @@
+{
+  "kind": "h29_source_method_pilot_decision",
+  "observed_at": "2026-09-23T06:24:42.525997+00:00",
+  "accession_number": "0001193125-25-183155",
+  "dossier_manifest_sha256": "0e83818a5260830820ed0078c7ed7c54f93fba2d866c789857d0aec6fbe229f6",
+  "source_view_code_sha256": "75ee1827581cec1b82d934e13888ab1ce2cb2fc37bf3ffa67e10484fd0cd6d9f",
+  "requested_model": "gpt-5.6-sol",
+  "immutable_model_build": "not_exposed_by_dispatch_tool",
+  "reference_a": {
+    "context_id": "/root/h29_reference_a",
+    "draft_sha256": "3eae418977d78f091f38468d7ee14c97c95e9f81aa9246283838175863ea53ba",
+    "read_log_sha256": "b67ed6e48dee33fa3b8eaa639ae721e2dfcf793a4efc4c3d9947ddc9dba41db6",
+    "brief_sha256": "ecfa04b3d63353771bf914f752831fd96a5b64ccae0befe92ea0b16f99cb6c58",
+    "material_issue_count": 12,
+    "context_compaction_observed": false,
+    "individual_evidence_frozen": true,
+    "global_readiness_evaluated": false
+  },
+  "reference_b": {
+    "context_id": "/root/h29_reference_b",
+    "draft_sha256": "1247fff913a867a83891b939455e989b8cc88314ae7e8e870b12b6380450de0c",
+    "read_log_sha256": "09aaf6956b8fc273b514ed99a3107f08cf3a546a04275aa385946b742e6e129c",
+    "material_issue_count": 15,
+    "draft_reported_coverage": "complete",
+    "draft_context_window_truncated": true,
+    "context_compaction_observed": true,
+    "post_compaction_source_reread": true,
+    "custodian_coverage_disposition": "partial_ineligible",
+    "individual_evidence_frozen": false,
+    "reason": "Single-context source coverage cannot be admitted when automatic context compaction occurred. Complete range accounting across pre/post-compaction state does not prove full retained input in one context."
+  },
+  "reference_b_reader_hash_and_range_check_count": 6,
+  "reference_b_addendum_sha256": "7b9a5a89bd74defa5fe0cb9a9bf13d3e0549b090d9810f6369741fc6ea399996",
+  "full_local_decision_sha256": "731c9162425d9c0103d4e1fe650325ef1858c4e2ef525a27ce73f8eebb38e4bd",
+  "reconciliation_dispatched": false,
+  "global_readiness_evaluated": false,
+  "human_acceptance": false,
+  "e7_holdout_generation": 0,
+  "fable_calls": 0,
+  "decision": "Retain the A brief and original B findings without retroactive relabeling. Implement and review hierarchical evidence custody for bounded source units and complete issue carry-forward before scaling; do not dispatch reconciliation from an ineligible B input."
+}

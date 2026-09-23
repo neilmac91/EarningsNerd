@@ -1,0 +1,231 @@
+{
+  "audited_at_utc": "2026-09-23T06:23:06Z",
+  "base_head": "ebdc4c44c5c6aa01c94587646a4c365f84fe26ec",
+  "copilot": {
+    "artifact": {
+      "api_size_bytes": 78695254,
+      "id": 10734188337,
+      "name": "copilot-fidelity-35824964205",
+      "upload_sha256": "b60c2f24462d0155dac8aa8ecdedb857aea90e04aca87cd825e86e5580ff351e"
+    },
+    "conclusion": "success",
+    "coverage": {
+      "citations": 38,
+      "figure_coverage_0_6667": 3,
+      "figure_coverage_0_75": 1,
+      "figure_coverage_1_0": 14,
+      "figures": 45,
+      "grounded": 38,
+      "outputs_with_uncited_figures": 4,
+      "tool_trace_records": 72,
+      "uncited_figures": 4
+    },
+    "files": {
+      "copilot-eval.json": {
+        "bytes": 9963994,
+        "sha256": "5bc2db80625aaf545f1813f11f66b75e311bdddfc6397c2ccf8f367642cbc4fe"
+      },
+      "copilot-eval.md": {
+        "bytes": 1972,
+        "sha256": "9886f55c43b9bd692e9388f0416c4c2896515b466da78d213c005787fc4e36c0"
+      },
+      "preparation.json": {
+        "bytes": 13617,
+        "sha256": "52e85c7f22fe86ba84e11bdf899ab4811477bd723b69818faf6363c3d49c715e"
+      },
+      "prepared-source.db": {
+        "bytes": 2064384,
+        "sha256": "03c423ce81ee1d4b774f3f23aba4e85d4d0b661f6983cdffffbeff627405a3c7"
+      },
+      "runner.log": {
+        "bytes": 16104,
+        "sha256": "2155fc08f886c77962a72e2e4070e21059c7942499e8f4428f6f3b1691463219"
+      }
+    },
+    "head_sha": "829d95cb57f4614f4c9ecdc96824c9307f66c87f",
+    "job_id": 107064595730,
+    "population": {
+      "completed": 18,
+      "expected": 18,
+      "passed": 18,
+      "questions": 6,
+      "runs_per_question": 3,
+      "scored": 18,
+      "unique_attempts": 18
+    },
+    "preparation": {
+      "completed_sources": 6,
+      "database_hash_matches": true,
+      "errors": 0,
+      "planned_accessions": 6,
+      "status": "complete"
+    },
+    "provider": {
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "cache_hit_tokens": 1091072,
+      "cache_miss_tokens": 6882,
+      "calls": 35,
+      "completion_tokens": 5454,
+      "estimated_cost_usd": 0.015161,
+      "outcomes": {
+        "success": 35
+      },
+      "prompt_tokens": 1097954,
+      "system_fingerprints": [
+        "aeb56401ca74e127821c4f9126dcb669"
+      ]
+    },
+    "results": {
+      "accepted": true,
+      "citation_faithfulness_1_0": 18,
+      "errors": 0,
+      "gate_failures": 0,
+      "invalid_provenance": 0,
+      "missing_metrics": 0,
+      "numeric_recall_1_0": 18,
+      "terminal_complete": 18,
+      "unverified_excerpts": 0
+    },
+    "run_id": 35824964205,
+    "status": "completed"
+  },
+  "eval_baseline": {
+    "artifact": {
+      "api_size_bytes": 3682318,
+      "id": 10734544907,
+      "name": "eval-report-35824964267",
+      "upload_sha256": "ce56f5bcbb6ca58e1be9829d69493eb22290cf1faebedef6d32702433c52a58b"
+    },
+    "conclusion": "success",
+    "coverage": {
+      "attribution_audit_present": 66,
+      "citation_violations": 14,
+      "coverage_inventory_present": 70,
+      "figure_trace_measured": 70,
+      "figure_trace_unavailable": 0,
+      "forward_quote_violations": 1,
+      "maximum_untraceable_dollar_figures": 13,
+      "mean_coverage": 1.0,
+      "outputs_with_citation_violations": 10,
+      "outputs_with_untraceable_dollar_figures": 43,
+      "preview_final_response_association_not_observed": 70,
+      "preview_frames": 699,
+      "previews_truncated": 0,
+      "source_provenance_missing_6k_runs": 6,
+      "source_provenance_present": 64,
+      "stream_requested": 70,
+      "untraceable_dollar_figures": 180
+    },
+    "files": {
+      "ci-execution.txt": {
+        "bytes": 154,
+        "sha256": "2ddf021fda90e2c15243f7485d39ab91d3c0cd5b26db6313d1a28a2449622490"
+      },
+      "eval_20260923T061354Z.json": {
+        "bytes": 20764717,
+        "sha256": "f08af5a54953a6fda4b6de75f98514dd5cfb051af4c7b6ad47936b0b73ec552f"
+      },
+      "eval_20260923T061354Z.md": {
+        "bytes": 1275,
+        "sha256": "0c34027260c6e7d00d72ef7b314678ee9203a0dc7953202015bc1bcf7c9aaba4"
+      }
+    },
+    "gate": {
+      "hard_regressions": 0,
+      "mean_untraceable_dollar_figures": 2.5714,
+      "verdict": "pass",
+      "warning": "mean_untraceable_dollar_figures_above_zero",
+      "warnings": 1
+    },
+    "head_sha": "829d95cb57f4614f4c9ecdc96824c9307f66c87f",
+    "job_id": 107064596156,
+    "population": {
+      "attempted": 70,
+      "expected": 70,
+      "payloads": 70,
+      "runs_per_identity": 2,
+      "scored": 70,
+      "unique_filing_identities": 35,
+      "unique_payloads": 70,
+      "unique_result_identities": 70
+    },
+    "provider": {
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "cache_hit_tokens": 2741494,
+      "cache_miss_tokens": 14076,
+      "calls": 70,
+      "completion_tokens": 284587,
+      "operations": {
+        "summary_primary": 70
+      },
+      "prompt_tokens": 2755570,
+      "unknown_calls": 0
+    },
+    "results": {
+      "aggregate_1_0": 70,
+      "errors": 0,
+      "first_errors": 0,
+      "gate_failures": 0,
+      "missing_sections": 0,
+      "passed_gates": 70,
+      "repaired": 0,
+      "retries": 0,
+      "schema_valid": 70
+    },
+    "run_id": 35824964267,
+    "status": "completed"
+  },
+  "evaluated_checkout": {
+    "contains_requested_head": true,
+    "kind": "github_pull_request_merge_commit",
+    "parents": [
+      "ebdc4c44c5c6aa01c94587646a4c365f84fe26ec",
+      "829d95cb57f4614f4c9ecdc96824c9307f66c87f"
+    ],
+    "source_sha": "489ce2b44edff07650c88813f0b21a85b2ddb450",
+    "tree_sha": "a155fdc8d6c4161596430bf609b0ec701ace0332"
+  },
+  "kind": "pr940_hosted_ci_artifact_audit",
+  "pr": 940,
+  "repository": "neilmac91/EarningsNerd",
+  "requested_head": "829d95cb57f4614f4c9ecdc96824c9307f66c87f",
+  "review": {
+    "active_step": "Wait for the Codex review of this head, or an explicit recorded override",
+    "exact_head_review_observed": false,
+    "head_sha": "829d95cb57f4614f4c9ecdc96824c9307f66c87f",
+    "inline_comments_after_latest_clean_review": 0,
+    "inline_comments_total": 19,
+    "job_id": 107065235674,
+    "latest_clean_codex_review": {
+      "comment_id": 5782244613,
+      "created_at": "2026-09-22T18:59:10Z",
+      "reviewed_commit": "efd0cb8051143b3558aed8bf075f7fa89e55cf16",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/940#issuecomment-5782244613"
+    },
+    "new_inline_findings_observed": 0,
+    "note": "Historical threads remain unresolved in GitHub; no inline comment was created after the latest clean Codex review. The required gate still lacked exact-current-head completion at audit close.",
+    "observed_conclusion": null,
+    "observed_status": "in_progress",
+    "required_mechanism": {
+      "acceptance_record": "The exact Codex GitHub App must publish a Codex Review Summary whose Code Review row is Completed for a unique prefix resolving to the final full head SHA.",
+      "after_final_push": "Comment @codex review on PR #940; a push alone does not trigger Codex.",
+      "gate_behavior": "An in-progress pull_request_target gate polls for up to 20 minutes. The @codex review issue_comment job reruns the latest completed gate; if the review lands after timeout, rerun failed run 35825075792 or its final-head successor.",
+      "override": "Only a PR-body line Review override: <reason> with at least ten characters is the documented alternative."
+    },
+    "run_id": 35825075792,
+    "unresolved_current_position_threads": 11,
+    "unresolved_outdated_threads": 8,
+    "unresolved_threads_total": 19
+  },
+  "schema_version": 1,
+  "verdict": {
+    "artifact_advisories": 2,
+    "artifact_hard_findings": 0,
+    "merge_ready": false,
+    "reason": "Hosted evaluation artifacts pass their configured hard gates, but review-gate 35825075792 remains in progress awaiting exact-current-head review or recorded override."
+  }
+}
