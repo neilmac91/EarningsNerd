@@ -19,6 +19,15 @@ and unresolved guard-recovery statements are superseded by this update. E8 execu
 separate: 140 controls reused under 2.1.278, 0 new, 160 planned under 2.1.280 with that CLI-version
 confound. No production changes or model calls occurred in this preparation.
 
+**Launch route, 23 September.** Section 4's launch instruction and the reading order in section 6
+are superseded for the next attempt by [`fable-e8-launch-kit.md`](fable-e8-launch-kit.md)
+(revision 3): a fresh web session in **Accept edits** mode, not Auto and not Plan, per the 22
+September founder decision and the
+[23 September readiness review](review-evidence/e8-launch-readiness-2026-09-23/README.md). The
+allow rules alone did not change the classifier's verdict (#946 receipt, section 6). The
+restore and export tools described in section 3 changed in #952; their docstrings now govern
+(the restore checks every input before writing and is re-runnable only until guard setup).
+
 ## 1. What happened today
 
 The founder handed a fresh Claude Code web container the 12-attachment restore kit (five
