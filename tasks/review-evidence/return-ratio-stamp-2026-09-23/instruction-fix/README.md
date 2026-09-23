@@ -1,0 +1,11 @@
+# Derived-return instruction correction — 23 September 2026
+
+[Exact-head review](https://github.com/neilmac91/EarningsNerd/pull/942#discussion_r4080047443) found that ONE HOME PER NUMBER still called the derived returns ROE/ROA after the grounding and renderer changed. Commit `992a0845` uses the same formula-label helper in the actual generator instruction. The existing retained-JPM gate now captures the real request; `3235d42e` strengthens its negative assertion against either legacy acronym in this synthetic fixture. Genuine issuer-reported labels in source excerpts remain allowed. No production output filtering was added, and the unreleased q stamp and schema 2 remain unchanged.
+
+Two fresh refutations confirmed the original issue: the instruction reaches the actual request in both provider modes, and deterministic rendering covers only its own field, so the conflicting instruction could still affect model-authored prose. [Independent review](independent-review.md) checks the complete correction.
+
+Measured committed head `3235d42e10d8adfc3e47c4a6046bdcb99ff07749`: **3500 passed, 29 warnings in 113.80s (0:01:53)**, zero failures/errors/skips. All four PostgreSQL lanes (24/29/6/5 cases), both performance cases, Ruff, Bandit and dependency checks passed. [Parsed receipt](full-gate-receipt.json). The known interpreter-shutdown logging warning follows successful pytest completion. Locked tests are unchanged.
+
+Exactly one committed-state proof at `992a0845` restored only the old instruction phrase while keeping the corrected grounding and renderer: **1 failed, 2 warnings in 4.58s** at the captured-prompt assertion. Exact source restoration: **1 passed, 2 warnings in 4.10s**. [Proof](mutation-proof.json). The later assertion strengthening retains this guard and has the full final gate above; the proof was not repeated. No admission, spend or source-brief guard changed.
+
+The read-only provider balance before the bounded PR regression was USD 67.58. [Receipt](balance-before-push.json). Local and ordinary hosted regression results do not satisfy the release comparison. A justified baseline and two independent generated runs per configuration with the same Fable contract-2 judging remain required. No E7 holdout generation, Fable invocation, baseline re-pin, drain, production setting change or deployment was performed for this correction.

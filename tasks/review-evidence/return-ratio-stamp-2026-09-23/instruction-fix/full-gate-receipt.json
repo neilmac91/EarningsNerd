@@ -1,0 +1,27 @@
+{
+  "source_head": "3235d42e10d8adfc3e47c4a6046bdcb99ff07749",
+  "integrated_main": "ebdc4c44c5c6aa01c94587646a4c365f84fe26ec",
+  "python": "3.11.16",
+  "pytest_summary": "3500 passed, 29 warnings in 113.80s (0:01:53)",
+  "tests": 3500,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "lanes": {
+    "test_subscription_event_transactions": 24,
+    "test_usage_counter_transactions": 29,
+    "test_login_lockout_transactions": 6,
+    "test_notification_delivery_transactions": 5,
+    "tests.performance": 2
+  },
+  "xml_sha256": "45ff07fec306fd3a95fcb5dec3efaaedd1b5ef9e4dc7c51fe1e08abf71a2eac1",
+  "log_sha256": "a18f0754e1a91ec04094852a314bba1b93a88e50cfb91837e9b14537d1b0da43",
+  "exit_code": 0,
+  "ruff": "pass",
+  "bandit": "pass",
+  "pip_check": "pass",
+  "files": {
+    "backend/app/services/openai_service.py": "2a9bfcdc36a67acb43e30010319d737519de211e1aba0cd6a49770ed8114e584",
+    "backend/tests/unit/test_xbrl_narrative_section.py": "9f25d15dd00ce6bd8de264b19124c36dcfe15eae5e586472f4f20f3242090090"
+  }
+}

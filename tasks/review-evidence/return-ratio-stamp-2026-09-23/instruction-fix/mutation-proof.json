@@ -1,0 +1,15 @@
+{
+  "committed_head": "992a0845f29530fae85766f22d6ac092a57a9efc",
+  "guard": "formula-named derived returns in actual generator instruction",
+  "mutation": "Restore only ROE/ROA phrase in the ONE HOME instruction; retain corrected grounding and deterministic renderer",
+  "failed_exit": 1,
+  "restored_exit": 0,
+  "failed_summary": "1 failed, 2 warnings in 4.58s",
+  "restored_summary": "1 passed, 2 warnings in 4.10s",
+  "byte_identical_restoration": true,
+  "source_sha256": "2a9bfcdc36a67acb43e30010319d737519de211e1aba0cd6a49770ed8114e584",
+  "failed_log_sha256": "f6195fb0b41112781faedc8c34bf8a2f0da4f5bebc9c87d554b89221674b5412",
+  "restored_log_sha256": "a5c8acad4bbf810096e750db897df744f771ac8781b9cb51c28bcd9e778e18c8",
+  "provider_or_fable_call": false,
+  "admission_or_spend_guard_changed": false
+}
