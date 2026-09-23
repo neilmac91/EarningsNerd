@@ -1,0 +1,24 @@
+{
+  "source_head": "a0fea57bb981ae55f21bb3aa72146fbc19eacb20",
+  "source_view_sha256": "dccd0cf36702b5f81a94f55ade21c2583a8eab3367d6bcd6380ddd78f08ab1ef",
+  "python": "3.11.16",
+  "pytest_summary": "3655 passed, 40 warnings in 166.33s (0:02:46)",
+  "tests": 3655,
+  "failure": 0,
+  "error": 0,
+  "skipped": 0,
+  "lanes": {
+    "test_subscription_event_transactions": 24,
+    "test_usage_counter_transactions": 29,
+    "test_login_lockout_transactions": 6,
+    "test_notification_delivery_transactions": 5,
+    "tests.performance": 2
+  },
+  "xml_sha256": "3bd84fb057a917ab0b63843f21ff223472bff08d62010b90928abb26f9513d46",
+  "log_sha256": "cb05b55b7a6966e630b98762f54b8a9d51e05f5aab1f65ab9dce12f30b66cd39",
+  "exit_code": 0,
+  "ruff": "pass",
+  "bandit": "pass",
+  "pip_check": "pass",
+  "sandbox_attempt": "Earlier sandbox run exited 1 with 39 PostgreSQL setup errors because local TCP was denied; it is retained separately and not counted as passing. The rerun uses the same committed backend with authorized local database access."
+}

@@ -1,0 +1,141 @@
+{
+  "source_head": "a0fea57bb981ae55f21bb3aa72146fbc19eacb20",
+  "source_view_sha256": "dccd0cf36702b5f81a94f55ade21c2583a8eab3367d6bcd6380ddd78f08ab1ef",
+  "old_dossier_manifest_sha256": "0e83818a5260830820ed0078c7ed7c54f93fba2d866c789857d0aec6fbe229f6",
+  "results": [
+    {
+      "view_id": "member-001",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "164ee5987f60857a513f069382490834257ea69f9edad63263149d7897d34f87"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "894416322d42956858db7b395e13a151d9c329e9be5810b9a4f11774344ad87d"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "9ab8b32b3f7553fdce9fb83a746322ffab4c71e8f7ff73aaa55dd2b31aa04e03"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "90729df89f736c38538601c57e15c7fb532a294c8d39280720d1f015ab2f54a1"
+        }
+      ]
+    },
+    {
+      "view_id": "member-002",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "d937e6051424e0039843a6a798303b73b498923ce92f8440e13e9c34e3614e92"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "9e26142e809bb4841d1101b5436d3fb685e769e6599fc74e80481f42fa3019e2"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "d86e48d34aa20a5aa658526782d96494a348a42578aef4560540a73a81354ab1"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "9b3aba564ec58429b35b180d89bd1e9602e5eaa5e8623e4f6aa5e83e0fb210da"
+        }
+      ]
+    },
+    {
+      "view_id": "member-003",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "25d9d554102a6d3fa30cc359e553357982ac575d0532ebea9fb0132e23c87ae3"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "8817d9d27dbc57ef7ab86fa42246ff2be859c862d8f6b3d9ae441c0dd14294af"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "a6349b420524776fa9ef5dd035d73dd207109c314d5c38c1f4e8113b17cc109f"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "82d5f24677743896f7a9635ba19178b6833f56bbeb1df5217f3a878be98efa80"
+        }
+      ]
+    },
+    {
+      "view_id": "packet-primary",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "164ee5987f60857a513f069382490834257ea69f9edad63263149d7897d34f87"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "bac273368cf343cca2bc53b33ad6e7fe3414890144c0faef136e43c6ab9a1727"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "3b663837f1807cf72a2ab11234a998504e74955133e9e4d6e607f3cee2f829aa"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "31c6f6e145db5a3d9c01a83a481249f25d16e85349bf0dc9a55a0b33fc2173f9"
+        }
+      ]
+    },
+    {
+      "view_id": "packet-earnings_exhibit",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "d937e6051424e0039843a6a798303b73b498923ce92f8440e13e9c34e3614e92"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "55d039e246734187d5612e58d7a04b1d23b5bef6ef8e365206aa6a2288f85641"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "72879f37ce3110e248b836f143e5dd1ee6a62afe268c2cfe506e1ebdfbc78593"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "cc6733e7d082235c0e3bd3f1293890b766c34d3c9b59264e123d9d6651e9c39f"
+        }
+      ]
+    },
+    {
+      "view_id": "packet-index",
+      "all_artifacts_byte_identical": true,
+      "files": [
+        {
+          "name": "compact.txt",
+          "sha256": "242f1238e9e31e1e3a61208cd86104eacace7f5078508bad964f1802476f0f5f"
+        },
+        {
+          "name": "manifest.json",
+          "sha256": "4e7fe49b608c6ecbcd30af512b3d79e01554c85e6cac579a7ee08c4966ab13d6"
+        },
+        {
+          "name": "reader.txt",
+          "sha256": "ea820d45793be421d3d876584473527669967b70f38d379670dc38dc15cde898"
+        },
+        {
+          "name": "source-view.json",
+          "sha256": "a6c3cc4da14cc71ae82dc856ca5bb91c42921c91210d4d5218a70bb23d956480"
+        }
+      ]
+    }
+  ],
+  "original_pilot_and_source_evidence_unchanged": true,
+  "no_semantic_review_repeated": true
+}

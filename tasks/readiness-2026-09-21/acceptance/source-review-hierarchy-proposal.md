@@ -2,6 +2,8 @@
 
 **Status:** implementation proposal only. The hierarchy is not approved, implemented or frozen.
 
+Implementation consumers and sealing boundaries are catalogued in the [hierarchy integration boundary audit](source-review-hierarchy-integration.md).
+
 ## Scope and compatibility
 
 This tranche adds custody for multi-context source review; it does not judge sources, dispatch reviews, change the five protocol roles, or alter the top-level `ai_assisted` prerequisites shape.

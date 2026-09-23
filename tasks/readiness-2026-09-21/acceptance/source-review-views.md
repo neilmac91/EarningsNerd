@@ -7,8 +7,10 @@ make a flattened text dump a sufficient review input.
 `evals.acceptance_source_view` prepares an offline HTML view from an expected source hash
 and byte count. Exact raw bytes remain authoritative. The projection retains source byte
 locators, source order, table/row/cell structure and attributes, image references, and an
-explicit inventory of comments, scripts and styles. Hidden text remains content. Scripts
-are never executed and remote resources are never fetched. Whitespace normalization is
+explicit inventory of comments, scripts and styles. Hidden text remains content. Inline
+`display:none` and `visibility:hidden` annotations include the optional `!important` suffix;
+this lexical check does not evaluate stylesheets or the CSS cascade. Scripts are never
+executed and remote resources are never fetched. Whitespace normalization is
 an explicit transformation, not a claim of browser-rendering equivalence.
 
 From `backend/`, with the expected identity from the frozen source inventory:

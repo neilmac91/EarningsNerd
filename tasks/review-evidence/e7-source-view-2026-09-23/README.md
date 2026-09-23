@@ -4,7 +4,7 @@ The source-review helper is implemented at `696bf214`, following integration of 
 main `ebdc4c44`. It is an offline aid, with no readiness, generator, judge or production
 activation path. [Usage and limits](../../readiness-2026-09-21/acceptance/source-review-views.md).
 
-The final local gate ran under Python 3.11.16 with the updated dependency locks:
+The original local gate ran under Python 3.11.16 with the updated dependency locks:
 **3,655 passed, 40 warnings in 163.74 seconds**, zero failures/errors/skips. Ruff, Bandit,
 package consistency, all four PostgreSQL concurrency lanes and both performance cases passed.
 The known interpreter-shutdown logging warning followed successful pytest completion.
@@ -35,3 +35,7 @@ The PR remains unmerged and its outstanding evidence requirements remain in forc
 The [actual H29 source pilot](source-pilot.md) is now recorded: one individually frozen A brief, B partial/ineligible following automatic context compaction, and no complete pair or reconciliation. The implementation remains usable as an offline aid; this result is the concrete trigger for the hierarchical evidence work.
 
 [Hosted artifact audit](hosted-ci-audit.md): the measured `829d95cb` head produced 70/70 baseline outputs and 18/18 Copilot answers passing configured hard gates. Advisory untraceable figures/citation findings remain explicit. This is regression evidence, not E7 quality acceptance. Exact-head automated review was still pending at the audit snapshot. [Development dependency alert triage](dependabot-alert-triage.md) found no emergency production dependency release was warranted.
+
+## Hosted-review correction
+
+The [important-style fix](important-style-fix/README.md) at `a0fea57b` corrects missing hidden annotations for inline `!important`. Current full local validation: **3655 passed, 40 warnings in 166.33s (0:02:46)**, zero failures/errors/skips, with all four PostgreSQL lanes, performance tests, Ruff, Bandit and dependency checks. The existing gate failed with the old matcher and passed after exact restoration. Independent review found no actionable issue. All six H29 views and their 24 generated artifacts remain byte-identical; prior source-review custody is unchanged. The earlier sandbox database-access failure is retained separately. Automated review of the published fix remains required.
