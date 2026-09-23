@@ -50,6 +50,8 @@ class _CapacityParser(HTMLParser):
         super().__init__(convert_charrefs=False)
         self.raw = raw
         self.cursor = 0
+        self.source_line = 1
+        self.source_column = 0
         self.event_count = 0
         self.event_counts: Counter[str] = Counter()
         self.max_event: dict[str, Any] | None = None
@@ -69,6 +71,8 @@ class _CapacityParser(HTMLParser):
 
     def _record_span(self, kind: str, end: int) -> None:
         start = self.cursor
+        if self.getpos() != (self.source_line, self.source_column):
+            raise ValueError("parser callback position does not match consumed source")
         if not start < end <= len(self.raw):
             raise ValueError("invalid parser-event byte span")
         size = end - start
@@ -85,6 +89,13 @@ class _CapacityParser(HTMLParser):
                 "bytes": size,
                 "sha256": _sha(self.raw[start:end]),
             }
+        source = self.raw[start:end].decode("utf-8", "strict")
+        line_count = source.count("\n")
+        if line_count:
+            self.source_line += line_count
+            self.source_column = len(source.rsplit("\n", 1)[-1])
+        else:
+            self.source_column += len(source)
         self.cursor = end
 
     def _record_exact(self, kind: str, expected: bytes, *, case_insensitive: bool = False) -> None:

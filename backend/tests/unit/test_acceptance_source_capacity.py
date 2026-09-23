@@ -23,9 +23,9 @@ def test_capacity_preflight_preserves_events_and_rejects_identity_or_unit_overfl
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     raw = (
-        '<!doctype html><html><head><style>.é::after{content:"&amp;"}</style>'
-        '<script>const x = "<tag>&amp;";</script></head><body><!-- café -->'
-        '<p title=">">Résumé &amp; &#x20AC;<br/></p><?audit ok?></body></html>'
+        '<!doctype html>\n<html><head><style>.é::after{content:"&amp;"}</style>\n'
+        '<script>const x = "<tag>&amp;";</script></head><body>\n<!-- café -->'
+        '<p title=">">Résumé &amp; &#x20AC;<br/></p>\n<?audit ok?></body></html>'
     ).encode("utf-8")
     source = tmp_path / "representative.html"
     expected_sha256, expected_bytes = _write_source(source, raw)
@@ -54,6 +54,14 @@ def test_capacity_preflight_preserves_events_and_rejects_identity_or_unit_overfl
     assert audit["semantic_review_attested"] is False
     assert audit["supported_markup_grammar_attested"] is False
     assert audit["admission_approved"] is False
+
+    ignored_raw = b"</><!--x-->"
+    ignored_source = tmp_path / "ignored-prefix.html"
+    ignored_sha256, ignored_bytes = _write_source(ignored_source, ignored_raw)
+    with pytest.raises(ValueError, match="parser callback position does not match consumed source"):
+        capacity.preflight_source(ignored_source, ignored_sha256, ignored_bytes)
+    with pytest.raises(ValueError, match="parser events do not partition"):
+        project_html(ignored_raw)
 
     race_output = tmp_path / "race.json"
     original_preflight = capacity.preflight_source
