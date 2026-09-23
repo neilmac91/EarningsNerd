@@ -30,3 +30,8 @@ For H02 and H19, the retained index names a co-registrant primary URL. Its uniqu
 The revised contract replaces the blanket implementation hold with explicit source validation. It does not satisfy the remaining review or execution requirements. Real independent AI source briefs and reconciliation, candidate/comparator configuration and runtime parity, fresh price/balance/quota evidence, and a metered non-holdout smoke remain required. The PLD development smoke sources are retained and adapter-validated; the paid smoke has not run. The smoke source contract (`162898a52278f7707f33a72816036e17f08ef7f58060f24c67fbe7ac5e7b8aa7`) is immutable evidence too; its filing must match an existing development golden and cannot be one of the 30 holdouts.
 
 No source-only test or parser canary establishes product quality, full human review, or production activation. No paid E7 generation is authorized by a successful source check alone.
+
+## Source review preparation
+
+The [offline document mapper](source-document-map.md) binds this same archive and inventories all
+SGML documents with exact byte spans, hashes and review requirements. Its [30-filing receipt](../../review-evidence/e7-source-map-2026-09-23/README.md) removes the giant-packet parsing bottleneck; it does not establish semantic source coverage.

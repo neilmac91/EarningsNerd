@@ -1,3 +1,9 @@
+## September 23 — reconciled Fable work and E7 document mapping
+
+Latest Fable ZIPs contain no new judgments; E3/KO completion is retained and E8 remains 140 reused / 0 new / 160 missing. Current main #947 deployment is verified at revision 00378-jlg, migrations 0/39, independent healthy response. Closed obsolete draft #943 as superseded by #945 without deleting its branch. [Current continuation and master-plan position](continuation-plan-2026-09-23.md).
+
+Integrated current main into E7 draft #940. The new offline mapper verifies the existing fixed archive and accounts for all 4,330 embedded documents across 30 complete submissions. All 92 packets/60 supplements/30 embedding contracts are hash-bound; two real-archive runs produced 31 identical JSON files in about 19 seconds. The [source-map receipt](review-evidence/e7-source-map-2026-09-23/README.md) preserves scope and limits. No semantic coverage, paid generation, model call or quality acceptance follows. The source-only review capacity tranche is next; the prior denied proof blockers remain, with no alternate-route retry.
+
 ## September 22 — E7 exact runtime dependency inventory
 
 The hosted review found that required pins alone allowed a candidate-only package to remain importable in the comparator. Runtime admission now rejects any installed distribution absent from either selected lock; the child rechecks the inventory before claiming its request. A single shared interpreter cannot run arms with different dependency sets. The pinned Python 3.11 runtime has exactly all 99 locked packages and no extras. The existing runtime gate now proves rejection of a comparator missing a candidate dependency and acceptance once that extra package is removed. The existing executor suite passed 26 tests. Removing only the new comparison failed the targeted gate; exact restoration passed it. Full pre-push verification and independent review follow.
