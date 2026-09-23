@@ -46,6 +46,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Testing & verification
 
+- [`test-parser-callback-positions.md`](./test-parser-callback-positions.md) — Match whole-input callbacks to exact raw-source positions before accepting event capacity
+
 - [`test-adversarial-lens-verification.md`](./test-adversarial-lens-verification.md) — Verify large mechanical changes with independent adversarial lenses, not one review pass
 - [`test-audit-every-judge-channel-for-truncation.md`](./test-audit-every-judge-channel-for-truncation.md) — Audit every grounding channel the judge sees for its own truncation cap
 - [`test-audit-file-relative-shims-on-move.md`](./test-audit-file-relative-shims-on-move.md) — Audit __file__-relative shims whenever relocating a test or script
@@ -93,6 +95,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 
 ## Operations & workflow
+
+- [`ops-ai-evidence-is-not-human-acceptance.md`](ops-ai-evidence-is-not-human-acceptance.md) — Use explicit model/source evidence when the founder cannot supply a human panel
 
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds
 

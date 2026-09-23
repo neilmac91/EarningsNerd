@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "review_protocol": "ai_assisted",
+  "accession_number": "",
+  "context_id": "",
+  "role": "source_reference_a",
+  "observed_at": "",
+  "input_source_packets": [{"role": "primary", "sha256": ""}],
+  "input_brief_sha256": {},
+  "candidate_output_artifacts": [],
+  "source_only": true,
+  "context_window_truncated": true
+}

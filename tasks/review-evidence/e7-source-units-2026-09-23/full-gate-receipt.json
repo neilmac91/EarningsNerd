@@ -1,0 +1,48 @@
+{
+  "source_head": "f6a0fb981469b8ed06e34d8a51a5e6da193e64b2",
+  "python": "3.11.15",
+  "toolchain": {
+    "ruff": "0.16.8",
+    "bandit": "1.9.4",
+    "installed_from": "backend/requirements.txt + backend/requirements-dev.txt (pinned)"
+  },
+  "commands": [
+    "ruff check .",
+    "bandit -r app -ll -q",
+    "python -m pytest -p no:cacheprovider -q -rs --junitxml=<scratch>/final-gate.xml"
+  ],
+  "postgresql_lanes_database": "scratch postgres:15 container (PostgreSQL 15.19) on 127.0.0.1; STRIPE/USAGE/LOGIN/DELIVERY_CONCURRENCY_TEST_DATABASE_URL all set to it; never production",
+  "started_utc": "2026-09-23T19:21:08Z",
+  "finished_utc": "2026-09-23T19:25:00Z",
+  "pytest_summary": "3694 passed, 2 deselected, 40 warnings in 222.50s (0:03:42)",
+  "tests": 3694,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "deselected": 2,
+  "lanes": {
+    "test_subscription_event_transactions": 24,
+    "test_usage_counter_transactions": 29,
+    "test_login_lockout_transactions": 6,
+    "test_notification_delivery_transactions": 5,
+    "test_acceptance_source_units": 40
+  },
+  "collection_reconciliation": {
+    "base_523b26fe_all_markers_collected": 3656,
+    "base_523b26fe_default_lane": 3654,
+    "head_default_lane": 3694,
+    "new_cases": 40,
+    "deselected_performance_cases": 2
+  },
+  "performance_lane": "Not run locally: deselected by backend/pytest.ini; no repository rule or dependency change selects it for this pure offline module. Hosted CI runs it separately.",
+  "superseded_prerun": "6a96a1c working-tree pre-run: 3655 passed, 39 skipped (the four PostgreSQL lanes without database URLs), 2 deselected; superseded by this run with the lanes configured.",
+  "implementation_sha256": "b85c2a8865f8082d13531daf76afe782446a2af54a3d4c7e9c048777b487bb46",
+  "test_sha256": "d0f8e958677fc56db32f8225965a64644bb863e41360ef948c2515b7cb3a08d6",
+  "log_artifact": "full-gate.log",
+  "log_sha256": "9472fc644b628fb3f26cf93ffe7ef878c0aabc4fd03b1c49f73bf0e91c7a0a85",
+  "junit_xml_sha256_not_retained": "1925ef656f289ae879a90a17647eca70c450b0fd37c3fe937113884e4e8ef6cb",
+  "exit_code": 0,
+  "ruff": "pass",
+  "bandit": "pass",
+  "note": "A known interpreter-shutdown logging traceback (closed stream in companies._close_yahoo_client_sync) follows successful pytest completion."
+}

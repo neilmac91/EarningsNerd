@@ -1,0 +1,11 @@
+{
+  "committed_head": "e50afcbd8ec5753a4b97a2df47c993f3c2409d05",
+  "guard": "explicit source markup boundaries",
+  "mutation": "Temporarily no-op only the new unsupported-implicit-boundary rejection helper",
+  "failed_exit": 1,
+  "restored_exit": 0,
+  "restored_source_sha256": "45b83712ef26afa0dcf5328bfc0e9ec5ba79c59625170c164a13c21ae75f175f",
+  "failed_log_sha256": "d5adcb760ea26cbca80e636954fd69b1ef263c835b6552c4323ab0da4ffb42d7",
+  "restored_log_sha256": "fec5d90a7ad9cbb87dd85256e745581c9f6f02651632bfb7950d04ce907807f7",
+  "readiness_or_budget_guard_changed": false
+}

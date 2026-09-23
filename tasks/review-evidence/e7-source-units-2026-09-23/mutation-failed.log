@@ -1,0 +1,91 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_units_partition_declared_packets_and_bind_recomputable_identities ____
+
+    def test_units_partition_declared_packets_and_bind_recomputable_identities() -> None:
+        declared = _declared()
+        pristine = copy.deepcopy(declared)
+        manifest = build_unit_manifest(**declared)
+        assert declared == pristine, "construction must not mutate its declarations"
+    
+        # Every identity matches an independent reimplementation of the documented encoding.
+        assert [packet["packet_id"] for packet in manifest["declared_packets"]] == [
+            _oracle_packet_id(ACCESSION, role, raw) for role, raw in RAW_BY_ROLE.items()]
+        assert manifest["units"] == [_oracle_unit(ACCESSION, RAW_BY_ROLE[unit["packet_role"]], unit)
+                                     for unit in declared["units"]]
+        assert "coverage_status" not in manifest and all(manifest[flag] is False for flag in FLAGS)
+        disclaimers = " ".join(manifest["limitations"])
+        for required in ("unverified declarations", "not every source in the filing", "not a semantically safe",
+                         "hidden inline-XBRL facts, images", "model-context custody",
+                         "E7 coverage_status or E7 admission"):
+            assert required in disclaimers
+    
+        # A JSON round trip validates; repeated context is reported separately and never counted as coverage.
+        round_tripped = json.loads(json.dumps(manifest))
+        summary = validate_unit_manifest(round_tripped, accession_number=ACCESSION, packet_bytes=RAW_BY_ROLE)
+        context_bytes = len(CAPTION) + 2 * len(HEADER)
+        assert summary == {
+            "schema_version": 1,
+            "kind": "e7_offline_source_unit_validation",
+            "manifest_sha256": _sha(_canonical(manifest)),
+            "accession_number": ACCESSION,
+            "packet_count": 2,
+            "unit_count": 4,
+            "declared_packet_bytes": len(GRAPHIC) + len(PRIMARY),
+            "coverage_bytes": len(GRAPHIC) + len(PRIMARY),
+            "context_span_count": 3,
+            "context_span_bytes_not_counted_as_coverage": context_bytes,
+            "declared_packet_byte_partition": "exact",
+            **{flag: False for flag in FLAGS},
+            "limitations": manifest["limitations"],
+        }
+        assert _canonical(build_unit_manifest(**_declared())) == _canonical(manifest)
+    
+        # Offsets are bytes, not characters ("€" before "é" is three bytes). A byte-valid split inside
+        # "é" is accepted as custody only; nothing decodes or repairs it.
+        accent = PRIMARY.index("é".encode("utf-8"))
+        assert PRIMARY.decode("utf-8").index("é") == accent - 2
+        split_units = _units()
+        split_units[2]["coverage_spans"][1] = {"start": _range(FOOTNOTE)["start"], "end": accent + 1}
+        split_units.append({**_units()[3], "structural_kind": "text", "context_spans": [],
+                            "coverage_spans": [{"start": accent + 1, "end": len(PRIMARY)}]})
+        split = build_unit_manifest(**_declared(units=split_units))
+        assert split["units"][4]["coverage_spans"][0]["sha256"] == _sha(PRIMARY[accent + 1:])
+        with pytest.raises(UnicodeDecodeError):
+            PRIMARY[accent + 1:].decode("utf-8")
+    
+        # Identical bytes under two declared roles remain two packets, each partitioned and counted.
+        copies = build_unit_manifest(**_declared(
+            packets=[_packets()[0], {**_packets()[0], "role": "graphic_copy"}, _packets()[1]],
+            packet_bytes={**RAW_BY_ROLE, "graphic_copy": GRAPHIC},
+            units=[_units()[0], {**_units()[0], "packet_role": "graphic_copy"}, *_units()[1:]]))
+        assert len({packet["packet_id"] for packet in copies["declared_packets"]}) == 3
+        assert validate_unit_manifest(copies, accession_number=ACCESSION, packet_bytes={
+            **RAW_BY_ROLE, "graphic_copy": GRAPHIC})["coverage_bytes"] == 2 * len(GRAPHIC) + len(PRIMARY)
+    
+        # Exact union, not equal total length: shifting one span keeps the byte total but opens a gap
+        # on one side and an overlap on the other; both directions are rejected.
+        row_2 = _range(ROW_2)
+        for shift, message in ((-1, f"coverage spans overlap in packet primary at byte {row_2['start'] - 1}"),
+                               (1, f"coverage gap in packet primary at byte {row_2['start']}")):
+            shifted = _units()
+            shifted[2]["coverage_spans"][0] = {"start": row_2["start"] + shift, "end": row_2["end"] + shift}
+            covered = sum(span["end"] - span["start"] for unit in shifted for span in unit["coverage_spans"])
+            assert covered == len(GRAPHIC) + len(PRIMARY)
+>           with pytest.raises(ValueError, match=message):
+E           Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_units.py:199: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_units.py::test_units_partition_declared_packets_and_bind_recomputable_identities
+  /home/user/EarningsNerd/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_units.py::test_units_partition_declared_packets_and_bind_recomputable_identities
+  /home/user/EarningsNerd/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_units.py::test_units_partition_declared_packets_and_bind_recomputable_identities
+1 failed, 2 warnings in 1.78s

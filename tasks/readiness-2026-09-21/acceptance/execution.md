@@ -1,0 +1,52 @@
+# E7 measurement executor — review draft, not execution clearance
+
+The controller, durable budget ledger, readiness check, packet builder and isolated worker are implemented for review. Source admission uses the explicit [frozen source contract](frozen-source-contract.md); missing or changed evidence blocks execution and reviewer packets. The original acceptance specification and USD 10 ceiling remain unchanged. This package does not infer human review, source availability or quality acceptance.
+
+## What the draft does
+
+`evals.acceptance_executor inspect` reads the approved manifest, source archive and human/execution receipts without calling a provider or creating a database. It requires the chosen review protocol evidence: the original human v1 briefs/commitments/attestation or explicit AI v3 role descriptors with v2 evidence, 60 independent source-only briefs, 30 reconciliations and exposure limitations. Both require frozen configurations, current official pricing/balance, exact Fable contract and budget evidence. Blank templates remain deliberately incomplete.
+
+Once all source and review prerequisites pass, the explicit `run-smoke` and `run-slot` paths create one fresh SQLite invocation in a sanitized child process and call `app.services.summary_pipeline.stream_filing_summary`, the existing production owner. The child has no production database, Stripe, Resend or PostHog credentials. Only the explicitly supplied `E7_GENERATOR_API_KEY` reaches the provider. A config cannot set Python import paths or arbitrary process controls. Both frozen checkouts must contain the same reviewed measurement instrumentation; an older uninstrumented comparator is refused, not silently patched or run without accounting.
+
+The controller and worker use the same interpreter. Before creating programme state, its complete installed distribution set and versions must match each frozen dependency lock, including the compiled Python version. Extra packages are rejected even when every required pin matches; a dependency present only for the candidate cannot leak into the comparator. There is no packaging-tool exception. Arms with different dependency sets are unsupported by this shared-interpreter executor and stop before slot admission. The child rechecks the same inventory before claiming its request.
+
+The development smoke must match a current development-golden identity, have retained source packets and be charged to the same programme ledger before a holdout slot runs. Only its own completion receipt can be missing during that smoke; the chosen review protocol and other readiness requirements still apply. The manifest is bound to 90 candidate and 30 preselected comparator identities. Each slot requires an explicit command; the controller never advances to another filing automatically. Any error stops the programme. This draft performs **zero outer timeout retries**; it preserves the production owner's internal retries and is stricter than the approved maximum of one outer retry. Do not erase a failed slot or retry to improve a result.
+
+Each provider attempt reserves a conservative charge atomically before SDK I/O, including streaming, internal retry, section recovery and verifier calls. SDK retries must be zero. Reservations are never refunded, including cancellation or unknown usage. The SQLite ledger is bound to the programme and exact tariff artifact; expiry or identity drift stops admission. It prices text request bytes plus framing at uncached input and maximum output tariffs, with rounding allowance; actual tokenizer/rate conservatism still needs the specified preflight review. The report separates retained conservative reservations from known usage estimates; neither is a provider invoice. The controller recomputes the full 5,082-request worst case; if over USD 10, the required explicit incomplete-stop-risk decision must be recorded before dispatch.
+
+Keep **one permanent programme directory and budget ledger** for E7. Do not start a second directory, copy a zero ledger, delete STOP/pending records, or reset charges after a crash. The parent takes a programme lock; a child atomically consumes one hash-bound durable slot claim, so the same request cannot launch twice even if the parent dies. Accounting errors retain observed anomaly metadata and latch STOP. Pending, interrupted or failed accounting needs triage, not automatic redispatch.
+
+The first admission binds reviewer and adjudicator commitments, all reference brief bytes, and exposure attestation bytes in the programme ledger before budget or slot state. Later admissions, offline collection, and packet construction reject changed review evidence even when its prerequisite hashes and dates are rewritten. Fresh balance/quota and development-smoke receipts remain outside this immutable inventory so their normal lifecycle can continue. This byte binding preserves the submitted claims; it does not establish that independent review occurred.
+
+The worker preserves actual source/structured grounding, raw canonical output, all emitted events and raw preview callbacks before UI coalescing, shared rendered Markdown, export HTML, and provider records. Preview callbacks carry the exact measured provider attempt. Before its completion receipt, the worker seals the final bytes of every declared artifact, including raw preview JSONL. The controller commits the result SHA256 with the slot's `worker_claimed` → `completed` transition; a completed slot cannot be re-sealed. The collector verifies that durable result hash and the worker's full artifact digest inventory before publishing output paths or materializing previews. Legacy completion evidence without a seal is held; do not reset or retroactively reconstruct one from current files. These checks do not authenticate a ledger and artifact set rewritten together. The collector derives counts and hashes from these retained files; it does not accept manually entered preview counts as proof. It preserves incomplete slots and requires the full 120 identities for completion. The packet builder removes only known administrative fields from a reviewer projection of canonical data, preserves financial content, keeps originals custodian-side, and rejects known execution markers. A custodian must still inspect real packets for unforeseen identity leaks, beyond the known export generation-date metadata omitted from the reviewer projection, before distribution.
+
+## Revised review approach
+
+The founder clarified on 22 September that full human review is not available. Develop the [explicit AI-assisted protocol](ai-assisted-plan.md) rather than seeking a completed human panel or filling human templates with agents. The alternative is now implemented for offline prerequisite validation, blind packets and decision reporting. A real two-reviewer source-only pilot for one filing has been reconciled as a draft; its coverage limits remain open, and the full reference set and acceptance are incomplete. See the [AI evidence contract](ai-assisted/README.md) and [decision report](ai-assisted/decision.md).
+
+## Remaining blockers
+
+- Historical source recovery now verifies 60/92 original packets (all indexes and complete submissions). A separately retained, complete 92-file recapture has 32 changed primary/exhibit hashes. Preserve both histories; explicitly bind any adopted revised source contract rather than silently relabelling the new bytes as original.
+- AI-assisted validation, evidence sealing and decision arithmetic are implemented. Independently prepared source references, real model/context evidence, exposure record, exact final configuration receipts remain execution preparation; the pre-call Fable reservation guard is implemented and tested with a fake CLI. The existing human-only path is not a workaround; Fable availability alone does not satisfy the revised quality process.
+- The integrated archive adapter now covers primary, section, XBRL, companyfacts, statement and excerpt sources using the explicit revised contract. Both frozen production checkouts must carry this reviewed instrumentation; actual runtime parity and an archived non-holdout smoke remain required. See [source contract and limitations](frozen-source-contract.md).
+- Automatic approval review rejected temporary source mutations of the USD 10 admission and required-brief gates. Those proofs have not run, and the checks remain intact. New E7 gates are not declared compliant with the repository's mutation-proof rule. The PR remains draft pending the required proofs and independent review.
+- Current official tariffs, balance/quota evidence, tokenizer upper-bound review, current full-run risk decision and a frozen instrumented comparator remain pre-execution work. No E7 provider call has run in this tranche.
+
+## Source-binding unblock criteria
+
+The [revised source contract](frozen-source-contract.md) preserves the original selection and explicitly identifies recaptured bytes. Its resolver, adapter and sealed provenance must pass for both frozen arms and the separate development smoke. SDK source violations, incomplete extraction and changed files are admission failures. The chosen review protocol, exposure, budget and release gates remain separate requirements.
+
+Collection is still available offline for evidence inspection. Its output must be outside the permanent programme directory. An existing destination may be replaced only when it is a prior collector index associated with the same programme; ledger, source and invocation evidence are never collection destinations.
+
+## Offline inspection
+
+From `backend/`, using the repository's pinned dependencies:
+
+```sh
+python -m evals.acceptance_executor inspect \
+  --manifest ../tasks/review-evidence/acceptance-2026-09-19/candidate-manifest.json \
+  --archive /PATH/TO/e7-ai-source-snapshot-2026-09-22 \
+  --prerequisites ../tasks/readiness-2026-09-21/acceptance/prerequisites.template.json
+```
+
+The archive root contains `e7-sources/` and the three frozen source manifests. Expected current result: `ready_for_paid_execution=false`. This is an honest hold, not a failed product score. Command help documents `run-smoke`, `run-slot` and `collect` for later authorized use; do not run them as a quota or connectivity probe. `worker` is an internal child entry point with one-time claim enforcement, not a second execution path.

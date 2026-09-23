@@ -1,0 +1,8 @@
+{
+  "mutated_exit": 1,
+  "restored_exit": 0,
+  "head": "696bf214ffa279bb00dbb336f28562e05a657b45",
+  "source_sha256": "75ee1827581cec1b82d934e13888ab1ce2cb2fc37bf3ffa67e10484fd0cd6d9f",
+  "mutation": "Drop one parsed text unit before normalization in offline view builder; no guard or readiness change.",
+  "source_restored": true
+}
