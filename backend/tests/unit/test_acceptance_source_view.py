@@ -84,6 +84,20 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         span = unit["span"]
         assert span["sha256"] == hashlib.sha256(raw[span["start"] : span["end"]]).hexdigest()
 
+    # Later duplicate attributes are ignored by HTML tree construction: semantics follow the first.
+    duplicate_raw = (
+        b'<div aria-hidden="false" aria-hidden="true">Visible first</div>'
+        b'<p style="color:red" style="display:none">Visible style</p>'
+        b'<img src="first.png" src="second.png" alt="a" alt="b">'
+        b'<table><tr><td rowspan="1" rowspan="3" colspan="2" colspan="4">c</td></tr></table>'
+    )
+    duplicate_projected = source_view.project_html(duplicate_raw)
+    assert all(unit["hidden_reasons"] == [] for unit in duplicate_projected["units"])
+    assert [(image["src"], image["alt"]) for image in duplicate_projected["images"]] == [("first.png", "a")]
+    duplicate_cell = duplicate_projected["tables"][0]["rows"][0]["cells"][0]
+    assert (duplicate_cell["rowspan"], duplicate_cell["colspan"]) == (1, 2)
+    assert [item["name"] for item in duplicate_projected["attributes"]].count("aria-hidden") == 2
+
     style_raw = (
         '<section style=" DISPLAY : none!important ; color:red"><span>Important display descendant</span></section>'
         '<div style="visibility:hidden ! IMPORTANT"><strong>Important visibility descendant</strong></div>'

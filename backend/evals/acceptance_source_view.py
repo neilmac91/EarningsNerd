@@ -254,11 +254,13 @@ class _ProjectionParser(HTMLParser):
             raise ValueError("source byte position is not a UTF-8 character boundary")
         return lo
 
-    def _attribute_map(self, ids: list[str]) -> dict[str, list[str | None]]:
-        values: dict[str, list[str | None]] = {}
+    def _attribute_map(self, ids: list[str]) -> dict[str, str | None]:
+        # HTML tree construction ignores every later duplicate attribute, so semantics follow the
+        # first occurrence; all duplicates stay recorded as source attributes.
+        values: dict[str, str | None] = {}
         for identifier in ids:
             item = self.attribute_by_id[identifier]
-            values.setdefault(item["name"], []).append(item["value"])
+            values.setdefault(item["name"], item["value"])
         return values
 
     def _hidden_reasons(self) -> list[str]:
@@ -298,9 +300,9 @@ class _ProjectionParser(HTMLParser):
         hidden_reasons = []
         if "hidden" in values:
             hidden_reasons.append("hidden_attribute")
-        if any(str(value).lower() == "true" for value in values.get("aria-hidden", [])):
+        if str(values.get("aria-hidden")).lower() == "true":
             hidden_reasons.append("aria_hidden_true")
-        if any(value and HIDDEN_STYLE.search(value) for value in values.get("style", [])):
+        if values.get("style") and HIDDEN_STYLE.search(values["style"]):
             hidden_reasons.append("inline_style_hidden")
         if tag == "ix:hidden":
             hidden_reasons.append("inline_xbrl_hidden")
@@ -371,8 +373,8 @@ class _ProjectionParser(HTMLParser):
                     "id": f"I{len(self.images) + 1:05d}",
                     "event_id": event["id"],
                     "attribute_ids": attribute_ids,
-                    "src": values.get("src", [None])[-1],
-                    "alt": values.get("alt", [None])[-1],
+                    "src": values.get("src"),
+                    "alt": values.get("alt"),
                 }
             )
         if tag not in VOID_TAGS:
@@ -381,8 +383,8 @@ class _ProjectionParser(HTMLParser):
                 self.open_p_count += 1
 
     @staticmethod
-    def _span_value(values: dict[str, list[str | None]], name: str) -> int:
-        raw_value = values.get(name, ["1"])[-1]
+    def _span_value(values: dict[str, str | None], name: str) -> int:
+        raw_value = values.get(name, "1")
         if raw_value is None or not raw_value.isdigit() or int(raw_value) < 1:
             raise ValueError(f"invalid {name} value")
         return int(raw_value)
