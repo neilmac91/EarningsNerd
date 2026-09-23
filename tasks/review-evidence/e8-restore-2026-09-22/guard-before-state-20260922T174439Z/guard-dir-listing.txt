@@ -1,0 +1,13 @@
+total 68
+drwxr-xr-x 2 root root 4096 Sep 22 17:35 .
+drwxr-xr-x 4 root root 4096 Sep 22 17:35 ..
+-rw-r--r-- 1 root root 8771 Sep 22 17:35 README.md
+-rw-r--r-- 1 root root  296 Sep 22 17:35 TEMPLATE.json
+-rw-r--r-- 1 root root 6311 Sep 22 17:35 check_guard_offline.py
+-rw-r--r-- 1 root root 8987 Sep 22 17:35 claude
+-rw-r--r-- 1 root root  207 Sep 22 17:35 config.json
+-rw-r--r-- 1 root root  646 Sep 22 17:35 sha256.txt
+-rw-r--r-- 1 root root  108 Sep 22 17:35 state.json
+-rw-r--r-- 1 root root  252 Sep 22 17:35 stub-invariant.log
+-rw-r--r-- 1 root root 1102 Sep 22 17:35 stub-mutation.log
+-rw-r--r-- 1 root root  252 Sep 22 17:35 stub-restored.log

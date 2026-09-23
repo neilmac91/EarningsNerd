@@ -1,3 +1,9 @@
+## September 22 — E8 re-pin judging session stopped before restore (permission denial)
+
+- [x] Session `session_01DJicvUd1iyrfzFjCPxV6f4` on `claude/new-session-8v1cg4` (based on main `3d836ad`; receipt and verification corrections committed and pushed, draft PR [#946](https://github.com/neilmac91/EarningsNerd/pull/946)) received all nine kit attachments with matching hashes and verified the re-pin manifests; the auto-mode classifier then denied `restore_e8_session.py` in the exact allow-listed form (`[Auto-Mode Bypass]`) and afterwards its `--help`. Stopped at kit step 1. [Receipt](review-evidence/e8-repin-restore-2026-09-22/receipt.md).
+- [x] Zero side effects: no bundle, guard readback, attestation, setup, model call, STOP or export. E8 remains 140 reused E2 controls (CLI 2.1.278) / 0 new / 160 missing; the container CLI reads `2.1.280 (Claude Code)`, the re-pin gate value.
+- [x] Founder decision, 22 September 22:36 UTC: option A approved ("I approve your recommended path forward"). The next attempt runs in a fresh Claude Code web session in a non-Auto permission mode, started from a `main` that carries the revision 2 kit and the allow rules after #946 merges; the kit's step 0 decides the route before any state exists. Background: the seven project allow rules on main did not decide commands (the docs hold project allow rules until workspace trust is recorded, which SDK sessions never prompt for; receipt section 6); leaving Auto may replace silent allows with operator prompts (receipt section 10, option A). The kit side is done: the committed [revision 2 kit](fable-e8-launch-kit.md) carries step 0 and every gated command as its literal rule string, under the gate `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py` for the rule [prove the permission route first](../lessons/ops-prove-the-permission-route-before-a-gated-session.md). No quality or activation claim.
+
 ## September 21 — verifier response safety prepared
 
 Strict complete-batch validation and passage-local supporting quotes are implemented with both attribution flags still false. [Local gate and independent review](review-evidence/verifier-response-safety-2026-09-21/README.md): 3,439 tests including performance/four PostgreSQL lanes, two original mutation proofs, no locked-test/prompt/model/pin/flag change. Hosted checks, actual measurement artifacts and release verification follow; this is not semantic acceptance.
@@ -5696,3 +5702,27 @@ Last observed DeepSeek balance is USD86.24, read-only run `34730442232`, 01:24:2
 
 
 September 13 closing correction: #805 remains open and held at b6a3272e03ea397e3b434bfeba1e764ff91b099e after its rejected first financial assessment. Broader signed-item, causal and measure-basis work is not closed by the narrower releases above. No wholesale revival or second #805 assessment occurred. Latest read-only DeepSeek balance: USD 85.58, workflow 34737324323, 2026-09-13T04:12:01.4240532Z.
+
+
+## September 22 — E3 Fable completion audited; gates remain held
+
+All four returned transport parts verified and reassembled to archive SHA256 `281095aa83f560ded61961c09479f9b9d917947c21ffac887be338d729019ed6`. [Completion audit](review-evidence/e3-fable-complete-2026-09-22/README.md): 140/140 E3 verdicts complete, 44/70 and 39/70 negative; controls were 38/70 and 42/70. Original AAPL FAIL virtually reused, 123 new harness invocations bound, 155 prior stage files unchanged. No causal-improvement or deletion/quality acceptance follows. The supplemental readouts supersede preserved September 21 readouts; CLI process coverage misses the initial continuation slot, so 125 reported continuation calls are reconstructed/attested rather than fully independently counted.
+
+E8 history clarification (September 22): asked, “For the next E8 variability-judging handoff: has any other Claude session or machine run E8 judging or E8 quota probes beyond the activity already returned in your handover files? The retained count is conservatively 287 against a 601-call ceiling; I need this history before authorizing its remaining queue.” The founder answered, “No additional E8 judging or probes.” This confirms absence of further **past** activity beyond the returned history; it neither cancels nor authorizes a future E8 run. Prepare a separate reconciliation-aware E8-only continuation under the unchanged 601-call guard and conservative prior charge 287; remote sole-guard verification remains required before any dispatch. No E8 dispatch or new generation was performed in this audit. Current structured-source gaps keep E7 draft and execution held; source-owner residuals and the code-owned period-end return-label collision are triaged separately.
+
+
+## September 22 (later) — E8 restore blocked on CLI drift; founder chose to re-pin to 2.1.280
+
+A fresh Claude Code web container restored the E8 kit (12 attachments verified, bundle 818/818, E3 deliverable 712/712, frozen worktree 73cc311, venv) but could not dispatch: the container's CLI reports `2.1.280` and the sealed tools pin `2.1.278`; no 2.1.278 build exists there. Zero model calls, guard pristine, no attestation. The E3 overlay and the re-pin build were both declined by the session's permission classifier. Receipt: [review-evidence/e8-restore-2026-09-22/receipt.md](review-evidence/e8-restore-2026-09-22/receipt.md). Founder decision: continue on the latest CLI via a new reviewed sibling package, never by editing sealed files; the version confound between the 140 reused controls and the 160 new slots must appear in every E8 readout. Package scaffold, restore and export tools: [fable-e8-repin-2026-09-22/](fable-e8-repin-2026-09-22/README.md) (build and offline proofs NOT yet run). Handover to Astra: [handover-astra-2026-09-22-e8-repin.md](handover-astra-2026-09-22-e8-repin.md). E1 and E7 untouched.
+
+
+## September 22 — E8 sibling re-pin verified offline
+
+- [x] Founder-approved six-line derivation preserves historical E3 reconciliation identity and
+  pins the continuation runtime to CLI 2.1.280. Sealed kit unchanged; original add-on suite
+  10/10 passes. [Verification](fable-e8-repin-2026-09-22/verification.md).
+- [x] Exact seven judging-branch allow rules installed; README defines sole-guard recovery
+  conditions, external freshness/exclusivity evidence and ledger continuity requirements.
+- [ ] Separately authorized E8 session remains outstanding: 140 controls reused under 2.1.278,
+  zero new judgments, 160 slots planned under 2.1.280. Every readout must state that CLI-version
+  confound. No quality conclusion, production change or universe-wide generation authorized here.

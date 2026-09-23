@@ -5,6 +5,15 @@ handover or with an unchecked row in `tasks/todo.md`, this file wins and the old
 Every identifier below was read from GitHub, the Actions logs or the live service on 2026-09-19;
 re-read GitHub `main` before acting, because the repository will have moved.
 
+**Addendum, 2026-09-22 (E8 judging state).** The E8 row in the ledger below is superseded for
+E8 only: the judging containers' Claude CLI moved from `2.1.278` to `2.1.280`, the sealed E8
+tools refused to dispatch, and the founder chose to continue on the latest CLI through a new
+reviewed sibling package with a six-line derivation. The current E8 state, package, allow rules,
+sole-guard recovery ruling and next steps live in
+[`handover-astra-2026-09-22-e8-repin.md`](handover-astra-2026-09-22-e8-repin.md), which this
+file defers to for E8. E8 remains 140 reused E2 controls / 0 new / 160 missing; no model call,
+guard initialization or attestation has occurred. Everything else in this file stands.
+
 ## 1. Where things stand
 
 **Product and production.** The Cloud Run service `earningsnerd-backend` serves revision
@@ -101,19 +110,19 @@ is the numbered list at the foot of this file.
 
 ## 5. What remains — reconciled open list
 
-**Engineering, unblocked (do these):**
+**Engineering ledger (September 19 plan; E3/E8 status corrected below):**
 
 | # | Item | Next step |
 | --- | --- | --- |
 | E1 | Dependabot #916, #917 | Take both through one `codex/wave3-*` branch (precedent #870, #872): full gate, `eval-baseline`, one Copilot run, merge, serial deploy verification; then close the Dependabot PRs as superseded. |
 | E2 | Verifier, step 1 | Re-measure with the #912 ranking fix: measurement-only branch with `AI_ATTRIBUTION_VERIFY` on in the eval env, judge the artifact, hand-read every flagged clause against its excerpt. |
-| E3 | Verifier, step 2 | Tighten the verify prompt against the Pfizer failure: a verbatim same-line, same-amount restatement was rejected as "not stated" with the passage in hand. |
+| E3 | Verifier, step 2 | September 22: both retained candidates now have 70/70 Fable judgments. The dormant context release is complete, but results do not justify prompt retuning, attribution activation, deletion or a quality-effect claim. Keep both flags off. The bounded formula-first return-label correction is a separate [draft #942](https://github.com/neilmac91/EarningsNerd/pull/942), not G4 remediation. [Evidence](review-evidence/e3-fable-complete-2026-09-22/README.md). |
 | E4 | Verifier, step 3 | Recall: the lexical finder surfaces about 45% of judge-G4 attempts. Study the 12 misses in the Fable-judged verification artifact before designing anything. |
 | E5 | Code-owned residuals | KO segment operating margins (segments filler divides by XBRL segment revenue that includes intersegment amounts); AMZN issuer-defined versus conventional free cash flow in the cash card; SE cash-conversion line on a different net-income basis from the prose; AAPL distributions versus operating cash flow ([plan](financial-relationship-next-2026-09-13.md)); BABA 20-F filing 327 returns `partial` on regeneration (XBRL enrichment). |
 | E6 | Scorer profiles | BRK.B financial depth (an insurer's highlights are premiums and float) and GPRO delta sign on a negative base. Touching a scorer is a listed re-pin trigger. |
 | E7 | Quality acceptance specification (master plan P0) | Freeze the rubric, severity definitions, the 30-filing × 3 unseen holdout manifest and a spending ceiling ([plan](ceo-implementation-plan-2026-09-08.md), section "What world-class acceptance must demonstrate"). Prepare offline; the founder accepts it. |
-| E8 | `o` variance lead | Test whether the `o` prompt makes generation less consistent: more paired runs, same judge. |
-| E9 | E09 proposal | Read the database job-outcome table (the last unread item) and finish the proposal ([package](e09-proposal-next-2026-09-13.md)). Proposal only. |
+| E8 | `o` variance lead | Generation is complete but judging remains inconclusive: 160 slots missing, conservative prior charge 287 of 601 leaves at most 314 calls for slots and retries. The founder's “No additional E8 judging or probes” answered a past-history question, not a future STOP or authorization. Prepare a guarded continuation only after remote accounting and sole-guard verification. [Status](e1-e9-status-2026-09-20.md). |
+| E9 | Fleet proposal and protection | The [proposal](fleet-coordination-proposal-2026-09-19.md) is complete, with filing ownership and SEC admission still inactive. [September 22 protection readback](review-evidence/fleet-2026-09-22/README.md) confirms backups/PITR enabled and a recent completed backup; monthly lifecycle-managed export and a restore rehearsal remain unverified. Job-outcome reads remain blocked by missing SELECT on `earningsnerd_job_runs`. |
 
 **Recurring:** the weekly readout. `data-quality-weekly.yml` generates on Mondays and the judging
 runs on the Fable subscription (`.claude/skills/meta/judge-readout/SKILL.md` is the procedure). The
@@ -123,7 +132,7 @@ next generation is Monday 2026-09-21.
 
 | Decision | Why it matters |
 | --- | --- |
-| **Cloud SQL automated backups and point-in-time recovery are disabled** on the live database | The largest open operational risk; a restore rehearsal into an isolated target is also unproven. Also found: a stopped Postgres 18 instance still billed, and a Monday schedule overlap at 50 connections against a 25 default. |
+| **Cloud SQL recovery proof and monthly export remain open** | The September 19 authorized change enabled automated backups and seven-day PITR; September 22 [readback](review-evidence/fleet-2026-09-22/README.md) confirms both and a completed automated backup. No restore rehearsal or monthly lifecycle-managed export was verified. A stopped Postgres 18 instance and the configured Monday connection-demand scenario remain separate matters. |
 | Notable filings: retain or kill | The review week ended 2026-09-15; the decision is overdue. |
 | Analysis (W3-10): run the companyfacts warm-up and name a Pro test account | `scripts/sync_companyfacts.py` has never run as a job. |
 | Arming `AI_ATTRIBUTION_VERIFY`, then `AI_ATTRIBUTION_GATE`, in production | Only after E2–E4 show the drop decision no longer deletes sourced analysis. |

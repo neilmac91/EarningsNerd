@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -47,6 +48,34 @@ const COLLECTED_ROOTS = ['backend/tests', 'frontend/tests'] as const
 const PYTHON_TEST = /^(test_.*\.py|.*_test\.py)$/
 const JS_TEST = /\.(spec|test)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$/
 
+/**
+ * The one sanctioned exemption: a hash-sealed evidence fixture. The Fable judging packages under
+ * `tasks/` carry the sealed add-on's `tests/test_e8_addon.py` byte-identical, because the
+ * package's `code-sha256.json` pins that exact path and the adapter refuses to run if the file
+ * set changes. It is an offline proof the operator runs from the package (see its
+ * verification.md), not a repo test, and it cannot be moved into backend/tests without breaking
+ * the seal. The exemption is mechanical, not a name list: the file must be listed, at its
+ * package-relative path, in a `code-sha256.json` in an ancestor directory, and the recorded hash
+ * must match the bytes on disk. An orphan test that merely sits beside such a manifest still fails.
+ */
+const SEALED_MANIFEST = 'code-sha256.json'
+const isSealedFixture = (file: string): boolean => {
+  let dir = path.dirname(file)
+  while (dir && dir !== '.') {
+    const manifestPath = path.join(repoRoot, dir, SEALED_MANIFEST)
+    if (existsSync(manifestPath)) {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, string>
+      const rel = path.relative(dir, file).split(path.sep).join('/')
+      const pinned = manifest[rel]
+      if (typeof pinned !== 'string') return false
+      const actual = createHash('sha256').update(readFileSync(path.join(repoRoot, file))).digest('hex')
+      return actual === pinned
+    }
+    dir = path.dirname(dir)
+  }
+  return false
+}
+
 /** The repo's TRACKED files, straight from git, rather than a filesystem walk past a hand-written
  *  skip list. The skip list was itself the narrowing defect this gate exists to catch: it excluded
  *  every directory named `build`, which is NOT gitignored here, so a committed
@@ -74,10 +103,23 @@ describe('tests live in exactly one home per stack', () => {
   })
 
   it('has no Python test file outside the documented backend homes', () => {
-    const strays = pythonTests.filter((f) => !under(f, BACKEND_TEST_HOMES))
+    const strays = pythonTests.filter((f) => !under(f, BACKEND_TEST_HOMES) && !isSealedFixture(f))
     expect(strays, strays.map((f) => `${f} — ${under(f, COLLECTED_ROOTS)
       ? 'inside backend/tests but not one of the four documented homes'
       : 'outside backend/tests: pytest testpaths never collects it'}`).join('\n')).toEqual([])
+  })
+
+  it('exempts a sealed fixture only when its manifest hash matches the file', () => {
+    const sealed = pythonTests.filter((f) => !under(f, BACKEND_TEST_HOMES) && isSealedFixture(f))
+    // Anchor the exemption to the one package that uses it, so a new sealed fixture is a
+    // deliberate edit here rather than a silent widening.
+    expect(sealed).toEqual(['tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py'])
+    // A file the manifest does not list is not exempt, even beside the manifest.
+    expect(isSealedFixture('tasks/fable-e8-repin-2026-09-22/tests/test_not_pinned.py')).toBe(false)
+    // A listed file whose bytes differ from the pinned hash is not exempt either.
+    const manifest = JSON.parse(readFileSync(path.join(repoRoot, 'tasks/fable-e8-repin-2026-09-22/code-sha256.json'), 'utf8')) as Record<string, string>
+    const onDisk = createHash('sha256').update(readFileSync(path.join(repoRoot, 'tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py'))).digest('hex')
+    expect(manifest['tests/test_e8_addon.py']).toBe(onDisk)
   })
 
   it('has no JS/TS test file outside the documented frontend homes', () => {

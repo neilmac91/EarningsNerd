@@ -1,0 +1,80 @@
+{
+  "assessment_date": "2026-09-20",
+  "scope": "Read-only repository, GitHub and selected Google Cloud metadata observations; no production changes, jobs, notifications or paid evaluation dispatched.",
+  "repository": {
+    "name": "neilmac91/EarningsNerd",
+    "main_sha": "1c3f20127fbafc06b54438e2a44524b298364c01",
+    "open_pull_requests": [],
+    "latest_retained_deployment": {
+      "revision": "earningsnerd-backend-00374-ddw",
+      "health_observed_at": "2026-09-20T02:11:39.543493Z",
+      "source": "tasks/review-evidence/partial-release-2026-09-20/README.md",
+      "note": "Retained release receipt, not a new deployment or health observation in this assessment."
+    }
+  },
+  "cloud_sql": {
+    "command": "gcloud sql instances describe earningsnerd-db --project earnings-nerd --format='json(name,state,databaseVersion,settings.deletionProtectionEnabled,settings.backupConfiguration,settings.databaseFlags)'",
+    "result": {
+      "databaseVersion": "POSTGRES_15",
+      "name": "earningsnerd-db",
+      "state": "RUNNABLE",
+      "settings": {
+        "backupConfiguration": {
+          "backupRetentionSettings": {"retainedBackups": 7, "retentionUnit": "COUNT"},
+          "backupTier": "STANDARD",
+          "enabled": true,
+          "kind": "sql#backupConfiguration",
+          "pointInTimeRecoveryEnabled": true,
+          "replicationLogArchivingEnabled": true,
+          "startTime": "16:00",
+          "transactionLogRetentionDays": 7,
+          "transactionalLogStorageState": "CLOUD_STORAGE"
+        },
+        "databaseFlags": [{"name": "cloudsql.iam_authentication", "value": "on"}],
+        "deletionProtectionEnabled": false
+      }
+    }
+  },
+  "monitoring": {
+    "project": "earnings-nerd",
+    "policy_command": "gcloud monitoring policies list --project earnings-nerd --format='json(name,displayName,enabled,notificationChannels,conditions.displayName)'",
+    "policies": [
+      {
+        "displayName": "Copilot: misplaced fact markers",
+        "enabled": true,
+        "name": "projects/earnings-nerd/alertPolicies/3257954433643759314",
+        "notificationChannels": ["projects/earnings-nerd/notificationChannels/2698479126467110226"]
+      },
+      {
+        "displayName": "Copilot: uncited figures elevated",
+        "enabled": true,
+        "name": "projects/earnings-nerd/alertPolicies/3257954433643759729",
+        "notificationChannels": ["projects/earnings-nerd/notificationChannels/2698479126467110226"]
+      }
+    ],
+    "uptime_command": "gcloud monitoring uptime list-configs --project earnings-nerd --format='json(name,displayName,monitoredResource.type,httpCheck.path)'",
+    "uptime_configs": [],
+    "limitations": "This project inventory does not establish notification delivery or rule out monitoring in a different external service. Channel recipient details were not retrieved."
+  },
+  "github_workflows": {
+    "prod_smoke": [
+      {"run_id": 35439555020, "created_at": "2026-09-19T11:14:14Z", "event": "schedule", "conclusion": "success"},
+      {"run_id": 35339928879, "created_at": "2026-09-18T11:30:01Z", "event": "schedule", "conclusion": "success"},
+      {"run_id": 35218100129, "created_at": "2026-09-17T11:53:39Z", "event": "schedule", "conclusion": "success"},
+      {"run_id": 35092530332, "created_at": "2026-09-16T11:51:00Z", "event": "schedule", "conclusion": "success"}
+    ],
+    "membership_latest": {
+      "run_id": 34018637572,
+      "created_at": "2026-09-06T07:15:04Z",
+      "conclusion": "success",
+      "observed_log": "Membership and metadata are unchanged — nothing to publish.",
+      "implication": "Validates no-change path; does not prove changed-input automatic PR publication."
+    },
+    "weekly_latest": [
+      {"run_id": 35018386344, "created_at": "2026-09-15T20:14:13Z", "event": "workflow_dispatch", "conclusion": "success"},
+      {"run_id": 35012740718, "created_at": "2026-09-15T19:17:31Z", "event": "workflow_dispatch", "conclusion": "success"},
+      {"run_id": 34880067441, "created_at": "2026-09-14T18:19:10Z", "event": "schedule", "conclusion": "failure"}
+    ],
+    "limitations": "Run-list conclusions are not substitutes for quality artifacts. The later September 15 readout recovery is retained separately in the repository. No workflow was dispatched for this review."
+  }
+}

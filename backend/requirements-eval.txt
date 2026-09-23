@@ -1,9 +1,9 @@
 # Optional API-credit judge backend (`--judge claude-opus-4-8`, e.g. a local agreement check) only; the
 # weekly readout judges through the subscription CLI and CI no longer installs this file.
 # Install alongside requirements.txt, never in the runtime image.
-# https://pypi.org/project/anthropic/1.5.0/
-anthropic==1.5.0
-# Additional judge-only dependencies; coexist with runtime httpx/OpenAI pins.
+# https://pypi.org/project/anthropic/
+anthropic==1.6.0
+# Judge-only parser.
 docstring-parser==0.18.0
-httpx2==2.12.0
-httpcore2==2.12.0
+# Shared transport versions are constrained by the runtime lock.
+-c requirements.txt

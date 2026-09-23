@@ -1,0 +1,14 @@
+{
+  "fable-resume-corrected-2026-09-20/immutable-sha256.json": 818,
+  "fable-reconciliation-2026-09-22/supplement-sha256.json": 4,
+  "fable-reconciliation-2026-09-22/payload-inventory.json": 10,
+  "fable-e8-continuation-2026-09-22/code-sha256.json": 5,
+  "e3-deliverable/records/sha256-inventory-e3.json": 712,
+  "python": "3.14.7",
+  "platform": "macOS-26.7-arm64-arm-64bit-Mach-O",
+  "derived_changed_lines": 6,
+  "byte_identical_files": 4,
+  "allow_rules": 7,
+  "historical_e3_record": "byte-identical",
+  "source_guard_and_fixture": "pristine; no setup or E8 work"
+}

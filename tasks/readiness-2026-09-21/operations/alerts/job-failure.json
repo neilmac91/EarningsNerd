@@ -1,0 +1,21 @@
+{
+  "displayName": "EarningsNerd: Cloud Run job execution failed",
+  "documentation": {
+    "content": "Inspect the failed Cloud Run execution and earningsnerd_job_runs outcome. A completed execution failure is distinct from application-level dry-run or zero-work success. See docs/OPERATIONS.md.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": ["__CHANNEL__"],
+  "conditions": [{
+    "displayName": "At least one failed job execution",
+    "conditionThreshold": {
+      "filter": "resource.type = \"cloud_run_job\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.label.result = \"failed\"",
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 0,
+      "duration": "0s",
+      "aggregations": [{"alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_SUM"}],
+      "trigger": {"count": 1}
+    }
+  }]
+}

@@ -1,0 +1,102 @@
+{
+  "ko-corrected": {
+    "planned": 70,
+    "complete": 70,
+    "missing": 0,
+    "negative": 41,
+    "gate_attempt_counts": {
+      "G2": 0,
+      "G3": 15,
+      "G4": 21,
+      "G5": 24
+    },
+    "unclassified_gate_reason_occurrences": 0,
+    "unclassified_gate_affected_judgments": 0,
+    "unclassified_gate_reasons": {},
+    "dimension_means": {
+      "faithfulness": 3.6857142857142855,
+      "insight": 3.2142857142857144,
+      "clarity": 3.557142857142857,
+      "specificity": 4.142857142857143
+    },
+    "max_input_lengths": {
+      "summary_chars": 36970,
+      "excerpt_chars": 260154,
+      "xbrl_chars": 22500
+    },
+    "input_channels": {
+      "excerpt": 70,
+      "xbrl": 64,
+      "statement": 4
+    },
+    "all_input_complete": true
+  },
+  "e3-candidate1": {
+    "planned": 70,
+    "complete": 70,
+    "missing": 0,
+    "negative": 44,
+    "gate_attempt_counts": {
+      "G2": 1,
+      "G3": 15,
+      "G4": 24,
+      "G5": 23
+    },
+    "unclassified_gate_reason_occurrences": 1,
+    "unclassified_gate_affected_judgments": 1,
+    "unclassified_gate_reasons": {
+      "Internal inconsistency: total net sales change stated as \"+6.5%\" in the results table but \"up 6.4% YoY\" in financial highlights (source/XBRL: 6.4%).": 1
+    },
+    "dimension_means": {
+      "faithfulness": 3.642857142857143,
+      "insight": 3.142857142857143,
+      "clarity": 3.4285714285714284,
+      "specificity": 4.085714285714285
+    },
+    "max_input_lengths": {
+      "summary_chars": 35645,
+      "excerpt_chars": 260154,
+      "xbrl_chars": 22500
+    },
+    "input_channels": {
+      "excerpt": 70,
+      "xbrl": 64,
+      "statement": 4
+    },
+    "all_input_complete": true,
+    "new_harness_invocations": 53
+  },
+  "e3-candidate2": {
+    "planned": 70,
+    "complete": 70,
+    "missing": 0,
+    "negative": 39,
+    "gate_attempt_counts": {
+      "G2": 0,
+      "G3": 11,
+      "G4": 23,
+      "G5": 27
+    },
+    "unclassified_gate_reason_occurrences": 0,
+    "unclassified_gate_affected_judgments": 0,
+    "unclassified_gate_reasons": {},
+    "dimension_means": {
+      "faithfulness": 3.5714285714285716,
+      "insight": 3.1285714285714286,
+      "clarity": 3.5285714285714285,
+      "specificity": 4.128571428571429
+    },
+    "max_input_lengths": {
+      "summary_chars": 34006,
+      "excerpt_chars": 260154,
+      "xbrl_chars": 22500
+    },
+    "input_channels": {
+      "excerpt": 70,
+      "xbrl": 64,
+      "statement": 4
+    },
+    "all_input_complete": true,
+    "new_harness_invocations": 70
+  }
+}

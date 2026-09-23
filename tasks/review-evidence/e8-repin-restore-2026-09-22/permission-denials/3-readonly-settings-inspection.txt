@@ -1,0 +1,8 @@
+observed_at_utc: 2026-09-22T21:32Z (approx; before 21:32:41Z)
+step: evidence gathering after the step-1 stop (not an E8 step)
+denied_command: compound read-only inspection: ls -la .claude/ ; ls -la ~/.claude/settings.json ~/.claude/settings.local.json .claude/settings.local.json ; cat ~/.claude/settings.json ; ls of four PR-template paths ; env | grep -i -E 'permission|auto_mode|claude_code' (token values masked)
+cwd: /home/user/EarningsNerd
+denial_source: Claude Code auto mode classifier
+denial_reason: [Auto-Mode Bypass]
+note: read-only; not retried. Recorded because it shows the classifier decides on commands the project
+      allow rules do not cover, including commands that only read permission configuration.
