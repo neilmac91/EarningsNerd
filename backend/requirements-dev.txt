@@ -2,7 +2,7 @@
 # in CLAUDE.md install from THIS file so both run the same tool versions. Pinned on purpose: an
 # unpinned `pip install ruff` let a ruff default-rule-set change turn a clean tree red overnight
 # (see lessons/ops-pin-ci-toolchain.md). Runtime deps stay in requirements.txt.
-ruff==0.16.7
+ruff==0.16.8
 bandit==1.9.4
 # Dependency-vulnerability audit for requirements.txt (ci.yml "Dependency audit" step; advisory
 # until the file audits clean, then blocking).
