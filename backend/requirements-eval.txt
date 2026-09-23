@@ -5,6 +5,5 @@
 anthropic==1.6.0
 # Judge-only parser.
 docstring-parser==0.18.0
-# Shared OpenAI-compatible transport pins; keep these exactly aligned with requirements.txt.
-httpx2==2.13.0
-httpcore2==2.13.0
+# Shared transport versions are constrained by the runtime lock.
+-c requirements.txt
