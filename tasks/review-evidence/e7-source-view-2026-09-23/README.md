@@ -39,3 +39,7 @@ The [actual H29 source pilot](source-pilot.md) is now recorded: one individually
 ## Hosted-review correction
 
 The [important-style fix](important-style-fix/README.md) at `a0fea57b` corrects missing hidden annotations for inline `!important`. Current full local validation: **3655 passed, 40 warnings in 166.33s (0:02:46)**, zero failures/errors/skips, with all four PostgreSQL lanes, performance tests, Ruff, Bandit and dependency checks. The existing gate failed with the old matcher and passed after exact restoration. Independent review found no actionable issue. All six H29 views and their 24 generated artifacts remain byte-identical; prior source-review custody is unchanged. The earlier sandbox database-access failure is retained separately. Automated review of the published fix remains required.
+
+## Current markup-boundary checkpoint
+
+The [markup-boundary correction](markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes and corrects the exporter guide. Full final validation: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips, all PostgreSQL/performance lanes, lint/security/dependency checks. One committed-state guard mutation failed and exact restoration passed; independent review found no remaining issue after also removing an introduced repeated ancestry scan. All six H29 views/24 files remain byte-identical. This supersedes the code checkpoint above without altering historical pilot evidence.

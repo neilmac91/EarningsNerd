@@ -1,0 +1,15 @@
+# Source markup boundary correction — 23 September 2026
+
+Exact-head review of `135182ac` found two issues: [the guide named an unpublished review.txt](https://github.com/neilmac91/EarningsNerd/pull/940#discussion_r4079920147), and [omitted optional closes could propagate hidden ancestry into later text](https://github.com/neilmac91/EarningsNerd/pull/940#discussion_r4079920153). The guide now describes the four actual files. The parser rejects unsupported implicit boundaries rather than approximate browser repair. The new guard covers paragraph/list/definition/ruby/option/table transitions, crossed closes, EOF-open content elements and non-void self-close. Explicit nested lists/tables and the retained index's trailing html/body wrappers stay supported. Source bytes remain authoritative.
+
+The guard landed at `e50afcbd`; a subsequent independent performance review found a repeated ancestry scan. Commit `30dfce4c745d9e0b91d531fd10b7fe1ca003105b` replaces it with a synchronized paragraph count. Deep-block measurements returned to near-linear behavior. This is an offline review aid, not a full HTML/CSS renderer or an acceptance path. Non-void foreign/XML self-closing input is conservatively rejected; broad capacity remains unproven.
+
+**3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips; all four PostgreSQL lanes and both performance cases, Ruff, Bandit and dependency checks passed. [Full gate](full-gate-receipt.json). The known interpreter-shutdown logging warning follows successful pytest completion.
+
+Exactly one committed-state mutation disabled only the new rejection helper at `e50afcbd`: **1 failed, 2 warnings in 1.00s**, because an expected exception was absent. Exact restoration: **1 passed, 2 warnings in 0.73s**. [Proof](mutation-proof.json). The later counter optimization leaves the helper and test unchanged; the proof was not repeated. No spend, readiness or brief guard changed.
+
+[Independent review](independent-review.md) found no remaining actionable issue after correctness, scope, counter and performance refutations. [Documentation finding disposition](docs-review-disposition.md) records two independent checks of the exporter and retained manifests.
+
+All six H29 views and all 24 generated files regenerate byte-for-byte identically under the final code. [Equivalence receipt](pilot-equivalence.json). Original manifests, source briefs and receipts remain unchanged. A remains individually frozen; B is ineligible after compaction. No complete pair, reconciliation, generation or Fable judgment is claimed.
+
+Provider balance before this bounded PR regression was USD 67.98 ([read-only receipt](balance-before-push.json)). Earlier CI/Copilot/review-gate completed successfully for `135182ac`, but that review's findings required this correction; green regression never dismissed them. Fresh review/checks are required for the published correction. The two previously denied guard-removal proofs remain unresolved, without retries or waivers.

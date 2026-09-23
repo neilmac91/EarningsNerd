@@ -1,5 +1,7 @@
 ## September 23 — bounded source-review implementation
 
+The subsequent [markup-boundary correction](review-evidence/e7-source-view-2026-09-23/markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes, fixes the exporter guide and removes an introduced repeated ancestry scan. Final full gate: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips. One guard fault/restoration proof and independent review pass; all 24 H29 artifacts remain unchanged.
+
 Hosted review found a missing inline `!important` hidden-text annotation; corrected at `a0fea57b`. Full revalidation passed **3655 passed, 40 warnings in 166.33s (0:02:46)** with zero failures/errors/skips. Exact old-matcher mutation failed and restoration passed; independent review found no actionable issue, and all six H29 views remain byte-identical. [Correction evidence](review-evidence/e7-source-view-2026-09-23/important-style-fix/README.md).
 
 Integrated verified main `ebdc4c44` into #940 and added an offline source reader that preserves text, table relationships, attributes, image/exclusion inventories and exact raw byte locators. Six H29 views passed independent text/count checks and byte-identical regeneration. Full local validation passed 3,655 tests with all PostgreSQL and performance lanes; the new dropped-text mutation failed and exact restoration passed. [Implementation evidence](review-evidence/e7-source-view-2026-09-23/README.md).
