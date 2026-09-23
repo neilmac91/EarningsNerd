@@ -1,0 +1,68 @@
+{
+  "corpus": {
+    "expected_cases": 4096,
+    "observed_cases": 4096,
+    "product_length": 3,
+    "provenance": "new explicit finite probe; earlier exploratory token corpus was not retained",
+    "tokens": [
+      "text",
+      "é",
+      "\n",
+      "\r\n",
+      "<p>",
+      "</p>",
+      "<br/>",
+      "&amp;",
+      "&#x20AC;",
+      "<!--x-->",
+      "<!doctype html>",
+      "<?pi?>",
+      "<script>",
+      "</script>",
+      "</>",
+      "<"
+    ]
+  },
+  "implementation": {
+    "expected_module_sha256": "ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7",
+    "module_path": "backend/evals/acceptance_source_capacity.py",
+    "module_sha256": "ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7",
+    "python": "3.11.16"
+  },
+  "kind": "e7_capacity_finite_callback_position_probe",
+  "limits": [
+    "Finite synthetic corpus only; this is not fuzzing or a grammar proof.",
+    "No actual filing source was parsed and no structural projection capacity was measured.",
+    "The probe checks callback-position mapping for accepted cases, not semantic coverage or admission."
+  ],
+  "results": {
+    "accepted_callbacks_checked": 9494,
+    "accepted_cases": 3399,
+    "accepted_position_mismatch_count": 0,
+    "accepted_position_mismatches": [],
+    "case_transcript_sha256": "b8ece6ec396c0cbd6e46c2b1b29ecaa1d6fba1bef499f2d6cdade3428adc91aa",
+    "rejected_cases": 697,
+    "rejection_messages": {
+      "character_reference cannot be mapped unambiguously to source bytes": 31,
+      "data cannot be mapped unambiguously to source bytes": 124,
+      "entity_reference cannot be mapped unambiguously to source bytes": 31,
+      "parser callback position does not match consumed source": 185,
+      "parser events do not cover the complete source": 233,
+      "start_tag cannot be mapped unambiguously to source bytes": 93
+    }
+  },
+  "schema_version": 1,
+  "skipped_prefix_reproduction": {
+    "capacity": {
+      "message": "parser callback position does not match consumed source",
+      "type": "ValueError"
+    },
+    "source_sha256": "d938976e539f3b5868b6f350f2d6f1c897c65b48b6ea14909783bc3da156be89",
+    "source_utf8": "</><!--x-->",
+    "source_view": {
+      "message": "parser events do not partition the source bytes",
+      "type": "ValueError"
+    }
+  },
+  "status": "passed"
+}

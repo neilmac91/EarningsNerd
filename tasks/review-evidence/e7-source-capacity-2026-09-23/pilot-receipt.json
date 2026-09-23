@@ -1,0 +1,76 @@
+{
+  "source_head": "abf4ca640d48b35be5099b2b6883c3298cf2d3b3",
+  "implementation_sha256": "ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7",
+  "capacity_input_sha256": "e8cf526b8150a92d707f156ebf883fef46d9fa087b75bf02bcc056ddc31f4102",
+  "python": "3.11.16",
+  "results": [
+    {
+      "holdout_id": "H01",
+      "accession_number": "0000018230-26-000008",
+      "source_bytes": 6100579,
+      "source_sha256": "3c749d4d1d3a8ed558180c8f186861796c2da1f76a6daac5c7e23c94223d2047",
+      "event_count": 137099,
+      "max_raw_event": {
+        "bytes": 1499,
+        "end": 754470,
+        "index": 27042,
+        "kind": "data",
+        "sha256": "86f7ab7369b62b75c3a7a5ac35389869670fb88d728fa730eeb5913b9eae456d",
+        "start": 752971
+      },
+      "wall_seconds": 0.605,
+      "max_rss_bytes": 47398912,
+      "audit_file": "H01-audit.json",
+      "audit_sha256": "144e30313587aa11b0ef63566105f5eb3a50b09308f8345ff3a96c6a32bb2fd8",
+      "exit_code": 0
+    },
+    {
+      "holdout_id": "H02",
+      "accession_number": "0001326160-26-000014",
+      "source_bytes": 16080286,
+      "source_sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9",
+      "event_count": 355227,
+      "max_raw_event": {
+        "bytes": 2186,
+        "end": 2170246,
+        "index": 76228,
+        "kind": "data",
+        "sha256": "bbbdec197f9b5ced94d232337ca584f5490f48609b3481d0097e300c96725e83",
+        "start": 2168060
+      },
+      "wall_seconds": 1.165,
+      "max_rss_bytes": 68173824,
+      "audit_file": "H02-audit.json",
+      "audit_sha256": "231360d773936e714068a140d3fd89a5600b4f34bed5474f0e5a1fcc76741614",
+      "exit_code": 0
+    },
+    {
+      "holdout_id": "H25",
+      "accession_number": "0001089113-26-000010",
+      "source_bytes": 57158558,
+      "source_sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+      "event_count": 1278811,
+      "max_raw_event": {
+        "bytes": 941,
+        "end": 1185,
+        "index": 9,
+        "kind": "start_tag",
+        "sha256": "55fd96193491936821b0b05a079f8bdff9b3a8899b2370bbe3368c5160955c67",
+        "start": 244
+      },
+      "wall_seconds": 3.49,
+      "max_rss_bytes": 148439040,
+      "audit_file": "H25-audit.json",
+      "audit_sha256": "875f671d356efa026919ba75758a1bc9931816a090e36140fa950dc6a59ee72e",
+      "exit_code": 0
+    }
+  ],
+  "full_projection_built": false,
+  "semantic_review_performed": false,
+  "admission_approved": false,
+  "provider_or_fable_call": false,
+  "limitations": [
+    "Measured RSS is for the capacity preflight only, not source projection or model context."
+  ],
+  "audit_bytes_identical_to_provisional_b73492dd": true
+}
