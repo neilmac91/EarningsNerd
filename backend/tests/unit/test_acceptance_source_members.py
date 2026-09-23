@@ -121,6 +121,8 @@ def test_member_ledger_dispositions_every_member_and_proves_only_hash_linkages(t
                                              "declared_non_content_packaging": 1, "unresolved": 1}
     assert summary["encoded_member_count"] == 1
     assert summary["unresolved_member_ids"] == [ledger["members"][5]["member_id"]]
+    assert summary["unproven_packaging_member_ids"] == [ledger["members"][4]["member_id"]]
+    assert (document_map, manifest) == pristine[::2], "validation must not mutate its inputs"
     assert summary["member_count"] == 6 and all(summary[flag] is False for flag in FLAGS)
 
     def rejected(candidate: Any, message: str, *, submission: bytes = SUBMISSION, mapped: Any = None,
@@ -159,6 +161,13 @@ def test_member_ledger_dispositions_every_member_and_proves_only_hash_linkages(t
         (("modality_completeness_attested",), 0, "cannot attest"),
         (("limitations",), ledger["limitations"][:-1], "limitations differ"),
         (("coverage_status",), "complete", "source member ledger must be an object"),
+        (("kind",), "e7_offline_source_member_ledger_v2", "unsupported source member ledger"),
+        (("schema_version",), True, "unsupported source member ledger"),
+        (("members", 1, "disposition", "representation"), "bytes", "invalid member representation"),
+        (("members", 0, "disposition", "packet_role"), "Primary", "invalid packet_role"),
+        (("members", 4, "disposition", "basis"), "", "invalid packaging basis"),
+        (("members", 5, "disposition", "reason"), "Not Reviewed", "invalid unresolved reason"),
+        (("members", 0, "ordinal"), True, "ordinal does not match"),
     ):
         rejected(tampered(path, value), message)
     two_claims = tampered(("members", 3, "disposition"), dict(ledger["members"][1]["disposition"]))
@@ -171,17 +180,53 @@ def test_member_ledger_dispositions_every_member_and_proves_only_hash_linkages(t
              "does not match the submission bytes")
     rejected(ledger, "different accession", accession="0000000000-26-000002")
     rejected(ledger, "not the named unit-manifest packet", manifests=[])
+    other_accession = {**manifest, "accession_number": "0000000000-26-000002"}
+    rejected(ledger, "same accession", manifests=[other_accession])
+    for bad_packets in ([{"role": ["primary"], "sha256": _sha(PRIMARY)}],
+                        [manifest["declared_packets"][0], manifest["declared_packets"][0]]):
+        rejected(ledger, "unique string roles", manifests=[{**manifest, "declared_packets": bad_packets}])
+    documents = document_map["documents"]
+    for mapped, message in (
+        ({**document_map, "documents": [documents[0], documents[2], *documents[3:]]}, "contiguous ordinals"),
+        ({**document_map, "documents": [documents[0], {**documents[1], "filename": "d1.htm"}, *documents[2:]]},
+         "filenames must be unique"),
+        ({**document_map, "documents": [{**documents[0], "type": "6-K "}, *documents[1:]]},
+         "invalid declared member type"),
+        ({**document_map, "documents": [{**documents[0], "content": {**documents[0]["content"],
+                                                                     "end": len(SUBMISSION) + 1}},
+                                        *documents[1:]]}, "invalid content span"),
+    ):
+        rejected(ledger, message, mapped=mapped)
     changed = SUBMISSION.replace(b"1,318", b"1,319")
     rejected(ledger, "does not describe the supplied submission bytes", submission=changed)
     rejected(ledger, "bytes do not match the document map", submission=changed,
              mapped={**document_map, "source_sha256": _sha(changed)})
 
-    # Encoded members decode strictly or not at all; nothing is repaired.
-    broken = SUBMISSION.replace(b"`\nend", b"`\n")
-    with pytest.raises(ValueError, match="no end line"):
-        build_member_ledger(accession_number=ACCESSION, submission=broken,
-                            document_map=_document_map(tmp_path, broken), dispositions=dispositions,
-                            unit_manifests=[manifest])
+    # Encoded members decode exactly or are recorded as invalid; a padded or truncated line never
+    # yields made-up bytes, so an invalid member cannot be assigned through a decoded hash.
+    encoded = _uuencode(IMAGE, "g1.png")
+    first_line = encoded.split(b"\n")[1]
+    for variant in (encoded.replace(first_line, first_line[:10]),          # truncated data line
+                    encoded.replace(first_line, b"~" + first_line[1:]),    # illegal length character
+                    encoded.replace(first_line, first_line + b"AAAA"),     # over-long line
+                    encoded.replace(b"`\nend", b"`\nend\nX"),            # bytes after the end line
+                    encoded.replace(b"`\nend", b"end")):                   # no terminating line
+        broken = SUBMISSION.replace(encoded, variant)
+        with pytest.raises(ValueError, match="not the named unit-manifest packet"):
+            build_member_ledger(accession_number=ACCESSION, submission=broken,
+                                document_map=_document_map(tmp_path, broken), dispositions=dispositions,
+                                unit_manifests=[manifest])
+        recorded = build_member_ledger(
+            accession_number=ACCESSION, submission=broken, document_map=_document_map(tmp_path, broken),
+            dispositions=[*dispositions[:2], {"kind": "unresolved", "reason": "invalid_encoding"},
+                          *dispositions[3:]], unit_manifests=[manifest])
+        assert (recorded["members"][2]["encoding"], recorded["members"][2]["decoded"]) == ("invalid_uuencode", None)
+    # EDGAR wraps uuencoded PDFs in <PDF>...</PDF>; the wrapper is recognised, not mistaken for text.
+    wrapped = SUBMISSION.replace(encoded, b"<PDF>\n" + encoded + b"\n</PDF>")
+    wrapped_ledger = build_member_ledger(accession_number=ACCESSION, submission=wrapped,
+                                         document_map=_document_map(tmp_path, wrapped),
+                                         dispositions=dispositions, unit_manifests=[manifest])
+    assert wrapped_ledger["members"][2]["decoded"] == {"sha256": _sha(IMAGE), "byte_length": len(IMAGE)}
     with pytest.raises(ValueError, match="exactly one disposition per mapped member"):
         build_member_ledger(accession_number=ACCESSION, submission=SUBMISSION, document_map=document_map,
                             dispositions=dispositions[:-1], unit_manifests=[manifest])

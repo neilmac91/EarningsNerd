@@ -26,7 +26,7 @@ REPRESENTATIONS = ("payload", "trimmed_payload", "content", "decoded")
 LIMITATIONS = (
     "Member enumeration follows the existing document map's SGML parse; only the mapped byte spans are re-verified here.",
     "A member assigned to review units names a unit-manifest packet with its exact bytes; review of that packet is not attested.",
-    "Declared non-content packaging and every label are unverified declarations; only exact duplicates are hash-proven.",
+    "Declared non-content packaging and every label are unverified declarations and hold completion; only exact duplicates are hash-proven.",
     "Tables, inline-XBRL facts (including hidden facts) and images inside members are not inventoried or dispositioned.",
     "No source review, E7 coverage_status or E7 admission is attested; unresolved members hold completion.",
 )
@@ -67,10 +67,15 @@ def _canonical(value: Any) -> bytes:
 
 
 def _same(value: Any, expected: Any) -> bool:
-    try:
-        return _canonical(value) == _canonical(expected)
-    except (TypeError, ValueError, RecursionError):
+    """Exact structural equality with exact type identity at every level (no subclasses)."""
+    if type(value) is not type(expected):
         return False
+    if type(expected) is dict:
+        return (all(type(key) is str for key in value) and set(value) == set(expected)
+                and all(_same(value[key], expected[key]) for key in expected))
+    if type(expected) is list:
+        return len(value) == len(expected) and all(_same(a, b) for a, b in zip(value, expected))
+    return value == expected
 
 
 def _sha(data: bytes | memoryview) -> str:
@@ -108,31 +113,48 @@ def _span(raw: memoryview, start: Any, end: Any, name: str) -> dict[str, Any]:
     return {"start": start, "end": end, "sha256": _sha(raw[start:end])}
 
 
-def _uudecode(content: bytes) -> bytes | None:
-    """Strictly decode one uuencoded member; return None when the content is not uuencoded."""
-    if not content.startswith(b"begin "):
-        return None
-    lines = content.replace(b"\r\n", b"\n").split(b"\n")
-    if _UU_HEADER.fullmatch(lines[0]) is None:
-        raise ValueError("unsupported uuencode header")
+class _InvalidEncoding(ValueError):
+    """A member that declares uuencoding but is not strictly decodable."""
+
+
+def _uu_line(line: bytes) -> bytes:
+    """Decode one data line only if its length character and exact encoded width agree."""
+    count = line[0] - 0x20 if line else 0
+    if not 1 <= count <= 45 or len(line) != 1 + 4 * ((count + 2) // 3):
+        raise _InvalidEncoding("uuencoded line length does not match its declared byte count")
+    if any(not 0x20 <= char <= 0x60 for char in line):
+        raise _InvalidEncoding("uuencoded line has characters outside the uuencode alphabet")
     try:
-        end = lines.index(b"end")
-    except ValueError as exc:
-        raise ValueError("uuencoded member has no end line") from exc
-    if any(line for line in lines[end + 1:]):
-        raise ValueError("bytes follow the uuencode end line")
-    body = lines[1:end]
-    if not body or body[-1] not in (b"`", b" "):
-        raise ValueError("uuencoded member has no terminating zero-length line")
-    decoded = bytearray()
-    for line in body[:-1]:
-        if not line or line[0] in (0x60, 0x20):
-            raise ValueError("uuencoded member has an early terminating line")
-        try:
-            decoded.extend(binascii.a2b_uu(line))
-        except binascii.Error as exc:
-            raise ValueError("invalid uuencoded line") from exc
-    return bytes(decoded)
+        decoded = binascii.a2b_uu(line)
+    except binascii.Error as exc:
+        raise _InvalidEncoding("invalid uuencoded line") from exc
+    if len(decoded) != count:
+        raise _InvalidEncoding("uuencoded line decoded to the wrong byte count")
+    return decoded
+
+
+def _uudecode(content: bytes) -> tuple[str, bytes | None]:
+    """Classify and strictly decode one member; never pad, trim or repair encoded bytes.
+
+    Returns ``("none", None)`` for content that does not start a uuencode block (after an optional
+    EDGAR ``<PDF>`` wrapper), ``("uuencode", bytes)`` for an exact decode, and
+    ``("invalid_uuencode", None)`` for anything that starts a block but does not decode exactly.
+    """
+    body = content
+    if body.startswith(b"<PDF>") and body.endswith(b"</PDF>"):
+        body = body[len(b"<PDF>"):-len(b"</PDF>")].strip(b" \t\r\n")
+    if not body.startswith(b"begin "):
+        return "none", None
+    try:
+        lines = body.replace(b"\r\n", b"\n").split(b"\n")
+        if _UU_HEADER.fullmatch(lines[0]) is None or lines.count(b"end") != 1 or lines[-1] != b"end":
+            raise _InvalidEncoding("uuencode header or end line is not exact")
+        data = lines[1:-1]
+        if not data or data[-1] not in (b"`", b" "):
+            raise _InvalidEncoding("uuencoded member has no terminating zero-length line")
+        return "uuencode", b"".join(_uu_line(line) for line in data[:-1])
+    except _InvalidEncoding:
+        return "invalid_uuencode", None
 
 
 def _member_record(accession: str, submission_sha256: str, raw: memoryview, document: Any) -> dict[str, Any]:
@@ -152,7 +174,7 @@ def _member_record(accession: str, submission_sha256: str, raw: memoryview, docu
         if mapped.get("sha256") != spans[name]["sha256"]:
             raise ValueError(f"member {ordinal} {name} bytes do not match the document map")
     content = raw[spans["content"]["start"]:spans["content"]["end"]].tobytes()
-    decoded_bytes = _uudecode(content)
+    encoding, decoded_bytes = _uudecode(content)
     decoded = None if decoded_bytes is None else {"sha256": _sha(decoded_bytes), "byte_length": len(decoded_bytes)}
     identity = {
         "accession_number": accession,
@@ -170,7 +192,7 @@ def _member_record(accession: str, submission_sha256: str, raw: memoryview, docu
         "declared_filename": declared_filename,
         "declared_sequence": declared_sequence,
         **spans,
-        "encoding": "none" if decoded is None else "uuencode",
+        "encoding": encoding,
         "decoded": decoded,
     }
 
@@ -216,9 +238,13 @@ def _check_dispositions(
             manifest_sha256 = _sha(_canonical(manifest))
         except (TypeError, ValueError, RecursionError) as exc:
             raise ValueError("unit manifest is not canonical JSON data") from exc
-        manifest_packets[manifest_sha256] = {
-            packet.get("role"): packet.get("sha256") for packet in packets if type(packet) is dict
-        }
+        roles: dict[str, str] = {}
+        for packet in packets:
+            if (type(packet) is not dict or type(packet.get("role")) is not str
+                    or type(packet.get("sha256")) is not str or packet["role"] in roles):
+                raise ValueError("unit manifest packets must have unique string roles and sha256 values")
+            roles[packet["role"]] = packet["sha256"]
+        manifest_packets[manifest_sha256] = roles
     by_ordinal = {member["ordinal"]: (member, disposition) for member, disposition in zip(members, dispositions)}
     claimed_packets: set[tuple[str, str]] = set()
     for member, disposition in zip(members, dispositions):
@@ -227,7 +253,7 @@ def _check_dispositions(
             _token(disposition["unit_manifest_sha256"], _SHA256, "unit_manifest_sha256")
             role = _token(disposition["packet_role"], _LABEL, "packet_role")
             representation = disposition["representation"]
-            if representation not in REPRESENTATIONS:
+            if type(representation) is not str or representation not in REPRESENTATIONS:
                 raise ValueError("invalid member representation")
             expected = _representation_sha(member, representation)
             packets = manifest_packets.get(disposition["unit_manifest_sha256"])
@@ -254,7 +280,7 @@ def _check_dispositions(
 
 
 def _disposition(value: Any) -> dict[str, Any]:
-    if type(value) is not dict or value.get("kind") not in DISPOSITIONS:
+    if type(value) is not dict or type(value.get("kind")) is not str or value["kind"] not in DISPOSITIONS:
         raise ValueError(f"member disposition kind must be one of: {', '.join(DISPOSITIONS)}")
     return _object(value, _DISPOSITION_KEYS[value["kind"]], f"{value['kind']} disposition")
 
@@ -316,6 +342,9 @@ def validate_member_ledger(
         "encoded_member_count": sum(1 for member in members if member["encoding"] != "none"),
         "unresolved_member_ids": [entry["member_id"] for entry, disposition in zip(recorded, dispositions)
                                   if disposition["kind"] == "unresolved"],
+        # Unproven packaging declarations hold completion just like unresolved members.
+        "unproven_packaging_member_ids": [entry["member_id"] for entry, disposition in zip(recorded, dispositions)
+                                          if disposition["kind"] == "declared_non_content_packaging"],
         "every_member_dispositioned": True,
         **{flag: False for flag in ATTESTATION_FLAGS},
         "limitations": list(LIMITATIONS),
