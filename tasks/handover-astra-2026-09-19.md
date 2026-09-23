@@ -14,6 +14,15 @@ sole-guard recovery ruling and next steps live in
 file defers to for E8. E8 remains 140 reused E2 controls / 0 new / 160 missing; no model call,
 guard initialization or attestation has occurred. Everything else in this file stands.
 
+**Addendum, 2026-09-23 (E8 launch route).** A second 22 September session stopped at restore on
+an auto-mode classifier denial (#946). The founder then chose a fresh non-Auto session (22 Sep
+22:36 UTC, `tasks/todo.md`). The next attempt follows the launch kit
+[`fable-e8-launch-kit.md`](fable-e8-launch-kit.md) (revision 3): a fresh Claude Code web session
+in **Accept edits** mode, started from `main`, with step 0 first. Its message 3 governs over the
+re-pin README's shell-variable commands. The 23 September
+[readiness review](review-evidence/e8-launch-readiness-2026-09-23/README.md) records why Accept
+edits (Plan still routes shell commands to the classifier) and what changed in the unsealed tools.
+
 ## 1. Where things stand
 
 **Product and production.** The Cloud Run service `earningsnerd-backend` serves revision

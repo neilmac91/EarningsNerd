@@ -15,19 +15,36 @@ Exported, with relative paths and a SHA-256 inventory:
   receipts/**                                                (attestations, readbacks, restore
                                                               receipts written by the operator)
 
+Evidence is never withheld. Every stop is exported, including a partial guard setup, a missing
+receipt or a STOP: README.md says to export after every stop. Whether the export can serve as a
+sole-guard recovery checkpoint is a separate verdict, written to ``export-summary.json`` as
+``recovery_eligible`` with every blocker named. The verdict applies the checks the sealed
+``guard_setup.validate_guard`` makes before every slot (no latch, no owner, enabled, reconciled,
+counter within 287..600), e8_resume's quota and owner-loss markers, README condition 6's terminal
+states (STOP, pending, failed) and the receipts. Only a missing bundle or ``stages/e8/index.json``,
+an existing output directory or a ``--receipts`` path that is not a directory refuses outright.
+
+README.md condition 1 requires the copied files to be verified against the inventory and the
+unchanged source before the checkpoint is committed. This tool does that itself: each file is
+hashed before copying, the copy is re-read and hashed, and the source is hashed again; after
+all copies the source trees are listed again and compared with what was copied. Any
+disagreement is recorded (``destination_verified``, ``source_unchanged``), the directory is
+kept as evidence and the exit status is 1. ``inventory_sha256`` in the summary identifies the
+inventory for the handoff receipt. Git cannot track empty directories, so every directory under
+``stages/e8``, including an empty ``.pending-*`` owner marker, is listed in the summary.
+
 Restore is governed by README.md's sole-guard recovery policy. ``attest()`` checks internal
 ledger continuity; it cannot distinguish a consistent stale checkpoint or fork. This copier
-takes no lock and hashes the source after copying: keep the source quiescent throughout export,
-verify the destination inventory, and establish latest-checkpoint provenance and source
-retirement externally. A failed-stop export is evidence, not permission to resume. This tool
-only exports.
+takes no lock: keep the source quiescent throughout export, and establish latest-checkpoint
+provenance and source retirement externally. A failed-stop export is evidence, not permission
+to resume. This tool only exports.
 
-Usage:
+Usage (the launch kit's step 7 command; the stamp placeholders are defined there):
 
   python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py \
       --bundle /home/user/fable-judging/fable-resume-corrected-2026-09-20 \
       --receipts /home/user/fable-judging/receipts \
-      --out tasks/review-evidence/e8-fable-state-<UTC stamp>
+      --out tasks/review-evidence/e8-fable-state-<post-run stamp>
 """
 from __future__ import annotations
 
@@ -40,6 +57,15 @@ from pathlib import Path
 
 GUARD_FILES = ('config.json', 'state.json', 'TEMPLATE.json', 'initialization.json',
                'template-configuration.json', 'sha256.txt')
+TEMPLATE_RECORD = 'template-configuration.json'
+INIT_RECORD = 'initialization.json'
+# The guard's lifecycle stages and the files each must carry: a pristine template has four,
+# ``guard_setup.py --configure-template`` adds its record, ``--prior-count`` adds the other.
+STAGE_FILES = {
+    'pristine': ('config.json', 'state.json', 'TEMPLATE.json', 'sha256.txt'),
+    'template-configured': ('config.json', 'state.json', 'TEMPLATE.json', 'sha256.txt', TEMPLATE_RECORD),
+    'initialized': GUARD_FILES,
+}
 # The two receipt classes README.md's recovery policy requires before a source may be retired:
 # the operator's accounting attestation (schema pinned by the add-on) and a live guard readback.
 ATTESTATION_SCHEMA = 'fable-e8-accounting-attestation-v1'
@@ -63,6 +89,10 @@ SEALED_HASHES = {
     'original_manifest_sha256': '0fe5cb9e45c1fca76d2d9d71b0a13f58958ea7242efe34ae2a9f64544402d2c3',
     'e3_supplement_manifest_sha256': '1ef772b3157106bcf9bee52675f89bdf0cf643f0457eb405b6ce28e5fe950f6f',
 }
+# stages/e8 entries that make a checkpoint terminal (tools/e8_resume.py::inspect_e8).
+STOP_FILES = ('STOP.json', 'STOP.supplement.json')
+# The guard's absolute ceiling (tools/guard_setup.py CEILING): a counter at it can admit no call.
+CEILING = 601
 
 
 def utc_timestamp(value: object) -> bool:
@@ -88,10 +118,19 @@ def valid_attestation(value: dict, guard: Path) -> bool:
             and value.get('guard_state_path') == str(guard / 'state.json'))
 
 
+def read_json(path: Path) -> dict:
+    """A JSON object from ``path``; empty when the file is absent, unreadable or not an object."""
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def guard_observation(guard: Path) -> dict:
     """The live guard values a readback must agree with (the readback.json shape the operator writes)."""
-    state = json.loads((guard / 'state.json').read_text())
-    config = json.loads((guard / 'config.json').read_text())
+    state = read_json(guard / 'state.json')
+    config = read_json(guard / 'config.json')
     return {
         'config_enabled': config.get('enabled'),
         'state_accounting_reconciled': state.get('accounting_reconciled'),
@@ -99,24 +138,37 @@ def guard_observation(guard: Path) -> dict:
         'state_stop_reason': state.get('stop_reason'),
         'state_active_owners': len(state.get('active', {}) or {}),
         'state_completed_calls': len(state.get('completed', []) or []),
-        'initialization_json_present': (guard / 'initialization.json').is_file(),
-        'template_configuration_json_present': (guard / 'template-configuration.json').is_file(),
+        'initialization_json_present': (guard / INIT_RECORD).is_file(),
+        'template_configuration_json_present': (guard / TEMPLATE_RECORD).is_file(),
     }
+
+
+def _recorded_count(value: object, live_key_absent: bool) -> object:
+    """A readback's owners/completed entry as a count: a collection by its length, and null as 0
+    only when the live state.json has no such key (pristine and freshly initialized guards have
+    no ``active`` key; the launch kit records it as ``{}``), so a real owner is never masked."""
+    if isinstance(value, (dict, list)):
+        return len(value)
+    if value is None and live_key_absent:
+        return 0
+    return value
 
 
 def valid_readback(value: dict, guard: Path, observation: dict) -> bool:
     """A readback of THIS guard in ITS CURRENT state: path, UTC observation and every live value.
 
     A pre-initialization readback (count 0, nothing initialized) therefore stops qualifying the
-    moment the guard is initialized; the operator must take a fresh readback after the run.
+    moment the guard is initialized; the post-run readback of the launch kit's step 7 is the one
+    that must match.
     """
     if not (READBACK_KEYS <= set(value) and value.get('guard_dir') == str(guard)
             and utc_timestamp(value.get('observed_at_utc'))):
         return False
-    recorded_active = value.get('state_active', value.get('state_active_owners'))
-    recorded_active = len(recorded_active) if isinstance(recorded_active, (dict, list)) else recorded_active
-    recorded_completed = value.get('state_completed', value.get('state_completed_calls'))
-    recorded_completed = len(recorded_completed) if isinstance(recorded_completed, list) else recorded_completed
+    state = read_json(guard / 'state.json')
+    recorded_active = _recorded_count(value.get('state_active', value.get('state_active_owners')),
+                                      'active' not in state)
+    recorded_completed = _recorded_count(value.get('state_completed', value.get('state_completed_calls')),
+                                         'completed' not in state)
     recorded = dict(value, state_active_owners=recorded_active, state_completed_calls=recorded_completed)
     return all(recorded.get(key) == expected for key, expected in observation.items())
 
@@ -126,11 +178,8 @@ def receipt_classes(receipts: Path, guard: Path) -> dict:
     found = {'attestation': False, 'readback': False}
     observation = guard_observation(guard)
     for path in sorted(receipts.rglob('*.json')):
-        try:
-            value = json.loads(path.read_text())
-        except (OSError, ValueError):
-            continue
-        if not isinstance(value, dict):
+        value = read_json(path)
+        if not value:
             continue
         if valid_attestation(value, guard):
             found['attestation'] = True
@@ -147,18 +196,122 @@ def sha(path: Path) -> str:
     return digest.hexdigest()
 
 
-def copy_tree(src: Path, dst_root: Path, rel_root: Path, inventory: dict) -> None:
+def guard_stage(guard: Path, state: dict) -> str:
+    """Where the guard is in its one-time setup, from the records it carries."""
+    if (guard / INIT_RECORD).exists() or state.get('accounting_reconciled') is True:
+        return 'initialized'
+    if (guard / TEMPLATE_RECORD).exists():
+        return 'template-configured'
+    return 'pristine'
+
+
+def copy_verified(path: Path, target: Path, rel: Path, inventory: dict, mismatches: list) -> None:
+    """Copy one file and prove it: source hash before, copy hash, source hash after, and sizes.
+
+    A file that disappears while it is copied (a finishing slot renames its pending directory)
+    is recorded as a mismatch rather than crashing the export; the source re-listing reports it
+    as a source change as well.
+    """
+    try:
+        _copy_verified(path, target, rel, inventory, mismatches)
+    except FileNotFoundError as exc:
+        mismatches.append({'path': str(rel), 'error': f'vanished during export: {exc}'})
+
+
+def _copy_verified(path: Path, target: Path, rel: Path, inventory: dict, mismatches: list) -> None:
+    before = sha(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(path, target)
+    copied, after = sha(target), sha(path)
+    size, copied_size = path.stat().st_size, target.stat().st_size
+    inventory[str(rel)] = {'sha256': copied, 'bytes': copied_size}
+    if not before == copied == after or size != copied_size:
+        mismatches.append({'path': str(rel), 'source_before': before, 'copy': copied,
+                           'source_after': after, 'source_bytes': size, 'copy_bytes': copied_size})
+
+
+def copy_tree(src: Path, dst_root: Path, rel_root: Path, inventory: dict, mismatches: list) -> None:
     for path in sorted(src.rglob('*')):
         if not path.is_file():
             continue
         rel = rel_root / path.relative_to(src)
-        target = dst_root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
-        inventory[str(rel)] = {'sha256': sha(path), 'bytes': path.stat().st_size}
+        copy_verified(path, dst_root / rel, rel, inventory, mismatches)
 
 
-def main() -> None:
+def source_listing(guard: Path, stages: Path, receipts: Path | None) -> dict:
+    """{inventory path: sha256} for every exportable source file, to compare after copying."""
+    files = [(guard / name, Path('e8/guard') / name) for name in GUARD_FILES]
+    for src, rel_root in ((stages, Path('stages/e8')), (receipts, Path('receipts'))):
+        if src is not None:
+            files += [(path, rel_root / path.relative_to(src)) for path in sorted(src.rglob('*'))]
+    listing = {}
+    for path, rel in files:
+        try:
+            if path.is_file():
+                listing[str(rel)] = sha(path)
+        except FileNotFoundError:
+            continue  # vanished while listed: absent from this listing, so it counts as a change
+    return listing
+
+
+def terminal_markers(stages: Path) -> dict:
+    """What tools/e8_resume.py treats as terminal, listed explicitly because git drops empty directories."""
+    pending = sorted(p for p in stages.glob('.pending-*') if p.is_dir())
+    failed = stages / 'failed'
+    return {
+        'directories': sorted(str(p.relative_to(stages)) for p in stages.rglob('*') if p.is_dir()),
+        'pending_markers': [{'name': p.name, 'empty': not any(p.iterdir())} for p in pending],
+        'stop_files': [name for name in STOP_FILES if (stages / name).exists()],
+        'failed_entries': sorted(p.name for p in failed.iterdir()) if failed.is_dir() else [],
+    }
+
+
+def recovery_blockers(guard: Path, stage: str, state: dict, classes: dict | None, markers: dict) -> list[str]:
+    """Every reason this export cannot serve as a sole-guard recovery checkpoint (README.md)."""
+    if stage == 'pristine':
+        return ['guard never initialized: nothing to recover; a new session starts from the sealed template']
+    blockers = [f'guard file missing for a {stage} guard: {name}'
+                for name in STAGE_FILES['initialized'] if not (guard / name).is_file()]
+    for name in (TEMPLATE_RECORD, INIT_RECORD):
+        status = read_json(guard / name).get('status') if (guard / name).is_file() else None
+        if (guard / name).is_file() and status != 'complete':
+            blockers.append(f'{name} status is {status!r}, not complete (interrupted setup)')
+    if classes is None:
+        blockers.append('no --receipts directory: attestation and readback absent')
+    else:
+        blockers += [f'receipts lack a valid {name} bound to the live guard'
+                     for name, present in classes.items() if not present]
+    # The same idle and initialized checks the sealed guard_setup.validate_guard applies before
+    # every slot, so a verdict can never be ELIGIBLE for a guard the tools would refuse.
+    config = read_json(guard / 'config.json')
+    if not state or not config:
+        blockers.append('guard state.json or config.json is missing or not a JSON object')
+    if state.get('stop_reason') is not None:
+        blockers.append(f'guard stop latch set: {state["stop_reason"]!r}')
+    active = state.get('active', {})
+    if not isinstance(active, dict) or active:
+        blockers.append(f'guard has active or malformed owner records: {active!r}')
+    completed = state.get('completed')
+    if not isinstance(completed, list):
+        blockers.append('guard completed history is not a list')
+        completed = []
+    flagged = [entry.get('invocation') for entry in completed
+               if isinstance(entry, dict) and (entry.get('quota') or entry.get('owner_lost'))]
+    if flagged:
+        blockers.append(f'guard recorded a quota or owner-loss latch on invocations {flagged}')
+    if config.get('enabled') is not True or state.get('accounting_reconciled') is not True:
+        blockers.append('guard is not enabled and reconciled (interrupted initialization)')
+    used = state.get('real_cli_invocations')
+    if type(used) is not int or not PRIOR_COUNT <= used < CEILING:
+        blockers.append(f'guard counter {used!r} is outside {PRIOR_COUNT}..{CEILING - 1}: no call can be admitted')
+    blockers += [f'STOP present: {name}' for name in markers['stop_files']]
+    blockers += [f'pending invocation marker: {m["name"]}' for m in markers['pending_markers']]
+    if markers['failed_entries']:
+        blockers.append(f'failed invocations: {markers["failed_entries"]}')
+    return blockers
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--bundle', required=True, type=Path)
     parser.add_argument('--receipts', type=Path)
@@ -168,61 +321,68 @@ def main() -> None:
     out = args.out.resolve()
     if out.exists():
         raise SystemExit(f'REFUSE: output directory exists: {out}')
-    inventory: dict = {}
-    guard = bundle / 'e8/guard'
-    # Refuse an incomplete checkpoint rather than exporting one an operator could retire the
-    # source against. A guard that has been initialized (or even had its template configured)
-    # must export all six recovery-critical files; a pristine template has only four.
-    state_path = guard / 'state.json'
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
-    initialized = ((guard / 'initialization.json').exists() or (guard / 'template-configuration.json').exists()
-                   or state.get('accounting_reconciled') is True)
-    required = set(GUARD_FILES) if initialized else set(GUARD_FILES) - {'initialization.json', 'template-configuration.json'}
-    missing = sorted(name for name in required if not (guard / name).is_file())
-    if missing:
-        raise SystemExit(f'REFUSE: guard export would be incomplete; missing {missing} in {guard}')
-    if not (bundle / 'stages/e8/index.json').is_file():
+    guard, stages = bundle / 'e8/guard', bundle / 'stages/e8'
+    if not (stages / 'index.json').is_file():
         raise SystemExit(f'REFUSE: stages/e8 tree is missing or has no index.json under {bundle}')
-    # A supplied receipts path must exist, and an initialized checkpoint must carry the operator's
-    # attestations and readbacks: the recovery policy requires them before the source is retired.
     receipts = args.receipts.resolve() if args.receipts else None
     if receipts is not None and not receipts.is_dir():
         raise SystemExit(f'REFUSE: --receipts path is not a directory: {receipts}')
-    if initialized:
-        if receipts is None:
-            raise SystemExit('REFUSE: an initialized guard export requires --receipts')
-        missing_classes = [name for name, present in receipt_classes(receipts, guard).items() if not present]
-        if missing_classes:
-            raise SystemExit(f'REFUSE: receipts directory lacks valid recovery-critical records {missing_classes}: '
-                             f'an operator attestation (full {ATTESTATION_SCHEMA!r} shape, named operator, '
-                             f'prior_count {PRIOR_COUNT}, all three affirmatives true, guard_state_path bound to '
-                             f'{guard / "state.json"}) and a guard readback bound to {guard} with a UTC observation '
-                             f'whose recorded counter, reconciliation, latch, owners, completed calls, config and '
-                             f'initialization/template records equal the live guard (take a fresh readback after the run)')
+    stage = guard_stage(guard, read_json(guard / 'state.json'))
+    missing = [name for name in STAGE_FILES[stage] if not (guard / name).is_file()]
+
+    inventory: dict = {}
+    mismatches: list = []
+    before = source_listing(guard, stages, receipts)
     for name in GUARD_FILES:
-        path = guard / name
-        if path.exists():
+        if (guard / name).is_file():
             rel = Path('e8/guard') / name
-            (out / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, out / rel)
-            inventory[str(rel)] = {'sha256': sha(path), 'bytes': path.stat().st_size}
-    copy_tree(bundle / 'stages/e8', out, Path('stages/e8'), inventory)
+            copy_verified(guard / name, out / rel, rel, inventory, mismatches)
+    copy_tree(stages, out, Path('stages/e8'), inventory, mismatches)
     if receipts is not None:
-        copy_tree(receipts, out, Path('receipts'), inventory)
+        copy_tree(receipts, out, Path('receipts'), inventory, mismatches)
+    after = source_listing(guard, stages, receipts)
+    source_changes = sorted({*before, *after} - {k for k in before if after.get(k) == before[k]})
+
+    # Guard values come from the exported bytes, so the summary cannot drift from the copy.
+    state = read_json(out / 'e8/guard/state.json')
+    markers = terminal_markers(stages)
+    classes = receipt_classes(receipts, guard) if receipts is not None else None
+    blockers = [f'guard file missing for a {stage} guard: {name}' for name in missing]
+    blockers += [b for b in recovery_blockers(guard, stage, state, classes, markers) if b not in blockers]
+    destination_verified = not mismatches
+    source_unchanged = not source_changes
+    if not destination_verified:
+        blockers.append('copied files differ from their source (see mismatches)')
+    if not source_unchanged:
+        blockers.append('source changed during export: it was not quiescent (see source_changes)')
+    inventory_bytes = (json.dumps(inventory, indent=2, sort_keys=True) + '\n').encode()
+    (out / 'sha256-inventory.json').write_bytes(inventory_bytes)
     summary = {
         'exported_at_utc': datetime.now(timezone.utc).isoformat(),
         'bundle': str(bundle),
+        'guard_stage': stage,
         'guard_real_cli_invocations': state.get('real_cli_invocations'),
         'guard_accounting_reconciled': state.get('accounting_reconciled'),
         'guard_stop_reason': state.get('stop_reason'),
         'guard_active_owners': len(state.get('active', {}) or {}),
         'guard_completed_calls': len(state.get('completed', []) or []),
         'files': len(inventory),
+        'inventory_sha256': hashlib.sha256(inventory_bytes).hexdigest(),
+        'destination_verified': destination_verified,
+        'source_unchanged': source_unchanged,
+        'mismatches': mismatches,
+        'source_changes': source_changes,
+        'receipt_classes': classes,
+        **markers,
+        'recovery_eligible': not blockers,
+        'recovery_blockers': blockers,
     }
-    (out / 'sha256-inventory.json').write_text(json.dumps(inventory, indent=2, sort_keys=True) + '\n')
     (out / 'export-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary, indent=2))
+    print('export written: commit this directory whatever the verdict below; it is evidence')
+    print('recovery checkpoint: ' + ('ELIGIBLE' if not blockers else 'NOT ELIGIBLE: ' + '; '.join(blockers)))
+    return 0 if destination_verified and source_unchanged else 1
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

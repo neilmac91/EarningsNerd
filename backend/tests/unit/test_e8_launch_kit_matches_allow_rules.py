@@ -25,7 +25,24 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
   any form, where the operator check would not see it (the kit takes timestamps from files the
   tools wrote, not from a command, and has no other use for the word);
 - the kit's first command is not the zero-effect probe
-  ``python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help``.
+  ``python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help``, or the kit's ``sh``
+  blocks do not hold exactly the seven pinned commands in order (probe, restore, inspection, the
+  two one-time setup commands, execute, export), so a changed setup value such as the prior
+  count, which would initialize the guard irreversibly with a value ``attest()`` then refuses,
+  fails here rather than in the session;
+- the attestation template (the kit's one ``json`` block) does not have exactly the key set, the
+  prior count and the four sealed hashes that ``tools/e8_resume.py::attest`` requires (read from
+  the sealed file with ``ast``, never imported), the three affirmatives true, or the guard state
+  path of the execute command's guard;
+- the attachment hash table differs from ``restore_e8_session.py::KIT_ATTACHMENTS``, which the
+  restore enforces before it writes anything;
+- the launch paragraph does not name the permission mode (``MODE_SENTENCE``): in Plan the auto-mode
+  classifier reviews shell commands by default, and in Auto it denied the kit's commands twice
+  (the lesson's "the kit names the session's permission mode explicitly").
+
+A deny or ask rule that sets a Bash input parameter (``Bash(run_in_background:true)``, documented
+under "Match by input parameter") shadows every gated command, step 6's background execute
+included, and fails the gate.
 
 Only the three named placeholders (``<session-uploads-dir>``, ``<UTC stamp>``, ``<post-run
 stamp>``) are removed before the operator check; any other ``<…>`` span is shell syntax, and each
@@ -40,6 +57,8 @@ these behaviours against in-memory copies of the kit and rules.
 """
 from __future__ import annotations
 
+import ast
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -64,6 +83,10 @@ EXPECTED_ALLOW_RULES = (
     "Bash(/home/user/fable-judging/venv/bin/python -m unittest:*)",
 )
 PROBE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help"
+PACKAGE = REPO_ROOT / "tasks" / "fable-e8-repin-2026-09-22"
+GUARD_DIR = "/home/user/fable-judging/fable-resume-corrected-2026-09-20/e8/guard"
+# The launch paragraph names the only mode in which the route is neither the classifier nor a plan gate.
+MODE_SENTENCE = "select **Accept edits** in the permission-mode menu"
 # Fence info strings the kit may use: sh blocks are commands, the others are data. Anything else fails.
 ALLOWED_FENCES = {"sh", "text", "json"}
 # Operator-substituted values. Any other text between < and > is shell syntax.
@@ -91,6 +114,38 @@ EXPORT = (
     " --receipts /home/user/fable-judging/receipts"
     " --out tasks/review-evidence/e8-fable-state-<post-run stamp>"
 )
+
+
+def sealed_constants() -> dict:
+    """Module-level constants of the sealed tools/e8_resume.py, read with ast (it is never imported)."""
+    tree = ast.parse((PACKAGE / "tools" / "e8_resume.py").read_text())
+    constants = {
+        node.targets[0].id: node.value.value
+        for node in tree.body
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+        and isinstance(node.value, ast.Constant)
+    }
+    attest = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "attest")
+    for node in ast.walk(attest):
+        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", None) == "expected_keys":
+            constants["expected_keys"] = {element.value for element in node.value.elts}
+    return constants
+
+
+SEALED = sealed_constants()
+INSPECT = (
+    f"/home/user/fable-judging/venv/bin/python {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py"
+    " --bundle /home/user/fable-judging/fable-resume-corrected-2026-09-20"
+    f" --supplement {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22"
+    " --repo /home/user/earningsnerd-fable-frozen"
+)
+SETUP = (
+    f"/home/user/fable-judging/venv/bin/python {CONTAINER_REPO}/tasks/fable-e8-repin-2026-09-22/tools/guard_setup.py"
+    f" --guard-dir {GUARD_DIR} --real-cli /opt/claude-code/bin/claude"
+)
+CONFIGURE = SETUP + " --configure-template"
+INITIALIZE = SETUP + f" --prior-count {SEALED['MIN_PRIOR']}"
+KIT_COMMANDS = (PROBE, RESTORE, INSPECT, CONFIGURE, INITIALIZE, EXECUTE, EXPORT)
 PLACEHOLDER_COMMANDS = {
     "<session-uploads-dir>": ("the restore command", RESTORE),
     "<UTC stamp>": ("the execute command", EXECUTE),
@@ -109,13 +164,25 @@ INVOCATION = re.compile(
 )
 
 _BASH_ENTRY = re.compile(r"^Bash\((.+)\)$")
+# Bash tool input fields a `Bash(<field>:<value>)` deny or ask rule can match (permissions.md,
+# "Match by input parameter"); any other `name:value` pattern is the legacy `prefix:*` command form.
+BASH_PARAMETERS = ("run_in_background", "timeout", "description", "dangerouslyDisableSandbox")
+# Whitespace around the colon is ignored (permissions.md), so the gate ignores it too.
+_PARAMETER_RULE = re.compile(r"^\s*(?:%s)\s*:" % "|".join(BASH_PARAMETERS))
 _FENCE = re.compile(r"^(`{3,}|~{3,})\s*(\S*)$")
 
 
 def _rule_regex(pattern: str) -> re.Pattern[str]:
-    """The matcher for one Bash(<pattern>) rule under Claude Code's semantics (module docstring)."""
+    """The matcher for one Bash(<pattern>) rule under Claude Code's semantics (module docstring).
+
+    A trailing ``:*`` or `` *`` also matches the bare prefix only when it is the rule's only
+    wildcard: ``Bash(* --help *)`` covers ``npm --help x`` but not ``npm --help`` (permissions.md).
+    """
     if pattern.endswith((":*", " *")):
-        return re.compile(re.escape(pattern[:-2]) + r"(?: .*)?", re.DOTALL)
+        body = pattern[:-2]
+        if "*" in body:
+            return re.compile(".*".join(re.escape(part) for part in body.split("*")) + r" .*", re.DOTALL)
+        return re.compile(re.escape(body) + r"(?: .*)?", re.DOTALL)
     return re.compile(".*".join(re.escape(part) for part in pattern.split("*")), re.DOTALL)
 
 
@@ -205,7 +272,10 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
     permissions = settings.get("permissions", {})
     allowed = _bash_rules(permissions.get("allow", []))
     blocked = _bash_rules(permissions.get("deny", []) + permissions.get("ask", []))
-    problems: list[str] = []
+    problems: list[str] = [
+        f"a deny or ask rule on a Bash input parameter shadows every gated command, step 6's background run included: {pattern}"
+        for pattern, _ in blocked if _PARAMETER_RULE.match(pattern)
+    ]
     commands: list[str] = []
     for info, first_line, lines in _segments(markdown):
         if info == "sh":
@@ -233,6 +303,9 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
                 problems.append(f"placeholder {placeholder} is valid only in {role}, pinned whole as {expected!r}: {command}")
     if commands and commands[0] != PROBE:
         problems.append(f"the first command must be the zero-effect probe {PROBE!r}; found {commands[0]!r}")
+    if commands != list(KIT_COMMANDS):
+        problems.append("the kit's sh blocks must hold exactly the seven pinned commands in order: "
+                        f"expected {list(KIT_COMMANDS)!r}, found {commands!r}")
     for placeholder, (role, _) in PLACEHOLDER_COMMANDS.items():
         occurrences = sum(command.count(placeholder) for command in commands)
         if occurrences != 1:
@@ -240,6 +313,66 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
                 f"placeholder {placeholder} must appear exactly once across the kit's commands, as {role}; found {occurrences}"
             )
     return problems
+
+
+def attestation_problems(markdown: str) -> list[str]:
+    """The kit's attestation template against the sealed attest() contract."""
+    blocks = ["\n".join(lines) for info, _, lines in _segments(markdown) if info == "json"]
+    if len(blocks) != 1:
+        return [f"the kit must carry exactly one json block (the attestation template); found {len(blocks)}"]
+    try:
+        template = json.loads(blocks[0])
+    except ValueError as exc:
+        return [f"the attestation template is not JSON: {exc}"]
+    expected = {
+        "schema": "fable-e8-accounting-attestation-v1",
+        "prior_count": SEALED["MIN_PRIOR"],
+        "prior_evidence_sha256": SEALED["PRIOR_EVIDENCE_SHA256"],
+        "founder_statement_sha256": SEALED["FOUNDER_STATEMENT_SHA256"],
+        "original_manifest_sha256": SEALED["ORIGINAL_MANIFEST_SHA256"],
+        "e3_supplement_manifest_sha256": SEALED["E3_SUPPLEMENT_MANIFEST_SHA256"],
+        "guard_state_path": GUARD_DIR + "/state.json",
+        "no_untracked_e8_or_probe_calls": True,
+        "sole_persistent_guard": True,
+        "exclusive_e8_dispatch_during_continuation": True,
+    }
+    problems = []
+    if set(template) != SEALED["expected_keys"]:
+        problems.append(f"attestation keys {sorted(template)} != attest() keys {sorted(SEALED['expected_keys'])}")
+    for key, value in expected.items():
+        if template.get(key) != value or type(template.get(key)) is not type(value):
+            problems.append(f"attestation template {key} is {template.get(key)!r}, attest() requires {value!r}")
+    return problems
+
+
+TABLE_ROW = re.compile(r"^\| (\S+) \| ([0-9a-f]{64}) \|$")
+
+
+def restore_pins() -> dict:
+    spec = importlib.util.spec_from_file_location("restore_e8_session_pins", PACKAGE / "restore_e8_session.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.KIT_ATTACHMENTS
+
+
+def table_problems(markdown: str) -> list[str]:
+    """The kit's attachment table against the hashes the restore refuses on."""
+    table = dict(m.groups() for line in markdown.splitlines() if (m := TABLE_ROW.match(line.strip())))
+    pins = restore_pins()
+    if table != pins:
+        return [f"attachment table {table} != restore_e8_session.KIT_ATTACHMENTS {pins}"]
+    return []
+
+
+def mode_problems(markdown: str) -> list[str]:
+    launch = markdown.split("## Message 1", 1)[0]
+    if MODE_SENTENCE not in launch:
+        return [f"the launch paragraph must name the permission mode: {MODE_SENTENCE!r}"]
+    return []
+
+
+def all_problems(markdown: str, settings: dict) -> list[str]:
+    return kit_problems(markdown, settings) + attestation_problems(markdown) + table_problems(markdown) + mode_problems(markdown)
 
 
 def _settings() -> dict:
@@ -259,7 +392,7 @@ def test_script_path_resolves_repository_paths_in_every_rule_form() -> None:
 
 
 def test_every_kit_command_is_covered_by_an_allow_rule_and_the_probe_comes_first() -> None:
-    problems = kit_problems(KIT.read_text(), _settings())
+    problems = all_problems(KIT.read_text(), _settings())
     assert problems == [], (
         "tasks/fable-e8-launch-kit.md must issue every command as the literal prefix of an allow rule in "
         ".claude/settings.json, starting with the --help probe "
@@ -274,6 +407,8 @@ RULE_SEMANTICS = [
     ("space-star is the colon-star form", "Bash(ls *)", "ls -la", "lsblk"),
     ("a wildcard inside the pattern matches any text", "Bash(git * main)", "git checkout main", "git checkout dev"),
     ("the blanket rule matches everything", "Bash(*)", "anything at all", None),
+    ("a trailing space-star after another wildcard needs an argument", "Bash(* --help *)", "npm --help x", "npm --help"),
+    ("a trailing colon-star after another wildcard needs an argument", "Bash(python3 * --out:*)", "python3 x --out y", "python3 x --out"),
 ]
 
 
@@ -326,6 +461,22 @@ KIT_EVASIONS = [
     ("second uploads directory on the restore", lambda kit: kit.replace(STEP_1, STEP_1 + " --uploads /tmp/other")),
     ("second export destination", lambda kit: kit.replace(EXPORT, EXPORT + " --out /tmp/other")),
     ("execute ceiling altered", lambda kit: kit.replace("--max-new 160 --execute", "--max-new 161 --execute")),
+    ("setup prior count altered", lambda kit: kit.replace("--prior-count 287", "--prior-count 300")),
+    ("setup command removed", lambda kit: kit.replace(CONFIGURE + "\n", "")),
+    ("setup commands swapped", lambda kit: kit.replace(CONFIGURE + "\n" + INITIALIZE, INITIALIZE + "\n" + CONFIGURE)),
+    ("setup real CLI altered", lambda kit: kit.replace(CONFIGURE, CONFIGURE.replace("/opt/claude-code/bin/claude", "/opt/node22/bin/claude"))),
+    ("inspection bundle altered", lambda kit: kit.replace(INSPECT + "\n", INSPECT.replace("2026-09-20 --supplement", "2026-09-21 --supplement") + "\n")),
+    ("setup repeated", lambda kit: kit.replace(INITIALIZE, INITIALIZE + "\n" + INITIALIZE)),
+    ("attestation prior count altered", lambda kit: kit.replace('"prior_count": 287', '"prior_count": 288')),
+    ("attestation prior count as a string", lambda kit: kit.replace('"prior_count": 287', '"prior_count": "287"')),
+    ("attestation supplement hash reverted to the sealed original", lambda kit: kit.replace(
+        '"e3_supplement_manifest_sha256": "1ef772b3', '"e3_supplement_manifest_sha256": "8e43ac91')),
+    ("attestation affirmative false", lambda kit: kit.replace('"sole_persistent_guard": true', '"sole_persistent_guard": false')),
+    ("attestation key dropped", lambda kit: kit.replace('  "exclusive_e8_dispatch_during_continuation": true\n', '').replace('"sole_persistent_guard": true,', '"sole_persistent_guard": true')),
+    ("attestation guard path altered", lambda kit: kit.replace('"guard_state_path": "/home/user/fable-judging', '"guard_state_path": "/tmp/fable-judging')),
+    ("attachment table row altered", lambda kit: kit.replace("| 5298a21e818c", "| 5298a21e818d")),
+    ("attachment table row removed", lambda kit: "\n".join(line for line in kit.splitlines() if not line.startswith("| transport-manifest.json"))),
+    ("permission mode not named", lambda kit: kit.replace(MODE_SENTENCE, "select a mode")),
 ]
 
 
@@ -334,7 +485,7 @@ def test_gate_rejects_kit_evasion(name: str, mutate) -> None:
     original = KIT.read_text()
     mutated = mutate(original)
     assert mutated != original, f"evasion {name!r} did not change the kit text"
-    assert kit_problems(mutated, _settings()), f"the gate accepted the {name!r} evasion"
+    assert all_problems(mutated, _settings()), f"the gate accepted the {name!r} evasion"
 
 
 RULE_EVASIONS = [
@@ -351,6 +502,12 @@ RULE_EVASIONS = [
     ("blanket allow", "allow", "Bash(*)"),
     ("overbroad allow", "allow", "Bash(python3 *)"),
     ("unpinned narrow allow", "allow", "Bash(ls:*)"),
+    ("leading-wildcard ask shadowing the restore", "ask", "Bash(* --uploads *)"),
+    ("leading-wildcard deny shadowing the execute", "deny", "Bash(* --attestation *)"),
+    ("mid-pattern ask shadowing the export", "ask", "Bash(python3 * --out *)"),
+    ("parameter ask on background runs", "ask", "Bash(run_in_background:true)"),
+    ("parameter deny on timeouts", "deny", "Bash(timeout:*)"),
+    ("parameter deny with a spaced colon", "deny", "Bash(run_in_background : true)"),
 ]
 
 
