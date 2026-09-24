@@ -1,0 +1,20 @@
+{
+  "committed_head": "5b2c848e0e62794e183e46c22e50503d8919aeb4",
+  "target": "backend/evals/acceptance_source_members.py",
+  "gate": "tests/unit/test_acceptance_source_members.py",
+  "mutation": "Disable only the exact-duplicate byte-identity proof (payload SHA-256 and length equality)",
+  "source_sha256": "884a5338d74a45968f5c5a16da1ed8fba49e000ea59c6619531e90874d4b2d81",
+  "mutated_sha256": "e96803014130dff853a0e185aef5f48f382b8f2a44aa75fba40d9555ed3cdd42",
+  "restored_sha256": "884a5338d74a45968f5c5a16da1ed8fba49e000ea59c6619531e90874d4b2d81",
+  "byte_identical_restoration": true,
+  "git_status_after_restore": "",
+  "failed_exit": 1,
+  "failed_summary": "1 failed, 2 warnings in 1.22s",
+  "observed_failure": [
+    "E       Failed: DID NOT RAISE ValueError"
+  ],
+  "restored_exit": 0,
+  "restored_summary": "1 passed, 2 warnings in 1.19s",
+  "provider_or_fable_call": false,
+  "e7_admission_or_spend_guard_changed": false
+}
