@@ -45,8 +45,8 @@ tables, inline-XBRL facts (including hidden facts) or images inside members. Eve
 flag is `false`, and the ledger never carries `coverage_status`.
 
 The caller must have validated each unit manifest with its own packet bytes through
-`acceptance_source_units.validate_unit_manifest`. The expected packet set must come from the
-frozen source contract, never from the manifest.
+`acceptance_source_units.validate_unit_manifest`, whose required `expected_packets` must come
+from the frozen source contract, never from the manifest.
 
 ## Member identity
 
