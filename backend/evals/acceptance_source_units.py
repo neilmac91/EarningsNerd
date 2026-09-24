@@ -1,9 +1,11 @@
 """Build and validate byte-custody review units over explicitly declared source packets.
 
-This is an internal, non-admitting engineering format. A valid manifest proves only that the
-supplied bytes match each declared packet identity and that coverage spans partition every
-declared packet exactly. Declared accessions, roles and unit labels are not verified facts, and
-no review, source/member/modality completeness, E7 coverage status or admission is attested.
+This is an internal, non-admitting engineering format. A valid manifest proves only that its
+declared packets are exactly the caller's expected packet contract, that the supplied bytes match
+each packet identity, that coverage spans partition every declared packet exactly, and that
+declared context stays within the context-byte limits. Declared accessions, roles and unit labels
+are not verified facts, and no review, source/member/modality completeness, E7 coverage status or
+admission is attested.
 """
 
 from __future__ import annotations
@@ -16,6 +18,9 @@ from typing import Any
 
 
 SCHEMA_VERSION = 1
+# The validation summary is a return value with its own version; version 2 added the expected
+# packet contract and context-byte limits. The manifest format is unchanged.
+VALIDATION_SCHEMA_VERSION = 2
 MANIFEST_KIND = "e7_offline_source_unit_manifest"
 VALIDATION_KIND = "e7_offline_source_unit_validation"
 # Any change to these strings, the flags or any key set requires a new schema_version.
@@ -33,6 +38,12 @@ ATTESTATION_FLAGS = (
     "member_modality_completeness_attested",
     "admission_approved",
 )
+
+# Validation-cost ceilings on declared context, checked on span offsets before any context byte is
+# hashed. Callers may pass tighter limits (chosen with leaf sizes), never looser ones. The total
+# ceiling equals the 64 MiB raw-source limit, so context hashing never exceeds one maximum source.
+MAX_UNIT_CONTEXT_BYTES = 64 * 1024
+MAX_TOTAL_CONTEXT_BYTES = 64 * 1024 * 1024
 
 _ACCESSION = re.compile(r"[0-9]{10}-[0-9]{2}-[0-9]{6}")
 _LABEL = re.compile(r"[a-z0-9][a-z0-9_.:-]{0,127}")
@@ -161,6 +172,26 @@ def _unit_bounds(unit: dict[str, Any], keys: frozenset[str], byte_length: int) -
     return coverage, context
 
 
+def _context_limit(value: Any, ceiling: int, name: str) -> int:
+    if type(value) is not int or not 0 <= value <= ceiling:
+        raise ValueError(f"{name} must be an integer from 0 to {ceiling}")
+    return value
+
+
+def _expected_contract(packets: list[dict[str, Any]], expected: list[dict[str, Any]]) -> None:
+    """Require the declared packets to equal the caller's frozen contract; a manifest cannot shrink it."""
+    declared_roles = {packet["role"] for packet in packets}
+    expected_roles = {packet["role"] for packet in expected}
+    if expected_roles - declared_roles:
+        raise ValueError("manifest omits expected packets: " + ", ".join(sorted(expected_roles - declared_roles)))
+    if declared_roles - expected_roles:
+        raise ValueError("manifest declares packets outside the expected contract: "
+                         + ", ".join(sorted(declared_roles - expected_roles)))
+    for packet, contract in zip(packets, expected):
+        if packet != contract:
+            raise ValueError(f"declared packet {packet['role']} differs from the expected contract")
+
+
 def _unit_payload_sha256(fragments: list[memoryview]) -> str:
     """Hash ordered coverage fragments with a count and per-fragment length frame."""
     digest = hashlib.sha256(_UNIT_PAYLOAD_TAG)
@@ -213,14 +244,27 @@ def _require_exact_partition(role: str, byte_length: int, bounds: list[tuple[int
         raise ValueError(f"coverage gap in packet {role} at byte {cursor}")
 
 
-def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes: Any) -> dict[str, Any]:
+def validate_unit_manifest(
+    manifest: Any,
+    *,
+    accession_number: Any,
+    expected_packets: Any,
+    packet_bytes: Any,
+    max_unit_context_bytes: Any = MAX_UNIT_CONTEXT_BYTES,
+    max_total_context_bytes: Any = MAX_TOTAL_CONTEXT_BYTES,
+) -> dict[str, Any]:
     """Recompute every identity from the supplied bytes and require an exact declared-packet partition.
 
-    The caller states the accession it expects, so a consistent manifest declared for another
-    accession over identical bytes is rejected. Nothing is repaired, coerced or reordered; any
-    difference raises ``ValueError``.
+    The caller states the accession it expects and the expected packets (``role``, ``sha256``,
+    ``byte_length``, ascending by role), which must come from the frozen source contract, never
+    from the manifest. A consistent manifest declared for another accession, or one that omits,
+    adds or changes a packet, is rejected. Declared context is bounded per unit and in total before
+    it is hashed. Nothing is repaired, coerced or reordered; any difference raises ``ValueError``.
     """
     expected_accession = _token(accession_number, _ACCESSION, "expected accession_number")
+    unit_context_limit = _context_limit(max_unit_context_bytes, MAX_UNIT_CONTEXT_BYTES, "max_unit_context_bytes")
+    total_context_limit = _context_limit(max_total_context_bytes, MAX_TOTAL_CONTEXT_BYTES, "max_total_context_bytes")
+    expected = _declared_packets(expected_accession, expected_packets, _PACKET_INPUT_KEYS)
     _object(manifest, _MANIFEST_KEYS, "source unit manifest")
     version, kind = manifest["schema_version"], manifest["kind"]
     if type(version) is not int or version != SCHEMA_VERSION or type(kind) is not str or kind != MANIFEST_KIND:
@@ -236,6 +280,7 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
         raise ValueError("source unit manifest declares a different accession")
 
     packets = _declared_packets(accession, manifest["declared_packets"], _PACKET_KEYS)
+    _expected_contract(packets, expected)
     data_by_role = _packet_bytes(packets, packet_bytes)
     packet_index = {packet["packet_id"]: index for index, packet in enumerate(packets)}
 
@@ -254,9 +299,15 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
             raise ValueError("unit references an undeclared packet")
         packet = packets[packet_index[unit["packet_id"]]]
         coverage, context = _unit_bounds(unit, _SPAN_KEYS, packet["byte_length"])
-        expected = _unit_record(accession, packet, data_by_role[packet["role"]], unit, coverage, context)
+        unit_context_bytes = sum(end - start for start, end in context)
+        if unit_context_bytes > unit_context_limit:
+            raise ValueError(f"unit context_spans total {unit_context_bytes} bytes, above the "
+                             f"{unit_context_limit}-byte per-unit context limit")
+        if context_bytes + unit_context_bytes > total_context_limit:
+            raise ValueError(f"declared context exceeds the {total_context_limit}-byte total context limit")
+        record = _unit_record(accession, packet, data_by_role[packet["role"]], unit, coverage, context)
         for field in ("coverage_spans", "context_spans", "unit_sha256", "unit_id"):
-            if _canonical(unit[field]) != _canonical(expected[field]):
+            if _canonical(unit[field]) != _canonical(record[field]):
                 raise ValueError(f"unit {field} does not match the declared packet bytes and labels")
         if unit["unit_id"] in unit_ids:
             raise ValueError("duplicate unit_id")
@@ -264,7 +315,7 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
         coverage_by_packet[packet["packet_id"]].extend(coverage)
         order.append((packet_index[packet["packet_id"]], coverage[0][0]))
         context_span_count += len(context)
-        context_bytes += sum(end - start for start, end in context)
+        context_bytes += unit_context_bytes
 
     for packet in packets:
         _require_exact_partition(packet["role"], packet["byte_length"], coverage_by_packet[packet["packet_id"]])
@@ -272,7 +323,7 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
         raise ValueError("units must be ordered by declared packet, then by first coverage start")
 
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": VALIDATION_SCHEMA_VERSION,
         "kind": VALIDATION_KIND,
         "manifest_sha256": _sha(_canonical(manifest)),
         "accession_number": accession,
@@ -283,6 +334,9 @@ def validate_unit_manifest(manifest: Any, *, accession_number: Any, packet_bytes
         "context_span_count": context_span_count,
         "context_span_bytes_not_counted_as_coverage": context_bytes,
         "declared_packet_byte_partition": "exact",
+        "expected_packet_contract": "exact",
+        "max_unit_context_bytes": unit_context_limit,
+        "max_total_context_bytes": total_context_limit,
         **{flag: False for flag in ATTESTATION_FLAGS},
         "limitations": list(LIMITATIONS),
     }
@@ -315,7 +369,11 @@ def build_unit_manifest(
     packet_bytes: Any,
     units: Any,
 ) -> dict[str, Any]:
-    """Construct a manifest in declared order, then validate it exactly as a consumer must."""
+    """Construct a manifest in declared order, then validate it exactly as a consumer must.
+
+    The declared ``packets`` are the builder's contract; a consumer validates against its own.
+    Declared context is held to the default ceilings.
+    """
     accession = _token(accession_number, _ACCESSION, "accession_number")
     declared = _declared_packets(accession, packets, _PACKET_INPUT_KEYS)
     by_role = {packet["role"]: packet for packet in declared}
@@ -339,5 +397,6 @@ def build_unit_manifest(
         **{flag: False for flag in ATTESTATION_FLAGS},
         "limitations": list(LIMITATIONS),
     }
-    validate_unit_manifest(manifest, accession_number=accession, packet_bytes=packet_bytes)
+    validate_unit_manifest(manifest, accession_number=accession, expected_packets=packets,
+                           packet_bytes=packet_bytes)
     return manifest

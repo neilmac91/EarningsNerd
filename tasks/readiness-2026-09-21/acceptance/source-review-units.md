@@ -19,13 +19,16 @@ the caller supplied, and nothing beyond them:
 1. Each declared packet's actual bytes have exactly the declared length and SHA-256. The declared
    accession and role are bound into every packet and unit identity, and the manifest declares the
    accession the caller expected.
-2. The supplied bytes cover exactly the declared packet set, and every unit refers to one declared
-   packet. The reference rules below define what counts as a missing, extra, duplicate or foreign
-   reference.
+2. The declared packets are exactly the caller's expected packets (role, SHA-256 and length), so a
+   manifest cannot omit, add or change a packet. The supplied bytes cover exactly that set, and
+   every unit refers to one declared packet. The reference rules below define what counts as a
+   missing, extra, duplicate or foreign reference.
 3. For each declared packet, the union of all coverage spans is exactly `[0, byte_length)`, with no
    gap, overlap or duplicated byte. The validator walks the union; an equal total length is not enough.
 4. Every span hash, unit payload hash, packet ID and unit ID recomputes from those bytes and the
    declared labels. Context spans are hashed separately and never count as coverage.
+5. Declared context stays within the per-unit and total context-byte limits, which are checked on
+   span offsets before any context byte is hashed.
 
 It does **not** prove that the declared accession, role, `structural_kind` or `registrant_scope`
 is true. It does not show that the declared packets are every source in the filing, that any
@@ -56,23 +59,46 @@ manifest = build_unit_manifest(
          "context_spans": [{"start": 0, "end": 2}]},
     ],
 )
+contract = [{"role": "primary", "sha256": hashlib.sha256(raw).hexdigest(), "byte_length": 6}]  # frozen source contract
 summary = validate_unit_manifest(manifest, accession_number="0000000000-26-000001",
-                                 packet_bytes={"primary": raw})
+                                 expected_packets=contract, packet_bytes={"primary": raw})
 stored = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("ascii")  # canonical_json
 assert validate_unit_manifest(load_unit_manifest(stored), accession_number="0000000000-26-000001",
-                              packet_bytes={"primary": raw}) == summary
+                              expected_packets=contract, packet_bytes={"primary": raw}) == summary
 ```
 
 Both functions are pure. They do no file, network or clock access and never mutate their
 arguments. Invalid input raises `ValueError`; nothing is repaired, coerced, sorted or merged.
 
 The builder records packets and units in the order declared, then runs the same validator over
-its own output, so it cannot emit a manifest that the validator rejects. That self-check is not
-trust: a consumer must call the validator with its own expected accession and its own bytes. The
-key set of `packet_bytes` is the consumer's independent expectation of which packets belong in
-scope (for example the frozen source-contract roles for that accession). It must never be
-derived from `manifest["declared_packets"]`: that key set is the only mechanism that detects a
-manifest which silently omits a packet and all of its units.
+its own output, with its own `packets` as the expected contract, so it cannot emit a manifest
+that the validator rejects. That self-check is not trust: a consumer must call the validator
+with its own expected accession, its own expected packets and its own bytes.
+
+**Expected packets.** `expected_packets` is required. It is a list of `{"role", "sha256",
+"byte_length"}` objects in ascending role order, validated by the same rules as builder packet
+input, and it must come from the frozen source contract for that accession, never from
+`manifest["declared_packets"]`. The declared packets must equal it exactly. A manifest that
+silently omits a packet and all of its units is rejected as `manifest omits expected packets`,
+even when the supplied bytes match the manifest. An extra packet is rejected as outside the
+expected contract, and a packet whose SHA-256 or length differs is rejected by role. The
+`packet_bytes` key set must then equal the same roles.
+
+**Context-byte limits.** Declared context is hashed separately for every unit that repeats it, so
+without a bound validation cost grows with total declared context bytes, not with source size. The
+validator therefore enforces two ceilings, computed from span offsets before any context byte is
+hashed:
+
+| Limit | Default and ceiling |
+| --- | --- |
+| `max_unit_context_bytes`: summed context span lengths of one unit | 65,536 bytes (64 KiB) |
+| `max_total_context_bytes`: summed context span lengths over the manifest, counting each repetition | 67,108,864 bytes (64 MiB, the raw-source limit) |
+
+A caller may pass tighter integer limits, for example once leaf sizes are chosen. It may not pass
+looser ones, and `bool` or non-integer values are rejected. The builder applies the default
+ceilings. Together the ceilings bound validation hashing to a fixed number of passes over the declared
+packet bytes plus at most 64 MiB of context. The limits are validation policy, not part of the stored manifest, so tightening
+them can reject a manifest that an earlier limit accepted.
 
 `load_unit_manifest(raw)` parses stored bytes and accepts them only if they are exactly
 `canonical_json(manifest)` (see below). Stored manifests **must** be written in that form, which
@@ -136,9 +162,10 @@ manifest is deterministic without any reordering.
 
 **References.**
 
-- A *missing* reference is a declared role with no supplied bytes, or a declared packet with no
-  coverage unit.
-- An *extra* reference is a supplied-bytes key that is not a declared role.
+- A *missing* reference is an expected packet the manifest does not declare, a declared role with
+  no supplied bytes, or a declared packet with no coverage unit.
+- An *extra* reference is a declared packet outside the expected contract, or a supplied-bytes key
+  that is not a declared role.
 - A *duplicate* reference is a repeated role (rejected by the ordering rule) or a repeated
   `unit_id`, which is checked explicitly.
 - A *foreign* reference is a unit `packet_id` (or builder `packet_role`) that matches no packet
@@ -202,7 +229,7 @@ the encoding together. The regression test pins it, so changing any of them with
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "kind": "e7_offline_source_unit_validation",
   "manifest_sha256": "<SHA-256 of canonical_json(manifest)>",
   "accession_number": "0000000000-26-000001",
@@ -213,6 +240,9 @@ the encoding together. The regression test pins it, so changing any of them with
   "context_span_count": 1,
   "context_span_bytes_not_counted_as_coverage": 2,
   "declared_packet_byte_partition": "exact",
+  "expected_packet_contract": "exact",
+  "max_unit_context_bytes": 65536,
+  "max_total_context_bytes": 67108864,
   "semantic_review_attested": false,
   "semantic_labels_verified": false,
   "source_set_completeness_attested": false,
@@ -228,7 +258,11 @@ declares it, so a header repeated in two units counts twice there and never in `
 only. It is deliberately not named `coverage_status`. The summary is a return value with its own
 kind; it repeats the flags and limitations so that a quoted summary keeps its disclaimers, and
 it binds the validated manifest through `manifest_sha256`. It is not a stored evidence format:
-changing a summary-only field changes its own `schema_version`, not the manifest's.
+changing a summary-only field changes its own `schema_version`, not the manifest's. Summary
+version 2 added `expected_packet_contract` and the two context limits in force; the manifest
+format and its golden vectors are unchanged at version 1. The summary in the
+[#954 evidence](../../review-evidence/e7-source-units-2026-09-23/synthetic-example-summary.json)
+is the version-1 summary and remains a historical record.
 
 ## Limitations
 

@@ -10,7 +10,13 @@ from typing import Any
 
 import pytest
 
-from evals.acceptance_source_units import build_unit_manifest, load_unit_manifest, validate_unit_manifest
+from evals.acceptance_source_units import (
+    MAX_TOTAL_CONTEXT_BYTES,
+    MAX_UNIT_CONTEXT_BYTES,
+    build_unit_manifest,
+    load_unit_manifest,
+    validate_unit_manifest,
+)
 
 
 ACCESSION = "0000000000-26-000001"
@@ -94,11 +100,13 @@ def _oracle_unit(accession: str, raw: bytes, declared: dict[str, Any]) -> dict[s
     return {"unit_id": unit_id, **record}
 
 
-def _rejected(manifest: Any, message: str, packet_bytes: Any = None, accession: str = ACCESSION) -> None:
+def _rejected(manifest: Any, message: str, packet_bytes: Any = None, accession: str = ACCESSION,
+              expected_packets: Any = None, **limits: Any) -> None:
     before = copy.deepcopy(manifest)
     with pytest.raises(ValueError, match=message):
         validate_unit_manifest(manifest, accession_number=accession,
-                               packet_bytes=RAW_BY_ROLE if packet_bytes is None else packet_bytes)
+                               expected_packets=_packets() if expected_packets is None else expected_packets,
+                               packet_bytes=RAW_BY_ROLE if packet_bytes is None else packet_bytes, **limits)
     assert manifest == before, "validation must not repair or reorder a rejected manifest"
 
 
@@ -146,10 +154,11 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
 
     # A JSON round trip validates; repeated context is reported separately and never counted as coverage.
     round_tripped = json.loads(json.dumps(manifest))
-    summary = validate_unit_manifest(round_tripped, accession_number=ACCESSION, packet_bytes=RAW_BY_ROLE)
+    summary = validate_unit_manifest(round_tripped, accession_number=ACCESSION, expected_packets=_packets(),
+                                     packet_bytes=RAW_BY_ROLE)
     context_bytes = len(CAPTION) + 2 * len(HEADER)
     assert summary == {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "e7_offline_source_unit_validation",
         "manifest_sha256": _sha(_canonical(manifest)),
         "accession_number": ACCESSION,
@@ -160,6 +169,9 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         "context_span_count": 3,
         "context_span_bytes_not_counted_as_coverage": context_bytes,
         "declared_packet_byte_partition": "exact",
+        "expected_packet_contract": "exact",
+        "max_unit_context_bytes": 64 * 1024,
+        "max_total_context_bytes": 64 * 1024 * 1024,
         **{flag: False for flag in FLAGS},
         "limitations": manifest["limitations"],
     }
@@ -179,12 +191,13 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         PRIMARY[accent + 1:].decode("utf-8")
 
     # Identical bytes under two declared roles remain two packets, each partitioned and counted.
+    copy_packets = [_packets()[0], {**_packets()[0], "role": "graphic_copy"}, _packets()[1]]
     copies = build_unit_manifest(**_declared(
-        packets=[_packets()[0], {**_packets()[0], "role": "graphic_copy"}, _packets()[1]],
+        packets=copy_packets,
         packet_bytes={**RAW_BY_ROLE, "graphic_copy": GRAPHIC},
         units=[_units()[0], {**_units()[0], "packet_role": "graphic_copy"}, *_units()[1:]]))
     assert len({packet["packet_id"] for packet in copies["declared_packets"]}) == 3
-    assert validate_unit_manifest(copies, accession_number=ACCESSION, packet_bytes={
+    assert validate_unit_manifest(copies, accession_number=ACCESSION, expected_packets=copy_packets, packet_bytes={
         **RAW_BY_ROLE, "graphic_copy": GRAPHIC})["coverage_bytes"] == 2 * len(GRAPHIC) + len(PRIMARY)
 
     # Exact union, not equal total length: shifting one span keeps the byte total but opens a gap
@@ -286,9 +299,10 @@ def test_unit_encoding_separates_fragment_boundaries_and_pins_canonical_bytes() 
     # The documented worked example is pinned byte for byte (an independent design review recomputed
     # the same vectors from the specification alone).
     raw = b"abXcde"
+    manifest_packets = [{"role": "primary", "sha256": _sha(raw), "byte_length": len(raw)}]
     manifest = build_unit_manifest(
         accession_number=ACCESSION,
-        packets=[{"role": "primary", "sha256": _sha(raw), "byte_length": len(raw)}],
+        packets=manifest_packets,
         packet_bytes={"primary": raw},
         units=[
             {"packet_role": "primary", "structural_kind": "text", "registrant_scope": "registrant",
@@ -315,7 +329,7 @@ def test_unit_encoding_separates_fragment_boundaries_and_pins_canonical_bytes() 
     stored = _canonical(manifest)
     assert _sha(stored) == "ea73eff3b57db48cd9f3c127e719ca389d60d5afd93f4861ea496464fc521e7b"
     summary = validate_unit_manifest(load_unit_manifest(stored), accession_number=ACCESSION,
-                                     packet_bytes={"primary": raw})
+                                     expected_packets=manifest_packets, packet_bytes={"primary": raw})
     assert summary["manifest_sha256"] == _sha(stored)
 
     # Stored bytes must be exactly the canonical form: variants would give one manifest two hashes,
@@ -328,6 +342,75 @@ def test_unit_encoding_separates_fragment_boundaries_and_pins_canonical_bytes() 
             load_unit_manifest(variant)
     with pytest.raises(ValueError, match="must be bytes"):
         load_unit_manifest(stored.decode("ascii"))
+
+
+def test_declared_packets_must_equal_the_expected_source_contract() -> None:
+    """A manifest that drops, adds or changes a packet fails even when the bytes supplied match it."""
+    manifest = build_unit_manifest(**_declared())
+    graphic_only = build_unit_manifest(**_declared(packets=_packets()[:1], packet_bytes={"graphic": GRAPHIC},
+                                                   units=_units()[:1]))
+    # Self-consistent over its own bytes, so only the expected contract can catch the omission.
+    assert validate_unit_manifest(graphic_only, accession_number=ACCESSION, expected_packets=_packets()[:1],
+                                  packet_bytes={"graphic": GRAPHIC})["packet_count"] == 1
+    _rejected(graphic_only, "manifest omits expected packets: primary", {"graphic": GRAPHIC})
+    _rejected(manifest, "declares packets outside the expected contract: primary", expected_packets=_packets()[:1])
+    changed = PRIMARY.replace(b"1,318", b"1,319")
+    _rejected(manifest, "declared packet primary differs from the expected contract",
+              expected_packets=[_packets()[0], {**_packets()[1], "sha256": _sha(changed)}])
+    _rejected(manifest, "declared packet primary differs from the expected contract",
+              expected_packets=[_packets()[0], {**_packets()[1], "byte_length": len(PRIMARY) + 1}])
+    for expected, message in (
+        (None, "declared_packets must be a non-empty list"),
+        ([], "declared_packets must be a non-empty list"),
+        (_packets()[::-1], "ascending role order"),
+        ([_packets()[0], {**_packets()[1], "packet_id": "0" * 64}], "declared packet must be an object with exactly"),
+    ):
+        before = copy.deepcopy(manifest)
+        with pytest.raises(ValueError, match=message):
+            validate_unit_manifest(manifest, accession_number=ACCESSION, expected_packets=expected,
+                                   packet_bytes=RAW_BY_ROLE)
+        assert manifest == before
+
+
+def test_declared_context_is_bounded_before_it_is_hashed() -> None:
+    manifest = build_unit_manifest(**_declared())
+    caption, header = len(CAPTION), len(HEADER)
+    # Unit 2 declares caption + header of context and unit 3 repeats the header.
+    summary = validate_unit_manifest(manifest, accession_number=ACCESSION, expected_packets=_packets(),
+                                     packet_bytes=RAW_BY_ROLE, max_unit_context_bytes=caption + header,
+                                     max_total_context_bytes=caption + 2 * header)
+    assert (summary["max_unit_context_bytes"], summary["max_total_context_bytes"]) == (
+        caption + header, caption + 2 * header)
+    _rejected(manifest, f"unit context_spans total {caption + header} bytes, above the "
+                        f"{caption + header - 1}-byte per-unit context limit",
+              max_unit_context_bytes=caption + header - 1)
+    _rejected(manifest, f"exceeds the {caption + 2 * header - 1}-byte total context limit",
+              max_total_context_bytes=caption + 2 * header - 1)
+    # Callers may tighten the ceilings, never loosen or blur them.
+    for limits in ({"max_unit_context_bytes": MAX_UNIT_CONTEXT_BYTES + 1},
+                   {"max_total_context_bytes": MAX_TOTAL_CONTEXT_BYTES + 1},
+                   {"max_unit_context_bytes": -1}, {"max_unit_context_bytes": True},
+                   {"max_total_context_bytes": float(caption)}):
+        _rejected(manifest, "must be an integer from 0 to", **limits)
+
+    # Construction holds the default per-unit ceiling: exactly the ceiling passes, one byte more fails.
+    raw = bytes(range(256)) * (MAX_UNIT_CONTEXT_BYTES // 256) + b"ab"
+    tail = len(raw) - 1
+
+    def with_context(context_end: int) -> dict[str, Any]:
+        return _declared(packets=[{"role": "primary", "sha256": _sha(raw), "byte_length": len(raw)}],
+                         packet_bytes={"primary": raw}, units=[
+            {"packet_role": "primary", "structural_kind": "text", "registrant_scope": "registrant",
+             "coverage_spans": [{"start": 0, "end": tail}], "context_spans": []},
+            {"packet_role": "primary", "structural_kind": "text", "registrant_scope": "registrant",
+             "coverage_spans": [{"start": tail, "end": len(raw)}],
+             "context_spans": [{"start": 0, "end": context_end}]},
+        ])
+
+    assert tail == MAX_UNIT_CONTEXT_BYTES + 1
+    build_unit_manifest(**with_context(MAX_UNIT_CONTEXT_BYTES))
+    with pytest.raises(ValueError, match=f"above the {MAX_UNIT_CONTEXT_BYTES}-byte per-unit context limit"):
+        build_unit_manifest(**with_context(MAX_UNIT_CONTEXT_BYTES + 1))
 
 
 def _with(unit_index: int, field: str, value: Any) -> dict[str, Any]:
