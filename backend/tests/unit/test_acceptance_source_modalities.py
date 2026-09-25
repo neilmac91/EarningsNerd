@@ -18,12 +18,17 @@ from evals.acceptance_source_units import build_unit_manifest
 
 
 ACCESSION = "0000000000-26-000001"
-HIDDEN_FACT = b'<ix:nonNumeric name="dei:AmendmentFlag" contextRef="c1">false</ix:nonNumeric>'
+# The fact's own hidden attribute sorts first alphabetically but comes last in the recorded
+# outermost-first order, so the test pins that order rather than a sorted one.
+HIDDEN_FACT = b'<ix:nonNumeric hidden name="dei:AmendmentFlag" contextRef="c1">false</ix:nonNumeric>'
 HEADER = b'<div style="display:none"><ix:header><ix:hidden>' + HIDDEN_FACT + b"</ix:hidden></ix:header></div>"
 FACT = b'<ix:nonFraction name="us-gaap:Revenues" contextRef="c1" unitRef="usd" decimals="-6">1,204</ix:nonFraction>'
 TABLE = b"<table><tr><th>Quarter</th><th>Revenue</th></tr><tr><td>Q1</td><td>" + FACT + b"</td></tr></table>"
 IMAGE = b'<img src="g1.jpg" alt="Revenue chart">'
-PRIMARY = b"<html><body>" + HEADER + b"<p>Results</p>" + TABLE + b"<p>" + IMAGE + b"</p></body></html>"
+FRACTION = (b'<ix:fraction name="us-gaap:Ratio" contextRef="c1"><ix:numerator>1</ix:numerator>'
+            b"<ix:denominator>3</ix:denominator></ix:fraction>")
+PRIMARY = (b"<html><body>" + HEADER + b"<p>Results</p>" + TABLE + b"<p>" + IMAGE + b" " + FRACTION
+           + b"</p></body></html>")
 GRAPHIC = b"\x89PNG\r\n\x1a\n" + bytes(range(64))
 RAW_BY_ROLE = {"graphic": GRAPHIC, "primary": PRIMARY}
 FLAGS = ("semantic_review_attested", "visual_review_attested", "fact_values_verified",
@@ -66,6 +71,7 @@ def _dispositions(**overrides: Any) -> dict[str, Any]:
         "T00001": {"kind": "assigned_to_review_units", "unit_ids": [FIRST, SECOND]},
         "F00001": {"kind": "assigned_to_review_units", "unit_ids": [FIRST]},
         "F00002": {"kind": "assigned_to_review_units", "unit_ids": [SECOND]},
+        "F00003": {"kind": "assigned_to_review_units", "unit_ids": [SECOND]},
         "I00001": {"kind": "unresolved", "reason": "graphic_not_viewed"},
     }
     dispositions.update(overrides)
@@ -106,8 +112,10 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
     inventory = _build()
     expected = [
         _oracle_item("table", "T00001", TABLE, []),
-        _oracle_item("inline_xbrl_fact", "F00001", HIDDEN_FACT, ["inline_style_hidden", "inline_xbrl_hidden"]),
+        _oracle_item("inline_xbrl_fact", "F00001", HIDDEN_FACT,
+                     ["inline_style_hidden", "inline_xbrl_hidden", "hidden_attribute"]),
         _oracle_item("inline_xbrl_fact", "F00002", FACT, []),
+        _oracle_item("inline_xbrl_fact", "F00003", FRACTION, []),
         _oracle_item("image", "I00001", IMAGE, []),
     ]
     assert [{k: v for k, v in item.items() if k != "disposition"} for item in inventory["items"]] == expected
@@ -122,11 +130,11 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
         "accession_number": ACCESSION,
         "packet_role": "primary",
         "unit_manifest_sha256": _sha(_canonical(MANIFEST)),
-        "item_counts": {"table": 1, "inline_xbrl_fact": 2, "image": 1},
+        "item_counts": {"table": 1, "inline_xbrl_fact": 3, "image": 1},
         # The hidden header fact stays counted rather than dropping out of scope.
         "hidden_item_counts": {"table": 0, "inline_xbrl_fact": 1, "image": 0},
-        "assigned_item_count": 3,
-        "unresolved_item_ids": [expected[3]["item_id"]],
+        "assigned_item_count": 4,
+        "unresolved_item_ids": [expected[4]["item_id"]],
         "every_item_dispositioned": True,
         **{flag: False for flag in FLAGS},
         "limitations": inventory["limitations"],
@@ -134,14 +142,19 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
 
     # An item cannot drop out of scope: every omission, addition, reorder or relabel is rejected.
     items = inventory["items"]
-    _rejected({**inventory, "items": items[:-1]}, "exactly the 4 items enumerated")
-    _rejected({**inventory, "items": [*items, items[-1]]}, "exactly the 4 items enumerated")
-    _rejected({**inventory, "items": [items[0], items[2], items[1], items[3]]}, "fact F00001 view_id does not match")
+    _rejected({**inventory, "items": items[:-1]}, "exactly the 5 items enumerated")
+    _rejected({**inventory, "items": [*items, items[-1]]}, "exactly the 5 items enumerated")
+    _rejected({**inventory, "items": [items[0], items[2], items[1], *items[3:]]}, "fact F00001 view_id does not match")
+    for field, value in (("start", items[2]["start"] + 1), ("end", items[2]["end"] - 1),
+                         ("sha256", _sha(b"forged")), ("item_id", _sha(b"forged"))):
+        forged = copy.deepcopy(items)
+        forged[2][field] = value
+        _rejected({**inventory, "items": forged}, f"F00002 {field} does not match")
     unhidden = copy.deepcopy(items)
     unhidden[1]["hidden_reasons"] = []
     _rejected({**inventory, "items": unhidden}, "F00001 hidden_reasons does not match")
     relabelled = copy.deepcopy(items)
-    relabelled[3]["modality"] = "table"
+    relabelled[4]["modality"] = "table"
     _rejected({**inventory, "items": relabelled}, "image I00001 modality does not match")
     with pytest.raises(ValueError, match="no disposition for items: I00001"):
         _build(dispositions={k: v for k, v in _dispositions().items() if k != "I00001"})
@@ -175,14 +188,30 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
 
     # A hidden element left open at end of file has an ambiguous scope, so enumeration fails closed.
     open_hidden = b"<html><body hidden><p>" + FACT + b"</p>"
-    open_packets = [{"role": "primary", "sha256": _sha(open_hidden), "byte_length": len(open_hidden)}]
-    open_manifest = build_unit_manifest(accession_number=ACCESSION, packets=open_packets,
-                                        packet_bytes={"primary": open_hidden},
-                                        units=[_unit("primary", 0, len(open_hidden))])
     with pytest.raises(ValueError, match="hidden element N000002 has no explicit end"):
-        build_modality_inventory(accession_number=ACCESSION, expected_packets=open_packets,
-                                 packet_bytes={"primary": open_hidden}, unit_manifest=open_manifest,
-                                 packet_role="primary", dispositions={})
+        _single_packet(open_hidden)
+
+    # Anything that would let items leave scope silently fails closed instead of counting zero.
+    for raw, message in (
+        (b"plain text exhibit", "no html or body element"),
+        (b'<?xml version="1.0"?><xbrli:xbrl><us-gaap:Revenues>5</us-gaap:Revenues></xbrli:xbrl>',
+         "no html or body element"),
+        (b'<html><body><ixb:nonFraction name="x">5</ixb:nonFraction></body></html>', "unsupported prefix"),
+        (b"<html><body><div><ixb:hidden><p>x</p></ixb:hidden></div></body></html>", "unsupported prefix"),
+        (b'<html><body><p><image src="g.jpg"></image></p></body></html>', "<image> image-bearing markup"),
+        (b'<html><body><object data="g.svg"></object></body></html>', "<object> image-bearing markup"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            _single_packet(raw)
+
+
+def _single_packet(raw: bytes) -> dict[str, Any]:
+    packets = [{"role": "primary", "sha256": _sha(raw), "byte_length": len(raw)}]
+    manifest = build_unit_manifest(accession_number=ACCESSION, packets=packets, packet_bytes={"primary": raw},
+                                   units=[_unit("primary", 0, len(raw))])
+    return build_modality_inventory(accession_number=ACCESSION, expected_packets=packets,
+                                    packet_bytes={"primary": raw}, unit_manifest=manifest,
+                                    packet_role="primary", dispositions={})
 
 
 def test_assigned_items_must_lie_inside_the_named_review_units() -> None:
@@ -197,14 +226,20 @@ def test_assigned_items_must_lie_inside_the_named_review_units() -> None:
         ([GRAPHIC_UNIT], "outside this packet's unit manifest"),
         ([FIRST, FIRST], "unique and in manifest order"),
         ([], "at least one review unit"),
+        ((FIRST,), "at least one review unit"),
         (["0" * 64], "outside this packet's unit manifest"),
     ):
         with pytest.raises(ValueError, match=message):
             _build(dispositions=_dispositions(F00001={"kind": "assigned_to_review_units", "unit_ids": unit_ids}))
     with pytest.raises(ValueError, match="unique and in manifest order"):
         _build(dispositions=_dispositions(T00001={"kind": "assigned_to_review_units", "unit_ids": [SECOND, FIRST]}))
+    class _Label(str):
+        pass
+
     for disposition, message in (
         ({"kind": "unresolved", "reason": "Not Viewed"}, "invalid unresolved reason"),
+        ({"kind": "unresolved", "reason": _Label("not_viewed")}, "invalid unresolved reason"),
+        ({"kind": "unresolved", "reason": {1}}, "invalid unresolved reason"),
         ({"kind": "reviewed"}, "kind must be one of"),
         ({"kind": "unresolved", "reason": "x", "unit_ids": [FIRST]}, "must be an object with exactly"),
     ):

@@ -11,6 +11,7 @@ admission; unresolved items stay visible and hold completion.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import re
@@ -26,6 +27,11 @@ VALIDATION_KIND = "e7_offline_source_modality_validation"
 MODALITIES = ("table", "inline_xbrl_fact", "image")
 DISPOSITIONS = ("assigned_to_review_units", "unresolved")
 FACT_TAGS = frozenset({"ix:nonfraction", "ix:nonnumeric", "ix:fraction"})
+# Inline XBRL binds a namespace, not a prefix. Facts and hidden sections are recognised only under
+# the conventional ``ix`` prefix, so the same local names under any other prefix fail closed.
+_IX_LOCAL_NAMES = frozenset({"nonfraction", "nonnumeric", "fraction", "hidden", "header"})
+# Image-bearing markup other than img would leave scope silently, so it fails closed.
+UNSUPPORTED_IMAGE_TAGS = frozenset({"image", "svg", "object", "embed", "picture", "iframe", "canvas"})
 # Any change to these strings, the flags, the modalities, the dispositions or any key set requires
 # a new schema_version.
 LIMITATIONS = (
@@ -111,6 +117,15 @@ def _expected_items(accession: str, packet: dict[str, Any], raw: bytes) -> list[
     except ValueError as exc:
         raise ValueError(f"packet {packet['role']} cannot be projected as an HTML source view: {exc}") from exc
     events = {event["id"]: event for event in projection["events"]}
+    tags = {element["tag"] for element in projection["elements"]}
+    if not tags & {"html", "body"}:
+        raise ValueError(f"packet {packet['role']} has no html or body element; only HTML packets are inventoried")
+    for element in projection["elements"]:
+        prefix, _, local = element["tag"].rpartition(":")
+        if prefix and prefix != "ix" and local in _IX_LOCAL_NAMES:
+            raise ValueError(f"inline-XBRL element <{element['tag']}> uses an unsupported prefix; only ix: is recognised")
+        if element["tag"] in UNSUPPORTED_IMAGE_TAGS:
+            raise ValueError(f"<{element['tag']}> image-bearing markup is not inventoried; only img is supported")
 
     def bounds(start_event_id: str, end_event_id: str | None) -> tuple[int, int]:
         end_event = events[end_event_id] if end_event_id else events[start_event_id]
@@ -129,7 +144,7 @@ def _expected_items(accession: str, packet: dict[str, Any], raw: bytes) -> list[
         found.append(("table", table["id"], *bounds(table["event_id"], table["end_event_id"])))
     facts = [element for element in projection["elements"] if element["tag"] in FACT_TAGS]
     for index, element in enumerate(facts, start=1):
-        if not element.get("end_event_id"):
+        if not element.get("end_event_id"):  # Defence in depth: the parser already rejects this at EOF.
             raise ValueError(f"inline-XBRL fact element {element['id']} has no explicit end tag")
         found.append(("inline_xbrl_fact", f"F{index:05d}", *bounds(element["start_event_id"], element["end_event_id"])))
     for image in projection["images"]:
@@ -305,7 +320,8 @@ def build_modality_inventory(
         "accession_number": accession,
         "packet": {key: packet[key] for key in _PACKET_KEYS},
         "unit_manifest_sha256": manifest_summary["manifest_sha256"],
-        "items": [{**item, "disposition": json.loads(_canonical(_disposition(dispositions[item["view_id"]])))}
+        # Dispositions are passed through unchanged; the validator below enforces exact types.
+        "items": [{**item, "disposition": copy.deepcopy(_disposition(dispositions[item["view_id"]]))}
                   for item in items],
         **{flag: False for flag in ATTESTATION_FLAGS},
         "limitations": list(LIMITATIONS),

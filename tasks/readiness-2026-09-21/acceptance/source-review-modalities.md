@@ -25,10 +25,12 @@ proves the following for the caller's inputs, and nothing more:
    inline-XBRL facts (`ix:nonFraction`, `ix:nonNumeric`, `ix:fraction`), then `img` references. An
    omitted, added, reordered or relabelled item is rejected.
 3. Each item records its byte span `[start, end)` from its start tag to its end tag (the start tag alone
-   for an image), the span's SHA-256, and its hidden reasons. Hidden reasons are the union of the
+   for an image), the span's SHA-256, and its hidden reasons. Hidden reasons collect the
    `hidden_reasons` of every element whose span contains the item, including the item itself:
-   `hidden_attribute`, `aria_hidden_true`, `inline_style_hidden` and `inline_xbrl_hidden`. Hidden items
-   are counted separately and never dropped.
+   `hidden_attribute`, `aria_hidden_true`, `inline_style_hidden` and `inline_xbrl_hidden`. They are
+   listed outermost element first, then in each element's own order, keeping only the first occurrence
+   of a repeated reason; the list is not sorted, and `item_id` hashes it in that order. Hidden items are
+   counted separately and never dropped.
 4. Every item has exactly one disposition:
    - `assigned_to_review_units` names one or more `unit_id`s of this packet in manifest order. Every
      named unit must cover at least one of the item's bytes, and together they must cover all of them.
@@ -41,9 +43,10 @@ footnotes were supplied together, that a fact's concept, value, context, unit, s
 or that a referenced image was viewed or linked to its graphic member. Every attestation flag is
 `false`, and the inventory never carries `coverage_status`.
 
-Only one HTML packet is inventoried per call. Other HTML packets need their own inventories. A graphic
-or other non-HTML packet cannot be projected and is rejected; its custody lives in the unit manifest
-and the member ledger.
+Only one HTML packet is inventoried per call. Other HTML packets need their own inventories. A packet
+must be strict UTF-8 that the source view can project and must contain an `html` or `body` element, so
+a graphic, plain-text, XML or other non-HTML packet is rejected rather than inventoried as empty; its
+custody lives in the unit manifest and the member ledger.
 
 ## API
 
@@ -95,10 +98,21 @@ The validation summary reports `item_counts` and `hidden_item_counts` per modali
 `assigned_item_count`, `unresolved_item_ids`, the flags and the limitations. It binds the inventory
 through `inventory_sha256` and the manifest through `unit_manifest_sha256`.
 
-**Fail-closed parsing.** The inventory inherits the source view's refusals: a packet that is not strict
-UTF-8 HTML, or whose markup the parser cannot project safely, is rejected. It also refuses a hidden
-non-void element without an explicit end tag, because its hidden scope would be ambiguous, and an
-inline-XBRL fact element without an explicit end tag.
+**Fail-closed parsing.** Anything that would let an item leave scope silently is rejected instead of
+counting zero:
+
+- The inventory inherits the source view's refusals: a packet that is not strict UTF-8, or whose markup
+  the parser cannot project safely, is rejected. A packet without an `html` or `body` element is
+  rejected.
+- Inline XBRL binds a namespace, not a prefix. Facts and `hidden` or `header` sections are recognised
+  only under the conventional `ix:` prefix, so `nonFraction`, `nonNumeric`, `fraction`, `hidden` or
+  `header` under any other prefix is rejected.
+- Image-bearing markup other than `img` (`image`, `svg`, `object`, `embed`, `picture`, `iframe`,
+  `canvas`) is rejected rather than left uncounted. CSS background images are not evaluated.
+- A hidden non-void element without an explicit end tag is rejected, because its hidden scope would be
+  ambiguous. The parser already rejects every open element except `html` and `body` at end of file, so
+  this fires for an unclosed hidden `html` or `body`. A guard for an inline-XBRL fact without an end tag
+  is kept as defence in depth; the parser rejects that case first.
 
 ## Limitations
 
