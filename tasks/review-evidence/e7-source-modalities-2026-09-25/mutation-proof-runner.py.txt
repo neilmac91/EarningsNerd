@@ -1,0 +1,40 @@
+"""Two mutation proofs on committed modality source: break one guard, run its gate, restore byte-identically."""
+import hashlib, json, subprocess, sys, tempfile
+from pathlib import Path
+
+ROOT = Path("/home/user/EarningsNerd")
+SRC = ROOT / "backend/evals/acceptance_source_modalities.py"
+PY = sys.argv[1]
+MUTATIONS = [
+    ("item_count", "    if type(recorded) is not list or len(recorded) != len(expected):\n",
+     "    if type(recorded) is not list:\n",
+     "tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once"),
+    ("assignment_gap", "    if cursor < end:\n", "    if False:\n",
+     "tests/unit/test_acceptance_source_modalities.py::test_assigned_items_must_lie_inside_the_named_review_units"),
+]
+
+def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def run(test):
+    out = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", test], cwd=ROOT / "backend",
+                         capture_output=True, text=True,
+                         env={"PATH": "/usr/bin:/bin", "PYTHONPYCACHEPREFIX": tempfile.mkdtemp()})
+    return out.returncode, out.stdout.strip().splitlines()
+
+committed = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+original = SRC.read_bytes()
+receipt = {"commit": committed, "source_sha256_before": sha(SRC), "proofs": []}
+for name, old, new, test in MUTATIONS:
+    text = original.decode()
+    assert text.count(old) == 1, name
+    SRC.write_text(text.replace(old, new))
+    mutated_sha = sha(SRC)
+    code_m, out_m = run(test)
+    SRC.write_bytes(original)
+    code_r, out_r = run(test)
+    receipt["proofs"].append({"name": name, "test": test, "mutated_sha256": mutated_sha,
+                              "mutated_exit": code_m, "mutated_tail": out_m[-3:],
+                              "restored_sha256": sha(SRC), "restored_exit": code_r, "restored_tail": out_r[-1:]})
+receipt["source_sha256_after"] = sha(SRC)
+receipt["tree_clean"] = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True).stdout == ""
+print(json.dumps(receipt, indent=2))
