@@ -47,3 +47,20 @@ def _reset_delivery_ownership():
             if name in present:
                 conn.execute(text(f"DELETE FROM {name}"))  # nosec B608 - fixed table names
     yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ai_call_trigger():
+    """The ``ai_call`` trigger label must not leak between tests.
+
+    Script entrypoints (``python -m evals.runner``, the weekly readouts, the Cloud Run job scripts)
+    set it for their whole process and never reset it, and some tests execute those entrypoints
+    in-process. Without this, every later test's calls log as ``eval``/``job``, and tests that
+    assert the default pass or fail by collection order. Each test starts from the default and
+    nothing it sets survives; the probe pair in ``tests/unit/test_ai_metrics.py`` pins this.
+    """
+    from app.services import ai_metrics
+
+    token = ai_metrics.set_trigger("user")
+    yield
+    ai_metrics.reset_trigger(token)
