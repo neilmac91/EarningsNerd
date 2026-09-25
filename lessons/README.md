@@ -54,6 +54,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-bakeoff-hold-knobs-constant.md`](./test-bakeoff-hold-knobs-constant.md) — Bake off model swaps with every knob held constant, verified by one raw-inspected call
 - [`test-conftest-hermetic-env.md`](./test-conftest-hermetic-env.md) — The backend suite is hermetic: conftest sets mock env (incl. SKIP_REDIS_INIT) before app import
 - [`test-contract-tests-are-locked.md`](./test-contract-tests-are-locked.md) — Contract anchors are locked: never edit them in the same PR as the code they guard
+- [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - [`test-deselected-markers-need-ci-paths.md`](./test-deselected-markers-need-ci-paths.md) — Give every deselected pytest marker an explicit CI execution path
 - [`test-deterministic-guards-for-scorer-blind-spots.md`](./test-deterministic-guards-for-scorer-blind-spots.md) — Add a dedicated deterministic guard for every error class invisible to existing scorers
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
