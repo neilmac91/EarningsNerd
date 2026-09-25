@@ -227,7 +227,7 @@ class TestReturnsBand:
         })
         assert "Return on Equity" not in section
         assert "1644.4" not in section
-        assert "Return on Assets: 17.9%" in section
+        assert "Period net income / period-end assets, not annualized: 17.9%" in section
 
     def test_out_of_band_prior_drops_just_the_prior_clause(self):
         # Equity recovered from near-zero: current is honest, the prior is noise — mirror §4's
@@ -238,7 +238,7 @@ class TestReturnsBand:
                 "prior": {"value": 1644.4, "period": "2024-12-31"},
             },
         })
-        assert "Return on Equity: 45.0% (period: 2025-12-31)" in section
+        assert "Period net income / period-end equity, not annualized: 45.0% (period: 2025-12-31)" in section
         assert "prior" not in section and "1644.4" not in section
 
     def test_in_band_values_unchanged_including_honest_negatives(self):
@@ -249,7 +249,7 @@ class TestReturnsBand:
                 "prior": {"value": 8.1, "period": "2024-12-31"},
             },
         })
-        assert "Return on Equity: -12.3% (period: 2025-12-31); prior: 8.1% (2024-12-31)" in section
+        assert "Period net income / period-end equity, not annualized: -12.3% (period: 2025-12-31); prior: 8.1% (2024-12-31)" in section
 
     def test_band_boundary_is_inclusive(self):
         # Exactly ±200.0 is IN band — same boundary the §4 render tests pin.
@@ -257,8 +257,8 @@ class TestReturnsBand:
             "return_on_equity": _cur(200.0),
             "return_on_assets": _cur(-200.0),
         })
-        assert "Return on Equity: 200.0%" in section
-        assert "Return on Assets: -200.0%" in section
+        assert "Period net income / period-end equity, not annualized: 200.0%" in section
+        assert "Period net income / period-end assets, not annualized: -200.0%" in section
 
     def test_other_pct_metrics_are_not_banded(self):
         # Blast radius is the two returns keys ONLY — a >200% margin (near-zero-revenue pathology)
@@ -296,10 +296,63 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
         sections = {}
         openai_service._apply_structured_fallbacks(sections, {}, metrics)
         text = sections["value_drivers"]["returns_on_capital"]
-    assert "period net income / period-end equity, not annualized" in text
-    assert "period net income / period-end assets, not annualized" in text
+    assert "period net income / period-end equity, not annualized" in text.lower()
+    assert "period net income / period-end assets, not annualized" in text.lower()
     assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
     assert "quarter" not in text.lower() and "average" not in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
+    """JPM reports named ROE/ROA on average balances; these selected ratios use period-end bases."""
+    from app.services.openai_service import openai_service
+
+    metrics = {
+        "net_interest_income": {"current": {"value": 95_443_000_000}},
+        "return_on_equity": {
+            "current": {"value": 15.74007140531622, "period": "2025-12-31"},
+            "prior": {"value": 16.96001253052866, "period": "2024-12-31"},
+        },
+        "return_on_assets": {
+            "current": {"value": 1.289249474564397, "period": "2025-12-31"},
+            "prior": {"value": 1.4607473642292648, "period": "2024-12-31"},
+        },
+    }
+    sections: dict = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    rendered = sections["value_drivers"]["returns_on_capital"]
+    grounding = build_xbrl_narrative_section(metrics)
+    captured: dict = {}
+
+    monkeypatch.setattr(openai_service, "_parse_and_clean_text", lambda *_args: {
+        "filing_sample": "Retained JPM filing excerpt.",
+        "financial_data": {
+            "revenue": [], "net_income": [], "cash_flow": [], "segments": [], "guidance": [],
+        },
+        "recovery_sources": (),
+    })
+
+    async def capture_request(create_kwargs, **_kwargs):
+        captured.update(create_kwargs)
+        return "{}"
+
+    async def finish_without_recovery(*_args, **_kwargs):
+        return {}
+
+    monkeypatch.setattr(openai_service, "_request_content", capture_request)
+    monkeypatch.setattr(openai_service, "_assemble_structured_summary", finish_without_recovery)
+    await openai_service.generate_structured_summary(
+        "Retained JPM filing excerpt.", "JPMorgan Chase", "10-K", metrics,
+        filing_excerpt="Retained JPM filing excerpt.",
+    )
+    prompt = captured["messages"][1]["content"]
+
+    for text in (rendered, grounding, prompt):
+        assert "period net income / period-end equity, not annualized: 15.7%" in text.lower()
+        assert "period net income / period-end assets, not annualized: 1.3%" in text.lower()
+        assert "Return on Equity" not in text and "Return on Assets" not in text
+    assert "ROE" not in prompt and "ROA" not in prompt
+    assert "prior 17.0%" in rendered and "prior 1.5%" in rendered
 
 
 @pytest.mark.parametrize("surface", ["grounding", "web", "markdown", "pdf", "csv"])

@@ -81,7 +81,8 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
     ("Gross Margin", "gross_margin", "pct"),
     ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
-    ("Return on Equity", "return_on_equity", "pct"), ("Return on Assets", "return_on_assets", "pct"),
+    (return_ratio_basis("return_on_equity").capitalize(), "return_on_equity", "pct"),
+    (return_ratio_basis("return_on_assets").capitalize(), "return_on_assets", "pct"),
     ("Operating Cash Flow", "operating_cash_flow", "usd"),
     ("Investing Cash Flow", "investing_cash_flow", "usd"),
     ("Financing Cash Flow", "financing_cash_flow", "usd"),
@@ -187,8 +188,6 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"
-        if key in _RETURNS_BAND_KEYS:
-            line += f"; basis: {return_ratio_basis(key)}"
         if key in ("capital_expenditures", "free_cash_flow"):
             line += f"; basis: {cash_flow_basis(key, entry, include_source_concepts=True)}"
         rows.append(line)

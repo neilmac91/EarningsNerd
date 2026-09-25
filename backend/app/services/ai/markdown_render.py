@@ -549,7 +549,7 @@ class _MarkdownRenderMixin:
         roe = (xbrl_metrics or {}).get("return_on_equity")
         roa = (xbrl_metrics or {}).get("return_on_assets")
 
-        def _ratio_clause(key: str, label: str, metric: Any) -> Optional[str]:
+        def _ratio_clause(key: str, metric: Any) -> Optional[str]:
             # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
             # RETURNS_RATIO_BAND_PCT almost always means a near-zero denominator (HD's ~$1B equity
             # → "1644.4%") — arithmetically true, analytically noise. Honest negatives inside the
@@ -563,15 +563,15 @@ class _MarkdownRenderMixin:
             value = current.get("value")
             if not returns_ratio_in_band(value):
                 return None
-            clause = f"{label} {value:.1f}%"
+            clause = f"{return_ratio_basis(key)}: {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
             if returns_ratio_in_band(prior_value):
                 clause += f" (prior {prior_value:.1f}%)"
-            return f"{clause} ({return_ratio_basis(key)})"
+            return clause
 
-        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", "return on equity was", roe),
-                                     _ratio_clause("return_on_assets", "return on assets", roa)) if c]
+        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", roe),
+                                     _ratio_clause("return_on_assets", roa)) if c]
         if ratio_clauses:
             line = "; ".join(ratio_clauses)
             vd["returns_on_capital"] = line[0].upper() + line[1:] + "."
