@@ -209,6 +209,7 @@ def validate_review_graph(
     used_contexts: set[str] = set()
     leaf_units: dict[str, str] = {}
     referenced: set[str] = set()
+    node_artifacts: set[str] = set()
     for position, node in enumerate(nodes):
         _object(node, _NODE_KEYS, "review node")
         node_id = _token(node["node_id"], _LABEL, "node_id")
@@ -233,7 +234,9 @@ def validate_review_graph(
             if unit_id in leaf_units:
                 raise ValueError(f"unit {unit_id} is bound to leaves {leaf_units[unit_id]} and {node_id}")
             leaf_units[unit_id] = node_id
-            expected_input = units[unit_id]["unit_sha256"]
+            # unit_id binds the accession, packet, coverage and context spans, labels and payload hash,
+            # so two units with identical bytes are not interchangeable.
+            expected_input = unit_id
         else:
             if node["unit_id"] is not None:
                 raise ValueError(f"{kind} {node_id} cannot bind a unit directly")
@@ -260,7 +263,7 @@ def validate_review_graph(
             raise ValueError(f"node {node_id} context {context_id} is {entry['status']} and cannot be eligible")
         if final_attempt[node_id] != context_id:
             raise ValueError(f"node {node_id} must use its latest registered attempt")
-        if context_id in used_contexts:
+        if context_id in used_contexts:  # Defence in depth: unique node IDs already imply this.
             raise ValueError(f"context {context_id} is reused")
         used_contexts.add(context_id)
 
@@ -278,7 +281,12 @@ def validate_review_graph(
             raise ValueError(f"node {node_id} receipt must be source_only with no truncation or compaction")
         if type(receipt["candidate_inputs"]) is not list or receipt["candidate_inputs"]:
             raise ValueError(f"node {node_id} receipt must have no candidate inputs")
-        referenced.update((declared, receipt["rendered_prompt_sha256"], artifact))
+        prompt = receipt["rendered_prompt_sha256"]
+        # A node's output must be its own bytes, not another node's output, a template or a prompt.
+        if artifact in referenced or artifact in (declared, prompt) or prompt in node_artifacts:
+            raise ValueError(f"node {node_id} artifact must be distinct from every other artifact, template and prompt")
+        node_artifacts.add(artifact)
+        referenced.update((declared, prompt, artifact))
         seen[node_id] = node
 
     root = nodes[-1]["node_id"]

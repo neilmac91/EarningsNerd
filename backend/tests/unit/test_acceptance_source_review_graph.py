@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from evals.acceptance_source_review_graph import children_sha256, load_review_graph, validate_review_graph
+from evals.acceptance_source_review_graph import load_review_graph, validate_review_graph
 from evals.acceptance_source_units import build_unit_manifest
 
 
@@ -34,6 +34,11 @@ def _sha(data: bytes) -> str:
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+
+
+# Independent reimplementation of the documented child-set hash; it imports no module helper.
+def children_sha256(children: list[dict[str, str]]) -> str:
+    return _sha(b"e7-source-review-children-v1\x00" + _canonical(children))
 
 
 CONTRACT = {
@@ -75,7 +80,7 @@ def _graph(shape: list[tuple[str, str, Any]] = SHAPE, contexts: dict[str, str] |
             "receipt": {
                 "role_contract_sha256": _sha(_canonical(contract)), "template_sha256": _sha(TEMPLATES[kind]),
                 "rendered_prompt_sha256": _sha(prompt),
-                "input_sha256": UNITS[target]["unit_sha256"] if kind == "leaf" else children_sha256(children),
+                "input_sha256": UNITS[target]["unit_id"] if kind == "leaf" else children_sha256(children),
                 "provider": contract["provider"], "model": contract["model"],
                 "provider_version": contract["provider_version"], "source_only": True, "truncated": False,
                 "compaction_observed": False, "candidate_inputs": [],
@@ -125,10 +130,24 @@ def _edited(graph: dict[str, Any], node_id: str, path: tuple[str, ...], value: A
 def test_every_node_runs_in_its_own_latest_eligible_context() -> None:
     graph, artifacts = _graph()
     summary = _validate(load_review_graph(_canonical(graph)), artifacts)
-    assert summary["source_context_closure"] == [entry["context_id"] for entry in REGISTRY]
-    # Failed, compacted, truncated and retired contexts stay in the closure but are never eligible.
-    assert summary["ineligible_context_ids"] == ["prior-b-1", "ctx-l1-a"]
-    assert summary["node_counts"] == {"leaf": 3, "reducer": 1, "role_synthesis": 1}
+    assert summary == {
+        "schema_version": 1,
+        "kind": "e7_offline_source_review_graph_validation",
+        "graph_sha256": _sha(_canonical(graph)),
+        "accession_number": ACCESSION,
+        "role": "role-b",
+        "unit_manifest_sha256": _sha(_canonical(MANIFEST)),
+        "role_contract_sha256": _sha(_canonical(CONTRACT)),
+        "node_counts": {"leaf": 3, "reducer": 1, "role_synthesis": 1},
+        "root_artifact_sha256": _sha(b"artifact:s"),
+        # Failed, compacted, truncated and retired contexts stay in the closure but are never eligible.
+        "source_context_closure": [entry["context_id"] for entry in REGISTRY],
+        "ineligible_context_ids": ["prior-b-1", "ctx-l1-a"],
+        "frozen_artifact_sha256s": sorted(artifacts),
+        "every_unit_bound_to_one_leaf": True,
+        **{flag: False for flag in FLAGS},
+        "limitations": graph["limitations"],
+    }
 
     # The compacted first attempt cannot be used, and neither can any earlier attempt of a node.
     _rejected(_graph(contexts={**CONTEXT, "l1": "ctx-l1-a"})[0], artifacts, "ctx-l1-a is compacted and cannot be eligible")
@@ -195,12 +214,22 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
                          ("provider_version", "2026-10-01"), ("provider_version", None),
                          ("template_sha256", _sha(b"template:alternate")),
                          ("role_contract_sha256", _sha(b"other-contract")),
-                         ("input_sha256", UNITS[0]["unit_sha256"])):
+                         ("input_sha256", UNITS[0]["unit_id"]), ("input_sha256", UNITS[1]["unit_sha256"])):
         _rejected(_edited(graph, "l2", ("receipt", field), value), artifacts, f"l2 receipt {field} does not match")
     _rejected(_edited(graph, "r1", ("receipt", "input_sha256"), children_sha256([])), artifacts,
               "r1 receipt input_sha256 does not match")
     no_reducers = {**CONTRACT, "node_kinds": {k: v for k, v in CONTRACT["node_kinds"].items() if k != "reducer"}}
-    _rejected(graph, artifacts, "role contract", role_contract=no_reducers)
+    _rejected(_graph(contract=no_reducers)[0], artifacts, "r1 kind reducer is not allowed by the role contract",
+              role_contract=no_reducers)
+
+    # Node shapes are exact, and a node's output cannot alias another output, a template or a prompt.
+    _rejected(_edited(graph, "l1", ("children",), [{"node_id": "l2", "artifact_sha256": _sha(b"artifact:l2")}]),
+              artifacts, "leaf l1 cannot have children")
+    _rejected(_edited(graph, "r1", ("unit_id",), UNITS[0]["unit_id"]), artifacts, "reducer r1 cannot bind a unit")
+    _rejected({**graph, "nodes": [graph["nodes"][0], *graph["nodes"]]}, artifacts, "duplicate node_id l1")
+    _rejected({**graph, "nodes": []}, artifacts, "at least one node")
+    for value in (_sha(b"artifact:l1"), _sha(TEMPLATES["leaf"]), _sha(b"prompt:l2")):
+        _rejected(_edited(graph, "l2", ("artifact_sha256",), value), artifacts, "l2 artifact must be distinct")
     for key, value, message in (
         ("accession_number", "0000000000-26-000002", "different accession"),
         ("role", "role-a", "role differs from the role contract"),
@@ -221,6 +250,34 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
                               ({**CONTRACT, "exposure_limit": "not_exposed"}, "exposure_limit must be null")):
         with pytest.raises(ValueError, match=message):
             _validate(graph, artifacts, role_contract=contract)
-    for variant in (json.dumps(graph, indent=2).encode("ascii"), _canonical(graph) + b"\n"):
+    for variant in (json.dumps(graph, indent=2).encode("ascii"), _canonical(graph) + b"\n", b"[]"):
         with pytest.raises(ValueError, match="not canonical JSON"):
             load_review_graph(variant)
+    with pytest.raises(ValueError, match="must be bytes"):
+        load_review_graph(_canonical(graph).decode("ascii"))
+
+
+class _Text(str):
+    pass
+
+
+@pytest.mark.parametrize(("change", "message"), [
+    ({"schema_version": True}, "unsupported role contract"),
+    ({"kind": "e7_offline_source_role_contract_v2"}, "unsupported role contract"),
+    ({"role": "Role B"}, "invalid contract role"),
+    ({"model": _Text("example-model-1")}, "invalid contract model"),
+    ({"node_kinds": {**CONTRACT["node_kinds"], "critic": {"template_sha256": "0" * 64}}}, "must map allowed kinds"),
+    ({"node_kinds": {_Text("leaf"): CONTRACT["node_kinds"]["leaf"],
+                     "role_synthesis": CONTRACT["node_kinds"]["role_synthesis"]}}, "must map allowed kinds"),
+    ({"node_kinds": {"leaf": CONTRACT["node_kinds"]["leaf"]}}, "must allow role_synthesis"),
+    ({"node_kinds": {"role_synthesis": CONTRACT["node_kinds"]["role_synthesis"]}}, "must allow leaf"),
+    ({"node_kinds": {**CONTRACT["node_kinds"], "leaf": {"template_sha256": "A" * 64}}}, "invalid leaf template"),
+    ({"node_kinds": {**CONTRACT["node_kinds"], "leaf": {"template_sha256": "0" * 64, "prompt": "x"}}},
+     "leaf template declaration must be an object"),
+    ({"provider_version": 20260901}, "invalid contract provider_version"),
+])
+def test_malformed_role_contracts_are_rejected(change: dict[str, Any], message: str) -> None:
+    graph, artifacts = _graph()
+    contract = {**CONTRACT, **change}
+    with pytest.raises(ValueError, match=message):
+        _validate(graph, artifacts, role_contract=contract)

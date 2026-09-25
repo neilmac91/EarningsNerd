@@ -40,13 +40,17 @@ proves the following for the caller's inputs, and nothing more:
    nodes not in the graph, such as a retired earlier attempt, are allowed only if they are not eligible.
 5. **Receipts.** Each node's receipt binds the role contract hash, the contract's template hash for the
    node's kind, the rendered prompt hash, the provider, model and version from the contract, and an
-   `input_sha256`. For a leaf that is its unit's `unit_sha256`; for a reducer or synthesis it is
-   `children_sha256(children)` = `SHA-256("e7-source-review-children-v1" || 0x00 || canonical_json(children))`.
+   `input_sha256`. For a leaf that is its unit's `unit_id`, which binds the accession, packet, coverage and
+   context spans, labels and payload hash, so two units with identical bytes are not interchangeable. For a
+   reducer or synthesis it is `children_sha256(children)` =
+   `SHA-256("e7-source-review-children-v1" || 0x00 || canonical_json(children))`; the regression test
+   recomputes it independently.
    The receipt must be `source_only: true`, `truncated: false` and `compaction_observed: false`, with an
    empty `candidate_inputs` list.
 6. **Frozen bytes.** `artifacts` maps SHA-256 to bytes for exactly the templates, rendered prompts and node
    artifacts the graph references, and every entry must hash to its key. Extra or missing bytes are
-   rejected.
+   rejected. A node's `artifact_sha256` must be its own output: it cannot equal another node's artifact,
+   any template or any rendered prompt.
 
 Because a node must use an eligible context, a compacted, truncated or failed node and every node that
 depends on it cannot validate until the node is retried in a fresh context and its dependents re-bind the
