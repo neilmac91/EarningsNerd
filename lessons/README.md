@@ -54,7 +54,6 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-bakeoff-hold-knobs-constant.md`](./test-bakeoff-hold-knobs-constant.md) — Bake off model swaps with every knob held constant, verified by one raw-inspected call
 - [`test-conftest-hermetic-env.md`](./test-conftest-hermetic-env.md) — The backend suite is hermetic: conftest sets mock env (incl. SKIP_REDIS_INIT) before app import
 - [`test-contract-tests-are-locked.md`](./test-contract-tests-are-locked.md) — Contract anchors are locked: never edit them in the same PR as the code they guard
-- [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - [`test-deselected-markers-need-ci-paths.md`](./test-deselected-markers-need-ci-paths.md) — Give every deselected pytest marker an explicit CI execution path
 - [`test-deterministic-guards-for-scorer-blind-spots.md`](./test-deterministic-guards-for-scorer-blind-spots.md) — Add a dedicated deterministic guard for every error class invisible to existing scorers
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
@@ -62,6 +61,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - [`test-fresh-bytecode-prefix-before-trusting-local-timing.md`](./test-fresh-bytecode-prefix-before-trusting-local-timing.md) — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
 - [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
+- [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
