@@ -1,0 +1,19 @@
+from pathlib import Path
+import subprocess,os,json,hashlib
+repo=Path('/private/tmp/earningsnerd-filings-session-20260927');out=Path('/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/pool-lifetime');out.mkdir(exist_ok=True)
+p=repo/'backend/app/routers/filings.py';raw=p.read_bytes();head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip();assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+assert raw==subprocess.check_output(['git','show','HEAD:backend/app/routers/filings.py'],cwd=repo)
+a='Depends(get_db, scope="function")';assert raw.decode().count(a)==1
+env={**os.environ,'PYTHONPYCACHEPREFIX':'/private/tmp/pool-lifetime-fault-20260927','DYLD_FALLBACK_LIBRARY_PATH':'/opt/homebrew/lib'}
+try:
+ p.write_text(raw.decode().replace(a,'Depends(get_db)'))
+ run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_filings_endpoint_db_first.py::test_sec_network_phases_do_not_retain_queuepool_connections','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+ (out/'fault.txt').write_text(run.stdout)
+ assert run.returncode==1 and '1 failed' in run.stdout,run.stdout[-2500:]
+finally:p.write_bytes(raw)
+env['PYTHONPYCACHEPREFIX']='/private/tmp/pool-lifetime-restored-20260927'
+run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_filings_endpoint_db_first.py','tests/unit/test_filing_history_service.py','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+(out/'restored.txt').write_text(run.stdout);assert run.returncode==0,run.stdout[-2000:]
+(out/'proof-receipt.json').write_text(json.dumps({'code_commit':head,'mutation':'request-scope get_db dependency retains its connection through background tasks','fault_exit':1,'fault_failed_cases':1,'restored_exit':0,'restored_sha256':hashlib.sha256(raw).hexdigest(),'restored_tail':run.stdout.splitlines()[-1]},indent=2)+'\n')
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+print(run.stdout.splitlines()[-1])
