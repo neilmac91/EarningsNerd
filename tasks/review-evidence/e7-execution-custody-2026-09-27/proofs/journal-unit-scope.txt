@@ -1,0 +1,48 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch _
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-271/test_initialization_freezes_re0')
+
+    def test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch(tmp_path: Path) -> None:
+        root = tmp_path / "frozen"
+        contract = copy.deepcopy(CONTRACT)
+        manifest = copy.deepcopy(MANIFEST)
+        packets = copy.deepcopy(PACKETS)
+        source_bytes = {"primary": PRIMARY}
+        initialize_journal(
+            root,
+            programme_id="e7-role-b-frozen",
+            accession_number=ACCESSION,
+            role_contract=contract,
+            unit_manifest_sha256=_sha(_canonical(MANIFEST)),
+            unit_manifest=manifest,
+            expected_packets=packets,
+            packet_bytes=source_bytes,
+        )
+        contract["model"] = "mutated-after-initialize"
+        manifest["units"].clear()
+        packets.clear()
+        source_bytes["primary"] = b"mutated"
+        reservation = _leaf(root, "l1", "ctx-frozen", UNITS[0]["unit_id"])
+        assert reservation["input_sha256"] == UNITS[0]["unit_id"]
+        settle_attempt(root, reservation_id=reservation["reservation_id"], status="eligible",
+                       artifact_bytes=b"eligible", receipt=_receipt(reservation, "leaf"))
+    
+>       with pytest.raises(ValueError, match="unit_id must identify exactly one unit"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_execution.py:439: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch
+1 failed, 2 warnings in 0.70s

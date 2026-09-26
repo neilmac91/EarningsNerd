@@ -1,0 +1,39 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_retry_rules_pending_state_and_seal_are_fail_closed ____________
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-268/test_retry_rules_pending_state0')
+
+    def test_retry_rules_pending_state_and_seal_are_fail_closed(tmp_path: Path) -> None:
+        eligible_root = tmp_path / "eligible"
+        _initialize(eligible_root)
+        eligible = _leaf(eligible_root, "l1", "ctx-one", UNITS[0]["unit_id"])
+        invalid_receipt = _receipt(eligible, "leaf")
+        invalid_receipt["source_only"] = False
+        with pytest.raises(ValueError, match="source_only with no truncation or compaction"):
+            settle_attempt(
+                eligible_root,
+                reservation_id=eligible["reservation_id"],
+                status="eligible",
+                artifact_bytes=b"eligible",
+                receipt=invalid_receipt,
+            )
+        settle_attempt(eligible_root, reservation_id=eligible["reservation_id"], status="eligible",
+                       artifact_bytes=b"eligible", receipt=_receipt(eligible, "leaf"))
+>       with pytest.raises(ValueError, match="cannot be redrawn"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_execution.py:281: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_retry_rules_pending_state_and_seal_are_fail_closed
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_retry_rules_pending_state_and_seal_are_fail_closed
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_retry_rules_pending_state_and_seal_are_fail_closed
+1 failed, 2 warnings in 0.72s

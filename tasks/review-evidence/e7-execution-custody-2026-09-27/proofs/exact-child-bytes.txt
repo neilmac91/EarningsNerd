@@ -1,0 +1,67 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_parent_prompt_binds_ordered_exact_utf8_child_artifacts __________
+
+data = b'Issue A \xe2\x80\x94 caf\xc3', name = 'prompt part 0'
+
+    def _utf8(data: Any, name: str) -> bytes:
+        if type(data) is not bytes:
+            raise ValueError(f"{name} must be immutable bytes")
+        try:
+>           data.decode("utf-8", errors="strict")
+E           UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc3 in position 15: unexpected end of data
+
+evals/acceptance_source_review_prompts.py:115: UnicodeDecodeError
+
+The above exception was the direct cause of the following exception:
+
+    def test_parent_prompt_binds_ordered_exact_utf8_child_artifacts() -> None:
+        artifacts = ["Issue A — café".encode(), "Issue B — €100".encode()]
+        children = [{"node_id": f"leaf-{index}", "artifact_sha256": _sha(artifact)}
+                    for index, artifact in enumerate(artifacts, start=1)]
+        artifact_map = {_sha(artifact): artifact for artifact in artifacts}
+        template = b"Reduce the exact child artifacts below."
+>       rendered = render_parent_prompt(
+            template, accession_number=ACCESSION, role=ROLE, node_id="reduce-1", node_kind="reducer",
+            role_contract_sha256=CONTRACT_SHA, children=children, child_artifacts=artifact_map,
+            reservation_id="reserve-reduce-1",
+        )
+
+tests/unit/test_acceptance_source_review_prompts.py:213: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+evals/acceptance_source_review_prompts.py:346: in render_parent_prompt
+    return _render(template, manifest, parts)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+evals/acceptance_source_review_prompts.py:136: in _render
+    checked_parts = [_utf8(part, f"prompt part {index}") for index, part in enumerate(parts)]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+evals/acceptance_source_review_prompts.py:136: in <listcomp>
+    checked_parts = [_utf8(part, f"prompt part {index}") for index, part in enumerate(parts)]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = b'Issue A \xe2\x80\x94 caf\xc3', name = 'prompt part 0'
+
+    def _utf8(data: Any, name: str) -> bytes:
+        if type(data) is not bytes:
+            raise ValueError(f"{name} must be immutable bytes")
+        try:
+            data.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+>           raise ValueError(f"{name} is not model-ready strict UTF-8") from exc
+E           ValueError: prompt part 0 is not model-ready strict UTF-8
+
+evals/acceptance_source_review_prompts.py:117: ValueError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_prompts.py::test_parent_prompt_binds_ordered_exact_utf8_child_artifacts
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_prompts.py::test_parent_prompt_binds_ordered_exact_utf8_child_artifacts
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_prompts.py::test_parent_prompt_binds_ordered_exact_utf8_child_artifacts
+1 failed, 2 warnings in 0.68s

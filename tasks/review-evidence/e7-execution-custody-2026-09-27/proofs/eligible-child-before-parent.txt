@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_parent_requires_prior_eligible_journal_children_and_retained_bytes ____
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-269/test_parent_requires_prior_eli0')
+
+    def test_parent_requires_prior_eligible_journal_children_and_retained_bytes(tmp_path: Path) -> None:
+        root = tmp_path / "children"
+        _initialize(root)
+        child_artifact = b"artifact:l1"
+        digest = _sha(child_artifact)
+        parent_inputs = {
+            "template": TEMPLATES["role_synthesis"],
+            "children": [{"node_id": "l1", "artifact_sha256": digest}],
+            "child_artifacts": {digest: child_artifact},
+        }
+>       with pytest.raises(ValueError, match="not a prior terminal eligible journal node"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_execution.py:321: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_parent_requires_prior_eligible_journal_children_and_retained_bytes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_parent_requires_prior_eligible_journal_children_and_retained_bytes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_parent_requires_prior_eligible_journal_children_and_retained_bytes
+1 failed, 2 warnings in 0.72s
