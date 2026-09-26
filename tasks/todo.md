@@ -5,7 +5,9 @@ executions and release logs. Three independently reproduced offline graph-custod
 after #961; no E7 acceptance result or beta/recovery outcome follows from the source tooling.
 The [current continuation](continuation-plan-2026-09-26.md) assigns the minimum correction,
 H29 reconciliation/integration, candidate freeze, E7 execution, recovery and cohort sequence.
-External agents remain active; checkpoints are pending. This update changes documentation only.
+All three agent checkpoints are now reconciled; their sessions are idle and Codex owns the
+remaining work. Agent B's original fixtures and follow-up findings are retained. This update
+changes documentation only.
 
 ## September 23 — bounded source-review implementation
 

@@ -8,9 +8,11 @@ Shipping more evaluation infrastructure does not establish those outcomes.
 This checkpoint supersedes the current-state/queue descriptions in the
 [September 23 continuation](continuation-plan-2026-09-23.md), through main
 `b53455bb3b13817d44cf089f3280ced143998583` (#961). Historical results, approvals, budgets and
-specific holds remain in force. The founder confirmed that external Agents A, B and C are
-still working; their unpublished checkpoints and current ownership are pending. Codex owns
-integration and this completion plan, but has not taken over their active branches.
+specific holds remain in force. The subsequently returned
+[agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
+confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
+active automation. Codex now owns the remaining engineering and integration; no unfinished
+external branch needs transfer. Agent B's original independent fixtures are preserved and verified.
 
 ## What the agents delivered
 
@@ -49,23 +51,25 @@ The latter two were also raised by the completed exact-head Codex review before 
 The PR body's review-quota explanation is not evidence that no review occurred. Founder merge
 authority reported in the PR is separate from whether findings were resolved.
 
-Finish these corrections in the existing owner's next bounded slice after reconciling their
-checkpoint. Agent B should review the exact corrected commit and supply the original independent
-fixture pack. Do not repeat completed full audits just to produce another report. Retain required
+Codex owns the corrective slice. Agent B's handback independently confirms all three findings
+and adds overlapping-coverage hashing, a weak context-before-hash test, and silently omitted
+unprefixed inline-XBRL facts. Fix the small confirmed validator gaps first; retain prompt rendering
+and externally anchored history as explicit admission blockers. Offer Agent B a bounded delta
+review of the corrected commit. Do not repeat completed full audits just to produce another report. Retain required
 gates and focused failing/restored proofs; do not retry the two previously denied E7 proofs.
 
 ## Ordered completion path and ownership
 
-The assignments below are the proposed post-checkpoint division of work. Stage 1 must reconcile
-actual ownership and running work first; this document does not transfer an active branch or
-claim an external agent has stopped. Codex's independent audit and documentation work can continue
-meanwhile. Existing approvals and release gates, rather than the priority ordering, govern execution.
+Ownership reconciliation is complete. Codex owns implementation, delegating bounded file-local
+fixes to cost-efficient internal agents and retaining final design, review and release responsibility.
+Agent B can independently review the next corrective PR; Agents A and C need no new assignment.
+Existing approvals and release gates, rather than the priority ordering, govern execution.
 
 | Stage | Owner and next deliverable | Observable exit condition |
 | --- | --- | --- |
-| 1. Reconcile active work | Codex; each external agent supplies its checkpoint, current SHA, unpublished artifacts and running work. | One owner per active slice; no duplicated generation/judging or concurrent merge decisions. SDK work is closed after its handback. |
+| 1. Reconcile active work | Complete: all three handbacks received, Agent B's archive and 80 manifest entries verified. | No active external ownership or evaluation queue; SDK assignment closed. Codex owns the next branch. |
 | 2. Close the candidate configuration | Codex owns #942's actual-output/release decision. Prefer completing the formula-label fix before E7; keep it outside other agents' custody work. | Current-main integration, documented actual baseline plus two independent same-contract draws and review, serial verified release; then freeze candidate stamp `q`. Until that evidence exists, production remains `p`; no assumed promotion or paid holdout start. |
-| 3. Complete one source-review path | Existing E7 implementer owns the custody corrections and minimum missing semantic/integration path; Agent B independently verifies it; Codex accepts the result. | Real H29 A/B briefs and reconciliation pass the same readiness/inventory/decision boundaries needed by E7. Preserve eligible A; retire compacted B; use fresh bounded B contexts. |
+| 3. Complete one source-review path | Codex owns custody corrections and the minimum missing semantic/integration path; Agent B is available for independent delta review when requested. | Real H29 A/B briefs and reconciliation pass the same readiness/inventory/decision boundaries needed by E7. Preserve eligible A; retire compacted B; use fresh bounded B contexts. |
 | 4. Prove corpus capacity and finish references | Codex coordinates bounded source-only contexts after Stage 3. | H01/H02/H25 all-member/modality and actual input/context capacity demonstrated; unchanged 30 filings have 60 independent source briefs and 30 reconciliations, with no unresolved material coverage/issue holds. |
 | 5. Execute E7 | Codex owns the frozen run and evidence dossier under existing approvals. | Preflight and metered non-holdout smoke; exactly 90 candidate + 30 comparator identities, source-based blind reviews, retained Fable judgments, and pass/fail/incomplete report within ceilings. |
 | 6. Prove recoverability | Codex prepares/operates; founder supplies the still-missing clone cost and scoped cleanup authority. | One isolated PITR restore, read-only integrity check and confirmed clone cleanup, with timings, costs and limitations. This can run alongside quality work once authorized. |
@@ -88,8 +92,9 @@ the judge/CLI contract, redraw negative verdicts, or treat a partial result as a
 
 The retained H29 record has one individually frozen eligible A brief, an ineligible compacted B,
 and no complete pair/reconciliation. No E7 acceptance outputs or decision dossier were found.
-No new E7/E8/provider call was made by this takeover audit. Active agents' unreturned evidence
-could update that position; it must be reconciled before any execution.
+No new E7/E8/provider call was made by this takeover audit. All three agents report zero additional
+E7/E8/judge calls or guard changes. Their ordinary hosted CI measurements remain separate; a
+cancelled ordinary CI generation has an unknown call count and must not be reported as zero spend.
 
 ## Open PRs and deferred work
 
@@ -99,10 +104,10 @@ could update that position; it must be reconciled before any execution.
   document a decision to defer it and the accepted scope of `p`; do not invalidate a completed
   E7 run by silently switching to `q` afterward.
 - **#952 — E8 launch/recovery:** remains draft at
-  `1d48eb336a8a22427d466966b1814fce2e94c3f2`. Recommend parking it while E7 progresses, after
-  reconciling any work already running. E8 remains 140 reused
+  `1d48eb336a8a22427d466966b1814fce2e94c3f2`. Park it while E7 progresses; all three checkpoints
+  report no running E8 work. E8 remains 140 reused
   controls / zero new judgments / 160 missing slots in retained evidence, with prior charge 287
-  of 601. The current external-session history is pending. No permission-route redesign or judge
+  of 601. No new calls were reported by these three sessions. No permission-route redesign or judge
   continuation is needed for E7: retain prompt `o` while E8 is inconclusive.
 - **#710 — index publication:** next natural monthly refresh is scheduled for October 1 at
   08:00 UTC; the latest run remains the successful September 6 no-change run. Keep the issue
@@ -115,9 +120,8 @@ could update that position; it must be reconciled before any execution.
 
 ## Founder inputs that actually remain
 
-The only present coordination request is the active agents' checkpoints. They should include
-chat-only instructions, unfinished work, original review fixtures, evaluation calls/retries and
-any release receipts missing from GitHub. This prevents duplicate work and false completion claims.
+No clarification is needed to accept the three handbacks and proceed with the corrective engineering.
+The following later live-operation/product inputs remain separately held.
 
 Before live recovery, cloud credentials need renewal and the existing
 [restore procedure](readiness-2026-09-21/operations/restore-rehearsal.md) needs a verified current

@@ -4,6 +4,11 @@ This is a retrospective, read-only reconstruction of agent deliveries since Sept
 followed by a documentation-only continuation update. It does not invent missing historical
 observations. See the [completion plan](../../continuation-plan-2026-09-26.md).
 
+The later [agent-checkpoint reconciliation](agent-checkpoint-reconciliation.md) resolves active
+ownership, preserves Agent B's independent fixture pack and consolidates additional findings.
+It also records the agents' dated corrections and historical-health attestations without treating
+them as independently observed raw responses.
+
 ## Verified release chain
 
 Each backend job below reported `apply_migrations: applied=0 skipped=39`, the named revision
