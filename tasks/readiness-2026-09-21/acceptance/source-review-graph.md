@@ -10,9 +10,10 @@ protocol, executor, output or decision call site, and cannot admit evidence.
 and the [modality inventory](source-review-modalities.md). It covers the context and receipt custody part
 of the [hierarchy proposal](source-review-hierarchy-proposal.md): for one role, every review unit is bound
 to exactly one leaf, the leaves, reducers and single role synthesis form a hash-linked tree, every node
-ran in its own registered and eligible context, and every receipt matches a frozen role contract and the
-exact bytes it names. Issue propagation, reducer dispositions and reconciliation are the next stage and
-are not validated here.
+declares its own registered and eligible context, and every receipt matches a frozen role contract and
+the exact bytes it names. The snapshot does not prove that the attempt history is complete or that
+prompt bytes were constructed from the declared template and inputs. Those custody requirements remain
+open, along with issue propagation, reducer dispositions and reconciliation.
 
 ## What a valid graph proves
 
@@ -31,13 +32,15 @@ proves the following for the caller's inputs, and nothing more:
    child's own `artifact_sha256`. Children precede their parent in `nodes`, which excludes cycles. Every
    node except the synthesis has exactly one parent, and exactly one `role_synthesis` node comes last.
    Unreachable nodes are rejected.
-4. **Context custody.** The `context_registry` is the append-only attempt history: each entry is
+4. **Declared context snapshot.** Each `context_registry` entry is
    `{context_id, node_id, attempt, status}` with `status` one of `eligible`, `failed`, `compacted`,
    `truncated` or `retired`. Context IDs are unique, a node's attempts run 1, 2, … in registry order, and no
    registered context may appear in the caller's `foreign_context_ids` (the other roles' contexts for this
-   accession). Every node runs in the context registered for it, which must be `eligible` and that node's
+   accession). Every node declares the context registered for it, which must be `eligible` and that node's
    latest attempt, and no context is used twice. Every eligible context is used by a node. Entries for
    nodes not in the graph, such as a retired earlier attempt, are allowed only if they are not eligible.
+   This validates internal consistency only: omitted attempts followed by renumbering cannot be
+   detected without an independently retained expected history.
 5. **Receipts.** Each node's receipt binds the role contract hash, the contract's template hash for the
    node's kind, the rendered prompt hash, the provider, model and version from the contract, and an
    `input_sha256`. For a leaf that is its unit's `unit_id`, which binds the accession, packet, coverage and
@@ -46,21 +49,34 @@ proves the following for the caller's inputs, and nothing more:
    `SHA-256("e7-source-review-children-v1" || 0x00 || canonical_json(children))`; the regression test
    recomputes it independently.
    The receipt must be `source_only: true`, `truncated: false` and `compaction_observed: false`, with an
-   empty `candidate_inputs` list.
-6. **Frozen bytes.** `artifacts` maps SHA-256 to bytes for exactly the templates, rendered prompts and node
-   artifacts the graph references, and every entry must hash to its key. Extra or missing bytes are
+   empty `candidate_inputs` list. Matching these separate hashes does not verify deterministic
+   construction of the rendered prompt from the template and complete input bytes.
+6. **Frozen bytes.** `artifacts` maps SHA-256 to bytes for every template declared by the role contract,
+   including unused allowed kinds, and every rendered prompt and node artifact referenced by the graph.
+   Every entry must hash to its key. Extra or missing bytes are
    rejected. A node's `artifact_sha256` must be its own output: it cannot equal another node's artifact,
    any template or any rendered prompt.
 
 Because a node must use an eligible context, a compacted, truncated or failed node and every node that
 depends on it cannot validate until the node is retried in a fresh context and its dependents re-bind the
-new artifact hash. The summary's `source_context_closure` lists every registered context, including the
-ineligible ones, and `frozen_artifact_sha256s` lists every frozen template, prompt and artifact.
+new artifact hash. The summary's legacy-named `source_context_closure` lists every **supplied** registered
+context, including ineligible ones; it is not a complete historical closure or an admission authority.
+`frozen_artifact_sha256s` lists every frozen contract template, prompt and artifact.
 
 It does **not** prove that any provider ran a node, that a receipt's declarations are true, that the
 review was correct, that issues were propagated, or anything about table grouping, modalities or members
 (those have their own formats). Every attestation flag is `false`, and the graph never carries
 `coverage_status`.
+
+Before admission, validate the complete attempt history against an independently retained execution
+record, including contract/input/prompt identities and adverse attempts, and verify deterministic
+prompt construction. A hash chain with a caller-replaceable root is insufficient. Reuse the existing
+operator/executor custody boundary where possible; this snapshot alone must not be used to exclude
+all source contexts from output review. See the existing
+[integration requirements](source-review-hierarchy-integration.md).
+
+This correction preserves schema-1 field names and fixed limitation strings; it does not claim a
+new evidence schema or close those pending requirements.
 
 ## Format
 

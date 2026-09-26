@@ -196,6 +196,12 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
         (b"plain text exhibit", "no html or body element"),
         (b'<?xml version="1.0"?><xbrli:xbrl><us-gaap:Revenues>5</us-gaap:Revenues></xbrli:xbrl>',
          "no html or body element"),
+        (b'<html xmlns="http://www.xbrl.org/2013/inlineXBRL"><body><nonFraction>5</nonFraction></body></html>',
+         "unsupported prefix"),
+        (b"<html><body><nonNumeric>text</nonNumeric></body></html>", "unsupported prefix"),
+        (b"<html><body><fraction>1/3</fraction></body></html>", "unsupported prefix"),
+        (b"<html><body><hidden><ix:nonFraction>5</ix:nonFraction></hidden></body></html>",
+         "unsupported prefix"),
         (b'<html><body><ixb:nonFraction name="x">5</ixb:nonFraction></body></html>', "unsupported prefix"),
         (b"<html><body><div><ixb:hidden><p>x</p></ixb:hidden></div></body></html>", "unsupported prefix"),
         (b'<html><body><p><image src="g.jpg"></image></p></body></html>', "<image> image-bearing markup"),
@@ -203,6 +209,10 @@ def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> No
     ):
         with pytest.raises(ValueError, match=message):
             _single_packet(raw)
+    ordinary_header = _single_packet(
+        b"<html><body><header><h1>Results</h1></header></body></html>"
+    )
+    assert ordinary_header["items"] == []
 
 
 def _single_packet(raw: bytes) -> dict[str, Any]:

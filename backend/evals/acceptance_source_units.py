@@ -288,6 +288,7 @@ def validate_unit_manifest(
     if type(units) is not list:
         raise ValueError("units must be a list")
     coverage_by_packet: dict[str, list[tuple[int, int]]] = {packet["packet_id"]: [] for packet in packets}
+    coverage_bytes_by_packet: dict[str, int] = {packet["packet_id"]: 0 for packet in packets}
     order: list[tuple[int, int]] = []
     unit_ids: set[str] = set()
     context_span_count = context_bytes = 0
@@ -305,15 +306,21 @@ def validate_unit_manifest(
                              f"{unit_context_limit}-byte per-unit context limit")
         if context_bytes + unit_context_bytes > total_context_limit:
             raise ValueError(f"declared context exceeds the {total_context_limit}-byte total context limit")
+        if unit["unit_id"] in unit_ids:
+            raise ValueError("duplicate unit_id")
+        packet_id = packet["packet_id"]
+        coverage_bytes = sum(end - start for start, end in coverage)
+        if coverage_bytes_by_packet[packet_id] + coverage_bytes > packet["byte_length"]:
+            raise ValueError(f"coverage spans overlap in packet {packet['role']}: "
+                             "declared coverage exceeds packet byte_length")
         record = _unit_record(accession, packet, data_by_role[packet["role"]], unit, coverage, context)
         for field in ("coverage_spans", "context_spans", "unit_sha256", "unit_id"):
             if _canonical(unit[field]) != _canonical(record[field]):
                 raise ValueError(f"unit {field} does not match the declared packet bytes and labels")
-        if unit["unit_id"] in unit_ids:
-            raise ValueError("duplicate unit_id")
         unit_ids.add(unit["unit_id"])
-        coverage_by_packet[packet["packet_id"]].extend(coverage)
-        order.append((packet_index[packet["packet_id"]], coverage[0][0]))
+        coverage_bytes_by_packet[packet_id] += coverage_bytes
+        coverage_by_packet[packet_id].extend(coverage)
+        order.append((packet_index[packet_id], coverage[0][0]))
         context_span_count += len(context)
         context_bytes += unit_context_bytes
 

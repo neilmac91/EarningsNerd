@@ -233,7 +233,7 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
     # A later node kind's template cannot be an earlier node's output either.
     aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"], "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
     aliased_graph, aliased_artifacts = _graph(contract=aliased)
-    _rejected(aliased_graph, aliased_artifacts, "r1 template aliases an earlier node artifact", role_contract=aliased)
+    _rejected(aliased_graph, aliased_artifacts, "l1 artifact must be distinct", role_contract=aliased)
     for key, value, message in (
         ("accession_number", "0000000000-26-000002", "different accession"),
         ("role", "role-a", "role differs from the role contract"),
@@ -259,6 +259,23 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
             load_review_graph(variant)
     with pytest.raises(ValueError, match="must be bytes"):
         load_review_graph(_canonical(graph).decode("ascii"))
+
+
+def test_unused_contract_templates_are_frozen_and_cannot_alias_outputs() -> None:
+    shape = [SHAPE[0], SHAPE[1], SHAPE[3], ("s", "role_synthesis", ["l1", "l2", "l3"])]
+    registry = [entry for entry in REGISTRY if entry["node_id"] != "r1"]
+    graph, artifacts = _graph(shape=shape, registry=registry)
+    summary = _validate(graph, artifacts)
+    assert summary["node_counts"]["reducer"] == 0
+    reducer_template = _sha(TEMPLATES["reducer"])
+    assert reducer_template in summary["frozen_artifact_sha256s"]
+    _rejected(graph, {key: data for key, data in artifacts.items() if key != reducer_template}, "artifacts missing")
+
+    aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"],
+                                         "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
+    graph, artifacts = _graph(shape=shape, registry=registry, contract=aliased)
+    artifacts.pop(reducer_template)
+    _rejected(graph, artifacts, "l1 artifact must be distinct", role_contract=aliased)
 
 
 class _Text(str):

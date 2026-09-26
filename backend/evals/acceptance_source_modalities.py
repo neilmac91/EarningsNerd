@@ -30,6 +30,8 @@ FACT_TAGS = frozenset({"ix:nonfraction", "ix:nonnumeric", "ix:fraction"})
 # Inline XBRL binds a namespace, not a prefix. Facts and hidden sections are recognised only under
 # the conventional ``ix`` prefix, so the same local names under any other prefix fail closed.
 _IX_LOCAL_NAMES = frozenset({"nonfraction", "nonnumeric", "fraction", "hidden", "header"})
+# ``header`` is also an ordinary HTML5 element; the other bare local names are ambiguous iXBRL.
+_BARE_IX_LOCAL_NAMES = _IX_LOCAL_NAMES - {"header"}
 # Image-bearing markup other than img would leave scope silently, so it fails closed.
 UNSUPPORTED_IMAGE_TAGS = frozenset({"image", "svg", "object", "embed", "picture", "iframe", "canvas"})
 # Any change to these strings, the flags, the modalities, the dispositions or any key set requires
@@ -122,7 +124,10 @@ def _expected_items(accession: str, packet: dict[str, Any], raw: bytes) -> list[
         raise ValueError(f"packet {packet['role']} has no html or body element; only HTML packets are inventoried")
     for element in projection["elements"]:
         prefix, _, local = element["tag"].rpartition(":")
-        if prefix and prefix != "ix" and local in _IX_LOCAL_NAMES:
+        if (
+            (prefix and prefix != "ix" and local in _IX_LOCAL_NAMES)
+            or (not prefix and local in _BARE_IX_LOCAL_NAMES)
+        ):
             raise ValueError(f"inline-XBRL element <{element['tag']}> uses an unsupported prefix; only ix: is recognised")
         if element["tag"] in UNSUPPORTED_IMAGE_TAGS:
             raise ValueError(f"<{element['tag']}> image-bearing markup is not inventoried; only img is supported")
