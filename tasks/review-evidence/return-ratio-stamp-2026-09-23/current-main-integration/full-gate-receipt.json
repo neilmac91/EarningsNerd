@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "measured_source_head": "7a496e1be283b74e36aea53edce10a996bf93c09",
+  "parents": [
+    "aab234fb0d041eadea378a1b374d29b71b9c7b0a",
+    "b53455bb3b13817d44cf089f3280ced143998583"
+  ],
+  "backend_tree": "d0173a08d4f41ef131faddeda5c864684592eada",
+  "python": "3.11.16",
+  "environment": {
+    "venv": "/private/tmp/earningsnerd-e7-corrections-venv",
+    "installed_distributions": 121,
+    "pip_check": "pass",
+    "requirements_runtime_matches_current_main": true,
+    "requirements_dev_matches_current_main": true,
+    "python_pycache_prefix": "/private/tmp/pr942-pycache.bMmQY6",
+    "dyld_fallback_library_path": "/opt/homebrew/lib"
+  },
+  "pytest": {
+    "summary": "3718 passed, 40 warnings in 182.25s (0:03:02)",
+    "tests": 3718,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "junit_time_seconds": 177.519,
+    "junit_sha256": "5ca71809344c0d1e701e65ec31adbf6a0ad26fc38edd7716a5734fa7833a4f9f",
+    "performance_cases": 2,
+    "postgres_lanes": {
+      "test_subscription_event_transactions": {
+        "database": "e7r_stripe",
+        "cases": 24
+      },
+      "test_usage_counter_transactions": {
+        "database": "e7r_usage",
+        "cases": 29
+      },
+      "test_login_lockout_transactions": {
+        "database": "e7r_login",
+        "cases": 6
+      },
+      "test_notification_delivery_transactions": {
+        "database": "e7r_delivery",
+        "cases": 5
+      }
+    },
+    "known_post_success_warning": "closed-stream logging error after pytest exit"
+  },
+  "static_checks": {
+    "ruff": "pass",
+    "bandit": "pass; no medium/high issues",
+    "bandit_scanned_lines": 36408,
+    "diff_check": "pass"
+  },
+  "pr942_file_sha256": {
+    "backend/app/services/ai/markdown_render.py": "2db353678f891b79b128e37c92160579ae6d16408312caaa42a6b7a1b4a9c0f5",
+    "backend/app/services/ai/xbrl_narrative.py": "fcc711a54f35d3ca8984c7173611c2901df753b84dd2c42a4f37dbc86856fc8d",
+    "backend/app/services/openai_service.py": "2a9bfcdc36a67acb43e30010319d737519de211e1aba0cd6a49770ed8114e584",
+    "backend/app/services/summary_versioning.py": "d77c07e1c8c89d2cf393c8872f376f6a9db10ecf78199b8bcc7bf471d64a966a",
+    "backend/tests/unit/test_structured_markdown_render.py": "694301c34c451b0e4f9f5beba5f433323bd55d7c9dd7dad3596584517445cffc",
+    "backend/tests/unit/test_xbrl_narrative_section.py": "9f25d15dd00ce6bd8de264b19124c36dcfe15eae5e586472f4f20f3242090090"
+  },
+  "pr942_files_match_premerge_bytes": true,
+  "locked_test_blob_ids": {
+    "backend/tests/integration/test_summary_stream_contract.py": "e06b46d16234e7238533547b2cc7bd68bc83e811",
+    "backend/tests/unit/test_background_generation_characterization.py": "cb8c96f2e2f3ac3b1b6d8d84fb6845b1a7de4bb7",
+    "backend/tests/unit/test_auth_flow.py": "5266bc4f3dbdd37cb06a4026b441a332ea8f838b",
+    "backend/tests/unit/test_stripe_webhook.py": "0de4c2ee1abd6ea041782bf910859ea89545addb"
+  },
+  "locked_tests_match_origin_main": true,
+  "prior_mutation_proofs_repeated": false,
+  "prior_mutation_proofs_retained_because_guarded_bytes_are_identical": true,
+  "remote_actions": {
+    "push": false,
+    "comment": false,
+    "provider_call": false,
+    "judge_call": false
+  }
+}
