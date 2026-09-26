@@ -35,3 +35,7 @@ only contexts dispatched through this journal and checked against an independent
 The [exact receipt](h29-render-rehearsal.json) records six manifest-declared legacy HTML views: 794,260 source bytes rendered into 805,424 prompt bytes; largest input 302,272 bytes. Both exact-hash JPEGs were rejected as unsupported binary images. Two reproductions were byte-identical; all 18 bundle artifacts verified. No model calls or new journal/graph were made. The full source/prompt bundle and reproducer remain in workspace `outputs/takeover-2026-09-26/h29-render-rehearsal/`, with receipt SHA-256 `1eee0fa1e780e026275478f5af258e6a7c265bd81c3069029ba10ac82836d09a`.
 
 The earlier 794,478-byte estimate mixed two original packets with their 218-byte-smaller derived views. The receipt preserves both sets separately. This fixture proves delivery of the exact six views, not full four-source-contract coverage, semantic boundaries or model-context capacity. Existing A stays individually eligible; compacted B stays ineligible; neither is recertified.
+
+## Final hosted-review correction
+
+The [pending-reservation recovery correction](recovery-fix/README.md) adds the safe public lost-return lookup and full child-path custody. Its final full gate, two additional fault proofs, independent review and exact final hashes supersede the earlier snapshot for these changed files. Original evidence above remains historical.
