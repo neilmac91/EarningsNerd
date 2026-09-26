@@ -966,12 +966,16 @@ def _attempt_snapshot(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def seal_history(root: Path) -> dict[str, str]:
-    """Seal the complete ordered terminal history; pending work and later mutation are forbidden."""
+    """Seal terminal history, or recover the identical committed seal after return loss."""
     root = Path(root).resolve()
     with _connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
         binding = _load_binding(root, db)
-        _require_open(db)
+        programme = db.execute(
+            "SELECT sealed_history_path,sealed_history_sha256 FROM programme WHERE singleton=1"
+        ).fetchone()
+        if programme is None:
+            raise ValueError("operator journal is not initialized")
         rows = db.execute("SELECT * FROM attempts ORDER BY sequence").fetchall()
         if not rows:
             raise ValueError("cannot seal an empty attempt history")
@@ -996,9 +1000,21 @@ def seal_history(root: Path) -> dict[str, str]:
             **{flag: False for flag in ATTESTATION_FLAGS},
         }
         history_bytes = _canonical(history)
-        history_path = root / "history.json"
-        _durable_exact(history_path, history_bytes)
+        history_path = _safe(root, "history.json")
         history_sha256 = _sha(history_bytes)
+        if programme["sealed_history_sha256"] is not None:
+            # Recover the original committed authority, never endorse a fresh hash of mutable
+            # files. Check both the current journal rows and the retained bytes against it.
+            committed_hash = programme["sealed_history_sha256"]
+            if (
+                programme["sealed_history_path"] != "history.json"
+                or history_sha256 != committed_hash
+                or not history_path.is_file()
+                or history_path.read_bytes() != history_bytes
+            ):
+                raise ValueError("committed seal differs from retained history or journal rows")
+            return {"history_path": str(history_path), "history_sha256": committed_hash}
+        _durable_exact(history_path, history_bytes)
         db.execute(
             "UPDATE programme SET sealed_history_path=?,sealed_history_sha256=? WHERE singleton=1",
             (history_path.name, history_sha256),

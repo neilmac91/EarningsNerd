@@ -81,3 +81,9 @@ The row remains reserved during recovery and the intended result is not eligible
 commits. Immutable files are published by exclusively linking a completely written, fsynced temporary
 file, so a crash during writing cannot expose a partial authoritative record. Orphan temporary files
 are never treated as records.
+
+`seal_history(root)` is idempotent after a committed seal. If its original return value was lost,
+retrying checks the current journal rows and retained history bytes against the original hash stored
+at commit and returns that same path/hash. It does not write a new history, reopen the journal or
+endorse a new hash of edited files. Retain the returned hash independently before using the execution
+binding; recovery is not a replacement for that external retention step.

@@ -506,6 +506,24 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
     monkeypatch.setattr(execution, "_durable_exact", original)
     seal = seal_history(root)
     assert Path(seal["history_path"]).read_bytes()
+    # A commit-before-return loss must recover the stored authority without writing or resealing.
+    with monkeypatch.context() as patch:
+        def reject_republication(_path: Path, _data: bytes) -> None:
+            raise AssertionError("committed seal recovery must not publish new authority")
+
+        patch.setattr(execution, "_durable_exact", reject_republication)
+        assert seal_history(root) == seal
+    edited_history = tmp_path / "edited-sealed-history"
+    shutil.copytree(root, edited_history)
+    (edited_history / "history.json").write_bytes(b"{}")
+    with pytest.raises(ValueError, match="committed seal differs"):
+        seal_history(edited_history)
+    edited_rows = tmp_path / "edited-sealed-rows"
+    shutil.copytree(root, edited_rows)
+    with sqlite3.connect(edited_rows / "execution.sqlite3") as db:
+        db.execute("UPDATE attempts SET status='failed'")
+    with pytest.raises(ValueError, match="committed seal differs"):
+        seal_history(edited_rows)
 
 
 def test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch(tmp_path: Path) -> None:
