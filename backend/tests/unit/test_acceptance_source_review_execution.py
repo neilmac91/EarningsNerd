@@ -17,6 +17,7 @@ import evals.acceptance_source_review_execution as execution
 from evals.acceptance_source_review_execution import (
     initialize_journal,
     recover_pending_attempt,
+    recover_terminal_attempt,
     reserve_attempt,
     seal_history,
     settle_attempt,
@@ -477,6 +478,61 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
         receipt=interrupted["settlement_receipt"],
     )
     assert recover_pending_attempt(adverse_root) is None
+
+    committed_root = tmp_path / "committed-settlement-recover"
+    _initialize(committed_root)
+    committed = _leaf(committed_root, "l1", "ctx-committed", UNITS[0]["unit_id"])
+    committed_artifact = b"committed artifact survived return loss"
+    committed_receipt = _receipt(committed, "leaf")
+    # Simulate commit-before-return loss by discarding the original result. Both public recovery
+    # routes must validate and return the existing settlement without writing or caller memory.
+    settle_attempt(
+        committed_root, reservation_id=committed["reservation_id"], status="eligible",
+        artifact_bytes=committed_artifact, receipt=committed_receipt,
+    )
+    recovered_terminal = recover_terminal_attempt(
+        committed_root, reservation_id=committed["reservation_id"]
+    )
+    assert recovered_terminal["status"] == "eligible"
+    assert recovered_terminal["artifact_bytes"] == committed_artifact
+    assert recovered_terminal["receipt"] == committed_receipt
+    with monkeypatch.context() as patch:
+        def reject_settlement_republication(_path: Path, _data: bytes) -> None:
+            raise AssertionError("committed settlement recovery must not republish files")
+
+        patch.setattr(execution, "_durable_exact", reject_settlement_republication)
+        retried = settle_attempt(
+            committed_root, reservation_id=committed["reservation_id"], status="eligible",
+            artifact_bytes=committed_artifact, receipt=committed_receipt,
+        )
+    assert retried["artifact_sha256"] == _sha(committed_artifact)
+    with pytest.raises(ValueError, match="committed settlement differs from retry"):
+        settle_attempt(
+            committed_root, reservation_id=committed["reservation_id"], status="failed",
+            artifact_bytes=committed_artifact, receipt=committed_receipt,
+        )
+    tampered_terminal = tmp_path / "tampered-committed-settlement"
+    shutil.copytree(committed_root, tampered_terminal)
+    next((tampered_terminal / "attempts").iterdir()).joinpath("artifact.bin").write_bytes(
+        b"tampered"
+    )
+    with pytest.raises(ValueError, match="retained artifact bytes changed"):
+        recover_terminal_attempt(
+            tampered_terminal, reservation_id=committed["reservation_id"]
+        )
+    recovered_digest = recovered_terminal["artifact_sha256"]
+    parent = reserve_attempt(
+        committed_root,
+        node_id="s",
+        node_kind="role_synthesis",
+        context_id="ctx-parent-after-recovery",
+        render_inputs={
+            "template": TEMPLATES["role_synthesis"],
+            "children": [{"node_id": "l1", "artifact_sha256": recovered_digest}],
+            "child_artifacts": {recovered_digest: recovered_terminal["artifact_bytes"]},
+        },
+    )
+    assert parent["node_id"] == "s"
 
     root = tmp_path / "recover"
     _initialize(root)

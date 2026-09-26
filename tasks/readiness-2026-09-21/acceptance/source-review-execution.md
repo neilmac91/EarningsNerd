@@ -87,3 +87,11 @@ retrying checks the current journal rows and retained history bytes against the 
 at commit and returns that same path/hash. It does not write a new history, reopen the journal or
 endorse a new hash of edited files. Retain the returned hash independently before using the execution
 binding; recovery is not a replacement for that external retention step.
+
+`recover_terminal_attempt(root, reservation_id=...)` is the read-only recovery path when a
+`settle_attempt` commit succeeded but its return was lost. While the journal remains open, it validates
+the frozen binding, terminal row, atomic settlement intent and every retained attempt file, then
+returns the original status plus exact artifact and receipt needed by later parent work. An identical
+`settle_attempt` retry performs the same validation and returns the original settlement identity
+without writing. A changed status, artifact or receipt is rejected. Terminal recovery never reopens a
+sealed journal and is blocked while an uncommitted history file requires `seal_history` recovery.

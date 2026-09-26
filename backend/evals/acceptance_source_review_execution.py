@@ -880,8 +880,31 @@ def settle_attempt(
         row = db.execute(
             "SELECT * FROM attempts WHERE reservation_id=?", (reservation_id,)
         ).fetchone()
-        if row is None or row["status"] != RESERVED_STATUS:
-            raise ValueError("reservation is missing or already settled")
+        if row is None:
+            raise ValueError("reservation is missing")
+        if row["status"] != RESERVED_STATUS:
+            if row["status"] not in TERMINAL_STATUSES:
+                raise ValueError("reservation has an invalid stored status")
+            recovered_artifact, recovered_receipt, recovered_receipt_bytes = (
+                _recover_terminal_attempt_row(root, binding, row)
+            )
+            if (
+                row["status"] != status
+                or recovered_artifact != artifact_bytes
+                or recovered_receipt != receipt
+                or recovered_receipt_bytes != receipt_bytes
+            ):
+                raise ValueError("committed settlement differs from retry")
+            return {
+                "reservation_id": reservation_id,
+                "sequence": row["sequence"],
+                "node_id": row["node_id"],
+                "context_id": row["context_id"],
+                "attempt": row["attempt"],
+                "status": row["status"],
+                "artifact_sha256": row["artifact_sha256"],
+                "receipt_sha256": row["receipt_sha256"],
+            }
         if status == "eligible":
             _validate_eligible_receipt(binding, row, receipt)
         directory_rel = str(Path(row["prompt_path"]).parent)
@@ -1088,6 +1111,59 @@ def _verify_attempt_files(root: Path, attempt: dict[str, Any]) -> tuple[bytes, b
     ):
         raise ValueError("retained settlement intent differs from sealed attempt history")
     return prompt, input_manifest, artifact, receipt
+
+
+def _recover_terminal_attempt_row(
+    root: Path, binding: dict[str, Any], row: sqlite3.Row
+) -> tuple[bytes | None, dict[str, Any], bytes]:
+    """Validate one committed terminal row and return its exact retained settlement payloads."""
+    if row["status"] not in TERMINAL_STATUSES:
+        raise ValueError("reservation is not terminal")
+    snapshot = _attempt_snapshot(row)
+    _prompt, _input_manifest, artifact, receipt_bytes = _verify_attempt_files(root, snapshot)
+    try:
+        receipt = json.loads(receipt_bytes.decode("ascii"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("retained terminal receipt is not canonical JSON") from exc
+    if type(receipt) is not dict or _canonical(receipt) != receipt_bytes:
+        raise ValueError("retained terminal receipt is not canonical JSON")
+    if row["status"] == "eligible":
+        _validate_eligible_receipt(binding, row, receipt)
+    return artifact, receipt, receipt_bytes
+
+
+def recover_terminal_attempt(root: Path, *, reservation_id: str) -> dict[str, Any]:
+    """Read one committed settlement after its original return value may have been lost.
+
+    Recovery is read-only and valid only while the journal remains open. It validates the frozen
+    binding, terminal row, atomic settlement intent and every retained attempt file before returning
+    the exact artifact and receipt. It never reserves, settles, dispatches or seals work.
+    """
+    root = Path(root).resolve()
+    _token(reservation_id, re.compile(r"[0-9a-f]{32}"), "reservation_id")
+    with _connect(root, read_only=True) as db:
+        binding = _load_binding(root, db)
+        _require_open(db)
+        _require_no_uncommitted_seal(root)
+        row = db.execute(
+            "SELECT * FROM attempts WHERE reservation_id=?", (reservation_id,)
+        ).fetchone()
+        if row is None or row["status"] not in TERMINAL_STATUSES:
+            raise ValueError("reservation is missing or not terminal")
+        artifact, receipt, _receipt_bytes = _recover_terminal_attempt_row(root, binding, row)
+        return {
+            "reservation_id": row["reservation_id"],
+            "sequence": row["sequence"],
+            "node_id": row["node_id"],
+            "node_kind": row["node_kind"],
+            "context_id": row["context_id"],
+            "attempt": row["attempt"],
+            "status": row["status"],
+            "artifact_bytes": artifact,
+            "artifact_sha256": row["artifact_sha256"],
+            "receipt": receipt,
+            "receipt_sha256": row["receipt_sha256"],
+        }
 
 
 def validate_execution_binding(
