@@ -1,0 +1,267 @@
+{
+  "receipt_version": 1,
+  "pr": 942,
+  "head_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+  "head_tree": "544a5200ef3e187932262b1ca50ff853d6bf0733",
+  "schema": {
+    "top_level_keys": [
+      "harness",
+      "results",
+      "summary"
+    ],
+    "result_keys": [
+      "aggregate",
+      "attribution_audit",
+      "candidate",
+      "cost_usd",
+      "coverage_inventory",
+      "error",
+      "figure_trace",
+      "filing_type",
+      "financial_depth_profile_source",
+      "first_error",
+      "first_latency_seconds",
+      "grounding_excerpt",
+      "incurred_latency_seconds",
+      "incurred_provider_usage",
+      "judge",
+      "latency_seconds",
+      "passed_gates",
+      "payload",
+      "preview_chars",
+      "preview_count",
+      "preview_final_response_association",
+      "preview_frames",
+      "preview_observation_scope",
+      "previews_truncated",
+      "provider_usage",
+      "raw_sections",
+      "retried",
+      "retry_preview_attempts_omitted",
+      "retry_preview_evidence",
+      "retry_provider_attempts",
+      "run",
+      "score",
+      "sixk_class",
+      "source_provenance",
+      "statement_source",
+      "stream_requested",
+      "ticker",
+      "xbrl_grounding"
+    ],
+    "result_keys_sha256": "883632afd08d8fd270b8ebbad2c25c8c056131bd6131fb0ab82ceadbcc471b10",
+    "score_keys": [
+      "citation_checked",
+      "citation_fidelity",
+      "citation_violations",
+      "coverage",
+      "currency_consistency",
+      "delta_consistency",
+      "financial_depth",
+      "financial_depth_profile",
+      "forward_quote_fidelity",
+      "forward_quote_violations",
+      "gate_failures",
+      "matched_facts",
+      "missing_facts",
+      "missing_sections",
+      "numeric_accuracy",
+      "numeric_precision",
+      "redundancy",
+      "repaired",
+      "schema_valid",
+      "specificity"
+    ],
+    "score_keys_sha256": "0752d24236a2c428c5ede97632a79314740f3fef1b2d319ba0f5cea0c8e1b83f"
+  },
+  "sdk_dependency_evidence": {
+    "requirements_git_blob_sha1": "be0fcb4d0377237e20fe6819dda127211274feaa",
+    "requirements_content_sha256": "78f15d83ea9a0c5431affa75b6e6bd6ba7708b65bd2ee58185e250ce636ea234",
+    "pins": {
+      "edgartools": "5.58.0",
+      "httpx": "0.28.1",
+      "openai": "3.16.2",
+      "pydantic": "2.13.5"
+    },
+    "verification": "GitHub content API returned the same requirements blob for p source, q PR virtual merge, and q head. Report metadata does not embed installed package versions."
+  },
+  "semantic_judging": {
+    "status": "pending",
+    "judge": "cli:claude-fable-5-1",
+    "contract_version": 2,
+    "calls_made_during_audit": 0,
+    "reason": "Local Claude CLI status was loggedIn=false; no probe or substitute judge was used."
+  },
+  "evidence_role": "authoritative full three-repeat q baseline pin candidate",
+  "run": {
+    "id": 36276551360,
+    "event": "workflow_dispatch",
+    "conclusion": "success",
+    "job_id": 108500305560,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36276551360"
+  },
+  "artifact": {
+    "id": 10916803846,
+    "name": "eval-report-36276551360",
+    "size": 5478832,
+    "archive_sha256": "c32a93fefcc7bdf9be33359a02f91b638f96b5e6b01a7d62dd8d4bda91b114ec"
+  },
+  "source": {
+    "report_source_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+    "report_source_kind": "exact branch head",
+    "tree": "544a5200ef3e187932262b1ca50ff853d6bf0733"
+  },
+  "files": {
+    "ci-execution.txt": {
+      "bytes": 154,
+      "sha256": "8a7bfdfb2ae509eccb54853530466668b7ebf954eeac8350133b66db3e32712e"
+    },
+    "eval-job.log": {
+      "bytes": 248377,
+      "sha256": "b0fb80cd1ffceeacf95c9fb37009f686dc8aa9dd9587c80834a49f608f225be6"
+    },
+    "eval_20260926T224459Z.json": {
+      "bytes": 30320298,
+      "sha256": "3e0f758432ff85b899bafdbb795bd80cb8d6784cc12debd598fd6d2a2cd5499e"
+    },
+    "eval_20260926T224459Z.md": {
+      "bytes": 1277,
+      "sha256": "a17e1a88d95dd8db936eca5afbf54cac81fe93ff710936e4cd652810baf8bf85"
+    }
+  },
+  "harness": {
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_base_url": "",
+    "fallback_model": "",
+    "model": "deepseek-flash",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 3,
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": true,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "ai_attribution_gate": false,
+    "ai_attribution_verify": false,
+    "judge": false,
+    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "execution": {
+    "filings": 35,
+    "runs": [
+      [
+        0,
+        35
+      ],
+      [
+        1,
+        35
+      ],
+      [
+        2,
+        35
+      ]
+    ],
+    "attempts": 105,
+    "unique_identities": 105,
+    "scored": 105,
+    "errors": 0,
+    "retried": 0,
+    "passed_gates": 105,
+    "empty_gate_failures": 105,
+    "schema_valid": 105,
+    "repaired": 0,
+    "numeric_accuracy_one": 105,
+    "numeric_precision_one": 105,
+    "coverage_one": 105,
+    "currency_consistency_one": 105,
+    "judge_null": 105,
+    "figure_trace_measured": 105,
+    "figure_trace_unavailable": 0,
+    "figure_trace_errors": 0,
+    "provider_calls": 105,
+    "unknown_provider_calls": 0,
+    "provider_operations": {
+      "summary_primary": 105
+    },
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "pass_rate": 1.0,
+    "gate_fail_rate": 0.0,
+    "mean_aggregate": 1.0,
+    "aggregate_stdev": 0.0,
+    "mean_financial_depth": 0.7841,
+    "mean_specificity": 0.9963,
+    "mean_redundancy": 0.9315,
+    "mean_delta_consistency": 0.9976,
+    "mean_forward_quote_fidelity": 0.9952,
+    "mean_citation_fidelity": 0.9532,
+    "mean_citation_checked": 7.3333,
+    "mean_untraceable_dollar_figures": 2.3143
+  },
+  "grounding_source_parity": {
+    "control_run": 36272463033,
+    "control_report_sha256": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+    "p_identity_equals_q3_runs_0_1": true,
+    "p_q3_runs_0_1_identity_canonical_sha256": "a29fe1c41932ea41c8abb938102b1febab31ffefb0e34b64e72323ba4981af5c",
+    "q3_identity_canonical_sha256": "2ec85d8ee36556d31d2cb47bec89d6c04c9797b3c88a0de3731f261b0b3043ab",
+    "fields": {
+      "source_provenance": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "432ea9edb73b4d75db08eeed777f74d984aa0354d847fd21b110c618905a9c71",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "statement_source": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "8e416df798f85c34cdf83a3def57b1830bd3e83892db58cc1b3464b174124f37",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "xbrl_grounding": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "e60c9d23fd13ae6b4bae868f87b4ba0f41f2b93eabdc67c2dd8eccb43898170a",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "coverage_inventory": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "7fff6c19a6ab3b22426521b01f50e80b44669cffd918d99eaf6a312f7c7b631d",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "grounding_excerpt": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "cfd7c17ec137a81baaec00419299cf3b5715ac490dc1969425b1153ad7256d1a",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "financial_depth_profile_source": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "b84e8a7117bb8e1edf330fa36917ebdb339e56e07ecb97234a7a2c3860c6261d",
+        "q3_all_runs_internally_equal_per_filing": true
+      },
+      "sixk_class": {
+        "p_equals_q3_runs_0_1": true,
+        "p_q3_runs_0_1_canonical_projection_sha256": "e67a00746fd515bb4098d8c857399778bbd160bcfe4f638a6c90ff3217f0df87",
+        "q3_all_runs_internally_equal_per_filing": true
+      }
+    }
+  },
+  "runner_log": {
+    "regression_gate": "PASS \u2014 no hard regressions (1 warning)",
+    "warning": "mean_untraceable_dollar_figures = 2.314"
+  },
+  "pin_validation": {
+    "status": "eligible",
+    "method": "Called backend/scripts/pin_baseline.py build_baseline in memory at exact head; no baseline file was written.",
+    "golden_set_size": 35,
+    "runs_per_candidate": 3,
+    "snapshot_date": "2026-09-26T22:44:59Z",
+    "source_report": "eval_20260926T224459Z.json",
+    "canonical_candidate_sha256": "15ce168c1d66a8036644405ecdac2012940beab06e45ab82d642ef0b740fefb5"
+  }
+}

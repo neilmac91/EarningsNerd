@@ -1,0 +1,233 @@
+{
+  "snapshot_date": "2026-09-26T22:44:59Z",
+  "source_report": "eval_20260926T224459Z.json",
+  "golden_set_size": 35,
+  "runs_per_candidate": 3,
+  "harness": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "fallback_base_url": "",
+    "use_structured_output": false,
+    "use_statement_financials": true,
+    "stream_section_reveal": true,
+    "use_edgartools_sections": true,
+    "richer_financials_enabled": true,
+    "ai_evidence_snap": true,
+    "ai_figure_trace_gate": false,
+    "ai_forward_quote_gate": false,
+    "ai_attribution_gate": false,
+    "ai_attribution_verify": false,
+    "judge": false,
+    "source_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "candidates": [
+      "baseline"
+    ],
+    "runs_per_candidate": 3,
+    "filings": [
+      {
+        "ticker": "ASML",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "6-K"
+      },
+      {
+        "ticker": "PLD",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NEE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PGR",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "FIGS",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "GPRO",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AAPL",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "MSFT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "NVDA",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "JPM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "KO",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "TSLA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "AMZN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "BRK.B",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "XOM",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "PFE",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "F",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "WMT",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COST",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BA",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "INTC",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "PLTR",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "RIVN",
+        "filing_type": "10-K"
+      },
+      {
+        "ticker": "COIN",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BYND",
+        "filing_type": "10-Q"
+      },
+      {
+        "ticker": "BABA",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "ASML",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "TSM",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "JD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "SE",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "NVO",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "PDD",
+        "filing_type": "20-F"
+      },
+      {
+        "ticker": "MELI",
+        "filing_type": "10-K"
+      }
+    ],
+    "transient_retries": 1,
+    "retry_delay_seconds": 5.0
+  },
+  "candidates": {
+    "baseline": {
+      "mean_untraceable_dollar_figures": 2.3143,
+      "figure_trace_measured": 105,
+      "figure_trace_unavailable": 0,
+      "figure_trace_errors": 0,
+      "n": 105,
+      "scored": 105,
+      "errors": 0,
+      "retried": 0,
+      "mean_aggregate": 1.0,
+      "aggregate_stdev": 0.0,
+      "pass_rate": 1.0,
+      "gate_fail_rate": 0.0,
+      "schema_valid_rate": 1.0,
+      "repaired_rate": 0.0,
+      "mean_numeric_accuracy": 1.0,
+      "mean_numeric_precision": 1.0,
+      "mean_coverage": 1.0,
+      "mean_financial_depth": 0.7841,
+      "mean_specificity": 0.9963,
+      "mean_currency_consistency": 1.0,
+      "mean_redundancy": 0.9315,
+      "mean_delta_consistency": 0.9976,
+      "mean_forward_quote_fidelity": 0.9952,
+      "mean_citation_fidelity": 0.9532,
+      "mean_citation_checked": 7.3333,
+      "judge_pass_rate": null,
+      "total_cost_usd": 0.0,
+      "incurred_usage_attempts": 105,
+      "incurred_provider_usage": {
+        "calls": 105,
+        "unknown_calls": 0,
+        "operations": {
+          "summary_primary": 105
+        },
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "prompt_tokens": 4134216,
+        "completion_tokens": 411834,
+        "cache_hit_tokens": 4112640,
+        "cache_miss_tokens": 21576,
+        "reasoning_tokens": null
+      },
+      "usage_attempts": 105,
+      "mean_completion_tokens": 3922.2,
+      "mean_prompt_tokens": 39373.5,
+      "total_completion_tokens": 411834,
+      "total_prompt_tokens": 4134216,
+      "total_cache_hit_tokens": 4112640,
+      "total_cache_miss_tokens": 21576,
+      "provider_calls": 105,
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "mean_latency_seconds": 13.073
+    }
+  },
+  "note": "Armed-guard re-pin (AI_EVIDENCE_SNAP=true), 2026-09-15: 35 verified filings x 3 runs, run 35020462848 on source e44f8046, DeepSeek V4.1 Flash thinking off, empty fallback; citation fidelity moves with the armed snap, all other dimensions within their run-to-run bands.\n\nE6 scorer/applicability re-pin, 2026-09-19: authoritative run 35472665559 on exact source 4614153286d42a47727f7fad1ba1620be9300b0e, report eval_20260919T222710Z.json SHA256 1829062317b90c83339c585ad51c9c7f14aed8776f21dc9dd73da837c1bd7b5f; 35 frozen filings x 3 runs, 105/105 scored, zero errors/retries/hard vetoes. Corrected direct metric-percentage association and frozen accession-owned insurer depth applicability (BRK.B/PGR); general and 6-K applicability unchanged. Actual DeepSeek Flash with empty fallback, evidence snap true, attribution verifier/gate false. Regression PASS with standing untraceable-dollar WARN mean 2.4857. This replaces measurement definitions, not evidence of improved generated quality. Qualified metric-name ambiguity remains (BABA run 2 segment adjusted EBITA 44% matched to consolidated 56%); PLD non-verbatim evidence and BABA basis prose remain semantic residuals outside deterministic acceptance. Historical September 15 provenance above is retained.\n\nPR942 formula-label prompt q re-pin, 2026-09-27: authorized prompt-change trigger; exact-head full-set run 36276551360 at 2a00fcfadee12845c3cae906b681b454d18916e5, report eval_20260926T224459Z.json SHA256 3e0f758432ff85b899bafdbb795bd80cb8d6784cc12debd598fd6d2a2cd5499e. Current OpenAI SDK pin 3.16.2; 35 verified filings x 3 runs, 105/105 scored, zero errors/retries/hard vetoes and 105 actual DeepSeek Flash calls. Standing untraceable-dollar WARN mean 2.3143 retained. Same measured source/grounding as current p control for the matched first two repeats. This is an UNAPPLIED proposed configuration-bound deterministic floor, not a semantic-quality verdict or production promotion. Matched 70-output p/q2 Fable contract-2 comparison is still pending; PR942 remains draft. Previous pin provenance retained above."
+}

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-26T22:17:04Z",
+  "scope": "Read-only preservation and verification of the current-p control corpus for PR 942; no provider or judge call was made.",
+  "github": {
+    "repository": "neilmac91/EarningsNerd",
+    "workflow_run": 36272463033,
+    "artifact_id": 10915948634,
+    "artifact_name": "eval-report-36272463033",
+    "artifact_size_bytes": 3685144,
+    "artifact_digest": "sha256:da84150b0f8d1aef80d8fa7918708bc290592cc57ae0e9e7185bc17137814316",
+    "artifact_expired_when_observed": false,
+    "artifact_created_at": "2026-09-26T21:28:54Z",
+    "artifact_expires_at": "2026-10-10T21:28:52Z"
+  },
+  "members": {
+    "ci-execution.txt": "65223697369180ac8031031ffa488a4ccff63ec1b650de73f522c128b912ce49",
+    "eval_20260926T212851Z.json": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+    "eval_20260926T212851Z.md": "8aa458a12a8e83ecfcb9f5da5183815de7a89f737193465b5a89f05ab43a4e47"
+  },
+  "source": {
+    "sha": "a41794c9e3330852823fde5c462cf5db3137a548",
+    "parents": [
+      "27436b6a4dfb25b73126423037fb9132ce172024",
+      "c8c90ace48b0d199f200f5cccf3919f01cf18058"
+    ],
+    "message": "Merge c8c90ace48b0d199f200f5cccf3919f01cf18058 into 27436b6a4dfb25b73126423037fb9132ce172024"
+  },
+  "execution": {
+    "invocation": "python -m evals.runner --candidates baseline --runs 2 --concurrency 2",
+    "filing_concurrency": 2,
+    "candidate": "baseline",
+    "model": "deepseek-flash",
+    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "filings": 35,
+    "runs_per_candidate": 2,
+    "results": 70,
+    "unique_identities": 70,
+    "run_counts": {
+      "0": 35,
+      "1": 35
+    },
+    "scored": 70,
+    "passed_gates": 70,
+    "errors": 0,
+    "retried": 0,
+    "provider_calls": 70,
+    "judged": 0
+  },
+  "verification": {
+    "downloaded_with": "gh run download",
+    "artifact_metadata_read_with": "gh api",
+    "member_sha256_verified": true,
+    "source_parentage_verified": true,
+    "population_recomputed_from_json": true,
+    "fable_or_other_judge_invoked": false,
+    "provider_invoked": false
+  }
+}
