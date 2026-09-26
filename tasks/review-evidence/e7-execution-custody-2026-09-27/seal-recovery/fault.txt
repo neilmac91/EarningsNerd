@@ -1,0 +1,174 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_identical_files_recover_precommit_settle_and_seal_crashes ________
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-292/test_identical_files_recover_p0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a990090>
+
+    def test_identical_files_recover_precommit_settle_and_seal_crashes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A pre-publication crash must not expose a partial immutable record at its final path.
+        atomic_path = tmp_path / "atomic-record.json"
+        with monkeypatch.context() as patch:
+            def interrupt_publication(source: Path, destination: Path) -> None:
+                assert source.read_bytes() == b"complete record"
+                assert not destination.exists()
+                raise RuntimeError("simulated crash before atomic publication")
+    
+            patch.setattr(execution.os, "link", interrupt_publication)
+            with pytest.raises(RuntimeError, match="before atomic publication"):
+                execution._durable_new(atomic_path, b"complete record")
+        assert not atomic_path.exists()
+        execution._durable_new(atomic_path, b"complete record")
+        assert atomic_path.read_bytes() == b"complete record"
+    
+        adverse_root = tmp_path / "intent-recover"
+        _initialize(adverse_root)
+        adverse = _leaf(adverse_root, "l1", "ctx-adverse", UNITS[0]["unit_id"])
+        original = execution._durable_exact
+        intent_interrupted = False
+    
+        def interrupt_after_intent(path: Path, data: bytes) -> None:
+            nonlocal intent_interrupted
+            original(path, data)
+            if path.name == "settlement-intent.json" and not intent_interrupted:
+                intent_interrupted = True
+                raise RuntimeError("simulated crash after settlement intent")
+    
+        monkeypatch.setattr(execution, "_durable_exact", interrupt_after_intent)
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            settle_attempt(
+                adverse_root, reservation_id=adverse["reservation_id"], status="failed",
+                artifact_bytes=b"adverse output survived", receipt={"outcome": "failed"},
+            )
+        monkeypatch.setattr(execution, "_durable_exact", original)
+        intent_path = next((adverse_root / "attempts").iterdir()) / "settlement-intent.json"
+        external_intent = tmp_path / "external-intent.json"
+        external_intent.write_bytes(intent_path.read_bytes())
+        for name, target in (
+            ("external-intent-link", external_intent),
+            ("dangling-external-intent-link", tmp_path / "missing-external-intent.json"),
+        ):
+            escaped = tmp_path / name
+            shutil.copytree(adverse_root, escaped)
+            escaped_intent = next((escaped / "attempts").iterdir()) / "settlement-intent.json"
+            escaped_intent.unlink()
+            escaped_intent.symlink_to(target)
+            with pytest.raises(ValueError, match="journal artifact path escapes its root"):
+                recover_pending_attempt(escaped)
+        interrupted = recover_pending_attempt(adverse_root)
+        assert interrupted is not None
+        assert interrupted["delivery_uncertain"] is True
+        assert interrupted["redispatch_permitted"] is False
+        assert interrupted["settlement_recovery_required"] is True
+        assert interrupted["settlement_intent"] == {
+            "schema_version": 1,
+            "kind": "e7_operator_source_review_settlement_intent",
+            "reservation_id": adverse["reservation_id"],
+            "status": "failed",
+            "artifact_sha256": _sha(b"adverse output survived"),
+            "receipt_sha256": _sha(_canonical({"outcome": "failed"})),
+            "artifact_base64": base64.b64encode(b"adverse output survived").decode("ascii"),
+            "receipt": {"outcome": "failed"},
+        }
+        # Neither projected file exists yet: all recovery bytes come from the atomic intent.
+        assert not intent_path.with_name("artifact.bin").exists()
+        assert not intent_path.with_name("receipt.json").exists()
+        assert interrupted["settlement_artifact_bytes"] == b"adverse output survived"
+        assert interrupted["settlement_receipt"] == {"outcome": "failed"}
+        corrupted = tmp_path / "intent-payload-corrupted"
+        shutil.copytree(adverse_root, corrupted)
+        corrupt_path = next((corrupted / "attempts").iterdir()) / "settlement-intent.json"
+        corrupt_intent = json.loads(corrupt_path.read_bytes())
+        corrupt_intent["artifact_base64"] = base64.b64encode(b"different payload").decode("ascii")
+        corrupt_path.write_bytes(_canonical(corrupt_intent))
+        with pytest.raises(ValueError, match="artifact payload differs"):
+            recover_pending_attempt(corrupted)
+        with pytest.raises(ValueError, match="already exists with different bytes"):
+            settle_attempt(
+                adverse_root, reservation_id=adverse["reservation_id"], status="compacted",
+                artifact_bytes=None, receipt={"outcome": "failed"},
+            )
+        with pytest.raises(ValueError, match="already exists with different bytes"):
+            settle_attempt(
+                adverse_root, reservation_id=adverse["reservation_id"], status="failed",
+                artifact_bytes=None, receipt={"outcome": "changed"},
+            )
+        settle_attempt(
+            adverse_root, reservation_id=interrupted["reservation_id"],
+            status=interrupted["settlement_intent"]["status"],
+            artifact_bytes=interrupted["settlement_artifact_bytes"],
+            receipt=interrupted["settlement_receipt"],
+        )
+        assert recover_pending_attempt(adverse_root) is None
+    
+        root = tmp_path / "recover"
+        _initialize(root)
+        leaf = _leaf(root, "l1", "ctx-l1", UNITS[0]["unit_id"])
+        attempt_dir = next((root / "attempts").iterdir())
+        artifact = b"artifact:l1"
+        receipt = _receipt(leaf, "leaf")
+        (attempt_dir / "artifact.bin").write_bytes(artifact)
+        (attempt_dir / "receipt.json").write_bytes(_canonical(receipt))
+        settle_attempt(
+            root, reservation_id=leaf["reservation_id"], status="eligible",
+            artifact_bytes=artifact, receipt=receipt,
+        )
+    
+        interrupted = False
+    
+        def interrupt_after_history_write(path: Path, data: bytes) -> None:
+            nonlocal interrupted
+            original(path, data)
+            if path.name == "history.json" and not interrupted:
+                interrupted = True
+                raise RuntimeError("simulated crash before SQLite seal marker")
+    
+        monkeypatch.setattr(execution, "_durable_exact", interrupt_after_history_write)
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            seal_history(root)
+        monkeypatch.setattr(execution, "_durable_exact", original)
+        seal = seal_history(root)
+        assert Path(seal["history_path"]).read_bytes()
+        # A commit-before-return loss must recover the stored authority without writing or resealing.
+        with monkeypatch.context() as patch:
+            def reject_republication(_path: Path, _data: bytes) -> None:
+                raise AssertionError("committed seal recovery must not publish new authority")
+    
+            patch.setattr(execution, "_durable_exact", reject_republication)
+>           assert seal_history(root) == seal
+                   ^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_acceptance_source_review_execution.py:515: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+evals/acceptance_source_review_execution.py:1006: in seal_history
+    _require_open(db)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <sqlite3.Connection object at 0x10cf25210>
+
+    def _require_open(db: sqlite3.Connection) -> None:
+        sealed = db.execute(
+            "SELECT sealed_history_sha256 FROM programme WHERE singleton=1"
+        ).fetchone()
+        if sealed is None:
+            raise ValueError("operator journal is not initialized")
+        if sealed[0] is not None:
+>           raise ValueError("operator journal is sealed")
+E           ValueError: operator journal is sealed
+
+evals/acceptance_source_review_execution.py:268: ValueError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+1 failed, 2 warnings in 0.81s

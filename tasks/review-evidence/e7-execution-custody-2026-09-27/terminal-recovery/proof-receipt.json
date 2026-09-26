@@ -1,0 +1,9 @@
+{
+  "code_commit": "ed7aa4e3cd844baf9d89d296d4ea3e31439670e8",
+  "mutation": "disable public recovery of committed terminal payloads",
+  "fault_exit": 1,
+  "fault_failed_cases": 1,
+  "restored_exit": 0,
+  "restored_sha256": "24ec661fa4c8863913ae0a11637a72a0ea10e5e166e29acc79b913550b2baba6",
+  "restored_tail": "25 passed, 2 warnings in 4.34s"
+}

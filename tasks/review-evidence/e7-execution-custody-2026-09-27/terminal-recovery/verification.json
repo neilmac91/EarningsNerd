@@ -1,0 +1,13 @@
+{
+  "code_commit": "ed7aa4e3cd844baf9d89d296d4ea3e31439670e8",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3729 passed, 40 warnings in 149.32s",
+  "ruff": "pass",
+  "bandit": "pass",
+  "files": {
+    "backend/evals/acceptance_source_review_execution.py": "24ec661fa4c8863913ae0a11637a72a0ea10e5e166e29acc79b913550b2baba6",
+    "backend/tests/unit/test_acceptance_source_review_execution.py": "9041b067cd092af80bec8a1b5cea9153ad5872883a352a73da86adfa0296e5da",
+    "tasks/readiness-2026-09-21/acceptance/source-review-execution.md": "0bc2897cf569cac364b833eca14967181372911992eb439aa34bfe152d01acb0"
+  },
+  "independent_review": "Clear: validated exact retry, terminal integrity, parent continuation, sealed/uncommitted-seal gating. Reviewer distinct from author, read-only audit. Refuted failed-child promotion against reserve_attempt eligible DB row + retained bytes check; null adverse artifacts follow same exact intent path."
+}

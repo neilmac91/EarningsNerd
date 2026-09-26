@@ -1,0 +1,22 @@
+from pathlib import Path
+import subprocess,os,json,hashlib
+repo=Path('/private/tmp/earningsnerd-takeover-20260926');out=Path('/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/seal-recovery');out.mkdir(exist_ok=True)
+p=repo/'backend/evals/acceptance_source_review_execution.py';raw=p.read_bytes();head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip();assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+assert raw==subprocess.check_output(['git','show','HEAD:backend/evals/acceptance_source_review_execution.py'],cwd=repo)
+marker='''        if programme["sealed_history_sha256"] is not None:
+            # Recover the original committed authority''';assert raw.decode().count(marker)==1
+env={**os.environ,'PYTHONPYCACHEPREFIX':'/private/tmp/seal-recovery-fault-20260927','DYLD_FALLBACK_LIBRARY_PATH':'/opt/homebrew/lib'}
+try:
+ p.write_text(raw.decode().replace(marker,'''        if programme["sealed_history_sha256"] is not None:
+            _require_open(db)
+            # Recover the original committed authority'''))
+ run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+ (out/'fault.txt').write_text(run.stdout)
+ assert run.returncode==1 and '1 failed' in run.stdout,run.stdout[-2500:]
+finally:p.write_bytes(raw)
+env['PYTHONPYCACHEPREFIX']='/private/tmp/seal-recovery-restored-20260927'
+run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_acceptance_source_review_execution.py','tests/unit/test_acceptance_source_review_prompts.py','tests/unit/test_acceptance_source_review_graph.py','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+(out/'restored.txt').write_text(run.stdout);assert run.returncode==0,run.stdout[-2000:]
+(out/'proof-receipt.json').write_text(json.dumps({'code_commit':head,'mutation':'reject recovery of an already committed seal','fault_exit':1,'fault_failed_cases':1,'restored_exit':0,'restored_sha256':hashlib.sha256(raw).hexdigest(),'restored_tail':run.stdout.splitlines()[-1]},indent=2)+'\n')
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+print(run.stdout.splitlines()[-1])
