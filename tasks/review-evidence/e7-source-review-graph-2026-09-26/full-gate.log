@@ -1,0 +1,10 @@
+# Full backend gate on committed fe03cd0 (Python 3.11.15, ruff 0.16.8, bandit 1.9.4)
+# PostgreSQL lanes: scratch local postgres:15 (15.19), never production
+$ ruff check .
+All checks passed!
+$ bandit -r app -ll
+pass
+$ python -m pytest
+3714 passed, 2 deselected, 40 warnings in 229.30s (0:03:49)
+exit=0; skipped=0
+# main 16cdc1a collects 3701 default-lane tests; this slice adds 13 (3714)

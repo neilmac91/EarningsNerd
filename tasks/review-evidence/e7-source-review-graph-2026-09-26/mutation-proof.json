@@ -1,0 +1,56 @@
+{
+  "commit": "fe03cd04cdb6a2579eb8eb60ff9e44a57cd29df2",
+  "source_sha256_before": "521a04efa1b5a45642c5af2e70203c3b294e3b6650d8f954329ea39a382fdc37",
+  "proofs": [
+    {
+      "name": "eligible_context",
+      "test": "tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context",
+      "mutated_sha256": "67ebc1e5b4a10f7c21ad04a76006c780321cdddae48bcad2576ac709ba4c9614",
+      "mutated_exit": 1,
+      "mutated_tail": [
+        "=========================== short test summary info ============================",
+        "FAILED tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context",
+        "1 failed, 2 warnings in 1.10s"
+      ],
+      "restored_sha256": "521a04efa1b5a45642c5af2e70203c3b294e3b6650d8f954329ea39a382fdc37",
+      "restored_exit": 0,
+      "restored_tail": [
+        "1 passed, 2 warnings in 1.19s"
+      ]
+    },
+    {
+      "name": "child_artifact_hash",
+      "test": "tests/unit/test_acceptance_source_review_graph.py::test_graph_structure_and_receipts_are_bound_to_frozen_bytes",
+      "mutated_sha256": "bcc4dc30b903e76cd2a1605ef2d9e62880805874e1eab7ad849170c27f0c3d38",
+      "mutated_exit": 1,
+      "mutated_tail": [
+        "=========================== short test summary info ============================",
+        "FAILED tests/unit/test_acceptance_source_review_graph.py::test_graph_structure_and_receipts_are_bound_to_frozen_bytes",
+        "1 failed, 2 warnings in 1.16s"
+      ],
+      "restored_sha256": "521a04efa1b5a45642c5af2e70203c3b294e3b6650d8f954329ea39a382fdc37",
+      "restored_exit": 0,
+      "restored_tail": [
+        "1 passed, 2 warnings in 1.18s"
+      ]
+    },
+    {
+      "name": "required_node_kinds",
+      "test": "tests/unit/test_acceptance_source_review_graph.py::test_malformed_role_contracts_are_rejected",
+      "mutated_sha256": "c9c3dd6c52d76de8b41afc4a0defbf6b8e84d51903dfad55a69b3b1f1206fecd",
+      "mutated_exit": 1,
+      "mutated_tail": [
+        "FAILED tests/unit/test_acceptance_source_review_graph.py::test_malformed_role_contracts_are_rejected[change6-must allow role_synthesis]",
+        "FAILED tests/unit/test_acceptance_source_review_graph.py::test_malformed_role_contracts_are_rejected[change7-must allow leaf]",
+        "2 failed, 9 passed, 2 warnings in 1.13s"
+      ],
+      "restored_sha256": "521a04efa1b5a45642c5af2e70203c3b294e3b6650d8f954329ea39a382fdc37",
+      "restored_exit": 0,
+      "restored_tail": [
+        "11 passed, 2 warnings in 1.25s"
+      ]
+    }
+  ],
+  "source_sha256_after": "521a04efa1b5a45642c5af2e70203c3b294e3b6650d8f954329ea39a382fdc37",
+  "tree_clean": true
+}
