@@ -15,6 +15,7 @@ import pytest
 import evals.acceptance_source_review_execution as execution
 from evals.acceptance_source_review_execution import (
     initialize_journal,
+    recover_pending_attempt,
     reserve_attempt,
     seal_history,
     settle_attempt,
@@ -291,11 +292,45 @@ def test_retry_rules_pending_state_and_seal_are_fail_closed(tmp_path: Path) -> N
 
     pending_root = tmp_path / "pending"
     _initialize(pending_root)
-    _leaf(pending_root, "l1", "ctx-pending", UNITS[0]["unit_id"])
+    pending = _leaf(pending_root, "l1", "ctx-pending", UNITS[0]["unit_id"])
+    with sqlite3.connect(pending_root / "execution.sqlite3") as db:
+        row_count = db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0]
+        prompt_relative = db.execute(
+            "SELECT prompt_path FROM attempts WHERE reservation_id=?", (pending["reservation_id"],)
+        ).fetchone()[0]
+    recovered = recover_pending_attempt(pending_root)
+    assert recovered is not None
+    assert {
+        key: recovered[key]
+        for key in (
+            "reservation_id", "sequence", "node_id", "context_id", "attempt", "prompt_bytes",
+            "prompt_sha256", "input_manifest_sha256", "input_sha256",
+        )
+    } == pending
+    assert recovered["delivery_uncertain"] is True
+    assert recovered["redispatch_permitted"] is False
+    assert recovered["settlement_recovery_required"] is False
+    assert recovered["settlement_intent"] is None
+    with sqlite3.connect(pending_root / "execution.sqlite3") as db:
+        assert db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0] == row_count
+
+    retained_prompt = pending_root / prompt_relative
+    exact_prompt = retained_prompt.read_bytes()
+    retained_prompt.write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="retained pending prompt bytes changed"):
+        recover_pending_attempt(pending_root)
+    retained_prompt.write_bytes(exact_prompt)
     with pytest.raises(ValueError, match="pending attempt blocks another reservation"):
         _leaf(pending_root, "l2", "ctx-other", UNITS[1]["unit_id"])
     with pytest.raises(ValueError, match="pending attempt blocks sealing"):
         seal_history(pending_root)
+    settle_attempt(
+        pending_root, reservation_id=recovered["reservation_id"], status="retired",
+        artifact_bytes=None, receipt={"outcome": "delivery-uncertain-retired"},
+    )
+    assert recover_pending_attempt(pending_root) is None
+    retry = _leaf(pending_root, "l1", "ctx-fresh", UNITS[0]["unit_id"])
+    assert retry["attempt"] == 2
 
     seal, _graph, _inputs = _complete(tmp_path / "sealed")
     with pytest.raises(ValueError, match="operator journal is sealed"):
@@ -306,6 +341,7 @@ def test_retry_rules_pending_state_and_seal_are_fail_closed(tmp_path: Path) -> N
             tmp_path / "sealed", reservation_id=history["attempts"][0]["reservation_id"],
             status="retired", artifact_bytes=None, receipt={"outcome": "retired"},
         )
+    assert recover_pending_attempt(tmp_path / "sealed") is None
 
 
 def test_parent_requires_prior_eligible_journal_children_and_retained_bytes(tmp_path: Path) -> None:
@@ -366,6 +402,19 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
             artifact_bytes=None, receipt={"outcome": "failed"},
         )
     monkeypatch.setattr(execution, "_durable_exact", original)
+    interrupted = recover_pending_attempt(adverse_root)
+    assert interrupted is not None
+    assert interrupted["delivery_uncertain"] is True
+    assert interrupted["redispatch_permitted"] is False
+    assert interrupted["settlement_recovery_required"] is True
+    assert interrupted["settlement_intent"] == {
+        "schema_version": 1,
+        "kind": "e7_operator_source_review_settlement_intent",
+        "reservation_id": adverse["reservation_id"],
+        "status": "failed",
+        "artifact_sha256": None,
+        "receipt_sha256": _sha(_canonical({"outcome": "failed"})),
+    }
     with pytest.raises(ValueError, match="already exists with different bytes"):
         settle_attempt(
             adverse_root, reservation_id=adverse["reservation_id"], status="compacted",

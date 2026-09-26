@@ -27,6 +27,7 @@ from evals.acceptance_source_review_graph import (
     validate_source_context_id,
 )
 from evals.acceptance_source_review_prompts import (
+    INPUT_MANIFEST_KIND,
     RENDER_KIND,
     ValidatedPromptSource,
     render_leaf_prompt,
@@ -641,6 +642,171 @@ def reserve_attempt(
         "input_manifest_sha256": result["input_manifest_sha256"],
         "input_sha256": result["input_sha256"],
     }
+
+
+def _pending_settlement_intent(
+    root: Path, binding: dict[str, Any], row: sqlite3.Row
+) -> dict[str, Any] | None:
+    directory = _safe(root, str(Path(row["prompt_path"]).parent))
+    intent_path = directory / "settlement-intent.json"
+    if not intent_path.exists():
+        return None
+    if not intent_path.is_file():
+        raise ValueError("retained settlement intent is not a file")
+    intent_bytes = intent_path.read_bytes()
+    try:
+        intent = json.loads(intent_bytes.decode("ascii"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("retained settlement intent is not canonical JSON") from exc
+    _object(intent, _SETTLEMENT_INTENT_KEYS, "settlement intent")
+    if _canonical(intent) != intent_bytes:
+        raise ValueError("retained settlement intent is not canonical JSON")
+    if (
+        intent["schema_version"] != SCHEMA_VERSION
+        or intent["kind"] != SETTLEMENT_INTENT_KIND
+        or intent["reservation_id"] != row["reservation_id"]
+        or intent["status"] not in TERMINAL_STATUSES
+    ):
+        raise ValueError("retained settlement intent differs from the pending reservation")
+    receipt_sha256 = _token(
+        intent["receipt_sha256"], _SHA256, "settlement intent receipt_sha256"
+    )
+    artifact_sha256 = intent["artifact_sha256"]
+    if artifact_sha256 is not None:
+        _token(artifact_sha256, _SHA256, "settlement intent artifact_sha256")
+    if intent["status"] == "eligible" and artifact_sha256 is None:
+        raise ValueError("eligible settlement intent requires an artifact identity")
+
+    artifact_path = directory / "artifact.bin"
+    if artifact_path.exists():
+        if not artifact_path.is_file() or artifact_sha256 is None:
+            raise ValueError("retained artifact bytes differ from the settlement intent")
+        if _sha(artifact_path.read_bytes()) != artifact_sha256:
+            raise ValueError("retained artifact bytes differ from the settlement intent")
+    receipt_path = directory / "receipt.json"
+    if receipt_path.exists():
+        if not receipt_path.is_file():
+            raise ValueError("retained receipt bytes differ from the settlement intent")
+        receipt_bytes = receipt_path.read_bytes()
+        if _sha(receipt_bytes) != receipt_sha256:
+            raise ValueError("retained receipt bytes differ from the settlement intent")
+        if intent["status"] == "eligible":
+            try:
+                receipt = json.loads(receipt_bytes.decode("ascii"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError("retained eligible receipt is not canonical JSON") from exc
+            if _canonical(receipt) != receipt_bytes:
+                raise ValueError("retained eligible receipt is not canonical JSON")
+            _validate_eligible_receipt(binding, row, receipt)
+    return intent
+
+
+def recover_pending_attempt(root: Path) -> dict[str, Any] | None:
+    """Recover the one durable reservation after its return value may have been lost.
+
+    This read-only operation never reserves or dispatches work. A recovered prompt has uncertain
+    delivery: the operator must inspect the provider/context receipt and then settle or retire the
+    original reservation before opening a fresh context. The prompt must not be blindly resent.
+    """
+    root = Path(root).resolve()
+    with _connect(root, read_only=True) as db:
+        binding = _load_binding(root, db)
+        programme = db.execute(
+            "SELECT sealed_history_sha256 FROM programme WHERE singleton=1"
+        ).fetchone()
+        rows = db.execute(
+            "SELECT * FROM attempts WHERE status=? ORDER BY sequence", (RESERVED_STATUS,)
+        ).fetchall()
+        if programme is None:
+            raise ValueError("operator journal is not initialized")
+        if programme["sealed_history_sha256"] is not None:
+            if rows:
+                raise ValueError("sealed journal contains a pending attempt")
+            return None
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise ValueError("operator journal contains multiple pending attempts")
+        row = rows[0]
+
+        prompt = _safe(root, row["prompt_path"]).read_bytes()
+        input_manifest_bytes = _safe(root, row["input_manifest_path"]).read_bytes()
+        for name, data in (
+            ("prompt_sha256", prompt),
+            ("input_manifest_sha256", input_manifest_bytes),
+        ):
+            digest = _token(row[name], _SHA256, f"pending {name}")
+            if _sha(data) != digest:
+                retained = "prompt" if name == "prompt_sha256" else "input-manifest"
+                raise ValueError(f"retained pending {retained} bytes changed")
+        _token(row["template_sha256"], _SHA256, "pending template_sha256")
+        _token(row["input_sha256"], _SHA256, "pending input_sha256")
+
+        try:
+            input_manifest = json.loads(input_manifest_bytes.decode("ascii"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("retained pending input manifest is not canonical JSON") from exc
+        if _canonical(input_manifest) != input_manifest_bytes:
+            raise ValueError("retained pending input manifest is not canonical JSON")
+        if (
+            input_manifest.get("schema_version") != SCHEMA_VERSION
+            or input_manifest.get("kind") != INPUT_MANIFEST_KIND
+        ):
+            raise ValueError("retained pending input manifest has an unsupported schema")
+        expected_identity = {
+            "accession_number": binding["accession_number"],
+            "role": binding["role_contract"]["role"],
+            "node_id": row["node_id"],
+            "node_kind": row["node_kind"],
+            "role_contract_sha256": binding["role_contract_sha256"],
+            "reservation_id": row["reservation_id"],
+            "input_sha256": row["input_sha256"],
+        }
+        if any(input_manifest.get(name) != value for name, value in expected_identity.items()):
+            raise ValueError("retained pending input manifest differs from the frozen reservation")
+        template = input_manifest.get("template")
+        if type(template) is not dict or template.get("sha256") != row["template_sha256"]:
+            raise ValueError("retained pending input manifest differs from the frozen reservation")
+        if row["node_kind"] == "leaf":
+            leaf = input_manifest.get("leaf")
+            if (
+                type(leaf) is not dict
+                or leaf.get("manifest_sha256") != binding["unit_manifest_sha256"]
+            ):
+                raise ValueError("retained pending leaf manifest differs from the frozen source")
+
+        try:
+            render_identity = json.loads(bytes(row["render_identity"]).decode("ascii"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("stored render identity is invalid") from exc
+        if _canonical(render_identity) != bytes(row["render_identity"]):
+            raise ValueError("stored render identity is not canonical JSON")
+        manifest_identity = (
+            {"unit_id": input_manifest.get("leaf", {}).get("unit_id")}
+            if row["node_kind"] == "leaf"
+            else {"children": input_manifest.get("children")}
+        )
+        if render_identity != manifest_identity:
+            raise ValueError("stored render identity differs from the pending input manifest")
+        intent = _pending_settlement_intent(root, binding, row)
+        return {
+            "reservation_id": row["reservation_id"],
+            "sequence": row["sequence"],
+            "node_id": row["node_id"],
+            "node_kind": row["node_kind"],
+            "context_id": row["context_id"],
+            "attempt": row["attempt"],
+            "template_sha256": row["template_sha256"],
+            "render_identity": render_identity,
+            "prompt_bytes": prompt,
+            "prompt_sha256": row["prompt_sha256"],
+            "input_manifest_sha256": row["input_manifest_sha256"],
+            "input_sha256": row["input_sha256"],
+            "delivery_uncertain": True,
+            "redispatch_permitted": False,
+            "settlement_recovery_required": intent is not None,
+            "settlement_intent": intent,
+        }
 
 
 def settle_attempt(

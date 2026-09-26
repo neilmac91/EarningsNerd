@@ -55,3 +55,24 @@ also complete issue propagation, reconciliation and the
 [inventory, context-exclusion and blinded-projection integration](source-review-hierarchy-integration.md).
 The six-view H29 byte-render rehearsal is a delivery-size fixture, not a source brief, full submission
 review, successful provider run or acceptance result.
+
+## Recovering a lost reservation return
+
+`recover_pending_attempt(root)` is the public, read-only recovery path when `reserve_attempt`
+committed but its return value was lost. It validates the frozen programme binding, the pending
+row's retained prompt and input-manifest bytes, their hashes and identities, and any durable
+settlement intent. It returns the original reservation identity and exact prompt bytes without
+creating a row or dispatching anything. It returns `None` when an open journal has no pending row
+and when a valid sealed journal has no pending row. A sealed journal containing a pending row is
+rejected as corrupt.
+
+Every recovered reservation has `delivery_uncertain: true` and `redispatch_permitted: false`.
+Inspect the provider or context receipt before acting. Settle the original reservation if its
+outcome is known. If no settlement intent exists and delivery remains uncertain, retire it, then reserve a fresh
+context with the identical node input scope. Never resend the recovered prompt blindly: the first dispatch may have reached the
+provider.
+
+If `settlement_recovery_required` is true, an immutable settlement intent was written before a
+crash. `settlement_intent` exposes its terminal status and artifact and receipt identities. Finish
+`settle_attempt` with those exact status and payload bytes. The row remains reserved during this
+recovery and the intended result is not eligible until settlement commits.
