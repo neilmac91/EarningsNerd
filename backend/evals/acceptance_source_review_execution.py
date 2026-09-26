@@ -647,8 +647,8 @@ def reserve_attempt(
 def _pending_settlement_intent(
     root: Path, binding: dict[str, Any], row: sqlite3.Row
 ) -> dict[str, Any] | None:
-    directory = _safe(root, str(Path(row["prompt_path"]).parent))
-    intent_path = directory / "settlement-intent.json"
+    directory_relative = Path(row["prompt_path"]).parent
+    intent_path = _safe(root, str(directory_relative / "settlement-intent.json"))
     if not intent_path.exists():
         return None
     if not intent_path.is_file():
@@ -677,13 +677,13 @@ def _pending_settlement_intent(
     if intent["status"] == "eligible" and artifact_sha256 is None:
         raise ValueError("eligible settlement intent requires an artifact identity")
 
-    artifact_path = directory / "artifact.bin"
+    artifact_path = _safe(root, str(directory_relative / "artifact.bin"))
     if artifact_path.exists():
         if not artifact_path.is_file() or artifact_sha256 is None:
             raise ValueError("retained artifact bytes differ from the settlement intent")
         if _sha(artifact_path.read_bytes()) != artifact_sha256:
             raise ValueError("retained artifact bytes differ from the settlement intent")
-    receipt_path = directory / "receipt.json"
+    receipt_path = _safe(root, str(directory_relative / "receipt.json"))
     if receipt_path.exists():
         if not receipt_path.is_file():
             raise ValueError("retained receipt bytes differ from the settlement intent")

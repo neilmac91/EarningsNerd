@@ -402,6 +402,20 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
             artifact_bytes=None, receipt={"outcome": "failed"},
         )
     monkeypatch.setattr(execution, "_durable_exact", original)
+    intent_path = next((adverse_root / "attempts").iterdir()) / "settlement-intent.json"
+    external_intent = tmp_path / "external-intent.json"
+    external_intent.write_bytes(intent_path.read_bytes())
+    for name, target in (
+        ("external-intent-link", external_intent),
+        ("dangling-external-intent-link", tmp_path / "missing-external-intent.json"),
+    ):
+        escaped = tmp_path / name
+        shutil.copytree(adverse_root, escaped)
+        escaped_intent = next((escaped / "attempts").iterdir()) / "settlement-intent.json"
+        escaped_intent.unlink()
+        escaped_intent.symlink_to(target)
+        with pytest.raises(ValueError, match="journal artifact path escapes its root"):
+            recover_pending_attempt(escaped)
     interrupted = recover_pending_attempt(adverse_root)
     assert interrupted is not None
     assert interrupted["delivery_uncertain"] is True
