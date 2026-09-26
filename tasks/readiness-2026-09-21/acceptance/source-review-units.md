@@ -96,8 +96,10 @@ hashed:
 
 A caller may pass tighter integer limits, for example once leaf sizes are chosen. It may not pass
 looser ones, and `bool` or non-integer values are rejected. The builder applies the default
-ceilings. Together the ceilings bound validation hashing to a fixed number of passes over the declared
-packet bytes plus at most 64 MiB of context. The limits are validation policy, not part of the stored manifest, so tightening
+ceilings. Coverage span lengths are accumulated per packet before each unit is hashed; a total
+above the packet length rejects as overlap. Together the coverage and context ceilings bound
+validation hashing to a fixed number of passes over the declared packet bytes plus at most 64 MiB
+of context. The limits are validation policy, not part of the stored manifest, so tightening
 them can reject a manifest that an earlier limit accepted.
 
 `load_unit_manifest(raw)` parses stored bytes and accepts them only if they are exactly

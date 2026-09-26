@@ -104,9 +104,10 @@ counting zero:
 - The inventory inherits the source view's refusals: a packet that is not strict UTF-8, or whose markup
   the parser cannot project safely, is rejected. A packet without an `html` or `body` element is
   rejected.
-- Inline XBRL binds a namespace, not a prefix. Facts and `hidden` or `header` sections are recognised
+- Inline XBRL binds a namespace, not a prefix. Facts and `hidden` sections are recognised
   only under the conventional `ix:` prefix, so `nonFraction`, `nonNumeric`, `fraction`, `hidden` or
-  `header` under any other prefix is rejected.
+  `header` under any other prefix is rejected. Bare fact and `hidden` local names are also rejected;
+  bare `header` remains the ordinary HTML5 element.
 - Image-bearing markup other than `img` (`image`, `svg`, `object`, `embed`, `picture`, `iframe`,
   `canvas`) is rejected rather than left uncounted. CSS background images are not evaluated.
 - A hidden non-void element without an explicit end tag is rejected, because its hidden scope would be
