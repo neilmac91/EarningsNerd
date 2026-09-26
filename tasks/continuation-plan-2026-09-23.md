@@ -1,5 +1,9 @@
 # EarningsNerd continuation — 23 September 2026
 
+**Current-state update, September 26:** the [takeover and completion plan](continuation-plan-2026-09-26.md)
+supersedes this page's queue and release snapshot through #961. The dated evidence below remains
+historical; existing approvals, limits and holds are preserved.
+
 The product is at **quality acceptance before a controlled beta**, not ready for scale expansion.
 The engineering and reliability foundation is substantially delivered; actual quality, recovery,
 product-use and cohort evidence are the remaining milestones. Historical unchecked rows in the

@@ -1,3 +1,12 @@
+## September 26 — chief-engineer takeover
+
+Reconciled merged #940/#951/#953–#961, current open #942/draft #952, actual regression/Copilot
+executions and release logs. Three independently reproduced offline graph-custody gaps remain
+after #961; no E7 acceptance result or beta/recovery outcome follows from the source tooling.
+The [current continuation](continuation-plan-2026-09-26.md) assigns the minimum correction,
+H29 reconciliation/integration, candidate freeze, E7 execution, recovery and cohort sequence.
+External agents remain active; checkpoints are pending. This update changes documentation only.
+
 ## September 23 — bounded source-review implementation
 
 The subsequent [markup-boundary correction](review-evidence/e7-source-view-2026-09-23/markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes, fixes the exporter guide and removes an introduced repeated ancestry scan. Final full gate: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips. One guard fault/restoration proof and independent review pass; all 24 H29 artifacts remain unchanged.

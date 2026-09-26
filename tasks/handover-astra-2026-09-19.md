@@ -1,5 +1,10 @@
 # Handover — 2026-09-19, chief engineer role to GPT-6 Astra
 
+**Current-state addendum, September 26:** use the [takeover and completion plan](continuation-plan-2026-09-26.md)
+for merged work, active-agent ownership, remaining deliverables and release evidence through #961.
+It supersedes this page's dated current-state/queue descriptions while preserving its approvals,
+budgets and specific holds. The E8-specific addendum below remains historical evidence.
+
 This is the authoritative state of EarningsNerd at the handover. Where it disagrees with an older
 handover or with an unchecked row in `tasks/todo.md`, this file wins and the older text is history.
 Every identifier below was read from GitHub, the Actions logs or the live service on 2026-09-19;
