@@ -25,8 +25,8 @@ for every leaf.
 4. `settle_attempt`: retain the raw artifact, receipt and terminal status, including failures,
    compaction, truncation and retirement. Eligible receipts must match the frozen contract and prompt
    and declare source-only input, no truncation/compaction and no candidate inputs. A durable
-   settlement intent binds status and payload hashes before files or the database are updated;
-   crash recovery accepts identical bytes only.
+   settlement intent atomically retains status, complete payloads and their hashes before projected
+   files or the database are updated; crash recovery accepts identical bytes only.
 5. `seal_history`: seal the ordered attempt history after every reservation is terminal. The returned
    history hash must be retained independently of the graph and journal. No further attempts may be
    added. A seal written before a database commit can be recovered without changing its bytes.
@@ -73,6 +73,11 @@ context with the identical node input scope. Never resend the recovered prompt b
 provider.
 
 If `settlement_recovery_required` is true, an immutable settlement intent was written before a
-crash. `settlement_intent` exposes its terminal status and artifact and receipt identities. Finish
-`settle_attempt` with those exact status and payload bytes. The row remains reserved during this
-recovery and the intended result is not eligible until settlement commits.
+crash. `settlement_intent` exposes its terminal status and artifact and receipt identities. The same
+atomic record contains the complete payloads: `settlement_artifact_bytes` and `settlement_receipt`
+return them after hash verification, even if their projected files were never written. Finish
+`settle_attempt` with that retained status and those recovered payloads; caller memory is not needed.
+The row remains reserved during recovery and the intended result is not eligible until settlement
+commits. Immutable files are published by exclusively linking a completely written, fsynced temporary
+file, so a crash during writing cannot expose a partial authoritative record. Orphan temporary files
+are never treated as records.

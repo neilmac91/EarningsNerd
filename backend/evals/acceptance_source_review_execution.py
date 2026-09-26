@@ -9,6 +9,8 @@ history, private model attention, semantic review, modality completeness, or adm
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -84,6 +86,7 @@ _RECEIPT_KEYS = frozenset({
 _CHILD_KEYS = frozenset({"node_id", "artifact_sha256"})
 _SETTLEMENT_INTENT_KEYS = frozenset({
     "schema_version", "kind", "reservation_id", "status", "artifact_sha256", "receipt_sha256",
+    "artifact_base64", "receipt",
 })
 _SOURCE_CACHE: tuple[tuple[Path, str], ValidatedPromptSource] | None = None
 
@@ -136,11 +139,19 @@ def _durable_new(path: Path, data: bytes) -> None:
     if type(data) is not bytes:
         raise ValueError("durable journal artifacts must be bytes")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with path.open("xb") as handle:
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
-    _fsync_directory(path.parent)
+    # Publish only complete, fsynced bytes. Exclusive linking preserves immutable-create
+    # semantics, whereas writing directly to the final path can strand a partial file on crash.
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.pending")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+        _fsync_directory(path.parent)
 
 
 def _durable_exact(path: Path, data: bytes) -> None:
@@ -336,6 +347,8 @@ def _settlement_intent(
     status: str,
     artifact_sha256: str | None,
     receipt_sha256: str,
+    artifact_bytes: bytes | None,
+    receipt: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -344,7 +357,31 @@ def _settlement_intent(
         "status": status,
         "artifact_sha256": artifact_sha256,
         "receipt_sha256": receipt_sha256,
+        "artifact_base64": base64.b64encode(artifact_bytes).decode("ascii")
+        if artifact_bytes is not None else None,
+        "receipt": receipt,
     }
+
+
+def _intent_payloads(intent: dict[str, Any]) -> tuple[bytes | None, dict[str, Any]]:
+    """Recover complete payloads from the same atomic record that freezes their disposition."""
+    encoded = intent["artifact_base64"]
+    artifact = None
+    if encoded is not None:
+        if type(encoded) is not str:
+            raise ValueError("settlement intent artifact encoding is invalid")
+        try:
+            artifact = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("settlement intent artifact encoding is invalid") from exc
+        if base64.b64encode(artifact).decode("ascii") != encoded:
+            raise ValueError("settlement intent artifact encoding is not canonical")
+    if (_sha(artifact) if artifact is not None else None) != intent["artifact_sha256"]:
+        raise ValueError("settlement intent artifact payload differs from its hash")
+    receipt = intent["receipt"]
+    if type(receipt) is not dict or _sha(_canonical(receipt)) != intent["receipt_sha256"]:
+        raise ValueError("settlement intent receipt payload differs from its hash")
+    return artifact, receipt
 
 
 def _render_identity(node_kind: str, render_inputs: dict[str, Any]) -> tuple[dict[str, Any], bytes]:
@@ -676,6 +713,9 @@ def _pending_settlement_intent(
         _token(artifact_sha256, _SHA256, "settlement intent artifact_sha256")
     if intent["status"] == "eligible" and artifact_sha256 is None:
         raise ValueError("eligible settlement intent requires an artifact identity")
+    _, intent_receipt = _intent_payloads(intent)
+    if intent["status"] == "eligible":
+        _validate_eligible_receipt(binding, row, intent_receipt)
 
     artifact_path = _safe(root, str(directory_relative / "artifact.bin"))
     if artifact_path.exists():
@@ -789,6 +829,7 @@ def recover_pending_attempt(root: Path) -> dict[str, Any] | None:
         if render_identity != manifest_identity:
             raise ValueError("stored render identity differs from the pending input manifest")
         intent = _pending_settlement_intent(root, binding, row)
+        settlement_artifact, settlement_receipt = _intent_payloads(intent) if intent else (None, None)
         return {
             "reservation_id": row["reservation_id"],
             "sequence": row["sequence"],
@@ -806,6 +847,8 @@ def recover_pending_attempt(root: Path) -> dict[str, Any] | None:
             "redispatch_permitted": False,
             "settlement_recovery_required": intent is not None,
             "settlement_intent": intent,
+            "settlement_artifact_bytes": settlement_artifact,
+            "settlement_receipt": settlement_receipt,
         }
 
 
@@ -849,9 +892,11 @@ def settle_attempt(
             status=status,
             artifact_sha256=artifact_sha256,
             receipt_sha256=receipt_sha256,
+            artifact_bytes=artifact_bytes,
+            receipt=receipt,
         )
-        # The immutable intent is first: after any later crash, recovery must use the same terminal
-        # status and payload identities rather than reinterpreting retained adverse bytes.
+        # One atomic record retains disposition AND payloads before publishing their projections.
+        # After a crash recovery needs no caller memory and cannot reinterpret adverse bytes.
         _durable_exact(
             _safe(root, f"{directory_rel}/settlement-intent.json"), _canonical(intent)
         )
@@ -1022,6 +1067,8 @@ def _verify_attempt_files(root: Path, attempt: dict[str, Any]) -> tuple[bytes, b
         status=attempt["status"],
         artifact_sha256=attempt["artifact_sha256"],
         receipt_sha256=attempt["receipt_sha256"],
+        artifact_bytes=artifact,
+        receipt=json.loads(receipt.decode("ascii")),
     ):
         raise ValueError("retained settlement intent differs from sealed attempt history")
     return prompt, input_manifest, artifact, receipt

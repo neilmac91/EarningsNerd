@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import base64
 import hashlib
 import json
 import shutil
@@ -382,6 +383,21 @@ def test_parent_requires_prior_eligible_journal_children_and_retained_bytes(tmp_
 def test_identical_files_recover_precommit_settle_and_seal_crashes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # A pre-publication crash must not expose a partial immutable record at its final path.
+    atomic_path = tmp_path / "atomic-record.json"
+    with monkeypatch.context() as patch:
+        def interrupt_publication(source: Path, destination: Path) -> None:
+            assert source.read_bytes() == b"complete record"
+            assert not destination.exists()
+            raise RuntimeError("simulated crash before atomic publication")
+
+        patch.setattr(execution.os, "link", interrupt_publication)
+        with pytest.raises(RuntimeError, match="before atomic publication"):
+            execution._durable_new(atomic_path, b"complete record")
+    assert not atomic_path.exists()
+    execution._durable_new(atomic_path, b"complete record")
+    assert atomic_path.read_bytes() == b"complete record"
+
     adverse_root = tmp_path / "intent-recover"
     _initialize(adverse_root)
     adverse = _leaf(adverse_root, "l1", "ctx-adverse", UNITS[0]["unit_id"])
@@ -399,7 +415,7 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
     with pytest.raises(RuntimeError, match="simulated crash"):
         settle_attempt(
             adverse_root, reservation_id=adverse["reservation_id"], status="failed",
-            artifact_bytes=None, receipt={"outcome": "failed"},
+            artifact_bytes=b"adverse output survived", receipt={"outcome": "failed"},
         )
     monkeypatch.setattr(execution, "_durable_exact", original)
     intent_path = next((adverse_root / "attempts").iterdir()) / "settlement-intent.json"
@@ -426,9 +442,24 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
         "kind": "e7_operator_source_review_settlement_intent",
         "reservation_id": adverse["reservation_id"],
         "status": "failed",
-        "artifact_sha256": None,
+        "artifact_sha256": _sha(b"adverse output survived"),
         "receipt_sha256": _sha(_canonical({"outcome": "failed"})),
+        "artifact_base64": base64.b64encode(b"adverse output survived").decode("ascii"),
+        "receipt": {"outcome": "failed"},
     }
+    # Neither projected file exists yet: all recovery bytes come from the atomic intent.
+    assert not intent_path.with_name("artifact.bin").exists()
+    assert not intent_path.with_name("receipt.json").exists()
+    assert interrupted["settlement_artifact_bytes"] == b"adverse output survived"
+    assert interrupted["settlement_receipt"] == {"outcome": "failed"}
+    corrupted = tmp_path / "intent-payload-corrupted"
+    shutil.copytree(adverse_root, corrupted)
+    corrupt_path = next((corrupted / "attempts").iterdir()) / "settlement-intent.json"
+    corrupt_intent = json.loads(corrupt_path.read_bytes())
+    corrupt_intent["artifact_base64"] = base64.b64encode(b"different payload").decode("ascii")
+    corrupt_path.write_bytes(_canonical(corrupt_intent))
+    with pytest.raises(ValueError, match="artifact payload differs"):
+        recover_pending_attempt(corrupted)
     with pytest.raises(ValueError, match="already exists with different bytes"):
         settle_attempt(
             adverse_root, reservation_id=adverse["reservation_id"], status="compacted",
@@ -440,9 +471,12 @@ def test_identical_files_recover_precommit_settle_and_seal_crashes(
             artifact_bytes=None, receipt={"outcome": "changed"},
         )
     settle_attempt(
-        adverse_root, reservation_id=adverse["reservation_id"], status="failed",
-        artifact_bytes=None, receipt={"outcome": "failed"},
+        adverse_root, reservation_id=interrupted["reservation_id"],
+        status=interrupted["settlement_intent"]["status"],
+        artifact_bytes=interrupted["settlement_artifact_bytes"],
+        receipt=interrupted["settlement_receipt"],
     )
+    assert recover_pending_attempt(adverse_root) is None
 
     root = tmp_path / "recover"
     _initialize(root)
