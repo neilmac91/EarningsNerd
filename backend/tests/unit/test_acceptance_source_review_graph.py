@@ -78,7 +78,7 @@ def _graph(shape: list[tuple[str, str, Any]] = SHAPE, contexts: dict[str, str] |
             "node_id": node_id, "kind": kind, "unit_id": UNITS[target]["unit_id"] if kind == "leaf" else None,
             "children": children, "context_id": contexts[node_id], "artifact_sha256": _sha(artifact),
             "receipt": {
-                "role_contract_sha256": _sha(_canonical(contract)), "template_sha256": _sha(TEMPLATES[kind]),
+                "role_contract_sha256": _sha(_canonical(contract)), "template_sha256": contract["node_kinds"].get(kind, {"template_sha256": _sha(TEMPLATES[kind])})["template_sha256"],
                 "rendered_prompt_sha256": _sha(prompt),
                 "input_sha256": UNITS[target]["unit_id"] if kind == "leaf" else children_sha256(children),
                 "provider": contract["provider"], "model": contract["model"],
@@ -230,6 +230,10 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
     _rejected({**graph, "nodes": []}, artifacts, "at least one node")
     for value in (_sha(b"artifact:l1"), _sha(TEMPLATES["leaf"]), _sha(b"prompt:l2")):
         _rejected(_edited(graph, "l2", ("artifact_sha256",), value), artifacts, "l2 artifact must be distinct")
+    # A later node kind's template cannot be an earlier node's output either.
+    aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"], "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
+    aliased_graph, aliased_artifacts = _graph(contract=aliased)
+    _rejected(aliased_graph, aliased_artifacts, "r1 template aliases an earlier node artifact", role_contract=aliased)
     for key, value, message in (
         ("accession_number", "0000000000-26-000002", "different accession"),
         ("role", "role-a", "role differs from the role contract"),

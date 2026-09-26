@@ -285,6 +285,8 @@ def validate_review_graph(
         # A node's output must be its own bytes, not another node's output, a template or a prompt.
         if artifact in referenced or artifact in (declared, prompt) or prompt in node_artifacts:
             raise ValueError(f"node {node_id} artifact must be distinct from every other artifact, template and prompt")
+        if declared in node_artifacts:
+            raise ValueError(f"node {node_id} template aliases an earlier node artifact")
         node_artifacts.add(artifact)
         referenced.update((declared, prompt, artifact))
         seen[node_id] = node
