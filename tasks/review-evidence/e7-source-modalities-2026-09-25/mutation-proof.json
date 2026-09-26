@@ -1,0 +1,40 @@
+{
+  "commit": "b806e35bd2d9a9c347644bbf4486b68ebfcb3d50",
+  "source_sha256_before": "c4846611fcb916359b6697b8603fa6e40b78f6efa82ad86cd088a861a4ff7241",
+  "proofs": [
+    {
+      "name": "item_count",
+      "test": "tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once",
+      "mutated_sha256": "e817e00dff429569c5c9be73cdc135487bd40dc00d633ddd1c03951394a36b0c",
+      "mutated_exit": 1,
+      "mutated_tail": [
+        "=========================== short test summary info ============================",
+        "FAILED tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once",
+        "1 failed, 2 warnings in 1.33s"
+      ],
+      "restored_sha256": "c4846611fcb916359b6697b8603fa6e40b78f6efa82ad86cd088a861a4ff7241",
+      "restored_exit": 0,
+      "restored_tail": [
+        "1 passed, 2 warnings in 1.28s"
+      ]
+    },
+    {
+      "name": "assignment_gap",
+      "test": "tests/unit/test_acceptance_source_modalities.py::test_assigned_items_must_lie_inside_the_named_review_units",
+      "mutated_sha256": "925d49962e66f1024bfb8000ef8b61e1cc806a5931659b25ce1dbb4630ed0b3a",
+      "mutated_exit": 1,
+      "mutated_tail": [
+        "=========================== short test summary info ============================",
+        "FAILED tests/unit/test_acceptance_source_modalities.py::test_assigned_items_must_lie_inside_the_named_review_units",
+        "1 failed, 2 warnings in 1.21s"
+      ],
+      "restored_sha256": "c4846611fcb916359b6697b8603fa6e40b78f6efa82ad86cd088a861a4ff7241",
+      "restored_exit": 0,
+      "restored_tail": [
+        "1 passed, 2 warnings in 1.22s"
+      ]
+    }
+  ],
+  "source_sha256_after": "c4846611fcb916359b6697b8603fa6e40b78f6efa82ad86cd088a861a4ff7241",
+  "tree_clean": true
+}

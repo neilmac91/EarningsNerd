@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "run": "source-map-final",
+      "elapsed_seconds": 19.056898875001934
+    },
+    {
+      "run": "source-map-final-repeat",
+      "elapsed_seconds": 18.442736500001047
+    }
+  ],
+  "maximum_resident_bytes_macos": 334004224,
+  "byte_identical_rerun_files": 31,
+  "filings": 30,
+  "documents": 4330,
+  "complete_submission_bytes": 973729710,
+  "source_packets_verified": 92,
+  "supplements_verified": 60,
+  "embedding_contracts_verified": 30,
+  "semantic_coverage_attested": false,
+  "index_sha256": "d7f2556fd48c05a20327c8ed48b53b23f6f7ef1c66d9c19d32c0e0a4036b7d48"
+}

@@ -136,7 +136,7 @@ next generation is Monday 2026-09-21.
 | Notable filings: retain or kill | The review week ended 2026-09-15; the decision is overdue. |
 | Analysis (W3-10): run the companyfacts warm-up and name a Pro test account | `scripts/sync_companyfacts.py` has never run as a job. |
 | Arming `AI_ATTRIBUTION_VERIFY`, then `AI_ATTRIBUTION_GATE`, in production | Only after E2–E4 show the drop decision no longer deletes sourced analysis. |
-| Independent quality acceptance and the unseen holdout | Human review capacity and spend; the gate to universe-wide pregeneration. |
+| Quality evidence and wider-generation decision | The founder approved the AI-assisted E7 alternative and its existing ceiling. Complete real source references and measured outputs; explicitly retain the weaker assurance. Universe-wide generation still requires a separate release. [Current continuation](continuation-plan-2026-09-23.md). |
 | Controlled invite-only beta | Recruitment and commitments are the founder's. |
 | Stripe (E06) | Needs a natural payment after the 13 September event configuration; no test payment. |
 

@@ -46,6 +46,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Testing & verification
 
+- [`test-parser-callback-positions.md`](./test-parser-callback-positions.md) — Match whole-input callbacks to exact raw-source positions before accepting event capacity
+
 - [`test-adversarial-lens-verification.md`](./test-adversarial-lens-verification.md) — Verify large mechanical changes with independent adversarial lenses, not one review pass
 - [`test-audit-every-judge-channel-for-truncation.md`](./test-audit-every-judge-channel-for-truncation.md) — Audit every grounding channel the judge sees for its own truncation cap
 - [`test-audit-file-relative-shims-on-move.md`](./test-audit-file-relative-shims-on-move.md) — Audit __file__-relative shims whenever relocating a test or script
@@ -59,6 +61,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - [`test-fresh-bytecode-prefix-before-trusting-local-timing.md`](./test-fresh-bytecode-prefix-before-trusting-local-timing.md) — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
 - [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
+- [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
@@ -93,6 +96,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 
 ## Operations & workflow
+
+- [`ops-ai-evidence-is-not-human-acceptance.md`](ops-ai-evidence-is-not-human-acceptance.md) — Use explicit model/source evidence when the founder cannot supply a human panel
 
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds
 

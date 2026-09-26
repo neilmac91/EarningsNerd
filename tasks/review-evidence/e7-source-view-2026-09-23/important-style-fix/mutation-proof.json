@@ -1,0 +1,14 @@
+{
+  "committed_head": "a0fea57bb981ae55f21bb3aa72146fbc19eacb20",
+  "guard": "inline important hidden annotation",
+  "mutation": "Restore only the pre-fix HIDDEN_STYLE assignment from32c8c65",
+  "mutated_pytest_summary": "1 failed, 2 warnings in 3.93s",
+  "failure_assertion": "inline_style_hidden in []",
+  "restored_pytest_summary": "1 passed, 2 warnings in 0.73s",
+  "byte_identical_restoration": true,
+  "restored_source_sha256": "dccd0cf36702b5f81a94f55ade21c2583a8eab3367d6bcd6380ddd78f08ab1ef",
+  "failed_log_sha256": "3c0123231e05f84fb432f2cb6090a52aeb9957c808218a81501d3a3d34379d85",
+  "restored_log_sha256": "fec5d90a7ad9cbb87dd85256e745581c9f6f02651632bfb7950d04ce907807f7",
+  "readiness_or_budget_guard_changed": false,
+  "postprocessing_note": "The first receipt assertion expected the reader-marker failure, but pytest correctly failed earlier at the hidden unit annotation. Original failed/restored logs are retained; no second mutation was run."
+}

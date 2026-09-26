@@ -251,3 +251,16 @@ def test_trigger_label_is_context_scoped():
         assert record(None)["trigger"] == "user"
     finally:
         ai_metrics.reset_trigger(bogus)
+
+
+def test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint():
+    # Entrypoints such as `python -m evals.runner` set the trigger for the whole process and never
+    # reset it; tests run some of them in-process. This probe does the same on purpose.
+    ai_metrics.set_trigger("eval")
+    assert ai_metrics._trigger.get() == "eval"
+
+
+def test_isolation_next_test_starts_from_the_default_trigger():
+    # Runs after the probe above (definition order). conftest's autouse isolation must undo the
+    # probe, or tests asserting the default trigger pass or fail by collection order.
+    assert ai_metrics._trigger.get() == "user"

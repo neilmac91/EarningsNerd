@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "approved_manifest_sha256": "68242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66",
+  "reviewers": [
+    {"id": "", "name": "", "competence": "", "committed_hours": null, "commitment_date": null},
+    {"id": "", "name": "", "competence": "", "committed_hours": null, "commitment_date": null}
+  ],
+  "adjudicator": {"id": "", "name": "", "competence": "", "committed_hours": null, "commitment_date": null},
+  "reference_briefs": [],
+  "exposure_attestation": {"path": "", "sha256": ""},
+  "candidate_config": {"path": "", "sha256": ""},
+  "comparator_config": {"path": "", "sha256": ""},
+  "pricing": {"observed_at": null, "official_url": "", "path": "", "sha256": ""},
+  "balance": {"observed_at": null, "available_usd": null, "path": "", "sha256": ""},
+  "fable": {"observed_at": null, "contract_version": "", "model": "", "quota_available": null, "path": "", "sha256": ""},
+  "development_source": {"path": "", "sha256": ""},
+  "development_smoke": {"completed": null, "accession_number": "", "path": "", "sha256": ""},
+  "budget_control": {"verified": null, "reviewed_commit": "", "full_run_worst_case_usd": null, "incomplete_stop_risk_accepted_by": "", "incomplete_stop_risk_accepted_at": null, "path": "", "sha256": ""}
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import wraps
@@ -40,6 +41,36 @@ class RequestBudget:
 
 
 _budget: ContextVar[RequestBudget | None] = ContextVar("summary_request_budget", default=None)
+_request_meter: ContextVar[object | None] = ContextVar("summary_request_meter", default=None)
+_meter_attempt: ContextVar[int | None] = ContextVar("summary_meter_attempt", default=None)
+
+
+@contextmanager
+def measure_provider_requests(meter):
+    """Bind an explicit offline-evaluation admission owner; production has none.
+
+    Child recovery tasks inherit this context. The meter reserves before every actual SDK
+    attempt and settles even on cancellation. A settlement failure propagates to the caller;
+    a measurement runner must also inspect its durable stop state before accepting output.
+    """
+    token = _request_meter.set(meter)
+    try:
+        yield
+    finally:
+        _request_meter.reset(token)
+
+
+def current_provider_attempt() -> int | None:
+    """Allow retained preview callbacks to identify their exact measured provider attempt."""
+    return _meter_attempt.get()
+
+
+def _meter_usage(usage) -> dict | None:
+    if usage is None:
+        return None
+    fields = ("prompt_tokens", "completion_tokens", "total_tokens")
+    return {key: usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
+            for key in fields}
 
 
 def bounded_summary(*, report: bool = False):
@@ -202,6 +233,9 @@ class _ProviderRequestsMixin:
                 request.update(stream=True, stream_options={"include_usage": True})
             observation = {"model": None, "usage": None, "fingerprint": None, "first_token_ms": None}
             outcome = "error"
+            meter = _request_meter.get()
+            reservation = None
+            attempt_token = None
             started = asyncio.get_running_loop().time()
             local_attempt += 1
             if not recovery:
@@ -212,6 +246,14 @@ class _ProviderRequestsMixin:
                 async with provider_admission.admit(budget.remaining(), gated=False), asyncio.timeout(
                     min(timeout, budget.remaining())
                 ):
+                    if meter is not None:
+                        if client.max_retries != 0:
+                            raise ValueError("Measured requests require SDK max_retries=0")
+                        admitted = meter.reserve(request, operation, base_url)
+                        if type(admitted) is not int or admitted <= 0:
+                            raise ValueError("Measured request lacks a valid reservation")
+                        reservation = admitted
+                        attempt_token = _meter_attempt.set(reservation)
                     if streaming:
                         content = await self._stream_collect(
                             request, stream_cb, filing_type_key, xbrl_metrics, _client=client, _observation=observation,
@@ -241,21 +283,28 @@ class _ProviderRequestsMixin:
                 if not transient(error):
                     raise
             finally:
-                budget.records.append(
-                    record_ai_call(
-                        operation="section_recovery"
-                        if recovery
-                        else ("summary_fallback" if use_fallback else "summary_primary"),
-                        provider="fallback" if use_fallback else "primary",
-                        actual_model=observation["model"],
-                        usage=observation["usage"],
-                        outcome=outcome,
-                        requested_model=model,
-                        system_fingerprint=observation["fingerprint"],
-                        latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
-                        first_token_ms=observation["first_token_ms"],
+                if attempt_token is not None:
+                    _meter_attempt.reset(attempt_token)
+                try:
+                    if reservation is not None:
+                        meter.settle(reservation, _meter_usage(observation["usage"]), observation["model"],
+                                     "error" if outcome == "timeout" else outcome)
+                finally:
+                    budget.records.append(
+                        record_ai_call(
+                            operation="section_recovery"
+                            if recovery
+                            else ("summary_fallback" if use_fallback else "summary_primary"),
+                            provider="fallback" if use_fallback else "primary",
+                            actual_model=observation["model"],
+                            usage=observation["usage"],
+                            outcome=outcome,
+                            requested_model=model,
+                            system_fingerprint=observation["fingerprint"],
+                            latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
+                            first_token_ms=observation["first_token_ms"],
+                        )
                     )
-                )
             if local_attempt < (2 if recovery else MAX_SUMMARY_ATTEMPTS) and (
                 recovery or budget.summary_attempts < MAX_SUMMARY_ATTEMPTS
             ):

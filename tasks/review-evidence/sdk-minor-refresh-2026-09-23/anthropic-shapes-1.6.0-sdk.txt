@@ -1,0 +1,13 @@
+{
+ "anthropic": "1.6.0",
+ "error_classes": {
+  "400": "BadRequestError",
+  "401": "AuthenticationError",
+  "409": "ConflictError",
+  "429": "RateLimitError",
+  "503": "InternalServerError",
+  "ConnectError": "APIConnectionError",
+  "ReadTimeout": "APITimeoutError"
+ }
+}
+ANTHROPIC_SHAPES_OK 1.6.0 sdk-only

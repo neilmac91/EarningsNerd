@@ -1,0 +1,97 @@
+"""One committed-state mutation proof for the exact-union partition check.
+
+Replaces only the union walk in ``_require_exact_partition`` with a total-length comparison (the
+bug class the requirement names), runs the central gate, restores the original bytes and reruns.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path("/home/user/EarningsNerd")
+BACKEND = REPO / "backend"
+TARGET = BACKEND / "evals" / "acceptance_source_units.py"
+GATE = "tests/unit/test_acceptance_source_units.py::test_units_partition_declared_packets_and_bind_recomputable_identities"
+SCRATCH = Path(sys.argv[1])
+PYTHON = sys.argv[2]
+ORIGINAL_WALK = '''    cursor = 0
+    for start, end in sorted(bounds):
+        if start < cursor:
+            raise ValueError(f"coverage spans overlap in packet {role} at byte {start}")
+        if start > cursor:
+            raise ValueError(f"coverage gap in packet {role} at byte {cursor}")
+        cursor = end
+    if cursor != byte_length:
+        raise ValueError(f"coverage gap in packet {role} at byte {cursor}")
+'''
+MUTATED_WALK = '''    cursor = sum(end - start for start, end in bounds)
+    if cursor != byte_length:
+        raise ValueError(f"coverage gap in packet {role} at byte {cursor}")
+'''
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def git(*args: str) -> str:
+    return subprocess.run(["git", *args], cwd=REPO, check=True, capture_output=True, text=True).stdout.strip()
+
+
+def run_gate(label: str) -> dict[str, object]:
+    env = {**os.environ, "PYTHONPYCACHEPREFIX": str(SCRATCH / f"pycache-{label}")}
+    proc = subprocess.run([PYTHON, "-m", "pytest", GATE, "-q", "-p", "no:cacheprovider"], cwd=BACKEND,
+                          env=env, capture_output=True, text=True)
+    (SCRATCH / f"mutation-{label}.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
+    lines = [line for line in proc.stdout.splitlines() if line.strip()]
+    return {"exit": proc.returncode, "summary": lines[-1] if lines else "", "tail": lines[-12:]}
+
+
+def main() -> None:
+    if git("status", "--porcelain"):
+        raise SystemExit("working tree must be clean: mutate committed state only")
+    head = git("rev-parse", "HEAD")
+    original = TARGET.read_bytes()
+    if original != subprocess.run(["git", "show", f"HEAD:{TARGET.relative_to(REPO)}"], cwd=REPO, check=True,
+                                  capture_output=True).stdout:
+        raise SystemExit("target differs from HEAD")
+    text = original.decode("utf-8")
+    if text.count(ORIGINAL_WALK) != 1:
+        raise SystemExit("expected exactly one union walk")
+    mutated = text.replace(ORIGINAL_WALK, MUTATED_WALK).encode("utf-8")
+    try:
+        TARGET.write_bytes(mutated)
+        failed = run_gate("failed")
+    finally:
+        TARGET.write_bytes(original)
+    restored = TARGET.read_bytes()
+    passed = run_gate("restored")
+    receipt = {
+        "committed_head": head,
+        "target": str(TARGET.relative_to(REPO)),
+        "gate": GATE,
+        "mutation": "Replace only the exact-union walk in _require_exact_partition with a total-length comparison",
+        "source_sha256": sha(original),
+        "mutated_sha256": sha(mutated),
+        "restored_sha256": sha(restored),
+        "byte_identical_restoration": restored == original,
+        "git_status_after_restore": git("status", "--porcelain"),
+        "failed_exit": failed["exit"],
+        "failed_summary": failed["summary"],
+        "failed_tail": failed["tail"],
+        "restored_exit": passed["exit"],
+        "restored_summary": passed["summary"],
+        "python": sys.version.split()[0],
+        "provider_or_fable_call": False,
+        "e7_admission_or_spend_guard_changed": False,
+    }
+    print(json.dumps(receipt, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "review_protocol": "ai_assisted",
+  "checked_accessions": [],
+  "known_candidate_output_exposed_accessions": [],
+  "known_tuning_exposed_accessions": [],
+  "unknown_external_exposure": true,
+  "external_artifact_inventory": "",
+  "scope": "",
+  "observed_at": ""
+}

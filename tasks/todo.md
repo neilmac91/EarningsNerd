@@ -1,3 +1,50 @@
+## September 23 — bounded source-review implementation
+
+The subsequent [markup-boundary correction](review-evidence/e7-source-view-2026-09-23/markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes, fixes the exporter guide and removes an introduced repeated ancestry scan. Final full gate: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips. One guard fault/restoration proof and independent review pass; all 24 H29 artifacts remain unchanged.
+
+Hosted review found a missing inline `!important` hidden-text annotation; corrected at `a0fea57b`. Full revalidation passed **3655 passed, 40 warnings in 166.33s (0:02:46)** with zero failures/errors/skips. Exact old-matcher mutation failed and restoration passed; independent review found no actionable issue, and all six H29 views remain byte-identical. [Correction evidence](review-evidence/e7-source-view-2026-09-23/important-style-fix/README.md).
+
+Integrated verified main `ebdc4c44` into #940 and added an offline source reader that preserves text, table relationships, attributes, image/exclusion inventories and exact raw byte locators. Six H29 views passed independent text/count checks and byte-identical regeneration. Full local validation passed 3,655 tests with all PostgreSQL and performance lanes; the new dropped-text mutation failed and exact restoration passed. [Implementation evidence](review-evidence/e7-source-view-2026-09-23/README.md).
+
+The founder-account ready-for-review action on #940 is preserved. The PR remains unmerged; the two earlier denied guard-removal proof requirements remain unresolved and were not retried. The [actual H29 pilot](review-evidence/e7-source-view-2026-09-23/source-pilot.md) has one individually frozen A brief; B is partial/ineligible after context compaction, with no complete pair/reconciliation. Hierarchical evidence work is next. No E7 holdout generation or Fable call was made in this source-method tranche. [Updated continuation and master-plan position](continuation-plan-2026-09-23.md).
+
+## September 23 — reconciled Fable work and E7 document mapping
+
+Latest Fable ZIPs contain no new judgments; E3/KO completion is retained and E8 remains 140 reused / 0 new / 160 missing. Current main #947 deployment is verified at revision 00378-jlg, migrations 0/39, independent healthy response. Closed obsolete draft #943 as superseded by #945 without deleting its branch. [Current continuation and master-plan position](continuation-plan-2026-09-23.md).
+
+Integrated current main into E7 draft #940. The new offline mapper verifies the existing fixed archive and accounts for all 4,330 embedded documents across 30 complete submissions. All 92 packets/60 supplements/30 embedding contracts are hash-bound; two real-archive runs produced 31 identical JSON files in about 19 seconds. The [source-map receipt](review-evidence/e7-source-map-2026-09-23/README.md) preserves scope and limits. No semantic coverage, paid generation, model call or quality acceptance follows. The source-only review capacity tranche is next; the prior denied proof blockers remain, with no alternate-route retry.
+
+## September 22 — E7 exact runtime dependency inventory
+
+The hosted review found that required pins alone allowed a candidate-only package to remain importable in the comparator. Runtime admission now rejects any installed distribution absent from either selected lock; the child rechecks the inventory before claiming its request. A single shared interpreter cannot run arms with different dependency sets. The pinned Python 3.11 runtime has exactly all 99 locked packages and no extras. The existing runtime gate now proves rejection of a comparator missing a candidate dependency and acceptance once that extra package is removed. The existing executor suite passed 26 tests. Removing only the new comparison failed the targeted gate; exact restoration passed it. Full pre-push verification and independent review follow.
+
+## September 22 — E7 actual review contexts and deterministic findings
+
+The version 3 role protocol freezes model/prompt identity while version 2 source evidence records a fresh actual context per filing and role. All 60 brief and 30 reconciliation contexts must be unique. Output reviews bind their observed contexts to raw responses and cannot reuse source contexts or cross quality/challenge roles. This removes the earlier five-global-context limitation before any formal review seal.
+
+The latest hosted review finding is corrected: rejected findings cannot clear deterministic quote, citation or arithmetic failures. The matching finding must be confirmed; existing material-defect and fabricated-quote vetoes remain. An offline mutation reproduces the former false pass. Source-context reuse, cross-role reuse and response-context mismatches have fail/restore proofs too.
+
+Two fresh independent Sol contexts have produced source-only drafts for NIO holdout H30 (12 and 11 material-issue entries). A third source-only context reconciled all 23 original entries into 11 draft issues, with 12 disagreement records. The drafts retain coverage/runtime-observation limits and are not counted as readiness-eligible completed references. No candidate/comparator output, paid E7 generation, Fable call, E8 queue change or production activation occurred. The remaining 29 filings, formal reference custody, frozen execution arms, provider evidence and metered smoke remain engineering work.
+
+## E7 solo-founder direction — 2026-09-22
+
+The founder clarified that full human review has not occurred and is not feasible. [AI-assisted plan](readiness-2026-09-21/acceptance/ai-assisted-plan.md) replaces the expectation that the founder supplies a full human panel with an engineering-owned alternative, explicitly weaker than independent expert review. Version 2 AI-assisted review validation, exact checks, retained CLI-call verification and decision reporting are now implemented. The explicit revised-source adapter is now integrated across readiness, both-arm measurement instrumentation, collection and review packets; its all-30 parser canary passes in the pinned Python 3.11 runtime. Real source reviews and execution prerequisites remain pending; no completed review/acceptance is claimed. Preserve the 30/90+30 identities, USD 10 generator cap, 243 Fable-call cap and material-defect rules. New reference-evidence binding prevents coherent post-output edits without freezing renewable provider observations.
+
+The [explicit Fable call runner](readiness-2026-09-21/acceptance/ai-assisted/judge-runner.md) now reserves each call durably before launch, retains raw evidence, verifies the pinned CLI locally, rejects inherited project context and stops on uncertain transport or a failed optional probe. Its tests use fake executables only. Source challenges now bind a real passage from the selected filing, while semantic relevance remains an AI review responsibility. These additions do not dispatch the E7 programme. Source validation now uses the explicit [frozen-source contract](readiness-2026-09-21/acceptance/frozen-source-contract.md); independent AI reference evidence and the remaining execution prerequisites still hold paid admission.
+
+## September 22 — E7 completion artifacts bound to durable digests
+
+The worker now records final-byte digests for every declared output/evidence artifact, including raw preview callbacks, before completion. The controller binds the result SHA256 to its one-time completed slot; the collector verifies that digest and the exact artifact inventory before materializing previews or publishing output records. [Execution evidence limits](readiness-2026-09-21/acceptance/execution.md) prohibit retroactive re-sealing and distinguish change detection against the retained ledger from coordinated rewriting of all evidence. The source-binding hold, budget and human prerequisites remain intact; no E7 generation or live provider call occurred.
+
+## September 22 — E7 balance and Fable claims bound to hashed observations
+
+The draft readiness gate now validates typed balance/Fable receipt contents, matches inline claims and observation times, rejects nonfinite or boolean balances and mismatched model/contract/quota, and evaluates freshness from the receipt. [Receipt formats and limits](readiness-2026-09-21/acceptance/README.md) distinguish content/hash agreement from authenticated provider evidence; real retained readbacks remain required before use. The unconditional archive-binding hold, USD 10 admission and human-brief safeguards are unchanged. No live balance/quota inspection or provider call was made.
+
+## September 22 — E7 draft source-binding hold and collector evidence protection
+
+PR #940 remains draft. The current worker does not bind every section/XBRL channel to the frozen archive; the 6-K text adapter does not bind its separate structured path, and the manifest has no frozen companyfacts response. A non-configurable engineering hold now rejects the whole programme before smoke/slot dispatch or claim, direct worker database/provider work, and reviewer packet creation. [Unblock criteria](readiness-2026-09-21/acceptance/execution.md#source-binding-unblock-criteria) require original archive recovery, production-path provenance and independent review, without dropping source channels or filings.
+
+The collector now refuses any output destination inside the permanent programme and refuses unrelated existing external files before inspecting/materializing evidence. Recollection may replace only an index associated with that same programme. Offline targeted acceptance checks: 57 passed, 9 warnings; changed-file Ruff passed. Full gate and hosted review follow. No provider call, budget/brief safeguard change, holdout exposure, flag change or acceptance decision occurred.
 ## September 22 — E8 re-pin judging session stopped before restore (permission denial)
 
 - [x] Session `session_01DJicvUd1iyrfzFjCPxV6f4` on `claude/new-session-8v1cg4` (based on main `3d836ad`; receipt and verification corrections committed and pushed, draft PR [#946](https://github.com/neilmac91/EarningsNerd/pull/946)) received all nine kit attachments with matching hashes and verified the re-pin manifests; the auto-mode classifier then denied `restore_e8_session.py` in the exact allow-listed form (`[Auto-Mode Bypass]`) and afterwards its `--help`. Stopped at kit step 1. [Receipt](review-evidence/e8-repin-restore-2026-09-22/receipt.md).
@@ -5726,3 +5773,15 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - [ ] Separately authorized E8 session remains outstanding: 140 controls reused under 2.1.278,
   zero new judgments, 160 slots planned under 2.1.280. Every readout must state that CLI-version
   confound. No quality conclusion, production change or universe-wide generation authorized here.
+
+### September 23 — nesting and ratio review corrections
+
+- PR940 source reader `2f59c73b` rejects unsupported nested controls and table foster parenting; 3655 passed, 40 warnings in 160.73s (0:02:40), all PostgreSQL/performance lanes, Ruff/Bandit/dependency checks pass. Six H29 views/24 artifacts are unchanged.
+- PR942 `aab234fb` aligns the actual generator instruction with shared formula labels; 3,500 tests pass. Same-contract generated-output comparison remains required.
+- Hierarchy implementation is sequenced as custody, reconciliation and downstream admission. No E7 generation, Fable call, production flag or deployment; earlier denied proof holds remain.
+
+### September 23 — offline source-event capacity
+
+- Implemented the non-admitting capacity CLI and one invariant on a separate branch stacked on #940. Corrective code `abf4ca64` passes 3,656 tests, all four PostgreSQL lanes, performance, Ruff/Bandit/dependency checks.
+- Measured revised H01/H02/H25 primary identities: largest raw events 1,499/2,186/941 bytes; H25 is 57,158,558 bytes, 1,278,811 events, 3.49 seconds and about 142 MiB preflight peak RSS. [Receipts](review-evidence/e7-source-capacity-2026-09-23/README.md) preserve the skipped-prefix correction, both guard proofs and bounded independent review.
+- Source custody, issue propagation/reconciliation, admission integration and actual quality evidence remain next. No E7 generation, Fable calls or production deployment; prior denied proof holds remain.

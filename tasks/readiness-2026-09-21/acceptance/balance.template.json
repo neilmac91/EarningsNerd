@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "kind": "balance",
+  "observed_at": null,
+  "provider": "deepseek",
+  "currency": "USD",
+  "available_usd": null
+}

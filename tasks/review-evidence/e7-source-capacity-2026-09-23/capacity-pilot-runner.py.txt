@@ -1,0 +1,67 @@
+from pathlib import Path
+import hashlib
+import json
+import os
+import re
+import subprocess
+import time
+import uuid
+
+base = Path('/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote')
+repo = Path('/private/tmp/earningsnerd-source-capacity-20260923')
+out = base / 'outputs/e7-capacity-preflight-2026-09-23/profiled-final'
+out.mkdir(exist_ok=True)
+capacity_file = base / 'outputs/e7-method-implementation-2026-09-23/hierarchy-capacity/capacity.json'
+capacity = json.loads(capacity_file.read_text())
+source_root = base / 'work/e7-ai-source-snapshot-2026-09-22'
+python = '/private/tmp/earningsnerd-dependency-refresh-20260923-venv/bin/python'
+head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
+assert head == 'abf4ca640d48b35be5099b2b6883c3298cf2d3b3'
+code = repo / 'backend/evals/acceptance_source_capacity.py'
+source_sha = hashlib.sha256(code.read_bytes()).hexdigest()
+assert source_sha == 'ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7'
+results = []
+for filing in capacity['filings']:
+    row = next(p for p in filing['packets'] if p['role'] == 'primary')
+    identifier = filing['holdout_id']
+    audit = out / f'{identifier}-audit.json'
+    assert not audit.exists()
+    env = dict(os.environ)
+    env['PYTHONPYCACHEPREFIX'] = '/private/tmp/capacity-pilot-' + uuid.uuid4().hex
+    command = [
+        '/usr/bin/time', '-l', python, '-m', 'evals.acceptance_source_capacity',
+        '--source', str(source_root / row['path']),
+        '--expected-sha256', row['current_revised_sha256'],
+        '--expected-bytes', str(row['current_revised_bytes']), '--output', str(audit),
+    ]
+    started = time.monotonic()
+    result = subprocess.run(command, cwd=repo / 'backend', env=env, capture_output=True, text=True, timeout=180)
+    wall_seconds = time.monotonic() - started
+    (out / f'{identifier}-stdout.log').write_text(result.stdout)
+    (out / f'{identifier}-profile.log').write_text(result.stderr)
+    assert result.returncode == 0, (identifier, result.returncode, result.stderr[-1200:])
+    observed = json.loads(audit.read_text())
+    assert observed['source']['sha256'] == row['current_revised_sha256']
+    assert observed['source']['bytes'] == row['current_revised_bytes']
+    assert observed['within_capacity_limits'] is True
+    rss = int(re.search(r'^\s*(\d+)\s+maximum resident set size\s*$', result.stderr, re.M)[1])
+    record = {
+        'holdout_id': identifier, 'accession_number': filing['accession_number'],
+        'source_bytes': observed['source']['bytes'], 'source_sha256': observed['source']['sha256'],
+        'event_count': observed['event_count'], 'max_raw_event': observed['max_raw_event'],
+        'wall_seconds': round(wall_seconds, 3), 'max_rss_bytes': rss,
+        'audit_file': audit.name, 'audit_sha256': hashlib.sha256(audit.read_bytes()).hexdigest(),
+        'exit_code': result.returncode,
+    }
+    results.append(record)
+    print(json.dumps(record), flush=True)
+assert hashlib.sha256(code.read_bytes()).hexdigest() == source_sha
+receipt = {
+    'source_head': head, 'implementation_sha256': source_sha,
+    'capacity_input_sha256': hashlib.sha256(capacity_file.read_bytes()).hexdigest(),
+    'python': '3.11.16', 'results': results,
+    'full_projection_built': False, 'semantic_review_performed': False,
+    'admission_approved': False, 'provider_or_fable_call': False,
+    'limitations': ['Measured RSS is for the capacity preflight only, not source projection or model context.'],
+}
+(out / 'pilot-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')

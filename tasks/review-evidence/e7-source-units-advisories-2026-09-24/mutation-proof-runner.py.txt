@@ -1,0 +1,39 @@
+"""Two mutation proofs on committed source: break one guard, run its gate, restore byte-identically."""
+import hashlib, json, subprocess, sys, tempfile
+from pathlib import Path
+
+ROOT = Path("/home/user/EarningsNerd")
+SRC = ROOT / "backend/evals/acceptance_source_units.py"
+PY = sys.argv[1]
+MUTATIONS = [
+    ("expected_contract", "    _expected_contract(packets, expected)\n", "",
+     "tests/unit/test_acceptance_source_units.py::test_declared_packets_must_equal_the_expected_source_contract"),
+    ("unit_context_limit", "        if unit_context_bytes > unit_context_limit:\n", "        if False:\n",
+     "tests/unit/test_acceptance_source_units.py::test_declared_context_is_bounded_before_it_is_hashed"),
+]
+
+def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def run(test):
+    out = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", test], cwd=ROOT / "backend",
+                         capture_output=True, text=True,
+                         env={"PATH": "/usr/bin:/bin", "PYTHONPYCACHEPREFIX": tempfile.mkdtemp()})
+    return out.returncode, out.stdout.strip().splitlines()
+
+committed = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+original = SRC.read_bytes()
+receipt = {"commit": committed, "source_sha256_before": sha(SRC), "proofs": []}
+for name, old, new, test in MUTATIONS:
+    text = original.decode()
+    assert text.count(old) == 1, name
+    SRC.write_text(text.replace(old, new))
+    mutated_sha = sha(SRC)
+    code_m, out_m = run(test)
+    SRC.write_bytes(original)
+    code_r, out_r = run(test)
+    receipt["proofs"].append({"name": name, "test": test, "mutated_sha256": mutated_sha,
+                              "mutated_exit": code_m, "mutated_tail": out_m[-3:],
+                              "restored_sha256": sha(SRC), "restored_exit": code_r, "restored_tail": out_r[-1:]})
+receipt["source_sha256_after"] = sha(SRC)
+receipt["tree_clean"] = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True).stdout == ""
+print(json.dumps(receipt, indent=2))
