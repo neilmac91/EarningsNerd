@@ -2,7 +2,7 @@
 
 PR #970 is released. The next source work now has two measured blockers: the largest direct
 primary does not fit the tested memory boundary, and the frozen submission representations do
-not satisfy the strict encoded-member decoder. Neither result is a quality acceptance verdict.
+not satisfy the strict encoded-member decoder. Neither result is a quality acceptance verdict. A [subsequent ASCII-offset correction](../source-view-ascii-2026-09-27/README.md) completed both direct primaries under the unchanged limits; the original failure below remains historical evidence.
 
 ## Verified release
 
@@ -84,8 +84,6 @@ not merged into main, and the unused staging draft release was removed after res
    contract and queue. No result is inferred from the founder's handoff confirmation.
 2. Compare authoritative source bytes to the retained decoded-text capture before changing the strict decoder. Preserve
    the 264 failures and any diagnostic reconstructions as distinct evidence.
-3. Use the H25 resource failure to justify a bounded memory correction or a documented execution
-   budget. Preserve exact source/unit identities, then measure the remaining readable members,
-   decoded modalities and complete unsent role payloads.
+3. The [bounded ASCII-offset correction](../source-view-ascii-2026-09-27/README.md) now has a successful H25/H02 direct-primary measurement at the original limits. Preserve exact source/unit identities, then measure the remaining readable members, decoded modalities and complete unsent role payloads.
 4. Finish the 60 independent source briefs and 30 reconciliations, then execute E7 within the
    approved budgets and quality gates. These engineering measurements do not admit the programme.

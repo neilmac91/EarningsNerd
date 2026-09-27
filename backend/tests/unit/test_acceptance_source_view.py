@@ -6,11 +6,30 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import tracemalloc
 import xml.etree.ElementTree as ET
 
 import pytest
 
 from evals import acceptance_source_view as source_view
+
+
+def test_ascii_source_view_peak_memory_is_bounded() -> None:
+    raw = b'<html><body><p data-x="1">' + b"a" * (512 * 1024) + b"</p></body></html>"
+    already_tracing = tracemalloc.is_tracing()
+    if not already_tracing:
+        tracemalloc.start()
+    baseline, _ = tracemalloc.get_traced_memory()
+    tracemalloc.reset_peak()
+    try:
+        projection = source_view.project_html(raw)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        if not already_tracing:
+            tracemalloc.stop()
+
+    assert projection["source_bytes"] == len(raw)
+    assert peak - baseline < 16 * 1024 * 1024
 
 
 def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
