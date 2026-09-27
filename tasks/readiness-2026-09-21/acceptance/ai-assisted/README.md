@@ -67,6 +67,60 @@ dispatch. Only the existing balance, quota and pricing observations may be
 refreshed after that seal. The archive-binding hold and every other execution
 gate still apply. These templates contain no observations or verdicts.
 
+## Optional cross-role reconciliation history
+
+`ai_assisted.reconciliation_history` may retain declared cross-role history that does not fit the
+bounded retired-source-B format. It is an optional list with at most one schema-1
+`source_reconciliation_history` record per accession. Omitting the key leaves the review-evidence
+inventory byte-for-byte unchanged. Each record binds the current reconciliation context and exact
+file reference, the retained raw reconciliation draft, a partial-history manifest and all artifacts
+it names, a separate disposition ledger, and the complete historical-origin map. Every origin has a
+stable `history_prefix`, its context/role, the status of that historical artifact, and an exact file
+reference whose SHA must match `artifact_sha256`. The artifact status does not classify every use of
+the context: a context may also own a later eligible source brief. All such contexts still enter the
+shared exclusion closure so no downstream blind role can reuse them.
+
+`technical_attempts` separately binds incomplete source attempts that produced no financial history
+rows. Each declaration fixes its context, role, `partial_ineligible` status, reservation, dispatch,
+and settlement. The validator checks their accession/context chain and reads every draft, brief, and
+read-log named by the settlement. This no-history route requires `issue_count: 0` and an exact empty
+`material_issues` array in the bound settlement draft; an attempt with findings must enter the
+origin/ledger route instead. Technical contexts join the exclusion closure despite their zero issue
+count. `source_context_closure_sha256` is SHA256 over the compact, ASCII, sorted JSON
+array containing current A/B/reconciliation contexts, historical-origin contexts, and technical
+attempt contexts.
+
+The ledger declaration adds `row_count`, `identity_set_sha256`, and `runtime_holds` to its ordinary
+`{path, sha256}` file reference. `identity_set_sha256` is SHA256 over the compact, ASCII, sorted JSON
+array of exact history IDs. Each `runtime_holds` row contains only `history_id` and
+`hold: "custodian_classification"`. Rows outside that list must be source-supported, retain a valid
+role/hash and filing locator, and target an unchanged current reconciled issue. A declared runtime
+row must remain unresolved with a null current target. The hold ID set must equal the exact set of
+disagreements that were unresolved in the bound origin bytes; the wrapper cannot promote or
+reclassify them. This bounded rule preserves H30's known runtime-custody dispute without claiming
+that unresolved status alone proves whether another legacy dispute is financial or operational.
+Use this route only where separate retained review already classified each unresolved legacy
+disagreement as runtime custody. Structural validation preserves its identity and status but does
+not prove that semantic classification; a history known to contain an unresolved financial dispute
+requires a separate supported reconciliation path. Validation preserves the frozen legacy
+locator text while the typed inventory exposes `filing_source_locator: null`,
+`evidence_class: "operator_runtime"`, and the custody hold.
+
+The complete ledger identity set is derived from the bound origin bytes rather than trusted from the
+ledger declaration. Each origin contributes `<history_prefix>:issue:<issue_id>` for every
+`material_issues` row and `<history_prefix>:disagreement:<array-index>` for every disagreement.
+Manifest counts for source issues, reconciled issues, and disagreements must equal the corresponding
+manifest-exposed artifacts. The raw reconciliation draft is retained as custody evidence only; its
+hash does not assert that a generic transformer can reproduce the current reference.
+
+The readiness boundary reports an unresolved operator-runtime row through `evidence_limitations`.
+It does not turn a retired execution-history uncertainty into a financial-source disagreement or a
+permanent quality hold. The risk control is the immutable unresolved classification plus inclusion
+of every origin and technical-attempt context in the shared source-context closure; the decision path
+then rejects those contexts as blind quality or source-challenge identities. This custody binding
+does not prove the old runtime, re-judge financial findings, dispatch a provider, establish programme
+admission, or authorize a production flag.
+
 ## Retained Fable CLI calls
 
 The [E7 judge runner](judge-runner.md) reserves each explicit call before

@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from evals.acceptance_ai_protocol import (ROLE_NAMES, ai_review_evidence_inventory,
+from evals.acceptance_ai_protocol import (ROLE_NAMES, _canonical_set_sha256,
+                                          ai_review_evidence_inventory, source_context_ids,
                                           validate_ai_prerequisites)
 from evals.acceptance_readiness import verify_review_evidence_binding
 
@@ -95,6 +96,139 @@ def _fixture(tmp_path: Path, *, accession: str = "0000000001-26-000001", prefix:
 def _validate(prereq: dict, path: Path, accession: str,
               sources: dict[str, dict[str, str]], now: datetime):
     return validate_ai_prerequisites(prereq, path.parent, [accession], sources, now)
+
+
+def _add_reconciliation_history(
+    tmp_path: Path, prereq: dict, accession: str, sources: dict[str, dict[str, str]],
+) -> tuple[dict, Path]:
+    ai = prereq["ai_assisted"]
+    current_reference = next(
+        row for row in ai["reconciled_references"] if row["accession_number"] == accession)
+    reference = json.loads((tmp_path / current_reference["path"]).read_text())
+    current_briefs = [
+        row for row in ai["source_briefs"] if row["accession_number"] == accession]
+    origin_specs = [
+        ("ctx-old-a", "source_reference_a", "old-a"),
+        ("ctx-old-b", "source_reference_b", "old-b"),
+        ("ctx-old-reconciliation", "source_reconciliation", "old-reconciliation"),
+        (current_briefs[0]["context_id"], "source_reference_a", "same-context-a-partial"),
+    ]
+    origins = []
+    for index, (context_id, role, prefix) in enumerate(origin_specs, start=1):
+        artifact = _write(tmp_path / f"retired-{index}.json", {
+            "material_issues": [{"issue_id": f"ISSUE-{index}"}],
+            "disagreements": ([{
+                "claim": "runtime history", "status": "unresolved",
+                "source_locator": "not a filing fact",
+            }]
+                              if role == "source_reconciliation" else []),
+        })
+        origins.append({
+            "context_id": context_id, "role": role,
+            "status": "retired_partial_history", "history_prefix": prefix,
+            "artifact_sha256": artifact["sha256"],
+            "artifact": artifact,
+        })
+    manifest = _write(tmp_path / "reconciliation-history-manifest.json", {
+        "schema_version": 1, "kind": "synthetic_cross_role_history",
+        "accession_number": accession,
+        "counts": {"source_issues": 2, "reconciled_issues": 1, "disagreements": 1},
+        "coverage_status": "partial", "eligible_source_evidence": False,
+        "formal_source_evidence_sealed": False, "fresh_role_input": False,
+        "limitations": ["Synthetic retired history only"],
+        "retained_artifacts": [{
+            **origin["artifact"], "bytes": (tmp_path / origin["artifact"]["path"]).stat().st_size,
+        } for origin in origins[:3]],
+        "source_exposed_contexts": [
+            {"context_id": origin["context_id"], "retained_status": origin["status"],
+             "role": origin["role"]} for origin in origins[:3]
+        ],
+    })
+    source_role, source_sha = next(iter(sources[accession].items()))
+    rows = []
+    for index, origin in enumerate(origins):
+        rows.append({
+            "history_id": f"{origin['history_prefix']}:issue:ISSUE-{index + 1}",
+            "source_context_id": origin["context_id"],
+            "original_artifact_sha256": origin["artifact_sha256"], "status": "supported",
+            "source_role": source_role, "source_sha256": source_sha,
+            "source_locator": f"Item 7, paragraph {index + 1}",
+            "reason": "Synthetic source support", "reconciled_issue_id": "revenue",
+        })
+    rows.append({
+        "history_id": "old-reconciliation:disagreement:0",
+        "source_context_id": origins[2]["context_id"],
+        "original_artifact_sha256": origins[2]["artifact_sha256"], "status": "unresolved",
+        "source_role": source_role, "source_sha256": source_sha,
+        "source_locator": "No filing locator: synthetic runtime custody claim.",
+        "reason": "Runtime retention is not a financial source fact", "reconciled_issue_id": None,
+    })
+    ledger_path = tmp_path / "reconciliation-history-ledger.json"
+    ledger = _write(ledger_path, {
+        "accession_number": accession, "history_dispositions": rows})
+    draft = _write(tmp_path / "reconciliation-history-draft.json", {
+        "retained": "raw custody draft; no semantic derivation asserted"})
+    technical_attempts = []
+    for suffix, role in (("a", "source_reference_a"), ("b", "source_reference_b")):
+        context_id = f"ctx-technical-{suffix}"
+        attempt_dir = tmp_path / f"technical-{suffix}"
+        attempt_dir.mkdir()
+        reservation = _write(attempt_dir / "reservation.json", {
+            "schema_version": 1, "context_id": context_id, "role": role,
+            "accession_number": accession, "actual_prompt_sha256": suffix * 64,
+            "candidate_outputs_seen": False, "admission_approved": False,
+        })
+        reservation["path"] = str((attempt_dir / "reservation.json").relative_to(tmp_path))
+        dispatch = _write(attempt_dir / "dispatch.json", {
+            "returned_context": context_id, "prompt_sha256": suffix * 64,
+            "reservation_sha256": reservation["sha256"], "admission_approved": False,
+        })
+        dispatch["path"] = str((attempt_dir / "dispatch.json").relative_to(tmp_path))
+        children = {}
+        for path in ("draft.json", "brief.md", "read-log.json"):
+            child_path = attempt_dir / path
+            if path == "draft.json":
+                child_path.write_text(json.dumps({"material_issues": []}), encoding="utf-8")
+            elif path.endswith(".json"):
+                child_path.write_text(
+                    json.dumps({"attempt": suffix, "artifact": path}), encoding="utf-8")
+            else:
+                child_path.write_text(f"{suffix}:{path}", encoding="utf-8")
+            children[path] = hashlib.sha256(child_path.read_bytes()).hexdigest()
+        settlement = _write(attempt_dir / "settlement.json", {
+            "context_id": context_id, "status": "partial_ineligible",
+            "reason": "Synthetic incomplete technical attempt", "artifacts": children,
+            "issue_count": 0, "admission_approved": False,
+        })
+        settlement["path"] = str((attempt_dir / "settlement.json").relative_to(tmp_path))
+        technical_attempts.append({
+            "context_id": context_id, "role": role, "status": "partial_ineligible",
+            "reservation": reservation, "dispatch": dispatch, "settlement": settlement,
+        })
+    closure = {
+        *(row["context_id"] for row in current_briefs), reference["context_id"],
+        *(origin["context_id"] for origin in origins),
+        *(attempt["context_id"] for attempt in technical_attempts),
+    }
+    record = {
+        "accession_number": accession, "schema_version": 1,
+        "kind": "source_reconciliation_history",
+        "current_reconciliation_context_id": reference["context_id"],
+        "current_reconciliation": {key: current_reference[key] for key in ("path", "sha256")},
+        "reconciliation_draft": draft,
+        "history_manifest": manifest,
+        "history_ledger": {
+            **ledger, "row_count": len(rows),
+            "identity_set_sha256": _canonical_set_sha256({row["history_id"] for row in rows}),
+            "runtime_holds": [{"history_id": "old-reconciliation:disagreement:0",
+                               "hold": "custodian_classification"}],
+        },
+        "origin_contexts": origins,
+        "technical_attempts": technical_attempts,
+        "source_context_closure_sha256": _canonical_set_sha256(closure),
+    }
+    ai["reconciliation_history"] = [record]
+    return record, ledger_path
 
 
 def _add_adverse_evidence(
@@ -330,6 +464,172 @@ def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_pat
         adverse["operator_reservation"].update(_write(reservation_path, reservation))
         codes = {item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
         assert "ai_adverse_source_invalid" in codes
+
+
+def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path: Path) -> None:
+    prereq, path, accession, sources, now = _fixture(tmp_path)
+    ordinary_inventory = ai_review_evidence_inventory(path, prereq)
+    record, ledger_path = _add_reconciliation_history(tmp_path, prereq, accession, sources)
+    path.write_text(json.dumps(prereq), encoding="utf-8")
+
+    issues, _, _, limitations = _validate(prereq, path, accession, sources, now)
+    assert issues == []
+    assert any("declared custodian classification" in text for text in limitations)
+    inventory = ai_review_evidence_inventory(path, prereq)
+    history = inventory["reconciliation_history"][0]
+    assert len(history["typed_rows"]) == 5
+    assert sum(row["evidence_class"] == "filing_source" for row in history["typed_rows"]) == 4
+    runtime = next(row for row in history["typed_rows"] if row["evidence_class"] == "operator_runtime")
+    assert runtime["filing_source_locator"] is None
+    assert runtime["reconciled_issue_id"] is None
+    assert runtime["hold"] == "custodian_classification"
+    history_contexts = ({origin["context_id"] for origin in record["origin_contexts"]} |
+                        {attempt["context_id"] for attempt in record["technical_attempts"]})
+    assert history_contexts <= source_context_ids(prereq, tmp_path)
+    assert len(history["origin_artifacts"]) == 4
+    assert len(history["retained_artifacts"]) == 3
+    assert len(history["technical_attempts"]) == 2
+    assert all(len(attempt["settlement_artifacts"]) == 3
+               for attempt in history["technical_attempts"])
+    assert history["reconciliation_draft"]["bytes_sha256"] == record["reconciliation_draft"][
+        "sha256"]
+
+    del prereq["ai_assisted"]["reconciliation_history"]
+    assert ai_review_evidence_inventory(path, prereq) == ordinary_inventory
+    prereq["ai_assisted"]["reconciliation_history"] = [record]
+    original_ledger = json.loads(ledger_path.read_text())
+
+    def invalid(mutator) -> None:
+        ledger = json.loads(json.dumps(original_ledger))
+        declaration = json.loads(json.dumps(record["history_ledger"]))
+        mutator(ledger, declaration)
+        declaration.update(_write(ledger_path, ledger))
+        record["history_ledger"] = declaration
+        assert "ai_reconciliation_history_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        record["history_ledger"] = json.loads(json.dumps(original_declaration))
+        ledger_path.write_text(original_ledger_bytes, encoding="utf-8")
+
+    original_declaration = json.loads(json.dumps(record["history_ledger"]))
+    original_ledger_bytes = ledger_path.read_text()
+
+    def drop_and_reseal(ledger, declaration) -> None:
+        ledger["history_dispositions"].pop(2)
+        declaration["row_count"] = len(ledger["history_dispositions"])
+        declaration["identity_set_sha256"] = _canonical_set_sha256({
+            row["history_id"] for row in ledger["history_dispositions"]})
+
+    def swap_origin_provenance(ledger, declaration) -> None:
+        del declaration
+        first = ledger["history_dispositions"][0]
+        second = ledger["history_dispositions"][1]
+        first["source_context_id"], second["source_context_id"] = (
+            second["source_context_id"], first["source_context_id"])
+        first["original_artifact_sha256"], second["original_artifact_sha256"] = (
+            second["original_artifact_sha256"], first["original_artifact_sha256"])
+
+    def swap_runtime_hold(ledger, declaration) -> None:
+        runtime = next(row for row in ledger["history_dispositions"]
+                       if row["history_id"] == "old-reconciliation:disagreement:0")
+        financial = ledger["history_dispositions"][0]
+        runtime.update(status="supported", reconciled_issue_id="revenue")
+        financial.update(status="unresolved", reconciled_issue_id=None)
+        declaration["runtime_holds"] = [{
+            "history_id": financial["history_id"], "hold": "custodian_classification"}]
+
+    invalid(drop_and_reseal)
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][1].update(
+        history_id=ledger["history_dispositions"][0]["history_id"]))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][0].update(
+        history_id="unknown:changed"))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][0].update(
+        source_context_id="ctx-unknown-origin"))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][0].update(
+        original_artifact_sha256="f" * 64))
+    invalid(swap_origin_provenance)
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][0].update(
+        reconciled_issue_id="unknown-target"))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][0].update(
+        source_locator=""))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][-1].update(
+        status="supported"))
+    invalid(lambda ledger, declaration: ledger["history_dispositions"][-1].update(
+        reconciled_issue_id="revenue"))
+    invalid(lambda ledger, declaration: declaration.update(runtime_holds=[]))
+    invalid(swap_runtime_hold)
+
+    record["history_ledger"] = original_declaration
+    ledger_path.write_text(original_ledger_bytes, encoding="utf-8")
+
+    record["schema_version"] = True
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["schema_version"] = 1
+
+    manifest_path = tmp_path / record["history_manifest"]["path"]
+    original_manifest = json.loads(manifest_path.read_text())
+    boolean_manifest = json.loads(json.dumps(original_manifest))
+    boolean_manifest["schema_version"] = True
+    record["history_manifest"].update(_write(manifest_path, boolean_manifest))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["history_manifest"].update(_write(manifest_path, original_manifest))
+
+    draft_sha = record["reconciliation_draft"]["sha256"]
+    record["reconciliation_draft"]["sha256"] = int("1" * 64)
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["reconciliation_draft"]["sha256"] = draft_sha
+
+    original_attempts = json.loads(json.dumps(record["technical_attempts"]))
+    record["technical_attempts"] = record["technical_attempts"][:-1]
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["technical_attempts"] = json.loads(json.dumps(original_attempts))
+    record["technical_attempts"][0]["settlement"], record["technical_attempts"][1][
+        "settlement"] = (record["technical_attempts"][1]["settlement"],
+                          record["technical_attempts"][0]["settlement"])
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["technical_attempts"] = original_attempts
+
+    technical = record["technical_attempts"][0]
+    settlement_path = tmp_path / technical["settlement"]["path"]
+    original_settlement = json.loads(settlement_path.read_text())
+    positive_settlement = json.loads(json.dumps(original_settlement))
+    positive_settlement["issue_count"] = 1
+    technical["settlement"].update(_write(settlement_path, positive_settlement))
+    technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    technical["settlement"].update(_write(settlement_path, original_settlement))
+    technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+
+    draft_path = settlement_path.parent / "draft.json"
+    original_draft = json.loads(draft_path.read_text())
+    draft_path.write_text(json.dumps({"material_issues": [{"issue_id": "omitted"}]}),
+                          encoding="utf-8")
+    changed_settlement = json.loads(json.dumps(original_settlement))
+    changed_settlement["artifacts"]["draft.json"] = hashlib.sha256(
+        draft_path.read_bytes()).hexdigest()
+    technical["settlement"].update(_write(settlement_path, changed_settlement))
+    technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    draft_path.write_text(json.dumps(original_draft), encoding="utf-8")
+    technical["settlement"].update(_write(settlement_path, original_settlement))
+    technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+
+    retained_path = tmp_path / record["history_manifest"]["path"]
+    retained_manifest = json.loads(retained_path.read_text())
+    first_retained = tmp_path / retained_manifest["retained_artifacts"][0]["path"]
+    original_retained_bytes = first_retained.read_bytes()
+    first_retained.write_bytes(original_retained_bytes + b"changed")
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    first_retained.write_bytes(original_retained_bytes)
+
+    assert _validate(prereq, path, accession, sources, now)[0] == []
 
 
 @pytest.mark.parametrize("mutation,code", [
