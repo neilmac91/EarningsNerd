@@ -230,6 +230,8 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     assert inner_list_unit["hidden_reasons"] == ["hidden_attribute"]
     void_self_closing = source_view.project_html(b"<p>A<br/>B</p>")
     assert void_self_closing["compact_text"] == "AB"
+    ordinary_bom = source_view.project_html(source_view.UTF8_BOM + b"<p>A</p>")
+    assert ordinary_bom["compact_text"] == "\ufeffA"
     xhtml_raw = (
         b'<?xml version="1.0" encoding="UTF-8"?>'
         b'<html xmlns="http://www.w3.org/1999/xhtml" '
@@ -241,6 +243,19 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     )
     xhtml_projected = source_view.project_html(xhtml_raw)
     source_view.verify_projection(xhtml_raw, xhtml_projected)
+    bom_xhtml_raw = source_view.UTF8_BOM + xhtml_raw
+    bom_xhtml_projected = source_view.project_html(bom_xhtml_raw)
+    source_view.verify_projection(bom_xhtml_raw, bom_xhtml_projected)
+    assert bom_xhtml_projected["compact_text"] == xhtml_projected["compact_text"]
+    assert all(unit["decoded"] != "\ufeff" for unit in bom_xhtml_projected["units"])
+    bom_first_event = bom_xhtml_projected["events"][0]
+    assert bom_first_event["start"] == 0
+    assert bom_xhtml_raw[: bom_first_event["end"]].startswith(source_view.UTF8_BOM + b"<?xml")
+    assert bom_xhtml_raw[: bom_first_event["end"]].endswith(b"?>")
+    ascii_bom_raw = source_view.UTF8_BOM + xhtml_raw.replace(b'encoding="UTF-8"', b'encoding="ASCII"')
+    ascii_bom_projected = source_view.project_html(ascii_bom_raw)
+    source_view.verify_projection(ascii_bom_raw, ascii_bom_projected)
+    assert ascii_bom_projected["compact_text"] == xhtml_projected["compact_text"]
     declaration_end = xhtml_raw.index(b"?>") + 2
     ordinary_html = b" " * declaration_end + xhtml_raw[declaration_end:]
     forged_html_projection = copy.deepcopy(xhtml_projected)

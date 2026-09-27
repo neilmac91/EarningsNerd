@@ -51,6 +51,7 @@ XML_DECLARATION_ENCODING = re.compile(
     br"\bencoding[\t\n\r ]*=[\t\n\r ]*(['\"])([^'\"]+)\1",
     re.I,
 )
+UTF8_BOM = b"\xef\xbb\xbf"
 XHTML_ROOT_TAG = "{http://www.w3.org/1999/xhtml}html"
 
 
@@ -91,16 +92,17 @@ class _StrictXhtmlTarget:
 
 
 def _is_strict_xhtml(raw: bytes) -> bool:
-    if XML_DECLARATION_START.match(raw) is None:
+    xml_offset = len(UTF8_BOM) if raw.startswith(UTF8_BOM) else 0
+    if XML_DECLARATION_START.match(raw, xml_offset) is None:
         return False
-    declaration_end = raw.find(b"?>")
+    declaration_end = raw.find(b"?>", xml_offset)
     if declaration_end == -1:
         raise ValueError("XML/XHTML source is not well formed")
-    encoding_match = XML_DECLARATION_ENCODING.search(raw[:declaration_end])
+    encoding_match = XML_DECLARATION_ENCODING.search(raw[xml_offset:declaration_end])
     if encoding_match is not None:
         declared_encoding = encoding_match.group(2).lower()
         if declared_encoding != b"utf-8" and not (
-            declared_encoding == b"ascii" and raw.isascii()
+            declared_encoding == b"ascii" and raw[xml_offset:].isascii()
         ):
             raise ValueError("XML/XHTML declaration encoding must be UTF-8 or byte-valid ASCII")
     target = _StrictXhtmlTarget()
@@ -568,6 +570,8 @@ class _ProjectionParser(HTMLParser):
         end = start + len(encoded)
         if self.raw[start:end] != encoded:
             raise ValueError("parser data cannot be mapped unambiguously to source bytes")
+        if self.strict_xhtml and start == 0 and encoded == UTF8_BOM:
+            return
         self._text(data, start, end, "data")
 
     def handle_entityref(self, name: str) -> None:
@@ -612,6 +616,8 @@ class _ProjectionParser(HTMLParser):
     def handle_pi(self, data: str) -> None:
         del data
         start = self._byte_position()
+        if self.strict_xhtml and start == len(UTF8_BOM) and self.raw.startswith(UTF8_BOM):
+            start = 0
         self._event("processing_instruction", start, self._markup_end(start), included_in_compact_text=False)
 
     def finish(self) -> dict[str, Any]:
