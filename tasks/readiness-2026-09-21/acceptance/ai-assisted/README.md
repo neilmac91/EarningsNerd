@@ -78,7 +78,9 @@ it names, a separate disposition ledger, and the complete historical-origin map.
 stable `history_prefix`, its context/role, the status of that historical artifact, and an exact file
 reference whose SHA must match `artifact_sha256`. The artifact status does not classify every use of
 the context: a context may also own a later eligible source brief. All such contexts still enter the
-shared exclusion closure so no downstream blind role can reuse them.
+shared exclusion closure so no downstream blind role can reuse them. A historical origin or
+technical attempt may reuse a current context only for the same accession; current-context
+ownership by another accession fails validation.
 
 `technical_attempts` separately binds incomplete source attempts that produced no financial history
 rows. Each declaration fixes its context, role, `partial_ineligible` status, reservation, dispatch,
@@ -110,8 +112,9 @@ The complete ledger identity set is derived from the bound origin bytes rather t
 ledger declaration. Each origin contributes `<history_prefix>:issue:<issue_id>` for every
 `material_issues` row and `<history_prefix>:disagreement:<array-index>` for every disagreement.
 Manifest counts for source issues, reconciled issues, and disagreements must equal the corresponding
-manifest-exposed artifacts. The raw reconciliation draft is retained as custody evidence only; its
-hash does not assert that a generic transformer can reproduce the current reference.
+manifest-exposed artifacts, and all three canonical count keys are required. The raw reconciliation
+draft is retained as custody evidence only; its hash does not assert that a generic transformer can
+reproduce the current reference.
 
 The readiness boundary reports an unresolved operator-runtime row through `evidence_limitations`.
 It does not turn a retired execution-history uncertainty into a financial-source disagreement or a

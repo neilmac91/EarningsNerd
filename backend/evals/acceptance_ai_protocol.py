@@ -186,6 +186,15 @@ def _reconciliation_history_inventory(
     from evals.acceptance_source_review_graph import validate_source_context_id
 
     briefs_by_accession: dict[str, list[dict[str, Any]]] = {}
+    current_context_owners: dict[str, str] = {}
+
+    def bind_current_context(context: Any, accession: Any, label: str) -> str:
+        context_id = validate_source_context_id(context, label)
+        owner = current_context_owners.setdefault(context_id, accession)
+        if owner != accession:
+            raise ValueError("current source context is owned by another accession")
+        return context_id
+
     for row in ai.get("source_briefs", []):
         if not isinstance(row, dict):
             raise ValueError("source brief record is malformed")
@@ -194,6 +203,7 @@ def _reconciliation_history_inventory(
         if (brief.get("accession_number") != accession or
                 brief.get("context_id") != row.get("context_id")):
             raise ValueError("history source brief context differs")
+        bind_current_context(row.get("context_id"), accession, "current source context_id")
         briefs_by_accession.setdefault(accession, []).append(row)
 
     reconciliations: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
@@ -204,6 +214,8 @@ def _reconciliation_history_inventory(
         accession = row.get("accession_number")
         if reference.get("accession_number") != accession or accession in reconciliations:
             raise ValueError("history reconciliation identity differs or is duplicated")
+        bind_current_context(
+            reference.get("context_id"), accession, "current reconciliation context_id")
         reconciliations[accession] = (row, reference)
 
     inventory: list[dict[str, Any]] = []
@@ -248,6 +260,8 @@ def _reconciliation_history_inventory(
                     "artifact"}):
                 raise ValueError("reconciliation history origin shape invalid")
             context_id = validate_source_context_id(origin.get("context_id"), "history context_id")
+            if current_context_owners.get(context_id, accession) != accession:
+                raise ValueError("history context is owned by another accession")
             if (context_id in origin_by_context or context_id in all_history_contexts or
                     origin.get("role") not in _HISTORY_ROLES or
                     origin.get("status") != "retired_partial_history" or
@@ -330,6 +344,8 @@ def _reconciliation_history_inventory(
         expected_history_origins: dict[str, tuple[str, str]] = {}
         expected_runtime_ids: set[str] = set()
         exposed_counts = {"source_issues": 0, "reconciled_issues": 0, "disagreements": 0}
+        if not set(exposed_counts).issubset(counts):
+            raise ValueError("history manifest canonical counts missing")
         for context_id, origin in origin_by_context.items():
             value = origin_values[context_id]
             if (("accession_number" in value and value["accession_number"] != accession) or
@@ -377,6 +393,8 @@ def _reconciliation_history_inventory(
                 raise ValueError("reconciliation history technical attempt shape invalid")
             context_id = validate_source_context_id(
                 attempt.get("context_id"), "technical history context_id")
+            if current_context_owners.get(context_id, accession) != accession:
+                raise ValueError("technical history context is owned by another accession")
             if (context_id in technical_contexts or context_id in all_history_contexts or
                     attempt.get("role") not in {"source_reference_a", "source_reference_b"} or
                     attempt.get("status") != "partial_ineligible"):
