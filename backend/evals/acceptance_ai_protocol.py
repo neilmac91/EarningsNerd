@@ -430,7 +430,8 @@ def _reconciliation_history_inventory(
                     reservation.get("accession_number") != accession or
                     reservation.get("candidate_outputs_seen") is not False or
                     reservation.get("admission_approved") is not False or
-                    not _nonempty(reservation.get("actual_prompt_sha256")) or
+                    not isinstance(reservation.get("actual_prompt_sha256"), str) or
+                    _SHA256.fullmatch(reservation["actual_prompt_sha256"]) is None or
                     dispatch.get("returned_context") != context_id or
                     dispatch.get("prompt_sha256") != reservation["actual_prompt_sha256"] or
                     dispatch.get("reservation_sha256") != reservation_record["sha256"] or

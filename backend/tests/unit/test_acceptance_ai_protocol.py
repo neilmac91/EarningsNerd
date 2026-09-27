@@ -601,6 +601,29 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     record["technical_attempts"] = original_attempts
 
     technical = record["technical_attempts"][0]
+    reservation_path = tmp_path / technical["reservation"]["path"]
+    dispatch_path = tmp_path / technical["dispatch"]["path"]
+    original_reservation = json.loads(reservation_path.read_text())
+    original_dispatch = json.loads(dispatch_path.read_text())
+    invalid_prompt_reservation = {
+        **original_reservation, "actual_prompt_sha256": "not-a-digest",
+    }
+    technical["reservation"].update(_write(reservation_path, invalid_prompt_reservation))
+    technical["reservation"]["path"] = str(reservation_path.relative_to(tmp_path))
+    invalid_prompt_dispatch = {
+        **original_dispatch,
+        "prompt_sha256": invalid_prompt_reservation["actual_prompt_sha256"],
+        "reservation_sha256": technical["reservation"]["sha256"],
+    }
+    technical["dispatch"].update(_write(dispatch_path, invalid_prompt_dispatch))
+    technical["dispatch"]["path"] = str(dispatch_path.relative_to(tmp_path))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    technical["reservation"].update(_write(reservation_path, original_reservation))
+    technical["reservation"]["path"] = str(reservation_path.relative_to(tmp_path))
+    technical["dispatch"].update(_write(dispatch_path, original_dispatch))
+    technical["dispatch"]["path"] = str(dispatch_path.relative_to(tmp_path))
+
     settlement_path = tmp_path / technical["settlement"]["path"]
     original_settlement = json.loads(settlement_path.read_text())
     positive_settlement = json.loads(json.dumps(original_settlement))
