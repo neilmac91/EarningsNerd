@@ -1,0 +1,65 @@
+{
+  "recorded_at": "2026-09-27T22:27:40.249845+00:00",
+  "kind": "h28-source-preparation-partial-checkpoint",
+  "attempts": [
+    {
+      "reference": "a",
+      "status": "partial",
+      "context_compaction_reported": true,
+      "reason": "Both agents reported native source/image reads completed but context compacted before final validation. Their dispatch requires partial status. No completed source-preparation or admission claim.",
+      "files": [
+        {
+          "file": "brief-draft.json",
+          "bytes": 20812,
+          "sha256": "1477b497d857806d88ef3dec9cfb0d1e22b7d98d2c05e827203dba60a72f4958"
+        },
+        {
+          "file": "brief-draft.md",
+          "bytes": 6769,
+          "sha256": "23ab5aa3ad4e33660605676259c7f8d979b09053c3f1359ee07a001394d1c111"
+        },
+        {
+          "file": "read-log.json",
+          "bytes": 34688,
+          "sha256": "28e255e6a1da8a92f7623f909d61076282954e8530a2a133dcd1c7df5c8fd6f9"
+        }
+      ]
+    },
+    {
+      "reference": "b",
+      "status": "partial",
+      "context_compaction_reported": true,
+      "reason": "Both agents reported native source/image reads completed but context compacted before final validation. Their dispatch requires partial status. No completed source-preparation or admission claim.",
+      "files": [
+        {
+          "file": "brief-draft.json",
+          "bytes": 17882,
+          "sha256": "d64b02877db61ac44e96506e0fabcfdd921778fe34fae54aa9692904ac64a6dc"
+        },
+        {
+          "file": "brief-draft.md",
+          "bytes": 8138,
+          "sha256": "fd1b6582ca7fb790b8a0ea8aef06e9938b90394f9fc72797651d0c99c47a5a0d"
+        },
+        {
+          "file": "read-log.json",
+          "bytes": 34632,
+          "sha256": "afa9e42cacf5b774d2959df9cf996a139bd428e057a9bc85c36463d1005ec895"
+        }
+      ]
+    }
+  ],
+  "decision": "Retain drafts and technical evidence; do not dispatch a reconciler or repeat an identical full-context attempt. Resolve capacity and supplemental-source binding before promotion.",
+  "programme_admission": false,
+  "new_formal_judge_calls": 0,
+  "private_original_receipt_sha256": "605a68d53b4071bfeed4f2ac87191e7ea2a3ef6e62e1bb72a297632b596b3b7f",
+  "h28_completed_dossiers": 0,
+  "h28_partial_references": 2,
+  "programme_completed_dossiers": 2,
+  "programme_completed_dossier_ids": [
+    "H29",
+    "H30"
+  ],
+  "programme_target": 30,
+  "projection_note": "The private original count of 2 is programme-wide H29/H30 progress, not completed H28 work. This public projection makes that scope explicit."
+}

@@ -13,8 +13,8 @@ the [September 27 execution update](#september-27-execution-update) records subs
 specific holds remain in force except for the [explicit September 27 Notable ownership supersession](handover-astra-2026-09-19.md). The subsequently returned
 [agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
 confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
-active automation. Codex now owns the remaining engineering and integration; no unfinished
-external branch needs transfer. Agent B's original independent fixtures are preserved and verified.
+active automation at that checkpoint. Codex owns the remaining engineering and integration;
+the subsequent Fable assignment and its separate branch are recorded below. Agent B's original independent fixtures are preserved and verified.
 
 **September 27 overnight authority:** the founder delegated necessary implementation and account
 changes toward the Master Plan and explicitly approved DeepSeek API spend. Codex may execute
@@ -46,7 +46,7 @@ The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) r
 verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
 accounting, #978 binds current authoritative attachments to invalid frozen members without
 claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
-period-bound XBRL operands. Latest verified backend revision is `00405-6hm` (#991; [release receipt](review-evidence/progress-2026-09-27/pr991-release.json)),
+period-bound XBRL operands. Latest verified backend revision is `00406-9nz` (#988; [release receipt](review-evidence/progress-2026-09-27/pr988-release.json)),
 100% traffic, migrations 0 applied / 40 skipped, and independent healthy database readback. The preceding #981 applied the source-excerpt migration (1 applied / 39 skipped).
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
@@ -83,12 +83,12 @@ No production model, prompt, quality threshold or judge contract changed.
   also fails the broader narrative gate: correct operands are joined by false comparisons, and
   period/absence claims remain wrong. Stop paid prompt iteration. The next bounded candidate
   makes the model select code-rendered, period-bound observations; offline replay must eliminate
-  the five retained failures before another paid measurement. Production stays `trends-v4`. The code-rendered observation candidate passed offline replay,
+  the five retained failures before another paid measurement. Production stayed `trends-v4` during that hold. The code-rendered observation candidate passed offline replay,
   independent code review and the full local gate. The founder explicitly approved its bounded
   DeepSeek diagnostic. All [14 outputs in two stages](review-evidence/progress-2026-09-27/analysis-observation-diagnostic.json)
   completed in 14 calls with no material candidate rendering findings against the frozen inputs.
   Reserved USD 0.1061463; conservative token estimate USD 0.0084735; billed cost unknown.
-  The candidate remains in release review: #988 final review found two display-precision issues (near-equal growth comparisons and ratio citation excerpts). Corrections and deterministic replay of retained evidence are pending; no new diagnostic draw or E7/Fable quality verdict is inferred.
+  The [final #988 audit](review-evidence/progress-2026-09-27/pr988-hosted-audit.json) records corrected comparison, required-signal and citation precision, 3,710 local passes, performance and PostgreSQL gates, clear exact-head review, and 70/70 summary plus 18/18 Copilot regression. Retained evidence replay uses 13 unchanged selectors and one explicitly adapted synthetic probe after an obsolete no-signals ID is rejected; this is not 14 fresh draws. The candidate is [verified live](review-evidence/progress-2026-09-27/pr988-release.json) as `trends-v7-observations`, revision `00406-9nz`, migrations 0/40 and healthy independent readback. All eight jobs match the release image; service maximum remains 2. A fresh authenticated Analysis browser generation was not verified because the available fresh session was signed out. No E7/Fable verdict or full-product acceptance is inferred.
 - Freeze the completed custody interfaces. Execute the remaining source work against actual
   filings rather than adding hypothetical review infrastructure.
 - Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
@@ -187,10 +187,9 @@ admission, candidate acceptance or permission to generate the holdout.
 
 The next bounded preparation is H28. Its retained 6-K and index readers are constructed, but the
 35 filing graphics were acquired and independently hash-bound to the exact frozen member identities
-after the retained complete-submission encoding failed strict decoding. Two fresh source-only
-reference contexts are reading the complete filing and all native images. Their outputs remain
-drafts: current supplements do not prove historical equality, and the later source authority must
-bind their ledger before programme admission. Reconciliation and full role coverage remain open.
+after the retained complete-submission encoding failed strict decoding. Both fresh source-only references produced [partial drafts](review-evidence/progress-2026-09-27/h28-source-partial-checkpoint.json): they reported complete source/native-image reads but compacted before final validation. Neither counts as complete; no reconciler was dispatched and no identical full-context retry is planned. Resolve input capacity before another complete source-preparation attempt. The later programme freeze must explicitly bind the current supplemental ledger before admission. Current supplements do not prove historical equality. Reconciliation and full role coverage remain open.
+
+The newly delegated Fable engineering lane owns [draft PR #992](https://github.com/neilmac91/EarningsNerd/pull/992), a proposed table-unit correction. Independent review reproduced unsafe scale inheritance into short prose, new tables and detached per-share labels, plus duplicate plural units and audit/count mismatches. These are release blockers or required corrections, not accepted improvements. Fable has concrete reproductions; Codex retains merge/release ownership. A distinct content stamp is required before adoption, with no automatic historical drain. The historical period, sign and causal-transfer defects remain open.
 
 ## Ordered completion path and ownership
 

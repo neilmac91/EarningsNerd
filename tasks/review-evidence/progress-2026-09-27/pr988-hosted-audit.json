@@ -1,0 +1,160 @@
+{
+  "schema": "analysis-observations-pr-final-audit-v1",
+  "recorded_at": "2026-09-28T00:30:00+02:00",
+  "pull_request": 988,
+  "head": "44c6044ce745185698ddd060893818dde3e38f84",
+  "candidate_files": {
+    "backend/app/services/trend_analysis_service.py": "ae916422cd3198383d2d1804a736e0b447f501f5607799123b7ff473471f9c1e",
+    "backend/tests/unit/test_trend_analysis_service.py": "670e34de47fb61c1c56a0e0361532b8d77f7613728d136fcc612b32f689e22b4"
+  },
+  "local_gate": {
+    "ruff": "pass",
+    "bandit": {
+      "medium": 0,
+      "high": 0,
+      "low": 13
+    },
+    "pytest": {
+      "passed": 3710,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "seconds": 191.58
+    },
+    "performance": {
+      "passed": 2,
+      "warnings": 18,
+      "seconds": 20.01
+    },
+    "postgres": {
+      "server_stopped_after_gate": true,
+      "lanes": {
+        "stripe": {
+          "passed": 24,
+          "seconds": 4.02
+        },
+        "usage": {
+          "passed": 29,
+          "seconds": 3.22
+        },
+        "login": {
+          "passed": 6,
+          "seconds": 0.72
+        },
+        "delivery": {
+          "passed": 5,
+          "seconds": 0.74
+        }
+      }
+    },
+    "locked_anchors": "11 byte-identical",
+    "worktree": "clean",
+    "diff_check": "pass",
+    "fsck": "pass",
+    "synthetic_merge_tree_against_current_main_at_gate": "pass",
+    "receipt": "signal-display-final-local-gate.json",
+    "receipt_sha256": "848dd87ba6c156a36723797c6b6b64de07d106591ab37d2043ce5ed95b8f0ecb"
+  },
+  "offline_replay": {
+    "network_or_model_calls": 0,
+    "dataset_and_result_hashes_asserted_before_render": 14,
+    "exact_unchanged_selectors": 13,
+    "adapted_offline_probe": 1,
+    "adapted_slot": "first-SYNTH-below",
+    "adaptation": "Dropped only retired red_flags.no-signals.none after recomputing previously absent inflections; required liquidity_squeeze and adaptive-ratio citation rendering were then validated.",
+    "limitation": "This is 13 exact replays plus one adapted offline probe, not 14/14 current end-to-end parity or a fresh model measurement.",
+    "render_findings": {
+      "unverified": 0,
+      "mismatched": 0,
+      "missing_required": 0,
+      "missing_signals": 0
+    },
+    "per_slot_artifacts": "offline-replay-signal-display/ (14 JSON plus 14 Markdown narratives)",
+    "receipt": "offline-replay-signal-display.json",
+    "receipt_sha256": "ec797209b242aedc3aaa8d4f10bce67249f2987ff6cf2de7fa1a6400e507823d"
+  },
+  "hosted_exact_head": {
+    "ci": {
+      "run": 36354799320,
+      "conclusion": "success",
+      "eval": {
+        "accepted": 70,
+        "attempted": 70,
+        "successful_summary_primary_calls": 70,
+        "recovery_calls": 0,
+        "prompt_tokens": 2755570,
+        "completion_tokens": 283821,
+        "total_tokens": 3039391,
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "logged_estimated_usd": 0.180631,
+        "regression": "pass",
+        "advisory": "mean_untraceable_dollar_figures 2.2857 (printed 2.286)"
+      },
+      "deploy_backend": "skipped for pull request"
+    },
+    "copilot": {
+      "run": 36354799362,
+      "conclusion": "success",
+      "accepted": 18,
+      "attempted": 18,
+      "successful_copilot_chat_calls": 34,
+      "prompt_tokens": 1067579,
+      "completion_tokens": 5431,
+      "total_tokens": 1073010,
+      "cache_hit_tokens": 1060864,
+      "cache_miss_tokens": 6715,
+      "logged_estimated_usd": 0.007448
+    },
+    "review_gate": {
+      "run": 36354874126,
+      "conclusion": "success"
+    },
+    "codex_review": {
+      "completed_at": "2026-09-27T22:23:22.382253Z",
+      "reviewed_commit": "44c6044ce745185698ddd060893818dde3e38f84",
+      "summary": "Didn't find any major issues.",
+      "new_inline_findings": 0,
+      "connector_reaction": "+1"
+    },
+    "pull_request_state": {
+      "mergeable": "MERGEABLE",
+      "merge_state_status": "CLEAN"
+    }
+  },
+  "superseded_hosted_attempts": {
+    "088": {
+      "ci_calls": 70,
+      "ci_estimated_usd": 0.176832,
+      "copilot_accepted": 18,
+      "copilot_calls": 36,
+      "copilot_estimated_usd": 0.007789
+    },
+    "889": {
+      "ci_calls": 70,
+      "ci_estimated_usd": 0.182304,
+      "copilot_calls": 32,
+      "copilot_estimated_usd": 0.006958
+    },
+    "fca": {
+      "ci_calls": 77,
+      "ci_estimated_usd": 0.190884,
+      "copilot_calls": 36,
+      "copilot_estimated_usd": 0.007743
+    },
+    "949_cancelled": {
+      "confirmed_successful_calls": 4,
+      "confirmed_estimated_usd": 0.00943,
+      "possible_inflight_calls_with_unknown_outcome": 2
+    }
+  },
+  "paid_diagnostic_separate_from_hosted": {
+    "logical_outputs": 14,
+    "physical_calls": 14,
+    "reserved_usd": 0.1061463,
+    "billed_cost": "unknown",
+    "additional_calls_after_freeze": 0
+  },
+  "release": "Merged separately by chief engineer; release verification is retained in pr988-release.json when complete.",
+  "private_original_receipt_sha256": "89067c6c77542c441007946b8b86da7bf521e74384f34e2c0b6f8d1b5662686a"
+}
