@@ -9,8 +9,9 @@ not satisfy the strict encoded-member decoder. Neither result is a quality accep
 PR [#970](https://github.com/neilmac91/EarningsNerd/pull/970) merged as
 `5c8d0f40833a1d464a2fec9eb48bcea07ea10399`. Exact-head review cleared
 `b424a1bbb66694e3be8eb21ede247951134b1f29`; its tree matches the measured synthetic merge and
-the final squash. The [hosted audit](pr970-hosted-audit.json) retains all 70 summary identities
-and 18 Copilot identities, with no output errors or hard-gate failures. It records 111 physical
+the final squash. The [compact hosted audit](pr970-hosted-audit.json) records 70 summary outputs and 18 Copilot
+outputs; identity completeness was checked against the retained underlying reports. There were no
+output errors or hard-gate failures. It records 111 physical
 provider attempts and USD 0.186447 in known application estimates. Five transient Copilot error
 attempts have unknown usage/cost; provider-billed cost is unknown. Soft citation/figure warnings
 remain in the underlying reports and are not semantic acceptance.
