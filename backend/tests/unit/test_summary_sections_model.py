@@ -3,12 +3,16 @@ JSON projection (render_sections_json) the web's rendered_sections field consume
 """
 import copy
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from app.services import metric_delta_service
+from app.services.export_service import ExportService
+from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import OpenAIService
 from app.services.provenance_service import enrich_raw_summary
+from app.services.summary_pipeline import _finalize_summary_projection
 from app.services.summary_sections import (
     Block,
     Section,
@@ -163,6 +167,31 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     preserved = enrich_raw_summary(cached, None, xbrl_standardized=None)
     preserved_block = next(b for s in render_sections(preserved) for b in s.blocks if b.kind == "metrics")
     assert preserved_block.rows[0][3] == "+33.3%"
+
+    # A best-effort reload can be empty or contain only unrelated metrics. The generation marker
+    # keeps each unavailable row's application-owned delta, while a complete contradictory pair
+    # still re-enters strict validation and is scrubbed back to the rounded-display fallback.
+    assert next(
+        b for s in render_sections(enrich_raw_summary(cached, None, xbrl_standardized={}))
+        for b in s.blocks if b.kind == "metrics"
+    ).rows[0][3] == "+33.3%"
+    cached_two = _raw({"results_that_matter": {"table": [
+        copy.deepcopy(bound["table"][0]), copy.deepcopy(bound["table"][1]),
+    ]}}, schema_version=2)
+    cached_two[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
+    partial_reload = enrich_raw_summary(
+        cached_two, None, xbrl_standardized={"revenue": copy.deepcopy(metrics["revenue"])}
+    )
+    partial_block = next(b for s in render_sections(partial_reload) for b in s.blocks if b.kind == "metrics")
+    assert [row[3] for row in partial_block.rows] == ["+6.4%", "+33.3%"]
+    conflicting_reload = {"net_income": copy.deepcopy(metrics["net_income"])}
+    conflicting_reload["net_income"]["prior"]["raw_tag"] = "us-gaap:ProfitLoss"
+    contradicted = enrich_raw_summary(cached, None, xbrl_standardized=conflicting_reload)
+    contradicted_block = next(
+        b for s in render_sections(contradicted) for b in s.blocks if b.kind == "metrics"
+    )
+    assert contradicted_block.rows[0][3] == "+32.9%"
+
     forged_cached = copy.deepcopy(cached)
     forged_cached[metric_delta_service.EXACT_CONTEXT_KEY] = True
     forged_cached["sections"]["results_that_matter"]["table"][0]["change_display"] = "+99.0%"
@@ -209,6 +238,34 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
         assert "+6.4%" in surface and "+33.3%" in surface
         assert "$12,322,000,000" in surface and "+8.0%" in surface
         assert "+6.5%" not in surface and "+33.4%" not in surface
+
+    # The timeout generator bypasses OpenAIService, so the shared post-generation boundary must
+    # bind and stamp its structured projection before persistence. Its existing SSE markdown stays
+    # byte-identical, while PDF/CSV consume the corrected stored projection.
+    fallback = generate_xbrl_summary(
+        {"net_income": copy.deepcopy(metrics["net_income"])},
+        "PGR", "2026-01-01", filing_type="10-K",
+    )
+    original_fallback_markdown = fallback["business_overview"]
+    fallback_markdown, fallback_raw, _, fallback_financial = _finalize_summary_projection(
+        fallback, {"net_income": copy.deepcopy(metrics["net_income"])}, "partial"
+    )
+    assert fallback_raw[metric_delta_service.EXACT_CONTEXT_KEY] == metric_delta_service.EXACT_CONTEXT_VERSION
+    assert fallback["business_overview"] == fallback_markdown == original_fallback_markdown
+    assert fallback["raw_summary"] == fallback_raw
+    assert fallback_financial["table"][1]["change_display"] == "+33.3%"
+    summary = SimpleNamespace(raw_summary=fallback_raw)
+    filing = SimpleNamespace(
+        filing_date=None, period_end_date=None, sec_url="https://sec.example/filing",
+        filing_type="10-K", company=SimpleNamespace(name="PGR"),
+    )
+    surfaces = (
+        ExportService().generate_pdf_html(summary, filing),
+        ExportService().generate_csv(summary, filing),
+    )
+    for surface in surfaces:
+        assert "+33.3%" in surface
+        assert "+32.9%" not in surface
     assert rejected["table"][1].get("change_display") is None
     conflicting["revenue"]["prior"]["raw_tag"] = (
         "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"

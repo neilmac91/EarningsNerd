@@ -272,8 +272,39 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
     return compute(float(current_value), float(prior_value), is_ratio=is_ratio)
 
 
-def bind_exact_xbrl_deltas(financial_section: Any, xbrl_metrics: Any) -> Any:
-    """Scrub model delta fields and bind exact operands only after strict concept/value validation."""
+def _has_complete_exact_operands(metric: Any) -> bool:
+    """Whether a reload supplied both operands needed to accept or reject an exact delta.
+
+    Best-effort XBRL reloads can be empty or contain only some standardized metrics.  Absence is not
+    contrary evidence about an application-owned delta already stored on the row.  Once both values
+    and their period identities are present, however, the normal strict binder can adjudicate every
+    concept/value/unit/scope check and must replace or scrub the stored fields.
+    """
+    if not isinstance(metric, dict):
+        return False
+    current, prior = metric.get("current"), metric.get("prior")
+    if not isinstance(current, dict) or not isinstance(prior, dict):
+        return False
+    if _as_finite_decimal(current.get("value")) is None or _as_finite_decimal(prior.get("value")) is None:
+        return False
+    return all(
+        isinstance(fact.get("period"), str) and bool(fact["period"].strip())
+        for fact in (current, prior)
+    )
+
+
+def bind_exact_xbrl_deltas(
+    financial_section: Any,
+    xbrl_metrics: Any,
+    *,
+    preserve_owned_when_unavailable: bool = False,
+) -> Any:
+    """Bind exact operands after strict validation, scrubbing untrusted or contradicted fields.
+
+    ``preserve_owned_when_unavailable`` is only for a generation-stamped stored envelope.  It keeps
+    that row's application-owned fields when a best-effort reload lacks the mapped operand pair; a
+    complete pair always re-enters strict validation, so conflicting facts still scrub the fields.
+    """
     if not isinstance(financial_section, dict):
         return financial_section
     result = copy.deepcopy(financial_section)
@@ -283,10 +314,12 @@ def bind_exact_xbrl_deltas(financial_section: Any, xbrl_metrics: Any) -> Any:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        for field in _CODE_DELTA_FIELDS:
-            row.pop(field, None)
         metric_key = strict_xbrl_metric_key(row.get("metric"))
         metric = xbrl_metrics.get(metric_key) if metric_key and isinstance(xbrl_metrics, dict) else None
+        if preserve_owned_when_unavailable and metric_key and not _has_complete_exact_operands(metric):
+            continue
+        for field in _CODE_DELTA_FIELDS:
+            row.pop(field, None)
         delta = _exact_delta_for_row(row, metric, metric_key) if metric_key else None
         if delta is not None and delta.display is not None:
             row.update({

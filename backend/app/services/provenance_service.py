@@ -403,11 +403,14 @@ def enrich_financial_highlights(
     )
     base_url = _base_url(filing)
     result = copy.deepcopy(financial_highlights)
-    # A generation-stamped envelope may retain its already-bound exact deltas when the best-effort
-    # XBRL reload is unavailable. Every unmarked/forged envelope is still scrubbed and recomputed
-    # from its visible operands; a successful reload always rebinds from the current exact facts.
-    if isinstance(xbrl_standardized, dict) or not exact_delta_owned:
-        result = metric_delta_service.bind_exact_xbrl_deltas(result, xbrl_standardized)
+    # A generation-stamped envelope may retain each already-bound exact delta when the best-effort
+    # XBRL reload lacks that row's complete operand pair. Every unmarked/forged envelope is scrubbed;
+    # a complete reloaded pair always re-enters strict binding, so conflicting facts are refused.
+    result = metric_delta_service.bind_exact_xbrl_deltas(
+        result,
+        xbrl_standardized,
+        preserve_owned_when_unavailable=exact_delta_owned,
+    )
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
         rows = [

@@ -36,6 +36,11 @@ from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.edgar.sixk_classifier import classify_sixk_text
 from app.services.edgar.statement_context import acquire_statement_context
 from app.services.fallback_summary import generate_xbrl_summary
+from app.services.metric_delta_service import (
+    EXACT_CONTEXT_KEY,
+    EXACT_CONTEXT_VERSION,
+    bind_exact_xbrl_deltas,
+)
 from app.services.openai_service import openai_service
 from app.services.posthog_client import (
     EVENT_GENERATION_STARTED,
@@ -71,6 +76,47 @@ logger = logging.getLogger(__name__)
 # this does not prevent duplicate provider work across processes while Redis stays off.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+def _finalize_summary_projection(
+    summary_payload: dict,
+    xbrl_metrics: Optional[dict],
+    summary_status: str,
+) -> tuple[str, dict, dict, Optional[dict]]:
+    """Build the one persisted/streamed projection after any generator has returned.
+
+    The provider normally arrives with exact deltas already bound.  The timeout fallback does not,
+    so this shared boundary repeats the idempotent binding before persistence and stamps ownership
+    only after every metric row has passed through it.  Existing generated markdown is preserved;
+    cached reads and PDF/CSV exports consume the corrected structured projection.
+    """
+    markdown = summary_payload.get("business_overview") or ""
+    raw_summary = summary_payload.get("raw_summary") or {}
+    sections_info = (raw_summary.get("sections") or {}) or {}
+
+    financial_section = sections_info.get("results_that_matter")
+    normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+    has_metric_table = (
+        isinstance(normalized_financial_section, dict)
+        and isinstance(normalized_financial_section.get("table"), list)
+    )
+    if has_metric_table:
+        normalized_financial_section = bind_exact_xbrl_deltas(
+            normalized_financial_section, xbrl_metrics
+        )
+        sections_info["results_that_matter"] = normalized_financial_section
+
+    sections_info["risks"] = summary_payload.get("risk_factors") or []
+    raw_summary["sections"] = sections_info
+    raw_summary["status"] = summary_status
+    raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
+
+    if has_metric_table:
+        raw_summary[EXACT_CONTEXT_KEY] = EXACT_CONTEXT_VERSION
+
+    summary_payload["business_overview"] = markdown
+    summary_payload["raw_summary"] = raw_summary
+    return markdown, raw_summary, sections_info, normalized_financial_section
 
 
 @dataclass(frozen=True)
@@ -860,9 +906,9 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': error_message}
                 return
 
-            markdown = summary_payload.get("business_overview") or ""
-            raw_summary = summary_payload.get("raw_summary") or {}
-            sections_info = (raw_summary.get("sections") or {}) or {}
+            markdown, raw_summary, sections_info, normalized_financial_section = (
+                _finalize_summary_projection(summary_payload, xbrl_metrics, summary_status)
+            )
 
             section_coverage = (
                 raw_summary.get("section_coverage")
@@ -877,15 +923,7 @@ async def stream_filing_summary(
                     section_coverage=section_coverage,
                 )
 
-            # v2 (Tier-3.1): enrich the P&L table (results_that_matter) with normalized XBRL facts for
-            # the metrics block's provenance chips, and surface risks under the v2 key.
-            financial_section = sections_info.get("results_that_matter")
-            normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
-            if normalized_financial_section is not None:
-                sections_info["results_that_matter"] = normalized_financial_section
-
             risk_section = summary_payload.get("risk_factors") or []
-            sections_info["risks"] = risk_section
             # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
             # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
             management_section = summary_payload.get("management_discussion")
@@ -895,13 +933,6 @@ async def stream_filing_summary(
             # carries earnings_quality + forward_signals, and the web reads the render_sections output
             # (rendered_sections), not these keys. Injecting management_discussion_insights /
             # guidance_outlook here would only decorate every v2 row with phantom v1 nodes.
-
-            raw_summary["sections"] = sections_info
-            raw_summary["status"] = summary_status
-            # Embed the schema version so the render projection (summary_sections) can version-
-            # dispatch on raw_summary["schema_version"]; the Summary columns below carry the same
-            # stamps for querying/refreshing stale rows.
-            raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
