@@ -30,11 +30,11 @@ jobs:
           trap 'status=$?; echo "$stage $status" > result/input-stage-status.txt' EXIT
           # Public SEC bytes live only on this diagnostic branch. The read-only
           # workflow token cannot fetch the draft release; no permission is added.
-          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-serialized-export-capsule-v4.zip" .
+          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-streaming-export-capsule-v5.zip" .
           stage=verify
-          echo '8cc021557cd9e3b8f031b141e898063f98f5c7cf3e3acacbdb9fd49550e2ced4  linux-serialized-export-capsule-v4.zip' | sha256sum --check --strict
+          echo '1e2434e1afcd462efb1813e0dd8c0fc63eb1d81e60956160cb76f69e20dd6acb  linux-streaming-export-capsule-v5.zip' | sha256sum --check --strict
           stage=extract
-          python -m zipfile -e linux-serialized-export-capsule-v4.zip capsule
+          python -m zipfile -e linux-streaming-export-capsule-v5.zip capsule
           stage=ready
       - name: Measure with no network and enforced process limits
         shell: bash
