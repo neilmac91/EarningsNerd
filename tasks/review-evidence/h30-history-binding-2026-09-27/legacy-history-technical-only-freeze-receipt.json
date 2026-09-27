@@ -1,0 +1,21 @@
+{
+  "admission_approved": false,
+  "authority": {
+    "bytes": 3575,
+    "path": "outputs/takeover-2026-09-26/h30-independent-history/legacy-source-review-history.json",
+    "sha256": "8159adefbef213ef857a48bf9e60e043920051bc8d4eb1cac77222d08374dee2"
+  },
+  "created_with_exclusive_create": true,
+  "kind": "legacy_custody_migration_freeze_receipt",
+  "known_technical_attempts": 2,
+  "limitations": [
+    "Retrospective declaration of the operator-retained legacy custody set at migration; not provider-global completeness.",
+    "No assertion of pre-dispatch journal chronology, private model attention, or unretained attempts.",
+    "Custody verification does not establish financial correctness, semantic resolution, or programme admission."
+  ],
+  "provider_calls": 0,
+  "retained_source_bytes_modified": false,
+  "schema_version": 1,
+  "successor_reservation_witnesses": 2,
+  "wrapper_sha256": "5e228c7a7fb6ceffd235c1bb825daa418129ca2451daf4df76c1f6ec8672db20"
+}

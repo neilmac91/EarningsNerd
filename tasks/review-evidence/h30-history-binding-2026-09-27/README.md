@@ -1,6 +1,38 @@
 # H30 cross-role history binding
 
-Final implementation commit `3755d1139abbd94de79c4314849d5772ebbeb351` on main parent
+## Independent retained-history authority correction
+
+The earlier measurements below are historical. Review of head `68e8ff1f` found that removing a
+whole technical attempt and recomputing the wrapper's closure could pass: the same declaration
+supplied both the history and its completeness seal. PR #970 stayed draft for this valid finding.
+
+The correction binds the retained set independently of that wrapper. The operator created
+[one canonical legacy authority](legacy-source-review-history.json) with exclusive-create
+semantics, SHA-256 `836403b0b85d0a6169d6ab49aedfe99442ceccb159f9084aaa5d6b29219678c6`.
+It binds all four historical origin identities and their artifact hashes, together with the two
+original A2/B2 reservation, dispatch, settlement and all six child hashes;
+the original A3/B3 successor reservations independently repeat each child map. The
+[freeze receipt](legacy-history-freeze-receipt.json) records this retrospective migration.
+The earlier [technical-only draft](legacy-source-review-history-technical-only.json) is retained
+for provenance and was superseded before release after review found the analogous whole-origin
+omission. No original source bytes were changed and no pre-dispatch journal history was invented.
+
+The authority's expected digest is pinned in reviewed code outside the prerequisites and
+wrapper, following the fixed E7 source-contract pattern. Locations are untrusted relative
+paths under one evidence root. The same resolver must run before optional wrapper handling
+in readiness, inventory and downstream source-context exclusion. Exact equality with the
+retained authority is required; deleting an attempt, the whole wrapper, or its authority
+location cannot select the compatibility route. The ordinary no-history route remains for
+programmes and accessions with neither a registered authority nor a history wrapper.
+
+This is completeness relative to the operator's retained legacy declaration at migration.
+It does not prove provider-global history, unretained attempts, model attention, financial
+correctness or programme admission. Fresh validation and review of this correction are
+recorded separately below before release.
+
+## Historical implementation and measurements
+
+Historical implementation commit `3755d1139abbd94de79c4314849d5772ebbeb351` on main parent
 `e39b475e13a0599d037303aacc75a82d51b053b8` adds an optional, generic
 `ai_assisted.reconciliation_history` wrapper. Omitting the wrapper leaves the existing evidence
 inventory unchanged.

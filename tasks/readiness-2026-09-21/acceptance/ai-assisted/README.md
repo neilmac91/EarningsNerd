@@ -72,7 +72,10 @@ gate still apply. These templates contain no observations or verdicts.
 `ai_assisted.reconciliation_history` may retain declared cross-role history that does not fit the
 bounded retired-source-B format. It is an optional list with at most one schema-1
 `source_reconciliation_history` record per accession. Omitting the key leaves the review-evidence
-inventory byte-for-byte unchanged. Each record binds the current reconciliation context and exact
+inventory byte-for-byte unchanged only when reviewed code registers neither the approved manifest
+nor any accession for retrospective legacy custody. A registered programme must also supply the
+exact `legacy_history_authorities` location set; deleting either field fails before the optional
+branch. Each record binds the current reconciliation context and exact
 file reference, the retained raw reconciliation draft, a partial-history manifest and all artifacts
 it names, a separate disposition ledger, and the complete historical-origin map. Every origin has a
 stable `history_prefix`, its context/role, the status of that historical artifact, and an exact file
@@ -96,8 +99,8 @@ origin/ledger route instead. Reservation, dispatch, and settlement are distinct 
 and settlement children cannot reuse current eligible brief or reconciliation bytes.
 Technical contexts join the exclusion closure despite their zero issue count.
 `source_context_closure_sha256` is SHA256 over the compact, ASCII, sorted JSON
-array containing current A/B/reconciliation contexts, historical-origin contexts, and technical
-attempt contexts.
+array containing current A/B/reconciliation contexts, historical-origin contexts, technical
+attempt contexts, and successor-witness contexts from the reviewed legacy authority.
 
 The ledger declaration adds `row_count`, `identity_set_sha256`, and `runtime_holds` to its ordinary
 `{path, sha256}` file reference. `identity_set_sha256` is SHA256 over the compact, ASCII, sorted JSON
@@ -130,6 +133,15 @@ of every origin and technical-attempt context in the shared source-context closu
 then rejects those contexts as blind quality or source-challenge identities. This custody binding
 does not prove the old runtime, re-judge financial findings, dispatch a provider, establish programme
 admission, or authorize a production flag.
+
+Reviewed code maps an approved manifest and accession to the expected SHA-256 of one canonical
+`legacy_custody_migration` authority. The prerequisite supplies only its evidence-root-relative
+location. That authority independently fixes the complete origin and technical-attempt identity
+sets and binds every referenced byte plus each successor witness. All three protocol entry points
+resolve it before inspecting the optional wrapper, compare both identity sets bidirectionally, add
+its contexts to the exclusion closure, and freeze its typed projection in `review_evidence`.
+This retrospective authority does not claim provider-global completeness or retrofit journal
+chronology to work that predates the execution journal.
 
 ## Retained Fable CLI calls
 

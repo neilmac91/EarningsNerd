@@ -176,12 +176,19 @@ def _child_artifact(
 
 
 def _reconciliation_history_inventory(
-    base: Path, ai: dict[str, Any],
+    base: Path, ai: dict[str, Any], authorities: dict[str, dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], set[str], int]:
     """Validate optional cross-role history and return its sealed typed projection."""
     records = ai.get("reconciliation_history")
     if not isinstance(records, list) or not records:
         raise ValueError("reconciliation history must be a non-empty list")
+    declared_accessions = [
+        record.get("accession_number") for record in records if isinstance(record, dict)
+    ]
+    if (len(declared_accessions) != len(records) or
+            len(declared_accessions) != len(set(declared_accessions)) or
+            set(declared_accessions) != set(authorities)):
+        raise ValueError("reconciliation history authority accession set differs")
 
     from evals.acceptance_source_review_graph import validate_source_context_id
 
@@ -243,6 +250,11 @@ def _reconciliation_history_inventory(
             bind_current_context(
                 row.get("context_id"), accession, "adverse source context_id")
 
+    for accession, authority in authorities.items():
+        if any(current_context_owners.get(context_id, accession) != accession
+               for context_id in authority["contexts"]):
+            raise ValueError("legacy authority context is owned by another accession")
+
     current_eligible_hashes = set().union(*current_context_artifact_hashes.values())
     inventory: list[dict[str, Any]] = []
     all_history_contexts: set[str] = set()
@@ -279,6 +291,7 @@ def _reconciliation_history_inventory(
         origin_by_context: dict[str, dict[str, Any]] = {}
         origin_inventory: dict[str, dict[str, Any]] = {}
         origin_values: dict[str, dict[str, Any]] = {}
+        origin_identities: set[tuple[Any, ...]] = set()
         history_prefixes: set[str] = set()
         for origin in origins:
             if (not isinstance(origin, dict) or set(origin) != {
@@ -309,9 +322,15 @@ def _reconciliation_history_inventory(
             origin_inventory[context_id] = artifact_reference
             origin_values[context_id] = artifact_value
             origin_by_context[context_id] = origin
+            origin_identities.add((
+                accession, context_id, origin["role"], origin["status"],
+                origin["history_prefix"], origin["artifact_sha256"],
+            ))
             history_prefixes.add(origin["history_prefix"])
             all_history_contexts.add(context_id)
             all_history_artifact_hashes.add(origin["artifact_sha256"])
+        if origin_identities != authorities[accession]["origin_identities"]:
+            raise ValueError("history origins differ from reviewed legacy authority")
 
         manifest_record = _history_file_reference(record.get("history_manifest"))
         manifest_reference, manifest = _reference(base, manifest_record)
@@ -417,6 +436,7 @@ def _reconciliation_history_inventory(
             raise ValueError("reconciliation history technical attempts missing")
         technical_contexts: set[str] = set()
         technical_inventory: list[dict[str, Any]] = []
+        technical_identities: set[tuple[Any, ...]] = set()
         for attempt in technical_attempts:
             if not isinstance(attempt, dict) or set(attempt) != {
                     "context_id", "role", "status", "reservation", "dispatch", "settlement"}:
@@ -480,6 +500,14 @@ def _reconciliation_history_inventory(
                     if child_value is None or child_value.get("material_issues") != []:
                         raise ValueError("technical settlement draft contains retained issues")
                 child_inventory.append(child)
+            from evals.acceptance_legacy_history import _identity
+
+            identity = _identity(accession, attempt, sorted(({
+                "basename": Path(path).name, "sha256": sha256,
+            } for path, sha256 in settlement_artifacts.items()), key=lambda row: row["basename"]))
+            if identity in technical_identities:
+                raise ValueError("technical history identity duplicated")
+            technical_identities.add(identity)
             technical_contexts.add(context_id)
             all_history_contexts.add(context_id)
             technical_inventory.append({
@@ -492,8 +520,11 @@ def _reconciliation_history_inventory(
                 "settlement_artifacts": sorted(
                     child_inventory, key=lambda item: item["record"]["path"]),
             })
+        if technical_identities != authorities[accession]["identities"]:
+            raise ValueError("technical history differs from reviewed legacy authority")
 
-        expected_closure = current_contexts | set(origin_by_context) | technical_contexts
+        expected_closure = (current_contexts | set(origin_by_context) | technical_contexts |
+                            authorities[accession]["contexts"])
         if record.get("source_context_closure_sha256") != _canonical_set_sha256(expected_closure):
             raise ValueError("reconciliation history source-context closure differs")
 
@@ -629,6 +660,11 @@ def ai_review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any
     """Freeze every AI role, prompt, source brief, reconciliation and exposure byte."""
     base = Path(prerequisites_path).resolve(strict=True).parent
     ai = prereq["ai_assisted"]
+    from evals.acceptance_legacy_history import (authority_inventory,
+                                                 resolve_legacy_history_authorities)
+
+    authorities = resolve_legacy_history_authorities(
+        base, prereq.get("approved_manifest_sha256"), ai)
     protocol_ref, protocol = _reference(base, ai["protocol"])
     roles = protocol["roles"]
 
@@ -664,14 +700,21 @@ def ai_review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any
 
         inventory["adverse_source_evidence"] = inventory_rows(
             base, ai["adverse_source_evidence"], _artifact)
-    if "reconciliation_history" in ai:
-        inventory["reconciliation_history"] = _reconciliation_history_inventory(base, ai)[0]
+    if authorities:
+        inventory["legacy_history_authorities"] = authority_inventory(authorities)
+    if "reconciliation_history" in ai or authorities:
+        inventory["reconciliation_history"] = _reconciliation_history_inventory(
+            base, ai, authorities)[0]
     return inventory
 
 
 def source_context_ids(prereq: dict[str, Any], base: Path) -> set[str]:
     """Return the declared schema-2 source-review context closure."""
     ai = prereq["ai_assisted"]
+    from evals.acceptance_legacy_history import resolve_legacy_history_authorities
+
+    authorities = resolve_legacy_history_authorities(
+        base, prereq.get("approved_manifest_sha256"), ai)
     contexts = {row.get("context_id") for row in ai["source_briefs"]}
     reconciliations: dict[str, str] = {}
     for record in ai["reconciled_references"]:
@@ -689,8 +732,12 @@ def source_context_ids(prereq: dict[str, Any], base: Path) -> set[str]:
         ai.get("adverse_source_evidence", []))
     if len(contexts) != expected_count:
         raise ValueError("source review context identity reused")
-    if "reconciliation_history" in ai:
-        _, origin_contexts, _ = _reconciliation_history_inventory(base, ai)
+    authority_contexts = {
+        context for authority in authorities.values() for context in authority["contexts"]
+    }
+    contexts.update(authority_contexts)
+    if "reconciliation_history" in ai or authorities:
+        _, origin_contexts, _ = _reconciliation_history_inventory(base, ai, authorities)
         contexts.update(origin_contexts)
     return contexts
 
@@ -708,9 +755,18 @@ def validate_ai_prerequisites(
     ai = prereq.get("ai_assisted")
     required_ai_keys = {"protocol", "source_briefs", "reconciled_references", "exposure_review"}
     if (not isinstance(ai, dict) or not required_ai_keys.issubset(ai) or
-            set(ai) - required_ai_keys - {"adverse_source_evidence", "reconciliation_history"}):
+            set(ai) - required_ai_keys - {"adverse_source_evidence", "reconciliation_history",
+                                          "legacy_history_authorities"}):
         issue(issues, "ai_protocol_invalid", "AI protocol inventory missing or malformed")
         return issues, freezes, exposure_status, limitations
+    authorities: dict[str, dict[str, Any]] | None = None
+    try:
+        from evals.acceptance_legacy_history import resolve_legacy_history_authorities
+
+        authorities = resolve_legacy_history_authorities(
+            base, prereq.get("approved_manifest_sha256"), ai)
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        issue(issues, "ai_reconciliation_history_invalid", type(exc).__name__)
     try:
         _, protocol = _reference(base, ai["protocol"])
         if (set(protocol) != {"schema_version", "review_protocol", "frozen_at",
@@ -891,9 +947,9 @@ def validate_ai_prerequisites(
         except (OSError, KeyError, TypeError, ValueError) as exc:
             issue(issues, "ai_adverse_source_invalid", type(exc).__name__)
 
-    if "reconciliation_history" in ai:
+    if authorities is not None and ("reconciliation_history" in ai or authorities):
         try:
-            _, _, runtime_holds = _reconciliation_history_inventory(base, ai)
+            _, _, runtime_holds = _reconciliation_history_inventory(base, ai, authorities)
             if runtime_holds:
                 limitations.append(
                     f"{runtime_holds} historical unresolved disagreement(s) remain under "

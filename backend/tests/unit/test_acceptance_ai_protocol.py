@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from evals import acceptance_legacy_history
 from evals.acceptance_ai_protocol import (ROLE_NAMES, _canonical_set_sha256,
                                           ai_review_evidence_inventory, source_context_ids,
                                           validate_ai_prerequisites)
@@ -18,6 +19,12 @@ from evals.acceptance_readiness import verify_review_evidence_binding
 
 def _write(path: Path, value: object) -> dict[str, str]:
     path.write_text(json.dumps(value, sort_keys=True), encoding="utf-8")
+    return {"path": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
+def _write_canonical(path: Path, value: object) -> dict[str, str]:
+    path.write_bytes(json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                ensure_ascii=True, allow_nan=False).encode("ascii") + b"\n")
     return {"path": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
@@ -100,7 +107,7 @@ def _validate(prereq: dict, path: Path, accession: str,
 
 def _add_reconciliation_history(
     tmp_path: Path, prereq: dict, accession: str, sources: dict[str, dict[str, str]],
-) -> tuple[dict, Path]:
+) -> tuple[dict, Path, str]:
     ai = prereq["ai_assisted"]
     current_reference = next(
         row for row in ai["reconciled_references"] if row["accession_number"] == accession)
@@ -169,6 +176,7 @@ def _add_reconciliation_history(
     draft = _write(tmp_path / "reconciliation-history-draft.json", {
         "retained": "raw custody draft; no semantic derivation asserted"})
     technical_attempts = []
+    successor_reservations = []
     for suffix, role in (("a", "source_reference_a"), ("b", "source_reference_b")):
         context_id = f"ctx-technical-{suffix}"
         attempt_dir = tmp_path / f"technical-{suffix}"
@@ -201,6 +209,15 @@ def _add_reconciliation_history(
             "issue_count": 0, "admission_approved": False,
         })
         settlement["path"] = str((attempt_dir / "settlement.json").relative_to(tmp_path))
+        successor_context = next(
+            row["context_id"] for row in current_briefs if row["role"] == role)
+        successor = _write(attempt_dir / "successor-reservation.json", {
+            "schema_version": 1, "context_id": successor_context, "role": role,
+            "accession_number": accession, "retained_previous_attempt": children,
+        })
+        successor["path"] = str(
+            (attempt_dir / "successor-reservation.json").relative_to(tmp_path))
+        successor_reservations.append(successor)
         technical_attempts.append({
             "context_id": context_id, "role": role, "status": "partial_ineligible",
             "reservation": reservation, "dispatch": dispatch, "settlement": settlement,
@@ -228,7 +245,38 @@ def _add_reconciliation_history(
         "source_context_closure_sha256": _canonical_set_sha256(closure),
     }
     ai["reconciliation_history"] = [record]
-    return record, ledger_path
+    authority_attempts = []
+    for attempt, successor in zip(technical_attempts, successor_reservations, strict=True):
+        settlement_value = json.loads((tmp_path / attempt["settlement"]["path"]).read_text())
+        children = [{
+            "basename": Path(child_path).name,
+            "path": str((tmp_path / attempt["settlement"]["path"]).parent.joinpath(
+                child_path).relative_to(tmp_path)),
+            "sha256": child_sha,
+        } for child_path, child_sha in sorted(settlement_value["artifacts"].items())]
+        authority_attempts.append({
+            **attempt, "settlement_artifacts": children, "successor_reservation": successor,
+        })
+    authority = {
+        "schema_version": 1, "kind": "legacy_custody_migration",
+        "approved_manifest_sha256": prereq["approved_manifest_sha256"],
+        "accession_number": accession, "scope": "retrospective_retained_custody",
+        "origin_contexts": origins, "attempts": authority_attempts,
+        "limitations": [
+            "Retrospective declaration of the operator-retained legacy custody set at migration; "
+            "not provider-global completeness.",
+            "No assertion of pre-dispatch journal chronology, private model attention, or "
+            "unretained attempts.",
+            "Custody verification does not establish financial correctness, semantic resolution, "
+            "or programme admission.",
+        ],
+        "admission_authority": False, "semantic_resolution_authority": False,
+    }
+    authority_record = _write_canonical(tmp_path / "legacy-source-review-history.json", authority)
+    ai["legacy_history_authorities"] = [{
+        "accession_number": accession, "path": authority_record["path"],
+    }]
+    return record, ledger_path, authority_record["sha256"]
 
 
 def _add_adverse_evidence(
@@ -466,10 +514,18 @@ def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_pat
         assert "ai_adverse_source_invalid" in codes
 
 
-def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path: Path) -> None:
+def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     prereq, path, accession, sources, now = _fixture(tmp_path)
     ordinary_inventory = ai_review_evidence_inventory(path, prereq)
-    record, ledger_path = _add_reconciliation_history(tmp_path, prereq, accession, sources)
+    assert "legacy_history_authorities" not in ordinary_inventory
+    assert "reconciliation_history" not in ordinary_inventory
+    record, ledger_path, authority_sha256 = _add_reconciliation_history(
+        tmp_path, prereq, accession, sources)
+    monkeypatch.setitem(
+        acceptance_legacy_history.APPROVED_LEGACY_HISTORY_AUTHORITIES,
+        prereq["approved_manifest_sha256"], {accession: authority_sha256})
     path.write_text(json.dumps(prereq), encoding="utf-8")
 
     issues, _, _, limitations = _validate(prereq, path, accession, sources, now)
@@ -489,14 +545,73 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     assert len(history["origin_artifacts"]) == 4
     assert len(history["retained_artifacts"]) == 3
     assert len(history["technical_attempts"]) == 2
+    assert inventory["legacy_history_authorities"][0]["authority"][
+        "expected_sha256"] == authority_sha256
     assert all(len(attempt["settlement_artifacts"]) == 3
                for attempt in history["technical_attempts"])
     assert history["reconciliation_draft"]["bytes_sha256"] == record["reconciliation_draft"][
         "sha256"]
 
-    del prereq["ai_assisted"]["reconciliation_history"]
-    assert ai_review_evidence_inventory(path, prereq) == ordinary_inventory
-    prereq["ai_assisted"]["reconciliation_history"] = [record]
+    original_wrapper = prereq["ai_assisted"]["reconciliation_history"]
+    original_locations = prereq["ai_assisted"]["legacy_history_authorities"]
+    original_manifest_sha256 = prereq["approved_manifest_sha256"]
+    for omit_wrapper, omit_location, alter_manifest in (
+        (True, False, False), (False, True, False), (True, True, False), (True, True, True),
+    ):
+        if omit_wrapper:
+            del prereq["ai_assisted"]["reconciliation_history"]
+        if omit_location:
+            del prereq["ai_assisted"]["legacy_history_authorities"]
+        if alter_manifest:
+            prereq["approved_manifest_sha256"] = "d" * 64
+        assert "ai_reconciliation_history_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        with pytest.raises(ValueError, match="legacy history|reconciliation history"):
+            ai_review_evidence_inventory(path, prereq)
+        with pytest.raises(ValueError, match="legacy history|reconciliation history"):
+            source_context_ids(prereq, tmp_path)
+        prereq["ai_assisted"]["reconciliation_history"] = original_wrapper
+        prereq["ai_assisted"]["legacy_history_authorities"] = original_locations
+        prereq["approved_manifest_sha256"] = original_manifest_sha256
+
+    authority_path = tmp_path / original_locations[0]["path"]
+    original_authority_bytes = authority_path.read_bytes()
+    incomplete_authority = json.loads(original_authority_bytes)
+    incomplete_authority["attempts"].pop()
+    _write_canonical(authority_path, incomplete_authority)
+    with pytest.raises(ValueError, match="digest differs"):
+        ai_review_evidence_inventory(path, prereq)
+    authority_path.write_bytes(original_authority_bytes)
+
+    other_accession = "0000000002-26-000002"
+    other, _, _, _, _ = _fixture(
+        tmp_path, accession=other_accession, prefix="successor-other-")
+    prereq["ai_assisted"]["source_briefs"].extend(other["ai_assisted"]["source_briefs"])
+    prereq["ai_assisted"]["reconciled_references"].extend(
+        other["ai_assisted"]["reconciled_references"])
+    wrong_successor_authority = json.loads(original_authority_bytes)
+    wrong_successor_authority["attempts"][0]["successor_reservation"] = _write(
+        tmp_path / "wrong-successor.json", {
+            "schema_version": 1,
+            "context_id": other["ai_assisted"]["source_briefs"][0]["context_id"],
+            "role": "source_reference_a", "accession_number": accession,
+            "retained_previous_attempt": {
+                child["basename"]: child["sha256"]
+                for child in wrong_successor_authority["attempts"][0]["settlement_artifacts"]
+            },
+        })
+    wrong_successor = _write_canonical(authority_path, wrong_successor_authority)
+    monkeypatch.setitem(
+        acceptance_legacy_history.APPROVED_LEGACY_HISTORY_AUTHORITIES[
+            prereq["approved_manifest_sha256"]], accession, wrong_successor["sha256"])
+    with pytest.raises(ValueError, match="owned by another accession"):
+        ai_review_evidence_inventory(path, prereq)
+    authority_path.write_bytes(original_authority_bytes)
+    monkeypatch.setitem(
+        acceptance_legacy_history.APPROVED_LEGACY_HISTORY_AUTHORITIES[
+            prereq["approved_manifest_sha256"]], accession, authority_sha256)
+    del prereq["ai_assisted"]["source_briefs"][-2:]
+    del prereq["ai_assisted"]["reconciled_references"][-1:]
     original_ledger = json.loads(ledger_path.read_text())
 
     def invalid(mutator) -> None:
@@ -589,16 +704,50 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     record["reconciliation_draft"]["sha256"] = draft_sha
 
     original_attempts = json.loads(json.dumps(record["technical_attempts"]))
+    original_closure = record["source_context_closure_sha256"]
     record["technical_attempts"] = record["technical_attempts"][:-1]
+    current_contexts = {
+        row["context_id"] for row in prereq["ai_assisted"]["source_briefs"]
+        if row["accession_number"] == accession
+    }
+    current_contexts.add(json.loads((tmp_path / prereq["ai_assisted"][
+        "reconciled_references"][0]["path"]).read_text())["context_id"])
+    record["source_context_closure_sha256"] = _canonical_set_sha256(
+        current_contexts |
+        {row["context_id"] for row in record["origin_contexts"]} |
+        {row["context_id"] for row in record["technical_attempts"]})
     assert "ai_reconciliation_history_invalid" in {
         item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
     record["technical_attempts"] = json.loads(json.dumps(original_attempts))
+    record["source_context_closure_sha256"] = original_closure
     record["technical_attempts"][0]["settlement"], record["technical_attempts"][1][
         "settlement"] = (record["technical_attempts"][1]["settlement"],
                           record["technical_attempts"][0]["settlement"])
     assert "ai_reconciliation_history_invalid" in {
         item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
     record["technical_attempts"] = original_attempts
+
+    # Removing the unmanifested same-context origin and coherently resealing its ledger used to
+    # leave a self-consistent wrapper. The reviewed authority independently fixes the origin set.
+    original_origins = json.loads(json.dumps(record["origin_contexts"]))
+    omitted_origin = record["origin_contexts"].pop()
+    omitted_prefix = f"{omitted_origin['history_prefix']}:"
+    omitted_ledger = json.loads(original_ledger_bytes)
+    omitted_ledger["history_dispositions"] = [
+        row for row in omitted_ledger["history_dispositions"]
+        if not row["history_id"].startswith(omitted_prefix)
+    ]
+    omitted_declaration = json.loads(json.dumps(original_declaration))
+    omitted_declaration["row_count"] = len(omitted_ledger["history_dispositions"])
+    omitted_declaration["identity_set_sha256"] = _canonical_set_sha256({
+        row["history_id"] for row in omitted_ledger["history_dispositions"]})
+    omitted_declaration.update(_write(ledger_path, omitted_ledger))
+    record["history_ledger"] = omitted_declaration
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    record["origin_contexts"] = original_origins
+    record["history_ledger"] = json.loads(json.dumps(original_declaration))
+    ledger_path.write_text(original_ledger_bytes, encoding="utf-8")
 
     technical = record["technical_attempts"][0]
     reservation_path = tmp_path / technical["reservation"]["path"]

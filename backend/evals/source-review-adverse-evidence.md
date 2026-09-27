@@ -55,3 +55,29 @@ and 15 retired dispositions. Its one-accession manifest and any undispatched pla
 contracts are explicitly a fixture. It exercises protocol validation, inventory and context
 closure; it does not substitute for the approved 30-filing readiness, paid generation, blinded
 review, Fable judgments or final E7 decision.
+
+## Retrospective legacy-custody authority
+
+An approved programme manifest may have a reviewed-code registry entry for source-review history
+that predates the execution journal. For each registered accession,
+`ai_assisted.legacy_history_authorities` supplies only an evidence-root-relative path. Reviewed
+code supplies the expected canonical-authority SHA-256. The resolver runs before the optional
+`reconciliation_history` branch, so deleting either the wrapper or its location cannot select the
+ordinary no-history route. An unregistered programme with no registered accession and neither
+field retains the existing inventory bytes.
+
+The canonical `legacy_custody_migration` object binds the exact retired origin identities and the
+exact technical attempt chains. Every origin includes its context, role, status, history prefix,
+artifact reference and artifact SHA-256. Every technical entry includes its context, role,
+terminal status, reservation, dispatch, settlement, the exact three settlement children, and the
+same-role successor reservation that repeats the retained child map. Validation reads every named
+byte from one evidence root, checks the control chain and successor witness, and requires exact
+bidirectional equality with the wrapper origin and technical identity sets. The authority
+projection and every named artifact enter the frozen review-evidence inventory. Its contexts enter
+the shared downstream exclusion set.
+
+This is a retrospective declaration of the operator-retained legacy custody set at migration. It
+does not claim provider-global completeness, pre-dispatch journal chronology, private model
+attention, financial correctness, semantic resolution, or programme admission. Newly dispatched
+attempts continue to use the execution journal; this migration object does not fabricate journal
+rows for earlier work.
