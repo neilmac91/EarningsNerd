@@ -29,6 +29,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         "metadata": {},
         "sections": {
             "_risk_source_projection": {"version": 1, "candidate_count": 999, "verified_count": 999, "withheld_count": 0},
+            "risk_factors": [{"summary": unsafe_summary, "supporting_evidence": unmatched}],
             "risks": [
                 {
                     "summary": unsafe_summary,
@@ -60,7 +61,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     projection = raw["sections"]["_risk_source_projection"]
     assert projection == {
-        "version": 1, "verified_count": 2, "withheld_count": 3,
+        "version": 1, "verified_count": 3, "withheld_count": 2,
         "candidate_count": 5, "source_available": True,
     }
 
@@ -105,6 +106,8 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     assert enriched["raw_summary"]["sections"]["risks"][0]["source_section_ref"] == "Filing excerpt"
     assert enriched["raw_summary"]["sections"]["risks"][0]["source_url"].startswith(filing.document_url)
     assert enriched["raw_summary"]["structured"]["sections"]["risks"] == []
+    assert "risk_factors" not in enriched["raw_summary"]["sections"]
+    assert "risk_factors" not in enriched["raw_summary"]["structured"]["sections"]
 
     # Nested metadata alone cannot authorize display.
     forged = {"schema_version": 2, "sections": supplied["sections"]}

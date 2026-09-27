@@ -735,6 +735,7 @@ Rules:
             ),
             base_url=None,
         )
+        sections_info.pop("risk_factors", None)
         sections_info["risks"] = risk_section
         sections_info[RISK_PROJECTION_KEY] = risk_projection
 

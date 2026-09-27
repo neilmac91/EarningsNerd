@@ -115,10 +115,8 @@ def _whitespace_exact_source_span(evidence: Any, source_text: Any) -> Optional[s
         pattern = rf"(?<!\w){pattern}"
     if candidate[-1].isalnum() or candidate[-1] == "_":
         pattern = rf"{pattern}(?!\w)"
-    matches = {match.group(0).strip() for match in re.finditer(pattern, source_text)}
-    # Multiple byte-distinct source spans are ambiguous after whitespace normalization. Withhold
-    # rather than selecting whichever occurrence happened to appear first.
-    return next(iter(matches)) if len(matches) == 1 else None
+    match = re.search(pattern, source_text)
+    return match.group(0).strip() if match else None
 
 
 def _select_source_texts(filing: Any) -> list[str]:
@@ -203,6 +201,7 @@ def _project_section_container(
     except (TypeError, ValueError):
         version = 1
     risk_key = "risks" if version >= 2 else "risk_factors"
+    sections.pop("risk_factors" if risk_key == "risks" else "risks", None)
     projected, metadata = project_risk_list(
         sections.get(risk_key),
         sources=sources,
