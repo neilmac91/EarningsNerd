@@ -129,18 +129,20 @@ def _select_source_texts(filing: Any) -> list[str]:
     cache_filing_id = getattr(cache, "filing_id", None)
     if type(filing_id) is not int or type(cache_filing_id) is not int or filing_id != cache_filing_id:
         return []
-    sources: list[str] = []
-    for name in ("critical_excerpt", "markdown_content"):
-        value = getattr(cache, name, None)
-        if not isinstance(value, str) or not value.strip():
-            continue
-        # ``critical_excerpt`` is already decoded section text.  Historical/degraded caches may
-        # carry raw HTML in ``markdown_content``; derive the same deterministic decoded-text view
-        # used by prompt preparation before strict matching. Plain markdown/text passes through.
-        source = clean_filing_source(value) if name == "markdown_content" else value
-        if source.strip() and source not in sources:
-            sources.append(source)
-    return sources
+    critical_excerpt = getattr(cache, "critical_excerpt", None)
+    if isinstance(critical_excerpt, str) and critical_excerpt.strip():
+        return [critical_excerpt]
+    risk_source_text = getattr(cache, "risk_source_text", None)
+    if isinstance(risk_source_text, str) and risk_source_text.strip():
+        return [risk_source_text]
+    markdown_content = getattr(cache, "markdown_content", None)
+    if not isinstance(markdown_content, str) or not markdown_content.strip():
+        return []
+    # Historical caches may contain raw HTML in their full-text field, so derive the same
+    # deterministic decoded-text view before strict matching. This is reached only when neither
+    # the critical excerpt nor the dedicated bounded source is available.
+    source = clean_filing_source(markdown_content)
+    return [source] if source.strip() else []
 
 
 def project_risk_list(

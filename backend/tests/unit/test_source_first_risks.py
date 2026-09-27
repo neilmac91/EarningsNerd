@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.change_report_service import assemble_report
+from app.services.content_cache import upsert_content_cache
 from app.services.export_service import ExportService
 from app.services.openai_service import OpenAIService
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
@@ -99,6 +100,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     degraded = await service.summarize_filing(
         degraded_html, "Example Co", "10-K", filing_excerpt=None
     )
+    degraded_source_for_cache = degraded["_risk_source_grounding"]
     _, degraded_raw, degraded_sections, _ = _finalize_summary_projection(
         degraded, None, degraded["status"], source_text=degraded_html,
         filing_document_url=filing.document_url,
@@ -118,10 +120,22 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         risk_factors=degraded["risk_factors"], management_discussion="", key_changes="",
         schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None,
     )
+    class CacheSession:
+        def __init__(self): self.added = []
+        def add(self, value): self.added.append(value)
+
+    cache_session = CacheSession()
+    upsert_content_cache(
+        cache_session, 2, None, excerpt=None, sections_payload=degraded_sections,
+        risk_source_text=degraded_source_for_cache,
+    )
+    assert len(cache_session.added) == 1
+    persisted_cache = cache_session.added[0]
+    assert persisted_cache.critical_excerpt is None
+    assert persisted_cache.risk_source_text == degraded_source_for_cache
+    assert persisted_cache.markdown_content is None
     degraded_filing = SimpleNamespace(
-        **{**filing.__dict__, "content_cache": SimpleNamespace(
-            filing_id=2, critical_excerpt=None, markdown_content=degraded_html,
-        )}
+        **{**filing.__dict__, "content_cache": persisted_cache}
     )
     degraded_cached = enrich_summary_provenance(degraded_summary, degraded_filing)
     cached_evidence = degraded_cached["raw_summary"]["sections"]["risks"][0]["supporting_evidence"]

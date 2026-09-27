@@ -326,6 +326,9 @@ class FilingContentCache(Base):
 
     filing_id = Column(Integer, ForeignKey("filings.id"), primary_key=True)
     critical_excerpt = Column(Text, nullable=True)
+    # Application-prepared bounded decoded text used only to re-project source-first Risks when
+    # critical excerpt extraction was unavailable. Never supplied by model output.
+    risk_source_text = Column(Text, nullable=True)
     sections_payload = Column(JSON, nullable=True)
     # Markdown content for AI consumption
     markdown_content = Column(Text, nullable=True)

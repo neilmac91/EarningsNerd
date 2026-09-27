@@ -947,6 +947,10 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': error_message}
                 return
 
+            # The application-prepared degraded source is private and will be popped by the shared
+            # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
+            # view for later API/export projection when no critical excerpt exists.
+            risk_source_for_cache = summary_payload.get("_risk_source_grounding")
             markdown, raw_summary, sections_info, normalized_financial_section = (
                 _finalize_summary_projection(
                     summary_payload,
@@ -1135,6 +1139,11 @@ async def stream_filing_summary(
                                 upsert_content_cache(
                                     session, filing_id, filing_for_cache.content_cache,
                                     excerpt=excerpt, sections_payload=sections_info,
+                                    risk_source_text=(
+                                        risk_source_for_cache
+                                        if not excerpt and isinstance(risk_source_for_cache, str)
+                                        else None
+                                    ),
                                 )
                             session.commit()
                             return existing.id
@@ -1160,6 +1169,11 @@ async def stream_filing_summary(
                             filing_for_cache.content_cache,
                             excerpt=excerpt,
                             sections_payload=sections_info,
+                            risk_source_text=(
+                                risk_source_for_cache
+                                if not excerpt and isinstance(risk_source_for_cache, str)
+                                else None
+                            ),
                         )
 
                     try:
