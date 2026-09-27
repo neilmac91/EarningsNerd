@@ -64,3 +64,19 @@ after the successful pytest summary. Removing only the origin ownership predicat
 coherent cross-accession mutation fail in
 [the new fault proof](fault-proof-hosted-context-owner-fail.log); exact restoration passes in
 [the restored log](fault-proof-hosted-context-owner-restored.log).
+
+The next exact-head review found two more mechanical omissions inside those same invariants:
+adverse-source contexts were absent from the shared accession ownership map, and a technical
+settlement could omit its brief or read log. Commit
+`cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7` reuses the existing adverse evidence reader, binds its
+contexts to their accessions, and requires exactly the `draft.json`, `brief.md`, and `read-log.json`
+artifact leaves. It adds no schema field or semantic classifier.
+
+[Final actual smoke](actual-smoke-final-mechanical.json) again retains the 52/51/1 split and eight
+contexts. The [final full backend gate](full-backend-gate-final-mechanical.log) passed Ruff, Bandit,
+and **3,732 tests with 40 warnings in 167.86 seconds** on the implementation commit, including all
+four PostgreSQL lanes and performance. Removing only the exact technical child-set predicate makes
+the coherently resealed omission case fail in
+[the final fault proof](fault-proof-final-technical-closure-fail.log); exact restoration passes in
+[the restored log](fault-proof-final-technical-closure-restored.log). The inherited closed-stream
+diagnostic remained after the successful pytest summary and zero exit.

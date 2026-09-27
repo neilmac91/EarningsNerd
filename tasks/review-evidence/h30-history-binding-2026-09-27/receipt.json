@@ -22,6 +22,16 @@
       "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-hosted-fixes.json",
       "sha256": "10b6cc45a3510af55d036b00b77afeb65197e44ac60643c8166365fc0bb6e403"
     },
+    "final_full_gate": {
+      "bytes": 16473,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-mechanical.log",
+      "sha256": "896c11dcf9f5cc2b8914cc6dcca8c37f580d003d18b913283ecb99891b5616ae"
+    },
+    "final_smoke": {
+      "bytes": 3325,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-mechanical.json",
+      "sha256": "eec53b83370e7942f344c62dd1ed4296b1ac9e691a6dcafc11cfb708656ea4ff"
+    },
     "location": "outputs/takeover-2026-09-26/h30-history-binding/",
     "smoke": {
       "bytes": 3028,
@@ -40,6 +50,11 @@
     "mutation": "remove exact history identity-to-origin predicate",
     "restored_result": "1 passed"
   },
+  "fault_proof_final_technical_closure": {
+    "mutated_result": "1 failed at coherently resealed omitted-artifact mutation",
+    "mutation": "remove only the exact technical child leaf-set predicate",
+    "restored_result": "1 passed"
+  },
   "fault_proof_hosted_context_owner": {
     "mutated_result": "1 failed at coherent cross-accession context mutation",
     "mutation": "remove only exact origin current-context ownership predicate",
@@ -47,9 +62,14 @@
   },
   "files": {
     "README.md": {
-      "bytes": 4052,
+      "bytes": 5268,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/README.md",
-      "sha256": "0ac8bfbda7e4b281cf68bc37978c461db01e6ace34932643067618fcbecfe93c"
+      "sha256": "d2fe0fb7d27311b4e4fef97f10f1e41a6926490b69f7f2a376ae2563a5567d22"
+    },
+    "actual-smoke-final-mechanical.json": {
+      "bytes": 3325,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-mechanical.json",
+      "sha256": "eec53b83370e7942f344c62dd1ed4296b1ac9e691a6dcafc11cfb708656ea4ff"
     },
     "actual-smoke-hosted-fixes.json": {
       "bytes": 3226,
@@ -66,6 +86,16 @@
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-fail.log",
       "sha256": "a5e40881ad68133204d73551a7f909049113a753d0ce1bcd945f751c795572f4"
     },
+    "fault-proof-final-technical-closure-fail.log": {
+      "bytes": 11212,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-closure-fail.log",
+      "sha256": "6f60f886d94ccce24d314effb68e93b1742ffaa8a201f2089b7a826f92bcaab9"
+    },
+    "fault-proof-final-technical-closure-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-closure-restored.log",
+      "sha256": "85d4787e1d0cb7a88a10b92d603f668f2da0a07f0722e09d2c94adc597bbf241"
+    },
     "fault-proof-hosted-context-owner-fail.log": {
       "bytes": 14088,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-hosted-context-owner-fail.log",
@@ -80,6 +110,11 @@
       "bytes": 1109,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-restored.log",
       "sha256": "e5794912827b9247c7a94da63c7f944f13d2618e0fdfae80826f37c62057d798"
+    },
+    "full-backend-gate-final-mechanical.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-mechanical.log",
+      "sha256": "896c11dcf9f5cc2b8914cc6dcca8c37f580d003d18b913283ecb99891b5616ae"
     },
     "full-backend-gate-hosted-fixes.log": {
       "bytes": 16473,
@@ -100,7 +135,7 @@
   "full_gate": {
     "bandit": "pass",
     "exit_code": 0,
-    "head": "2f3fbdee5128c3bf997541d6039062d869283e76",
+    "head": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
     "performance_included": true,
     "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
     "postgres_lanes": 4,
@@ -108,7 +143,7 @@
     "pytest_passed": 3732,
     "result": "pass",
     "ruff": "pass",
-    "seconds": 164.31,
+    "seconds": 167.86,
     "warnings": 40
   },
   "hosted_review_corrections": {
@@ -128,25 +163,57 @@
     "review_id": 5328669508,
     "reviewed_head": "16d2271027ddff11c336cbb848ee1b73fcf1204a"
   },
-  "implementation_commit": "2f3fbdee5128c3bf997541d6039062d869283e76",
+  "hosted_review_final_mechanical_corrections": {
+    "actual_h30": "52 rows / 51 filing-source / 1 custody, 8 contexts",
+    "findings": [
+      {
+        "comment_id": 4113966790,
+        "resolution": "bind byte-resolved adverse-source contexts into the shared accession ownership map"
+      },
+      {
+        "comment_id": 4113966792,
+        "resolution": "require exact draft.json, brief.md, and read-log.json technical settlement leaves"
+      }
+    ],
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
+    "related_result": "27 passed, 2 warnings",
+    "review_id": 5328706659,
+    "reviewed_head": "c08370000f4b6cfac853d2597f3e79a633da6382"
+  },
+  "hosted_review_fix_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "2f3fbdee5128c3bf997541d6039062d869283e76",
+    "performance_included": true,
+    "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 164.31,
+    "warnings": 40
+  },
+  "implementation_commit": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
   "implementation_files": {
     "guide": {
-      "bytes": 10825,
+      "bytes": 11003,
       "path": "tasks/readiness-2026-09-21/acceptance/ai-assisted/README.md",
-      "sha256": "d2b62c838ba8824d54ddc8a7c443581ce8224edeb295099dff2fe2c392de9b1c"
+      "sha256": "34e4017619437e5671d00571ee0343da840647293cf41412b88f14a1dc4625e8"
     },
     "protocol": {
-      "bytes": 52424,
+      "bytes": 53537,
       "path": "backend/evals/acceptance_ai_protocol.py",
-      "sha256": "874fe09c50f14b0fda4f4984b6631b85a1d03816d76baab67ec19b5020d6b837"
+      "sha256": "8fb8c24b06ee44f94519c5adc79cf2f9a0d3ed0b87277960040c75b073470a1f"
     },
     "test": {
-      "bytes": 47005,
+      "bytes": 49372,
       "path": "backend/tests/unit/test_acceptance_ai_protocol.py",
-      "sha256": "a21ddf028e8fe4b4f13a383b3c67a4f6971590e9efca5c497be21301e027f1ad"
+      "sha256": "02fd2fc9c746cc1ca9946a3e50b287d5896e59d95908e1f666475f6dc977ecfc"
     }
   },
-  "implementation_tree": "415a0afc7a2b7fc8d3397136fa90b9ccdfc35aa4",
+  "implementation_tree": "383960f06843075eac59ba327a2f5037943192d7",
   "initial_full_gate": {
     "bandit": "pass",
     "exit_code": 0,
