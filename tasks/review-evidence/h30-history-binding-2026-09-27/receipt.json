@@ -22,6 +22,16 @@
       "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-hosted-fixes.json",
       "sha256": "10b6cc45a3510af55d036b00b77afeb65197e44ac60643c8166365fc0bb6e403"
     },
+    "final_digest_full_gate": {
+      "bytes": 35687,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-digest.log",
+      "sha256": "58351c4dc359fdb5357a7e27e13a6f4d901c3beac991b41cf9ce72f8ec43cdca"
+    },
+    "final_digest_smoke": {
+      "bytes": 3471,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-digest.json",
+      "sha256": "96ded169c5adb620ddf91377328f2081dc7c2a4cdc54dfa76dea11b7206163d4"
+    },
     "final_full_gate": {
       "bytes": 16473,
       "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-mechanical.log",
@@ -50,6 +60,11 @@
     "mutation": "remove exact history identity-to-origin predicate",
     "restored_result": "1 passed"
   },
+  "fault_proof_final_digest": {
+    "mutated_result": "1 failed at coherently resealed reservation and dispatch digest mutation",
+    "mutation": "remove only exact actual_prompt_sha256 syntax predicate",
+    "restored_result": "1 passed"
+  },
   "fault_proof_final_technical_closure": {
     "mutated_result": "1 failed at coherently resealed omitted-artifact mutation",
     "mutation": "remove only the exact technical child leaf-set predicate",
@@ -62,9 +77,14 @@
   },
   "files": {
     "README.md": {
-      "bytes": 5268,
+      "bytes": 6413,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/README.md",
-      "sha256": "d2fe0fb7d27311b4e4fef97f10f1e41a6926490b69f7f2a376ae2563a5567d22"
+      "sha256": "39461a3133d5c381fa2738d6b0b9eaea8a21ec57fd9e1e854f6e07ba132392ac"
+    },
+    "actual-smoke-final-digest.json": {
+      "bytes": 3471,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-digest.json",
+      "sha256": "96ded169c5adb620ddf91377328f2081dc7c2a4cdc54dfa76dea11b7206163d4"
     },
     "actual-smoke-final-mechanical.json": {
       "bytes": 3325,
@@ -85,6 +105,16 @@
       "bytes": 7421,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-fail.log",
       "sha256": "a5e40881ad68133204d73551a7f909049113a753d0ce1bcd945f751c795572f4"
+    },
+    "fault-proof-final-digest-fail.log": {
+      "bytes": 11081,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-digest-fail.log",
+      "sha256": "5d7d55791ad9ba75e56721630d3989e9e4dcf22f0e2e4fb0f54db08a03aa7a30"
+    },
+    "fault-proof-final-digest-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-digest-restored.log",
+      "sha256": "39a3bc42cea62a44f756da3d737e4533d09ed5c81f009bfcefbb19e5d138aaa6"
     },
     "fault-proof-final-technical-closure-fail.log": {
       "bytes": 11212,
@@ -111,6 +141,11 @@
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-restored.log",
       "sha256": "e5794912827b9247c7a94da63c7f944f13d2618e0fdfae80826f37c62057d798"
     },
+    "full-backend-gate-final-digest.log": {
+      "bytes": 35687,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-digest.log",
+      "sha256": "58351c4dc359fdb5357a7e27e13a6f4d901c3beac991b41cf9ce72f8ec43cdca"
+    },
     "full-backend-gate-final-mechanical.log": {
       "bytes": 16473,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-mechanical.log",
@@ -132,10 +167,10 @@
       "sha256": "38abc92bcd5016774dfa11d96b1a0e05cec6a507e27133a3338f0a84e1df4e15"
     }
   },
-  "full_gate": {
+  "final_digest_full_gate": {
     "bandit": "pass",
     "exit_code": 0,
-    "head": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
+    "head": "3755d1139abbd94de79c4314849d5772ebbeb351",
     "performance_included": true,
     "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
     "postgres_lanes": 4,
@@ -143,7 +178,21 @@
     "pytest_passed": 3732,
     "result": "pass",
     "ruff": "pass",
-    "seconds": 167.86,
+    "seconds": 169.89,
+    "warnings": 40
+  },
+  "full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "3755d1139abbd94de79c4314849d5772ebbeb351",
+    "performance_included": true,
+    "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 169.89,
     "warnings": 40
   },
   "hosted_review_corrections": {
@@ -162,6 +211,16 @@
     "related_result": "27 passed, 2 warnings",
     "review_id": 5328669508,
     "reviewed_head": "16d2271027ddff11c336cbb848ee1b73fcf1204a"
+  },
+  "hosted_review_digest_correction": {
+    "bounded_sha_field_audit": "all other new helper SHA fields are directly validated or equal a validated or recomputed SHA",
+    "comment_id": 4113994083,
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "3755d1139abbd94de79c4314849d5772ebbeb351",
+    "independent_review": "clear",
+    "resolution": "require exact lowercase 64-hex actual_prompt_sha256 before dispatch equality",
+    "review_id": 5328732624,
+    "reviewed_head": "d5ec63f86c412f2a33af5351fb2231e502915644"
   },
   "hosted_review_final_mechanical_corrections": {
     "actual_h30": "52 rows / 51 filing-source / 1 custody, 8 contexts",
@@ -195,7 +254,7 @@
     "seconds": 164.31,
     "warnings": 40
   },
-  "implementation_commit": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
+  "implementation_commit": "3755d1139abbd94de79c4314849d5772ebbeb351",
   "implementation_files": {
     "guide": {
       "bytes": 11003,
@@ -203,17 +262,17 @@
       "sha256": "34e4017619437e5671d00571ee0343da840647293cf41412b88f14a1dc4625e8"
     },
     "protocol": {
-      "bytes": 53537,
+      "bytes": 53629,
       "path": "backend/evals/acceptance_ai_protocol.py",
-      "sha256": "8fb8c24b06ee44f94519c5adc79cf2f9a0d3ed0b87277960040c75b073470a1f"
+      "sha256": "44a64628d0b228c71e843d5fd705cedfc6a52d6762e35bc99506c9397f13fb39"
     },
     "test": {
-      "bytes": 49372,
+      "bytes": 50742,
       "path": "backend/tests/unit/test_acceptance_ai_protocol.py",
-      "sha256": "02fd2fc9c746cc1ca9946a3e50b287d5896e59d95908e1f666475f6dc977ecfc"
+      "sha256": "cc338cfac83d835322e44a575a7d7584c48dd241ca7b65d2fd0182b6aad7e409"
     }
   },
-  "implementation_tree": "383960f06843075eac59ba327a2f5037943192d7",
+  "implementation_tree": "d92a2c1c4a9309c3fc5a5dc17e461c4cfe171326",
   "initial_full_gate": {
     "bandit": "pass",
     "exit_code": 0,
@@ -228,7 +287,8 @@
   },
   "limitations": [
     "Structural validation does not prove financial-versus-runtime semantics.",
-    "No provider call, financial re-judgment, production flag, or programme admission."
+    "No provider call, financial re-judgment, production flag, or programme admission.",
+    "Prompt digest syntax and retained custody do not prove the original provider runtime."
   ],
   "main_parent": "e39b475e13a0599d037303aacc75a82d51b053b8",
   "schema_version": 1,

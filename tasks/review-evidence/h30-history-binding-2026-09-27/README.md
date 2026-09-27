@@ -1,6 +1,6 @@
 # H30 cross-role history binding
 
-Implementation commit `be913d718ee01c95fc7fb2a6a9e6239cae4fba57` on main parent
+Final implementation commit `3755d1139abbd94de79c4314849d5772ebbeb351` on main parent
 `e39b475e13a0599d037303aacc75a82d51b053b8` adds an optional, generic
 `ai_assisted.reconciliation_history` wrapper. Omitting the wrapper leaves the existing evidence
 inventory unchanged.
@@ -80,3 +80,17 @@ the coherently resealed omission case fail in
 [the final fault proof](fault-proof-final-technical-closure-fail.log); exact restoration passes in
 [the restored log](fault-proof-final-technical-closure-restored.log). The inherited closed-stream
 diagnostic remained after the successful pytest summary and zero exit.
+
+The final exact-head review found one remaining scalar contract omission: the retained reservation
+and dispatch agreed on `actual_prompt_sha256`, but the shared value was only required to be
+non-empty. Commit `3755d1139abbd94de79c4314849d5772ebbeb351` requires an exact lowercase
+64-hex digest before dispatch equality can inherit it. The existing history invariant coherently
+reseals both retained records with the same non-digest value; removing only the syntax predicate
+makes that mutation pass and therefore fails [the fault proof](fault-proof-final-digest-fail.log).
+Exact restoration passes [the same gate](fault-proof-final-digest-restored.log).
+
+[Final actual H30 smoke](actual-smoke-final-digest.json) preserves the 52/51/1 split, four origins,
+two technical attempts, eight-context closure, nine manifest children and six settlement children.
+The [final backend gate](full-backend-gate-final-digest.log) passed Ruff, Bandit and **3,732 tests
+with 40 warnings in 169.89 seconds**, including four isolated PostgreSQL 15.15 lanes and
+performance. The digest syntax and retained custody do not prove the original provider runtime.
