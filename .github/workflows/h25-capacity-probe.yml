@@ -1,4 +1,4 @@
-name: H25 bounded offline capacity probe
+name: H25 bounded offline serialized export probe
 
 # A single diagnostic branch push; this workflow is not a production release path.
 on:
@@ -30,11 +30,11 @@ jobs:
           trap 'status=$?; echo "$stage $status" > result/input-stage-status.txt' EXIT
           # Public SEC bytes live only on this diagnostic branch. The read-only
           # workflow token cannot fetch the draft release; no permission is added.
-          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-capacity-capsule-v3.zip" .
+          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-serialized-export-capsule-v4.zip" .
           stage=verify
-          echo '4877af596173961fcd141db35235a22b75b18b8ec622e8f99d1eeaa87a8eb743  linux-capacity-capsule-v3.zip' | sha256sum --check --strict
+          echo '8cc021557cd9e3b8f031b141e898063f98f5c7cf3e3acacbdb9fd49550e2ced4  linux-serialized-export-capsule-v4.zip' | sha256sum --check --strict
           stage=extract
-          python -m zipfile -e linux-capacity-capsule-v3.zip capsule
+          python -m zipfile -e linux-serialized-export-capsule-v4.zip capsule
           stage=ready
       - name: Measure with no network and enforced process limits
         shell: bash
@@ -50,7 +50,7 @@ jobs:
             env -i PATH="$(dirname "$PYTHON_BIN"):/usr/bin:/bin" \
             LD_LIBRARY_PATH="$(dirname "$PYTHON_BIN")/../lib" \
             HOME="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 \
-            "$PYTHON_BIN" runner.py --output "$RUNNER_TEMP/result/capacity-receipt.json" \
+            "$PYTHON_BIN" runner.py --output "$RUNNER_TEMP/result/serialized-export-receipt.json" \
             > "$RUNNER_TEMP/result/runner.log" 2>&1; then
             result=0
           else
@@ -64,7 +64,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: h25-capacity-${{ github.run_id }}
-          path: ${{ runner.temp }}/result/
+          name: h25-serialized-export-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/result/
+            ${{ runner.temp }}/capsule/serialized-views/
           if-no-files-found: error
           retention-days: 7
