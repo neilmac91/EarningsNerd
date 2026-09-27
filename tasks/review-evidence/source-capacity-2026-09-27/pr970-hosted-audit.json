@@ -1,0 +1,42 @@
+{
+  "ci": {
+    "billed_cost_usd": null,
+    "errors": 0,
+    "estimated_cost_usd": 0.178645,
+    "hard_gate_failures": 0,
+    "judges": 0,
+    "outputs": 70,
+    "provider_attempts": 70,
+    "retries": 0,
+    "run_id": 36304249981,
+    "successes": 70
+  },
+  "combined_known_estimated_cost_usd": 0.186447,
+  "copilot": {
+    "billed_cost_usd": null,
+    "errors": 0,
+    "estimated_known_cost_usd": 0.007802,
+    "hard_gate_failures": 0,
+    "judges": 0,
+    "outputs": 18,
+    "provider_attempts": 41,
+    "run_id": 36304250589,
+    "successes": 36,
+    "transient_retried_errors": 5,
+    "unknown_cost_attempts": 5
+  },
+  "head_sha": "b424a1bbb66694e3be8eb21ede247951134b1f29",
+  "head_tree": "a7f66d378f9f6bb1732a25a2fe05310248f586a2",
+  "pr": 970,
+  "release_interpretation": "Hosted generation evidence is complete and green for this exact head; billed cost remains unknown. Review and merge authority remain separate.",
+  "schema_version": 1,
+  "skipped_duplicate": {
+    "artifacts": 0,
+    "conclusion": "skipped",
+    "job_steps": 0,
+    "provider_calls_supported_by_evidence": 0,
+    "run_id": 36304250005
+  },
+  "synthetic_merge_sha": "1886f4d6944cfeafd5f94a595dec374e991b39f6",
+  "synthetic_tree_matches_head": true
+}

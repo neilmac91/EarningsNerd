@@ -1,0 +1,79 @@
+{
+  "admission_approved": false,
+  "finished_at": "2026-09-27T08:30:49.456998Z",
+  "held": [
+    {
+      "reason": "held after H25 failure",
+      "source": "H02"
+    }
+  ],
+  "kind": "e7_linux_source_view_capacity_receipt",
+  "limits": {
+    "child_address_space_bytes": 3221225472,
+    "child_wall_seconds": 180
+  },
+  "manifest": {
+    "admission_approved": false,
+    "claims": {
+      "measures_only": "project_html plus verify_projection resource feasibility",
+      "model_calls": 0,
+      "network_calls": 0,
+      "provider_calls": 0
+    },
+    "execution_order": [
+      "H25",
+      "H02"
+    ],
+    "kind": "e7_linux_source_view_capacity_capsule",
+    "limits": {
+      "child_address_space_bytes": 3221225472,
+      "child_wall_seconds": 180,
+      "minimum_python": "3.11",
+      "platform": "linux"
+    },
+    "module": {
+      "bytes": 58488,
+      "path": "acceptance_source_view.py",
+      "sha256": "578455e33fd20d9f973f4fac79866bc29fbae2987e79e089b5094053e1f78e97"
+    },
+    "schema_version": 1,
+    "semantic_review_attested": false,
+    "sources": {
+      "H02": {
+        "bytes": 16080286,
+        "path": "sources/H02/duk-20251231.htm",
+        "sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9"
+      },
+      "H25": {
+        "bytes": 57158558,
+        "path": "sources/H25/hsbc-20251231.htm",
+        "sgml_member_byte_difference": 111,
+        "sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+        "source_form": "frozen direct primary"
+      }
+    },
+    "stop_after_failure": true
+  },
+  "manifest_sha256": "42ef95353968a21777d6abae66f722e7764c82baf36ea86eb105416fd2c2c0cd",
+  "model_calls": 0,
+  "network_calls": 0,
+  "platform": "linux",
+  "provider_calls": 0,
+  "python": "3.11.16",
+  "results": [
+    {
+      "elapsed_seconds_parent": 20.078859,
+      "elapsed_seconds_worker": 20.037433,
+      "exit_code": 1,
+      "max_rss_bytes": 3182571520,
+      "rlimit_as_hard_bytes": 3221225472,
+      "rlimit_as_soft_bytes": 3221225472,
+      "source": "H25",
+      "status": "memory_limit_exceeded"
+    }
+  ],
+  "schema_version": 1,
+  "semantic_review_attested": false,
+  "started_at": "2026-09-27T08:30:29.372778Z",
+  "status": "failed"
+}
