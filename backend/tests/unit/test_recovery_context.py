@@ -358,8 +358,8 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
             'For coverage, include the selected operating cash flow minus absolute selected capex '
             'calculation' in prose
         )
-        assert 'Use "free cash flow" only for a filing-defined measure' in primary
-        assert 'preserve its stated formula or reconciliation' in primary
+        assert 'Use "free cash flow" only for a filing-defined measure' in prose
+        assert 'preserve its stated formula or reconciliation' in prose
     if not structured and form in ('10-K', '10-Q'):
         assert 'report the divergence and any separately reported share-count movement' in primary
         assert 'ONLY when the filing itself states that relationship' in primary
