@@ -83,6 +83,7 @@ export interface Summary {
   management_discussion?: string
   key_changes?: string
   raw_summary?: {
+    risk_source_context_version?: number
     sections?: Record<string, unknown>
     section_coverage?: {
       covered_count?: number

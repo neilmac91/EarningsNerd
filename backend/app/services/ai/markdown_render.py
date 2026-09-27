@@ -157,7 +157,7 @@ class _MarkdownRenderMixin:
                 if evidence_text:
                     lines.append(f"  - {evidence_text}")
         else:
-            lines.append("- No material incremental risks were highlighted beyond routine disclosures.")
+            lines.append("- Source-verified risk excerpts are unavailable. Review the filing.")
 
         # Management Commentary
         lines.append("\n## Management Commentary")

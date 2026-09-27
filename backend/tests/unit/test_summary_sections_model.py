@@ -360,11 +360,15 @@ def test_tone_rides_on_the_section_as_a_badge_not_prose():
 
 def test_risks_section_carries_an_explicit_role():
     raw = _raw({
+        "_risk_source_projection": {
+            "version": 1, "verified_count": 1, "withheld_count": 0,
+        },
         "risk_factors": [
-            {"title": "Supply", "description": "Concentrated foundry reliance.",
+            {"summary": "Filing excerpt", "source_verified": True,
              "supporting_evidence": "Item 1A: dependent on TSMC."},
         ],
     })
+    raw["risk_source_context_version"] = 1
     risks = next(s for s in render_sections(raw) if s.title == "Investment Risks & Concerns")
     assert risks.role == "risks"
     assert risks.to_dict()["role"] == "risks"

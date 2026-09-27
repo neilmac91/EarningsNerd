@@ -65,6 +65,14 @@ from app.services.summary_generation_service import (
     record_progress,
     get_or_cache_excerpt,
 )
+from app.services.provenance_service import (
+    RISK_PROJECTION_KEY,
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    project_risk_list,
+    replace_business_overview_risks,
+    source_safe_business_overview,
+)
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
@@ -82,6 +90,8 @@ def _finalize_summary_projection(
     summary_payload: dict,
     xbrl_metrics: Optional[dict],
     summary_status: str,
+    source_text: str = "",
+    filing_document_url: Optional[str] = None,
 ) -> tuple[str, dict, dict, Optional[dict]]:
     """Build the one persisted/streamed projection after any generator has returned.
 
@@ -106,14 +116,30 @@ def _finalize_summary_projection(
         )
         sections_info["results_that_matter"] = normalized_financial_section
 
-    sections_info["risks"] = summary_payload.get("risk_factors") or []
+    # Risks compose at this same shared post-generator boundary. Reserved producer metadata and the
+    # nonselected alias are discarded before the candidate list is matched to this generation's
+    # filing source; only code then stamps renderer ownership.
+    sections_info.pop(RISK_PROJECTION_KEY, None)
+    sections_info.pop("risk_factors", None)
+    raw_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
+    prior_candidate_count = summary_payload.pop("_risk_source_candidate_count", None)
+    risk_section, risk_projection = project_risk_list(
+        summary_payload.get("risk_factors") or [],
+        sources=[source_text] if isinstance(source_text, str) and source_text.strip() else [],
+        base_url=filing_document_url,
+        original_count=prior_candidate_count if type(prior_candidate_count) is int else None,
+    )
+    sections_info["risks"] = risk_section
+    sections_info[RISK_PROJECTION_KEY] = risk_projection
     raw_summary["sections"] = sections_info
     raw_summary["status"] = summary_status
     raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
     if has_metric_table:
         raw_summary[EXACT_CONTEXT_KEY] = EXACT_CONTEXT_VERSION
+    raw_summary[RISK_SOURCE_CONTEXT_KEY] = RISK_SOURCE_CONTEXT_VERSION
 
+    markdown = replace_business_overview_risks(markdown, raw_summary)
     summary_payload["business_overview"] = markdown
     summary_payload["raw_summary"] = raw_summary
     return markdown, raw_summary, sections_info, normalized_financial_section
@@ -358,7 +384,7 @@ async def stream_filing_summary(
                         "cache_created_at": cache.created_at if cache else None,
                     } if filing else None
                     summary_fields = {
-                        "business_overview": summary.business_overview, "id": summary.id,
+                        "business_overview": source_safe_business_overview(summary, filing), "id": summary.id,
                     } if summary else None
                     return filing_fields, summary_fields
 
@@ -383,7 +409,13 @@ async def stream_filing_summary(
             def get_persisted_summary_fields():
                 with database.SessionLocal() as s:
                     summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
+                    persisted_filing = s.query(Filing).options(
+                        joinedload(Filing.content_cache)
+                    ).filter(Filing.id == filing_id).first()
+                    return {
+                        "business_overview": source_safe_business_overview(summ, persisted_filing),
+                        "id": summ.id,
+                    } if summ else None
 
             waited = 0.0
             joined_generation = False
@@ -907,7 +939,13 @@ async def stream_filing_summary(
                 return
 
             markdown, raw_summary, sections_info, normalized_financial_section = (
-                _finalize_summary_projection(summary_payload, xbrl_metrics, summary_status)
+                _finalize_summary_projection(
+                    summary_payload,
+                    xbrl_metrics,
+                    summary_status,
+                    source_text=excerpt or filing_text,
+                    filing_document_url=filing_document_url,
+                )
             )
 
             section_coverage = (
@@ -923,7 +961,7 @@ async def stream_filing_summary(
                     section_coverage=section_coverage,
                 )
 
-            risk_section = summary_payload.get("risk_factors") or []
+            risk_section = sections_info.get("risks") or []
             # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
             # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
             management_section = summary_payload.get("management_discussion")

@@ -103,8 +103,7 @@ class TestAssembleReport:
         assert out["metrics"] is not None
         rev = next(i for i in out["metrics"]["items"] if i["metric"] == "revenue")
         assert rev["direction"] == "up" and round(rev["pct"]) == 25
-        assert out["risks"]["new"] == ["New supplier concentration risk"]
-        assert out["risks"]["resolved"] == ["Legacy litigation overhang risk"]
+        assert out["risks"] is None
         # T1.6: key_changes is deprecated — no longer surfaced (the lead is metrics.headline).
         assert out["key_changes"] is None
         assert out["has_changes"] is True
@@ -131,7 +130,7 @@ class TestAssembleReport:
         out = svc.assemble_report(self.CURRENT_FILING, None, cs, None)
         assert out["key_changes"] is None
 
-    def test_risks_pulled_from_raw_summary_when_column_empty(self):
+    def test_model_risks_are_omitted_from_change_report(self):
         current_summary = SimpleNamespace(
             risk_factors=None,
             raw_summary={"sections": {"risk_factors": [{"title": "Raw-section sourced risk"}]}},
@@ -139,7 +138,7 @@ class TestAssembleReport:
         )
         prior_summary = SimpleNamespace(risk_factors=[], raw_summary=None, key_changes=None)
         out = svc.assemble_report(self.CURRENT_FILING, self.PRIOR_FILING, current_summary, prior_summary)
-        assert out["risks"]["new"] == ["Raw-section sourced risk"]
+        assert out["risks"] is None
 
 
 def test_comparison_basis_covers_fpi_forms():

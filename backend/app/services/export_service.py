@@ -7,6 +7,7 @@ from html import escape
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.summary_sections import Block, Section, render_sections
+from app.services.provenance_service import project_raw_summary_risks
 from app.utils.datetimes import utcnow
 
 class ExportService:
@@ -15,7 +16,9 @@ class ExportService:
 
     def generate_pdf_html(self, summary: Summary, filing: Filing) -> str:
         """HTML for the filing-summary PDF — body sections inside the shared branded shell."""
-        raw_summary = summary.raw_summary or {}
+        raw_summary = project_raw_summary_risks(
+            summary.raw_summary, filing, summary_filing_id=summary.filing_id
+        ) or {}
 
         meta_html = (
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
@@ -123,7 +126,9 @@ class ExportService:
         # Render every structured section through the shared renderer (single source of truth)
         # so the CSV carries the same content as the PDF and the on-page summary, instead of just
         # the financial-highlights table + risks the old code emitted.
-        raw_summary = summary.raw_summary or {}
+        raw_summary = project_raw_summary_risks(
+            summary.raw_summary, filing, summary_filing_id=summary.filing_id
+        ) or {}
         for section in render_sections(raw_summary):
             self._write_section_csv(writer, section)
 

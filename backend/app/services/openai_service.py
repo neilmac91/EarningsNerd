@@ -58,6 +58,12 @@ from app.services.metric_delta_service import (
     bind_exact_xbrl_deltas,
 )
 from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.provenance_service import (
+    RISK_PROJECTION_KEY,
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    project_risk_list,
+)
 # The generation-side taxonomy: the section keys the current schema_template emits — v2 as of the
 # Tier-3.1 cutover. summarize_filing builds the per_section coverage snapshot from it below. This is
 # DISTINCT from the quality badge's frozen per-version tuples (summary_schema.TRACKED_SECTIONS_V1 /
@@ -623,6 +629,9 @@ Rules:
             forward = sections.get("forward_signals")
             if settings.AI_FORWARD_QUOTE_GATE and isinstance(forward, dict):
                 forward.pop("quotes", None)
+            # A partial provider response has no source text at this callback boundary. Risks wait
+            # for the final same-filing source projection rather than streaming model-authored text.
+            sections.pop("risks", None)
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
@@ -717,7 +726,17 @@ Rules:
         if isinstance(raw_risk_section, str):
             raw_risk_section = [raw_risk_section]
         risk_section = _normalize_risk_factors(raw_risk_section)
+        risk_section, risk_projection = project_risk_list(
+            risk_section,
+            sources=(
+                [filing_excerpt]
+                if isinstance(filing_excerpt, str) and filing_excerpt.strip()
+                else []
+            ),
+            base_url=None,
+        )
         sections_info["risks"] = risk_section
+        sections_info[RISK_PROJECTION_KEY] = risk_projection
 
         # T5.4 forward-quote gate: verify every §5 quote against the same text the model generated
         # from; failures are always audited — the pipeline logs the greppable
@@ -885,12 +904,14 @@ Rules:
         structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
         structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
         structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
+        structured_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
+            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
         }
@@ -905,6 +926,7 @@ Rules:
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
+            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             "structured": structured_summary,
             "sections": sections_info,
@@ -1109,6 +1131,10 @@ Rules:
             "management_discussion": management_section,
             "key_changes": guidance_section,
             "raw_summary": raw_summary_payload,
+            # Internal handoff to summary_pipeline. This count is constructed after parsing and is
+            # not copied from the model envelope; it preserves honest withholding across the second
+            # same-source projection without trusting model-supplied reserved metadata.
+            "_risk_source_candidate_count": risk_projection["candidate_count"],
         }
         
         # Add message if status is error or partial

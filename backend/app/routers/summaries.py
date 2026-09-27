@@ -559,7 +559,7 @@ async def export_summary_pdf(
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
 
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 
@@ -605,7 +605,7 @@ async def export_summary_csv(
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
 
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 
