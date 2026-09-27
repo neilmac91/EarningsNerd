@@ -1,3 +1,24 @@
+## September 27 — overnight implementation authority and first correction
+
+The founder gave Codex full authority for necessary Master Plan changes and explicitly approved
+DeepSeek spend while unavailable overnight. Continue engineering, bounded measurements and verified
+releases without repeating approval requests. Preserve existing quality criteria, evaluator identities,
+specific universe-generation prerequisites and evidence; do not infer customer consent.
+
+- [x] All A/B/C checkpoints reconciled; 80 archive checksum entries verified. No active branch ownership remains outside Codex.
+- [x] Custody corrections implemented in [#963](https://github.com/neilmac91/EarningsNerd/pull/963): full local gate 3,718 passed; four failing/restored regression proofs; 58 focused passes; independent review clear; eleven locked files unchanged.
+- [x] #963 hosted checks and serial release verified: main `5554bc87`, revision `00388-6z4` at 100%, migrations 0/39, independent healthy readback.
+- [x] #964 exact prompt construction, durable pre-dispatch history and recovery released: 3,729 local tests, final actual hosted70/70 and18/18, revision00390-q8b100%, migrations0/39, independent healthy readback. Semantic acceptance remains separate.
+- [x] #965 releases request/background sessions before SEC waits; 3,719 tests, real one-connection regression, actual hosted70/70 and18/18, revision00389-c6j100% and independent health verified before #964.
+- [ ] #966 visible source mismatch warning and landing claim corrections: final local112files/641tests/build pass, light/dark visual review clear; hosted review/release pending.
+- [ ] #967 retains H29 adverse findings and excludes every declared source context from blind review: 3,730 tests, four failing/restored proofs and real-artifact integration smoke pass; hosted review/release pending.
+- [x] H29 eligible pair and reconciliation retained:25 current+15 adverse dispositions,13material reference issues,11resolved disagreements; this does not certify candidate output quality.
+- [x] H30 current A/B source briefs individually frozen after exact chunk/byte checks:9+10 issues; all technical partials and older source/reconciliation history retained.
+- [ ] H30 fresh reconciliation:19 current dispositions plus52 historical issue/disagreement dispositions; complete custody integration before admission.
+- [x] #942 current-main integration and fresh q2/q3 evidence retained: 70/70 and 105/105, no errors/retries, all deterministic gates pass; p/q2 source parity verified. Backend floor remains unchanged.
+- [ ] Run the prepared matched Fable comparison (140 slots, up to 280 actual CLI invocations, durable checkpointing) before q release/pin; E7 candidate freeze follows that disposition.
+- [ ] Recovery: local cloud reauthentication remains unavailable. Existing WIF can supply an allowlisted read, but automatic approval review rejected the proposed GitHub Actions metadata destination; explicit storage approval is pending. No workflow patch, permission grant, SQL query or cloud mutation occurred. Codex owns pricing/cap and bounded rehearsal/cleanup after access is resolved.
+
 ## September 26 — chief-engineer takeover
 
 Reconciled merged #940/#951/#953–#961, current open #942/draft #952, actual regression/Copilot
