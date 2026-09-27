@@ -39,7 +39,7 @@ describe('Risk factor Trace-to-Source', () => {
     ]
     const { container } = render(<SummaryRisks risks={risks} />)
     expect(container.textContent).not.toContain('Evidence text only.')
-    expect(container.textContent).toContain('No source-verified risk excerpts found')
+    expect(container.textContent).toContain('Source-verified risk excerpts are unavailable. Review the filing.')
     expect(screen.queryByRole('link')).toBeNull()
   })
 

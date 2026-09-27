@@ -1,6 +1,5 @@
 import React from 'react'
 import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
-import { SectionEmpty } from './SectionEmpty'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import type { RiskFactor } from '@/types/summary'
 
@@ -40,7 +39,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
     ? `${verified} source-verified filing ${verified === 1 ? 'excerpt' : 'excerpts'}.${withheld > 0 ? ` ${withheld} ${withheld === 1 ? 'item' : 'items'} withheld because the evidence could not be matched.` : ''} Selected excerpts are not a complete risk inventory.`
     : `Source-verified risk excerpts are unavailable. Review the filing.${withheld > 0 ? ` ${withheld} ${withheld === 1 ? 'item' : 'items'} withheld because the evidence could not be matched.` : ''} Selected excerpts are not a complete risk inventory.`
 
-  if (!sourceFirst) return <SectionEmpty label="source-verified risk excerpts" />
+  if (!sourceFirst) return <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>
 
   return (
     <div className="space-y-4">
