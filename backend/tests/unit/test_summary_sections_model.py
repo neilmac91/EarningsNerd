@@ -254,10 +254,12 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     assert fallback["business_overview"] == fallback_markdown == original_fallback_markdown
     assert fallback["raw_summary"] == fallback_raw
     assert fallback_financial["table"][1]["change_display"] == "+33.3%"
-    summary = SimpleNamespace(raw_summary=fallback_raw)
+    summary = SimpleNamespace(filing_id=1, raw_summary=fallback_raw)
     filing = SimpleNamespace(
+        id=1,
         filing_date=None, period_end_date=None, sec_url="https://sec.example/filing",
         filing_type="10-K", company=SimpleNamespace(name="PGR"),
+        content_cache=SimpleNamespace(filing_id=1, critical_excerpt=None, markdown_content=None),
     )
     surfaces = (
         ExportService().generate_pdf_html(summary, filing),
