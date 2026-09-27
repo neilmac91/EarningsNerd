@@ -177,7 +177,7 @@ gcloud projects add-iam-policy-binding earnings-nerd \
 ```
 
 ### 6. Deploy
-> Sizing flags (`--cpu/--memory/--min-instances/--max-instances/--concurrency/--timeout`) are now
+> Sizing flags (`--cpu/--memory/--min-instances/--max/--max-instances/--concurrency/--timeout`) are now
 > **re-asserted by CI on every backend deploy** (`.github/workflows/ci.yml`, deploy-backend step),
 > so they can't drift from these values. `--min-instances=1` keeps one warm instance (no cold
 > starts; per-process caches survive). This bootstrap command still creates the service.
@@ -186,7 +186,7 @@ gcloud run deploy earningsnerd-backend \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
-  --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
+  --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
 ```
@@ -628,11 +628,13 @@ for the evidence record and Analysis prerequisites.
   `gcloud run services logs read earningsnerd-backend --region=us-west1`.
 - **`could not connect to server` / socket errors:** confirm `--add-cloudsql-instances` matches the
   instance connection name and the service account has `roles/cloudsql.client`.
-- **Raising capacity:** bump `--max-instances` (and size up Cloud SQL); keep
-  `max-instances × concurrency` comfortably under the DB's `max_connections`.
-- **Cold starts:** the deploy sets `--cpu-boost` (startup CPU boost) to shorten them while keeping
-  scale-to-zero (negligible cost). To *eliminate* them entirely (always-warm cost):
-  `gcloud run services update earningsnerd-backend --region=us-west1 --min-instances=1`.
+- **Raising capacity:** review database and workload headroom, then change both the service-level
+  `--max` and per-revision `--max-instances` controls (and size up Cloud SQL). Budget the sum of
+  `pool_size + max_overflow` for every service instance and overlapping job execution, with an
+  operational reserve below the database's usable connection limit. Cloud Run can briefly exceed a
+  configured maximum, and Cloud Run jobs are outside the service-level limit.
+- **Cold starts:** the deploy sets `--cpu-boost` (startup CPU boost) and `--min-instances=1`, keeping
+  one instance warm to avoid routine cold starts. Raising the minimum adds always-warm cost.
 
 > Migrated off Render.com (June 2026). Superseded Render/Vercel/Firebase deployment notes are
 > archived under [`docs/history/`](./history/) for provenance.
