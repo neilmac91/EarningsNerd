@@ -1,6 +1,6 @@
 # E7 source member ledger: explicit member dispositions
 
-**Status:** internal engineering format (`schema_version` 1, kind `e7_offline_source_member_ledger`),
+**Status:** internal engineering format (`schema_version` 1 or 2, kind `e7_offline_source_member_ledger`),
 draft for review. It is not an E7 evidence schema, has no readiness, protocol, executor, output or
 decision call site, and cannot admit evidence.
 
@@ -13,7 +13,7 @@ so no exhibit, graphic, archive or structured file can drop out of review scope 
 
 ## What a valid ledger proves
 
-`validate_member_ledger(ledger, accession_number=..., submission=..., document_map=..., unit_manifests=[...])`
+`validate_member_ledger(ledger, accession_number=..., submission=..., document_map=..., unit_manifests=[...], authoritative_attachment_bytes=None, filing_cik=None)`
 proves, for the caller's expected accession, complete-submission bytes, document map and unit
 manifests, and nothing more:
 
@@ -30,7 +30,8 @@ manifests, and nothing more:
    - `assigned_to_review_units` names a unit manifest by `unit_manifest_sha256` (the
      `manifest_sha256` that `validate_unit_manifest` reports for it) and a packet role
      whose SHA-256 equals the member's exact `payload`, `trimmed_payload`, `content` or `decoded`
-     bytes. No two members may claim the same manifest packet.
+     bytes. Schema 2 also permits `authoritative_attachment` as described below. No two members may
+     claim the same manifest packet.
    - `exact_duplicate` names another member with byte-identical payload that is itself assigned to
      review units. This is the only hash-proven non-review disposition, and chains are rejected.
    - `declared_non_content_packaging` carries a declared `basis` label. The proposal requires
@@ -70,6 +71,39 @@ depth, and type identity is exact at every level (subclasses of `str`, `int`, `d
 are rejected). Any change to the limitations, flags, dispositions or key sets
 requires a new `schema_version`.
 
+## Schema 2: current authoritative attachment supplements
+
+Schema 1 and all of its existing recorded bytes remain valid. Schema 2 adds the exact top-level
+key `authoritative_supplements` and the two additional limitations below. It does not change the
+frozen submission, member identities, strict uuencoding rules or the four false attestation flags.
+
+To build schema 2, pass a nonempty `authoritative_supplements` list, an
+`authoritative_attachment_bytes` dictionary mapping each member ID to immutable body bytes, and
+`filing_cik` to `build_member_ledger`. To validate it, supply the same byte dictionary and expected
+CIK to `validate_member_ledger`; the recorded supplement list comes from the ledger. Schema 1
+rejects these additional inputs. The CIK must match the unambiguous SEC-HEADER before the first
+DOCUMENT in the frozen submission; the accession's prefix is not used as the registrant CIK.
+
+Each supplement has exactly these keys: `member_id`, `ordinal`, `declared_filename`,
+`frozen_encoded_sha256`, `requested_url`, `final_url`, `status_code`, `representation`,
+`byte_length`, `sha256`, and `transport_owner_sha256`. Records must follow frozen ordinal order.
+The member identity, filename and encoded-content hash are rechecked against the frozen bytes;
+only `invalid_uuencode` members with `decoded: null` can receive this representation. Both URLs
+must equal the canonical same-filing SEC attachment URL, status must be 200, representation must
+be `httpx_identity_entity_bytes`, and body length/hash must match the supplied bytes. The recorded
+transport-owner SHA is provenance, not proof that a network request or review occurred.
+
+Every supplement must correspond to exactly one `assigned_to_review_units` disposition using
+`representation: authoritative_attachment`, and its body hash must equal that unit manifest's
+packet hash. Missing, extra, duplicate or unused supplements are rejected. Validate the unit
+manifest against those retained authoritative bytes separately; do not substitute them for the
+frozen encoded member. A filename extension does not establish content type or review relevance.
+
+The schema-2 validation summary reports `authoritative_supplement_count` and retains the extended
+limitations. It can establish the linkage to current authoritative bytes, not that those bytes
+were served unchanged when the original submission was frozen. Resolving six attachment bindings
+does not resolve other members or establish whole-accession review or E7 admission.
+
 ## Limitations
 
 1. Member enumeration follows the existing document map's SGML parse; only the mapped byte spans are re-verified here.
@@ -77,6 +111,11 @@ requires a new `schema_version`.
 3. Declared non-content packaging and every label are unverified declarations and hold completion; only exact duplicates are hash-proven.
 4. Tables, inline-XBRL facts (including hidden facts) and images inside members are not inventoried or dispositioned.
 5. No source review, E7 coverage_status or E7 admission is attested; unresolved members hold completion.
+
+Schema 2 additionally records:
+
+6. Current authoritative attachment bytes are a supplement, not a successful decode of the frozen encoded member or proof that SEC served identical bytes at freeze time.
+7. The recorded transport-owner SHA-256 is provenance only; it does not establish source review, correctness, completeness or admission.
 
 Modality inventories (expected table, fact and image IDs), the review graph, context registry,
 issue ledgers and admission remain later reviewed slices.
