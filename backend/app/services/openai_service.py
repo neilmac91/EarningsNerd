@@ -504,6 +504,10 @@ Rules:
         # The model cannot choose its own evidence source. Overwrite its private key.
         summary_data["_capital_allocation_grounding"] = filing_sample
         summary_data[ISSUER_CASH_SOURCE_KEY] = filing_sample
+        # Same rule for source-first Risks: this value is application-built after JSON parsing,
+        # from the exact bounded text placed in the primary prompt.  A model-supplied copy cannot
+        # select its own source.  ``summarize_filing`` removes it before building the stored payload.
+        summary_data["_risk_source_grounding"] = filing_sample
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             recovered = await self._recover_missing_sections(
@@ -722,17 +726,22 @@ Rules:
         if isinstance(sections_info, dict):
             sections_info["results_that_matter"] = financial_section
 
+        # A supplied critical excerpt remains the retained decoded-text authority.  On the degraded
+        # no-excerpt path, use the exact bounded, tag-cleaned sample that the model actually saw.
+        # Never compare model evidence with the raw SEC HTML supplied to the parser.
+        prepared_risk_source = structured_summary.pop("_risk_source_grounding", "")
+        risk_source = (
+            filing_excerpt
+            if isinstance(filing_excerpt, str) and filing_excerpt.strip()
+            else prepared_risk_source
+        )
         raw_risk_section = sections_info.get("risks")
         if isinstance(raw_risk_section, str):
             raw_risk_section = [raw_risk_section]
         risk_candidates = _normalize_risk_factors(raw_risk_section)
         risk_section, risk_projection = project_risk_list(
             risk_candidates,
-            sources=(
-                [filing_excerpt]
-                if isinstance(filing_excerpt, str) and filing_excerpt.strip()
-                else []
-            ),
+            sources=[risk_source] if isinstance(risk_source, str) and risk_source.strip() else [],
             base_url=None,
         )
         sections_info.pop("risk_factors", None)
@@ -1140,6 +1149,7 @@ Rules:
             # parsed candidates when excerpt enrichment was unavailable but the model used the
             # cleaned filing sample; the finalizer pops it before persistence.
             "_risk_source_candidates": risk_candidates,
+            "_risk_source_grounding": risk_source,
         }
         
         # Add message if status is error or partial

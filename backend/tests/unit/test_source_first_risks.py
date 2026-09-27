@@ -92,14 +92,41 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     )
 
     # Supported degraded primary path: no precomputed excerpt, but generation uses filing_text.
-    degraded = await service.summarize_filing(filing_text, "Example Co", "10-K", filing_excerpt=None)
+    degraded_html = filing_text.replace(
+        source_span,
+        "Our business depends on a limited <span>number of suppliers</span> and may be disrupted.",
+    )
+    degraded = await service.summarize_filing(
+        degraded_html, "Example Co", "10-K", filing_excerpt=None
+    )
     _, degraded_raw, degraded_sections, _ = _finalize_summary_projection(
-        degraded, None, degraded["status"], source_text=filing_text,
+        degraded, None, degraded["status"], source_text=degraded_html,
         filing_document_url=filing.document_url,
     )
     assert degraded_sections["_risk_source_projection"]["verified_count"] == 4
-    assert source_span in degraded_sections["risks"][0]["supporting_evidence"]
-    assert "_risk_source_candidates" not in degraded and "_risk_source_candidates" not in degraded_raw
+    degraded_evidence = degraded_sections["risks"][0]["supporting_evidence"]
+    assert " ".join(degraded_evidence.split()) == source_span
+    assert "<span>" not in degraded_evidence
+    for private_key in ("_risk_source_candidates", "_risk_source_grounding"):
+        assert private_key not in degraded and private_key not in degraded_raw
+
+    # A later cached read deterministically decodes same-filing raw HTML rather than reverting to
+    # raw-markup matching and withholding the excerpt that was valid at fresh finalization.
+    degraded_summary = SimpleNamespace(
+        id=11, filing_id=2, business_overview=degraded["business_overview"],
+        raw_summary=json.loads(json.dumps(degraded_raw)), financial_highlights={},
+        risk_factors=degraded["risk_factors"], management_discussion="", key_changes="",
+        schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None,
+    )
+    degraded_filing = SimpleNamespace(
+        **{**filing.__dict__, "content_cache": SimpleNamespace(
+            filing_id=2, critical_excerpt=None, markdown_content=degraded_html,
+        )}
+    )
+    degraded_cached = enrich_summary_provenance(degraded_summary, degraded_filing)
+    cached_evidence = degraded_cached["raw_summary"]["sections"]["risks"][0]["supporting_evidence"]
+    assert " ".join(cached_evidence.split()) == source_span
+    assert "<span>" not in cached_evidence
 
     enriched = enrich_summary_provenance(summary, filing)
     exporter = ExportService()

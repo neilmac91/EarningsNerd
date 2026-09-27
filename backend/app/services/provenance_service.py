@@ -8,8 +8,8 @@ never reach the visible result.
 Design notes
 ------------
 * **Honest labeling.** Risk excerpts are emitted only when whitespace-exact source matching returns
-  the filing's original bytes. The application supplies the neutral label and this filing's link;
-  unmatched items are withheld with counts rather than shown as model-authored citations.
+  a span of the filing's retained decoded text. The application supplies the neutral label and this
+  filing's link; unmatched items are withheld with counts rather than shown as model-authored citations.
 * **Non-mutating + tolerant.** Helpers deep-copy their inputs and degrade gracefully on missing
   structures, so enrichment is safe to run at serialization time over arbitrary historical summaries.
 """
@@ -22,6 +22,7 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from app.services import metric_delta_service
+from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
 
@@ -131,8 +132,14 @@ def _select_source_texts(filing: Any) -> list[str]:
     sources: list[str] = []
     for name in ("critical_excerpt", "markdown_content"):
         value = getattr(cache, name, None)
-        if isinstance(value, str) and value.strip() and value not in sources:
-            sources.append(value)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        # ``critical_excerpt`` is already decoded section text.  Historical/degraded caches may
+        # carry raw HTML in ``markdown_content``; derive the same deterministic decoded-text view
+        # used by prompt preparation before strict matching. Plain markdown/text passes through.
+        source = clean_filing_source(value) if name == "markdown_content" else value
+        if source.strip() and source not in sources:
+            sources.append(source)
     return sources
 
 
