@@ -1,0 +1,9 @@
+{
+  "code_commit": "0a542f54681ae52600baea6eb9efa98c0b7b2ca8",
+  "mutation": "request-scope get_db dependency retains its connection through background tasks",
+  "fault_exit": 1,
+  "fault_failed_cases": 1,
+  "restored_exit": 0,
+  "restored_sha256": "bbeeb56775ae98953b4e3f63cfd2554f7928879eaab131256df572b39233136d",
+  "restored_tail": "21 passed, 17 warnings in 12.54s"
+}

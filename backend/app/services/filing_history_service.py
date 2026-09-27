@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -94,13 +94,10 @@ async def _search_window_with_retry(efts_client, *, forms: str, cik: str, start:
     raise last_exc  # type: ignore[misc]
 
 
-async def backfill_company(db: Session, company: Company, *, efts_client=None) -> dict:
-    """Backfill one company's 10-K/10-Q history since ``HISTORY_BACKFILL_SINCE_YEAR`` and stamp it.
-
-    A per-window EFTS failure (after retries) is logged and skipped, not raised — a partial
-    backfill is fine (the next visit/run re-covers it). The company is stamped only when at least
-    one window succeeded, so a total EFTS outage retries on the next visit instead of marking the
-    company done with no data."""
+async def _fetch_history_rows(
+    *, cik: str, ticker: str, efts_client=None
+) -> tuple[list[dict], int, int]:
+    """Fetch and validate one company's bounded EFTS windows without owning a DB session."""
     if efts_client is None:
         from app.integrations.sec_api import sec_full_text_search_client
         efts_client = sec_full_text_search_client
@@ -116,11 +113,11 @@ async def backfill_company(db: Session, company: Company, *, efts_client=None) -
     for start, end in windows:
         try:
             result = await _search_window_with_retry(
-                efts_client, forms=forms, cik=company.cik, start=start, end=end
+                efts_client, forms=forms, cik=cik, start=start, end=end
             )
         except Exception:
             logger.exception(
-                "History backfill window %s..%s failed for %s after retries", start, end, company.ticker
+                "History backfill window %s..%s failed for %s after retries", start, end, ticker
             )
             continue
         windows_ok += 1
@@ -134,16 +131,78 @@ async def backfill_company(db: Session, company: Company, *, efts_client=None) -
             seen.add(acc)
             rows.append(rec)
 
+    return rows, len(windows), windows_ok
+
+
+def _persist_history_rows(
+    db: Session,
+    company: Company,
+    *,
+    rows: list[dict],
+    windows: int,
+    windows_ok: int,
+) -> dict:
+    """Persist already-fetched history in one short caller-owned transaction."""
+    ticker = company.ticker
     inserted = filing_scan_service.upsert_filings(db, company, rows)
     if windows_ok:
         company.history_backfilled_at = utcnow()
         db.commit()
     stats = {
-        "ticker": company.ticker, "windows": len(windows), "windows_ok": windows_ok,
+        "ticker": ticker, "windows": windows, "windows_ok": windows_ok,
         "hits": len(rows), "inserted": len(inserted),
     }
     logger.info("History backfill %s", stats)
     return stats
+
+
+async def backfill_company(db: Session, company: Company, *, efts_client=None) -> dict:
+    """Backfill one company through a caller-owned session, preserving batch-job behavior.
+
+    A per-window EFTS failure (after retries) is logged and skipped, not raised — a partial
+    backfill is fine (the next visit/run re-covers it). The company is stamped only when at least
+    one window succeeded, so a total EFTS outage retries on the next visit instead of marking the
+    company done with no data. Callers that must release DB ownership during external I/O use
+    ``backfill_company_by_id`` instead.
+    """
+    rows, windows, windows_ok = await _fetch_history_rows(
+        cik=company.cik, ticker=company.ticker, efts_client=efts_client
+    )
+    return _persist_history_rows(
+        db, company, rows=rows, windows=windows, windows_ok=windows_ok
+    )
+
+
+async def backfill_company_by_id(
+    company_id: int,
+    *,
+    session_factory: Callable[[], Session],
+    efts_client=None,
+) -> dict | None:
+    """Backfill an on-visit company without retaining a connection during EFTS I/O.
+
+    The two sessions are owned here and contain only short read/persistence units. Generic batch
+    callers keep using ``backfill_company`` so this path never closes their sessions or discards
+    pending mutations.
+    """
+    with session_factory() as db:
+        company = db.get(Company, company_id)
+        if company is None or company.history_backfilled_at is not None:
+            return None
+        cik = company.cik
+        ticker = company.ticker
+
+    rows, windows, windows_ok = await _fetch_history_rows(
+        cik=cik, ticker=ticker, efts_client=efts_client
+    )
+
+    with session_factory() as db:
+        company = db.get(Company, company_id)
+        if company is None:
+            return None
+        return _persist_history_rows(
+            db, company, rows=rows, windows=windows, windows_ok=windows_ok
+        )
 
 
 def _resolve_cohort(

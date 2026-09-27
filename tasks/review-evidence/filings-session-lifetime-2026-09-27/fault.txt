@@ -1,0 +1,436 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_sec_network_phases_do_not_retain_queuepool_connections __________
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-289/test_sec_network_phases_do_not0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1192da110>
+
+    def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkeypatch):
+        """Warm background, cold-list and company-miss SEC waits all release the one-slot pool."""
+        engine = create_engine(
+            f"sqlite:///{tmp_path / 'filings-lifetime.db'}",
+            connect_args={"check_same_thread": False},
+            poolclass=QueuePool,
+            pool_size=1,
+            max_overflow=0,
+            pool_timeout=0.05,
+        )
+        Base.metadata.create_all(bind=engine)
+        TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    
+        def override_get_db():
+            with TestingSession() as db:
+                yield db
+    
+        phases = []
+    
+        def assert_released(phase):
+            assert engine.pool.checkedout() == 0, f"{phase} retained a database connection"
+            phases.append(phase)
+    
+        async def fake_history_fetch(*, cik, ticker, efts_client=None):
+            assert_released(f"history:{ticker}")
+            return [], 1, 1
+    
+        def filing_payload(cik):
+            accession = f"{cik}-{26:02d}-000001"
+            archive_cik = cik.lstrip("0") or "0"
+            accession_clean = accession.replace("-", "")
+            sec_url = f"https://www.sec.gov/Archives/edgar/data/{archive_cik}/{accession_clean}/"
+            return [{
+                "accession_number": accession,
+                "filing_type": "10-K",
+                "filing_date": "2026-02-19",
+                "report_date": "2025-12-31",
+                "document_url": sec_url + "primary.htm",
+                "sec_url": sec_url,
+            }]
+    
+        async def fake_get_filings(cik, _types):
+            assert_released(f"filings:{cik}")
+            return [] if cik == "0000000001" else filing_payload(cik)
+    
+        async def fake_search_company(ticker):
+            assert_released(f"search:{ticker}")
+            return [{
+                "cik": "0000000003", "ticker": ticker.upper(),
+                "name": "Missing Company", "exchange": "NYSE",
+            }]
+    
+        async def fake_primary_ticker(cik):
+            assert_released(f"primary:{cik}")
+            return "MISSING"
+    
+        monkeypatch.setattr(filings_mod, "SessionLocal", TestingSession)
+        monkeypatch.setattr(filing_history_service, "_fetch_history_rows", fake_history_fetch)
+        monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", fake_get_filings)
+        monkeypatch.setattr(filings_mod.sec_edgar_service, "search_company", fake_search_company)
+        monkeypatch.setattr(
+            filings_mod.sec_edgar_service, "primary_ticker_for_cik", fake_primary_ticker
+        )
+        filings_mod._filings_synced_at.clear()
+        filings_mod._refreshing_keys.clear()
+        filings_mod._history_backfilling_ids.clear()
+    
+        with TestingSession() as db:
+            warm = _seed_company(db, ticker="WARM", cik="0000000001")
+            _seed_filing(db, warm, "0000000001-25-000001")
+            cold = _seed_company(db, ticker="COLD", cik="0000000002")
+            cold.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+            db.commit()
+    
+        main.app.dependency_overrides[get_db] = override_get_db
+        try:
+            tc = TestClient(main.app)
+            assert tc.get("/api/filings/company/WARM").status_code == 200
+            assert tc.get("/api/filings/company/COLD").status_code == 200
+            assert tc.get("/api/filings/company/MISSING").status_code == 200
+        finally:
+            main.app.dependency_overrides.pop(get_db, None)
+            filings_mod._filings_synced_at.clear()
+            filings_mod._refreshing_keys.clear()
+            filings_mod._history_backfilling_ids.clear()
+            engine.dispose()
+    
+>       assert phases == [
+            "history:WARM",
+            "filings:0000000001",
+            "filings:0000000002",
+            "search:MISSING",
+            "primary:0000000003",
+            "filings:0000000003",
+            "history:MISSING",
+        ]
+E       AssertionError: assert ['filings:000...s:0000000003'] == ['history:WAR...0000003', ...]
+E         
+E         At index 0 diff: 'filings:0000000002' != 'history:WARM'
+E         Right contains 3 more items, first extra item: 'primary:0000000003'
+E         Use -v to get more diff
+
+tests/unit/test_filings_endpoint_db_first.py:234: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-09-26 23:33:18] DEBUG    [no-id] asyncio - Using selector: KqueueSelector
+[2026-09-26 23:33:18] INFO     [9f24d052a3d3] api.request - GET /api/filings/company/WARM {'duration_ms': 16.89, 'status_code': 200}
+[2026-09-26 23:33:18] WARNING  [9f24d052a3d3] app.routers.filings - On-visit history backfill failed for company 1
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 115, in _run_history_backfill_on_visit
+    await filing_history_service.backfill_company_by_id(
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/services/filing_history_service.py", line 189, in backfill_company_by_id
+    company = db.get(Company, company_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3702, in get
+    return self._get_impl(
+           ^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3881, in _get_impl
+    return db_load_fn(
+           ^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
+    session.execute(
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2261, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2113, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1191, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3295, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 144, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3319, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1290, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 167, in _do_get
+    raise exc.TimeoutError(
+sqlalchemy.exc.TimeoutError: QueuePool limit of size 1 overflow 0 reached, connection timed out, timeout 0.05 (Background on this error at: https://sqlalche.me/e/20/3o7r)
+[2026-09-26 23:33:18] WARNING  [9f24d052a3d3] app.routers.filings - Background filings refresh failed for WARM; serving persisted rows (stale within TTL)
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 80, in _refresh_company_filings
+    sec_filings = await asyncio.wait_for(
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-python-corrections-20260927/lib/python3.11/asyncio/tasks.py", line 489, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/tests/unit/test_filings_endpoint_db_first.py", line 189, in fake_get_filings
+    assert_released(f"filings:{cik}")
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/tests/unit/test_filings_endpoint_db_first.py", line 167, in assert_released
+    assert engine.pool.checkedout() == 0, f"{phase} retained a database connection"
+AssertionError: filings:0000000001 retained a database connection
+assert 1 == 0
+ +  where 1 = checkedout()
+ +    where checkedout = <sqlalchemy.pool.impl.QueuePool object at 0x119776fd0>.checkedout
+ +      where <sqlalchemy.pool.impl.QueuePool object at 0x119776fd0> = Engine(sqlite:////private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-289/test_sec_network_phases_do_not0/filings-lifetime.db).pool
+[2026-09-26 23:33:18] INFO     [no-id] httpx2 - HTTP Request: GET http://testserver/api/filings/company/WARM "HTTP/1.1 200 OK"
+[2026-09-26 23:33:18] DEBUG    [no-id] asyncio - Using selector: KqueueSelector
+[2026-09-26 23:33:18] INFO     [6cd0d94aea19] api.request - GET /api/filings/company/COLD {'duration_ms': 5.74, 'status_code': 200}
+[2026-09-26 23:33:18] INFO     [no-id] httpx2 - HTTP Request: GET http://testserver/api/filings/company/COLD "HTTP/1.1 200 OK"
+[2026-09-26 23:33:18] DEBUG    [no-id] asyncio - Using selector: KqueueSelector
+[2026-09-26 23:33:18] INFO     [1b22e02b103d] api.request - GET /api/filings/company/MISSING {'duration_ms': 5.91, 'status_code': 200}
+[2026-09-26 23:33:18] WARNING  [1b22e02b103d] app.routers.filings - On-visit history backfill failed for company 3
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 115, in _run_history_backfill_on_visit
+    await filing_history_service.backfill_company_by_id(
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/services/filing_history_service.py", line 189, in backfill_company_by_id
+    company = db.get(Company, company_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3702, in get
+    return self._get_impl(
+           ^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3881, in _get_impl
+    return db_load_fn(
+           ^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
+    session.execute(
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2261, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2113, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1191, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3295, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 144, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3319, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1290, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 167, in _do_get
+    raise exc.TimeoutError(
+sqlalchemy.exc.TimeoutError: QueuePool limit of size 1 overflow 0 reached, connection timed out, timeout 0.05 (Background on this error at: https://sqlalche.me/e/20/3o7r)
+[2026-09-26 23:33:18] INFO     [no-id] httpx2 - HTTP Request: GET http://testserver/api/filings/company/MISSING "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: KqueueSelector
+INFO     api.request:logging_service.py:248 GET /api/filings/company/WARM
+WARNING  app.routers.filings:filings.py:119 On-visit history backfill failed for company 1
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 115, in _run_history_backfill_on_visit
+    await filing_history_service.backfill_company_by_id(
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/services/filing_history_service.py", line 189, in backfill_company_by_id
+    company = db.get(Company, company_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3702, in get
+    return self._get_impl(
+           ^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3881, in _get_impl
+    return db_load_fn(
+           ^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
+    session.execute(
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2261, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2113, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1191, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3295, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 144, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3319, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1290, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 167, in _do_get
+    raise exc.TimeoutError(
+sqlalchemy.exc.TimeoutError: QueuePool limit of size 1 overflow 0 reached, connection timed out, timeout 0.05 (Background on this error at: https://sqlalche.me/e/20/3o7r)
+WARNING  app.routers.filings:filings.py:92 Background filings refresh failed for WARM; serving persisted rows (stale within TTL)
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 80, in _refresh_company_filings
+    sec_filings = await asyncio.wait_for(
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-python-corrections-20260927/lib/python3.11/asyncio/tasks.py", line 489, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/tests/unit/test_filings_endpoint_db_first.py", line 189, in fake_get_filings
+    assert_released(f"filings:{cik}")
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/tests/unit/test_filings_endpoint_db_first.py", line 167, in assert_released
+    assert engine.pool.checkedout() == 0, f"{phase} retained a database connection"
+AssertionError: filings:0000000001 retained a database connection
+assert 1 == 0
+ +  where 1 = checkedout()
+ +    where checkedout = <sqlalchemy.pool.impl.QueuePool object at 0x119776fd0>.checkedout
+ +      where <sqlalchemy.pool.impl.QueuePool object at 0x119776fd0> = Engine(sqlite:////private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-289/test_sec_network_phases_do_not0/filings-lifetime.db).pool
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://testserver/api/filings/company/WARM "HTTP/1.1 200 OK"
+DEBUG    asyncio:selector_events.py:54 Using selector: KqueueSelector
+INFO     api.request:logging_service.py:248 GET /api/filings/company/COLD
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://testserver/api/filings/company/COLD "HTTP/1.1 200 OK"
+DEBUG    asyncio:selector_events.py:54 Using selector: KqueueSelector
+INFO     api.request:logging_service.py:248 GET /api/filings/company/MISSING
+WARNING  app.routers.filings:filings.py:119 On-visit history backfill failed for company 3
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py", line 115, in _run_history_backfill_on_visit
+    await filing_history_service.backfill_company_by_id(
+  File "/private/tmp/earningsnerd-filings-session-20260927/backend/app/services/filing_history_service.py", line 189, in backfill_company_by_id
+    company = db.get(Company, company_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3702, in get
+    return self._get_impl(
+           ^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3881, in _get_impl
+    return db_load_fn(
+           ^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
+    session.execute(
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2261, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2113, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1191, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3295, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 144, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3319, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1290, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 167, in _do_get
+    raise exc.TimeoutError(
+sqlalchemy.exc.TimeoutError: QueuePool limit of size 1 overflow 0 reached, connection timed out, timeout 0.05 (Background on this error at: https://sqlalche.me/e/20/3o7r)
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://testserver/api/filings/company/MISSING "HTTP/1.1 200 OK"
+=============================== warnings summary ===============================
+app/config.py:21
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:110
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/summary.py:110: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:168
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/summary.py:168: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:133
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:85
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/summaries.py:85: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_filings_endpoint_db_first.py::test_sec_network_phases_do_not_retain_queuepool_connections
+1 failed, 17 warnings in 5.51s
