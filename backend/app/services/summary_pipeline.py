@@ -31,6 +31,7 @@ from app.config import settings
 from app.models import Filing, Summary, User, Subscription
 from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
+from app.services.ai.normalize import _section_has_content
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.edgar.sixk_classifier import classify_sixk_text
@@ -65,7 +66,16 @@ from app.services.summary_generation_service import (
     record_progress,
     get_or_cache_excerpt,
 )
+from app.services.provenance_service import (
+    RISK_PROJECTION_KEY,
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    project_risk_list,
+    replace_business_overview_risks,
+    source_safe_business_overview,
+)
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.services.summary_schema import TRACKED_SECTIONS_V2
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +88,67 @@ _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
 
 
+def _finalized_section_coverage(
+    sections_info: dict, previous_snapshot: object,
+) -> dict:
+    """Align Risks coverage with the finalized source projection.
+
+    Producers own the non-Risks coverage booleans because they know which placeholder rules they
+    applied. This shared persistence/progress boundary preserves those values, recounts Risks from
+    its finalized source-bound list, and then rebuilds the canonical aggregate fields.
+    """
+    prior_per_section = (
+        previous_snapshot.get("per_section")
+        if isinstance(previous_snapshot, dict)
+        else None
+    )
+    # Aggregate-only snapshots predate the canonical per-section contract. Their non-Risks
+    # contributions cannot be reconstructed from compatibility columns without changing historical
+    # quality semantics. Current primary and timeout producers both provide per_section, so retain
+    # this legacy shape unchanged rather than guessing.
+    if isinstance(previous_snapshot, dict) and not isinstance(prior_per_section, dict):
+        return dict(previous_snapshot)
+    coverage_map = {
+        section: (
+            bool(prior_per_section.get(section))
+            if isinstance(prior_per_section, dict)
+            else _section_has_content(sections_info.get(section))
+        )
+        for section in TRACKED_SECTIONS_V2
+    }
+    # Risks are the section this finalizer projects. Recount it from the finalized source-bound
+    # list even when an earlier producer supplied a complete non-risk coverage map.
+    coverage_map["risks"] = _section_has_content(sections_info.get("risks"))
+    covered = [section for section, has_content in coverage_map.items() if has_content]
+    missing = [section for section, has_content in coverage_map.items() if not has_content]
+    total_count = len(coverage_map)
+    covered_count = len(covered)
+    prior_not_applicable = (
+        previous_snapshot.get("not_applicable", [])
+        if isinstance(previous_snapshot, dict)
+        else []
+    )
+    not_applicable = [
+        section for section in prior_not_applicable
+        if section in coverage_map and not coverage_map[section]
+    ]
+    return {
+        "per_section": coverage_map,
+        "covered": covered,
+        "missing": missing,
+        "covered_count": covered_count,
+        "total_count": total_count,
+        "coverage_ratio": (covered_count / total_count) if total_count else None,
+        "not_applicable": not_applicable,
+    }
+
+
 def _finalize_summary_projection(
     summary_payload: dict,
     xbrl_metrics: Optional[dict],
     summary_status: str,
+    source_text: str = "",
+    filing_document_url: Optional[str] = None,
 ) -> tuple[str, dict, dict, Optional[dict]]:
     """Build the one persisted/streamed projection after any generator has returned.
 
@@ -106,14 +173,42 @@ def _finalize_summary_projection(
         )
         sections_info["results_that_matter"] = normalized_financial_section
 
-    sections_info["risks"] = summary_payload.get("risk_factors") or []
+    # Risks compose at this same shared post-generator boundary. Reserved producer metadata and the
+    # nonselected alias are discarded before the candidate list is matched to this generation's
+    # filing source; only code then stamps renderer ownership.
+    sections_info.pop(RISK_PROJECTION_KEY, None)
+    sections_info.pop("risk_factors", None)
+    raw_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
+    summary_payload.pop("_risk_source_candidate_count", None)
+    private_candidates = summary_payload.pop("_risk_source_candidates", None)
+    private_source = summary_payload.pop("_risk_source_grounding", None)
+    risk_candidates = (
+        private_candidates if isinstance(private_candidates, list)
+        else summary_payload.get("risk_factors") or []
+    )
+    risk_section, risk_projection = project_risk_list(
+        risk_candidates,
+        sources=(
+            [private_source]
+            if isinstance(private_source, str) and private_source.strip()
+            else [source_text] if isinstance(source_text, str) and source_text.strip() else []
+        ),
+        base_url=filing_document_url,
+    )
+    sections_info["risks"] = risk_section
+    sections_info[RISK_PROJECTION_KEY] = risk_projection
     raw_summary["sections"] = sections_info
+    raw_summary["section_coverage"] = _finalized_section_coverage(
+        sections_info, raw_summary.get("section_coverage")
+    )
     raw_summary["status"] = summary_status
     raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
     if has_metric_table:
         raw_summary[EXACT_CONTEXT_KEY] = EXACT_CONTEXT_VERSION
+    raw_summary[RISK_SOURCE_CONTEXT_KEY] = RISK_SOURCE_CONTEXT_VERSION
 
+    markdown = replace_business_overview_risks(markdown, raw_summary)
     summary_payload["business_overview"] = markdown
     summary_payload["raw_summary"] = raw_summary
     return markdown, raw_summary, sections_info, normalized_financial_section
@@ -358,7 +453,7 @@ async def stream_filing_summary(
                         "cache_created_at": cache.created_at if cache else None,
                     } if filing else None
                     summary_fields = {
-                        "business_overview": summary.business_overview, "id": summary.id,
+                        "business_overview": source_safe_business_overview(summary, filing), "id": summary.id,
                     } if summary else None
                     return filing_fields, summary_fields
 
@@ -383,7 +478,13 @@ async def stream_filing_summary(
             def get_persisted_summary_fields():
                 with database.SessionLocal() as s:
                     summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
+                    persisted_filing = s.query(Filing).options(
+                        joinedload(Filing.content_cache)
+                    ).filter(Filing.id == filing_id).first()
+                    return {
+                        "business_overview": source_safe_business_overview(summ, persisted_filing),
+                        "id": summ.id,
+                    } if summ else None
 
             waited = 0.0
             joined_generation = False
@@ -906,8 +1007,18 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': error_message}
                 return
 
+            # The application-prepared degraded source is private and will be popped by the shared
+            # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
+            # view for later API/export projection when no critical excerpt exists.
+            risk_source_for_cache = summary_payload.get("_risk_source_grounding")
             markdown, raw_summary, sections_info, normalized_financial_section = (
-                _finalize_summary_projection(summary_payload, xbrl_metrics, summary_status)
+                _finalize_summary_projection(
+                    summary_payload,
+                    xbrl_metrics,
+                    summary_status,
+                    source_text=excerpt or filing_text,
+                    filing_document_url=filing_document_url,
+                )
             )
 
             section_coverage = (
@@ -923,7 +1034,7 @@ async def stream_filing_summary(
                     section_coverage=section_coverage,
                 )
 
-            risk_section = summary_payload.get("risk_factors") or []
+            risk_section = sections_info.get("risks") or []
             # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
             # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
             management_section = summary_payload.get("management_discussion")
@@ -1088,6 +1199,12 @@ async def stream_filing_summary(
                                 upsert_content_cache(
                                     session, filing_id, filing_for_cache.content_cache,
                                     excerpt=excerpt, sections_payload=sections_info,
+                                    risk_source_text=(
+                                        risk_source_for_cache
+                                        if isinstance(risk_source_for_cache, str)
+                                        else None
+                                    ),
+                                    replace_risk_source=True,
                                 )
                             session.commit()
                             return existing.id
@@ -1113,6 +1230,15 @@ async def stream_filing_summary(
                             filing_for_cache.content_cache,
                             excerpt=excerpt,
                             sections_payload=sections_info,
+                            risk_source_text=(
+                                risk_source_for_cache
+                                if (
+                                    isinstance(risk_source_for_cache, str)
+                                    and (force_regenerate or not excerpt)
+                                )
+                                else None
+                            ),
+                            replace_risk_source=force_regenerate,
                         )
 
                     try:

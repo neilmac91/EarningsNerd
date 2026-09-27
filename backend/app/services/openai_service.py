@@ -58,6 +58,12 @@ from app.services.metric_delta_service import (
     bind_exact_xbrl_deltas,
 )
 from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.provenance_service import (
+    RISK_PROJECTION_KEY,
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    project_risk_list,
+)
 # The generation-side taxonomy: the section keys the current schema_template emits — v2 as of the
 # Tier-3.1 cutover. summarize_filing builds the per_section coverage snapshot from it below. This is
 # DISTINCT from the quality badge's frozen per-version tuples (summary_schema.TRACKED_SECTIONS_V1 /
@@ -498,6 +504,10 @@ Rules:
         # The model cannot choose its own evidence source. Overwrite its private key.
         summary_data["_capital_allocation_grounding"] = filing_sample
         summary_data[ISSUER_CASH_SOURCE_KEY] = filing_sample
+        # Same rule for source-first Risks: this value is application-built after JSON parsing,
+        # from the exact bounded text placed in the primary prompt.  A model-supplied copy cannot
+        # select its own source.  ``summarize_filing`` removes it before building the stored payload.
+        summary_data["_risk_source_grounding"] = filing_sample
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             recovered = await self._recover_missing_sections(
@@ -623,6 +633,9 @@ Rules:
             forward = sections.get("forward_signals")
             if settings.AI_FORWARD_QUOTE_GATE and isinstance(forward, dict):
                 forward.pop("quotes", None)
+            # A partial provider response has no source text at this callback boundary. Risks wait
+            # for the final same-filing source projection rather than streaming model-authored text.
+            sections.pop("risks", None)
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
@@ -713,11 +726,27 @@ Rules:
         if isinstance(sections_info, dict):
             sections_info["results_that_matter"] = financial_section
 
+        # A supplied critical excerpt remains the retained decoded-text authority.  On the degraded
+        # no-excerpt path, use the exact bounded, tag-cleaned sample that the model actually saw.
+        # Never compare model evidence with the raw SEC HTML supplied to the parser.
+        prepared_risk_source = structured_summary.pop("_risk_source_grounding", "")
+        risk_source = (
+            filing_excerpt
+            if isinstance(filing_excerpt, str) and filing_excerpt.strip()
+            else prepared_risk_source
+        )
         raw_risk_section = sections_info.get("risks")
         if isinstance(raw_risk_section, str):
             raw_risk_section = [raw_risk_section]
-        risk_section = _normalize_risk_factors(raw_risk_section)
+        risk_candidates = _normalize_risk_factors(raw_risk_section)
+        risk_section, risk_projection = project_risk_list(
+            risk_candidates,
+            sources=[risk_source] if isinstance(risk_source, str) and risk_source.strip() else [],
+            base_url=None,
+        )
+        sections_info.pop("risk_factors", None)
         sections_info["risks"] = risk_section
+        sections_info[RISK_PROJECTION_KEY] = risk_projection
 
         # T5.4 forward-quote gate: verify every §5 quote against the same text the model generated
         # from; failures are always audited — the pipeline logs the greppable
@@ -798,7 +827,12 @@ Rules:
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
-        coverage_keys.update(sections_info.keys())
+        # The projection record is application-private provenance metadata, not a summary section.
+        # It may be nonempty even when every model-authored risk was withheld, so including it here
+        # would inflate both the numerator and denominator used by completion/progress decisions.
+        coverage_keys.update(
+            key for key in sections_info.keys() if key != RISK_PROJECTION_KEY
+        )
         coverage_map = {
             section: _section_has_content(sections_info.get(section))
             for section in sorted(coverage_keys)
@@ -885,12 +919,16 @@ Rules:
         structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
         structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
         structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
+        structured_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
+        structured_summary.pop("_risk_source_candidates", None)
+        structured_summary.pop("_risk_source_candidate_count", None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
+            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
         }
@@ -905,6 +943,7 @@ Rules:
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
+            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             "structured": structured_summary,
             "sections": sections_info,
@@ -1085,8 +1124,10 @@ Rules:
             if missing_sections_list:
                 message += f" Missing sections: {', '.join(missing_sections_list[:3])}"
         
-        # If we have no sections at all, it's an error
-        if not sections:
+        # A source owner may withhold every presentation card from otherwise valid structured
+        # output (for example, an ungrounded Risks item). Treat the response as unusable only when
+        # the provider returned no covered structured section at all.
+        if not sections and covered_sections == 0:
             status = "error"
             message = "Unable to retrieve this filing at the moment — please try again shortly."
         
@@ -1109,6 +1150,11 @@ Rules:
             "management_discussion": management_section,
             "key_changes": guidance_section,
             "raw_summary": raw_summary_payload,
+            # Private application-constructed handoff to the shared finalizer. This preserves the
+            # parsed candidates when excerpt enrichment was unavailable but the model used the
+            # cleaned filing sample; the finalizer pops it before persistence.
+            "_risk_source_candidates": risk_candidates,
+            "_risk_source_grounding": risk_source,
         }
         
         # Add message if status is error or partial

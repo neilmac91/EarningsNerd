@@ -117,7 +117,7 @@ async def test_previews_render_only_originally_complete_current_sections(monkeyp
         complete = sum(boundary <= end for boundary in boundaries)
         assert openai_service._partial_markdown_preview(content[:end], None) == expected(complete), end
     assert expected(1) and "Revenue rose" in expected(1)
-    assert "$1,000M" in expected(2) and "Concentration risk" in expected(3)
+    assert "$1,000M" in expected(2) and "Concentration risk" not in expected(3)
     assert "Sales guidance" in expected(4)
     assert openai_service._partial_markdown_preview("```json\n" + content + "\n```", None) == expected(4)
 

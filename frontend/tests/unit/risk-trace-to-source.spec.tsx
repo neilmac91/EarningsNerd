@@ -8,47 +8,38 @@ describe('Risk factor Trace-to-Source', () => {
   it('renders a verified link to the exact filing passage', () => {
     const risks: RiskFactor[] = [
       {
-        summary: 'Supply concentration',
+        summary: 'Filing excerpt',
         supporting_evidence: 'Supply chain constraints persisted through Q3.',
         source_url: 'https://www.sec.gov/x.htm#:~:text=Supply%20chain%20constraints',
         source_verified: true,
-        source_section_ref: 'Item 1A. Risk Factors',
+        source_section_ref: 'Filing excerpt',
       },
     ]
-    render(<SummaryRisks risks={risks} />)
+    render(<SummaryRisks risks={risks} projection={{ version: 1, verified_count: 1, withheld_count: 0 }} />)
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toContain('#:~:text=')
     expect(link.getAttribute('aria-label')).toMatch(/verified in filing/i)
     expect(link.textContent).toContain('Verified in filing')
+    expect(screen.getByText('Supply chain constraints persisted through Q3.')).toBeTruthy()
     // The section ref lives in the hover/focus panel (ambient provenance), not inline.
     fireEvent.mouseEnter(link)
-    expect(screen.getByText(/Item 1A\. Risk Factors/)).toBeTruthy()
+    expect(screen.getAllByText(/Filing excerpt/).length).toBeGreaterThan(0)
   })
 
-  it('labels an unverified citation honestly and links to the plain section', () => {
-    const risks: RiskFactor[] = [
-      {
-        summary: 'Some risk',
-        supporting_evidence: 'Paraphrased risk not found verbatim.',
-        source_url: 'https://www.sec.gov/x.htm',
-        source_verified: false,
-        source_section_ref: 'Item 1A. Risk Factors',
-      },
-    ]
-    render(<SummaryRisks risks={risks} />)
-    const link = screen.getByRole('link')
-    expect(link.getAttribute('href')).toBe('https://www.sec.gov/x.htm')
-    expect(link.getAttribute('href')).not.toContain('#:~:text=')
-    expect(link.textContent).toContain('Cited')
-    expect(screen.queryByText(/Verified in filing/)).toBeNull()
+  it('reports withheld evidence without rendering an unverified citation', () => {
+    render(<SummaryRisks risks={[]} projection={{ version: 1, verified_count: 0, withheld_count: 1 }} />)
+    expect(screen.getByText(/Source-verified risk excerpts are unavailable/)).toBeTruthy()
+    expect(screen.getByText(/1 item withheld/)).toBeTruthy()
+    expect(screen.queryByRole('link')).toBeNull()
   })
 
-  it('renders cleanly with no provenance fields (backward compatible)', () => {
+  it('does not render legacy model text without a source projection', () => {
     const risks: RiskFactor[] = [
       { summary: 'Legacy risk', supporting_evidence: 'Evidence text only.' },
     ]
     const { container } = render(<SummaryRisks risks={risks} />)
-    expect(container.textContent).toContain('Evidence text only.')
+    expect(container.textContent).not.toContain('Evidence text only.')
+    expect(container.textContent).toContain('No source-verified risk excerpts found')
     expect(screen.queryByRole('link')).toBeNull()
   })
 

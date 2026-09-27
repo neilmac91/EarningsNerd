@@ -101,13 +101,20 @@ def _full_sections():
 
 
 def _make_summary_and_filing(sections):
-    summary = SimpleNamespace(raw_summary={"sections": sections})
+    summary = SimpleNamespace(filing_id=42, raw_summary={"sections": sections})
     filing = SimpleNamespace(
+        id=42,
         company=SimpleNamespace(name="BIOGEN INC."),
         filing_type="10-K",
         filing_date=date(2026, 2, 6),
         period_end_date=date(2025, 12, 31),
         sec_url="https://www.sec.gov/Archives/edgar/data/875045/x.htm",
+        document_url="https://www.sec.gov/Archives/edgar/data/875045/x.htm",
+        content_cache=SimpleNamespace(
+            filing_id=42,
+            critical_excerpt="we operate in a very competitive and rapidly changing environment",
+            markdown_content=None,
+        ),
     )
     return summary, filing
 
@@ -201,10 +208,11 @@ class TestCsv:
             assert fragment in csv_out, f"CSV missing: {fragment}"
 
     def test_risk_filter_matches_page(self, service):
-        """Only risks with non-placeholder supporting evidence appear (mirrors the UI)."""
+        """Exports show only the source-owned excerpt, never model risk labels."""
         summary, filing = _make_summary_and_filing(_full_sections())
         csv_out = service.generate_csv(summary, filing)
-        assert "Competitive and rapidly changing environment" in csv_out
+        assert "we operate in a very competitive and rapidly changing environment" in csv_out
+        assert "Competitive and rapidly changing environment" not in csv_out
         assert "Vague risk" not in csv_out  # placeholder evidence dropped
         assert "Unsupported risk" not in csv_out  # no evidence dropped
 

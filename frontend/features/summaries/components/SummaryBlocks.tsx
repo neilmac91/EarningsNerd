@@ -7,7 +7,7 @@ import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { SectionEmpty } from './SectionEmpty'
-import { normalizeRisk, isPlaceholderText } from '@/lib/formatters'
+import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
 import type { BlockEvidence, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
 
@@ -55,18 +55,22 @@ interface SummaryBlocksProps {
 export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
   // Enriched, placeholder-filtered risks (with source_url/verified) for the risks special-case.
   const risks = useMemo<RiskFactor[]>(() => {
-    const raw = (summary.raw_summary?.sections as { risk_factors?: unknown } | undefined)?.risk_factors
+    const sections = summary.raw_summary?.sections as { risks?: unknown; risk_factors?: unknown } | undefined
+    const raw = sections?.risks ?? sections?.risk_factors
     if (!Array.isArray(raw)) return []
-    return raw
-      .map((r) => normalizeRisk(r))
-      .filter((r): r is RiskFactor => {
-        // Parity with the retired tabbed page: drop risks whose evidence (or description) is
-        // placeholder filler — the backend's block filtering is bypassed on this direct-read path.
-        if (!r || !r.supporting_evidence || isPlaceholderText(r.supporting_evidence)) return false
-        if (r.description && isPlaceholderText(r.description)) return false
-        return true
-      })
+    return raw.map((r) => normalizeRisk(r)).filter((r): r is RiskFactor => Boolean(r))
   }, [summary.raw_summary])
+  const riskOwner = summary.raw_summary?.risk_source_context_version
+  const riskProjection = riskOwner === 1 ? (
+    summary.raw_summary?.sections as {
+      _risk_source_projection?: {
+        version?: number
+        verified_count?: number
+        withheld_count?: number
+        source_available?: boolean
+      }
+    } | undefined
+  )?._risk_source_projection : undefined
 
   if (!sections?.length) {
     return <SectionEmpty label="summary" />
@@ -90,7 +94,7 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
               </CardHeader>
               <CardBody className="space-y-4">
                 {isRisksSection(section) ? (
-                  <SummaryRisks risks={risks} />
+                  <SummaryRisks risks={risks} projection={riskProjection} />
                 ) : (
                   section.blocks.map((block, i) => <BlockView key={i} block={block} />)
                 )}

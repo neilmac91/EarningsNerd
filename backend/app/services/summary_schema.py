@@ -85,6 +85,12 @@ SECTION_META: dict[str, dict[str, str]] = {
 SOURCE_UNIT_CONTEXT_KEY = "source_unit_context_version"
 SOURCE_UNIT_CONTEXT_VERSION = 1
 
+# Risks are rendered only from the code-owned, same-filing source projection.  Keep this envelope
+# marker beside the other schema ownership markers so the renderer can enforce it without importing
+# provenance_service (which itself imports the renderer).
+RISK_SOURCE_CONTEXT_KEY = "risk_source_context_version"
+RISK_SOURCE_CONTEXT_VERSION = 1
+
 
 class _V2Base(BaseModel):
     # Lenient by design — the model emits JSON that may carry extra keys or omit optional ones.

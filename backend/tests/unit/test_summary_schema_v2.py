@@ -5,6 +5,8 @@ the cutover (PR B) lands on proven render + badge code. No live model, no eval.
 """
 from __future__ import annotations
 
+from copy import deepcopy
+
 import pytest
 
 from app.services import summary_sections
@@ -87,8 +89,20 @@ V2_SECTIONS = {
 
 
 def _raw_v2(sections=None, schema_version=2):
-    return {"sections": sections if sections is not None else V2_SECTIONS,
-            "schema_version": schema_version}
+    projected = deepcopy(sections if sections is not None else V2_SECTIONS)
+    risks = projected.get("risks")
+    if isinstance(risks, list) and risks:
+        projected["risks"] = [{
+            "summary": "Filing excerpt",
+            "supporting_evidence": risk["supporting_evidence"],
+            "source_section_ref": "Filing excerpt",
+            "source_verified": True,
+        } for risk in risks]
+        projected["_risk_source_projection"] = {
+            "version": 1, "verified_count": len(risks), "withheld_count": 0,
+        }
+    return {"sections": projected, "schema_version": schema_version,
+            "risk_source_context_version": 1}
 
 
 def _by_title(sections):
@@ -203,8 +217,8 @@ def test_render_v2_forward_signals_quote_and_lists():
 def test_render_v2_risks_role_and_table():
     section = _by_title(summary_sections.render_sections(_raw_v2()))["Risks"]
     assert section.role == "risks"
-    assert section.blocks[0].kind == "table"
-    assert section.blocks[0].headers == ["#", "Risk", "Supporting Evidence"]
+    assert section.blocks[-1].kind == "table"
+    assert section.blocks[-1].headers == ["#", "Risk", "Supporting Evidence"]
 
 
 def test_render_v2_segments_has_operating_income_column():

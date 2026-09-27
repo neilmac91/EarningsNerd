@@ -1,16 +1,15 @@
 """Trace-to-Source provenance for AI-generated summaries.
 
 Surfaces *verifiable* provenance for AI claims (the "single-origin / traceable" brand promise from
-``docs/competitive-strategy-roadmap-2026.md``). For each risk factor we already have an AI-emitted
-``supporting_evidence`` excerpt plus a ``source_section_ref``; this module turns that into a deep link
-back to the original SEC filing and an honest verified/cited label.
+``docs/competitive-strategy-roadmap-2026.md``). Risks use a stricter source-first projection: model
+evidence may select an exact same-filing span, but model summaries, labels and verification flags
+never reach the visible result.
 
 Design notes
 ------------
-* **Honest labeling.** We only mark a claim ``source_verified=True`` when its evidence excerpt can be
-  located in the cached filing text. When verified, we build a ``#:~:text=`` fragment link so the
-  browser scrolls to / highlights the exact quote; otherwise we link to the filing (section-level) and
-  mark it merely "cited". We never claim "verified" for text we cannot actually find.
+* **Honest labeling.** Risk excerpts are emitted only when whitespace-exact source matching returns
+  a span of the filing's retained decoded text. The application supplies the neutral label and this
+  filing's link; unmatched items are withheld with counts rather than shown as model-authored citations.
 * **Non-mutating + tolerant.** Helpers deep-copy their inputs and degrade gracefully on missing
   structures, so enrichment is safe to run at serialization time over arbitrary historical summaries.
 """
@@ -23,7 +22,9 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from app.services import metric_delta_service
-from app.services.summary_sections import render_sections_json
+from app.services.ai.recovery_context import clean_filing_source
+from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
+from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
 
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
@@ -88,6 +89,282 @@ _METRIC_XBRL_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 # Below this magnitude the appears-in-text rendering check is ambiguous, so we don't claim "verified".
 _MIN_VERIFIABLE_XBRL_VALUE = 1e6
 
+# Risks are a source-first surface. These keys are written only by application code after the
+# model response has been associated with the filing text that produced it. A model-supplied copy
+# inside its nested payload is removed/overwritten before any renderer sees it.
+RISK_PROJECTION_KEY = "_risk_source_projection"
+RISK_SOURCE_LABEL = "Filing excerpt"
+
+
+def _whitespace_exact_source_span(evidence: Any, source_text: Any) -> Optional[str]:
+    """Return the original source span when evidence differs only in whitespace.
+
+    This is intentionally stricter than :func:`verify_excerpt_in_text`, whose typography and case
+    folds serve the broader citation product. Risks display the retained decoded filing span, not model text:
+    the candidate only selects a span and the returned value is sliced from the same-filing source.
+    """
+    if not isinstance(evidence, str) or not isinstance(source_text, str):
+        return None
+    candidate = evidence.strip()
+    if len(candidate) < _MIN_VERIFIABLE_LEN:
+        return None
+    words = candidate.split()
+    if not words:
+        return None
+    pattern = r"\s+".join(re.escape(word) for word in words)
+    if candidate[0].isalnum() or candidate[0] == "_":
+        pattern = rf"(?<!\w){pattern}"
+    if candidate[-1].isalnum() or candidate[-1] == "_":
+        pattern = rf"{pattern}(?!\w)"
+    match = re.search(pattern, source_text)
+    return match.group(0).strip() if match else None
+
+
+def _select_source_texts(filing: Any) -> list[str]:
+    """Return cached text only when its foreign key proves it belongs to ``filing``."""
+    cache = getattr(filing, "content_cache", None)
+    if cache is None:
+        return []
+    filing_id = getattr(filing, "id", None)
+    cache_filing_id = getattr(cache, "filing_id", None)
+    if type(filing_id) is not int or type(cache_filing_id) is not int or filing_id != cache_filing_id:
+        return []
+    sources: list[str] = []
+    for value in (
+        getattr(cache, "critical_excerpt", None),
+        getattr(cache, "risk_source_text", None),
+    ):
+        if isinstance(value, str) and value.strip() and value not in sources:
+            sources.append(value)
+    if sources:
+        return sources
+    markdown_content = getattr(cache, "markdown_content", None)
+    if not isinstance(markdown_content, str) or not markdown_content.strip():
+        return []
+    # Historical caches may contain raw HTML in their full-text field, so derive the same
+    # deterministic decoded-text view before strict matching. This is reached only when neither
+    # the critical excerpt nor the dedicated bounded source is available.
+    source = clean_filing_source(markdown_content)
+    return [source] if source.strip() else []
+
+
+def project_risk_list(
+    risks: Any,
+    *,
+    sources: list[str],
+    base_url: Optional[str],
+    original_count: Optional[int] = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Build the source-owned Risks display projection and its honest coverage counts."""
+    candidates = risks if isinstance(risks, list) else []
+    projected: list[dict[str, Any]] = []
+    for risk in candidates:
+        if not isinstance(risk, dict):
+            continue
+        evidence = (
+            risk.get("supporting_evidence")
+            or risk.get("supportingEvidence")
+            or risk.get("evidence")
+            or risk.get("source")
+        )
+        matched_span = None
+        for source_text in sources:
+            matched_span = _whitespace_exact_source_span(evidence, source_text)
+            if matched_span is not None:
+                break
+        if matched_span is None:
+            quoted_evidence = extract_quoted_span(evidence)
+            if quoted_evidence != evidence:
+                for source_text in sources:
+                    matched_span = _whitespace_exact_source_span(quoted_evidence, source_text)
+                    if matched_span is not None:
+                        break
+        if matched_span is None:
+            continue
+        projected.append({
+            "summary": RISK_SOURCE_LABEL,
+            "supporting_evidence": matched_span,
+            "source_section_ref": RISK_SOURCE_LABEL,
+            "source_url": (
+                build_text_fragment_url(base_url, matched_span, source_span=True)
+                if base_url
+                else None
+            ),
+            "source_verified": True,
+        })
+
+    total = max(len(candidates), original_count or 0)
+    metadata = {
+        "version": RISK_SOURCE_CONTEXT_VERSION,
+        "verified_count": len(projected),
+        "withheld_count": max(0, total - len(projected)),
+        "candidate_count": total,
+        "source_available": bool(sources),
+    }
+    return projected, metadata
+
+
+def _project_section_container(
+    container: dict,
+    *,
+    sources: list[str],
+    base_url: Optional[str],
+    original_count: Optional[int] = None,
+) -> bool:
+    """Replace Risks within one raw-summary container; return whether it had sections."""
+    sections = container.get("sections")
+    if not isinstance(sections, dict):
+        return False
+    try:
+        version = int(container.get("schema_version") or 1)
+    except (TypeError, ValueError):
+        version = 1
+    risk_key = "risks" if version >= 2 else "risk_factors"
+    sections.pop("risk_factors" if risk_key == "risks" else "risks", None)
+    projected, metadata = project_risk_list(
+        sections.get(risk_key),
+        sources=sources,
+        base_url=base_url,
+        original_count=original_count,
+    )
+    sections[risk_key] = projected
+    sections[RISK_PROJECTION_KEY] = metadata
+    return True
+
+
+def project_raw_summary_risks(
+    raw_summary: Optional[dict], filing: Any = None, *, summary_filing_id: Any = None
+) -> Optional[dict]:
+    """Return a copy whose visible Risks are derived only from this filing's source text."""
+    if not isinstance(raw_summary, dict):
+        return raw_summary
+    result = copy.deepcopy(raw_summary)
+    filing_id = getattr(filing, "id", None)
+    same_summary = (
+        type(summary_filing_id) is int
+        and type(filing_id) is int
+        and summary_filing_id == filing_id
+    )
+    sources = _select_source_texts(filing) if same_summary else []
+    sections = result.get("sections")
+    prior_meta = sections.get(RISK_PROJECTION_KEY) if isinstance(sections, dict) else None
+    marker = result.get(RISK_SOURCE_CONTEXT_KEY)
+    trusted_prior = (
+        type(marker) is int
+        and marker == RISK_SOURCE_CONTEXT_VERSION
+        and isinstance(prior_meta, dict)
+    )
+    prior_count = prior_meta.get("candidate_count") if trusted_prior else None
+    base_url = _base_url(filing) if same_summary else None
+    projected_any = _project_section_container(
+        result,
+        sources=sources,
+        base_url=base_url,
+        original_count=prior_count if type(prior_count) is int else None,
+    )
+    structured = result.get("structured")
+    if isinstance(structured, dict):
+        # JSON persistence breaks the fresh producer's shared-object alias: scrub and independently
+        # project this legacy copy too, never trusting a nested marker or count.
+        structured.pop(RISK_SOURCE_CONTEXT_KEY, None)
+        structured.pop("risks", None)
+        structured.pop("risk_factors", None)
+        projected_any = _project_section_container(
+            structured, sources=sources, base_url=base_url
+        ) or projected_any
+    result.pop("risks", None)
+    result.pop("risk_factors", None)
+    if projected_any:
+        result[RISK_SOURCE_CONTEXT_KEY] = RISK_SOURCE_CONTEXT_VERSION
+    return result
+
+
+def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
+    """Project a Summary row, including source-backed legacy compatibility risks.
+
+    Historical rows may have ``risk_factors`` without structured ``raw_summary.sections``. Build
+    only the minimal section container needed by the shared renderers, preserving any other raw
+    keys and adding no quality or completeness claim.
+    """
+    raw_summary = getattr(summary, "raw_summary", None)
+    has_sections = (
+        isinstance(raw_summary, dict)
+        and isinstance(raw_summary.get("sections"), dict)
+        and bool(raw_summary["sections"])
+    )
+    compatibility_risks = getattr(summary, "risk_factors", None)
+    if not has_sections and isinstance(compatibility_risks, list) and compatibility_risks:
+        raw_summary = copy.deepcopy(raw_summary) if isinstance(raw_summary, dict) else {}
+        schema_version = getattr(summary, "schema_version", None)
+        version = schema_version if type(schema_version) is int else 1
+        raw_summary["schema_version"] = version
+        risk_key = "risks" if version >= 2 else "risk_factors"
+        raw_summary["sections"] = {risk_key: copy.deepcopy(compatibility_risks)}
+    return project_raw_summary_risks(
+        raw_summary,
+        filing,
+        summary_filing_id=getattr(summary, "filing_id", None),
+    )
+
+
+def replace_business_overview_risks(
+    business_overview: Any,
+    projected: Optional[dict],
+    *,
+    append_if_missing: bool = False,
+) -> str:
+    """Replace only the Risks markdown while preserving every other notice and section."""
+    rendered = render_sections(projected)
+    stored = str(business_overview or "")
+    risk_section = next((section for section in rendered if section.role == "risks"), None)
+    risk_markdown = sections_to_markdown([risk_section]) if risk_section is not None else (
+        "## Risks\n\nSource-verified risk excerpts are unavailable. Review the filing."
+    )
+    # Replace only the model-authored Risks section. All non-Risks prose and existing fallback
+    # notices remain byte-identical on cached/legacy rows.
+    pattern = r"(?ms)^##\s+(?:Risks|Risk Factors|Investment Risks & Concerns)\s*$.*?(?=^##\s+|\Z)"
+    if re.search(pattern, stored):
+        emitted = False
+
+        def _replace(_match: re.Match) -> str:
+            nonlocal emitted
+            if emitted:
+                return ""
+            emitted = True
+            return risk_markdown + "\n\n"
+
+        return re.sub(pattern, _replace, stored)
+    if stored:
+        # A legacy/custom overview without a recognized Risks section has no unsafe risk block to
+        # replace. Only compatibility rows that actually carried a risk list append the source-owned
+        # replacement; current/custom summaries remain byte-identical.
+        if append_if_missing:
+            separator = "" if stored.endswith("\n\n") else "\n\n"
+            return stored + separator + risk_markdown
+        return stored
+    return sections_to_markdown(rendered)
+
+
+def source_safe_business_overview(summary: Any, filing: Any) -> str:
+    """Render cached/final markdown from the source-owned projection, including legacy rows."""
+    projected = project_summary_risks(summary, filing)
+    raw_summary = getattr(summary, "raw_summary", None)
+    has_sections = (
+        isinstance(raw_summary, dict)
+        and isinstance(raw_summary.get("sections"), dict)
+        and bool(raw_summary["sections"])
+    )
+    compatibility_risks = getattr(summary, "risk_factors", None)
+    return replace_business_overview_risks(
+        getattr(summary, "business_overview", None),
+        projected,
+        append_if_missing=(
+            not has_sections
+            and isinstance(compatibility_risks, list)
+            and bool(compatibility_risks)
+        ),
+    )
+
 
 def normalize_for_match(text: Optional[str]) -> str:
     """Lowercase, fold typography (curly quotes/apostrophes, en/em dashes → ASCII), and collapse all
@@ -129,7 +406,7 @@ def verify_excerpt_in_text(excerpt: str, normalized_source: Optional[str]) -> bo
     return needle in normalized_source
 
 
-def build_text_fragment_url(base_url: str, excerpt: str) -> str:
+def build_text_fragment_url(base_url: str, excerpt: str, *, source_span: bool = False) -> str:
     """Append a percent-encoded ``#:~:text=`` fragment pointing at the start of ``excerpt``.
 
     Uses only a leading snippet (not a start,end range) to stay robust against minor text drift, and
@@ -137,7 +414,7 @@ def build_text_fragment_url(base_url: str, excerpt: str) -> str:
     """
     if not base_url:
         return base_url
-    span = extract_quoted_span(excerpt)
+    span = excerpt.strip() if source_span else extract_quoted_span(excerpt)
     words = span.split()
     snippet = " ".join(words[:_FRAGMENT_MAX_WORDS])[:_FRAGMENT_MAX_CHARS].strip()
     if not snippet:
@@ -214,41 +491,6 @@ def build_metric_source(
     return out
 
 
-def build_risk_source(
-    risk: dict[str, Any],
-    filing: Any,
-    normalized_source: Optional[str],
-) -> dict[str, Any]:
-    """Compute provenance metadata for a single risk factor.
-
-    Returns ``{source_section_ref, source_url, source_verified}``. ``source_url`` is a text-fragment
-    deep link when the evidence is verified, otherwise the plain filing document URL.
-    ``normalized_source`` is the filing text pre-normalized by :func:`normalize_for_match`.
-    """
-    section_ref = risk.get("source_section_ref") or risk.get("sourceSectionRef")
-    evidence = (
-        risk.get("supporting_evidence")
-        or risk.get("supportingEvidence")
-        or risk.get("evidence")
-        or ""
-    )
-    base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
-
-    verified = verify_excerpt_in_text(evidence, normalized_source)
-    if not base_url:
-        url = None
-    elif verified:
-        url = build_text_fragment_url(base_url, evidence)
-    else:
-        url = base_url
-
-    return {
-        "source_section_ref": section_ref,
-        "source_url": url,
-        "source_verified": verified,
-    }
-
-
 def _base_url(filing: Any) -> str:
     return getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
 
@@ -264,7 +506,7 @@ def build_evidence(
     ``verified`` is True only when the model's (verbatim) ``excerpt`` is located in the cached filing
     text — then ``fragment_url`` is a ``#:~:text=`` deep link to it; otherwise the link is section-level
     and the chip reads "Cited". Honest labeling (never claim verified for text we cannot find) and
-    filing-only (``base_url`` is THIS filing's own URL) — the same contract as :func:`build_risk_source`,
+    filing-only (``base_url`` is THIS filing's own URL),
     generalized to any model claim so Print quotes / metric takeaways / footnotes cite the same way.
 
     Verification is EXACT (normalized substring), matching the copilot verifier: read-time enrichment
@@ -331,25 +573,6 @@ def _select_source_text(filing: Any) -> Optional[str]:
     if cache is None:
         return None
     return getattr(cache, "critical_excerpt", None) or getattr(cache, "markdown_content", None)
-
-
-def enrich_risk_list(
-    risks: Optional[list],
-    filing: Any,
-    normalized_source: Optional[str],
-) -> Optional[list]:
-    """Return a deep-copied risk list with provenance fields added to each dict entry."""
-    if not isinstance(risks, list):
-        return risks
-    enriched: list[Any] = []
-    for risk in risks:
-        if isinstance(risk, dict):
-            item = copy.deepcopy(risk)
-            item.update(build_risk_source(item, filing, normalized_source))
-            enriched.append(item)
-        else:
-            enriched.append(risk)
-    return enriched
 
 
 def _is_no_total_bank(xbrl_standardized: Optional[dict]) -> bool:
@@ -447,21 +670,26 @@ def enrich_raw_summary(
     filing: Any,
     normalized_source: Optional[str] = None,
     xbrl_standardized: Optional[dict] = None,
+    *,
+    summary_filing_id: Any = None,
 ) -> Optional[dict]:
-    """Non-mutating enrichment of ``raw_summary.sections`` risk factors + financial highlights.
+    """Build the source-first Risks projection and enrich other source-backed sections.
 
     Version-aware: v2 rows (``schema_version >= 2``) carry ``risks`` / ``results_that_matter``; legacy
-    v1 rows carry ``risk_factors`` / ``financial_highlights``. The enrichment helpers are shape-generic
-    (a risk-row list, a ``{table:[...]}`` dict), so only the section-key names differ by version — the
-    per-row ``source_url`` / ``source_verified`` / ``xbrl_concept`` provenance is added the same way for
-    both. Tolerant of missing sections; returns the input unchanged if there is nothing to enrich.
+    v1 rows carry ``risk_factors`` / ``financial_highlights``. Risks retain only original source spans
+    plus code-owned provenance; financial rows, forward quotes and footnotes keep their existing
+    enrichment contracts. Tolerant of missing sections; returns the input unchanged if there is
+    nothing to enrich.
     ``normalized_source`` (pre-normalized filing text) may be passed in to avoid recomputing it.
     """
     if not isinstance(raw_summary, dict):
         return raw_summary
-    sections = raw_summary.get("sections")
+    result = project_raw_summary_risks(raw_summary, filing, summary_filing_id=summary_filing_id)
+    if not isinstance(result, dict):
+        return result
+    sections = result.get("sections")
     if not isinstance(sections, dict):
-        return raw_summary
+        return result
     try:
         version = int(raw_summary.get("schema_version") or 1)
     except (TypeError, ValueError):
@@ -480,18 +708,15 @@ def enrich_raw_summary(
         or isinstance(sections.get("notable_footnotes"), list)
     )
     if not has_risks and not has_fh and not has_v2_cite:
-        return raw_summary
+        return result
 
     if normalized_source is None:
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
-    result = copy.deepcopy(raw_summary)
     delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
     exact_delta_owned = (
         type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
     )
-    if has_risks:
-        result["sections"][risk_key] = enrich_risk_list(risks, filing, normalized_source)
     if has_fh:
         # v2 metric rows carry a model Investor-Takeaway excerpt to cite; v1 rows don't, so only the
         # v2 path threads normalized_source (which turns on commentary_evidence).
@@ -514,15 +739,25 @@ def enrich_summary_provenance(
 ) -> dict[str, Any]:
     """Build a ``SummaryResponse``-shaped dict from a ``Summary`` row with provenance added.
 
-    Enriches risk factors (verified against the cached filing text) and financial-metric rows
-    (verified against the SEC XBRL values in ``xbrl_standardized``), across both ``raw_summary``
-    (the UI's canonical source) and the top-level columns (used by exports). The filing text is
-    normalized **once** here and threaded into every pass.
+    Projects Risks from exact same-filing source spans and enriches financial-metric rows against
+    SEC XBRL, across both ``raw_summary`` (the UI's canonical source) and compatibility columns.
+    The broader normalizer remains shared by non-Risks provenance surfaces.
     """
     raw_source = _select_source_text(filing) if filing is not None else None
     normalized_source = normalize_for_match(raw_source)
+    stored_raw = getattr(summary, "raw_summary", None)
+    has_stored_sections = (
+        isinstance(stored_raw, dict)
+        and isinstance(stored_raw.get("sections"), dict)
+        and bool(stored_raw["sections"])
+    )
+    projected_raw = project_summary_risks(summary, filing)
     enriched_raw = enrich_raw_summary(
-        summary.raw_summary, filing, normalized_source, xbrl_standardized
+        projected_raw,
+        filing,
+        normalized_source,
+        xbrl_standardized,
+        summary_filing_id=getattr(summary, "filing_id", None),
     )
     raw_marker = summary.raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY) if isinstance(
         summary.raw_summary, dict
@@ -530,22 +765,36 @@ def enrich_summary_provenance(
     exact_delta_owned = (
         type(raw_marker) is int and raw_marker == metric_delta_service.EXACT_CONTEXT_VERSION
     )
+    projected_top = None
+    if (
+        isinstance(summary.risk_factors, list)
+        and type(getattr(summary, "filing_id", None)) is int
+        and getattr(summary, "filing_id") == getattr(filing, "id", None)
+    ):
+        projected_top, _ = project_risk_list(
+            summary.risk_factors,
+            sources=_select_source_texts(filing),
+            base_url=_base_url(filing) if filing is not None else None,
+        )
     return {
         "id": summary.id,
         "filing_id": summary.filing_id,
-        "business_overview": summary.business_overview,
+        "business_overview": source_safe_business_overview(summary, filing),
         "financial_highlights": enrich_financial_highlights(
             summary.financial_highlights, filing, xbrl_standardized,
             exact_delta_owned=exact_delta_owned,
         ),
-        "risk_factors": enrich_risk_list(summary.risk_factors, filing, normalized_source),
+        "risk_factors": projected_top,
         "management_discussion": summary.management_discussion,
         "key_changes": summary.key_changes,
         "raw_summary": enriched_raw,
         # The one structured projection the web renders (T2.3): computed on read from the ENRICHED
         # raw_summary, so its metrics rows carry the verified deltas + provenance. Same Section/Block
         # model feeds the PDF/CSV exports — one source of truth for web + exports.
-        "rendered_sections": render_sections_json(enriched_raw),
+        # Compatibility-only legacy rows must keep the complete stored markdown surface. A
+        # synthesized Risks-only container is useful to project safe excerpts into that markdown,
+        # but must not make the web replace every other legacy section with one structured card.
+        "rendered_sections": render_sections_json(enriched_raw) if has_stored_sections else [],
         # Version stamps pass through so the client can tell a stale (NULL/behind) summary from a
         # current one; enrichment never regenerates, so the stamps reflect the stored row.
         "schema_version": getattr(summary, "schema_version", None),
