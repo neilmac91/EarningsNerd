@@ -1,5 +1,7 @@
 # Next quality candidate — reviewed local preparation, not promotion
 
+**Subsequent September 27 update:** the [integrated r candidate](../financial-candidate-r-2026-09-27/README.md) completes the listed scope/causal corrections and local full gate. The record below describes its earlier preparation; it is not the current execution status.
+
 The date/coexistence correction is committed locally as
 `1ec2546fc655c0fc6793602f0b7b6cd33b25e730` in the operator checkout
 `/private/tmp/earningsnerd-pr948-base-review`, based on PR942 head `be1f98f4`.

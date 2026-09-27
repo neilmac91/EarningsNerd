@@ -1,0 +1,12 @@
+{
+  "workflow_run": 36323479704,
+  "workflow_head": "b63bee6b0d1c6c9abff7347ac4e5bf920eb80bc2",
+  "observed_at": "2026-09-27T13:45:14Z",
+  "outcome": "success",
+  "is_available": true,
+  "currency": "USD",
+  "total_balance": "59.44",
+  "granted_balance": "0.00",
+  "topped_up_balance": "59.44",
+  "inference_calls": 0
+}

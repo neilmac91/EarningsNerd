@@ -1,0 +1,132 @@
+{
+  "cases": [
+    {
+      "commit": "8c2101352e9a8826cf405bd91df4bd89538aecc3",
+      "case": "ratio-operand",
+      "file": "backend/app/services/edgar/xbrl_service.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "ratio-operand-fault.log",
+        "sha256": "73b6b4f9d7b289fddb74c3b3639719348efc58e856d0175f997cb3af15d9faf1",
+        "tail": "FAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[ifrs-full:ProfitLossAttributableToOwnersOfParent-attributable to owners of the parent]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[issuer:AdjustedProfit-(numerator scope unavailable)]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[None-(numerator scope unavailable)]\n7 failed, 2 warnings in 4.37s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "ratio-operand-restored.log",
+        "sha256": "d3ceae9b37dad569442adb0b79085e0b5caf4925e2f033b87ec42b88f386b1d6",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n7 passed, 2 warnings in 3.82s"
+      },
+      "restored_sha256": "69de05128243979fef17d39ff94e64ef700e784e89d52dae68ef36f9ea45fdec"
+    },
+    {
+      "commit": "8c2101352e9a8826cf405bd91df4bd89538aecc3",
+      "case": "cash-issuer-scope",
+      "file": "backend/app/services/ai/xbrl_narrative.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "cash-issuer-scope-fault.log",
+        "sha256": "dd1c791ba209a97b4424b1aee6efb90076afab3fd0094ea05c33348e10b13dfb",
+        "tail": "FAILED tests/unit/test_xbrl_narrative_section.py::test_selected_cash_flow_basis_survives_consumers[issuer:PurchaseOfEquipmentAndSoftware-markdown]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_selected_cash_flow_basis_survives_consumers[issuer:PurchaseOfEquipmentAndSoftware-pdf]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_selected_cash_flow_basis_survives_consumers[issuer:PurchaseOfEquipmentAndSoftware-csv]\n10 failed, 2 warnings in 4.11s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "cash-issuer-scope-restored.log",
+        "sha256": "3ce00a661bb5ee411539e977d9ed5d6668ef362a251747bf9ea5f3a208b239a1",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n10 passed, 2 warnings in 3.46s"
+      },
+      "restored_sha256": "7af8a46a319e2323e640cb6adb28ebbd3e206671a87257aceaa90791b76158c4"
+    },
+    {
+      "commit": "8c2101352e9a8826cf405bd91df4bd89538aecc3",
+      "case": "debt-source-scope",
+      "file": "backend/app/services/ai/debt_scope.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "debt-source-scope-fault.log",
+        "sha256": "19c4220142300536c7a3e6f131cade77f34265992107aa45393a4cde6048afcd",
+        "tail": "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/unit/test_debt_scope_owner.py::test_a_complete_partition_reaches_the_page_as_components_with_a_subtotal\n1 failed, 2 warnings in 3.43s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "debt-source-scope-restored.log",
+        "sha256": "bf118aed8c0fe7bf89411a6f35985b0b811a4718c649caee43581ff3111fc87d",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 2 warnings in 3.48s"
+      },
+      "restored_sha256": "3de4d90af3f4f0ef1ff4cc9639a9ba4640a20eea1e43600aef12246cf0df9350"
+    },
+    {
+      "commit": "8c2101352e9a8826cf405bd91df4bd89538aecc3",
+      "case": "causal-component",
+      "file": "backend/app/services/summary_schema.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "causal-component-fault.log",
+        "sha256": "5c9b959712af8ca995532165d762c099ef0db90c3f0cdd2817322b51bfab2f0a",
+        "tail": "FAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[20-F-True]\nFAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[6-K-False]\nFAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[6-K-True]\n8 failed, 2 warnings in 3.87s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "causal-component-restored.log",
+        "sha256": "600754adac7d1cc855c51bd61de34b75a4a28dfb5e38d92e567fd63659bef3d1",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n8 passed, 2 warnings in 3.65s"
+      },
+      "restored_sha256": "3c287f6d95c9d41fe58b4d48fb1389d566c07ffd4c2254584df19e1eeefe73b5"
+    },
+    {
+      "commit": "7de468dd8dddf10326404914896ad17e1b6b92fb",
+      "case": "primary-ratio-concept",
+      "file": "backend/app/services/edgar/xbrl_service.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "primary-ratio-concept-fault.log",
+        "sha256": "3d16e3f7fdf57c85063831ac838fb7c97e62fa5a27e49d8ce64d6a100ccc9cc6",
+        "tail": "FAILED tests/unit/test_accession_xbrl_extraction.py::test_selected_cash_conversion_basis_survives_source_to_visible[us-gaap:NetIncomeLoss-None-missing_currency]\nFAILED tests/unit/test_accession_xbrl_extraction.py::test_selected_cash_conversion_basis_survives_source_to_visible[us-gaap:NetIncomeLoss-None-same_invalid_currency]\nFAILED tests/unit/test_accession_xbrl_extraction.py::test_selected_cash_conversion_basis_survives_source_to_visible[us-gaap:NetIncomeLoss-None-nonfinite_income]\n18 failed, 2 warnings in 4.71s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "primary-ratio-concept-restored.log",
+        "sha256": "0eca8cd6738774ab71ac796dbeffb19a381dddc247c5f7dc4ba6a43c5559c4b1",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 2 warnings in 4.05s"
+      },
+      "restored_sha256": "af17b02fe98481c0f989f052ee9d9b04674ace02bb1c3966e28a776ed145c931"
+    },
+    {
+      "commit": "7de468dd8dddf10326404914896ad17e1b6b92fb",
+      "case": "ratio-visible-unknown",
+      "file": "backend/app/services/ai/xbrl_narrative.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "ratio-visible-unknown-fault.log",
+        "sha256": "d3119e11ea26d2031be90d2cb36d4bd780cb27057c415a52554529a49044669d",
+        "tail": "FAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[ifrs-full:ProfitLossAttributableToOwnersOfParent-attributable to owners of the parent]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[issuer:AdjustedProfit-(numerator scope unestablished)]\nFAILED tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[None-(numerator scope unestablished)]\n7 failed, 2 warnings in 3.84s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "ratio-visible-unknown-restored.log",
+        "sha256": "a1bc485cd1db1a36c6f3e5b09c92fd01e9b1bb22283ca823df3f0136d52deaff",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n7 passed, 2 warnings in 3.99s"
+      },
+      "restored_sha256": "9aabdb14d50fce889f729b3833daca2089b6b7fb3c9377cdb7987ef40cbaafae"
+    },
+    {
+      "commit": "e17b6b6309c61399541244f72435c25163c602e3",
+      "case": "cash-prompt-scope",
+      "file": "backend/app/services/summary_schema.py",
+      "fault": {
+        "exit_code": 1,
+        "log": "cash-prompt-scope-fault-final.log",
+        "sha256": "af023e86300c7c84c6459cf3303f32c172f6d8307b2c6ad6c21f66d7f8956cdd",
+        "tail": "FAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[20-F-True]\nFAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[6-K-False]\nFAILED tests/unit/test_recovery_context.py::test_supported_explanations_reach_actual_primary_recovery_and_schema[6-K-True]\n8 failed, 2 warnings in 4.62s"
+      },
+      "restored": {
+        "exit_code": 0,
+        "log": "cash-prompt-scope-restored-final.log",
+        "sha256": "5f898be10ab7fb829614c0022aba336d5cfe3e7256651b69149c1a1896967acb",
+        "tail": "    Base = declarative_base()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n8 passed, 2 warnings in 4.15s"
+      },
+      "restored_sha256": "ad127eebc543cd93aa67379b83cfa62d84df2ad6e1206b6c7761f8bfdff417c5"
+    }
+  ],
+  "earlier_date_and_coexistence_proof": "../source-view-streaming-2026-09-27/next-quality-candidate.md",
+  "limit": "Proofs bind their stated code heads; full local gate verifies final code. Failed intermediate assertions/logs remain in operator evidence."
+}

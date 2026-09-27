@@ -1,0 +1,18 @@
+{
+  "code_head": "e17b6b6309c61399541244f72435c25163c602e3",
+  "base": "b63bee6b0d1c6c9abff7347ac4e5bf920eb80bc2",
+  "ruff": "All checks passed!",
+  "bandit": "no medium/high findings",
+  "pytest": "3742 passed, 40 warnings in 178.23s",
+  "performance_included": true,
+  "postgresql": "15.15",
+  "postgres_lanes": [
+    "stripe",
+    "usage",
+    "login",
+    "delivery"
+  ],
+  "exit_code": 0,
+  "log_sha256": "925c3082faa412a07a37c3a32d8f7e936db53a30d07aba9452c952b065276cbd",
+  "scope": "Local correctness only; hosted measurement, source comparability and semantic adoption remain pending."
+}

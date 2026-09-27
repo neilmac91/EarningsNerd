@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "scope": "Read-only pre-execution facts for deciding whether retained judged p may be reused against a future r report; no generation or judge call made.",
+  "retained_p": {
+    "workflow_run": 36272463033,
+    "source_sha": "a41794c9e3330852823fde5c462cf5db3137a548",
+    "report_sha256": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+    "judged_json_sha256": "fed3b645ff87232c27ced1c4e8fab56805c04c9c883e959d7cef030f09bbca4a",
+    "attempts": 70,
+    "identities": 70,
+    "runs_per_configuration": 2,
+    "generator_model": "deepseek-flash",
+    "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    "provider_calls": 70,
+    "errors": 0,
+    "retried": 0,
+    "judged": 70,
+    "judge_errors": 0,
+    "negative": 48
+  },
+  "retained_p_q_evidence_parity": {
+    "grounding_excerpt": 70,
+    "xbrl_grounding": 70,
+    "statement_source": 70,
+    "source_provenance": 70,
+    "coverage_inventory": 70
+  },
+  "fixed_contract_hashes": {
+    "judge.py": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+    "judge_report.py": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+    "runner.py": "28bd69aee5ae58ae8545914ae168347a7f0898302577ce5fd73c9fc15f34645f",
+    "weekly_readout.py": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+    "golden_set.json": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+    ".github/ai-model.env": "95c580400a7ff14524db8e08b8ca8f3223cbcce8dad4722f1e929f01ce6260ba",
+    ".github/workflows/ci.yml": "3d5461f6facb68502670b34fa9188d62fd30462dc38fd642121261b7cf667948",
+    "backend/app/config.py": "7e33860982d2a9e1abfe602b3f90dece86b48e03509ea08d07005405db36035c",
+    "backend/requirements.txt": "78f15d83ea9a0c5431affa75b6e6bd6ba7708b65bd2ee58185e250ce636ea234"
+  },
+  "judge": {
+    "checkout_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+    "id": "cli:claude-fable-5-1",
+    "contract_version": 2
+  },
+  "negative_control_slots": [
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "run": 1
+    },
+    {
+      "ticker": "AMZN",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "AMZN",
+      "filing_type": "10-K",
+      "run": 1
+    },
+    {
+      "ticker": "BA",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "BA",
+      "filing_type": "10-K",
+      "run": 1
+    },
+    {
+      "ticker": "JPM",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "JPM",
+      "filing_type": "10-K",
+      "run": 1
+    },
+    {
+      "ticker": "MELI",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "MELI",
+      "filing_type": "10-K",
+      "run": 1
+    },
+    {
+      "ticker": "NVDA",
+      "filing_type": "10-Q",
+      "run": 0
+    },
+    {
+      "ticker": "NVDA",
+      "filing_type": "10-Q",
+      "run": 1
+    },
+    {
+      "ticker": "PFE",
+      "filing_type": "10-Q",
+      "run": 0
+    },
+    {
+      "ticker": "PFE",
+      "filing_type": "10-Q",
+      "run": 1
+    },
+    {
+      "ticker": "PLTR",
+      "filing_type": "10-Q",
+      "run": 0
+    },
+    {
+      "ticker": "PLTR",
+      "filing_type": "10-Q",
+      "run": 1
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 0
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 1
+    }
+  ],
+  "new_q_g2_g3_identity_union": [
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [
+        "G4"
+      ],
+      "q_codes": [
+        "G3"
+      ]
+    },
+    {
+      "ticker": "ASML",
+      "filing_type": "20-F",
+      "run": 0,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [],
+      "q_codes": [
+        "G3",
+        "G4",
+        "G5"
+      ]
+    },
+    {
+      "ticker": "PGR",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [],
+      "q_codes": [
+        "G3",
+        "G5"
+      ]
+    },
+    {
+      "ticker": "PLD",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [
+        "G4"
+      ],
+      "q_codes": [
+        "G3",
+        "G4",
+        "G5"
+      ]
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 0,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [],
+      "q_codes": [
+        "G3"
+      ]
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [
+        "G4"
+      ],
+      "q_codes": [
+        "G3",
+        "G4"
+      ]
+    },
+    {
+      "ticker": "WMT",
+      "filing_type": "10-K",
+      "run": 0,
+      "new_q_codes": [
+        "G3"
+      ],
+      "p_codes": [
+        "G5"
+      ],
+      "q_codes": [
+        "G3",
+        "G5"
+      ]
+    },
+    {
+      "ticker": "WMT",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G2"
+      ],
+      "p_codes": [
+        "G3",
+        "G4"
+      ],
+      "q_codes": [
+        "G2",
+        "G4"
+      ]
+    },
+    {
+      "ticker": "XOM",
+      "filing_type": "10-K",
+      "run": 1,
+      "new_q_codes": [
+        "G2"
+      ],
+      "p_codes": [
+        "G3"
+      ],
+      "q_codes": [
+        "G2",
+        "G3",
+        "G4"
+      ]
+    }
+  ],
+  "decision": "conditional_reuse_only_after_r_artifact_preflight",
+  "allowed_r_xbrl_deltas": {
+    "return_ratio_points": "Add exact copied numerator and denominator point dictionaries to derived return_on_equity and return_on_assets points; values, period selection, arithmetic, form and ordering unchanged.",
+    "primary_instant_raw_tag_enrichment": {
+      "metrics": [
+        "shareholders_equity",
+        "total_assets"
+      ],
+      "allowed_transition": "raw_tag null/missing -> exact concept selected by the unchanged primary instance selector",
+      "shareholders_equity_concepts": [
+        "us-gaap:StockholdersEquity",
+        "ifrs-full:StockholdersEquity",
+        "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "ifrs-full:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "us-gaap:Equity",
+        "ifrs-full:Equity",
+        "us-gaap:EquityAttributableToOwnersOfParent",
+        "ifrs-full:EquityAttributableToOwnersOfParent"
+      ],
+      "total_assets_concepts": [
+        "us-gaap:Assets",
+        "ifrs-full:Assets"
+      ],
+      "must_be_unchanged": [
+        "value",
+        "period",
+        "currency",
+        "form",
+        "fiscal_year",
+        "fiscal_period",
+        "ordering",
+        "current/prior/series membership"
+      ],
+      "fallback_rule": "companyfacts/legacy points remain raw_tag null or missing and ratio scope unestablished",
+      "cross_check": "each ratio denominator dict equals its selected standardized asset/equity point including raw_tag"
+    },
+    "all_other_xbrl_deltas": "stop_before_judging"
+  }
+}

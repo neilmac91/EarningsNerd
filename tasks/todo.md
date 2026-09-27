@@ -1,7 +1,8 @@
 ## September 27 — corrective financial candidate r
 
 - [x] Integrate current main and implement selected-operand return-ratio scope, dated comparators, formula-named cash values, selected-XBRL debt limits, and source-specific causal directives. [Candidate scope and measurement boundary](review-evidence/financial-candidate-r-2026-09-27/README.md).
-- [ ] Complete full backend validation and independent review, retain actual hosted outputs, verify p/r comparability and obtain unchanged-contract Fable judgments before candidate adoption. Production p, baseline and E7/E8 remain held.
+- [x] Full backend gate and independent reviews clear one measurement: 3,742 tests, Ruff, Bandit, financial fault proofs.
+- [ ] Retain actual hosted outputs, verify p/r comparability and obtain unchanged-contract Fable judgments before candidate adoption. Production p, baseline and E7/E8 remain held.
 
 ## September 27 — seven verified releases and H30 review hold
 
