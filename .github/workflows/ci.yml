@@ -17,8 +17,58 @@ on:
         required: true
         default: '2'
 
+      pair_id:
+        description: Fresh control/thinking-low pair to execute
+        type: choice
+        options:
+          - RIVN-10-K-run0
+          - PLTR-10-Q-run0
+          - WMT-10-K-run0
+          - FIGS-10-Q-run0
+          - RIVN-10-K-run1
+          - PLTR-10-Q-run1
+          - WMT-10-K-run1
+          - FIGS-10-Q-run1
+        required: true
+        default: RIVN-10-K-run0
+      pricing_verified_at_utc:
+        description: UTC timestamp of the operator's fresh official-price check
+        required: true
+        default: ''
+      previous_verdict:
+        description: FIRST for RIVN run0; PASS only after reviewing the prior pair
+        type: choice
+        options: [FIRST, PASS]
+        required: true
+        default: FIRST
+      previous_run_id:
+        description: Exact successful prior diagnostic run ID; blank for first pair
+        required: false
+        default: ''
+      previous_state_sha256:
+        description: Prior continuation.json SHA-256; blank for first pair
+        required: false
+        default: ''
+      previous_control_sha256:
+        description: Reviewed prior control payload SHA-256; blank for first pair
+        required: false
+        default: ''
+      previous_candidate_sha256:
+        description: Reviewed prior thinking-low payload SHA-256; blank for first pair
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: thinking-low-pilot-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   backend-tests:
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -69,6 +119,7 @@ jobs:
   # must live in `migration_ledger` and never read or write the legacy name.
   # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
   migrations-postgres:
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -163,6 +214,7 @@ jobs:
         run: python -m pytest tests/integration/test_notification_delivery_transactions.py
 
   frontend-tests:
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -209,6 +261,7 @@ jobs:
   # Treat it as a regression signal for the static shell; get the authoritative
   # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
   lighthouse:
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -252,7 +305,7 @@ jobs:
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
   eval-baseline:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     continue-on-error: true
     # Each run is a real DeepSeek measurement (see step below). Without this, every new
@@ -397,6 +450,7 @@ jobs:
           retention-days: 14
 
   e2e-tests:
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -629,3 +683,255 @@ jobs:
           echo "$body"
           echo "$body" | grep -qE '"status": ?"unhealthy"' && { echo "Deploy unhealthy — DB unreachable"; exit 1; } || true
           echo "Deployed ${GITHUB_SHA::7} and verified healthy."
+
+  # Diagnostic branch only; never merge this capsule into main.
+  fresh-paired-pilot:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'codex/wave3-thinking-low-pilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CAPSULE_ROOT: ${{ github.workspace }}/capsule
+      SUBJECT_ROOT: ${{ github.workspace }}/subject
+      STATE_DIR: ${{ runner.temp }}/pilot-state
+      EVIDENCE_DIR: ${{ runner.temp }}/pilot-evidence
+      PREVIOUS_DIR: ${{ runner.temp }}/previous-state
+    steps:
+      - name: Checkout frozen diagnostic capsule
+        uses: actions/checkout@v7
+        with:
+          path: capsule
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/ci.yml
+            backend/scripts/thinking_low_pilot
+
+      - name: Checkout exact candidate-r subject
+        uses: actions/checkout@v7
+        with:
+          ref: 47d040aa53e89d2e1fa78c26ee688d5a49338133
+          path: subject
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install exact subject dependencies
+        run: python -m pip install -r "$SUBJECT_ROOT/backend/requirements.txt"
+
+      - name: Initialize evidence and validate dispatch boundary
+        id: dispatch
+        env:
+          PAIR_ID: ${{ inputs.pair_id }}
+          PRICE_AT: ${{ inputs.pricing_verified_at_utc }}
+          PREVIOUS_RUN_ID: ${{ inputs.previous_run_id }}
+          PREVIOUS_VERDICT: ${{ inputs.previous_verdict }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          python - <<'PY'
+          import datetime as dt
+          import json
+          import os
+          import re
+          from pathlib import Path
+          now = dt.datetime.now(dt.timezone.utc)
+          try:
+              observed = dt.datetime.fromisoformat(os.environ['PRICE_AT'].replace('Z', '+00:00'))
+          except ValueError as exc:
+              raise SystemExit('pricing_verified_at_utc must be an ISO-8601 UTC timestamp') from exc
+          if observed.tzinfo is None:
+              raise SystemExit('pricing_verified_at_utc must carry a timezone')
+          age = now - observed.astimezone(dt.timezone.utc)
+          if age < dt.timedelta(0) or age > dt.timedelta(hours=24):
+              raise SystemExit('official pricing observation is future-dated or older than 24 hours')
+          prior = os.environ['PREVIOUS_RUN_ID']
+          if prior and not re.fullmatch(r'[1-9][0-9]*', prior):
+              raise SystemExit('previous_run_id must be blank or a positive integer')
+          receipt = {
+              'schema': 'thinking-low-dispatch-v1',
+              'pair_id': os.environ['PAIR_ID'],
+              'pricing_verified_at_utc': observed.astimezone(dt.timezone.utc).isoformat(),
+              'previous_run_id': int(prior) if prior else None,
+              'previous_verdict': os.environ['PREVIOUS_VERDICT'],
+              'workflow_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'workflow_head_sha': os.environ['GITHUB_SHA'],
+              'workflow_head_branch': os.environ['GITHUB_REF_NAME'],
+          }
+          Path(os.environ['EVIDENCE_DIR'], 'dispatch.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Offline request-construction preflight
+        id: preflight
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python "$CAPSULE_ROOT/backend/scripts/thinking_low_pilot/preflight.py" \
+            --repo "$SUBJECT_ROOT" \
+            --receipt "$EVIDENCE_DIR/preflight.json"
+
+      - name: Refuse workflow reruns and sibling redraws
+        id: sequence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_RUN_ID: ${{ inputs.previous_run_id }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_RUN_ATTEMPT" = 1 ] || { echo "workflow reruns are not eligible"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=$GITHUB_REF_NAME&event=workflow_dispatch&per_page=100" \
+            > "$EVIDENCE_DIR/branch-runs.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          runs = json.loads(Path(os.environ['EVIDENCE_DIR'], 'branch-runs.json').read_text())['workflow_runs']
+          current = int(os.environ['GITHUB_RUN_ID'])
+          previous = int(os.environ['PREVIOUS_RUN_ID']) if os.environ['PREVIOUS_RUN_ID'] else None
+          earlier = sorted(
+              int(run['id']) for run in runs
+              if run.get('event') == 'workflow_dispatch'
+              and run.get('path') == '.github/workflows/ci.yml'
+              and run.get('head_sha') == os.environ['GITHUB_SHA']
+              and run.get('head_branch') == os.environ['GITHUB_REF_NAME']
+              and int(run['id']) < current
+          )
+          if previous is None and earlier:
+              raise SystemExit('first pair already has an earlier dispatch on this frozen workflow')
+          if previous is not None and (not earlier or earlier[-1] != previous):
+              raise SystemExit('previous_run_id is not the immediate prior frozen-workflow dispatch')
+          receipt = {
+              'schema': 'thinking-low-sequence-v1',
+              'workflow_run_id': current,
+              'workflow_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'previous_run_id': previous,
+              'earlier_frozen_dispatch_ids': earlier,
+              'status': 'eligible',
+          }
+          Path(os.environ['EVIDENCE_DIR'], 'sequence.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Read prior workflow identity
+        id: prior_metadata
+        if: inputs.previous_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_RUN_ID: ${{ inputs.previous_run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREVIOUS_RUN_ID" \
+            > "$EVIDENCE_DIR/previous-run.json"
+
+      - name: Download exact prior durable state
+        if: inputs.previous_run_id != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: thinking-low-pilot-state
+          path: ${{ runner.temp }}/previous-state
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.previous_run_id }}
+
+      - name: Prepare immutable continuation state
+        id: prepare
+        env:
+          PAIR_ID: ${{ inputs.pair_id }}
+          PREVIOUS_RUN_ID: ${{ inputs.previous_run_id }}
+          PREVIOUS_STATE_SHA256: ${{ inputs.previous_state_sha256 }}
+          PREVIOUS_VERDICT: ${{ inputs.previous_verdict }}
+          PREVIOUS_CONTROL_SHA256: ${{ inputs.previous_control_sha256 }}
+          PREVIOUS_CANDIDATE_SHA256: ${{ inputs.previous_candidate_sha256 }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --pair-id "$PAIR_ID"
+            --state-dir "$STATE_DIR"
+            --previous-run-id "$PREVIOUS_RUN_ID"
+            --previous-state-sha256 "$PREVIOUS_STATE_SHA256"
+            --previous-verdict "$PREVIOUS_VERDICT"
+            --previous-control-sha256 "$PREVIOUS_CONTROL_SHA256"
+            --previous-candidate-sha256 "$PREVIOUS_CANDIDATE_SHA256"
+            --workflow-head-sha "$GITHUB_SHA"
+            --workflow-head-branch "$GITHUB_REF_NAME"
+            --receipt "$EVIDENCE_DIR/prepare.json"
+          )
+          if [ -n "$PREVIOUS_RUN_ID" ]; then
+            ARGS+=(--previous-dir "$PREVIOUS_DIR" --previous-run-metadata "$EVIDENCE_DIR/previous-run.json")
+          fi
+          python "$CAPSULE_ROOT/backend/scripts/thinking_low_pilot/prepare_state.py" "${ARGS[@]}"
+
+      - name: Run exactly one fresh pair
+        id: pair
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          SECRET_KEY: thinking-low-pilot-secret-key-0123456789
+          STRIPE_SECRET_KEY: sk_test_thinking_low_pilot
+          STRIPE_WEBHOOK_SECRET: whsec_thinking_low_pilot
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          PYTHONDONTWRITEBYTECODE: '1'
+          PAIR_ID: ${{ inputs.pair_id }}
+        run: |
+          set -euo pipefail
+          python "$CAPSULE_ROOT/backend/scripts/thinking_low_pilot/run_pair.py" \
+            --repo "$SUBJECT_ROOT" \
+            --pair-id "$PAIR_ID" \
+            --state-dir "$STATE_DIR" \
+            --preflight-receipt "$EVIDENCE_DIR/preflight.json" \
+            --prepare-receipt "$EVIDENCE_DIR/prepare.json"
+
+      - name: Finalize hash-bound continuation
+        id: finalize
+        if: always() && steps.prepare.outcome == 'success'
+        continue-on-error: true
+        env:
+          PAIR_ID: ${{ inputs.pair_id }}
+        run: |
+          set -euo pipefail
+          python "$CAPSULE_ROOT/backend/scripts/thinking_low_pilot/finalize_state.py" \
+            --state-dir "$STATE_DIR" \
+            --pair-id "$PAIR_ID" \
+            --prepare-receipt "$EVIDENCE_DIR/prepare.json" \
+            --subject-repo "$SUBJECT_ROOT" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-head-sha "$GITHUB_SHA" \
+            --workflow-head-branch "$GITHUB_REF_NAME"
+
+      - name: Retain durable meter, receipts and outputs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: thinking-low-pilot-state
+          path: ${{ runner.temp }}/pilot-state
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Retain preflight and continuation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: thinking-low-pilot-evidence
+          path: ${{ runner.temp }}/pilot-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce completed pair after evidence retention
+        if: always()
+        env:
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          SEQUENCE_OUTCOME: ${{ steps.sequence.outcome }}
+          PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
+          PAIR_OUTCOME: ${{ steps.pair.outcome }}
+          FINALIZE_OUTCOME: ${{ steps.finalize.outcome }}
+        run: |
+          set -euo pipefail
+          [ "$DISPATCH_OUTCOME" = success ]
+          [ "$PREFLIGHT_OUTCOME" = success ]
+          [ "$SEQUENCE_OUTCOME" = success ]
+          [ "$PREPARE_OUTCOME" = success ]
+          [ "$PAIR_OUTCOME" = success ]
+          [ "$FINALIZE_OUTCOME" = success ]

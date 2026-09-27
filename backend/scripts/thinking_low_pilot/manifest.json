@@ -1,0 +1,445 @@
+{
+  "budget": {
+    "expected_16_full_ceiling_reservations_usd": "0.567891000",
+    "failed_and_unknown_usage_calls_refunded": false,
+    "fresh_price_recheck_required_before_launch": true,
+    "hard_cap_usd": "0.950000",
+    "largest_captured_primary_reservation_usd": "0.045629400",
+    "max_aggregate_declared_output_tokens": 480000,
+    "max_physical_calls": 20,
+    "official_pricing_observer": "root operator",
+    "official_pricing_verified_at_utc": "2026-09-27T15:37:00Z",
+    "official_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "rate_basis": "official off-peak rates observed 2026-09-27; meter refuses official weekday peak windows; every call reserves cache-miss input and full output max; reservations are never refunded",
+    "reservation_input_rate_usd_per_million": "0.150000",
+    "reservation_output_rate_usd_per_million": "0.600000",
+    "twenty_largest_captured_primary_reservations_usd": "0.912588000",
+    "weekend_off_peak": true
+  },
+  "capsule_version": "diagnostic-branch-v1",
+  "code": {
+    "file_sha256": {
+      "backend/app/services/ai/provider_requests.py": "03450e9c538ba12cf8f3dc846cc649528eccc01fe0a17f5bf1032b10b8a56322",
+      "backend/app/services/ai/xbrl_narrative.py": "9aabdb14d50fce889f729b3833daca2089b6b7fb3c9377cdb7987ef40cbaafae",
+      "backend/app/services/openai_service.py": "c48ff603dabda2c2f978679958ed15a004aa8aa2c69f8359ace6c2851532ba3f",
+      "backend/app/services/prompt_loader.py": "775bde1450c6e51934fb423ddc52f78eb1051f640b1f18a55492b8d4e15aaca3",
+      "backend/evals/golden_set.json": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c"
+    },
+    "head": "47d040aa53e89d2e1fa78c26ee688d5a49338133",
+    "tree": "4870fe4d5d36e21ea78fedf892094f3bcdd425ad"
+  },
+  "credential_boundary": {
+    "application_env_mapping": "OPENAI_API_KEY",
+    "evidence": ".github/workflows/ci.yml eval-baseline job and backend/evals/RUNBOOK.md",
+    "execution_environment": "GitHub Actions",
+    "local_extraction_forbidden": true,
+    "secret_name": "DEEPSEEK_API_KEY"
+  },
+  "diagnostic_branch": "codex/wave3-thinking-low-pilot",
+  "execution": {
+    "abort_on_first_targeted_confirmed_material_failure": true,
+    "automatic_loop": false,
+    "continue_requires_prior_pair_review": "PASS",
+    "fresh_paired_control": true,
+    "judge_calls": 0,
+    "no_live_SEC_fetch": true,
+    "no_production_merge": true,
+    "no_pull_request": true,
+    "no_redraws": true,
+    "one_pair_per_workflow_dispatch": true,
+    "one_slot_per_invocation": true,
+    "outputs": 16,
+    "previous_run_artifact_required_after_first": true,
+    "semantic_pass_required_after_first": true
+  },
+  "limitations": [
+    "The retained r report has no outbound request/message hash. Its non-thinking request is deterministically reconstructable from retained inputs and code, but the fresh control is not claimed as a byte-attested replay of the historical provider request.",
+    "The fresh pair preserves the original strict p/r comparability failure; it does not repair or normalize retained provenance.",
+    "The pilot diagnoses writer behavior only. It does not satisfy the two-arm full-corpus/Fable adoption bar and cannot promote candidate r."
+  ],
+  "pair_order": [
+    "RIVN-10-K-run0",
+    "PLTR-10-Q-run0",
+    "WMT-10-K-run0",
+    "FIGS-10-Q-run0",
+    "RIVN-10-K-run1",
+    "PLTR-10-Q-run1",
+    "WMT-10-K-run1",
+    "FIGS-10-Q-run1"
+  ],
+  "provider": {
+    "application_primary_attempts_per_summary": 3,
+    "arms": {
+      "candidate": {
+        "max_tokens": 24000,
+        "temperature": null,
+        "thinking_effort": "low"
+      },
+      "control": {
+        "max_tokens_by_form": {
+          "10-K": 12000,
+          "10-Q": 8000
+        },
+        "temperature": 0.2,
+        "thinking_effort": ""
+      }
+    },
+    "base_url": "https://api.deepseek.com/v1",
+    "fallback_model": "",
+    "model": "deepseek-flash",
+    "sdk_max_retries": 0,
+    "stream_first_attempt": true,
+    "structured_output": false
+  },
+  "purpose": "Fresh paired diagnostic on four retained inputs: same frozen writer constructor, thinking off versus thinking low, two draws per arm; diagnostic only.",
+  "schema": "fresh-paired-thinking-low-writer-pilot-v2",
+  "slot_order": [
+    "RIVN-10-K-run0-control",
+    "RIVN-10-K-run0-thinking-low",
+    "PLTR-10-Q-run0-control",
+    "PLTR-10-Q-run0-thinking-low",
+    "WMT-10-K-run0-control",
+    "WMT-10-K-run0-thinking-low",
+    "FIGS-10-Q-run0-control",
+    "FIGS-10-Q-run0-thinking-low",
+    "RIVN-10-K-run1-control",
+    "RIVN-10-K-run1-thinking-low",
+    "PLTR-10-Q-run1-control",
+    "PLTR-10-Q-run1-thinking-low",
+    "WMT-10-K-run1-control",
+    "WMT-10-K-run1-thinking-low",
+    "FIGS-10-Q-run1-control",
+    "FIGS-10-Q-run1-thinking-low"
+  ],
+  "source_report": {
+    "external_retained_path": "outputs/takeover-2026-09-27/financial-candidate/hosted/ci-36324847604/artifact/eval_20260927T141938Z.json",
+    "included_in_capsule": false,
+    "sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b"
+  },
+  "targets": [
+    {
+      "accession_number": "0001874178-26-000008",
+      "filing_type": "10-K",
+      "fresh_control_request": {
+        "canonical_request_bytes": 166529,
+        "input_token_upper_bound": 166913,
+        "max_output_tokens": 12000,
+        "message_content_bytes": [
+          495,
+          163514
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "response_format",
+          "stream",
+          "stream_options",
+          "temperature"
+        ],
+        "request_sha256": "79ec4a6c6cfd8cff45d8d1bddd5e1b3f85903d0f89be702ff908da611c59f093"
+      },
+      "input_path": "inputs/RIVN-10-K.json",
+      "input_sha256": "89178a2289142514bd70ba95dbe8937d7503c64e643d67c36619a667d8abf463",
+      "pilot_thinking_low_request": {
+        "canonical_request_bytes": 166535,
+        "input_token_upper_bound": 166919,
+        "max_output_tokens": 24000,
+        "message_content_bytes": [
+          495,
+          163514
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "reasoning_effort",
+          "response_format",
+          "stream",
+          "stream_options"
+        ],
+        "request_sha256": "909bd712e82165172dfe23a5dd2a2c359646f934d8c017f8c9721e1aed35d9d0"
+      },
+      "retained_r_usage": [
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 2176,
+          "cache_miss_tokens": 31883,
+          "calls": 1,
+          "completion_tokens": 5125,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 34059,
+          "reasoning_tokens": null,
+          "run": 0,
+          "unknown_calls": 0
+        },
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 33920,
+          "cache_miss_tokens": 139,
+          "calls": 1,
+          "completion_tokens": 4283,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 34059,
+          "reasoning_tokens": null,
+          "run": 1,
+          "unknown_calls": 0
+        }
+      ],
+      "ticker": "RIVN"
+    },
+    {
+      "accession_number": "0001321655-26-000028",
+      "filing_type": "10-Q",
+      "fresh_control_request": {
+        "canonical_request_bytes": 152231,
+        "input_token_upper_bound": 152615,
+        "max_output_tokens": 8000,
+        "message_content_bytes": [
+          495,
+          149252
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "response_format",
+          "stream",
+          "stream_options",
+          "temperature"
+        ],
+        "request_sha256": "5e636a6b59133d7d2a0538967ed03056ae30955805c9f393a771e661354c4d64"
+      },
+      "input_path": "inputs/PLTR-10-Q.json",
+      "input_sha256": "a699bb6bd1b4ca83a4a7f20070bf067070a625628a898e0452362082105d781b",
+      "pilot_thinking_low_request": {
+        "canonical_request_bytes": 152238,
+        "input_token_upper_bound": 152622,
+        "max_output_tokens": 24000,
+        "message_content_bytes": [
+          495,
+          149252
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "reasoning_effort",
+          "response_format",
+          "stream",
+          "stream_options"
+        ],
+        "request_sha256": "dec877f0895c5157d8d031a83509a92ee69975d2a766c2494f0acc2043abe5ba"
+      },
+      "retained_r_usage": [
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 2048,
+          "cache_miss_tokens": 29349,
+          "calls": 1,
+          "completion_tokens": 2904,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 31397,
+          "reasoning_tokens": null,
+          "run": 0,
+          "unknown_calls": 0
+        },
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 31232,
+          "cache_miss_tokens": 165,
+          "calls": 1,
+          "completion_tokens": 3102,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 31397,
+          "reasoning_tokens": null,
+          "run": 1,
+          "unknown_calls": 0
+        }
+      ],
+      "ticker": "PLTR"
+    },
+    {
+      "accession_number": "0000104169-26-000055",
+      "filing_type": "10-K",
+      "fresh_control_request": {
+        "canonical_request_bytes": 207806,
+        "input_token_upper_bound": 208190,
+        "max_output_tokens": 12000,
+        "message_content_bytes": [
+          495,
+          204343
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "response_format",
+          "stream",
+          "stream_options",
+          "temperature"
+        ],
+        "request_sha256": "f1398d5605c7e51cc05d06e9bc6af5dbdf4640aafc9876a4292f22ebc7cc7bae"
+      },
+      "input_path": "inputs/WMT-10-K.json",
+      "input_sha256": "76f539ec06216f4bec8c548cd30d7486fbed605b4da43e6008a1e0c8e2cc14b9",
+      "pilot_thinking_low_request": {
+        "canonical_request_bytes": 207812,
+        "input_token_upper_bound": 208196,
+        "max_output_tokens": 24000,
+        "message_content_bytes": [
+          495,
+          204343
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "reasoning_effort",
+          "response_format",
+          "stream",
+          "stream_options"
+        ],
+        "request_sha256": "69ed79489bf217358490cb2f5da35bca71ed44d4b79315e61f72903b04e9c21a"
+      },
+      "retained_r_usage": [
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 2176,
+          "cache_miss_tokens": 40532,
+          "calls": 1,
+          "completion_tokens": 3463,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 42708,
+          "reasoning_tokens": null,
+          "run": 0,
+          "unknown_calls": 0
+        },
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 42496,
+          "cache_miss_tokens": 212,
+          "calls": 1,
+          "completion_tokens": 3505,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 42708,
+          "reasoning_tokens": null,
+          "run": 1,
+          "unknown_calls": 0
+        }
+      ],
+      "ticker": "WMT"
+    },
+    {
+      "accession_number": "0001628280-26-054342",
+      "filing_type": "10-Q",
+      "fresh_control_request": {
+        "canonical_request_bytes": 146370,
+        "input_token_upper_bound": 146754,
+        "max_output_tokens": 8000,
+        "message_content_bytes": [
+          495,
+          143477
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "response_format",
+          "stream",
+          "stream_options",
+          "temperature"
+        ],
+        "request_sha256": "63affbce2e11bd96bb61b5c1df3ec7af8e453a09042df6a102d7e8ef722652e4"
+      },
+      "input_path": "inputs/FIGS-10-Q.json",
+      "input_sha256": "4c70becf937236b7ac4ee7c24e0f47b96eb81a18294330fabe74206afab9b871",
+      "pilot_thinking_low_request": {
+        "canonical_request_bytes": 146377,
+        "input_token_upper_bound": 146761,
+        "max_output_tokens": 24000,
+        "message_content_bytes": [
+          495,
+          143477
+        ],
+        "request_fields": [
+          "extra_body",
+          "max_tokens",
+          "messages",
+          "model",
+          "reasoning_effort",
+          "response_format",
+          "stream",
+          "stream_options"
+        ],
+        "request_sha256": "fb79f66f813db47ad9ffe3bee662fe9099ab7500d03bbb4d755b5614aa3196fe"
+      },
+      "retained_r_usage": [
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 2048,
+          "cache_miss_tokens": 29127,
+          "calls": 1,
+          "completion_tokens": 3716,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 31175,
+          "reasoning_tokens": null,
+          "run": 0,
+          "unknown_calls": 0
+        },
+        {
+          "actual_models": [
+            "deepseek-flash"
+          ],
+          "cache_hit_tokens": 30976,
+          "cache_miss_tokens": 199,
+          "calls": 1,
+          "completion_tokens": 3663,
+          "operations": {
+            "summary_primary": 1
+          },
+          "prompt_tokens": 31175,
+          "reasoning_tokens": null,
+          "run": 1,
+          "unknown_calls": 0
+        }
+      ],
+      "ticker": "FIGS"
+    }
+  ]
+}

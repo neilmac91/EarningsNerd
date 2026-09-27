@@ -1,0 +1,17 @@
+{
+  "files": {
+    ".github/workflows/ci.yml": "e46eecca13872224eb44cf255ee9b8276fdb9dafbd9f0d30e54dc27f8e8de449",
+    "backend/scripts/thinking_low_pilot/README.md": "4945b026f9aa34808f08158b2aa71d654f161a049677cee3db5e6e1d5ced193b",
+    "backend/scripts/thinking_low_pilot/finalize_state.py": "76346ec6f3a5f298a5455ba721024687ad37f3efcbc01ffee8cb85e705527ef0",
+    "backend/scripts/thinking_low_pilot/inputs/FIGS-10-Q.json": "4c70becf937236b7ac4ee7c24e0f47b96eb81a18294330fabe74206afab9b871",
+    "backend/scripts/thinking_low_pilot/inputs/PLTR-10-Q.json": "a699bb6bd1b4ca83a4a7f20070bf067070a625628a898e0452362082105d781b",
+    "backend/scripts/thinking_low_pilot/inputs/RIVN-10-K.json": "89178a2289142514bd70ba95dbe8937d7503c64e643d67c36619a667d8abf463",
+    "backend/scripts/thinking_low_pilot/inputs/WMT-10-K.json": "76f539ec06216f4bec8c548cd30d7486fbed605b4da43e6008a1e0c8e2cc14b9",
+    "backend/scripts/thinking_low_pilot/manifest.json": "3f35c02479452b6b0df2f9b6d8ef797bd1daa904f29e225c2d843fae798b3d2f",
+    "backend/scripts/thinking_low_pilot/pilot_meter.py": "a57b3f3dc58dc821c3d6bbc0bbf3df91ba1a9e2716f990e44331a1558100bcff",
+    "backend/scripts/thinking_low_pilot/preflight.py": "bc470579d928c93297005dee5337e6cebe144d8e6e9f62e2dbbb826e9148540f",
+    "backend/scripts/thinking_low_pilot/prepare_state.py": "52370688d22406a5ddd1315d0c98f01dda718b0cf4167b615145378f827af5aa",
+    "backend/scripts/thinking_low_pilot/run_pair.py": "1cf76d07efb5672156fd1b5fad5902ac4a6a43484356854a33d49c34925804b9"
+  },
+  "schema": "thinking-low-capsule-lock-v1"
+}
