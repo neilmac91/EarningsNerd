@@ -1,0 +1,56 @@
+{
+  "recorded_at": "2026-09-27T18:20:02.118388+00:00",
+  "logical_slots": 18,
+  "all_complete": true,
+  "ledger_admitted_calls": 32,
+  "retained_reservations": 32,
+  "conservative_reserved_usd": 0.27948090000000003,
+  "uncached_peak_usage_estimate_usd": 0.05121,
+  "unknown_usage_calls": 0,
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "calls_with_errors": 0,
+  "invoice_cost_known": false,
+  "all_usage_within_reservation_allowances": true,
+  "status": "targeted_threshold_improvement_full_narrative_gate_held",
+  "old_main_commit": "9cb097365baf60815800b06379f0749205538075",
+  "candidate_commit": "3a52970f3aa5a63bcbd53ef3bdf7b019d1afe2df",
+  "diagnostic": {
+    "old_correct": 2,
+    "old_total": 6,
+    "candidate_correct": 6,
+    "candidate_total": 6,
+    "limits": "Two draws per fixture; reconstructed AAPL and two synthetic controls. No population effect size."
+  },
+  "real_spot_checks": {
+    "companies": [
+      "GOOGL",
+      "WMT",
+      "JPM"
+    ],
+    "modes": [
+      "annual",
+      "quarterly"
+    ],
+    "outputs": 6,
+    "named_numeric_bindings_checked": 30,
+    "named_numeric_bindings_matching": 30,
+    "supplied_signals_addressed": 4,
+    "full_gate_passed": false
+  },
+  "holds": [
+    "Uncited computed percentages",
+    "Incorrect full-window revenue ranking",
+    "Wrong-period citations for missing cash-flow observations",
+    "Unsupported causal and conditional statements"
+  ],
+  "production_changed": false,
+  "fable_e7_e8_calls": 0,
+  "private_evidence_sha256": {
+    "dispatch-audit.json": "95a6217017a8b198f2b553bad27ac6cca93e55e589f0a38dd72f8e41416ec817",
+    "root-runbook-readout.md": "3433ec4a05600a21af416d9640ed22060cb2da385aa95e26a292f2644230d704",
+    "runbook-numeric-spot-checks.json": "f25fd4fbe148be01b38bc048616c03fa7029883315ab8f0a2337d226178b013d",
+    "diagnostic-output-review.md": "a31190ae8d73f070fe613a1bcd20c10ef74c3ee8c0646fe7592268392b34ea83"
+  }
+}

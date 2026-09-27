@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "status": "passed_and_cleaned_up",
+  "date": "2026-09-27",
+  "scope": "One isolated point-in-time recovery with a read-only integrity check; no production traffic switch.",
+  "restore_operation_seconds": 2280.7,
+  "start_to_deletion_seconds": 2708.149,
+  "integrity": {
+    "required_relations_present": true,
+    "core_tables_nonempty": true,
+    "checked_orphans": 0,
+    "checked_missing_filing_identity": 0,
+    "bounded_recent_sample_passed": true
+  },
+  "cleanup": {
+    "clone_absent": true,
+    "temporary_credential_removed": true,
+    "local_proxy_and_listener_removed": true
+  },
+  "production": {
+    "source_configuration_unchanged": true,
+    "source_users_unchanged": true
+  },
+  "cost": {
+    "authorized_cap_usd": 1,
+    "conservative_authorized_estimate_usd": 0.581318375,
+    "invoice_cost_known": false
+  },
+  "private_retention": {
+    "final_receipt_sha256": "519aa96dc8cf82450dea1a88193ab9f4f5d66d9183a244b130120da54062d351",
+    "integrity_receipt_sha256": "6821d4cf4df6e0ce944e2485c5d0afbcf5edee7a507fe7564bcca6e2ee61931e"
+  },
+  "limits": [
+    "One rehearsal does not establish a guaranteed recovery-time or recovery-point objective.",
+    "Private database identifiers, configurations, backup metadata, SQL output and credentials are excluded from this public summary."
+  ]
+}

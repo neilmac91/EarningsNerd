@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "status": "verified_healthy",
+  "merge": {
+    "merged_at": "2026-09-27T16:53:27Z",
+    "pr": 977,
+    "sha": "cdf080ff8d5434807b450df74087000574113bd8"
+  },
+  "workflow": {
+    "id": 36334896596,
+    "head_sha": "cdf080ff8d5434807b450df74087000574113bd8",
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36334896596",
+    "conclusion": "success",
+    "completed_at": "2026-09-27T17:01:33Z"
+  },
+  "deployment": {
+    "job_id": 108664521393,
+    "conclusion": "success",
+    "completed_at": "2026-09-27T17:01:32Z",
+    "deployed_sha_prefix": "cdf080f",
+    "migrations": {
+      "applied": 0,
+      "skipped": 39
+    },
+    "revision": "earningsnerd-backend-00399-62m",
+    "traffic_percent": 100
+  },
+  "independent_public_health": {
+    "http_status": 200,
+    "url": "https://api.earningsnerd.io/health/detailed",
+    "verified_after_deploy": true,
+    "body": {
+      "checks": {
+        "database": {
+          "healthy": true,
+          "latency_ms": 6.73
+        },
+        "redis": {
+          "disabled": true,
+          "healthy": true,
+          "latency_ms": 0.0
+        },
+        "sec_edgar_circuit": {
+          "healthy": true,
+          "state": "closed",
+          "stats": {
+            "rejected_requests": 0,
+            "success_rate": 0,
+            "total_requests": 0
+          }
+        }
+      },
+      "status": "healthy",
+      "timestamp": 1790528604.6181233
+    }
+  },
+  "raw_retention_hashes": {
+    "health.json": {
+      "bytes": 288,
+      "sha256": "4f273e63a34294ac3ebf2025c9ca6304ad0d2fbf6d3e093172319ccfab7cd053"
+    },
+    "release-health-headers.txt": {
+      "bytes": 455,
+      "sha256": "5fbad07605a6402c90395c297a67707b6cdbf2e380dc10bc9df90aaac2c9324d"
+    },
+    "release-jobs-36334896596.json": {
+      "bytes": 19967,
+      "sha256": "8ac27acef3a999225ebd8fe1f70479a8236f823705978c332d6eb798771cd981"
+    },
+    "release-run-36334896596.json": {
+      "bytes": 12477,
+      "sha256": "a41283cab419e3ac111a5275937fa82cdcf245f0721b3d9852d5167ce258dc5a"
+    },
+    "release.log": {
+      "bytes": 156663,
+      "sha256": "e810863a8c83fb5c1a83955e57d8900635fc96eb56f63a4cf17a321cf22f17c1"
+    }
+  },
+  "limits": [
+    "The public health payload does not expose a revision identifier; revision and traffic identity come from the exact deployment job log.",
+    "The independent check proves the public detailed-health endpoint was healthy after that job completed; it does not mutate production."
+  ]
+}
