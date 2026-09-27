@@ -1,0 +1,94 @@
+{
+  "circuit_breaker_after": {
+    "config": {
+      "failure_threshold": 5,
+      "recovery_timeout": 30.0,
+      "success_threshold": 2
+    },
+    "name": "sec_edgar",
+    "opened_at": null,
+    "state": "closed",
+    "stats": {
+      "consecutive_failures": 0,
+      "consecutive_successes": 1,
+      "failed_requests": 0,
+      "last_failure_time": null,
+      "last_success_time": 1790513643.1616058,
+      "rejected_requests": 0,
+      "success_rate": 100.0,
+      "successful_requests": 1,
+      "total_requests": 1
+    },
+    "time_until_half_open": null
+  },
+  "finished_at": "2026-09-27T12:54:03.161874Z",
+  "kind": "h25_terminal_image_authoritative_binary_comparison",
+  "limitations": [
+    "this is one terminal/nonzero-unused-padding member and is not evidence about short-width members",
+    "an exact match does not authorize decoder repair or establish recovery for the other 263 encoded failures",
+    "response.content is observed after HTTP content decoding and is not raw compressed-wire evidence",
+    "binary identity does not establish semantic review, source quality, modality coverage or programme admission"
+  ],
+  "model_calls": 0,
+  "network_requests_allowed": 1,
+  "observed_http_entity": {
+    "content_encoding": null,
+    "content_length_header": "148",
+    "content_type": "image/gif",
+    "entity_bytes": 148,
+    "entity_exactly_matches_diagnostic_identity": true,
+    "entity_matches_diagnostic_bytes": true,
+    "entity_matches_diagnostic_sha256": true,
+    "entity_sha256": "6e0164cd8773b7af59b6901641afbdd42a87177910f800c6bac763fe37b6bb3b",
+    "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231_g39.gif",
+    "request_count": 1,
+    "status_code": 200
+  },
+  "provider_calls": 0,
+  "question_scope": "terminal/nonzero-unused-padding case; not a short-declared-width case",
+  "rate_limiter_stats_after": {
+    "current_tokens": 9.0,
+    "rate_limit_hits": 0,
+    "requests_per_second": 10,
+    "total_requests": 1
+  },
+  "request": {
+    "compat_sha256": "ceb1af6cea66097115a0cb2bcb6a60cc2f301b3e670dd9bdfc7ea7c4b568c3dc",
+    "entity_limit_bytes": 8340,
+    "max_attempts": 1,
+    "timeout_seconds": 120,
+    "transport": "SECEdgarServiceCompat.get_filing_document_with_source",
+    "url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231_g39.gif",
+    "validated_sec_archival_https_path": true
+  },
+  "retained_diagnostic_identity": {
+    "accession_number": "0001089113-26-000010",
+    "declared_filename": "hsbc-20251231_g39.gif",
+    "decoded_bytes": 148,
+    "decoded_sha256": "6e0164cd8773b7af59b6901641afbdd42a87177910f800c6bac763fe37b6bb3b",
+    "filing": "H25",
+    "ordinal": 199,
+    "padded_data_line_count": 0,
+    "strict_additional_defects": [
+      "binascii_rejection"
+    ],
+    "terminal_zero_line_inserted_space_hypothesis_byte_count": 1
+  },
+  "saved_binary": {
+    "bytes": 148,
+    "path": "current-response-hsbc-20251231_g39.gif",
+    "sha256": "6e0164cd8773b7af59b6901641afbdd42a87177910f800c6bac763fe37b6bb3b"
+  },
+  "schema_version": 1,
+  "service_text_source_observation": {
+    "characters": 132,
+    "content_type": "image/gif",
+    "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231_g39.gif",
+    "representation": "httpx_decoded_response_text_utf8",
+    "requested_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/hsbc-20251231_g39.gif",
+    "schema_version": 1,
+    "sha256": "727156973c8b5efb53791bd3b7dc5430c37784b378e15c613d36e7ae15105903"
+  },
+  "started_at": "2026-09-27T12:54:02.826019Z",
+  "status": "ok"
+}

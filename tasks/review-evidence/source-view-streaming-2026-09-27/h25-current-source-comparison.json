@@ -1,0 +1,89 @@
+{
+  "circuit_breaker_after": {
+    "config": {
+      "failure_threshold": 5,
+      "recovery_timeout": 30.0,
+      "success_threshold": 2
+    },
+    "name": "sec_edgar",
+    "opened_at": null,
+    "state": "closed",
+    "stats": {
+      "consecutive_failures": 0,
+      "consecutive_successes": 1,
+      "failed_requests": 0,
+      "last_failure_time": null,
+      "last_success_time": 1790512990.314589,
+      "rejected_requests": 0,
+      "success_rate": 100.0,
+      "successful_requests": 1,
+      "total_requests": 1
+    },
+    "time_until_half_open": null
+  },
+  "comparisons": {
+    "entity_and_utf8_roundtrip_same_sha256": true,
+    "entity_bytes_equal_frozen": true,
+    "entity_exactly_equal_frozen": true,
+    "entity_sha256_equal_frozen": true,
+    "utf8_roundtrip_equal_frozen": true
+  },
+  "decoded_text_utf8_roundtrip": {
+    "bytes": 297209475,
+    "characters": 297209475,
+    "exactly_matches_frozen": true,
+    "sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32"
+  },
+  "finished_at": "2026-09-27T12:43:10.861229Z",
+  "frozen_utf8_representation": {
+    "bytes": 297209475,
+    "sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32"
+  },
+  "kind": "h25_sec_entity_body_comparison",
+  "limitations": [
+    "response.content is observed after HTTP content decoding and before response.text charset decoding; it is not raw wire or compressed-body evidence",
+    "one current SEC archival response does not prove historical capture-time identity or filer pre-submission identity",
+    "matching bytes do not resolve source quality, decoder repair authority, semantic correctness, modality coverage or programme admission"
+  ],
+  "model_calls": 0,
+  "network_requests_allowed": 1,
+  "observed_http_entity": {
+    "content_encoding": "gzip",
+    "content_length_header": "89381172",
+    "content_type": "text/plain",
+    "entity_bytes": 297209475,
+    "entity_exactly_matches_frozen": true,
+    "entity_sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+    "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+    "request_count": 1,
+    "status_code": 200
+  },
+  "provider_calls": 0,
+  "rate_limiter_stats_after": {
+    "current_tokens": 9.0,
+    "rate_limit_hits": 0,
+    "requests_per_second": 10,
+    "total_requests": 1
+  },
+  "request": {
+    "capture_limit_bytes": 305598083,
+    "compat_sha256": "ceb1af6cea66097115a0cb2bcb6a60cc2f301b3e670dd9bdfc7ea7c4b568c3dc",
+    "max_attempts": 1,
+    "timeout_seconds": 120,
+    "transport": "SECEdgarServiceCompat.get_filing_document_with_source",
+    "url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+    "validated_sec_archival_https_path": true
+  },
+  "schema_version": 1,
+  "service_source_observation": {
+    "characters": 297209475,
+    "content_type": "text/plain",
+    "final_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+    "representation": "httpx_decoded_response_text_utf8",
+    "requested_url": "https://www.sec.gov/Archives/edgar/data/1089113/000108911326000010/0001089113-26-000010.txt",
+    "schema_version": 1,
+    "sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32"
+  },
+  "started_at": "2026-09-27T12:42:30.188535Z",
+  "status": "ok"
+}
