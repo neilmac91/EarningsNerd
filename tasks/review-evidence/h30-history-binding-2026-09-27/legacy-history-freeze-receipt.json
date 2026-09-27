@@ -1,0 +1,26 @@
+{
+  "admission_approved": false,
+  "authority": {
+    "bytes": 5185,
+    "path": "outputs/takeover-2026-09-26/h30-independent-history/legacy-source-review-history-complete.json",
+    "sha256": "836403b0b85d0a6169d6ab49aedfe99442ceccb159f9084aaa5d6b29219678c6"
+  },
+  "created_with_exclusive_create": true,
+  "derived_history_rows": 52,
+  "derived_identity_set_sha256": "79f7ba4468d0ab2f2c8e90127a73b7e1118cd17c14ab4c75d3c83bedaf9364e1",
+  "kind": "legacy_custody_migration_freeze_receipt",
+  "known_technical_attempts": 2,
+  "limitations": [
+    "Retrospective declaration of the operator-retained legacy custody set at migration; not provider-global completeness.",
+    "No assertion of pre-dispatch journal chronology, private model attention, or unretained attempts.",
+    "Custody verification does not establish financial correctness, semantic resolution, or programme admission."
+  ],
+  "origin_artifacts": 4,
+  "provider_calls": 0,
+  "retained_source_bytes_modified": false,
+  "schema_version": 1,
+  "successor_reservation_witnesses": 2,
+  "superseded_technical_only_declaration_sha256": "8159adefbef213ef857a48bf9e60e043920051bc8d4eb1cac77222d08374dee2",
+  "supersession_reason": "Independent review found the same whole-origin omission for six findings in the same-context partial A3 artifact. Freeze both origin and technical identity sets.",
+  "wrapper_sha256": "5e228c7a7fb6ceffd235c1bb825daa418129ca2451daf4df76c1f6ec8672db20"
+}

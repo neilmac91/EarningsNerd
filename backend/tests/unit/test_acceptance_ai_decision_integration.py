@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from evals import acceptance_worker
+from evals import acceptance_legacy_history, acceptance_worker
 from evals.acceptance_ai_decision import build_decision, _judge_input_sha
 from evals.acceptance_ai_judge_evidence import _ARGV, MODEL
 from evals.acceptance_outputs import inspect_outputs
@@ -304,6 +304,10 @@ def _review_evidence(fixture: dict, prereq: dict, mapping_path: Path) -> Path:
 
 def _full_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setattr(acceptance_worker, "archive_binding_hold", lambda: None)
+    # This invented decision graph reuses the selection's accession labels, including H30,
+    # but has no production custody history. Keep its synthetic programme registry isolated;
+    # the protocol gate and actual retained-bundle smoke exercise the real authority boundary.
+    monkeypatch.setattr(acceptance_legacy_history, "APPROVED_LEGACY_HISTORY_AUTHORITIES", {})
     fixture = human_fixture(tmp_path)
     prereq = _v2_evidence(fixture)
     _upgrade_collector(fixture, prereq)
