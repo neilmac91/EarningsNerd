@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: monthly-sql-export
@@ -16,6 +15,11 @@ concurrency:
 jobs:
   export:
     if: github.ref == 'refs/heads/main' && github.repository == 'neilmac91/EarningsNerd'
+    outputs:
+      failure_stage: ${{ steps.export-run.outputs.failure_stage }}
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -510,6 +514,10 @@ jobs:
               try:
                   run_export()
               except SafeStop as exc:
+                  output_path = os.environ.get("GITHUB_OUTPUT")
+                  if output_path:
+                      with open(output_path, "a", encoding="utf-8") as output:
+                          output.write(f"failure_stage={exc}\n")
                   print(f"::error::monthly SQL export stopped at stage {exc}")
                   raise SystemExit(1) from None
 
@@ -530,6 +538,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Export or adopt the current monthly snapshot
+        id: export-run
         run: python3 "$RUNNER_TEMP/monthly_sql_export.py" --run
 
       - name: Remove runner-private files
@@ -537,3 +546,44 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/monthly-sql-export-config.json"
           rm -f "$RUNNER_TEMP/monthly_sql_export.py"
+
+  report-failure:
+    needs: export
+    if: >-
+      always() && github.ref == 'refs/heads/main' &&
+      github.repository == 'neilmac91/EarningsNerd' && needs.export.result != 'success'
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or update a failure issue
+        shell: bash
+        env:
+          EXPORT_RESULT: ${{ needs.export.result }}
+          FAILURE_STAGE: ${{ needs.export.outputs.failure_stage || 'workflow-setup' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Monthly SQL export failed"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$BODY_FILE"' EXIT
+          cat > "$BODY_FILE" <<EOF_BODY
+          The monthly Cloud SQL export finished with result $EXPORT_RESULT at stage
+          $FAILURE_STAGE: $RUN_URL
+
+          Inspect the failed or cancelled job. The export runner reports only a bounded stage name;
+          cloud resource metadata, SQL bytes, and private configuration are not published. Resolve
+          the observed cause, then use the reviewed manual workflow on main. Never repeat an
+          uncertain export or remove an occupied monthly object without separate operator review.
+          EOF_BODY
+          EXISTING="$(gh issue list --state open --search '"Monthly SQL export failed" in:title' \
+            --json number,title \
+            --jq '[.[] | select(.title == "Monthly SQL export failed")] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi
