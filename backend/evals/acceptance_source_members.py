@@ -265,6 +265,9 @@ def _authoritative_supplements(
     last_ordinal = 0
     for record in supplements:
         _object(record, _SUPPLEMENT_KEYS, "authoritative supplement")
+        if any(type(record[key]) is not str for key in
+               _SUPPLEMENT_KEYS - {"ordinal", "status_code", "byte_length"}):
+            raise ValueError("authoritative supplement identity fields must be exact strings")
         member_id = _token(record["member_id"], _SHA256, "authoritative member_id")
         member = by_id.get(member_id)
         if member is None or member_id in resolved:

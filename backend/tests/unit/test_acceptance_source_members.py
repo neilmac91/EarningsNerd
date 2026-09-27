@@ -313,6 +313,13 @@ def test_authoritative_attachment_supplement_binds_strict_invalid_member_without
     wrong_url = copy.deepcopy(ledger)
     wrong_url["authoritative_supplements"][0]["final_url"] = url + "?download=1"
     rejected(wrong_url, "exact same-filing")
+    class ForgedUrl(str):
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    forged_url = copy.deepcopy(ledger)
+    forged_url["authoritative_supplements"][0]["final_url"] = ForgedUrl("https://outside.example/x")
+    rejected(forged_url, "exact strings")
     wrong_hash = copy.deepcopy(ledger)
     wrong_hash["authoritative_supplements"][0]["sha256"] = "0" * 64
     rejected(wrong_hash, "bytes do not match")
