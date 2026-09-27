@@ -196,7 +196,7 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
-            <Badge title="Illustrative sample with approximate figures. Run an analysis to get verified, cited values from SEC XBRL data.">
+            <Badge title="Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.">
               Sample data
             </Badge>
           )}
@@ -274,7 +274,7 @@ export default function NarrativePane({
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
               {sample
-                ? 'Illustrative sample with approximate figures. Run an analysis for verified, cited values.'
+                ? 'Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
                 : "Source links show provenance; they do not verify every nearby narrative figure or conclusion. Uncited statements are the model's interpretation and can be wrong."}
             </AiDisclaimer>
           )}
