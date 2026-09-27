@@ -200,7 +200,7 @@ def test_previews_respect_final_numeric_ownership_and_guarded_quotes(monkeypatch
     assert preview and "MODEL" not in preview and "$999B" not in preview and "$888B" not in preview
     assert "End market" not in preview and "Product demand." in preview
     assert "$500.0M" in preview and "Product demand." in preview
-    assert "2.0x net income" in preview and "free cash flow of $150.0M" in preview
+    assert "2.0x net income" in preview and "selected operating cash flow minus absolute selected capex of $150.0M" in preview
     assert "dividends paid $20.0M" in preview and "12.0%" in preview
     assert "current ratio 2.00x" in preview and "operating $200.0M" in preview
     assert "A retained outlook." in preview and "A quotation awaiting verification." in preview
