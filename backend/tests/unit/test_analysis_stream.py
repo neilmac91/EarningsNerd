@@ -246,6 +246,26 @@ class TestStreamTrendNarrative:
         assert all(e["type"] != "token" for e in events)
 
     @pytest.mark.asyncio
+    async def test_cached_reserve_recomputes_numeric_mismatch_without_model(self, monkeypatch):
+        company_id = _seed_company_with_history()
+        generation_calls: list = []
+        mismatched = _fake_stream_seq(
+            [["Revenue reached 9,999 [F3]."], ["Revenue reached 9,999 [F3]."]],
+            generation_calls,
+        )
+
+        fresh = (await _drain(company_id, monkeypatch, None, fake=mismatched))[-1]
+        assert fresh["mismatched"] == 1
+        assert len(generation_calls) == 2
+
+        cache_calls: list = []
+        cached = (await _drain(company_id, monkeypatch, ["MUST NOT RUN"], calls=cache_calls))[-1]
+        assert cached["cached"] is True
+        assert cached["narrative"] == fresh["narrative"]
+        assert cached["mismatched"] == fresh["mismatched"]
+        assert cache_calls == []
+
+    @pytest.mark.asyncio
     async def test_force_regenerates(self, monkeypatch):
         company_id = _seed_company_with_history()
         await _drain(company_id, monkeypatch, ["First [F1]."])
