@@ -1,0 +1,103 @@
+{
+  "actual_h30": {
+    "admission_approved": false,
+    "filing_source_rows": 51,
+    "history_rows": 52,
+    "manifest_children": 9,
+    "origin_artifacts": 4,
+    "provider_calls": 0,
+    "source_contexts": 8,
+    "technical_attempts": 2,
+    "technical_children": 6,
+    "unresolved_custody_rows": 1
+  },
+  "external_raw": {
+    "location": "outputs/takeover-2026-09-26/h30-history-binding/",
+    "smoke": {
+      "bytes": 3028,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke.json",
+      "sha256": "b5e2810f8c742fc5e5889dc3ba64a0bcb2d61f2f0fa391aa8da10197d5bbb5e0"
+    },
+    "wrapper": {
+      "bytes": 5079,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-wrapper.json",
+      "sha256": "5e228c7a7fb6ceffd235c1bb825daa418129ca2451daf4df76c1f6ec8672db20"
+    }
+  },
+  "fault_proof": {
+    "expected_failure": "coherent two-origin provenance swap was accepted",
+    "mutated_result": "1 failed",
+    "mutation": "remove exact history identity-to-origin predicate",
+    "restored_result": "1 passed"
+  },
+  "files": {
+    "README.md": {
+      "bytes": 2765,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/README.md",
+      "sha256": "8e0ad95c4a77a70cdaea7399a5c3d065e482302476389ffc4a1a4d5b71b36824"
+    },
+    "actual-smoke.json": {
+      "bytes": 3028,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke.json",
+      "sha256": "b5e2810f8c742fc5e5889dc3ba64a0bcb2d61f2f0fa391aa8da10197d5bbb5e0"
+    },
+    "fault-proof-fail.log": {
+      "bytes": 7421,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-fail.log",
+      "sha256": "a5e40881ad68133204d73551a7f909049113a753d0ce1bcd945f751c795572f4"
+    },
+    "fault-proof-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-restored.log",
+      "sha256": "e5794912827b9247c7a94da63c7f944f13d2618e0fdfae80826f37c62057d798"
+    },
+    "full-backend-gate.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate.log",
+      "sha256": "94f1a71321c63f9848a827e684fa33401bd00acc47d59b05efa634aac9bac111"
+    },
+    "independent-review.md": {
+      "bytes": 4880,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/independent-review.md",
+      "sha256": "38abc92bcd5016774dfa11d96b1a0e05cec6a507e27133a3338f0a84e1df4e15"
+    }
+  },
+  "full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "performance_included": true,
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 158.13,
+    "warnings": 40
+  },
+  "implementation_commit": "be913d718ee01c95fc7fb2a6a9e6239cae4fba57",
+  "implementation_files": {
+    "guide": {
+      "bytes": 10613,
+      "path": "tasks/readiness-2026-09-21/acceptance/ai-assisted/README.md",
+      "sha256": "e9ae1ec30e463c7c530fbfebafb1d65fc85b72021f636464ea8b09968fdd6927"
+    },
+    "protocol": {
+      "bytes": 51346,
+      "path": "backend/evals/acceptance_ai_protocol.py",
+      "sha256": "7acfdea9b77f1ce5b5dd7d2e44a38cc5a0fe5061a12ca8bdb4b7afc8f4160ae0"
+    },
+    "test": {
+      "bytes": 44034,
+      "path": "backend/tests/unit/test_acceptance_ai_protocol.py",
+      "sha256": "d3d02c12a73a1b82e6bd1abe8a0c28d24662c0740f299d6f8f0723b42205a6c2"
+    }
+  },
+  "implementation_tree": "5b31bed1be03f801adaa85082f9afd701250b156",
+  "limitations": [
+    "Structural validation does not prove financial-versus-runtime semantics.",
+    "No provider call, financial re-judgment, production flag, or programme admission."
+  ],
+  "main_parent": "e39b475e13a0599d037303aacc75a82d51b053b8",
+  "schema_version": 1,
+  "scope": "H30 cross-role history custody and context exclusion; no source re-judgment or admission"
+}
