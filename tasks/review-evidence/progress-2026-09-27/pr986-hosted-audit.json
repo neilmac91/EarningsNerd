@@ -1,0 +1,129 @@
+{
+  "artifact_inventory": {
+    "bytes": 143572017,
+    "files": 76,
+    "path": "artifact-inventory.json",
+    "sha256": "9afaf94cfd2698202beb6816465be748eefd23c15198aa95d4488d3a4fce1800"
+  },
+  "ci": {
+    "conclusion": "success",
+    "eval_baseline_provider_calls": 0,
+    "eval_baseline_reason": "AI-relevant change detection skipped every model/eval step",
+    "run_id": 36349219043
+  },
+  "copilot": {
+    "actual_models": {
+      "deepseek-flash": 35
+    },
+    "billed_cost_usd": null,
+    "completed_unique_slots": 18,
+    "duplicate_slots": 0,
+    "errors": 0,
+    "estimated_cost_unknown_calls": 0,
+    "estimated_cost_usd_known": 0.007531,
+    "hard_gate_failures": 0,
+    "identity_fields": [
+      "ticker",
+      "accession_number",
+      "question_id",
+      "run_index"
+    ],
+    "known_usage": {
+      "cache_hit_tokens": 1091072,
+      "cache_miss_tokens": 6897,
+      "completion_tokens": 5373,
+      "prompt_tokens": 1097969,
+      "reasoning_tokens": 0,
+      "total_tokens": 1103342
+    },
+    "missing_slots": [],
+    "nonblocking_advisories": [
+      {
+        "figure_coverage": 0.6667,
+        "question_id": "sales-diluted-eps-2025",
+        "run_index": 0,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      },
+      {
+        "figure_coverage": 0.6667,
+        "question_id": "sales-diluted-eps-2025",
+        "run_index": 1,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      },
+      {
+        "figure_coverage": 0.6667,
+        "question_id": "sales-diluted-eps-2025",
+        "run_index": 2,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      }
+    ],
+    "planned_slots": 18,
+    "provider": {
+      "primary": 35
+    },
+    "provider_events": 35,
+    "report_sha256": "c3e4a0011f91bd25f9efcdb57e7b1573953216d366a4afc9502f54d3822035e2",
+    "requested_models": {
+      "deepseek-flash": 35
+    },
+    "retry_events": 0,
+    "run_id": 36349219161,
+    "source_preparation": {
+      "artifact_checks": 24,
+      "database_sha256": "c577a766def4116e8bf8e13c614d01503dae352b6e2f572dc08754c63b61db29",
+      "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+      "mismatches": [],
+      "sources": 6,
+      "status": "complete"
+    },
+    "system_fingerprint_count": 1,
+    "terminal_complete": 18,
+    "tool_continuation_outputs": 17,
+    "unknown_usage_calls": {
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 0,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "reasoning_tokens": 35,
+      "total_tokens": 0
+    }
+  },
+  "expected_head": "0ab16ed18e418e8a9a649bcd3ecc331b56257a35",
+  "limits": [
+    "Estimated cost is application telemetry, not a provider invoice.",
+    "Null reasoning_tokens are field-level unknowns; all other usage fields and per-call costs are present.",
+    "The three MSFT figure-coverage notices are nonblocking scorer advisories; all 18 outputs passed the configured gate."
+  ],
+  "provenance": {
+    "head_tree": "d0ed364ac89749c4303887dac4a88592fe9762b3",
+    "pr_changed_file_blob_match": {
+      ".github/workflows/ci.yml": true,
+      "backend/tests/unit/test_migration_lock_safety.py": true,
+      "docs/DEPLOYMENT.md": true,
+      "tasks/gcp-deploy-runbook.md": true
+    },
+    "report_source_sha": "bcecf67b72ea42030f9ad402b57edde80b40688a",
+    "synthetic_merge_parents": [
+      "b67e643ba495379242d7b5b51cad7d02e64fe413",
+      "0ab16ed18e418e8a9a649bcd3ecc331b56257a35"
+    ],
+    "synthetic_merge_tree": "b1404b0f5688c4f02de459b1651565ee77daf672",
+    "whole_tree_difference_expected_from_updated_base": true,
+    "whole_tree_equal": false
+  },
+  "review": {
+    "exact_head_clear_comment": 5859699165,
+    "historical_inline_findings": {
+      "4116823716": "ef4533b4b83c5678687f470cdb942a2b885f13e0",
+      "4116823720": "ef4533b4b83c5678687f470cdb942a2b885f13e0",
+      "4116863310": "ac572b5be71b977166fa47c56e61b50a22677289"
+    },
+    "new_exact_head_findings": 0,
+    "reviewed_commit": "0ab16ed18e418e8a9a649bcd3ecc331b56257a35"
+  },
+  "schema_version": 1,
+  "status": "clear"
+}

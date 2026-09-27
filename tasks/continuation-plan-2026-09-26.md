@@ -46,8 +46,8 @@ The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) r
 verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
 accounting, #978 binds current authoritative attachments to invalid frozen members without
 claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
-period-bound XBRL operands. Latest verified backend revision is `00402-tj6` (#981; [release receipt](review-evidence/progress-2026-09-27/pr981-release.json)),
-100% traffic, migrations 1 applied / 39 skipped, and independent healthy database readback.
+period-bound XBRL operands. Latest verified backend revision is `00404-46p` (#989; [release receipt](review-evidence/progress-2026-09-27/pr989-release.json)),
+100% traffic, migrations 0 applied / 40 skipped, and independent healthy database readback. The preceding #981 applied the source-excerpt migration (1 applied / 39 skipped).
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
 current authoritative supplements. The subsequent [H02/H25 assignment](review-evidence/progress-2026-09-27/h02-h25-byte-assignment.json)
@@ -85,8 +85,10 @@ No production model, prompt, quality threshold or judge contract changed.
   makes the model select code-rendered, period-bound observations; offline replay must eliminate
   the five retained failures before another paid measurement. Production stays `trends-v4`. The code-rendered observation candidate passed offline replay,
   independent code review and the full local gate. The founder explicitly approved its bounded
-  DeepSeek diagnostic (14 outputs in two stages, at most 56 calls, USD 1 ceiling); inspect the first
-  eight before authorizing the remaining six.
+  DeepSeek diagnostic. All [14 outputs in two stages](review-evidence/progress-2026-09-27/analysis-observation-diagnostic.json)
+  completed in 14 calls with no material candidate rendering findings against the frozen inputs.
+  Reserved USD 0.1061463; conservative token estimate USD 0.0084735; billed cost unknown.
+  The candidate remains in release review: #988 final review found two display-precision issues (near-equal growth comparisons and ratio citation excerpts). Corrections and deterministic replay of retained evidence are pending; no new diagnostic draw or E7/Fable quality verdict is inferred.
 - Freeze the completed custody interfaces. Execute the remaining source work against actual
   filings rather than adding hypothetical review infrastructure.
 - Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
@@ -95,21 +97,19 @@ No production model, prompt, quality threshold or judge contract changed.
   excerpts and 27 withheld items; all 70 outputs expose source availability. The authenticated
   cached Apple view and CSV show four matched excerpts and the incomplete-inventory notice.
   The [live check](review-evidence/progress-2026-09-27/pr981-product-check.json) also identified a
-  speculative empty-state explanation on initial legacy server data; a small UI follow-up remains.
+  speculative empty-state explanation on initial legacy server data. [Released #987](review-evidence/progress-2026-09-27/pr987-release.json)
+  corrects that notice; production shows the truthful fallback and the normal four excerpts after hydration.
   This establishes excerpt matching and serving behavior, not complete risk coverage or semantic
   acceptance of other sections.
 - Keep operations and beta preparation parallel to quality work. The isolated restore and one
-  private lifecycle-managed logical export are now verified; monthly recurrence, export
-  importability and two real weekly cohort readouts remain separate
-  outcomes. Neither CI nor an account login substitutes for user evidence. Existing
+  private lifecycle-managed logical export are now verified. The [monthly export path](review-evidence/progress-2026-09-27/monthly-export-proof.json) is bootstrapped: one export completed and the same-month repeat created no new export or changed object. Its scheduled trigger, export importability and two real weekly cohort readouts remain separate outcomes. Neither CI nor an account login substitutes for user evidence. Existing
   customer-consent and invitation boundaries remain in force.
 
 The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-outcome.json) has
 now passed its read-only integrity checks and confirmed clone cleanup. Production configuration
 and users remained unchanged. The whole-plan estimate therefore moves from 53.5% to **57.5%,
 about 58%**, under the same weighted calculation below. A current production pool timeout exposed an Analysis coverage path that can retain two
-connections per request across SEC waits. A narrow short-session repair is in progress; healthy
-point-in-time readback does not close fleet headroom. Quality acceptance and real-user
+connections per request across SEC waits. The [short-session repair is released](review-evidence/progress-2026-09-27/pr989-release.json), with [70-summary/18-Copilot regression evidence](review-evidence/progress-2026-09-27/pr989-hosted-audit.json). Its real four-connection regression exercises failed and successful same-company fetches, concurrent reads and fresh-cache reuse. A separate read-only audit found remaining company lookup/search/trending paths holding sessions across external waits; their correction remains open. Healthy point-in-time readback does not close fleet headroom. Quality acceptance and real-user
 evidence still control progression; new PRs and byte-valid packets do not count as acceptance.
 
 ## What the agents delivered
@@ -252,7 +252,7 @@ claim is made for them. The initial narrow H01 parser experiment stopped at the 
 
 - **#972 — ASCII source offsets:** [released and independently health-checked](review-evidence/source-view-ascii-2026-09-27/pr972-release.json) at `c53c7361`, revision `00395-cqg`, migrations 0/39 and 100% traffic. The exact measured module completes H25/H02 projection and verification under the existing Linux 3 GiB/180-second limits. The subsequent full-export Linux run 36311408531 failed in whole-payload JSON serialization after projection returned; H02 was held. The [byte-preserving streaming correction](review-evidence/source-view-streaming-2026-09-27/README.md) now completes both full exports in Linux run 36318572864 under the unchanged bounds (H25 117.44s, H02 43.39s). The correction is now [released as #974](review-evidence/source-view-streaming-2026-09-27/pr974-release.json), revision `00396-p2f` at 100%, migrations 0/39 and healthy independent readback. Its local 3,734-test gate, hosted 70/18 audit and exact-head review passed. This direct-primary pass does not establish full member, modality, provider or E7 coverage. Local 3,733 tests and hosted 70-summary/18-Copilot hard gates passed; soft quality advisories remain.
 
-- **#942 — formula labels:** the [independent Fable comparison](review-evidence/pr942-fable-2026-09-27/README.md) is complete: p 48/70 negative and q 40/70, with zero judge errors. The narrow ratio-label mechanism is supported in two issuer-name-collision cases, but q still fails five of 18 negative controls on G4/G5 and introduces G2/G3 findings. It does not meet the existing grounding-candidate adoption rule. Codex's disposition is to keep #942 draft and decline the prospective q3 pin (citation fidelity 0.9648 → 0.9532). Preserve the original reports, judgments and agent hand-checks; do not redraw completed slots or relax the bar. Correct source-supported financial wording and the distinct causal-transfer defects before the next measured candidate; resolve that candidate before E7 freeze. Production `p` remains an operational hold, not a semantic-quality acceptance. The [reviewed local r preparation and next corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) date valid comparators, omit ambiguous ones and protect issuer-ratio coexistence. It remains unpushed and needs current-main integration, full validation and completion of the separate scope/causal corrections before another paid corpus.
+- **#942 — formula labels:** the [independent Fable comparison](review-evidence/pr942-fable-2026-09-27/README.md) is complete: p 48/70 negative and q 40/70, with zero judge errors. The narrow ratio-label mechanism is supported in two issuer-name-collision cases, but q still fails five of 18 negative controls on G4/G5 and introduces G2/G3 findings. It does not meet the existing grounding-candidate adoption rule. Codex's disposition is to keep #942 draft and decline the prospective q3 pin (citation fidelity 0.9648 → 0.9532). Preserve the original reports, judgments and agent hand-checks; do not redraw completed slots or relax the bar. Correct source-supported financial wording and the distinct causal-transfer defects before the next measured candidate; resolve that candidate before E7 freeze. Production `p` remains an operational hold, not a semantic-quality acceptance. The [earlier local r preparation](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) was subsequently integrated and measured at head `47d040aa53e89d2e1fa78c26ee688d5a49338133`. Its [measurement and hold record](https://github.com/neilmac91/EarningsNerd/pull/942#issuecomment-5856807917) retains 70 summaries / 18 Copilot outputs, 105 calls and a USD 0.382361 telemetry estimate. Targeted source review still found material entity, unit, period and causal-comparator defects; #942 remains draft, with no Fable rerun, re-pin or adoption. Subsequent #977 corrects the numeric rendering defect and #981 replaces speculative Risks with source excerpts; those changes do not waive the remaining financial explanations.
 - **#952 — E8 launch/recovery:** remains draft at
   `1d48eb336a8a22427d466966b1814fce2e94c3f2`. Park it while E7 progresses; all three checkpoints
   report no running E8 work. E8 remains 140 reused
@@ -283,11 +283,10 @@ the Copilot run completed 18/18. Five accepted Copilot outputs still had an unci
 configured gate success is not perfect figure coverage. The same backend deployment applies
 #980's already-merged pool recipe; live readback confirms API 4/0, pregenerate 3/0, and the seven other jobs 1/0, all on the new image.
 
-The monthly logical-export workflow in #984 has passed its failure-alert correction, exact-head review and [serial release verification](review-evidence/progress-2026-09-27/pr984-release.json). Its [hosted audit](review-evidence/progress-2026-09-27/pr984-hosted-audit.json) records zero baseline-generation calls (those steps were skipped) and 18 completed Copilot outputs across 36 successful calls. Operational bootstrap and the first/idempotent-repeat execution remain pending; merge alone does not activate the recurrence. The service-level maximum change was separately
+The monthly logical-export workflow in #984 has passed its failure-alert correction, exact-head review and [serial release verification](review-evidence/progress-2026-09-27/pr984-release.json). Its [hosted audit](review-evidence/progress-2026-09-27/pr984-hosted-audit.json) records zero baseline-generation calls (those steps were skipped) and 18 completed Copilot outputs across 36 successful calls. The [operational proof](review-evidence/progress-2026-09-27/monthly-export-proof.json) now records dedicated main-branch identity bootstrap, one completed 4,848,767-byte private SQL gzip export (run 36349655416), and a same-month repeat (36350328859) with zero new export operations and unchanged object identity. The first-of-month schedule is armed; a natural scheduled trigger and SQL import remain unproved. The service-level maximum change was separately
 approved after automatic review required an explicit capacity-risk decision; its [completed
 readback](review-evidence/progress-2026-09-27/service-maximum-outcome.json) confirms maximum 2,
-unchanged serving revision/template/traffic and healthy public/database checks. Persisting it in
-the deploy command remains separate. Neither the setting nor per-process pools establishes a
+unchanged serving revision/template/traffic and healthy public/database checks. [Released #986](review-evidence/progress-2026-09-27/pr986-release.json) now persists both service and revision maximum 2 in the executable deploy command; [hosted evidence](review-evidence/progress-2026-09-27/pr986-hosted-audit.json) records 18 Copilot outputs and zero baseline-generation calls. Neither the setting nor per-process pools establishes a
 demonstrated fleet-wide connection cap.
 
 ## September 27 corpus execution result
@@ -312,7 +311,7 @@ the new drill clone. A separate zero-cost patch enabled database deletion protec
 [one-export proof](review-evidence/progress-2026-09-27/logical-export-outcome.json) retained a private,
 compressed SQL object with a 35-day lifecycle and seven-day soft-delete retention; its temporary
 bucket writer was revoked and production configuration and users remained unchanged. No SQL
-contents were published. Monthly recurrence and a logical-export import test remain unproved.
+contents were published. The [monthly workflow](review-evidence/progress-2026-09-27/monthly-export-proof.json) is now bootstrapped and its first export plus same-month replay are verified. Natural schedule execution and a logical-export import test remain unproved.
 Daily backups and PITR approval are already settled; no further cloud sign-in request is pending.
 
 The [live acceptance observations](review-evidence/takeover-2026-09-26/live-analysis-acceptance.md) record that the signed-in founder account supported AAPL FY2024–FY2025 and 2026Q2–2026Q3 analyses, internal source-entry navigation, both PDF downloads and both Excel exports. The five-page annual and four-page quarterly PDFs were rendered and visually inspected; unreconciled warnings were retained. Workbook inspection preserved numeric precision, percentage-point formats, missing-data blanks and unreconciled-value comments; no spreadsheet error cells or external workbook links were found. Native Excel rendering and independent financial-source truth were not established. A fresh Chrome tab restored browser control after the original tab lost its debugger attachment.
