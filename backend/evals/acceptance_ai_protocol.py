@@ -95,11 +95,36 @@ def _reference(base: Path, record: Any) -> tuple[dict[str, Any], dict[str, Any]]
     return reference, value
 
 
-def _context_receipt(base: Path, owner: dict[str, Any], accession: str, context: str,
+def _child_reference(
+    base: Path, owner_reference: dict[str, Any], record: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Resolve a child beside its owner, preserving unambiguous legacy base paths."""
+    relative = Path(record.get("path", "")) if isinstance(record, dict) else Path()
+    if relative.is_absolute():
+        raise ValueError("child evidence path must be relative")
+    roots = [base.resolve(), Path(owner_reference["resolved_path"]).parent.resolve()]
+    candidates: list[Path] = []
+    for root in roots:
+        candidate = (root / relative).resolve()
+        if not candidate.is_relative_to(root):
+            raise ValueError("child evidence escapes its owner")
+        if candidate not in candidates and candidate.exists():
+            candidates.append(candidate)
+    if not candidates:
+        raise ValueError("child evidence is missing")
+    if len(candidates) > 1 and len({candidate.read_bytes() for candidate in candidates}) > 1:
+        raise ValueError("child evidence path is ambiguous")
+    base_candidate = (base.resolve() / relative).resolve()
+    root = base if candidates[0] == base_candidate else Path(owner_reference["resolved_path"]).parent
+    return _reference(root, record)
+
+
+def _context_receipt(base: Path, owner_reference: dict[str, Any], owner: dict[str, Any],
+                     accession: str, context: str,
                      role: str, sources: dict[str, str], frozen: datetime,
                      input_briefs: dict[str, str] | None = None) -> dict[str, Any]:
     _, _, utc, _ = _helpers()
-    reference, receipt = _reference(base, owner["context_evidence"])
+    reference, receipt = _child_reference(base, owner_reference, owner["context_evidence"])
     if (set(receipt) != {"schema_version", "review_protocol", "accession_number", "context_id",
                          "role", "observed_at", "input_source_packets", "candidate_output_artifacts",
                          "source_only", "context_window_truncated", "input_brief_sha256"} or
@@ -121,7 +146,19 @@ def ai_review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any
     ai = prereq["ai_assisted"]
     protocol_ref, protocol = _reference(base, ai["protocol"])
     roles = protocol["roles"]
-    return {
+
+    def source_record(row: dict[str, Any], *, include_role: bool) -> dict[str, Any]:
+        owner_reference, value = _reference(base, row)
+        if include_role:
+            return {"accession_number": row["accession_number"], "role": row["role"],
+                    "context_id": row["context_id"], **owner_reference,
+                    "context_evidence": _child_reference(
+                        base, owner_reference, value["context_evidence"])[0]}
+        return {"accession_number": row["accession_number"], **owner_reference,
+                "context_evidence": _child_reference(
+                    base, owner_reference, value["context_evidence"])[0]}
+
+    inventory = {
         "prerequisites_path": str(Path(prerequisites_path).resolve(strict=True)),
         "schema_version": 2, "review_protocol": "ai_assisted",
         "protocol": protocol_ref,
@@ -129,18 +166,43 @@ def ai_review_evidence_inventory(prerequisites_path: Path, prereq: dict[str, Any
             "role": role["role"], "prompt": _artifact(base, role["prompt"])[0],
             "contract": _artifact(base, role["contract"])[0],
         } for role in roles), key=lambda row: row["role"]),
-        "source_briefs": sorted(({
-            "accession_number": row["accession_number"], "role": row["role"],
-            "context_id": row["context_id"],
-            **_reference(base, row)[0],
-            "context_evidence": _reference(base, _reference(base, row)[1]["context_evidence"])[0],
-        } for row in ai["source_briefs"]), key=lambda row: (row["accession_number"], row["context_id"])),
-        "reconciled_references": sorted(({
-            "accession_number": row["accession_number"], **_reference(base, row)[0],
-            "context_evidence": _reference(base, _reference(base, row)[1]["context_evidence"])[0],
-        } for row in ai["reconciled_references"]), key=lambda row: row["accession_number"]),
+        "source_briefs": sorted((source_record(row, include_role=True)
+                                  for row in ai["source_briefs"]),
+            key=lambda row: (row["accession_number"], row["context_id"])),
+        "reconciled_references": sorted((source_record(row, include_role=False)
+                                          for row in ai["reconciled_references"]),
+            key=lambda row: row["accession_number"]),
         "exposure_review": _reference(base, ai["exposure_review"])[0],
     }
+    if "adverse_source_evidence" in ai:
+        from evals.acceptance_ai_adverse import inventory_rows
+
+        inventory["adverse_source_evidence"] = inventory_rows(
+            base, ai["adverse_source_evidence"], _artifact)
+    return inventory
+
+
+def source_context_ids(prereq: dict[str, Any], base: Path) -> set[str]:
+    """Return the declared schema-2 source-review context closure."""
+    ai = prereq["ai_assisted"]
+    contexts = {row.get("context_id") for row in ai["source_briefs"]}
+    reconciliations: dict[str, str] = {}
+    for record in ai["reconciled_references"]:
+        _, reference = _reference(base, record)
+        reconciliations[record["accession_number"]] = reference.get("context_id")
+        contexts.add(reference.get("context_id"))
+    for row in ai.get("adverse_source_evidence", []):
+        if (not isinstance(row, dict) or
+                row.get("reconciliation_context_id") != reconciliations.get(row.get("accession_number"))):
+            raise ValueError("adverse source reconciliation context differs")
+        contexts.add(row.get("context_id"))
+    if any(not _nonempty(context) for context in contexts):
+        raise ValueError("source review context identity missing")
+    expected_count = len(ai["source_briefs"]) + len(ai["reconciled_references"]) + len(
+        ai.get("adverse_source_evidence", []))
+    if len(contexts) != expected_count:
+        raise ValueError("source review context identity reused")
+    return contexts
 
 
 def validate_ai_prerequisites(
@@ -154,9 +216,9 @@ def validate_ai_prerequisites(
     exposure_status = "unverified"
     limitations = ["AI source coverage and independence are retained claims, not human verification"]
     ai = prereq.get("ai_assisted")
-    if not isinstance(ai, dict) or set(ai) != {
-        "protocol", "source_briefs", "reconciled_references", "exposure_review",
-    }:
+    required_ai_keys = {"protocol", "source_briefs", "reconciled_references", "exposure_review"}
+    if (not isinstance(ai, dict) or not required_ai_keys.issubset(ai) or
+            set(ai) - required_ai_keys - {"adverse_source_evidence"}):
         issue(issues, "ai_protocol_invalid", "AI protocol inventory missing or malformed")
         return issues, freezes, exposure_status, limitations
     try:
@@ -182,6 +244,9 @@ def validate_ai_prerequisites(
             _artifact(base, role["prompt"])
             _artifact(base, role["contract"])
         protocol_frozen = utc(protocol["frozen_at"])
+        reconciliation_prompt_sha256 = next(
+            role["prompt"]["sha256"] for role in roles
+            if role["role"] == "source_reconciliation")
     except (OSError, KeyError, TypeError, ValueError) as exc:
         issue(issues, "ai_protocol_invalid", type(exc).__name__)
         return issues, freezes, exposure_status, limitations
@@ -205,7 +270,7 @@ def validate_ai_prerequisites(
         try:
             if set(row) != {"accession_number", "role", "context_id", "path", "sha256"}:
                 raise ValueError("brief record shape invalid")
-            _, brief = _reference(base, row)
+            brief_reference, brief = _reference(base, row)
             expected_sources = source_packets_by_accession[accession]
             frozen = utc(brief.get("frozen_at"))
             if (set(brief) != _BRIEF_KEYS or brief["schema_version"] != 2 or
@@ -223,7 +288,8 @@ def validate_ai_prerequisites(
             brief_freezes[(accession, context)] = frozen
             brief_issue_ids[(accession, context)] = {item["issue_id"] for item in brief["material_issues"]}
             role = row["role"]
-            _context_receipt(base, brief, accession, context, role, expected_sources, frozen)
+            _context_receipt(base, brief_reference, brief, accession, context, role,
+                             expected_sources, frozen)
         except (OSError, KeyError, TypeError, ValueError) as exc:
             issue(issues, "ai_brief_invalid", f"{accession}: {type(exc).__name__}")
 
@@ -232,12 +298,14 @@ def validate_ai_prerequisites(
             _record_ids(references, ("accession_number",)) != {(acc,) for acc in accessions}):
         issue(issues, "ai_reference_coverage", "one reconciled source reference per accession required")
         references = []
+    reconciliation_contexts: dict[str, str] = {}
+    reconciled_issue_ids: dict[str, set[str]] = {}
     for row in references:
         accession = row["accession_number"]
         try:
             if set(row) != {"accession_number", "path", "sha256"}:
                 raise ValueError("reference record shape invalid")
-            _, ref = _reference(base, row)
+            reference_record, ref = _reference(base, row)
             context = ref.get("context_id")
             if not _nonempty(context) or context in source_contexts:
                 raise ValueError("source reconciliation context reused or missing")
@@ -279,6 +347,8 @@ def validate_ai_prerequisites(
             seen_issues = {(item["source_context_id"], item["source_issue_id"])
                            for item in dispositions}
             reconciled_ids = {item["issue_id"] for item in ref["material_issues"]}
+            reconciliation_contexts[accession] = context
+            reconciled_issue_ids[accession] = reconciled_ids
             if seen_issues != expected_issues or any(
                 item["status"] not in {"supported", "rejected", "unresolved"} or
                 not _nonempty(item["reason"]) or not _nonempty(item["source_locator"]) or
@@ -302,11 +372,34 @@ def validate_ai_prerequisites(
             if any(item["status"] == "unresolved" for item in ref["disagreements"]):
                 issue(issues, "ai_source_disagreement_unresolved",
                       f"{accession}: unresolved source-reference disagreement")
-            _context_receipt(base, ref, accession, context,
+            _context_receipt(base, reference_record, ref, accession, context,
                              "source_reconciliation", expected_sources, frozen, expected_hashes)
             freezes[accession] = frozen
         except (OSError, KeyError, TypeError, ValueError) as exc:
             issue(issues, "ai_reference_invalid", f"{accession}: {type(exc).__name__}")
+
+    if "adverse_source_evidence" in ai:
+        try:
+            from evals.acceptance_ai_adverse import validate_rows
+
+            adverse_contexts, unresolved, reattributed = validate_rows(
+                base, ai["adverse_source_evidence"], accessions,
+                source_packets_by_accession, source_contexts, reconciliation_contexts,
+                reconciled_issue_ids, {
+                    accession: {role: brief_hashes[
+                        (accession, context_by_unit[(accession, role)])]
+                        for role in ("source_reference_a", "source_reference_b")}
+                    for accession in accessions
+                }, reconciliation_prompt_sha256, _artifact, _reference, _ISSUE_KEYS)
+            source_contexts.update(adverse_contexts)
+            for accession in sorted(unresolved):
+                issue(issues, "ai_adverse_source_issue_unresolved",
+                      f"{accession}: retired source issue unresolved")
+            if reattributed:
+                limitations.append(
+                    "adverse dispositions reattribute some retired issues within the frozen source packets")
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            issue(issues, "ai_adverse_source_invalid", type(exc).__name__)
 
     try:
         _, exposure = _reference(base, ai["exposure_review"])
