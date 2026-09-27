@@ -1,0 +1,51 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed _____
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-310/test_ai_source_evidence_keeps_0')
+
+    def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_path: Path) -> None:
+        prereq, path, accession, sources, now = _fixture(tmp_path)
+        nested_record = prereq["ai_assisted"]["source_briefs"][0]
+        original_brief_path = tmp_path / nested_record["path"]
+        nested_brief = json.loads(original_brief_path.read_text())
+        original_receipt_path = tmp_path / nested_brief["context_evidence"]["path"]
+        nested_dir = tmp_path / "nested-a"
+        nested_dir.mkdir()
+        nested_brief_path = nested_dir / original_brief_path.name
+        nested_receipt_path = nested_dir / original_receipt_path.name
+        nested_brief_path.write_bytes(original_brief_path.read_bytes())
+        nested_receipt_path.write_bytes(original_receipt_path.read_bytes())
+        original_brief_path.unlink()
+        original_receipt_path.unlink()
+        nested_record["path"] = str(nested_brief_path.relative_to(tmp_path))
+        issues, freezes, status, limitations = _validate(prereq, path, accession, sources, now)
+        assert issues == []
+        assert accession in freezes
+        assert status == "no_known_candidate_exposure_external_unknown"
+        assert any("unknown" in text for text in limitations)
+        original_receipt_path.write_text("{}", encoding="utf-8")
+        assert "ai_brief_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        original_receipt_path.unlink()
+        receipt_bytes = nested_receipt_path.read_bytes()
+        original_receipt_path.write_bytes(receipt_bytes)
+        nested_receipt_path.write_text("{}", encoding="utf-8")
+>       assert "ai_brief_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+E       AssertionError: assert 'ai_brief_invalid' in set()
+
+tests/unit/test_acceptance_ai_protocol.py:211: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+  /private/tmp/earningsnerd-pr948-review/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+  /private/tmp/earningsnerd-pr948-review/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+1 failed, 2 warnings in 1.12s

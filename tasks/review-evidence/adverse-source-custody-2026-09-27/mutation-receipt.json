@@ -1,0 +1,31 @@
+{
+  "code_commit": "1604f0ff97bbfa5af40b6fe63b9ee701fe823457",
+  "faults": [
+    {
+      "invariant": "protocol-prompt-binding",
+      "fault_exit": 1,
+      "tail": "1 failed, 2 warnings in 1.42s"
+    },
+    {
+      "invariant": "original-artifact-set",
+      "fault_exit": 1,
+      "tail": "1 failed, 2 warnings in 1.14s"
+    },
+    {
+      "invariant": "owner-path-ambiguity",
+      "fault_exit": 1,
+      "tail": "1 failed, 2 warnings in 1.12s"
+    },
+    {
+      "invariant": "retired-context-exclusion",
+      "fault_exit": 1,
+      "tail": "1 failed, 2 warnings in 8.65s"
+    }
+  ],
+  "restored_tail": "14 passed, 2 warnings in 18.55s",
+  "restored_exit": 0,
+  "files": {
+    "backend/evals/acceptance_ai_protocol.py": "a414ec92721776df55960367f2dc749309c0addbced94ade36f5b4585f9e4622",
+    "backend/evals/acceptance_ai_adverse.py": "389d28b6b7473bddb403f3d4da960de88b219cd381916f861536d33d73e841d4"
+  }
+}

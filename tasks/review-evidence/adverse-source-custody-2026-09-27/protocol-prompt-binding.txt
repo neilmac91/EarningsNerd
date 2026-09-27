@@ -1,0 +1,150 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed _____
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-308/test_ai_source_evidence_keeps_0')
+
+    def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_path: Path) -> None:
+        prereq, path, accession, sources, now = _fixture(tmp_path)
+        nested_record = prereq["ai_assisted"]["source_briefs"][0]
+        original_brief_path = tmp_path / nested_record["path"]
+        nested_brief = json.loads(original_brief_path.read_text())
+        original_receipt_path = tmp_path / nested_brief["context_evidence"]["path"]
+        nested_dir = tmp_path / "nested-a"
+        nested_dir.mkdir()
+        nested_brief_path = nested_dir / original_brief_path.name
+        nested_receipt_path = nested_dir / original_receipt_path.name
+        nested_brief_path.write_bytes(original_brief_path.read_bytes())
+        nested_receipt_path.write_bytes(original_receipt_path.read_bytes())
+        original_brief_path.unlink()
+        original_receipt_path.unlink()
+        nested_record["path"] = str(nested_brief_path.relative_to(tmp_path))
+        issues, freezes, status, limitations = _validate(prereq, path, accession, sources, now)
+        assert issues == []
+        assert accession in freezes
+        assert status == "no_known_candidate_exposure_external_unknown"
+        assert any("unknown" in text for text in limitations)
+        original_receipt_path.write_text("{}", encoding="utf-8")
+        assert "ai_brief_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        original_receipt_path.unlink()
+        receipt_bytes = nested_receipt_path.read_bytes()
+        original_receipt_path.write_bytes(receipt_bytes)
+        nested_receipt_path.write_text("{}", encoding="utf-8")
+        assert "ai_brief_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        nested_receipt_path.write_bytes(receipt_bytes)
+        original_receipt_path.unlink()
+        inventory = ai_review_evidence_inventory(path, prereq)
+        assert inventory["source_briefs"][0]["context_evidence"]["resolved_path"] == str(
+            nested_receipt_path.resolve())
+        assert len(inventory["source_briefs"]) == 2
+        assert "adverse_source_evidence" not in inventory
+        ordinary_inventory = inventory
+    
+        adverse = _add_adverse_evidence(tmp_path, prereq, accession, sources)
+        path.write_text(json.dumps(prereq), encoding="utf-8")
+        assert _validate(prereq, path, accession, sources, now)[0] == []
+        addendum_path = tmp_path / adverse["status_addendum"]["path"]
+        prompt_path = tmp_path / adverse["reconciliation_prompt"]["path"]
+        reservation_path = tmp_path / adverse["operator_reservation"]["path"]
+        ledger_path = tmp_path / adverse["adverse_dispositions"]["path"]
+        original_addendum = json.loads(addendum_path.read_text())
+        original_prompt = prompt_path.read_text()
+        original_reservation = json.loads(reservation_path.read_text())
+        original_ledger = json.loads(ledger_path.read_text())
+        old_addendum_sha = adverse["status_addendum"]["sha256"]
+        addendum = json.loads(json.dumps(original_addendum))
+        addendum["original_artifacts"].append({"path": "undeclared-fourth.txt", "sha256": "d" * 64})
+        adverse["status_addendum"].update(_write(addendum_path, addendum))
+        prompt_path.write_text(
+            original_prompt.replace(old_addendum_sha, adverse["status_addendum"]["sha256"]),
+            encoding="utf-8")
+        adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+        reservation = {**original_reservation,
+                       "prompt_sha256": adverse["reconciliation_prompt"]["sha256"]}
+        adverse["operator_reservation"].update(_write(reservation_path, reservation))
+        ledger = {**original_ledger,
+                  "status_addendum_sha256": adverse["status_addendum"]["sha256"]}
+        adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+        assert "ai_adverse_source_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        adverse["status_addendum"].update(_write(addendum_path, original_addendum))
+        prompt_path.write_text(original_prompt, encoding="utf-8")
+        adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+        adverse["operator_reservation"].update(_write(reservation_path, original_reservation))
+        adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+        alternate_ledger = json.loads(json.dumps(original_ledger))
+        alternate_ledger["adverse_dispositions"][0].update(
+            source_role="index", source_sha256="b" * 64,
+            source_locator="Index source independently confirms the retained issue")
+        adverse["adverse_dispositions"].update(_write(ledger_path, alternate_ledger))
+        issues, _, _, adverse_limitations = _validate(prereq, path, accession, sources, now)
+        assert "ai_adverse_source_invalid" not in {item["code"] for item in issues}
+        assert any("reattribute" in text for text in adverse_limitations)
+        adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+        adverse_inventory = ai_review_evidence_inventory(path, prereq)
+        assert len(adverse_inventory["adverse_source_evidence"][0]["artifacts"]) == 9
+        assert len(adverse_inventory["source_briefs"]) == 2
+        del prereq["ai_assisted"]["adverse_source_evidence"]
+        assert ai_review_evidence_inventory(path, prereq) == ordinary_inventory
+        prereq["ai_assisted"]["adverse_source_evidence"] = [adverse]
+        inventory = adverse_inventory
+        with sqlite3.connect(tmp_path / "budget.sqlite3") as db:
+            db.execute("CREATE TABLE binding (id INTEGER PRIMARY KEY, value TEXT)")
+            db.execute("INSERT INTO binding VALUES (1, ?)", (json.dumps({"review_evidence": inventory}),))
+        verify_review_evidence_binding(tmp_path, path)
+    
+        # A coherent rewrite and updated inline hash still differs from the original seal.
+        retired_prompt_path = tmp_path / adverse["retired_prompt"]["path"]
+        retired_prompt_path.write_text("Changed retired prompt", encoding="utf-8")
+        adverse["retired_prompt"]["sha256"] = hashlib.sha256(retired_prompt_path.read_bytes()).hexdigest()
+        path.write_text(json.dumps(prereq), encoding="utf-8")
+        assert _validate(prereq, path, accession, sources, now)[0] == []
+        with pytest.raises(ValueError, match="review evidence differs"):
+            verify_review_evidence_binding(tmp_path, path)
+    
+        for mutation, expected in (("omitted", "ai_adverse_source_invalid"),
+                                   ("unresolved", "ai_adverse_source_issue_unresolved"),
+                                   ("invalid_status", "ai_adverse_source_invalid"),
+                                   ("wrong_source", "ai_adverse_source_invalid"),
+                                   ("wrong_target", "ai_adverse_source_invalid")):
+            ledger = json.loads(json.dumps(original_ledger))
+            if mutation == "omitted":
+                ledger["adverse_dispositions"].pop()
+            elif mutation == "unresolved":
+                ledger["adverse_dispositions"][0].update(status="unresolved", reconciled_issue_id=None)
+            elif mutation == "invalid_status":
+                ledger["adverse_dispositions"][0]["status"] = "omitted"
+            elif mutation == "wrong_source":
+                ledger["adverse_dispositions"][0]["source_sha256"] = "f" * 64
+            else:
+                ledger["adverse_dispositions"][0]["reconciled_issue_id"] = "missing"
+            adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+            codes = {item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+            assert expected in codes
+        adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+    
+        for field, value in (("prompt_sha256", "f" * 64),
+                             ("protocol_prompt_sha256", "f" * 64),
+                             ("admission_approved", True)):
+            reservation = {**original_reservation, field: value}
+            adverse["operator_reservation"].update(_write(reservation_path, reservation))
+            codes = {item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+>           assert "ai_adverse_source_invalid" in codes
+E           AssertionError: assert 'ai_adverse_source_invalid' in set()
+
+tests/unit/test_acceptance_ai_protocol.py:311: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+  /private/tmp/earningsnerd-pr948-review/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+  /private/tmp/earningsnerd-pr948-review/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_ai_protocol.py::test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed
+1 failed, 2 warnings in 1.42s
