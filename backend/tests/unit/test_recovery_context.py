@@ -321,7 +321,10 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
         # Independent semantic anchors: the corrected wording, not a mutated or restored #805 constant.
         assert "Signed figures support a movement's direction and size, never its cause" in wire
         assert "two figures moving together is not a cause" in wire
-        assert "only when the filing itself states it for that same line, measure and period" in wire
+        assert (
+            "only when the filing itself states it for that same line, measure, entity/component "
+            "scope, period and number role (level or change)" in wire
+        )
         assert "Only cite figures present" not in wire
         assert "separate operating results from one-time items" not in wire
         assert "Every OTHER section must ADD" not in wire
@@ -330,23 +333,36 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
 
     primary = requests[0]['messages'][1]['content']
     assert primary.count(FINANCIAL_DRIVER) == 3  # what_changed, P&L commentary, working capital
+    assert 'do not transfer them to total revenue' in primary
     assert primary.count(EARNINGS_RECONCILIATION) == 1
     assert 'or the supported movement alone when the filing states no cause' in primary  # segments
+    assert 'attribute it (share buybacks reducing the share count, or dilution)' not in primary
+    assert 'attribute it (buybacks reducing the share count, or dilution)' not in primary
+    if not structured and form in ('10-K', '10-Q'):
+        assert 'report the divergence and any separately reported share-count movement' in primary
+        assert 'ONLY when the filing itself states that relationship' in primary
+        assert 'EPS rose while diluted weighted-average shares fell' in primary
     for section, request in zip(sections, requests[1:]):
         wire = request['messages'][1]['content']
         assert 'ONE HOME PER NUMBER' not in wire  # recovery cannot see the other sections
         snippet = json.loads(wire.split('SCHEMA:\n', 1)[1].split('\n\nFILING EXCERPT:', 1)[0])
         if section == 'the_print':
             assert snippet[section]['what_changed'] == FINANCIAL_DRIVER
+            assert 'do not transfer them to total revenue' in wire
         elif section == 'results_that_matter':
             assert snippet[section]['table'][0]['commentary'] == FINANCIAL_DRIVER
+            assert 'do not transfer them to total revenue' in wire
         elif section == 'earnings_quality':
             assert snippet[section]['operating_vs_one_time'] == EARNINGS_RECONCILIATION
         elif section == 'balance_sheet_liquidity':
             assert snippet[section]['working_capital'] == FINANCIAL_DRIVER
+            assert 'do not transfer them to total revenue' in wire
         else:  # value_drivers carries only verbatim passages (summary-2026-09-i); no explanation slot
             assert FINANCIAL_DRIVER not in wire and EARNINGS_RECONCILIATION not in wire
     assert 'report the 25% movement without an acceleration or causal claim' in FINANCIAL_DRIVER
+    assert 'report that total-revenue decomposition' in FINANCIAL_DRIVER
+    assert 'keep X and Y on net interest income' in FINANCIAL_DRIVER
+    assert 'do not transfer them to total revenue' in FINANCIAL_DRIVER
     assert 'never compute one' in EARNINGS_RECONCILIATION
     assert 'do not compute operating profit excluding the gain' in EARNINGS_RECONCILIATION
     for model, fields, form_description in (

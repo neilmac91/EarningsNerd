@@ -493,7 +493,7 @@ class _MarkdownRenderMixin:
                 # qualitatively; a "conversion" multiple against a negative denominator is meaningless.
                 parts.append(f"operating cash flow was positive despite a net loss {basis}")
             if fcf:
-                parts.append(f"free cash flow of {fcf} ({cash_flow_basis('free_cash_flow')})")
+                parts.append(f"selected operating cash flow minus absolute selected capex of {fcf} ({cash_flow_basis('free_cash_flow')})")
             if parts:
                 if not isinstance(eq, dict):
                     eq = {}
@@ -568,7 +568,7 @@ class _MarkdownRenderMixin:
             value = current.get("value")
             if not returns_ratio_in_band(value):
                 return None
-            clause = f"{return_ratio_basis(key)}: {value:.1f}%"
+            clause = f"{return_ratio_basis(key, current)}: {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
             prior_period = return_ratio_period(prior)
@@ -576,7 +576,11 @@ class _MarkdownRenderMixin:
                 # Comparative selection remains the extractor's existing immediately-prior point.
                 # Name that point's actual date so a sequential instant cannot silently read as the
                 # filing's otherwise-prevailing YoY comparison (observed on FIGS Q2 2026).
-                clause += f" (prior at {prior_period}: {prior_value:.1f}%)"
+                clause += f" (prior at {prior_period}: {prior_value:.1f}%"
+                prior_basis = return_ratio_basis(key, prior)
+                if prior_basis != return_ratio_basis(key, current):
+                    clause += f"; {prior_basis}"
+                clause += ")"
             return clause
 
         ratio_clauses = [c for c in (_ratio_clause("return_on_equity", roe),

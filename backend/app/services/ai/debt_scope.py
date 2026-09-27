@@ -275,7 +275,7 @@ _SCOPE_COVERS: Dict[str, Tuple[str, ...]] = {
 
 
 def _missing_scopes(observations: Sequence[DebtObservation]) -> Tuple[str, ...]:
-    """Borrowing bands this filing does not report at all, as phrases, in a stable order."""
+    """Borrowing bands not established by the selected XBRL observations, in stable order."""
     covered = {obs.scope for obs in observations}
     for obs in observations:
         covered.update(_SCOPE_COVERS.get(obs.scope, ()))
@@ -362,14 +362,16 @@ def debt_grounding_lines(view: DebtScopeView, format_amount: Any) -> List[str]:
         )
     elif view.components_subtotal is not None:
         lines.append(
-            "- Debt scope: the components above cover every borrowing this filing reports "
-            f"separately on one basis. Their sum is {amount(view.components_subtotal)}, citable "
+            "- Debt scope: the components above cover every borrowing separately identified in "
+            "the selected standardized XBRL data on one basis. Their sum is "
+            f"{amount(view.components_subtotal)}, citable "
             "ONLY as identified borrowing components — never as total debt or total obligations "
             f"({_SUBTOTAL_EXCLUSIONS})."
         )
     else:
         limitation = (
-            f"Not separately reported here: {'; '.join(view.missing_scopes)}."
+            "Not separately established in the selected standardized XBRL data: "
+            f"{'; '.join(view.missing_scopes)}."
             if view.missing_scopes else "The reported scopes overlap; no non-overlapping subtotal is established."
         )
         lines.append(
@@ -411,14 +413,17 @@ def leverage_statement(view: DebtScopeView, format_currency: Any) -> str:
 def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
     if view.rejection is not None:
         return (
-            f"Debt scope not established — {view.rejection.split(': ', 1)[-1]}; no total debt, "
-            "net debt or debt-to-equity figure is stated."
+            "The selected standardized XBRL data does not establish debt scope — "
+            f"{view.rejection.split(': ', 1)[-1]}; it therefore does not establish total debt, "
+            "net debt or debt-to-equity. This does not establish that those figures are absent "
+            "from the filing text."
         )
     if not view.observations:
         return (
-            "This filing's standardized financial data reports no debt balance under a concept "
-            "whose scope can be verified. That is an unestablished scope, not zero debt and not a "
-            "net cash position; no total debt, net debt or debt-to-equity figure is stated."
+            "The selected standardized XBRL data does not establish a debt balance under a "
+            "concept whose scope can be verified. That is an unestablished XBRL scope, not zero "
+            "debt and not a net cash position; it does not establish total debt, net debt or "
+            "debt-to-equity. This does not establish that debt is absent from the filing text."
         )
     listed = "; ".join(
         f"{obs.phrase} of {format_currency(obs.value) or 'an undisclosed amount'}"
@@ -446,12 +451,13 @@ def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
     if view.components_subtotal is not None:
         return (
             f"Identified borrowing components{dated}{basis}: {listed}. Together "
-            f"{format_currency(view.components_subtotal)} — every borrowing this filing reports "
-            f"separately on this basis, though {_SUBTOTAL_EXCLUSIONS}, so it is not a total "
-            "obligations measure."
+            f"{format_currency(view.components_subtotal)} — every borrowing separately "
+            "identified in the selected standardized XBRL data on this basis, though "
+            f"{_SUBTOTAL_EXCLUSIONS}, so it is not a total obligations measure."
         )
     scope_note = (
-        f"Not separately reported in this filing's standardized data: {'; '.join(view.missing_scopes)}."
+        "Not separately established in the selected standardized XBRL data: "
+        f"{'; '.join(view.missing_scopes)}."
         if view.missing_scopes else
         "The reported scopes overlap; no non-overlapping subtotal is established."
     )
@@ -459,5 +465,5 @@ def _scope_sentences(view: DebtScopeView, format_currency: Any) -> str:
         scope_note = "The concept behind this balance does not establish which maturities it covers."
     return (
         f"Identified debt{dated}{basis}: {listed}. {scope_note} Total debt, net debt and "
-        "debt-to-equity are therefore not stated."
+        "debt-to-equity are therefore not established by the selected standardized XBRL data."
     )

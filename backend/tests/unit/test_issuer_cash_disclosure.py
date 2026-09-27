@@ -117,7 +117,7 @@ async def test_only_complete_supplied_issuer_disclosure_reaches_final_surfaces(m
                 exporter.generate_pdf_html(summary, filing), exporter.generate_csv(summary, filing)]
     for surface in surfaces:
         assert "FORGED ISSUER" not in surface
-        assert "$7.7B" in surface and "not an issuer-defined" in surface
+        assert "$7.7B" in surface and "issuer-defined free cash flow may use a different formula" in surface
         assert (LABEL in surface) is eligible
         if eligible:
             assert ("11,195" if mode == "other_values" else "11,194") in surface

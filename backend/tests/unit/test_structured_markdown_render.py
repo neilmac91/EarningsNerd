@@ -154,7 +154,7 @@ def test_apply_structured_fallbacks_preserves_model_liquidity_commentary():
     bsl = sections["balance_sheet_liquidity"]
     # The model's unsupported net-debt multiple does not survive, and its absence is stated.
     assert "1.2x" not in bsl["leverage"]
-    assert "reports no debt balance" in bsl["leverage"]
+    assert "selected standardized XBRL data does not establish a debt balance" in bsl["leverage"]
     assert "not zero debt and not a net cash position" in bsl["leverage"]
     # Model qualitative prose that makes no debt claim is still preserved verbatim.
     assert bsl["liquidity"] == "Ample liquidity — $12.7B in cash and an undrawn revolver."
@@ -262,7 +262,7 @@ def test_apply_structured_fallbacks_authors_cash_conversion():
 
     cc = sections["earnings_quality"]["cash_conversion"]
     assert "1.5x net income" in cc and "cash conversion" in cc
-    assert "free cash flow of $25.0B" in cc
+    assert "selected operating cash flow minus absolute selected capex of $25.0B" in cc
     # ONE-HOME: the OCF/NI dollar LEVELS are not re-quoted here.
     assert "$30.0B" not in cc and "$20.0B" not in cc
 
@@ -295,7 +295,7 @@ def test_apply_structured_fallbacks_cash_conversion_loss_with_positive_ocf():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert cc == "Operating cash flow was positive despite a net loss attributable to the parent; free cash flow of $2.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
+    assert cc == "Operating cash flow was positive despite a net loss attributable to the parent; selected operating cash flow minus absolute selected capex of $2.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; issuer-defined free cash flow may use a different formula; this does not establish discretionary cash)."
     assert "x net income" not in cc  # no meaningless ratio against a negative denominator
 
 
@@ -352,7 +352,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
         "net_income": {"current": _cash_point(20_000_000_000, "us-gaap:NetIncomeLoss")},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
-    assert s1["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
+    assert s1["earnings_quality"]["cash_conversion"] == "Selected operating cash flow minus absolute selected capex of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; issuer-defined free cash flow may use a different formula; this does not establish discretionary cash)."
 
     # operating_cash_flow + free_cash_flow, NO net_income.
     s2: dict = {}
@@ -361,7 +361,7 @@ def test_apply_structured_fallbacks_cash_conversion_partial_metrics_no_crash():
         "operating_cash_flow": {"current": _cash_point(30_000_000_000, "us-gaap:NetCashProvidedByUsedInOperatingActivities")},
         "free_cash_flow": {"current": {"value": 9_000_000_000, "period": "FY2025"}},
     })
-    assert s2["earnings_quality"]["cash_conversion"] == "Free cash flow of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; not an issuer-defined or discretionary-cash measure)."
+    assert s2["earnings_quality"]["cash_conversion"] == "Selected operating cash flow minus absolute selected capex of $9.0B (derived as operating cash flow minus the absolute selected capex cash-flow amount; issuer-defined free cash flow may use a different formula; this does not establish discretionary cash)."
 
 
 def test_apply_structured_fallbacks_cash_conversion_strips_stray_model_text_for_banks():
@@ -660,8 +660,8 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
         "(prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment)."
     )
     assert vd["returns_on_capital"] == (
-        "Period net income / period-end equity, not annualized: 151.3% (prior at FY2024: 164.6%); "
-        "period net income / period-end assets, not annualized: 28.4% (prior at FY2024: 25.7%)."
+        "Period net income (numerator scope unavailable) / period-end equity, not annualized: 151.3% (prior at FY2024: 164.6%); "
+        "period net income (numerator scope unavailable) / period-end assets, not annualized: 28.4% (prior at FY2024: 25.7%)."
     )
     assert "free cash flow" not in vd["shareholder_returns"].lower()
 
@@ -751,7 +751,7 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
     }
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Period net income / period-end assets, not annualized: 17.9%."
+        "Period net income (numerator scope unavailable) / period-end assets, not annualized: 17.9%."
     )
 
     honest_loss: dict = {}
@@ -759,7 +759,7 @@ def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios()
         "return_on_equity": {"current": {"value": -12.3, "period": "FY2025"}},
     })
     assert honest_loss["value_drivers"]["returns_on_capital"] == (
-        "Period net income / period-end equity, not annualized: -12.3%."
+        "Period net income (numerator scope unavailable) / period-end equity, not annualized: -12.3%."
     )
 
 
@@ -776,8 +776,8 @@ def test_apply_structured_fallbacks_returns_read_authors_for_banks():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Period net income / period-end equity, not annualized: 17.2% (prior at FY2024: 15.8%); "
-        "period net income / period-end assets, not annualized: 1.4%."
+        "Period net income (numerator scope unavailable) / period-end equity, not annualized: 17.2% (prior at FY2024: 15.8%); "
+        "period net income (numerator scope unavailable) / period-end assets, not annualized: 1.4%."
     )
 
 
@@ -846,7 +846,7 @@ def test_apply_structured_fallbacks_cash_conversion_uses_reporting_currency():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     cc = sections["earnings_quality"]["cash_conversion"]
-    assert "1.5x net income" in cc and "free cash flow of EUR 25.0B" in cc
+    assert "1.5x net income" in cc and "selected operating cash flow minus absolute selected capex of EUR 25.0B" in cc
     assert "$" not in cc
 
 

@@ -119,7 +119,7 @@ async def test_selected_source_to_final_preview_rejects_financial_and_unknown(mo
         assert_owned(preview)
     else:
         assert actual == LEADS[1]["key_takeaways"][2]
-        assert "Conventional free cash flow was" not in preview
+        assert "Selected operating cash flow minus absolute selected capex was" not in preview
     # Both derived cash owners now require affirmative nonfinancial classification.
     absent = {key: value for key, value in metrics.items() if key != "financial_classification"}
     assert ("cash_conversion" in filled(metrics).get("earnings_quality", {})) is eligible

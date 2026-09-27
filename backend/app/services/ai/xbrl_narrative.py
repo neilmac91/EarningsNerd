@@ -11,6 +11,7 @@ from typing import Any, Optional
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import _is_no_total_bank
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
+from app.services.financial_basis import net_income_basis
 from app.services.ai.debt_scope import (
     build_debt_scope_view,
     debt_balance_label,
@@ -29,10 +30,13 @@ RETURNS_RATIO_BAND_PCT = 200.0
 _RETURNS_BAND_KEYS = ("return_on_equity", "return_on_assets")
 
 
-def return_ratio_basis(metric_key: str) -> str:
-    """Describe the existing return formula without inferring a duration or annualizing it."""
+def return_ratio_basis(metric_key: str, point: Optional[dict] = None) -> str:
+    """Name this ratio's selected numerator without borrowing a sibling metric's scope."""
     denominator = {"return_on_equity": "equity", "return_on_assets": "assets"}[metric_key]
-    return f"period net income / period-end {denominator}, not annualized"
+    numerator = (point or {}).get("numerator") or {}
+    basis = net_income_basis(numerator.get("raw_tag"))
+    qualifier = basis or "(numerator scope unavailable)"
+    return f"period net income {qualifier} / period-end {denominator}, not annualized"
 
 
 def cash_flow_basis(
@@ -49,7 +53,7 @@ def cash_flow_basis(
         return basis
     return (
         "derived as operating cash flow minus the absolute selected capex cash-flow amount; "
-        "not an issuer-defined or discretionary-cash measure"
+        "issuer-defined free cash flow may use a different formula; this does not establish discretionary cash"
     )
 
 
@@ -105,7 +109,7 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     # "(payments)" labels make a positive number read unambiguously as an outflow.
     ("Dividends Paid", "dividends_paid", "usd"),
     ("Share Repurchases (payments)", "share_repurchases", "usd"),
-    ("Free Cash Flow (OCF - CapEx)", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
+    ("Selected Operating Cash Flow Minus Absolute Selected CapEx", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
     ("Current Assets", "current_assets", "usd"),
     ("Current Liabilities", "current_liabilities", "usd"),
     ("Working Capital", "working_capital", "usd"),
@@ -197,6 +201,7 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         if key in _RETURNS_BAND_KEYS:
             if not returns_ratio_in_band(current.get("value")):
                 continue
+            label = return_ratio_basis(key, current).capitalize()
             prior_period = return_ratio_period(prior)
             if (
                 isinstance(prior, dict)
@@ -212,6 +217,8 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"
+            if key in _RETURNS_BAND_KEYS and return_ratio_basis(key, prior) != return_ratio_basis(key, current):
+                line += f"; prior basis: {return_ratio_basis(key, prior)}"
         if key in ("capital_expenditures", "free_cash_flow"):
             line += f"; basis: {cash_flow_basis(key, entry, include_source_concepts=True)}"
         rows.append(line)

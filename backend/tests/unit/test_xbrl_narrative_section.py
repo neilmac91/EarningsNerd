@@ -131,7 +131,7 @@ class TestBuildSection:
 
     def test_free_cash_flow_label_names_the_derivation(self):
         section = build_xbrl_narrative_section({"free_cash_flow": _cur(28_000_000.0)})
-        assert "Free Cash Flow (OCF - CapEx): $28,000,000" in section
+        assert "Selected Operating Cash Flow Minus Absolute Selected CapEx: $28,000,000" in section
 
     def test_working_capital_fallback_derived_when_untagged(self):
         # working_capital absent, but current assets/liabilities present → derive CA - CL, labeled.
@@ -227,7 +227,7 @@ class TestReturnsBand:
         })
         assert "Return on Equity" not in section
         assert "1644.4" not in section
-        assert "Period net income / period-end assets, not annualized: 17.9%" in section
+        assert "Period net income (numerator scope unavailable) / period-end assets, not annualized: 17.9%" in section
 
     def test_out_of_band_prior_drops_just_the_prior_clause(self):
         # Equity recovered from near-zero: current is honest, the prior is noise — mirror §4's
@@ -238,7 +238,7 @@ class TestReturnsBand:
                 "prior": {"value": 1644.4, "period": "2024-12-31"},
             },
         })
-        assert "Period net income / period-end equity, not annualized: 45.0% (period: 2025-12-31)" in section
+        assert "Period net income (numerator scope unavailable) / period-end equity, not annualized: 45.0% (period: 2025-12-31)" in section
         assert "prior" not in section and "1644.4" not in section
 
     def test_in_band_values_unchanged_including_honest_negatives(self):
@@ -249,7 +249,7 @@ class TestReturnsBand:
                 "prior": {"value": 8.1, "period": "2024-12-31"},
             },
         })
-        assert "Period net income / period-end equity, not annualized: -12.3% (period: 2025-12-31); prior: 8.1% (2024-12-31)" in section
+        assert "Period net income (numerator scope unavailable) / period-end equity, not annualized: -12.3% (period: 2025-12-31); prior: 8.1% (2024-12-31)" in section
 
     def test_band_boundary_is_inclusive(self):
         # Exactly ±200.0 is IN band — same boundary the §4 render tests pin.
@@ -257,8 +257,8 @@ class TestReturnsBand:
             "return_on_equity": _cur(200.0),
             "return_on_assets": _cur(-200.0),
         })
-        assert "Period net income / period-end equity, not annualized: 200.0%" in section
-        assert "Period net income / period-end assets, not annualized: -200.0%" in section
+        assert "Period net income (numerator scope unavailable) / period-end equity, not annualized: 200.0%" in section
+        assert "Period net income (numerator scope unavailable) / period-end assets, not annualized: -200.0%" in section
 
     def test_other_pct_metrics_are_not_banded(self):
         # Blast radius is the two returns keys ONLY — a >200% margin (near-zero-revenue pathology)
@@ -296,8 +296,8 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
         sections = {}
         openai_service._apply_structured_fallbacks(sections, {}, metrics)
         text = sections["value_drivers"]["returns_on_capital"]
-    assert "period net income / period-end equity, not annualized" in text.lower()
-    assert "period net income / period-end assets, not annualized" in text.lower()
+    assert "period net income (numerator scope unavailable) / period-end equity, not annualized" in text.lower()
+    assert "period net income (numerator scope unavailable) / period-end assets, not annualized" in text.lower()
     assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
     assert "quarter" not in text.lower() and "average" not in text.lower()
     if surface == "grounding":
@@ -383,8 +383,8 @@ async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
     prompt = captured["messages"][1]["content"]
 
     for text in (rendered, grounding, prompt):
-        assert "period net income / period-end equity, not annualized: 15.7%" in text.lower()
-        assert "period net income / period-end assets, not annualized: 1.3%" in text.lower()
+        assert "period net income (numerator scope unavailable) / period-end equity, not annualized: 15.7%" in text.lower()
+        assert "period net income (numerator scope unavailable) / period-end assets, not annualized: 1.3%" in text.lower()
     for text in (rendered, grounding):
         assert "Return on Equity" not in text and "Return on Assets" not in text
     # The source's real issuer-defined ratios remain present verbatim beside the formula-qualified
@@ -440,7 +440,7 @@ def test_selected_cash_flow_basis_survives_consumers(surface, tag):
                 ExportService._write_section_csv(csv.writer(output), section)
             text = output.getvalue()
     assert "derived as operating cash flow minus the absolute selected capex cash-flow amount" in text
-    assert "not an issuer-defined or discretionary-cash measure" in text
+    assert "issuer-defined free cash flow may use a different formula; this does not establish discretionary cash" in text
     assert "selected cash-flow amount, not necessarily total capital investment" in text
     assert ("current source concept: issuer:PurchaseOfEquipmentAndSoftware" in text) == (bool(tag) and surface == "grounding")
     if surface != "grounding":
@@ -448,3 +448,68 @@ def test_selected_cash_flow_basis_survives_consumers(surface, tag):
     assert "prior source concept:" not in text
     assert ("11,000,000,000" in text and "8,000,000,000" in text) if surface == "grounding" else ("11.0B" in text and "8.0B" in text)
     assert metrics == original
+
+
+@pytest.mark.parametrize("tag,scope", [
+    ("us-gaap:NetIncomeLoss", "attributable to the parent"),
+    ("us-gaap:ProfitLoss", "including noncontrolling interests"),
+    ("us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "available to common shareholders"),
+    ("ifrs-full:ProfitLoss", "including noncontrolling interests"),
+    ("ifrs-full:ProfitLossAttributableToOwnersOfParent", "attributable to owners of the parent"),
+    ("issuer:AdjustedProfit", "(numerator scope unavailable)"),
+    (None, "(numerator scope unavailable)"),
+])
+def test_return_ratios_own_their_selected_operands_across_periods(tag, scope):
+    """A missing balance skips NI's immediate prior; no sibling point may supply ratio scope."""
+    from copy import deepcopy
+    from app.services.edgar.xbrl_service import edgar_xbrl_service
+    from app.services.openai_service import openai_service
+
+    raw = {
+        "net_income": [
+            {"period": "2026-06-30", "period_start": "2026-04-01", "value": 100,
+             "raw_tag": tag, "currency": "USD", "form": "10-Q"},
+            {"period": "2026-03-31", "period_start": "2026-01-01", "value": 55,
+             "raw_tag": "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "currency": "USD"},
+            {"period": "2025-12-31", "period_start": "2025-01-01", "value": 80,
+             "raw_tag": "us-gaap:NetIncomeLoss", "currency": "USD"},
+        ],
+        "shareholders_equity": [
+            {"period": "2026-06-30", "value": 1000, "raw_tag": "us-gaap:StockholdersEquity", "currency": "USD"},
+            {"period": "2025-12-31", "value": 1000, "raw_tag": "us-gaap:StockholdersEquity", "currency": "USD"},
+        ],
+        "total_assets": [
+            {"period": "2026-06-30", "value": 2000, "raw_tag": "us-gaap:Assets", "currency": "USD"},
+            {"period": "2025-12-31", "value": 2000, "raw_tag": "us-gaap:Assets", "currency": "USD"},
+        ],
+    }
+    original = deepcopy(raw)
+    metrics = edgar_xbrl_service.extract_standardized_metrics(raw)
+    assert metrics["net_income"]["prior"]["period"] == "2026-03-31"
+    for key, denominator, expected in (("return_on_equity", "shareholders_equity", 10),
+                                       ("return_on_assets", "total_assets", 5)):
+        ratio = metrics[key]
+        assert ratio["current"]["value"] == expected
+        assert ratio["prior"]["value"] == expected * .8
+        assert ratio["current"]["numerator"] == metrics["net_income"]["current"]
+        assert ratio["prior"]["numerator"] == metrics["net_income"]["series"][2]
+        assert ratio["current"]["denominator"] == metrics[denominator]["current"]
+        assert ratio["prior"]["denominator"] == metrics[denominator]["prior"]
+        assert ratio["current"]["numerator"]["period_start"] == "2026-04-01"
+    assert raw == original
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    for text in (build_xbrl_narrative_section(metrics), sections["value_drivers"]["returns_on_capital"]):
+        assert f"period net income {scope} / period-end equity" in text.lower()
+        assert f"period net income {scope} / period-end assets" in text.lower()
+        assert "period net income attributable to the parent / period-end" in text.lower()
+        assert "2025-12-31" in text
+        assert "not annualized" in text
+    # A cached derived point cannot borrow a known scope from the sibling NI metric.
+    for key in ("return_on_equity", "return_on_assets"):
+        metrics[key]["current"].pop("numerator")
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    for text in (build_xbrl_narrative_section(metrics), sections["value_drivers"]["returns_on_capital"]):
+        assert "net income (numerator scope unavailable) / period-end equity" in text.lower()
+        assert "net income (numerator scope unavailable) / period-end assets" in text.lower()

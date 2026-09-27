@@ -337,7 +337,10 @@ def test_a_single_noncurrent_balance_states_its_scope_and_names_what_is_missing(
     )
     text = leverage_statement(view, money)
     assert "noncurrent long-term debt of $34.6B" in text
-    assert "Total debt, net debt and debt-to-equity are therefore not stated." in text
+    assert (
+        "Total debt, net debt and debt-to-equity are therefore not established by the selected "
+        "standardized XBRL data."
+    ) in text
     assert "total debt of" not in text.lower()
 
 
@@ -353,6 +356,10 @@ def test_a_complete_partition_may_be_added_but_is_never_called_total_debt():
     assert "Identified borrowing components" in text
     assert "short-term borrowings of $564.6M" in text  # COIN's must not disappear
     assert "Together $7.8B" in text
+    assert (
+        "every borrowing separately identified in the selected standardized XBRL data" in text
+    )
+    assert "every borrowing this filing reports" not in text
     assert "not a total obligations measure" in text
     assert "total debt" not in text.lower()
 
@@ -379,7 +386,10 @@ def test_noncurrent_plus_current_portion_alone_is_never_summed():
     assert "Together" not in text
     assert "noncurrent long-term debt of $34.6B" in text
     assert "current portion of long-term debt of $3.5B" in text
-    assert "Total debt, net debt and debt-to-equity are therefore not stated." in text
+    assert (
+        "Total debt, net debt and debt-to-equity are therefore not established by the selected "
+        "standardized XBRL data."
+    ) in text
 
 
 def test_an_aggregate_and_its_own_parts_are_never_added_together():
@@ -392,11 +402,17 @@ def test_an_aggregate_and_its_own_parts_are_never_added_together():
     text = leverage_statement(view, money)
     assert "long-term debt including current maturities of $9.2B" in text
     assert "13.8B" not in text and "13,816" not in text  # the double count never appears
-    assert "Total debt, net debt and debt-to-equity are therefore not stated." in text
+    assert (
+        "Total debt, net debt and debt-to-equity are therefore not established by the selected "
+        "standardized XBRL data."
+    ) in text
     # The aggregate already SPANS both long-term bands, so neither is reported as a gap; the only
     # genuine gap is short-term borrowings.
     assert view.missing_scopes == (SCOPE_PHRASE[SCOPE_SHORT_TERM],)
-    assert "noncurrent long-term debt" not in text.split("Not separately reported")[-1]
+    assert (
+        "noncurrent long-term debt"
+        not in text.split("Not separately established in the selected standardized XBRL data")[-1]
+    )
 
 
 def test_only_an_issuer_reported_combined_concept_yields_a_total():
@@ -452,9 +468,10 @@ def test_an_inconsistent_set_is_refused_whole_and_never_partly_kept(second, reas
     assert view.observations == () and view.rejection is not None
     assert reason in view.rejection
     text = leverage_statement(view, money)
-    assert "Debt scope not established" in text
+    assert "selected standardized XBRL data does not establish debt scope" in text
     assert "34.6B" not in text  # no surviving figure from a refused set
-    assert "no total debt, net debt or debt-to-equity figure is stated" in text
+    assert "does not establish total debt, net debt or debt-to-equity" in text
+    assert "does not establish that those figures are absent from the filing text" in text
 
 
 def test_absent_debt_is_unestablished_scope_not_zero_and_not_net_cash():
@@ -462,8 +479,10 @@ def test_absent_debt_is_unestablished_scope_not_zero_and_not_net_cash():
     view = build_debt_scope_view({"cash_and_equivalents": {"current": {"value": 17_649_000_000.0}}})
     assert not view.has_evidence and not view.scope_is_complete
     text = leverage_statement(view, money)
-    assert "reports no debt balance" in text
+    assert "selected standardized XBRL data does not establish a debt balance" in text
     assert "not zero debt and not a net cash position" in text
+    assert "does not establish that debt is absent from the filing text" in text
+    assert "reports no debt" not in text
     assert "$0" not in text and "zero debt" not in text.replace("not zero debt", "")
 
 
@@ -691,11 +710,14 @@ def test_the_incorrect_total_cannot_survive_the_whole_real_path(monkeypatch):
 
     # The visible slot is code-owned: the contradictory total is gone from EVERY surface.
     leverage = sections["balance_sheet_liquidity"]["leverage"]
-    # No ASSERTED total survives. The statement's own "Total debt ... not stated" disclaimer is
-    # the opposite of a claim, so the check is on the assertive forms and the figure itself.
+    # No ASSERTED total survives. The statement's own selected-XBRL limitation is the opposite of
+    # a filing-wide claim, so the check is on the assertive forms and the figure itself.
     assert "$38.2B" not in leverage
     assert "Total debt of" not in leverage and "Total debt was" not in leverage
-    assert "Total debt, net debt and debt-to-equity are therefore not stated." in leverage
+    assert (
+        "Total debt, net debt and debt-to-equity are therefore not established by the selected "
+        "standardized XBRL data."
+    ) in leverage
     assert "noncurrent long-term debt of $34.6B" in leverage
     assert "current portion of long-term debt; short-term borrowings" in leverage
     assert "$38.2B" not in markdown
@@ -725,9 +747,18 @@ def test_a_complete_partition_reaches_the_page_as_components_with_a_subtotal(mon
     assert "$7.3B" not in leverage                      # the principal figure never survives
     assert "short-term borrowings of $564.6M" in leverage
     assert "Together $7.8B" in leverage
+    assert (
+        "every borrowing separately identified in the selected standardized XBRL data"
+        in leverage
+    )
+    assert "every borrowing this filing reports" not in leverage
     assert "total debt" not in leverage.lower()
     assert "Together $7.8B" in markdown
-    assert "the components above cover every borrowing" in grounding
+    assert (
+        "the components above cover every borrowing separately identified in the selected "
+        "standardized XBRL data"
+    ) in grounding
+    assert "every borrowing this filing reports" not in grounding
 
 
 def test_the_selected_balance_is_labelled_by_its_own_source_not_a_larger_observation(monkeypatch):

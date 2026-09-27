@@ -115,7 +115,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-09-r: date each admitted prior return-ratio point in deterministic rendering so a
 #   sequential comparison cannot silently read as YoY. This is a new candidate identity because q
 #   has completed semantic measurement; its evidence remains immutable and cannot cover new bytes.
-#   Taxonomy remains v2. No regeneration or historical replay is scheduled by this stamp alone.
+#   Before measurement, r also binds each ratio to its selected income concept, names selected
+#   cash-flow subtraction, scopes debt-data absence to XBRL, and corrects component/EPS causal
+#   directives. Taxonomy remains v2. No regeneration or historical replay is scheduled.
 SUMMARY_PROMPT_VERSION: str = "summary-2026-09-r"
 
 

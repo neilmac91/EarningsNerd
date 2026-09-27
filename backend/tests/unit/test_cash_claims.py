@@ -34,9 +34,9 @@ def filled(metrics=None, lead=None):
 
 
 def assert_owned(text):
-    assert "Conventional free cash flow was $10.8B for 2025-01-01 to 2025-12-31" in text
+    assert "Selected operating cash flow minus absolute selected capex was $10.8B for 2025-01-01 to 2025-12-31" in text
     assert "compared with $7.1B for 2024-01-01 to 2024-12-31" in text
-    assert "not an issuer-defined or discretionary-cash measure" in text
+    assert "issuer-defined free cash flow may use a different formula; this does not establish discretionary cash" in text
     assert CLAIM not in text
 
 

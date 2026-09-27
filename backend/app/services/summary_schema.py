@@ -115,9 +115,9 @@ FINANCIAL_EXPLANATION_SUPPORT = (
     "Preserve the source's named measure, entity/component scope, period, accounting/tax basis, "
     "currency/unit and the number's role. A balance, change, ratio/rate and component are not "
     "interchangeable. Signed figures support a movement's direction and size, never its cause: state "
-    "a cause, driver or attribution only when the filing itself states it for that same line, measure "
-    "and period; two figures moving together is not a cause. Otherwise retain the supported facts "
-    "without the unsupported conclusion."
+    "a cause, driver or attribution only when the filing itself states it for that same line, measure, "
+    "entity/component scope, period and number role (level or change); two figures moving together is "
+    "not a cause. Otherwise retain the supported facts without the unsupported conclusion."
 )
 FINANCIAL_DRIVER = (
     "Explain the movement or significance on that same supported basis; otherwise state the "
@@ -125,7 +125,10 @@ FINANCIAL_DRIVER = (
     "substantiate this explanation, not merely mention a nearby figure. Example (illustrative "
     "only, not filing data): revenue 100 versus 80 supports revenue increased 25%; a segment's "
     "40% growth does not establish prior company growth. With only those totals, report the "
-    "25% movement without an acceleration or causal claim."
+    "25% movement without an acceleration or causal claim. If the filing says total revenue rose "
+    "reflecting higher net interest income and noninterest income, report that total-revenue "
+    "decomposition. If it separately says net interest income rose because of X and was offset by Y, "
+    "keep X and Y on net interest income; do not transfer them to total revenue."
 )
 # Narrowed 2026-09-16: reported operating-to-pretax and financing relationships are code-owned
 # (summary-2026-09-i/l), so this slot describes disclosed items and never computes a total.

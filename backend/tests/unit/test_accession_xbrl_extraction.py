@@ -929,6 +929,6 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
         assert ("cash conversion" in text) is (basis is not None)
         if basis:
             assert expected in text
-        assert "free cash flow of $4.5b" in text.lower()
-        assert "not an issuer-defined or discretionary-cash measure" in text
+        assert "selected operating cash flow minus absolute selected capex of $4.5b" in text.lower()
+        assert "issuer-defined free cash flow may use a different formula; this does not establish discretionary cash" in text
         assert "Preserved disclosure." in text and "UNTRUSTED COMPARISON" not in text

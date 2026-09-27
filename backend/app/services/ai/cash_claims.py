@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from .xbrl_narrative import cash_flow_basis
 from .fi_signals import fi_components_present
+from app.services.financial_basis import net_income_basis
 
 _AMOUNT = r"(?:\$|[A-Z]{3}\s+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
 _VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
@@ -103,18 +104,6 @@ def _matches_annual_growth(token: str, selected: dict) -> bool:
     return abs(Decimal(token) - growth) <= tolerance
 
 
-# Selected-concept meanings, not a claim that an undimensioned fact proves entity scope.
-# FASB 2025 documentation distinguishes parent, common-holder, and NCI-inclusive income;
-# IFRS ProfitLoss is the total, with owners-of-parent profit separately tagged.
-_NET_INCOME_BASES = {
-    "us-gaap:NetIncomeLoss": "attributable to the parent",
-    "us-gaap:ProfitLoss": "including noncontrolling interests",
-    "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic": "available to common shareholders",
-    "ifrs-full:ProfitLoss": "including noncontrolling interests",
-    "ifrs-full:ProfitLossAttributableToOwnersOfParent": "attributable to owners of the parent",
-}
-
-
 def cash_conversion_basis(metrics: dict) -> str | None:
     """Name a known selected NI basis only for matching observed cash/income periods.
 
@@ -131,7 +120,7 @@ def cash_conversion_basis(metrics: dict) -> str | None:
         points.append(point)
     income, cash = points
     tag = income.get("raw_tag")
-    basis = _NET_INCOME_BASES.get(tag) if isinstance(tag, str) else None
+    basis = net_income_basis(tag)
     # Continuing-operations OCF is a different numerator; no total-income conversion is certified.
     if basis is None or cash.get("raw_tag") not in (
         "us-gaap:NetCashProvidedByUsedInOperatingActivities",
@@ -195,7 +184,7 @@ def qualify_cash_lead(sections: dict, metrics: dict, format_money: Callable[[flo
                     f"compared with {format_money(prior[metric])} for {prior['start']} to {prior['end']}")
 
         prefix = "Operating cash flow was " + comparison("ocf") + ". " if "ocf_current" in match.groupdict() else ""
-        owned = (prefix + "Conventional free cash flow was " + comparison("fcf")
+        owned = (prefix + "Selected operating cash flow minus absolute selected capex was " + comparison("fcf")
                  + " (" + cash_flow_basis("free_cash_flow") + ")")
         # Keep the exact model-authored asset clause; its figures are outside this certification.
         return owned + groups.get("suffix", ".")

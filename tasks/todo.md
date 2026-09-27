@@ -1,3 +1,8 @@
+## September 27 — corrective financial candidate r
+
+- [x] Integrate current main and implement selected-operand return-ratio scope, dated comparators, formula-named cash values, selected-XBRL debt limits, and source-specific causal directives. [Candidate scope and measurement boundary](review-evidence/financial-candidate-r-2026-09-27/README.md).
+- [ ] Complete full backend validation and independent review, retain actual hosted outputs, verify p/r comparability and obtain unchanged-contract Fable judgments before candidate adoption. Production p, baseline and E7/E8 remain held.
+
 ## September 27 — seven verified releases and H30 review hold
 
 - [x] Engineering releases #963–#969 are verified; current backend is `00393-6m9` from main `e39b475e13a0599d037303aacc75a82d51b053b8`. The [current continuation](continuation-plan-2026-09-26.md) and its evidence index contain actual output, deployment and independent-health receipts.
