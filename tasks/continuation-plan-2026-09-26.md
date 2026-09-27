@@ -1,8 +1,8 @@
 # EarningsNerd takeover and completion path — 26 September 2026
 
 EarningsNerd remains at **quality acceptance before controlled beta**. The engineering
-foundation is strong. The next evidence needed is that complete filing summaries are correct
-and useful, that the database can be recovered, and that real users return for another analysis.
+foundation is strong, and a bounded database recovery is now demonstrated. The next evidence
+needed is that complete filing summaries are correct and useful, and that real users return for another analysis.
 Shipping more evaluation infrastructure does not establish those outcomes.
 
 This checkpoint supersedes the current-state/queue descriptions in the
@@ -42,15 +42,21 @@ leaf-name/hash pairing. The final hosted 70-summary/18-Copilot telemetry audit i
 
 ## September 27 execution update
 
-The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) record two additional
+The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) record three additional
 verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
-accounting, and #978 binds current authoritative attachments to invalid frozen members without
-claiming a successful historical decode. Latest verified backend revision is `00398-wxp`,
+accounting, #978 binds current authoritative attachments to invalid frozen members without
+claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
+period-bound XBRL operands. Latest verified backend revision is `00399-62m`,
 100% traffic, migrations 0 applied / 39 skipped, and independent healthy database readback.
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
 current authoritative supplements. This closes its byte-assignment gap. It does not finish
 modality interpretation, the independent role briefs or E7 source acceptance.
+The subsequent [native inspection](review-evidence/progress-2026-09-27/h01-native-inspection.md)
+validated the syntax of eight structured members and inspected the two report assets. All 138
+report HTML members reference assets that control hidden or expandable content; semantic readers
+must inspect that content. Syntax and packaging inspection do not establish factual correctness
+or complete role-input coverage.
 
 The bounded thinking-low diagnostic stopped at its first fresh RIVN pair: the candidate repeated
 the known customer-identity conflation. Two provider calls completed; the other fourteen planned
@@ -63,8 +69,12 @@ No production model, prompt, quality threshold or judge contract changed.
 ### Acceleration decisions
 
 - Close deterministic product defects independently when complete request-byte parity shows the
-  writer did not change. #977 remains the active exact-metric-delta correction until its final
-  fallback, cached-read and export paths pass review and serial release verification.
+  writer did not change. #977 has passed its fallback, cached-read and export reviews and the
+  [serial release verification](review-evidence/progress-2026-09-27/pr977-release.json). Its exact
+  XBRL correction applies to filing summaries. The separate Analysis current-ratio precision
+  comparison now passes its narrow diagnostic (6/6 candidate versus 2/6 old outputs), but its
+  six-company/mode narrative checks exposed additional defects. The [retained measurement](review-evidence/progress-2026-09-27/analysis-ratio-measurement.json)
+  remains a release hold while targeted citation and prompt corrections are validated.
 - Freeze the completed custody interfaces. Execute the remaining source work against actual
   filings rather than adding hypothetical review infrastructure.
 - Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
@@ -74,13 +84,17 @@ No production model, prompt, quality threshold or judge contract changed.
   measurement, not a semantic acceptance. The candidate must cover previews, cached reads and
   exports, display actual filing spans, and expose unmatched items as a coverage limitation. It
   does not solve other sections' unit, component or causal errors and is not released.
-- Keep recovery and beta preparation parallel to quality work. An isolated successful restore
-  and two real weekly cohort readouts remain outcomes to earn; neither CI nor an account login
-  substitutes for them. Existing customer-consent and invitation boundaries remain in force.
+- Keep operations and beta preparation parallel to quality work. The isolated restore and one
+  private lifecycle-managed logical export are now verified; monthly recurrence, export
+  importability and two real weekly cohort readouts remain separate
+  outcomes. Neither CI nor an account login substitutes for user evidence. Existing
+  customer-consent and invitation boundaries remain in force.
 
-The whole-plan estimate remains about 55% under the weighted calculation below. The foundation
-bucket is much further along; quality acceptance, demonstrated recovery and real-user evidence
-still control progression. New PRs and byte-valid packets are not counted as completed acceptance.
+The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-outcome.json) has
+now passed its read-only integrity checks and confirmed clone cleanup. Production configuration
+and users remained unchanged. The whole-plan estimate therefore moves from 53.5% to **57.5%,
+about 58%**, under the same weighted calculation below. Quality acceptance and real-user
+evidence still control progression; new PRs and byte-valid packets do not count as acceptance.
 
 ## What the agents delivered
 
@@ -159,7 +173,7 @@ Existing approvals and release gates, rather than the priority ordering, govern 
 | 3. Complete bounded source-review integration | Complete for the named H29/H30 path: #970 released with exact-head review, actual 70/18 measurements and verified deployment. | Four origins and two technical attempts independently pinned; successor contexts retained; authority module frozen in both trees. Freeze this bounded interface. Full-corpus readiness and programme admission remain Stages 4–5. |
 | 4. Prove corpus capacity and finish references | Codex owns the [measured source blockers](review-evidence/source-capacity-2026-09-27/README.md): all 980 byte identities validate, but 264 encoded members fail strict decoding. The subsequent [ASCII-offset correction](review-evidence/source-view-ascii-2026-09-27/README.md) lets the H25 and H02 direct primaries complete projection and verification under the unchanged 3 GiB/180-second limits; full serialized export is now [released and measured](review-evidence/source-view-streaming-2026-09-27/README.md), while full member and role-input coverage remain unproved. | Resolve acquisition/encoding provenance and bounded structural capacity, then establish real member/modality and role-input coverage. The unchanged 30 filings still require 60 independent source briefs and 30 reconciliations, with no unresolved material coverage/issue holds. |
 | 5. Execute E7 | Codex owns the frozen run and evidence dossier under existing approvals. | Preflight and metered non-holdout smoke; exactly 90 candidate + 30 comparator identities, source-based blind reviews, retained Fable judgments, and pass/fail/incomplete report within ceilings. |
-| 6. Prove recoverability | Codex owns the current cost estimate, bounded clone rehearsal and cleanup of its own drill resources under overnight authority; current read-only recovery preflight is in progress. | One isolated PITR restore, read-only integrity check and confirmed clone cleanup, with timings, costs and limitations. Record a numeric all-in cap from current rates before creating the clone. |
+| 6. Prove recoverability | Complete for one bounded rehearsal: [restore, integrity checks and cleanup](review-evidence/progress-2026-09-27/recovery-outcome.json) verified. | Retain the private evidence and cost limits. This single rehearsal does not establish guaranteed recovery-time/recovery-point objectives; periodic operational practice and export verification remain separate. |
 | 7. Controlled beta | Founder supplies recruitment/commitments; Codex owns engineering acceptance, evidence-based product-scope recommendation and support readouts. | 5–10 consenting target users, two dated weekly readouts of useful analysis, different-filing return, misleading outputs, support burden and observed cost; explicit expand/hold/narrow decision. |
 
 A live production audit also identified request/background database sessions retained across SEC
@@ -252,18 +266,16 @@ No clarification is needed to accept the three handbacks and proceed with the co
 The following access and product inputs remain unavailable; they are not requests to repeat
 the overnight engineering/spend approval.
 
-Local cloud access still needs renewal: the September 27 attempt fails `gcloud` reauthentication,
-and the correct Chrome account stops at Google's password re-verification. Existing GitHub Actions
-WIF is a legitimate separate authenticated route for allowlisted Cloud SQL metadata. A proposed
-manual read-only operation was not applied: automatic approval review rejected retaining internal
-tier/storage, backup/PITR settings and backup metadata in GitHub Actions artifacts without specific
-approval for that destination. That approval question is pending. No alternate egress, new IAM
-grant, proxy/database query, SQL SELECT-denial retry or cloud mutation was attempted.
-The existing [restore procedure](readiness-2026-09-21/operations/restore-rehearsal.md) remains the
-execution path: Codex will verify current rates, set a numeric all-in cap and scope cleanup to
-the newly created drill clone before any billable action. Backup/export observations remain dated.
-Daily backup and PITR approval is already settled. Monthly export needs verification or an
-explicit engineering/product disposition; a restore does not silently satisfy that requirement.
+The founder completed Google reauthentication. The earlier rejected proposal to retain private
+Cloud SQL metadata in GitHub Actions artifacts was not used; those observations remain local.
+The [restore procedure](readiness-2026-09-21/operations/restore-rehearsal.md) has now been executed
+within a USD 1 planning ceiling, with successful read-only validation and confirmed deletion of
+the new drill clone. A separate zero-cost patch enabled database deletion protection. A subsequent
+[one-export proof](review-evidence/progress-2026-09-27/logical-export-outcome.json) retained a private,
+compressed SQL object with a 35-day lifecycle and seven-day soft-delete retention; its temporary
+bucket writer was revoked and production configuration and users remained unchanged. No SQL
+contents were published. Monthly recurrence and a logical-export import test remain unproved.
+Daily backups and PITR approval are already settled; no further cloud sign-in request is pending.
 
 The [live acceptance observations](review-evidence/takeover-2026-09-26/live-analysis-acceptance.md) record that the signed-in founder account supported AAPL FY2024–FY2025 and 2026Q2–2026Q3 analyses, internal source-entry navigation, both PDF downloads and both Excel exports. The five-page annual and four-page quarterly PDFs were rendered and visually inspected; unreconciled warnings were retained. Workbook inspection preserved numeric precision, percentage-point formats, missing-data blanks and unreconciled-value comments; no spreadsheet error cells or external workbook links were found. Native Excel rendering and independent financial-source truth were not established. A fresh Chrome tab restored browser control after the original tab lost its debugger attachment.
 
@@ -292,13 +304,14 @@ This is a **new, explicit planning estimate**, dated September 27, rather than a
 | --- | --- | --- | --- | --- |
 | Core product and engineering foundation | 35% | Four complete: auth/billing/quota plumbing; filing ingestion/grounding; summary/Copilot delivery; automated regression and release discipline. Analysis/Notable product acceptance is partial (0.5); configuration or a smoke run does not close it. | 4.5 | 31.5 points |
 | Independent quality acceptance | 25% | Protocol/budget frozen (1); source tooling/capacity materially advanced (0.5). Complete 30-filing references, candidate semantic disposition, and blind holdout/adjudication remain open. | 1.5 | 7.5 points |
-| Operational readiness | 20% | Verified deployment/health, quota/payment/alert reliability, and configured backup/PITR protection are complete (3). Isolated recovery and measured fleet/headroom evidence remain open. | 3 | 12 points |
+| Operational readiness | 20% | Verified deployment/health, quota/payment/alert reliability, configured backup/PITR protection, and one isolated recovery with confirmed cleanup are complete (4). Measured fleet/headroom evidence remains open. | 4 | 16 points |
 | Controlled-beta usefulness and retention | 15% | Measurement preparation is partial (0.5). Consenting cohort, first weekly readout, second weekly readout, and expansion/hold decision remain open. | 0.5 | 1.5 points |
 | Safe scale and wider rollout | 5% | Bounded coordination design is prepared (1). Effective fleet budgets, implemented/proven coordination, quality-cleared canary, and approved wider rollout remain open. | 1 | 1 point |
 
-Arithmetic: `31.5 + 7.5 + 12 + 1.5 + 1 = 53.5%`. Report this as **about 55%, with a rough 50–60% planning range**. The foundation bucket alone scores 90%; that is not a claim that 90% of the whole implementation or beta-to-scale effort is complete. Weights and partial credit are chief-engineer judgment and should change if scope or evidence changes. The estimate replaces the earlier uncalculated 55–60% statement. Quality acceptance, recovery and real cohort evidence remain explicit exit gates regardless of the percentage.
+Arithmetic: `31.5 + 7.5 + 16 + 1.5 + 1 = 57.5%`. Report this as **about 58%, with a rough 55–65% planning range**. The four-point increase from the previous 53.5% checkpoint comes solely from the completed recovery rehearsal. The foundation bucket alone scores 90%; that is not a claim that 90% of the whole implementation or beta-to-scale effort is complete. Weights and partial credit are chief-engineer judgment and should change if scope or evidence changes. Quality acceptance and real cohort evidence remain explicit exit gates regardless of the percentage.
 
 The shortest route is therefore: correct and finish one E7 path, freeze the candidate, execute
-the quality programme, prove recovery, and observe a small controlled cohort. Two weekly cohort
+the quality programme, and observe a small controlled cohort. Recovery is demonstrated for the
+bounded rehearsal above; the remaining export and fleet evidence is separate. Two weekly cohort
 readouts impose elapsed observation time that faster implementation cannot remove. Fleet scaling
 follows demonstrated demand and its separate capacity/design decision.

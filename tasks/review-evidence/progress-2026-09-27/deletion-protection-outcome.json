@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "verified_enabled",
+  "recorded_at": "2026-09-27T18:16:08.160635+00:00",
+  "deletion_protection_enabled": true,
+  "database_users_unchanged": true,
+  "other_instance_configuration_unchanged": true,
+  "operation_terminal_without_error": true,
+  "public_health_after": "healthy",
+  "incremental_cost_usd": 0,
+  "private_receipt_sha256": "2b788aa214382d445a03a80a4c14a71ca817ce1e8d1eca64db63b9e19efa253b",
+  "limits": [
+    "Raw database identifiers, configuration and operation metadata remain private.",
+    "This protection applies to instance deletion; it is not a substitute for backups, exports or project-level protection."
+  ]
+}
