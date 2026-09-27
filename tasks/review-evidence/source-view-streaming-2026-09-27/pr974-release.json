@@ -1,0 +1,83 @@
+{
+  "deploy_completed_at": "2026-09-27T12:53:51Z",
+  "deploy_job_id": 108622761032,
+  "fable_pr942_queue_touched": false,
+  "files": {
+    "deploy.log": {
+      "bytes": 221339,
+      "sha256": "79020c5f404b5c6bcb3d64820b9209729cff2bc673f635c23a38d4b82d14543f"
+    },
+    "health.json": {
+      "bytes": 288,
+      "sha256": "46145b4208cd817a21ec7eda1ea02ab7b0b9ac4a9fa9230dd4d1023310bb9beb"
+    },
+    "main-ci.json": {
+      "bytes": 15698,
+      "sha256": "7f4bad6e53c46b40349bd3f805c335203db9fddbbea8324387ffc9ce0dd34e59"
+    },
+    "merged-pr.json": {
+      "bytes": 233,
+      "sha256": "ec3821b0ad995f3fc65643ce97b73046032e5aa716f622b46da7da0387e77d0e"
+    },
+    "premerge-pr-final.json": {
+      "bytes": 4981,
+      "sha256": "c5680d883cd2f45f6eb43d559d7810189dbc8b428f6d3b8d1992c2528ef1a23b"
+    },
+    "review-comments.json": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "formal_e7_admission": false,
+  "health_http_status": 200,
+  "health_observation_scope": "Independent public health response after completed deployment; revision and traffic are established separately by the deployment log, not the health endpoint.",
+  "health_request_started_at": "2026-09-27T12:55:22.830714+00:00",
+  "health_response_received_at": "2026-09-27T12:55:23.261504+00:00",
+  "hosted_audit": "pr974-hosted-audit.json",
+  "hosted_audit_sha256": "1708d967544506f5dc3c86adc4ec29ed6fcee14df8f8b57aa0a080128d58a0ef",
+  "independent_health": {
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 5.51
+      },
+      "redis": {
+        "disabled": true,
+        "healthy": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "healthy": true,
+        "state": "closed",
+        "stats": {
+          "rejected_requests": 0,
+          "success_rate": 0,
+          "total_requests": 0
+        }
+      }
+    },
+    "status": "healthy",
+    "timestamp": 1790513723.2171679
+  },
+  "main_sha": "a7983ddc04f5991462367b6d97222d3726430d93",
+  "merged_at": "2026-09-27T12:45:38Z",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "pr": 974,
+  "pr_head_sha": "f058a71c67b219ac8370cf4b87d87ba0cbd0a8a0",
+  "receipt_provenance": {
+    "files_map_scope": "Raw file names refer to operator retention, not repository sibling files.",
+    "kind": "repository copy with operator-relative references qualified",
+    "operator_original": "outputs/takeover-2026-09-26/pr974-release/release.json",
+    "operator_original_sha256": "9e685b5e6d93f1f6cf0f1b5f65c48eb4d5e0a5082124be29f465452fb34a2181",
+    "raw_files_retained_under": "outputs/takeover-2026-09-26/pr974-release/"
+  },
+  "revision": "earningsnerd-backend-00396-p2f",
+  "run_conclusion": "success",
+  "run_id": 36320062558,
+  "traffic_percent": 100,
+  "tree": "bd76acb509476602b253492b19b659b34556e085",
+  "tree_matches_reviewed_and_measured_head": true
+}

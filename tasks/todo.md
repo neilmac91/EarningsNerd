@@ -776,7 +776,7 @@ See [the handover](handover-astra-2026-09-09.md) for verified releases, exact pr
 
 ## September 9 verified quality release
 
-- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.
+- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations 0/39, healthy CI/independent detailed health.
 - [ ] Complete source-identity fallback, chat cleanup, segment-share and return-basis releases; each has its own gate/review and serial deploy verification.
 - [ ] Account observations remain access-blocked: controllable in-app browser has no Stripe/Google session; existing Chrome PostHog session is readable but Chrome browser automation is unavailable in this task. No account setting changed. Resume with an authenticated controllable session; continue engineering meanwhile.
 
@@ -5182,7 +5182,7 @@ local preparation. The ordinary review and serial production verification remain
 
 This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
 
-- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
+- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations 0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
 - [x] Confirm #796 error-outcome and #799 reported-metric d are already merged and verified. Do not reimplement either or launch a third #799 assessment. #805 is the genuinely unfinished explanation candidate, held after its first failed financial assessment.
 - [x] Verify current official Flash prices and peak schedule. DeepSeek now states V4 Pro continues after September14 at its own unchanged rates; the old retirement premise is superseded. Flash with thinking off remains the approved configuration.
 - [ ] Finish clean current-main backend (four PostgreSQL lanes/performance) and frontend lint/TypeScript/Vitest/build gates. Local database recovery and cold file reads delayed startup; no partial pass is claimed.
@@ -5831,4 +5831,7 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 
 - [x] Reproduced the remaining H25 public-export failure in Linux run 36311408531: projection returned, whole JSON encoding exhausted memory, H02 held. Implemented byte-preserving streamed export with a public-API memory gate and exact Unicode/manifest parity checks.
 - [x] Both direct-primary exports passed the unchanged H25/H02 Linux contract (run 36318572864); full local gate passed 3,734 tests.
-- [ ] Complete hosted review/measurements and serial release verification. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
+- [x] #974 hosted review/70-summary/18-Copilot measurements cleared; merged `a7983ddc`, main CI `36320062558` passed, revision `00396-p2f` serves 100%, migrations 0/39 and independent health passed. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
+
+- [x] Current H25 complete-submission entity matches the frozen 297,209,475-byte capture; one authoritative terminal-case GIF matches its retained diagnostic identity. Two SEC requests total across these successful observations, no model calls, no decoder repair or admission.
+- [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.
