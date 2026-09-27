@@ -19,6 +19,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -821,15 +822,20 @@ def _observation_id(section: str, kind: str, *parts: str) -> str:
     return ".".join((section, kind, *filter(None, clean)))
 
 
+def _ratio_threshold_value(value: float) -> str:
+    """Expose enough ratio precision to preserve its exact relation to 1.00x."""
+    decimals = 4
+    while value != 1.0 and decimals < 16 and f"{value:.{decimals}f}" == f"{1.0:.{decimals}f}":
+        decimals += 1
+    return f"{value:.{decimals}f}x"
+
+
 def _point_value(series: dict[str, Any], point: dict[str, Any], *, ratio_precision: bool = False) -> str:
     value = point["value"]
     if ratio_precision:
-        # Use at least four decimals and increase precision until a non-equal raw value is visibly
-        # distinct from 1.0000.  The ordinary two-decimal grid display remains untouched.
-        decimals = 4
-        while value != 1.0 and decimals < 16 and f"{value:.{decimals}f}" == f"{1.0:.{decimals}f}":
-            decimals += 1
-        return f"{value:.{decimals}f}x"
+        # The ordinary two-decimal grid display remains untouched.  The same helper also renders
+        # the current-ratio Sources excerpt so the cited evidence and threshold cue agree.
+        return _ratio_threshold_value(value)
     rendered = _format_value(value, series["unit"], series["percent"])
     if series["percent"] or series["unit"] == "pure":
         return rendered
@@ -843,6 +849,26 @@ def _same_dimension(first: dict[str, Any], second: dict[str, Any]) -> bool:
     return first.get("unit") == second.get("unit") and bool(first.get("percent")) == bool(
         second.get("percent")
     )
+
+
+def _growth_comparison_values(first: float, second: float) -> tuple[str, str, str]:
+    """Return the raw-value ordering with displays that make a non-equal ordering visible."""
+    if first == second:
+        rendered = _pct_str(first)
+        return "equal to", rendered, rendered
+    relation = "above" if first > second else "below"
+    # Scale the floats' round-trip decimal forms.  Multiplying binary floats first can collapse
+    # adjacent values (for example 0.1 and its predecessor both become the same binary 10.0).
+    first_percent = Decimal(str(first)) * 100
+    second_percent = Decimal(str(second)) * 100
+    for decimals in range(1, 5):
+        first_text = f"{first_percent:+.{decimals}f}%"
+        second_text = f"{second_percent:+.{decimals}f}%"
+        if first_text != second_text:
+            return relation, first_text, second_text
+    # Beyond four percentage decimals the values are immaterially different for this product
+    # surface. Avoid asserting a direction that the intentionally bounded display cannot show.
+    return "effectively equal to", _pct_str(first), _pct_str(second)
 
 
 def _growth_operand_points(
@@ -977,8 +1003,8 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             second_point = second_by_period.get(first_point["period"])
             if second_point is None or not isinstance(second_point.get("yoy"), float):
                 continue
-            relation = "above" if first_point["yoy"] > second_point["yoy"] else (
-                "below" if first_point["yoy"] < second_point["yoy"] else "equal to"
+            relation, first_growth_text, second_growth_text = _growth_comparison_values(
+                first_point["yoy"], second_point["yoy"]
             )
             comparison_operands = (
                 _growth_operand_points(dataset, first_series, first_point)
@@ -987,11 +1013,11 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             add(
                 "growth_quality", "comparison", (
                     f"In {first_point['period']}, {first_series['label'].lower()} growth of "
-                    f"{_pct_str(first_point['yoy'])} "
+                    f"{first_growth_text} "
                     f"{_marker_chain(_growth_operand_markers(dataset, first_series, first_point))} "
                     f"was {relation} "
                     f"{second_series['label'].lower()} growth of "
-                    f"{_pct_str(second_point['yoy'])} "
+                    f"{second_growth_text} "
                     f"{_marker_chain(_growth_operand_markers(dataset, second_series, second_point))}"
                     f"{_derived_qualifier(*comparison_operands)}."
                 ), first_concept, second_concept, first_point["period"],
@@ -1309,8 +1335,12 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
         excerpt = f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})"
         section_ref = "Computed · CAGR"
     else:
-        value_str = _format_value(
-            point["value"], point.get("unit") or "USD", bool(point.get("percent"))
+        value_str = (
+            _ratio_threshold_value(point["value"])
+            if point.get("concept") == "current_ratio" and point.get("unit") == "pure"
+            else _format_value(
+                point["value"], point.get("unit") or "USD", bool(point.get("percent"))
+            )
         )
         excerpt = f"{point['label']} = {value_str} ({point['period']})"
         if point.get("derived"):

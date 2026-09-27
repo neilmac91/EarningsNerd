@@ -4,6 +4,7 @@ Pure pieces (period keys, growth/CAGR math, inflection detectors, prompt renderi
 without a DB; dataset assembly and coverage run against seeded ``financial_fact`` rows.
 """
 
+import math
 import uuid
 from datetime import date
 from types import SimpleNamespace
@@ -261,10 +262,16 @@ class TestCodeOwnedObservations:
         (0.99999, "below 1.00x", "0.99999x"),
     ])
     def test_ratio_direction_uses_raw_value_and_exposes_the_cushion(self, ratio, relation, display):
-        catalogue = svc.build_observation_catalogue(self._dataset(ratio=ratio))
+        dataset = self._dataset(ratio=ratio)
+        catalogue = svc.build_observation_catalogue(dataset)
         observation = next(item for item in catalogue if "current ratio was" in item.markdown.lower())
         assert relation in observation.markdown
         assert display in observation.markdown
+        _, citations, _, _ = svc.resolve_narrative_citations(
+            observation.markdown, svc.marker_index(dataset)
+        )
+        ratio_citation = next(c for c in citations if c["concept"] == "current_ratio")
+        assert f"Current ratio = {display}" in ratio_citation["excerpt"]
 
     def test_growth_relations_require_numeric_same_period_operands(self):
         dataset = self._dataset()
@@ -279,6 +286,29 @@ class TestCodeOwnedObservations:
         )
         assert "-10.0%" in comparisons and "above" in comparisons
         assert "+0.0%" in comparisons and "equal to" in comparisons
+
+        ni["points"][1]["yoy"], nii["points"][1]["yoy"] = 0.1004, 0.1003
+        catalogue = svc.build_observation_catalogue(dataset)
+        close_comparison = next(
+            item.markdown for item in catalogue
+            if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+            and "2026Q2" in item.markdown
+        )
+        assert "+10.04%" in close_comparison
+        assert "above net interest income growth of +10.03%" in close_comparison
+
+        ni["points"][1]["yoy"] = 0.1
+        nii["points"][1]["yoy"] = math.nextafter(0.1, 0.0)
+        catalogue = svc.build_observation_catalogue(dataset)
+        adjacent_comparison = next(
+            item.markdown for item in catalogue
+            if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+            and "2026Q2" in item.markdown
+        )
+        assert "net income growth of +10.0%" in adjacent_comparison
+        assert "effectively equal to net interest income growth of +10.0%" in adjacent_comparison
 
         ni["points"][0]["yoy"] = svc.NOT_MEANINGFUL
         nii["points"][1]["yoy"] = None
