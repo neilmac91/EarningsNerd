@@ -8,6 +8,7 @@ from typing import Any, Iterable, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.services.metric_delta_service import strict_xbrl_metric_key
 from app.utils.numbers import parse_display_number
 
 _MISSING_STRINGS = {
@@ -39,38 +40,8 @@ def _parse_numeric(value: Optional[str]) -> Optional[Decimal]:
 _XBRL_CONFIDENCE_NOTE = "Prior period from XBRL"
 
 
-# Only whole, recognized labels may borrow a comparative. Qualifiers such as adjusted,
-# pretax, growth or per-share expenses describe different measures and remain unmatched.
-_PRIOR_METRIC_KEYS = {
-    "net interest income": "net_interest_income",
-    "non-interest income": "noninterest_income",
-    "noninterest income": "noninterest_income",
-    "net investment income": "net_investment_income",
-    "premiums earned": "premiums_earned",
-    "premium earned": "premiums_earned",
-    "premiums earned (net)": "premiums_earned",
-    "revenue": "revenue",
-    "revenues": "revenue",
-    "total revenue": "revenue",
-    "total revenues": "revenue",
-    "net sales": "revenue",
-    "net income": "net_income",
-    "gross profit": "gross_profit",
-    "operating income": "operating_income",
-    "net margin": "net_margin",
-    "gross margin": "gross_margin",
-    "operating margin": "operating_margin",
-    "diluted eps": "eps_diluted",
-    "eps (diluted)": "eps_diluted",
-    "diluted earnings per share": "eps_diluted",
-    "earnings per share (diluted)": "eps_diluted",
-}
-
-
 def _infer_xbrl_metric(metric_name: str) -> Optional[str]:
-    if not metric_name:
-        return None
-    return _PRIOR_METRIC_KEYS.get(" ".join(metric_name.lower().split()))
+    return strict_xbrl_metric_key(metric_name)
 
 
 def _format_xbrl_value(metric_key: str, value: float) -> str:
@@ -305,4 +276,3 @@ def attach_normalized_facts(
         section_copy["table"] = table
     section_copy["normalized"] = json.loads(summary.model_dump_json(by_alias=True))
     return section_copy
-

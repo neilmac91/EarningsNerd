@@ -401,7 +401,9 @@ def enrich_financial_highlights(
         or financial_highlights.get("sourceSectionRef")
     )
     base_url = _base_url(filing)
-    result = copy.deepcopy(financial_highlights)
+    result = metric_delta_service.bind_exact_xbrl_deltas(
+        copy.deepcopy(financial_highlights), xbrl_standardized,
+    )
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
         rows = [
@@ -417,7 +419,8 @@ def enrich_financial_highlights(
             row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
             # Single delta policy: ship the computed change display/direction/tone so the table
             # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
-            row.update(metric_delta_service.row_delta_fields(row))
+            if not row.get("change_display"):
+                row.update(metric_delta_service.row_delta_fields(row))
             if normalized_source is not None:
                 excerpt = row.get("supporting_evidence") or row.get("supportingEvidence")
                 if isinstance(excerpt, str) and excerpt.strip():
@@ -484,6 +487,7 @@ def enrich_raw_summary(
         result["sections"][metrics_key] = enrich_financial_highlights(
             fh, filing, xbrl_standardized, normalized_source if version >= 2 else None
         )
+        result[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
     if version >= 2:
         # T4.1: generalize trace-to-source beyond risks/metrics to the other citable v2 surfaces.
         # Quotes verify verbatim (the quote is the excerpt); footnotes verify their supporting excerpt.

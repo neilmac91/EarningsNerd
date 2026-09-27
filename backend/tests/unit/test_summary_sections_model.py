@@ -1,6 +1,13 @@
 """Tier-2 Section/Block model: the metrics/callout kinds, evidence, Section.id slugs, and the
 JSON projection (render_sections_json) the web's rendered_sections field consumes.
 """
+import copy
+import json
+
+import pytest
+
+from app.services import metric_delta_service
+from app.services.openai_service import OpenAIService
 from app.services.summary_sections import (
     Block,
     Section,
@@ -53,6 +60,118 @@ def test_financial_highlights_render_as_a_metrics_block_with_typed_rows():
     assert metrics.metric_rows[0]["change_display"] == "+85.0%"
     assert metrics.metric_rows[0]["change_tone"] == "gain"
     assert metrics.metric_rows[1]["change_display"] == "+14.4 ppts"
+
+
+@pytest.mark.asyncio
+async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks(monkeypatch):
+    """Rounded display strings cannot change a bound exact delta; conflicts and qualifiers abstain."""
+    section = {
+        "table": [
+            {"metric": "Total net sales", "current_period": "$416.2B", "prior_period": "$391.0B",
+             "change": "model says 99%", "change_display": "+99.0%"},
+            {"metric": "Net income", "current_period": "$11.3B", "prior_period": "$8.5B"},
+            {"metric": "Adjusted net income", "current_period": "$11.3B", "prior_period": "$8.5B",
+             "change_display": "+99.0%"},
+            {"metric": "Revenue", "current_period": "$417.0B", "prior_period": "$391.0B"},
+            {"metric": "Gross margin", "current_period": "74.9%", "prior_period": "60.5%"},
+        ],
+    }
+    metrics = {
+        "revenue": {
+            "current": {"period": "2025-09-27", "period_start": "2024-09-29", "form": "10-K",
+                        "currency": "USD",
+                        "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+                        "value": 416_161_000_000},
+            "prior": {"period": "2024-09-28", "period_start": "2023-10-01", "form": "10-K",
+                      "currency": "USD",
+                      "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+                      "value": 391_035_000_000},
+        },
+        "net_income": {
+            "current": {"period": "2025-12-31", "period_start": "2025-01-01", "form": "10-K",
+                        "currency": "USD", "raw_tag": "us-gaap:NetIncomeLoss", "value": 11_308_000_000},
+            "prior": {"period": "2024-12-31", "period_start": "2024-01-01", "form": "10-K",
+                      "currency": "USD", "raw_tag": "us-gaap:NetIncomeLoss", "value": 8_480_000_000},
+        },
+        "gross_margin": {
+            "current": {"period": "2026-04-26", "period_start": "2026-01-26", "form": "10-Q",
+                        "value": 74.9},
+            "prior": {"period": "2025-04-27", "period_start": "2025-01-27", "form": "10-Q",
+                      "value": 60.5},
+        },
+    }
+    bound = metric_delta_service.bind_exact_xbrl_deltas(section, metrics)
+    assert [row.get("change_display") for row in bound["table"]] == [
+        "+6.4%", "+33.3%", None, None, "+14.4 ppts",
+    ]
+
+    for raw in (
+        _raw({"financial_highlights": bound}),
+        _raw({"results_that_matter": bound}, schema_version=2),
+    ):
+        raw[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
+        block = next(b for s in render_sections(raw) for b in s.blocks if b.kind == "metrics")
+        assert [row[3] for row in block.rows] == [
+            "+6.4%", "+33.3%", "+32.9%", "+6.6%", "+14.4 ppts",
+        ]
+        assert block.metric_rows[0]["change"] == "model says 99%"
+
+    forged = _raw({"financial_highlights": bound})
+    forged[metric_delta_service.EXACT_CONTEXT_KEY] = True
+    forged_block = next(b for s in render_sections(forged) for b in s.blocks if b.kind == "metrics")
+    assert forged_block.rows[1][3] == "+32.9%"  # bool is not the application-owned integer marker
+    assert forged_block.metric_rows[1]["change_display"] == "+32.9%"
+
+    # A conflicting raw tag or period refuses exact binding and leaves the rounded-string fallback.
+    conflicting = copy.deepcopy(metrics)
+    conflicting["revenue"]["prior"]["raw_tag"] = "us-gaap:SalesRevenueNet"
+    conflicting["net_income"]["prior"]["period"] = "2025-12-31"
+    rejected = metric_delta_service.bind_exact_xbrl_deltas(section, conflicting)
+    assert rejected["table"][0].get("change_display") is None
+
+    # Exercise the production extraction/render path and its streaming-preview projection. These
+    # retained operands reproduce the AAPL and PGR rounding boundaries that exposed display-string
+    # arithmetic; the service must bind the exact values before either surface renders the table.
+    candidate = {
+        "sections": {
+            "the_print": {"headline": "Reported annual results."},
+            "results_that_matter": copy.deepcopy(section),
+            "earnings_quality": {"operating_vs_one_time": "Reported operating results."},
+            "value_drivers": {"analysis": "Reported business drivers."},
+            "forward_signals": {"guidance": "No selected guidance."},
+            "risks": [{"summary": "Reported risk."}],
+            "balance_sheet_liquidity": {"liquidity": "Reported liquidity."},
+            "notable_footnotes": [{"item": "Reported accounting policy."}],
+        },
+        "metadata": {},
+    }
+
+    async def request(*args, **kwargs):
+        return json.dumps(candidate)
+
+    service = OpenAIService()
+    monkeypatch.setattr(service, "_request_content", request)
+    result = await service.summarize_filing(
+        "Selected filing source.", "Selected issuer", "10-K",
+        xbrl_metrics=metrics, filing_excerpt="Selected filing source.",
+    )
+    final = result["business_overview"]
+    preview = service._partial_markdown_preview(json.dumps(candidate), metrics) or ""
+    for surface in (final, preview):
+        assert "+6.4%" in surface and "+33.3%" in surface
+        assert "+6.5%" not in surface and "+33.4%" not in surface
+    assert rejected["table"][1].get("change_display") is None
+    conflicting["revenue"]["prior"]["raw_tag"] = (
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+    )
+    conflicting["revenue"]["prior"]["period_start"] = "2024-06-30"
+    rejected = metric_delta_service.bind_exact_xbrl_deltas(section, conflicting)
+    assert rejected["table"][0].get("change_display") is None
+    conflicting["revenue"]["prior"]["period_start"] = "2023-10-01"
+    conflicting["revenue"]["current"]["currency"] = "EUR"
+    conflicting["revenue"]["prior"]["currency"] = "EUR"
+    rejected = metric_delta_service.bind_exact_xbrl_deltas(section, conflicting)
+    assert rejected["table"][0].get("change_display") is None
 
 
 def test_render_sections_json_is_serializable_and_structured():
