@@ -4,7 +4,7 @@
 
 **Retain the implemented scanner, storage, API and mounted frontend, but keep serving deferred/dark until engineering completes the missing source-quality readout. Do not kill the feature on the available evidence, and do not open the flag PR yet.**
 
-The ownership blocker is stale. The controlling CEO plan assigns Notable acceptance to **engineering**: review observed source quality, record retain/kill, then prepare the flag PR if retained ([CEO plan](../../ceo-implementation-plan-2026-09-08.md)). Later handovers and the blank worksheet continued to call this a founder decision, but they do not contain a completed decision or new evidence that engineering cannot perform the review. The latest delegation authorizes engineering to complete implementation. Founder involvement is therefore not a prerequisite for the bounded acceptance review; root still owns release and any production change.
+The founder’s September 27 live delegation gives Codex “full approval to make the changes you need to to achieve our master plan.” The [authoritative handover](../../handover-astra-2026-09-19.md) now explicitly records that this supersedes its older Notable retain/kill ownership gate: engineering owns the readout and recommendation, and Codex owns disposition and release. This authority comes from the new founder instruction, not from treating the older CEO plan as higher precedence than the handover. No completed retain/kill acceptance readout or source-quality result is inferred from the delegation. The current engineering decision preserves the implementation and keeps activation deferred.
 
 ## Evidence actually retained
 

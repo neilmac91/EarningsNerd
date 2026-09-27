@@ -9,7 +9,7 @@ This checkpoint supersedes the current-state/queue descriptions in the
 [September 23 continuation](continuation-plan-2026-09-23.md), through main
 `b53455bb3b13817d44cf089f3280ced143998583` (#961), with the verified overnight release
 now at `e39b475e13a0599d037303aacc75a82d51b053b8` (#969), with backend revision `00393-6m9`. Historical results, approvals, budgets and
-specific holds remain in force. The subsequently returned
+specific holds remain in force except for the [explicit September 27 Notable ownership supersession](handover-astra-2026-09-19.md). The subsequently returned
 [agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
 confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
 active automation. Codex now owns the remaining engineering and integration; no unfinished

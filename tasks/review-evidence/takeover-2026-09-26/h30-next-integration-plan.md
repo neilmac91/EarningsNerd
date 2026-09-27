@@ -23,6 +23,8 @@ Two independent refutations failed: (1) the closure seal cannot establish comple
 
 First inspect #964’s separately retained history authority and journal for a minimal truthful binding of the already retained A2/B2 attempts and the complete known context set. Determine whether legacy evidence can be bound without representing it as newly journal-dispatched work. Preserve every original receipt; do not invent past dispatches, regenerate source opinions or use another self-recomputed wrapper seal as the independent anchor. If the existing authority cannot express that distinction, document the smallest explicit legacy-evidence boundary before implementing it.
 
+The subsequent [read-only design check](h30-independent-history-design.md) confirms that #964’s external-digest boundary can be reused, but its pre-dispatch journal semantics cannot be backfilled. Existing legacy chains and successor witnesses support a retrospective custody migration; an externally retained authority is still required, with explicit limits on completeness. No such authority or implementation has been created by this design check.
+
 Extend the existing gate with the exact coherently re-sealed whole-attempt omission, alongside the complete actual package and existing no-history controls. Only then run the normal correction/review/release sequence. Further implementation and additional paid regression runs stop for this tranche; frozen financial source work remains retained and valid within its stated source-only scope.
 
 ## Frozen inputs

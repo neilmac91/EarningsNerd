@@ -2,8 +2,21 @@
 
 **Current-state addendum, September 26:** use the [takeover and completion plan](continuation-plan-2026-09-26.md)
 for merged work, active-agent ownership, remaining deliverables and release evidence through #961.
-It supersedes this page's dated current-state/queue descriptions while preserving its approvals,
-budgets and specific holds. The E8-specific addendum below remains historical evidence.
+It supersedes this page's dated current-state/queue descriptions. Approvals, budgets and specific
+holds remain except for the explicit September 27 ownership supersession below. The E8-specific addendum below remains historical evidence.
+
+**Founder authority supersession, September 27:** in the live session the founder gave Codex
+“full approval to make the changes you need to to achieve our master plan,” explicitly approved
+DeepSeek API spend, and authorized necessary account changes. For Notable, this supersedes the
+older retain/kill item under §5 “Waiting on the founder” and the blank worksheet’s ownership labels: engineering owns the evidence readout
+and recommendation, and Codex as chief engineer owns the disposition and any subsequent release.
+For Notable only, this also supersedes §5’s blanket production-flag hold after the completed
+readout supports activation; every other production flag remains held.
+The current decision is to retain the implementation and defer activation until the missing
+source-quality and job-reliability readout is complete. This delegation is not a completed
+acceptance result or permission to invent one. Numerical evaluation limits, judge identities,
+locked tests, quality prerequisites, customer consent, data/history protections and specific
+unresolved automatic-approval denials remain. See the [bounded Notable disposition](review-evidence/takeover-2026-09-26/notable-disposition-review.md).
 
 This is the authoritative state of EarningsNerd at the handover. Where it disagrees with an older
 handover or with an unchecked row in `tasks/todo.md`, this file wins and the older text is history.
@@ -129,6 +142,10 @@ is the numbered list at the foot of this file.
 | E8 | `o` variance lead | Generation is complete but judging remains inconclusive: 160 slots missing, conservative prior charge 287 of 601 leaves at most 314 calls for slots and retries. The founder's “No additional E8 judging or probes” answered a past-history question, not a future STOP or authorization. Prepare a guarded continuation only after remote accounting and sole-guard verification. [Status](e1-e9-status-2026-09-20.md). |
 | E9 | Fleet proposal and protection | The [proposal](fleet-coordination-proposal-2026-09-19.md) is complete, with filing ownership and SEC admission still inactive. [September 22 protection readback](review-evidence/fleet-2026-09-22/README.md) confirms backups/PITR enabled and a recent completed backup; monthly lifecycle-managed export and a restore rehearsal remain unverified. Job-outcome reads remain blocked by missing SELECT on `earningsnerd_job_runs`. |
 
+**Notable ownership, superseded September 27:** the earlier founder-waiting row is replaced by
+the explicit delegation at the top of this handover. Engineering owns the missing readout; Codex
+owns the disposition. Retain the implementation and defer activation pending the evidence.
+
 **Recurring:** the weekly readout. `data-quality-weekly.yml` generates on Mondays and the judging
 runs on the Fable subscription (`.claude/skills/meta/judge-readout/SKILL.md` is the procedure). The
 next generation is Monday 2026-09-21.
@@ -138,7 +155,6 @@ next generation is Monday 2026-09-21.
 | Decision | Why it matters |
 | --- | --- |
 | **Cloud SQL recovery proof and monthly export remain open** | The September 19 authorized change enabled automated backups and seven-day PITR; September 22 [readback](review-evidence/fleet-2026-09-22/README.md) confirms both and a completed automated backup. No restore rehearsal or monthly lifecycle-managed export was verified. A stopped Postgres 18 instance and the configured Monday connection-demand scenario remain separate matters. |
-| Notable filings: retain or kill | The review week ended 2026-09-15; the decision is overdue. |
 | Analysis (W3-10): run the companyfacts warm-up and name a Pro test account | `scripts/sync_companyfacts.py` has never run as a job. |
 | Arming `AI_ATTRIBUTION_VERIFY`, then `AI_ATTRIBUTION_GATE`, in production | Only after E2–E4 show the drop decision no longer deletes sourced analysis. |
 | Quality evidence and wider-generation decision | The founder approved the AI-assisted E7 alternative and its existing ceiling. Complete real source references and measured outputs; explicitly retain the weaker assurance. Universe-wide generation still requires a separate release. [Current continuation](continuation-plan-2026-09-23.md). |
