@@ -27,3 +27,7 @@ The stable snapshot now shares `_decode_xml_attribute_value` between constructio
 ## Limits retained
 
 This review does not convert the source aid into a generic XML/XHTML renderer and does not grant source admission. The capacity preflight validates strict XML well-formedness and the XHTML root for selection and measures callback spans; it still does not attest the projection's structural grammar. Exact raw spans remain authoritative for name spelling. Broader XML Infoset behavior outside the documented fail-closed subset remains out of scope.
+
+## Subsequent owner full gate
+
+The focused-test statement above records what was available at the independent review. The owner subsequently ran the complete gate after integrating `eea26d2f`; the [final receipt](pr969-final-local-gate.json) binds exact `c3a10d017d1b220783ceca8dcc7e3a6177fbf069` and its source hashes to 3,731 passed / 40 warnings / zero skipped in 161.86 seconds, including four PostgreSQL lanes and performance. This dated follow-up does not rewrite the reviewer’s earlier observation.

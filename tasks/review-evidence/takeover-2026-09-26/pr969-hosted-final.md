@@ -24,6 +24,8 @@ Detailed receipts and inventories are in each run-specific directory. The review
 
 Corrected head `c3a10d017d1b220783ceca8dcc7e3a6177fbf069` integrates `eea26d2f6845dbea2cd19feb007afe00efa7bfd5` and corrects the three hosted findings plus XML attribute normalization and explicit fail-closed subset guards. Its synthetic merge `f46600b6c37d41ed51f500bbb5edb34206b574d9` has tree `8a56ab1128008542e75132351708641b7fa3f723`, exactly matching the head tree.
 
+The [corrected-head local receipt](pr969-final-local-gate.json) binds the exact `c3a10d01` tree and code hashes to 3,731 passed / 40 warnings / zero skipped in 161.86 seconds, all four PostgreSQL lanes and performance. Retained public log copies: [pytest](pr969-final-local-pytest.txt), [Ruff](pr969-final-local-ruff.txt), [Bandit](pr969-final-local-bandit.txt). The earlier local receipt and independent reviewer’s two-focused-test report are historical stages, not this subsequent full gate.
+
 - CI `36289097435`: 70/70 outputs scored, 71 successful provider calls (`70` summary-primary and `1` section-recovery), no retry/error/judge calls, estimated cost `$0.176262`. The hard regression gate passed with the soft `mean_untraceable_dollar_figures = 2.5` advisory.
 - Copilot `36289097425`: 18/18 passed, 36 successful provider calls, no retry/error/judge calls, estimated cost `$0.007865`. Five rows had advisory uncited-figure coverage. All six source artifact sets exactly matched the prior hosted source manifest and hashes.
 - Exact-head Codex review completed against `c3a10d017d`, reported no major issues, and authored no new inline findings on the corrected head.
