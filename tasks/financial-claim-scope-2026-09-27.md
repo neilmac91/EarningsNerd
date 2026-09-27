@@ -99,7 +99,7 @@ percentage form are non-candidates by construction.
 
 ### Gate and mutation proof
 
-`backend/tests/unit/test_table_cell_units.py` (27 cases): the retained WMT lines restored 7/7 including
+`backend/tests/unit/test_table_cell_units.py` (26 cases): the retained WMT lines restored 7/7 including
 year-glued cells ("20283,237"); cells at either end of a line under the two other edgartools table
 flattenings; prose-bare (BA), missing, mixed-scale, percent, non-dollar banner,
 banner-above-prose, share-count and XBRL-literal cases untouched with the documented reason; verbatim
@@ -240,3 +240,30 @@ A first, weaker fault (removing the prose-occurrence abstention) also failed the
 vocabulary changed, 1 failed / 17 passed) but produced no false insertion; it is retained as
 superseded in `review-evidence/financial-claim-scope-2026-09-27/mutation-proof-superseded.log`, not
 counted as the proof.
+
+## Second review round (chief engineer, 22:26 and 22:30 UTC)
+
+P1 (banner scope through short prose, detached per-share labels, a new table's own unit header) and
+P2 (plural scale words) are fixed in `ffdf371`, together with the two integration points: the owner
+runs after the source binders on final and preview, the audit carries exact totals beside the capped
+detail, and the stamp advances to `summary-2026-09-s`. Local gate on that committed head:
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3728 passed, 39 skipped, 2 deselected in 277.04s   pytest_exit=0
+```
+
+Deliberate fault re-run on committed `ffdf371` (same fault: prose no longer ends a banner's scope):
+
+```
+fault applied: prose no longer terminates a banner's table scope
+E   At index 0 diff: 'The filing reports $3,237 million for the period.' != 'The filing reports $3,237 for the period.'
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_governing_banner-…]
+1 failed, 25 passed in 3.14s   fault_exit=1
+== restored: clean ==
+26 passed in 3.14s             restored_exit=0
+```
+
+The intermediate P1/P2-only gate (3,726 passed) is retained as `local-gate-p1p2.log`. Offline replay of
+the 70 retained outputs after both rounds: one slot changed (WMT run 1, 7/7), eight abstentions.

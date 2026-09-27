@@ -87,6 +87,35 @@
       "outcome": "review-corrected owner over 70 retained rows: 1 slot changed (WMT run 1, 7/7), 8 abstained (COST prose_occurrence x6, BYND no_governing_banner x2)",
       "cost_usd": 0.0,
       "file": "offline-replay-70.json"
+    },
+    {
+      "id": 12,
+      "kind": "local_gate",
+      "outcome": "P1/P2-corrected tree: ruff/bandit clean, 3726 passed, 39 skipped, 2 deselected",
+      "cost_usd": 0.0,
+      "file": "local-gate-p1p2.log"
+    },
+    {
+      "id": 13,
+      "kind": "local_gate",
+      "outcome": "second-round tree (owner after binders, exact totals, stamp -s): ruff/bandit clean, 3728 passed, 39 skipped, 2 deselected",
+      "cost_usd": 0.0,
+      "file": "local-gate.log"
+    },
+    {
+      "id": 14,
+      "kind": "mutation_proof",
+      "outcome": "re-run on committed ffdf371: false '$3,237 million' insertion caught, 1 failed/25 passed; restored 26 passed",
+      "cost_usd": 0.0,
+      "file": "mutation-proof.log"
+    },
+    {
+      "id": 15,
+      "kind": "hosted_eval_baseline",
+      "head": "post-ffdf371 push",
+      "outcome": "triggered by the single push carrying the second-round head; result recorded in the PR thread",
+      "estimated_cost_usd": "expected about 0.18",
+      "billed_cost_usd": "unknown"
     }
   ],
   "unknowns": [
