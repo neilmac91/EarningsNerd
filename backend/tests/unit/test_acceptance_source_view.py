@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -256,6 +257,51 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     ascii_bom_projected = source_view.project_html(ascii_bom_raw)
     source_view.verify_projection(ascii_bom_raw, ascii_bom_projected)
     assert ascii_bom_projected["compact_text"] == xhtml_projected["compact_text"]
+    strict_reference_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<p title="&#x80; &amp; &apos; &quot; &lt; &gt;" '
+        b'data-whitespace="a\tb\r\nc&#x9;d">'
+        b'&#x80; &amp; &apos; &quot; &lt; &gt;</p></body></html>'
+    )
+    strict_reference_projected = source_view.project_html(strict_reference_raw)
+    source_view.verify_projection(strict_reference_raw, strict_reference_projected)
+    expected_reference_text = '\x80 & \' " < >'
+    assert strict_reference_projected["compact_text"] == expected_reference_text
+    title = next(
+        attribute
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "title"
+    )
+    assert title["value"] == expected_reference_text
+    whitespace_value = next(
+        attribute["value"]
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "data-whitespace"
+    )
+    assert whitespace_value == "a b c\td"
+    xml_paragraph = next(element for element in ET.fromstring(strict_reference_raw).iter() if element.tag.endswith("}p"))
+    assert title["value"] == xml_paragraph.attrib["title"]
+    assert whitespace_value == xml_paragraph.attrib["data-whitespace"]
+    forged_reference = copy.deepcopy(strict_reference_projected)
+    next(
+        attribute for attribute in forged_reference["attributes"] if attribute["name"] == "title"
+    )["value"] = "€ & ' \" < >"
+    with pytest.raises(ValueError, match="XML attribute decoding mismatch"):
+        source_view.verify_projection(strict_reference_raw, forged_reference)
+    strict_pi_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<?audit a><div/>?><p>After PI</p></body></html>'
+    )
+    strict_pi_projected = source_view.project_html(strict_pi_raw)
+    source_view.verify_projection(strict_pi_raw, strict_pi_projected)
+    assert strict_pi_projected["compact_text"] == "After PI"
+    assert all(element["tag"] != "div" for element in strict_pi_projected["elements"])
+    audit_pi = next(
+        event
+        for event in strict_pi_projected["events"]
+        if event["kind"] == "processing_instruction" and event["start"] > 0
+    )
+    assert strict_pi_raw[audit_pi["start"] : audit_pi["end"]] == b"<?audit a><div/>?>"
     declaration_end = xhtml_raw.index(b"?>") + 2
     ordinary_html = b" " * declaration_end + xhtml_raw[declaration_end:]
     forged_html_projection = copy.deepcopy(xhtml_projected)
@@ -305,6 +351,31 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         (
             b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">&custom;</html>',
             "not well formed",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<body><![CDATA[unsupported]]></body></html>',
+            "unknown declaration",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<SCRIPT>text</SCRIPT></html>',
+            "case-sensitive XHTML element name",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<p A="one" a="two"/></html>',
+            "case-distinct strict XML names",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<table><tr><td ROWSPAN="2"/></tr></table></html>',
+            "case-sensitive XHTML semantic attribute",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<script><custom/></script></html>',
+            "strict XML raw-text markup",
         ),
         (
             b'<?xml version="1.0" encoding="iso-8859-1"?>'

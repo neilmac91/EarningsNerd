@@ -53,6 +53,23 @@ XML_DECLARATION_ENCODING = re.compile(
 )
 UTF8_BOM = b"\xef\xbb\xbf"
 XHTML_ROOT_TAG = "{http://www.w3.org/1999/xhtml}html"
+XML_NAMED_REFERENCES = {
+    "amp": "&",
+    "apos": "'",
+    "gt": ">",
+    "lt": "<",
+    "quot": '"',
+}
+XML_REFERENCE = re.compile(r"&(#(?:x[0-9A-Fa-f]+|[0-9]+)|[A-Za-z_:][\w.:-]*);")
+HTML_SEMANTIC_ATTRIBUTES = {
+    "alt",
+    "aria-hidden",
+    "colspan",
+    "hidden",
+    "rowspan",
+    "src",
+    "style",
+}
 
 
 def _sha(data: bytes) -> str:
@@ -64,6 +81,62 @@ def _span(raw: bytes, start: int, end: int) -> dict[str, Any]:
         raise ValueError("invalid source byte span")
     payload = raw[start:end]
     return {"start": start, "end": end, "bytes": end - start, "sha256": _sha(payload)}
+
+
+def _decode_xml_references(source: str) -> str:
+    """Decode one already-validated XML fragment without HTML's C1 remapping."""
+    output: list[str] = []
+    cursor = 0
+    for match in XML_REFERENCE.finditer(source):
+        if "&" in source[cursor : match.start()]:
+            raise ValueError("unsupported XML reference")
+        output.append(source[cursor : match.start()])
+        token = match.group(1)
+        if token.startswith("#x"):
+            output.append(chr(int(token[2:], 16)))
+        elif token.startswith("#"):
+            output.append(chr(int(token[1:], 10)))
+        elif token in XML_NAMED_REFERENCES:
+            output.append(XML_NAMED_REFERENCES[token])
+        else:
+            raise ValueError("unsupported XML named reference")
+        cursor = match.end()
+    if "&" in source[cursor:]:
+        raise ValueError("unsupported XML reference")
+    output.append(source[cursor:])
+    return "".join(output)
+
+
+def _decode_xml_attribute_value(source: str) -> str:
+    """Apply XML 1.0 literal-whitespace normalization, then decode references once."""
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = normalized.replace("\t", " ").replace("\n", " ")
+    return _decode_xml_references(normalized)
+
+
+def _strict_pi_end(raw: bytes | bytearray, start: int) -> int:
+    marker = raw.find(b"?>", start + 2)
+    if marker < 0:
+        raise ValueError("truncated XML processing instruction")
+    return marker + 2
+
+
+class _StrictXmlPiMixin:
+    """Make HTMLParser consume a validated XML processing instruction through `?>`."""
+
+    strict_xhtml: bool
+    rawdata: str
+
+    def parse_pi(self, index: int) -> int:
+        if not self.strict_xhtml:
+            return super().parse_pi(index)  # type: ignore[misc]
+        if self.rawdata[index : index + 2] != "<?":
+            raise AssertionError("unexpected call to parse_pi()")
+        marker = self.rawdata.find("?>", index + 2)
+        if marker < 0:
+            return -1
+        self.handle_pi(self.rawdata[index + 2 : marker])  # type: ignore[attr-defined]
+        return marker + 2
 
 
 class _StrictXhtmlTarget:
@@ -119,7 +192,7 @@ def _is_strict_xhtml(raw: bytes) -> bool:
     return True
 
 
-class _ProjectionParser(HTMLParser):
+class _ProjectionParser(_StrictXmlPiMixin, HTMLParser):
     def __init__(self, raw: bytes, text: str, *, strict_xhtml: bool) -> None:
         super().__init__(convert_charrefs=False)
         self.raw = raw
@@ -140,6 +213,8 @@ class _ProjectionParser(HTMLParser):
         self.elements: list[dict[str, Any]] = []
         self.table_stack: list[dict[str, Any]] = []
         self.element_stack: list[dict[str, Any]] = []
+        self.strict_tag_spellings: dict[str, str] = {}
+        self.strict_attribute_spellings: dict[str, str] = {}
         self.open_p_count = 0
 
     @staticmethod
@@ -249,6 +324,15 @@ class _ProjectionParser(HTMLParser):
             if index == name_start:
                 raise ValueError("ambiguous attribute boundary")
             name_end = index
+            exact_name = source[name_start:name_end]
+            if self.strict_xhtml:
+                self._validate_strict_name(
+                    exact_name,
+                    self.strict_attribute_spellings,
+                    require_lowercase_unprefixed=False,
+                )
+                if exact_name.lower() in HTML_SEMANTIC_ATTRIBUTES and exact_name != exact_name.lower():
+                    raise ValueError("unsupported case-sensitive XHTML semantic attribute")
             while index < len(source) and source[index].isspace():
                 index += 1
             value_start: int | None = None
@@ -287,11 +371,16 @@ class _ProjectionParser(HTMLParser):
                 value_byte_start = self.char_bytes[char_base + value_start]
                 value_byte_end = self.char_bytes[char_base + value_end]
                 value_span = _span(self.raw, value_byte_start, value_byte_end)
-                decoded_value = html.unescape(source[value_start:value_end])
+                value_source = source[value_start:value_end]
+                decoded_value = (
+                    _decode_xml_attribute_value(value_source)
+                    if self.strict_xhtml
+                    else html.unescape(value_source)
+                )
             record = {
                 "id": f"A{len(self.attributes) + 1:06d}",
                 "tag": tag,
-                "name": source[name_start:name_end].lower(),
+                "name": exact_name.lower(),
                 "value": decoded_value,
                 "quote": quote or None,
                 "span": _span(self.raw, raw_start, raw_end),
@@ -302,6 +391,20 @@ class _ProjectionParser(HTMLParser):
             self.attribute_by_id[record["id"]] = record
             attribute_ids.append(record["id"])
         return attribute_ids
+
+    @staticmethod
+    def _validate_strict_name(
+        exact_name: str,
+        spellings: dict[str, str],
+        *,
+        require_lowercase_unprefixed: bool,
+    ) -> None:
+        normalized = exact_name.lower()
+        if require_lowercase_unprefixed and ":" not in exact_name and exact_name != normalized:
+            raise ValueError("unsupported case-sensitive XHTML element name")
+        prior = spellings.setdefault(normalized, exact_name)
+        if prior != exact_name:
+            raise ValueError("unsupported case-distinct strict XML names")
 
     def _char_index_for_byte(self, byte_index: int) -> int:
         # Start-tag boundaries always coincide with decoded UTF-8 character boundaries.
@@ -361,6 +464,15 @@ class _ProjectionParser(HTMLParser):
         raw_tag = self.get_starttag_text()
         if raw_tag is None:
             raise ValueError("start tag has no source text")
+        if self.strict_xhtml:
+            name_match = re.match(r"<\s*([^\s/>]+)", raw_tag)
+            if name_match is None:
+                raise ValueError("ambiguous strict XML start-tag name")
+            self._validate_strict_name(
+                name_match.group(1),
+                self.strict_tag_spellings,
+                require_lowercase_unprefixed=True,
+            )
         end = start + len(raw_tag.encode("utf-8"))
         attribute_ids = self._attrs(start, end, tag)
         event = self._event("start_tag", start, end, tag=tag, attribute_ids=attribute_ids)
@@ -497,6 +609,12 @@ class _ProjectionParser(HTMLParser):
         tag = tag.lower()
         start = self._byte_position()
         end = self._markup_end(start)
+        if self.strict_xhtml:
+            source = self.raw[start:end].decode("utf-8", "strict")
+            name_match = re.match(r"</\s*([^\s>]+)", source)
+            exact_name = name_match.group(1) if name_match is not None else ""
+            if self.strict_tag_spellings.get(tag) != exact_name:
+                raise ValueError("unsupported case-distinct strict XML names")
         matching = next((index for index in range(len(self.element_stack) - 1, -1, -1) if self.element_stack[index]["tag"] == tag), None)
         if matching is None:
             # Historical SEC HTML commonly carries harmless unmatched formatting closes.
@@ -572,21 +690,39 @@ class _ProjectionParser(HTMLParser):
             raise ValueError("parser data cannot be mapped unambiguously to source bytes")
         if self.strict_xhtml and start == 0 and encoded == UTF8_BOM:
             return
+        if self.strict_xhtml and any(
+            element["tag"] in {"script", "style"} for element in self.element_stack
+        ) and ("<" in data or "&" in data):
+            raise ValueError("unsupported strict XML raw-text markup or reference")
         self._text(data, start, end, "data")
 
     def handle_entityref(self, name: str) -> None:
         start = self._byte_position()
         source = f"&{name};".encode("ascii")
-        if self.raw[start : start + len(source)].lower() != source.lower():
+        observed = self.raw[start : start + len(source)]
+        matches = observed == source if self.strict_xhtml else observed.lower() == source.lower()
+        if not matches:
             raise ValueError("ambiguous entity-reference span")
-        self._text(html.unescape(source.decode("ascii")), start, start + len(source), "entity_reference")
+        decoded = (
+            _decode_xml_references(source.decode("ascii"))
+            if self.strict_xhtml
+            else html.unescape(source.decode("ascii"))
+        )
+        self._text(decoded, start, start + len(source), "entity_reference")
 
     def handle_charref(self, name: str) -> None:
         start = self._byte_position()
         source = f"&#{name};".encode("ascii")
-        if self.raw[start : start + len(source)].lower() != source.lower():
+        observed = self.raw[start : start + len(source)]
+        matches = observed == source if self.strict_xhtml else observed.lower() == source.lower()
+        if not matches:
             raise ValueError("ambiguous character-reference span")
-        self._text(html.unescape(source.decode("ascii")), start, start + len(source), "character_reference")
+        decoded = (
+            _decode_xml_references(source.decode("ascii"))
+            if self.strict_xhtml
+            else html.unescape(source.decode("ascii"))
+        )
+        self._text(decoded, start, start + len(source), "character_reference")
 
     def handle_comment(self, data: str) -> None:
         start = self._byte_position()
@@ -616,9 +752,14 @@ class _ProjectionParser(HTMLParser):
     def handle_pi(self, data: str) -> None:
         del data
         start = self._byte_position()
-        if self.strict_xhtml and start == len(UTF8_BOM) and self.raw.startswith(UTF8_BOM):
-            start = 0
-        self._event("processing_instruction", start, self._markup_end(start), included_in_compact_text=False)
+        if self.strict_xhtml:
+            callback_start = start
+            if start == len(UTF8_BOM) and self.raw.startswith(UTF8_BOM):
+                start = 0
+            end = _strict_pi_end(self.raw, callback_start)
+        else:
+            end = self._markup_end(start)
+        self._event("processing_instruction", start, end, included_in_compact_text=False)
 
     def finish(self) -> dict[str, Any]:
         self.close()
@@ -1016,7 +1157,9 @@ def verify_projection(raw: bytes, projection: dict[str, Any]) -> None:
         if (start, end) != (event["start"], event["end"]):
             raise ValueError("projection text unit differs from its source event span")
         source = raw[start:end].decode("utf-8", "strict")
-        decoded = source if event["kind"] == "data" else html.unescape(source)
+        decoded = source if event["kind"] == "data" else (
+            _decode_xml_references(source) if strict_xhtml else html.unescape(source)
+        )
         if unit.get("decoded") != decoded:
             raise ValueError("projection text-unit decoding mismatch")
         if unit.get("included_in_compact_text") != event.get("included_in_compact_text"):
@@ -1036,6 +1179,10 @@ def verify_projection(raw: bytes, projection: dict[str, Any]) -> None:
         location = attribute.get("value_span")
         if location is not None and location.get("sha256") != _sha(raw[location["start"] : location["end"]]):
             raise ValueError("projection attribute value locator mismatch")
+        if strict_xhtml and location is not None:
+            source = raw[location["start"] : location["end"]].decode("utf-8", "strict")
+            if attribute.get("value") != _decode_xml_attribute_value(source):
+                raise ValueError("projection XML attribute decoding mismatch")
     referenced_attributes = {
         identifier
         for event in projection["events"]

@@ -55,6 +55,27 @@ def test_capacity_preflight_preserves_events_and_rejects_identity_or_unit_overfl
     assert audit["supported_markup_grammar_attested"] is False
     assert audit["admission_approved"] is False
 
+    strict_raw = (
+        b'\xef\xbb\xbf<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<?audit a><div/>?><p>&#x80;</p></body></html>'
+    )
+    strict_source = tmp_path / "strict.xhtml"
+    strict_sha256, strict_bytes = _write_source(strict_source, strict_raw)
+    strict_audit = capacity.preflight_source(strict_source, strict_sha256, strict_bytes)
+    strict_projection = project_html(strict_raw)
+    strict_counts = Counter(event["kind"] for event in strict_projection["events"])
+    strict_max = max(strict_projection["events"], key=lambda event: event["bytes"])
+    assert strict_audit["event_count"] == len(strict_projection["events"])
+    assert strict_audit["event_counts"] == dict(sorted(strict_counts.items()))
+    assert strict_audit["max_raw_event"] == {
+        "index": strict_projection["events"].index(strict_max) + 1,
+        "kind": strict_max["kind"],
+        "start": strict_max["start"],
+        "end": strict_max["end"],
+        "bytes": strict_max["bytes"],
+        "sha256": strict_max["sha256"],
+    }
+
     ignored_raw = b"</><!--x-->"
     ignored_source = tmp_path / "ignored-prefix.html"
     ignored_sha256, ignored_bytes = _write_source(ignored_source, ignored_raw)

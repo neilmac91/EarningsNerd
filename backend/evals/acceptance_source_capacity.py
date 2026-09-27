@@ -10,7 +10,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from evals.acceptance_source_view import MAX_SOURCE_BYTES, MAX_UNIT_BYTES
+from evals.acceptance_source_view import (
+    MAX_SOURCE_BYTES,
+    MAX_UNIT_BYTES,
+    UTF8_BOM,
+    _is_strict_xhtml,
+    _StrictXmlPiMixin,
+    _strict_pi_end,
+)
 
 
 READ_CHUNK_BYTES = 1024 * 1024
@@ -43,12 +50,13 @@ def _read_verified_source(
     return raw, observed_sha256
 
 
-class _CapacityParser(HTMLParser):
+class _CapacityParser(_StrictXmlPiMixin, HTMLParser):
     """Count whole-input HTMLParser callbacks while retaining only aggregate metadata."""
 
-    def __init__(self, raw: bytearray) -> None:
+    def __init__(self, raw: bytearray, *, strict_xhtml: bool) -> None:
         super().__init__(convert_charrefs=False)
         self.raw = raw
+        self.strict_xhtml = strict_xhtml
         self.cursor = 0
         self.source_line = 1
         self.source_column = 0
@@ -69,9 +77,16 @@ class _CapacityParser(HTMLParser):
                 return index + 1
         raise ValueError("truncated markup boundary")
 
-    def _record_span(self, kind: str, end: int) -> None:
+    def _record_span(
+        self,
+        kind: str,
+        end: int,
+        *,
+        expected_position: tuple[int, int] | None = None,
+    ) -> None:
         start = self.cursor
-        if self.getpos() != (self.source_line, self.source_column):
+        position = expected_position or (self.source_line, self.source_column)
+        if self.getpos() != position:
             raise ValueError("parser callback position does not match consumed source")
         if not start < end <= len(self.raw):
             raise ValueError("invalid parser-event byte span")
@@ -121,6 +136,8 @@ class _CapacityParser(HTMLParser):
         self._record_span("end_tag", self._markup_end(self.cursor))
 
     def handle_data(self, data: str) -> None:
+        if self.strict_xhtml and self.cursor == 0 and data.encode("utf-8") == UTF8_BOM:
+            return
         self._record_exact("data", data.encode("utf-8"))
 
     def handle_entityref(self, name: str) -> None:
@@ -145,7 +162,17 @@ class _CapacityParser(HTMLParser):
 
     def handle_pi(self, data: str) -> None:
         del data
-        self._record_span("processing_instruction", self._markup_end(self.cursor))
+        if self.strict_xhtml:
+            folded_bom = self.cursor == 0 and self.raw.startswith(UTF8_BOM)
+            callback_start = len(UTF8_BOM) if folded_bom else self.cursor
+            expected_position = (1, 1) if folded_bom else None
+            self._record_span(
+                "processing_instruction",
+                _strict_pi_end(self.raw, callback_start),
+                expected_position=expected_position,
+            )
+        else:
+            self._record_span("processing_instruction", self._markup_end(self.cursor))
 
     def measure(self, text: str) -> dict[str, Any]:
         # One full feed preserves the logical data callbacks used by project_html.
@@ -169,7 +196,7 @@ def preflight_source(source: Path, expected_sha256: str, expected_bytes: int) ->
         text = raw.decode("utf-8", "strict")
     except UnicodeDecodeError as exc:
         raise ValueError("HTML source is not strict UTF-8") from exc
-    measurements = _CapacityParser(raw).measure(text)
+    measurements = _CapacityParser(raw, strict_xhtml=_is_strict_xhtml(raw)).measure(text)
     return {
         "schema_version": 1,
         "kind": "e7_offline_html_parser_event_capacity",
