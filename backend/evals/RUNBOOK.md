@@ -847,18 +847,21 @@ Ten minutes, catches what the automated checks still can't: a mislabel phrased o
 
 ---
 
-## Multi-Period Analysis narrative gate — bumping `trends-v1`
+## Multi-Period Analysis observation-selector gate
 
 The Multi-Period Analysis narrative (`trend_analysis_service.stream_trend_narrative`, prompt
-`prompts/trends-analyst-agent.md`) shares the Copilot grounding philosophy with a stricter input:
-the model receives ONLY the pre-computed dataset (every value pre-marked `[F#]`), so any number
-outside the dataset is a fabrication by construction.
+`prompts/trends-analyst-agent.md`) uses the model only to rank request-local observation IDs. The
+application builds each allowed observation from the pre-computed dataset and owns every displayed
+word, number, period, comparison and `[F#]` marker. The model returns one strict six-key JSON object;
+its raw chunks are never emitted to the user.
 
-**What's enforced automatically, per generation, in production** (`resolve_narrative_citations`):
-every inline `[F#]` must resolve to a dataset marker (unresolvable markers are stripped from the
-prose); resolved markers renumber into one continuous `[1]..[n]` sequence that always agrees with
-the citations list; `grounded` (resolved-citation count) rides the complete event and the PostHog
-`analysis_inference_cost` event.
+**What's enforced automatically, per generation, in production:**
+`parse_observation_selection` accepts only all six section keys, known IDs in their declared
+section, unique IDs and the per-section/total limits. One malformed reply may retry; a second fails
+closed without narrative persistence. `render_observation_selection` adds required observations and
+deterministic signals before `resolve_narrative_citations` and the numeric-fidelity scan verify the
+code-owned prose. Resolved markers renumber into one continuous `[1]..[n]` sequence, and `grounded`
+rides the complete event and `analysis_inference_cost` event.
 
 **Offline gate (CI, free, every PR):** `pytest tests/unit/test_analysis_stream.py tests/unit/test_trend_analysis_service.py -q`
 — pins the event contract, marker resolution, and the D4 cache semantics.
@@ -867,15 +870,18 @@ the citations list; `grounded` (resolved-citation count) rides the complete even
 regenerates on demand):
 1. Run the offline gate above.
 2. Manual spot-check protocol: generate fresh analyses for 3 diverse real companies (a calendar-FY
-   tech, a Jan-FYE retailer like WMT, a bank like JPM) in both modes. For each: (a) every figure in
-   the prose carries a chip and the chip's metric+period matches the sentence; (b) the Red flags
-   section addresses each deterministic signal in the dataset (or reasonably dismisses it); (c) no
-   number appears that isn't in the dataset (spot-check 5 per narrative against the metrics table).
-3. Watch `analysis_inference_cost.grounded` for a step-change after rollout — a drop means the new
-   prompt is citing less; treat like the Copilot marker alerts.
+   tech, a Jan-FYE retailer like WMT, a bank like JPM) in both modes. For each: (a) the captured
+   event stream completes without an invalid-selection retry or error; (b) every displayed figure
+   has a chip whose metric and period match the code-owned sentence; (c) every deterministic signal
+   is rendered, even when the selector omits it; and (d) selected optional observations are useful
+   and date older-period fallbacks explicitly. Spot-check five figures per narrative against the
+   metrics table.
+3. Re-serve each result from cache and confirm narrative/citation identity without another model
+   call. Watch `analysis_inference_cost` grounding, cost and latency after rollout; investigate a
+   grounding drop or cost/latency step-change as a possible selection-retry regression.
 
-A future `trends_golden_set.json` + scorer (re-verifying every `[F#]`-adjacent number against the
-dataset, the `copilot_scorers` pattern) is the intended automation of step 2.
+A future `trends_golden_set.json` + scorer (validating selected IDs, rendered observations and every
+`[F#]`-adjacent number against the dataset) is the intended automation of step 2.
 
 ## Gotchas
 | Issue | Mitigation |
