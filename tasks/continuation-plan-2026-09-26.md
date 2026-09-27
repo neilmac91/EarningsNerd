@@ -46,8 +46,8 @@ The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) r
 verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
 accounting, #978 binds current authoritative attachments to invalid frozen members without
 claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
-period-bound XBRL operands. Latest verified backend revision is `00399-62m`,
-100% traffic, migrations 0 applied / 39 skipped, and independent healthy database readback.
+period-bound XBRL operands. Latest verified backend revision is `00402-tj6` (#981; [release receipt](review-evidence/progress-2026-09-27/pr981-release.json)),
+100% traffic, migrations 1 applied / 39 skipped, and independent healthy database readback.
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
 current authoritative supplements. The subsequent [H02/H25 assignment](review-evidence/progress-2026-09-27/h02-h25-byte-assignment.json)
@@ -83,16 +83,21 @@ No production model, prompt, quality threshold or judge contract changed.
   also fails the broader narrative gate: correct operands are joined by false comparisons, and
   period/absence claims remain wrong. Stop paid prompt iteration. The next bounded candidate
   makes the model select code-rendered, period-bound observations; offline replay must eliminate
-  the five retained failures before another paid measurement. Production stays `trends-v4`.
+  the five retained failures before another paid measurement. Production stays `trends-v4`. The code-rendered observation candidate passed offline replay,
+  independent code review and the full local gate. The founder explicitly approved its bounded
+  DeepSeek diagnostic (14 outputs in two stages, at most 56 calls, USD 1 ceiling); inspect the first
+  eight before authorizing the remaining six.
 - Freeze the completed custody interfaces. Execute the remaining source work against actual
   filings rather than adding hypothetical review infrastructure.
 - Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
   candidate batch when known material defects remain. Do not redraw the failed thinking-low pair.
-- Prepare a source-first Risks candidate using the existing provenance owner. Offline retained-output
-  assessment matched 272/296 excerpts under whitespace-only normalization; this is an excerpt-match
-  measurement, not a semantic acceptance. The candidate must cover previews, cached reads and
-  exports, display actual filing spans, and expose unmatched items as a coverage limitation. It
-  does not solve other sections' unit, component or causal errors and is not released.
+- Source-first Risks is released in #981. Its exact-head 70-output measurement contains 271 matched
+  excerpts and 27 withheld items; all 70 outputs expose source availability. The authenticated
+  cached Apple view and CSV show four matched excerpts and the incomplete-inventory notice.
+  The [live check](review-evidence/progress-2026-09-27/pr981-product-check.json) also identified a
+  speculative empty-state explanation on initial legacy server data; a small UI follow-up remains.
+  This establishes excerpt matching and serving behavior, not complete risk coverage or semantic
+  acceptance of other sections.
 - Keep operations and beta preparation parallel to quality work. The isolated restore and one
   private lifecycle-managed logical export are now verified; monthly recurrence, export
   importability and two real weekly cohort readouts remain separate
@@ -102,7 +107,9 @@ No production model, prompt, quality threshold or judge contract changed.
 The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-outcome.json) has
 now passed its read-only integrity checks and confirmed clone cleanup. Production configuration
 and users remained unchanged. The whole-plan estimate therefore moves from 53.5% to **57.5%,
-about 58%**, under the same weighted calculation below. Quality acceptance and real-user
+about 58%**, under the same weighted calculation below. A current production pool timeout exposed an Analysis coverage path that can retain two
+connections per request across SEC waits. A narrow short-session repair is in progress; healthy
+point-in-time readback does not close fleet headroom. Quality acceptance and real-user
 evidence still control progression; new PRs and byte-valid packets do not count as acceptance.
 
 ## What the agents delivered
@@ -276,9 +283,7 @@ the Copilot run completed 18/18. Five accepted Copilot outputs still had an unci
 configured gate success is not perfect figure coverage. The same backend deployment applies
 #980's already-merged pool recipe; live readback confirms API 4/0, pregenerate 3/0, and the seven other jobs 1/0, all on the new image.
 
-The monthly logical-export workflow in #984 is held for its final failure-alert correction,
-required checks and independent review. No recurring export, permanent export identity or
-bootstrap has been enabled by the draft. The service-level maximum change was separately
+The monthly logical-export workflow in #984 has passed its failure-alert correction, exact-head review and [serial release verification](review-evidence/progress-2026-09-27/pr984-release.json). Its [hosted audit](review-evidence/progress-2026-09-27/pr984-hosted-audit.json) records zero baseline-generation calls (those steps were skipped) and 18 completed Copilot outputs across 36 successful calls. Operational bootstrap and the first/idempotent-repeat execution remain pending; merge alone does not activate the recurrence. The service-level maximum change was separately
 approved after automatic review required an explicit capacity-risk decision; its [completed
 readback](review-evidence/progress-2026-09-27/service-maximum-outcome.json) confirms maximum 2,
 unchanged serving revision/template/traffic and healthy public/database checks. Persisting it in
