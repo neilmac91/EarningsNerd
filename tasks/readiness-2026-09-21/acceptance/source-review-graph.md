@@ -15,6 +15,11 @@ the exact bytes it names. The snapshot does not prove that the attempt history i
 prompt bytes were constructed from the declared template and inputs. Those custody requirements remain
 open, along with issue propagation, reducer dispositions and reconciliation.
 
+The separate [execution-custody slice](source-review-execution.md) adds deterministic rendering and
+an operator-owned attempt journal. Its binder checks this graph against an independently retained
+history hash. These are additional checks, not new claims made by this snapshot validator; provider
+delivery and acceptance integration remain pending.
+
 ## What a valid graph proves
 
 `validate_review_graph(graph, accession_number=..., expected_packets=..., packet_bytes=..., unit_manifest=..., role_contract=..., artifacts=..., foreign_context_ids=...)`

@@ -1,0 +1,84 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_every_node_runs_in_its_own_latest_eligible_context ____________
+
+    def test_every_node_runs_in_its_own_latest_eligible_context() -> None:
+        graph, artifacts = _graph()
+        summary = _validate(load_review_graph(_canonical(graph)), artifacts)
+        assert summary == {
+            "schema_version": 1,
+            "kind": "e7_offline_source_review_graph_validation",
+            "graph_sha256": _sha(_canonical(graph)),
+            "accession_number": ACCESSION,
+            "role": "role-b",
+            "unit_manifest_sha256": _sha(_canonical(MANIFEST)),
+            "role_contract_sha256": _sha(_canonical(CONTRACT)),
+            "node_counts": {"leaf": 3, "reducer": 1, "role_synthesis": 1},
+            "root_artifact_sha256": _sha(b"artifact:s"),
+            # Failed, compacted, truncated and retired contexts stay in the closure but are never eligible.
+            "source_context_closure": [entry["context_id"] for entry in REGISTRY],
+            "ineligible_context_ids": ["prior-b-1", "ctx-l1-a"],
+            "frozen_artifact_sha256s": sorted(artifacts),
+            "every_unit_bound_to_one_leaf": True,
+            **{flag: False for flag in FLAGS},
+            "limitations": graph["limitations"],
+        }
+    
+        # The compacted first attempt cannot be used, and neither can any earlier attempt of a node.
+        _rejected(_graph(contexts={**CONTEXT, "l1": "ctx-l1-a"})[0], artifacts, "ctx-l1-a is compacted and cannot be eligible")
+        reordered = copy.deepcopy(REGISTRY)
+        reordered[1]["status"], reordered[2]["status"] = "eligible", "failed"
+        _rejected(_graph(contexts={**CONTEXT, "l1": "ctx-l1-a"}, registry=reordered)[0], artifacts,
+                  "l1 must use its latest registered attempt")
+        for status in ("failed", "truncated", "retired"):
+            registry = copy.deepcopy(REGISTRY)
+            registry[4]["status"] = status
+            _rejected(_graph(registry=registry)[0], artifacts, f"ctx-r1 is {status} and cannot be eligible")
+    
+        # A context is used once, by the node it is registered for, and never shared with another role.
+        _rejected(_graph(contexts={**CONTEXT, "l2": "ctx-l3"})[0], artifacts, "ctx-l3 is not registered for this node")
+        _rejected(graph, artifacts, "ctx-l2 is already used by another role", foreign_context_ids=["ctx-l2"])
+        _rejected(graph, artifacts, "prior-b-1 is already used by another role", foreign_context_ids=["prior-b-1"])
+        duplicate = [*REGISTRY, {**REGISTRY[3], "node_id": "l9", "attempt": 1}]
+        _rejected(_graph(registry=duplicate)[0], artifacts, "ctx-l2 is registered more than once")
+        skipped = copy.deepcopy(REGISTRY)
+        skipped[2]["attempt"] = 3
+        _rejected(_graph(registry=skipped)[0], artifacts, "l1 attempts must be consecutive from 1")
+        unused = [*REGISTRY, {"context_id": "ctx-spare", "node_id": "l3", "attempt": 2, "status": "eligible"}]
+        _rejected(_graph(registry=unused)[0], artifacts, "l3 must use its latest registered attempt")
+        idle = [*REGISTRY, {"context_id": "ctx-idle", "node_id": "l8", "attempt": 1, "status": "eligible"}]
+        _rejected(_graph(registry=idle)[0], artifacts, "eligible contexts are not used by any node: ctx-idle")
+        for invalid in ("/root//h29_reference_a", "/root/h29_reference_a/",
+                        "/root/../h29_reference_a", "/root/h29_reference_a\n"):
+            registry = copy.deepcopy(REGISTRY)
+            registry[2]["context_id"] = invalid
+>           _rejected(_graph(registry=registry)[0], artifacts, "invalid context_id")
+
+tests/unit/test_acceptance_source_review_graph.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+graph = {'schema_version': 1, 'kind': 'e7_offline_source_review_graph', 'accession_number': '0000000000-26-000001', 'role': 'role-b', ...}
+artifacts = {'9ad70a0ca1f99a023c229f5f07c15e0dc8d68e7e243efd1dadde2d0a48ede21e': b'template:leaf', '2347fa16fdbc221b450161167c2c5e...': b'template:role_synthesis', 'f70bedaf133e04d88416577261ee684cf57d5a80cd201f39837412a2e389a4a7': b'artifact:l1', ...}
+message = 'invalid context_id', overrides = {}
+
+    def _rejected(graph: Any, artifacts: Any, message: str, **overrides: Any) -> None:
+        before = copy.deepcopy(graph)
+>       with pytest.raises(ValueError, match=message):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'invalid context_id'
+E         Actual message: 'node l1 context /root/h29_reference_a is not registered for this node'
+
+tests/unit/test_acceptance_source_review_graph.py:116: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context
+1 failed, 2 warnings in 0.69s

@@ -1,0 +1,37 @@
+from pathlib import Path
+import hashlib,json,os,subprocess
+repo=Path('/private/tmp/earningsnerd-takeover-20260926')
+out=Path('/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/atomic-settlement')
+out.mkdir(exist_ok=True)
+p=repo/'backend/evals/acceptance_source_review_execution.py'
+raw=p.read_bytes(); source=raw.decode();head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+assert raw==subprocess.check_output(['git','show','HEAD:backend/evals/acceptance_source_review_execution.py'],cwd=repo)
+start=source.index('    # Publish only complete, fsynced bytes.')
+end=source.index('\n\ndef _durable_exact',start)
+legacy='''    with path.open("xb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    _fsync_directory(path.parent)
+'''
+full='''"artifact_base64": base64.b64encode(artifact_bytes).decode("ascii")
+        if artifact_bytes is not None else None,'''
+assert source.count(full)==1
+faults={'non_atomic_publish':source[:start]+legacy+source[end:], 'lost_intent_payload':source.replace(full,'"artifact_base64": None,')}
+results=[]
+for name,mutant in faults.items():
+ env={**os.environ,'PYTHONPYCACHEPREFIX':f'/private/tmp/e7-atomic-proof-{name}-20260927','DYLD_FALLBACK_LIBRARY_PATH':'/opt/homebrew/lib'}
+ try:
+  p.write_text(mutant)
+  run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  (out/f'{name}.txt').write_text(run.stdout)
+  assert run.returncode==1 and '1 failed' in run.stdout,run.stdout[-2000:]
+  results.append({'fault':name,'exit_code':run.returncode,'tail':run.stdout.splitlines()[-1]})
+ finally:p.write_bytes(raw)
+env['PYTHONPYCACHEPREFIX']='/private/tmp/e7-atomic-proof-restored-20260927'
+run=subprocess.run(['/private/tmp/earningsnerd-e7-corrections-venv/bin/python','-m','pytest','tests/unit/test_acceptance_source_review_execution.py','tests/unit/test_acceptance_source_review_prompts.py','tests/unit/test_acceptance_source_review_graph.py','-q','-p','no:cacheprovider'],cwd=repo/'backend',env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+(out/'restored.txt').write_text(run.stdout);assert run.returncode==0,run.stdout[-2000:]
+(out/'proof-receipt.json').write_text(json.dumps({'code_commit':head,'faults':results,'restored_exit':0,'restored_sha256':hashlib.sha256(raw).hexdigest(),'restored_tail':run.stdout.splitlines()[-1]},indent=2)+'\n')
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+print(json.dumps(results));print(run.stdout.splitlines()[-1])

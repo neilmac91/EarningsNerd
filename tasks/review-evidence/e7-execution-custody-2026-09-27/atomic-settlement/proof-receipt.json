@@ -1,0 +1,18 @@
+{
+  "code_commit": "0cfae653b0e2fa85548235199247399a60b3177a",
+  "faults": [
+    {
+      "fault": "non_atomic_publish",
+      "exit_code": 1,
+      "tail": "1 failed, 2 warnings in 0.86s"
+    },
+    {
+      "fault": "lost_intent_payload",
+      "exit_code": 1,
+      "tail": "1 failed, 2 warnings in 5.61s"
+    }
+  ],
+  "restored_exit": 0,
+  "restored_sha256": "8bc17c8ddd0d23afc42cf23a673df36bc7e0115316714e1e297f48136bd7c481",
+  "restored_tail": "25 passed, 2 warnings in 1.13s"
+}

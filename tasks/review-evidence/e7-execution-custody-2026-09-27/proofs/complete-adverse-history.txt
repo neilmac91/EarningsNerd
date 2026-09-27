@@ -1,0 +1,46 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history __
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-267/test_sealed_journal_binds_exac0')
+
+    def test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history(tmp_path: Path) -> None:
+        seal, graph, inputs = _complete(tmp_path / "journal")
+        result = validate_execution_binding(
+            Path(seal["history_path"]),
+            expected_history_sha256=seal["history_sha256"],
+            graph=graph,
+            graph_validation_inputs=inputs,
+        )
+        assert result["history_sha256"] == seal["history_sha256"]
+        assert result["source_context_closure"] == [
+            "/root/h29_reference_a", "ctx-l1-fresh", "ctx-l2", "ctx-s"
+        ]
+        assert result["ineligible_context_ids"] == ["/root/h29_reference_a"]
+        assert result["exact_prompt_construction_verified"] is True
+        assert result["complete_operator_history_verified"] is True
+        assert result["semantic_review_attested"] is False
+        assert result["admission_approved"] is False
+    
+        # A self-consistent graph rewrite that drops and renumbers the adverse first attempt still
+        # fails against the externally sealed operator history.
+        omitted = copy.deepcopy(graph)
+        omitted["context_registry"] = omitted["context_registry"][1:]
+        omitted["context_registry"][0]["attempt"] = 1
+>       with pytest.raises(ValueError, match="omits, renumbers or changes sealed attempt history"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_execution.py:220: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history
+1 failed, 2 warnings in 0.72s

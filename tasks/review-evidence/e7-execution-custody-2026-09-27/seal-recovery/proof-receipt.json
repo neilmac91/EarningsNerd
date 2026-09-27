@@ -1,0 +1,9 @@
+{
+  "code_commit": "823beb52623027d94139cc748bdc274e2e836049",
+  "mutation": "reject recovery of an already committed seal",
+  "fault_exit": 1,
+  "fault_failed_cases": 1,
+  "restored_exit": 0,
+  "restored_sha256": "549cd8d8a638bfb29f253b73bca1aaea6ffd0c30f27217c1af97090da1356522",
+  "restored_tail": "25 passed, 2 warnings in 0.92s"
+}

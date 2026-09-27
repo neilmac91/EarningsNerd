@@ -1,0 +1,77 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[binary_image] _
+
+structural_kind = 'binary_image'
+
+    @pytest.mark.parametrize("structural_kind", ["binary_image", "image", "structured_binary"])
+    def test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8(structural_kind: str) -> None:
+        raw = b"text-looking bytes are still not a delivered image"
+        packets = [{"role": "graphic", "sha256": _sha(raw), "byte_length": len(raw)}]
+        manifest = build_unit_manifest(
+            accession_number=ACCESSION, packets=packets, packet_bytes={"graphic": raw},
+            units=[{"packet_role": "graphic", "structural_kind": structural_kind,
+                    "registrant_scope": "registrant", "coverage_spans": [{"start": 0, "end": len(raw)}],
+                    "context_spans": []}],
+        )
+        source = validate_prompt_source(accession_number=ACCESSION, unit_manifest=manifest,
+                                        expected_packets=packets, packet_bytes={"graphic": raw})
+>       with pytest.raises(ValueError, match="unsupported structural_kind .* is not model-ready"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_prompts.py:179: Failed
+__ test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[image] ___
+
+structural_kind = 'image'
+
+    @pytest.mark.parametrize("structural_kind", ["binary_image", "image", "structured_binary"])
+    def test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8(structural_kind: str) -> None:
+        raw = b"text-looking bytes are still not a delivered image"
+        packets = [{"role": "graphic", "sha256": _sha(raw), "byte_length": len(raw)}]
+        manifest = build_unit_manifest(
+            accession_number=ACCESSION, packets=packets, packet_bytes={"graphic": raw},
+            units=[{"packet_role": "graphic", "structural_kind": structural_kind,
+                    "registrant_scope": "registrant", "coverage_spans": [{"start": 0, "end": len(raw)}],
+                    "context_spans": []}],
+        )
+        source = validate_prompt_source(accession_number=ACCESSION, unit_manifest=manifest,
+                                        expected_packets=packets, packet_bytes={"graphic": raw})
+>       with pytest.raises(ValueError, match="unsupported structural_kind .* is not model-ready"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_prompts.py:179: Failed
+_ test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[structured_binary] _
+
+structural_kind = 'structured_binary'
+
+    @pytest.mark.parametrize("structural_kind", ["binary_image", "image", "structured_binary"])
+    def test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8(structural_kind: str) -> None:
+        raw = b"text-looking bytes are still not a delivered image"
+        packets = [{"role": "graphic", "sha256": _sha(raw), "byte_length": len(raw)}]
+        manifest = build_unit_manifest(
+            accession_number=ACCESSION, packets=packets, packet_bytes={"graphic": raw},
+            units=[{"packet_role": "graphic", "structural_kind": structural_kind,
+                    "registrant_scope": "registrant", "coverage_spans": [{"start": 0, "end": len(raw)}],
+                    "context_spans": []}],
+        )
+        source = validate_prompt_source(accession_number=ACCESSION, unit_manifest=manifest,
+                                        expected_packets=packets, packet_bytes={"graphic": raw})
+>       with pytest.raises(ValueError, match="unsupported structural_kind .* is not model-ready"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_prompts.py:179: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[binary_image]
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[binary_image]
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[binary_image]
+FAILED tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[image]
+FAILED tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8[structured_binary]
+3 failed, 2 warnings in 0.69s

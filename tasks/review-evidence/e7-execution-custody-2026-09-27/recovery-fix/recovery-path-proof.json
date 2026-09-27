@@ -1,0 +1,9 @@
+{
+  "code_commit": "daf9a32a9e2b4325fa42ae7997a732a1ac710193",
+  "mutation": "resolve only parent directory, following an external intent symlink",
+  "fault_exit": 1,
+  "fault_failed_cases": 1,
+  "restored_exit": 0,
+  "restored_sha256": "03bba391b873a59ebf2cba1b232c728d6cb37c087271556fd1543ec2877283d8",
+  "restored_tail": "25 passed, 2 warnings in 0.97s"
+}

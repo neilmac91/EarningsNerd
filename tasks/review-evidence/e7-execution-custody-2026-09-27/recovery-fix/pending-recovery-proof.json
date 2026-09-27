@@ -1,0 +1,9 @@
+{
+  "code_commit": "282d73c69d12307265c44e8ab5ce597cc95f906a",
+  "mutation": "pending lookup selects eligible rows instead of reserved rows",
+  "fault_exit": 1,
+  "fault_failed_cases": 1,
+  "restored_exit": 0,
+  "restored_sha256": "d2510fbd4cd6dc2adc4587302fc7b0b17cd33a885b85da7bacc5b349253bf471",
+  "restored_tail": "25 passed, 2 warnings in 0.94s"
+}
