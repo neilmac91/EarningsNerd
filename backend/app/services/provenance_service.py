@@ -161,6 +161,13 @@ def project_risk_list(
             if matched_span is not None:
                 break
         if matched_span is None:
+            quoted_evidence = extract_quoted_span(evidence)
+            if quoted_evidence != evidence:
+                for source_text in sources:
+                    matched_span = _whitespace_exact_source_span(quoted_evidence, source_text)
+                    if matched_span is not None:
+                        break
+        if matched_span is None:
             continue
         projected.append({
             "summary": RISK_SOURCE_LABEL,

@@ -22,7 +22,12 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     boundary_source = "We are unaffected by disruptions to our business and supplier relationships."
     boundary_attack = "affected by disruptions to our business and supplier relationships."
     ambiguous = "A repeated supplier sentence creates an ambiguous retained source span."
-    filing_text = f"{source_span}\n{literal_span}\n{boundary_source}\n{ambiguous}\n{ambiguous.replace(' ', '  ')}"
+    wrapped_span = "Supplier concentration may disrupt operations and increase costs."
+    wrapped_evidence = f'Item 1A: "{wrapped_span}"'
+    filing_text = (
+        f"{source_span}\n{literal_span}\n{boundary_source}\n{ambiguous}\n"
+        f"{ambiguous.replace(' ', '  ')}\n{wrapped_span}"
+    )
     unsafe_summary = "UNSAFE MODEL CLAIM: the affiliate is the named counterparty."
     unmatched = "UNMATCHED MODEL EVIDENCE: no such filing sentence exists anywhere."
     supplied = {
@@ -45,6 +50,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
                 {"summary": "Source punctuation", "supporting_evidence": literal_span},
                 {"summary": "Boundary reversal", "supporting_evidence": boundary_attack},
                 {"summary": "Ambiguous", "supporting_evidence": ambiguous},
+                {"summary": "Historical wrapper", "supporting_evidence": wrapped_evidence},
                 {"summary": "Another invented risk", "supporting_evidence": unmatched},
             ],
         },
@@ -62,8 +68,8 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     projection = raw["sections"]["_risk_source_projection"]
     assert projection == {
-        "version": 1, "verified_count": 3, "withheld_count": 2,
-        "candidate_count": 5, "source_available": True,
+        "version": 1, "verified_count": 4, "withheld_count": 2,
+        "candidate_count": 6, "source_available": True,
     }
 
     summary = SimpleNamespace(
@@ -91,7 +97,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         degraded, None, degraded["status"], source_text=filing_text,
         filing_document_url=filing.document_url,
     )
-    assert degraded_sections["_risk_source_projection"]["verified_count"] == 3
+    assert degraded_sections["_risk_source_projection"]["verified_count"] == 4
     assert source_span in degraded_sections["risks"][0]["supporting_evidence"]
     assert "_risk_source_candidates" not in degraded and "_risk_source_candidates" not in degraded_raw
 
@@ -142,13 +148,17 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     surfaces["router_cached_sse"] = route_body
     assert route_db.closed is True
     for name, rendered in surfaces.items():
-        for unsafe in (unsafe_summary, unmatched, boundary_attack, "attacker.invalid", "Item 1A. Risk Factors"):
+        for unsafe in (
+            unsafe_summary, unmatched, boundary_attack, "attacker.invalid",
+            "Item 1A. Risk Factors", "Item 1A:",
+        ):
             assert unsafe not in rendered, (name, unsafe)
     for name in ("final_sse", "cached_sse", "joined_sse", "router_cached_sse", "api", "pdf", "csv"):
         assert source_span in surfaces[name], name
         assert "Selected excerpts are not a complete risk inventory" in surfaces[name], name
     assert literal_span in surfaces["pdf"] and literal_span in surfaces["csv"]
     assert enriched["raw_summary"]["sections"]["risks"][1]["supporting_evidence"] == literal_span
+    assert enriched["raw_summary"]["sections"]["risks"][3]["supporting_evidence"] == wrapped_span
     assert source_span not in preview
     assert enriched["raw_summary"]["sections"]["risks"][0]["supporting_evidence"] == source_span
     assert enriched["raw_summary"]["sections"]["risks"][0]["source_section_ref"] == "Filing excerpt"
@@ -173,7 +183,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         enrich_summary_provenance(summary, wrong_cache_filing),
     ):
         assert mismatched["raw_summary"]["sections"]["risks"] == []
-        assert mismatched["raw_summary"]["sections"]["_risk_source_projection"]["withheld_count"] == 5
+        assert mismatched["raw_summary"]["sections"]["_risk_source_projection"]["withheld_count"] == 6
 
     legacy = SimpleNamespace(
         filing_id=2, raw_summary=None,
