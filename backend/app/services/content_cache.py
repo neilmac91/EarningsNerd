@@ -10,7 +10,8 @@ the S1 soak completes).
 Excerpt is set only on a fresh row, or on an existing row that has none yet — an existing excerpt
 is never overwritten here. Deliberate excerpt recomputation/overwrite is owned by
 ``summary_generation_service.get_or_cache_excerpt`` and is intentionally NOT routed through this
-helper (different semantics). The caller commits.
+helper (different semantics). A successful forced summary refresh explicitly replaces its bounded
+Risks source; an ordinary write fills that source only when absent. The caller commits.
 """
 from typing import Any, Optional
 
@@ -27,6 +28,7 @@ def upsert_content_cache(
     excerpt: Optional[str],
     sections_payload: Optional[Any],
     risk_source_text: Optional[str] = None,
+    replace_risk_source: bool = False,
 ) -> None:
     """Attach or refresh application-owned fields on a filing's FilingContentCache row.
 
@@ -47,7 +49,7 @@ def upsert_content_cache(
         else:
             if excerpt and not cache.critical_excerpt:
                 cache.critical_excerpt = excerpt
-            if risk_source_text and not cache.risk_source_text:
+            if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text
             cache.sections_payload = sections_payload
     elif (excerpt or risk_source_text) and cache is None:

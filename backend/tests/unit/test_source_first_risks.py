@@ -134,6 +134,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     assert persisted_cache.critical_excerpt is None
     assert persisted_cache.risk_source_text == degraded_source_for_cache
     assert persisted_cache.markdown_content is None
+    persisted_cache.critical_excerpt = "A later background excerpt contains different filing text."
     degraded_filing = SimpleNamespace(
         **{**filing.__dict__, "content_cache": persisted_cache}
     )
@@ -141,6 +142,14 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     cached_evidence = degraded_cached["raw_summary"]["sections"]["risks"][0]["supporting_evidence"]
     assert " ".join(cached_evidence.split()) == source_span
     assert "<span>" not in cached_evidence
+
+    refreshed_source = f"RISK & NARRATIVE CONTEXT (recovered from filing):\n{wrapped_span}"
+    assert refreshed_source != degraded_source_for_cache
+    upsert_content_cache(
+        cache_session, 2, persisted_cache, excerpt=None, sections_payload=degraded_sections,
+        risk_source_text=refreshed_source, replace_risk_source=True,
+    )
+    assert persisted_cache.risk_source_text == refreshed_source
 
     enriched = enrich_summary_provenance(summary, filing)
     exporter = ExportService()

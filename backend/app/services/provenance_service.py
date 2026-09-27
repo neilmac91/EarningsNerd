@@ -129,12 +129,15 @@ def _select_source_texts(filing: Any) -> list[str]:
     cache_filing_id = getattr(cache, "filing_id", None)
     if type(filing_id) is not int or type(cache_filing_id) is not int or filing_id != cache_filing_id:
         return []
-    critical_excerpt = getattr(cache, "critical_excerpt", None)
-    if isinstance(critical_excerpt, str) and critical_excerpt.strip():
-        return [critical_excerpt]
-    risk_source_text = getattr(cache, "risk_source_text", None)
-    if isinstance(risk_source_text, str) and risk_source_text.strip():
-        return [risk_source_text]
+    sources: list[str] = []
+    for value in (
+        getattr(cache, "critical_excerpt", None),
+        getattr(cache, "risk_source_text", None),
+    ):
+        if isinstance(value, str) and value.strip() and value not in sources:
+            sources.append(value)
+    if sources:
+        return sources
     markdown_content = getattr(cache, "markdown_content", None)
     if not isinstance(markdown_content, str) or not markdown_content.strip():
         return []

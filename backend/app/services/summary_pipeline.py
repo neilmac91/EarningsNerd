@@ -1141,9 +1141,10 @@ async def stream_filing_summary(
                                     excerpt=excerpt, sections_payload=sections_info,
                                     risk_source_text=(
                                         risk_source_for_cache
-                                        if not excerpt and isinstance(risk_source_for_cache, str)
+                                        if isinstance(risk_source_for_cache, str)
                                         else None
                                     ),
+                                    replace_risk_source=True,
                                 )
                             session.commit()
                             return existing.id
@@ -1171,9 +1172,13 @@ async def stream_filing_summary(
                             sections_payload=sections_info,
                             risk_source_text=(
                                 risk_source_for_cache
-                                if not excerpt and isinstance(risk_source_for_cache, str)
+                                if (
+                                    isinstance(risk_source_for_cache, str)
+                                    and (force_regenerate or not excerpt)
+                                )
                                 else None
                             ),
+                            replace_risk_source=force_regenerate,
                         )
 
                     try:
