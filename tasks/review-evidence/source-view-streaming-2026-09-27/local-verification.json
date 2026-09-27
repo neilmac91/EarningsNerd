@@ -1,0 +1,74 @@
+{
+  "bandit_ll": "pass",
+  "code_commit": "a8c2c78b88361345d7c7a42ca2bff866880ec4a1",
+  "diagnostic_workflow": {
+    "backend_tests": 136,
+    "bash_steps_parsed": 2,
+    "node_tests": 3,
+    "yaml": "pass"
+  },
+  "files": {
+    "deepseek-balance.log": {
+      "bytes": 10887,
+      "sha256": "1655f9f1091e26a8d82a15746f2d7aebc2cafcb77869e91b75ff128af8864e12"
+    },
+    "full-local-gate.log": {
+      "bytes": 17169,
+      "sha256": "119814843a036bb6921fbe1db1cea86805510692bcd0fde1d44fdecc0c2a693a"
+    },
+    "mutation-old-export.log": {
+      "bytes": 2692,
+      "sha256": "6af444d32d2f923e3c3c764508b3bde5450cb154e28b5d97167b676eb5c02f68"
+    },
+    "restored-focused.log": {
+      "bytes": 1067,
+      "sha256": "a160d8b7651fa47b4fea5388c9eb4bbcee95a94cc9d97dbf6bb7ef379fda6452"
+    },
+    "workflow-backend-gates.log": {
+      "bytes": 6662,
+      "sha256": "d9c805c6dd650dd766474ea46e9bb956c5304f0ef5d8f6f236d36a7c00c9801b"
+    },
+    "workflow-node-gate.log": {
+      "bytes": 234,
+      "sha256": "f5dc138d24f7f02142c089c45c2d4723a4a40f3dc493801dd334dc8ef45fc23e"
+    }
+  },
+  "focused": {
+    "passed": 3,
+    "seconds": 3.04,
+    "warnings": 2
+  },
+  "full_pytest": {
+    "passed": 3734,
+    "performance_included": true,
+    "postgresql_lanes": [
+      "stripe",
+      "usage",
+      "login",
+      "delivery"
+    ],
+    "seconds": 170.64,
+    "skipped": 0,
+    "warnings": 40
+  },
+  "module_sha256": "9ab8afb151dd1c2c7fe0e3017267777ffcc89236ec92ef90e1869d3b12d2dabd",
+  "mutation": {
+    "ceiling_bytes": 20971520,
+    "kind": "substitute_pre_change_build_source_view_function_in_test_process",
+    "peak_bytes": 30601025,
+    "restored": "3 passed",
+    "result": "failed_as_expected",
+    "test": "test_source_view_export_peak_memory_is_bounded",
+    "workspace_was_not_mutated": true
+  },
+  "postgresql": "15.15",
+  "provider_balance": {
+    "available": true,
+    "balance": 59.63,
+    "currency": "USD",
+    "observed_at": "2026-09-27T12:16:11.0165888Z",
+    "run_id": 36318417125
+  },
+  "python": "3.11.16",
+  "ruff": "pass"
+}

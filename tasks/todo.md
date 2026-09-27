@@ -5826,3 +5826,9 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - Implemented the non-admitting capacity CLI and one invariant on a separate branch stacked on #940. Corrective code `abf4ca64` passes 3,656 tests, all four PostgreSQL lanes, performance, Ruff/Bandit/dependency checks.
 - Measured revised H01/H02/H25 primary identities: largest raw events 1,499/2,186/941 bytes; H25 is 57,158,558 bytes, 1,278,811 events, 3.49 seconds and about 142 MiB preflight peak RSS. [Receipts](review-evidence/e7-source-capacity-2026-09-23/README.md) preserve the skipped-prefix correction, both guard proofs and bounded independent review.
 - Source custody, issue propagation/reconciliation, admission integration and actual quality evidence remain next. No E7 generation, Fable calls or production deployment; prior denied proof holds remain.
+
+### September 27 — bounded serialized source export
+
+- [x] Reproduced the remaining H25 public-export failure in Linux run 36311408531: projection returned, whole JSON encoding exhausted memory, H02 held. Implemented byte-preserving streamed export with a public-API memory gate and exact Unicode/manifest parity checks.
+- [x] Both direct-primary exports passed the unchanged H25/H02 Linux contract (run 36318572864); full local gate passed 3,734 tests.
+- [ ] Complete hosted review/measurements and serial release verification. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.

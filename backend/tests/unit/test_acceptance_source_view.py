@@ -32,6 +32,31 @@ def test_ascii_source_view_peak_memory_is_bounded() -> None:
     assert peak - baseline < 16 * 1024 * 1024
 
 
+def test_source_view_export_peak_memory_is_bounded(tmp_path: Path) -> None:
+    # Many small records exercise JSON serialization, rather than one text node.
+    raw = (
+        "<html><body>" + '<p data-x="é">Financial text 123.45</p>' * 1500 + "</body></html>"
+    ).encode("utf-8")
+    source = tmp_path / "source.htm"
+    source.write_bytes(raw)
+    already_tracing = tracemalloc.is_tracing()
+    if not already_tracing:
+        tracemalloc.start()
+    baseline, _ = tracemalloc.get_traced_memory()
+    tracemalloc.reset_peak()
+    try:
+        manifest = source_view.build_source_view(
+            source, hashlib.sha256(raw).hexdigest(), len(raw), tmp_path / "view",
+        )
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        if not already_tracing:
+            tracemalloc.stop()
+
+    assert manifest["files"]["projection"]["bytes"] > 3 * 1024 * 1024
+    assert peak - baseline < 20 * 1024 * 1024
+
+
 def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     raw = (
         '<!doctype html><html><head><title>Résultats</title>'
@@ -417,6 +442,14 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     output = tmp_path / "view"
     manifest = source_view.build_source_view(source, hashlib.sha256(raw).hexdigest(), len(raw), output)
     assert json.loads((output / "manifest.json").read_text()) == manifest
+    expected_projection = (
+        json.dumps(source_view.project_html(raw), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    assert (output / "source-view.json").read_bytes() == expected_projection
+    for entry in manifest["files"].values():
+        content = (output / entry["path"]).read_bytes()
+        assert len(content) == entry["bytes"]
+        assert hashlib.sha256(content).hexdigest() == entry["sha256"]
     stored = json.loads((output / "source-view.json").read_text())
     assert source_view.review_text((output / "reader.txt").read_text()) == stored["compact_text"]
     with pytest.raises(ValueError, match="must not already exist"):
