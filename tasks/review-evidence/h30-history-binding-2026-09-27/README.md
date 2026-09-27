@@ -94,3 +94,23 @@ two technical attempts, eight-context closure, nine manifest children and six se
 The [final backend gate](full-backend-gate-final-digest.log) passed Ruff, Bandit and **3,732 tests
 with 40 warnings in 169.89 seconds**, including four isolated PostgreSQL 15.15 lanes and
 performance. The digest syntax and retained custody do not prove the original provider runtime.
+
+The subsequent exact-head review found that a same-accession current context could relabel its
+current eligible bytes as a retired origin. The bounded alias audit also reproduced duplicate
+origin bytes under two historical identities, a shared union artifact serving as both technical
+dispatch and settlement, and current eligible bytes serving as an ineligible technical child.
+Commit `cc8fa102af25ed01c5bba01e7004c2a6375808b6` rejects those aliases while continuing to allow a
+same-accession context to own distinct current and historical artifacts. Adverse-source artifacts
+remain retired custody and are not reclassified as current eligible evidence.
+
+[Alias-corrected actual smoke](actual-smoke-final-alias.json) preserves the exact 52/51/1 split,
+four origins, two technical attempts, eight-context closure, nine manifest children and six
+settlement children. The [alias-corrected backend gate](full-backend-gate-final-alias.log) passed
+Ruff, Bandit and **3,732 tests with 40 warnings in 178.02 seconds**, including four isolated
+PostgreSQL 15.15 lanes and performance. Removing only the current-origin alias predicate makes the
+coherently resealed current-brief mutation pass and therefore fails
+[the origin-alias fault proof](fault-proof-final-origin-alias-fail.log); exact restoration passes
+[the same gate](fault-proof-final-origin-alias-restored.log). A second removed-guard proof records
+the independent [technical-child alias](fault-proof-final-technical-child-fail.log), which is
+rejected again after [exact guard restoration](fault-proof-final-technical-child-restored.log). The
+inherited closed-stream diagnostic remained after pytest's successful summary and zero exit.

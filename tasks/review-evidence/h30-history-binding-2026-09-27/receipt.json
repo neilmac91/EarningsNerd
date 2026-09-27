@@ -22,6 +22,16 @@
       "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-hosted-fixes.json",
       "sha256": "10b6cc45a3510af55d036b00b77afeb65197e44ac60643c8166365fc0bb6e403"
     },
+    "final_alias_full_gate": {
+      "bytes": 16473,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-alias.log",
+      "sha256": "6dde39cf8bee2de1b9847198a4e0359bdc6e002d5f0fc37e6822613b235920ab"
+    },
+    "final_alias_smoke": {
+      "bytes": 3674,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-alias.json",
+      "sha256": "92bb48f5a357e22b42adbb891e103e307db07774d06d71f933934efb27ba1902"
+    },
     "final_digest_full_gate": {
       "bytes": 35687,
       "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-digest.log",
@@ -37,10 +47,30 @@
       "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-mechanical.log",
       "sha256": "896c11dcf9f5cc2b8914cc6dcca8c37f580d003d18b913283ecb99891b5616ae"
     },
+    "final_origin_alias_fault_fail": {
+      "bytes": 18269,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-origin-alias-fail.log",
+      "sha256": "871ff06b781a25009b2a0ab3c2a39462996b9bfccba573cd4798290ae8ef37c1"
+    },
+    "final_origin_alias_fault_restored": {
+      "bytes": 1109,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-origin-alias-restored.log",
+      "sha256": "29904870ff3e1f43def311395a27f983b3d2d3e27da03109e4fa77f4df33594b"
+    },
     "final_smoke": {
       "bytes": 3325,
       "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-mechanical.json",
       "sha256": "eec53b83370e7942f344c62dd1ed4296b1ac9e691a6dcafc11cfb708656ea4ff"
+    },
+    "final_technical_child_fault_fail": {
+      "bytes": 13636,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-technical-child-fail.log",
+      "sha256": "6861b0d9b001d82faa4dd538b169983cfb237e64bfe442a7d7dfa94b88e40fc1"
+    },
+    "final_technical_child_fault_restored": {
+      "bytes": 1109,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-technical-child-restored.log",
+      "sha256": "b97d25d95acf54f025063ce6091b769f553b6d6fb198be2a06114c4e975b822b"
     },
     "location": "outputs/takeover-2026-09-26/h30-history-binding/",
     "smoke": {
@@ -60,6 +90,18 @@
     "mutation": "remove exact history identity-to-origin predicate",
     "restored_result": "1 passed"
   },
+  "fault_proof_final_alias": {
+    "origin_alias": {
+      "mutated_result": "1 failed because coherently resealed alias returned zero validation issues",
+      "mutation": "remove only same-context current-eligible origin alias predicate",
+      "restored_result": "1 passed"
+    },
+    "technical_child_alias": {
+      "mutated_result": "1 failed because copied eligible bytes returned zero validation issues",
+      "mutation": "remove only current-eligible technical-child SHA predicate",
+      "restored_result": "1 passed in dedicated restored focused run"
+    }
+  },
   "fault_proof_final_digest": {
     "mutated_result": "1 failed at coherently resealed reservation and dispatch digest mutation",
     "mutation": "remove only exact actual_prompt_sha256 syntax predicate",
@@ -77,9 +119,14 @@
   },
   "files": {
     "README.md": {
-      "bytes": 6413,
+      "bytes": 8101,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/README.md",
-      "sha256": "39461a3133d5c381fa2738d6b0b9eaea8a21ec57fd9e1e854f6e07ba132392ac"
+      "sha256": "b00b0c2b7b21cb62425b1a98a92e892225d25b306349c03a8254dc6bbda1d914"
+    },
+    "actual-smoke-final-alias.json": {
+      "bytes": 3674,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-alias.json",
+      "sha256": "92bb48f5a357e22b42adbb891e103e307db07774d06d71f933934efb27ba1902"
     },
     "actual-smoke-final-digest.json": {
       "bytes": 3471,
@@ -116,6 +163,26 @@
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-digest-restored.log",
       "sha256": "39a3bc42cea62a44f756da3d737e4533d09ed5c81f009bfcefbb19e5d138aaa6"
     },
+    "fault-proof-final-origin-alias-fail.log": {
+      "bytes": 18181,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-origin-alias-fail.log",
+      "sha256": "9be041785fb5b01201fb74b68de939fee4fc73cd4e981f07383a8406ad9a1f29"
+    },
+    "fault-proof-final-origin-alias-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-origin-alias-restored.log",
+      "sha256": "29904870ff3e1f43def311395a27f983b3d2d3e27da03109e4fa77f4df33594b"
+    },
+    "fault-proof-final-technical-child-fail.log": {
+      "bytes": 13568,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-child-fail.log",
+      "sha256": "92ded32aa7970dc4a4e3e710c087b2f521b171db046ca2eca2e2d74fa3e92b46"
+    },
+    "fault-proof-final-technical-child-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-child-restored.log",
+      "sha256": "b97d25d95acf54f025063ce6091b769f553b6d6fb198be2a06114c4e975b822b"
+    },
     "fault-proof-final-technical-closure-fail.log": {
       "bytes": 11212,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-closure-fail.log",
@@ -140,6 +207,11 @@
       "bytes": 1109,
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-restored.log",
       "sha256": "e5794912827b9247c7a94da63c7f944f13d2618e0fdfae80826f37c62057d798"
+    },
+    "full-backend-gate-final-alias.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-alias.log",
+      "sha256": "6dde39cf8bee2de1b9847198a4e0359bdc6e002d5f0fc37e6822613b235920ab"
     },
     "full-backend-gate-final-digest.log": {
       "bytes": 35687,
@@ -166,6 +238,19 @@
       "path": "tasks/review-evidence/h30-history-binding-2026-09-27/independent-review.md",
       "sha256": "38abc92bcd5016774dfa11d96b1a0e05cec6a507e27133a3338f0a84e1df4e15"
     }
+  },
+  "final_alias_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
+    "performance_included": true,
+    "post_pass_diagnostic": "inherited closed-stream logging diagnostic after pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "pytest_warnings": 40,
+    "ruff": "pass",
+    "seconds": 178.02
   },
   "final_digest_full_gate": {
     "bandit": "pass",
@@ -194,6 +279,21 @@
     "ruff": "pass",
     "seconds": 169.89,
     "warnings": 40
+  },
+  "hosted_review_alias_corrections": {
+    "boundary": "adverse-source artifacts remain retired custody and are not classified as current eligible artifacts",
+    "comment_id": 4114041776,
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
+    "independent_review": "clear",
+    "resolution": [
+      "current eligible bytes cannot serve as a same-context retired origin",
+      "origin artifact SHA is globally unique across history records",
+      "technical reservation, dispatch, and settlement are distinct by SHA and resolved path",
+      "no current eligible bytes can serve as an ineligible technical settlement child"
+    ],
+    "review_id": 5328777865,
+    "reviewed_head": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f"
   },
   "hosted_review_corrections": {
     "corrected_commit": "2f3fbdee5128c3bf997541d6039062d869283e76",
@@ -254,25 +354,25 @@
     "seconds": 164.31,
     "warnings": 40
   },
-  "implementation_commit": "3755d1139abbd94de79c4314849d5772ebbeb351",
+  "implementation_commit": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
   "implementation_files": {
     "guide": {
-      "bytes": 11003,
+      "bytes": 11496,
       "path": "tasks/readiness-2026-09-21/acceptance/ai-assisted/README.md",
-      "sha256": "34e4017619437e5671d00571ee0343da840647293cf41412b88f14a1dc4625e8"
+      "sha256": "6b70a143ca0f7498c056317fc45a8931188f14f8a75d8ce9539438966155c252"
     },
     "protocol": {
-      "bytes": 53629,
+      "bytes": 54989,
       "path": "backend/evals/acceptance_ai_protocol.py",
-      "sha256": "44a64628d0b228c71e843d5fd705cedfc6a52d6762e35bc99506c9397f13fb39"
+      "sha256": "2cc0c205e46f025cd2dc1cd16083889b44d06e4292f46c6faefdffe94222ed95"
     },
     "test": {
-      "bytes": 50742,
+      "bytes": 56367,
       "path": "backend/tests/unit/test_acceptance_ai_protocol.py",
-      "sha256": "cc338cfac83d835322e44a575a7d7584c48dd241ca7b65d2fd0182b6aad7e409"
+      "sha256": "795f1556711ca6e65cd0e7b710f1ecb0585be32fbab1ae3cf366455ec85fcfdf"
     }
   },
-  "implementation_tree": "d92a2c1c4a9309c3fc5a5dc17e461c4cfe171326",
+  "implementation_tree": "500a381ca89d5f684e21146a0eabcd4a8b80b7de",
   "initial_full_gate": {
     "bandit": "pass",
     "exit_code": 0,
