@@ -13,29 +13,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/diagnostics
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Fetch and verify frozen public-source capsule
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
           mkdir -p result
-          stage=fetch
+          stage=copy
           trap 'status=$?; echo "$stage $status" > result/input-stage-status.txt' EXIT
-          # The prior tag-based request reported not found; cause unestablished.
-          # Use the recorded asset identity through the read-only endpoint.
-          if gh api repos/neilmac91/EarningsNerd/releases/assets/592478224 \
-            -H 'Accept: application/octet-stream' > linux-capacity-capsule-v2.zip; then
-            echo 'downloaded' > result/input-fetch-status.txt
-          else
-            result=$?
-            echo "$result" > result/input-fetch-exit-code.txt
-            exit "$result"
-          fi
+          # Public SEC bytes live only on this diagnostic branch. The read-only
+          # workflow token cannot fetch the draft release; no permission is added.
+          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-capacity-capsule-v2.zip" .
           stage=verify
           echo 'b739ee3a04f2a3f29de8bd0435948036611c31358955baebe1a61be44b59ea3d  linux-capacity-capsule-v2.zip' | sha256sum --check --strict
           stage=extract
