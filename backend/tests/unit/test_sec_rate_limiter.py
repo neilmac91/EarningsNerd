@@ -253,6 +253,18 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     breaker_enters = 0
     waits = []
     attachment = {"mode": "success", "retry_calls": 0}
+    stream_reads = {"identity": 0, "compressed": 0}
+
+    class ObservedStream(httpx.AsyncByteStream):
+        def __init__(self, payload, label):
+            self.payload = payload
+            self.label = label
+
+        async def __aiter__(self):
+            stream_reads[self.label] += 1
+            midpoint = len(self.payload) // 2
+            yield self.payload[:midpoint]
+            yield self.payload[midpoint:]
 
     def respond(request):
         requests.append(request)
@@ -262,6 +274,12 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
                     302,
                     headers={"location": "https://outside.example/chart.gif"},
                 )
+            if attachment["mode"] == "compressed":
+                return httpx.Response(
+                    200,
+                    stream=ObservedStream(b"compressed-body", "compressed"),
+                    headers={"content-encoding": "gzip"},
+                )
             if attachment["mode"] == "retry":
                 attachment["retry_calls"] += 1
                 if attachment["retry_calls"] == 1:
@@ -270,7 +288,7 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
             # trust Content-Length. Non-UTF-8 bytes prove there is no text round trip.
             return httpx.Response(
                 200,
-                content=raw,
+                stream=ObservedStream(raw, "identity"),
                 headers={
                     "content-type": "image/gif",
                     "content-encoding": "identity",
@@ -321,7 +339,7 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     assert content == raw
     assert source == {
         "schema_version": 1,
-        "representation": "httpx_response_content_bytes",
+        "representation": "httpx_identity_entity_bytes",
         "sha256": hashlib.sha256(raw).hexdigest(),
         "bytes": len(raw),
         "cik": "320193",
@@ -338,6 +356,8 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
         "physical_attempts": 1,
     }
     assert requests[0].headers["user-agent"] == compat.EDGAR_IDENTITY
+    assert requests[0].headers["accept-encoding"] == "identity"
+    assert stream_reads["identity"] == 1
 
     # The pre-existing decoded-text API keeps its response.text behavior.
     assert await compat.sec_edgar_service.get_filing_document(text_url) == text_raw.decode(
@@ -389,6 +409,16 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     assert redirect_error.value.context["physical_attempts"] == 1
     assert len(requests) == request_count + 1
 
+    # A server that ignores Accept-Encoding is rejected from headers without consuming its body.
+    attachment["mode"] = "compressed"
+    with pytest.raises(compat.EdgarError, match="non-identity") as compressed_error:
+        await compat.sec_edgar_service.get_filing_attachment_bytes(
+            cik, accession, filename, max_retries=1
+        )
+    assert compressed_error.value.context["physical_attempts"] == 1
+    assert stream_reads["compressed"] == 0
+    assert len(requests) == request_count + 2
+
     # An explicitly requested retry records both physical attempts and the owned backoff.
     attachment.update(mode="retry", retry_calls=0)
     retry_content, retry_source = await compat.sec_edgar_service.get_filing_attachment_bytes(
@@ -398,6 +428,6 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     assert retry_source == {**source, "physical_attempts": 2}
     assert attachment["retry_calls"] == 2
     assert waits == [1]
-    assert len(requests) == request_count + 3
-    assert limiter_calls == 6
-    assert breaker_enters == 5
+    assert len(requests) == request_count + 4
+    assert limiter_calls == 7
+    assert breaker_enters == 6

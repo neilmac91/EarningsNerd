@@ -59,8 +59,12 @@ def _filing_attachment_url(cik: str, accession_number: str, filename: str) -> st
     return build_sec_archive_url(cik, accession_number) + quote(filename, safe="-._~")
 
 
-async def _bounded_response_content(response: httpx.Response) -> bytes:
-    """Read the HTTP-decoded entity while bounding both declared and actual size."""
+async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
+    """Read an identity-encoded HTTP entity while bounding declared and actual size."""
+    content_encoding = response.headers.get("content-encoding")
+    if content_encoding is not None and content_encoding.strip().lower() != "identity":
+        raise ValueError("SEC attachment returned a non-identity Content-Encoding")
+
     declared_length = response.headers.get("content-length")
     if declared_length is not None:
         if not declared_length.isdigit():
@@ -71,7 +75,7 @@ async def _bounded_response_content(response: httpx.Response) -> bytes:
             )
 
     content = bytearray()
-    async for chunk in response.aiter_bytes(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
+    async for chunk in response.aiter_raw(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
         if len(content) + len(chunk) > MAX_SEC_ATTACHMENT_BYTES:
             raise ValueError(
                 f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
@@ -359,11 +363,12 @@ class SECEdgarServiceCompat:
         timeout: Optional[float] = None,
         max_retries: int = 1,
     ) -> tuple[bytes, Dict[str, Any]]:
-        """Fetch one same-filing attachment as bounded HTTP-decoded bytes.
+        """Fetch one same-filing attachment as bounded identity entity bytes.
 
-        The returned bytes match httpx ``response.content`` semantics and are not
-        raw transfer bytes when HTTP content encoding is present. Redirects fail;
-        callers cannot use this method to leave the requested filing directory.
+        The returned bytes are the HTTP entity bytes after transfer framing. The
+        request requires identity content encoding and rejects any compressed
+        response before reading its body. Redirects fail; callers cannot use this
+        method to leave the requested filing directory.
         """
         if type(max_retries) is not int or max_retries < 1:
             raise ValueError("max_retries must be a positive integer")
@@ -382,17 +387,20 @@ class SECEdgarServiceCompat:
                         async with client.stream(
                             "GET",
                             requested_url,
-                            headers={"User-Agent": EDGAR_IDENTITY},
+                            headers={
+                                "User-Agent": EDGAR_IDENTITY,
+                                "Accept-Encoding": "identity",
+                            },
                             timeout=timeout,
                             follow_redirects=False,
                         ) as response:
                             response.raise_for_status()
                             if response.url != httpx.URL(requested_url):
                                 raise ValueError("SEC attachment response left the requested filing URL")
-                            content = await _bounded_response_content(response)
+                            content = await _bounded_identity_response_content(response)
                             source = {
                                 "schema_version": 1,
-                                "representation": "httpx_response_content_bytes",
+                                "representation": "httpx_identity_entity_bytes",
                                 "sha256": hashlib.sha256(content).hexdigest(),
                                 "bytes": len(content),
                                 "cik": normalize_cik(cik),
