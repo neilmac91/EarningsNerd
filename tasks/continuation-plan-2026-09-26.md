@@ -50,8 +50,13 @@ period-bound XBRL operands. Latest verified backend revision is `00399-62m`,
 100% traffic, migrations 0 applied / 39 skipped, and independent healthy database readback.
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
-current authoritative supplements. This closes its byte-assignment gap. It does not finish
-modality interpretation, the independent role briefs or E7 source acceptance.
+current authoritative supplements. The subsequent [H02/H25 assignment](review-evidence/progress-2026-09-27/h02-h25-byte-assignment.json)
+accounts for all 268 Duke and 550 HSBC members as well. H02's supplied archive identity is one of
+the joint filers in the exact SEC header; #983 corrects the earlier singleton-only check without
+accepting an absent CIK or weakening URL/accession/hash binding. Across these three difficult
+filings, all 980 members now have byte assignments. This is not all 30 filings, complete modality
+interpretation, the independent role briefs or E7 source acceptance. Current attachments retain
+their separate provenance; an invalid frozen encoding has not been retrospectively decoded.
 The subsequent [native inspection](review-evidence/progress-2026-09-27/h01-native-inspection.md)
 validated the syntax of eight structured members and inspected the two report assets. All 138
 report HTML members reference assets that control hidden or expandable content; semantic readers
@@ -74,7 +79,11 @@ No production model, prompt, quality threshold or judge contract changed.
   XBRL correction applies to filing summaries. The separate Analysis current-ratio precision
   comparison now passes its narrow diagnostic (6/6 candidate versus 2/6 old outputs), but its
   six-company/mode narrative checks exposed additional defects. The [retained measurement](review-evidence/progress-2026-09-27/analysis-ratio-measurement.json)
-  remains a release hold while targeted citation and prompt corrections are validated.
+  remains retained. The subsequent [12-output candidate](review-evidence/progress-2026-09-27/analysis-second-candidate-hold.md)
+  also fails the broader narrative gate: correct operands are joined by false comparisons, and
+  period/absence claims remain wrong. Stop paid prompt iteration. The next bounded candidate
+  makes the model select code-rendered, period-bound observations; offline replay must eliminate
+  the five retained failures before another paid measurement. Production stays `trends-v4`.
 - Freeze the completed custody interfaces. Execute the remaining source work against actual
   filings rather than adding hypothetical review infrastructure.
 - Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
@@ -251,6 +260,30 @@ claim is made for them. The initial narrow H01 parser experiment stopped at the 
   direct-major holds stand; no forced downgrade or unrelated upgrade belongs in this tranche.
 - **E8, attribution activation, fleet expansion, optional features and dependency majors:**
   remain outside the quality/recovery/beta critical path. Keep production attribution flags off.
+
+## September 27 source acquisition and modality update
+
+[H02 native inspection](review-evidence/progress-2026-09-27/h02-native-inspection.md) locates the
+six images and the footnote/issuer-scope context they require. [H25 GIF triage](review-evidence/progress-2026-09-27/h25-gif-modality-triage.json)
+inspected all 85 GIFs: 38 chart bodies and 47 detached legend/axis fragments. Those fragments must
+be combined with their exact HTML locations; image-only reading would omit their labels or
+scope. These are source-preparation outcomes, not independent semantic briefs or acceptance.
+
+PR #983 is [released](review-evidence/progress-2026-09-27/pr983-release.json) at
+`20938d0e4a654aa553ec930c256a66158fab7202`, revision `00400-dv7`, 100% traffic, migrations 0/39
+and independently healthy database readback. Its exact-head hosted baseline scored 70/70 with zero errors and
+the Copilot run completed 18/18. Five accepted Copilot outputs still had an uncited figure;
+configured gate success is not perfect figure coverage. The same backend deployment applies
+#980's already-merged pool recipe; live readback confirms API 4/0, pregenerate 3/0, and the seven other jobs 1/0, all on the new image.
+
+The monthly logical-export workflow in #984 is held for its final failure-alert correction,
+required checks and independent review. No recurring export, permanent export identity or
+bootstrap has been enabled by the draft. The service-level maximum change was separately
+approved after automatic review required an explicit capacity-risk decision; its [completed
+readback](review-evidence/progress-2026-09-27/service-maximum-outcome.json) confirms maximum 2,
+unchanged serving revision/template/traffic and healthy public/database checks. Persisting it in
+the deploy command remains separate. Neither the setting nor per-process pools establishes a
+demonstrated fleet-wide connection cap.
 
 ## September 27 corpus execution result
 

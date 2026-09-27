@@ -62,5 +62,10 @@
     "Current authoritative supplements do not prove historical equivalence to the invalid frozen encoded representation.",
     "Structural roles and registrant scope remain declarations.",
     "Candidate selection, full source references and E7 admission remain held."
-  ]
+  ],
+  "h02_release": {
+    "pr": 983,
+    "merge_sha": "20938d0e4a654aa553ec930c256a66158fab7202",
+    "verified_backend_revision": "00400-dv7"
+  }
 }
