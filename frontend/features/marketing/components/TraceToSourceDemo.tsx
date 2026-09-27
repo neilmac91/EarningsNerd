@@ -32,8 +32,8 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
     <Card className="p-5">
       <CardTitle>Trace to Source</CardTitle>
       <p className="mt-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Every metric and risk claim carries a chip. Hover or tap it to see the section, the passage,
-        and a link into SEC EDGAR.
+        Where a source chip is available, hover or tap it to see the section, the passage, and a link
+        into SEC EDGAR.
       </p>
       <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5">
         <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">

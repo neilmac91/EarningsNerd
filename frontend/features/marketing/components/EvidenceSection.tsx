@@ -28,8 +28,9 @@ export default function EvidenceSection() {
               Where the numbers come from
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Every figure is matched to the filing&apos;s own XBRL data. Every claim links to the
-              passage it came from. Nothing is drawn from outside the document you chose.
+              Source labels show when financial metrics match filed XBRL data. Where supporting
+              evidence is available, citations connect excerpts to the filing. The summary is built
+              from selected filing text and available structured data.
             </p>
           </div>
 

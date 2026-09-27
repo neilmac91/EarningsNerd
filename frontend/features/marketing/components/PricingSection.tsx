@@ -31,7 +31,7 @@ import {
 // Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
 const FREE_FEATURES = [
   `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Every 10-K, 10-Q and 20-F on SEC EDGAR',
+  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
   'Company search and historical filings',
   `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
   `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
