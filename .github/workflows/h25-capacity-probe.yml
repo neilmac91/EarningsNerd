@@ -30,11 +30,11 @@ jobs:
           trap 'status=$?; echo "$stage $status" > result/input-stage-status.txt' EXIT
           # Public SEC bytes live only on this diagnostic branch. The read-only
           # workflow token cannot fetch the draft release; no permission is added.
-          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-capacity-capsule-v2.zip" .
+          cp "$GITHUB_WORKSPACE/.github/diagnostics/linux-capacity-capsule-v3.zip" .
           stage=verify
-          echo 'b739ee3a04f2a3f29de8bd0435948036611c31358955baebe1a61be44b59ea3d  linux-capacity-capsule-v2.zip' | sha256sum --check --strict
+          echo '4877af596173961fcd141db35235a22b75b18b8ec622e8f99d1eeaa87a8eb743  linux-capacity-capsule-v3.zip' | sha256sum --check --strict
           stage=extract
-          python -m zipfile -e linux-capacity-capsule-v2.zip capsule
+          python -m zipfile -e linux-capacity-capsule-v3.zip capsule
           stage=ready
       - name: Measure with no network and enforced process limits
         shell: bash
