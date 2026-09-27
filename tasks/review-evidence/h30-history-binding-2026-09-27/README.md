@@ -46,3 +46,21 @@ bounded implementation at the measured commit.
 
 This change makes no provider call, financial finding, production flag, baseline, migration, or
 admission decision. Release and production verification remain separate.
+
+## Exact-head hosted-review corrections
+
+The first hosted exact-head Codex review of PR #970 found two coherent declaration gaps. A history
+origin could borrow a current context owned by another accession, and a manifest could omit one of
+the three canonical count keys. Commit `2f3fbdee5128c3bf997541d6039062d869283e76` binds every current
+source/reconciliation context to its accession before accepting historical origins or technical
+attempts, and requires all three canonical counts before comparing their derived values. The
+same-accession A3 historical/current context remains valid.
+
+[Corrected actual smoke](actual-smoke-hosted-fixes.json) retains the exact 52/51/1 disposition split
+and all eight source contexts. The [corrected full backend gate](full-backend-gate-hosted-fixes.log)
+passed Ruff, Bandit and **3,732 tests with 40 warnings in 164.31 seconds** on that commit, including
+all four PostgreSQL lanes and performance. The inherited closed-stream diagnostic again occurred
+after the successful pytest summary. Removing only the origin ownership predicate makes the
+coherent cross-accession mutation fail in
+[the new fault proof](fault-proof-hosted-context-owner-fail.log); exact restoration passes in
+[the restored log](fault-proof-hosted-context-owner-restored.log).
