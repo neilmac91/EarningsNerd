@@ -50,19 +50,19 @@ function AuthBrandPane() {
     <div className="hidden overflow-hidden bg-brand-weak dark:bg-panel-dark lg:flex lg:flex-col lg:items-center lg:justify-center">
       <div className="w-full max-w-md px-12">
         <h2 className="text-3xl font-semibold leading-tight text-text-primary-light dark:text-text-primary-dark">
-          Decode any filing
+          Explore SEC filings
           <br />
-          in minutes.
+          with cited summaries.
         </h2>
         <p className="mt-4 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          Business overview, financials, risks, and outlook, with every number traced to the SEC source.
+          Business overview, financials, risks, and outlook, with source links and warnings for review.
         </p>
 
         {/* Showcase card */}
         <div className="glass-card mt-10 rounded-2xl p-5">
           <div className="flex items-center gap-2 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
             <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
-            AAPL · 10-K
+            Example · AAPL · FY2023 · 10-K
           </div>
           <div className="mt-3 space-y-2" aria-hidden="true">
             <div className="h-2 w-3/4 rounded-full bg-brand-weak dark:bg-white/10" />
@@ -74,8 +74,8 @@ function AuthBrandPane() {
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Revenue</p>
               <p className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">$383.3B</p>
             </div>
-            <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${directionChip.up}`}>
-              +2.8% YoY
+            <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${directionChip.down}`}>
+              −2.8% YoY
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@ function AuthBrandPane() {
           </span>
           <span className="inline-flex items-center gap-1.5">
             <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
-            XBRL-verified
+            Filing-sourced figures
           </span>
         </div>
       </div>
