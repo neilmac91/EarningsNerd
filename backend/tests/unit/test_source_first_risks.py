@@ -13,6 +13,7 @@ from app.services.openai_service import OpenAIService
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
 from app.services.summary_pipeline import _finalize_summary_projection
 from app.services.summary_sections import render_sections, sections_to_markdown
+from app.services.summary_schema import TRACKED_SECTIONS_V2
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
 
@@ -72,6 +73,35 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         "version": 1, "verified_count": 4, "withheld_count": 2,
         "candidate_count": 6, "source_available": True,
     }
+    coverage = raw["section_coverage"]
+    assert "_risk_source_projection" not in coverage["per_section"]
+    assert "_risk_source_projection" not in coverage["covered"]
+    assert "_risk_source_projection" not in coverage["missing"]
+    assert coverage["per_section"]["risks"] is True
+    assert coverage["total_count"] == len(TRACKED_SECTIONS_V2)
+
+    # Fully withheld risks do not become covered merely because their projection metadata records
+    # the withheld candidate. The genuine Risks taxonomy slot remains in the unchanged denominator.
+    withheld_only = json.loads(json.dumps(supplied))
+    withheld_only["sections"]["risks"] = [{
+        "summary": "Invented risk", "supporting_evidence": unmatched,
+    }]
+
+    async def request_withheld(*args, **kwargs):
+        return json.dumps(withheld_only)
+
+    monkeypatch.setattr(service, "_request_content", request_withheld)
+    withheld_result = await service.summarize_filing(
+        filing_text, "Example Co", "10-K", filing_excerpt=filing_text,
+    )
+    withheld_coverage = withheld_result["raw_summary"]["section_coverage"]
+    assert withheld_coverage["per_section"]["risks"] is False
+    assert "risks" in withheld_coverage["missing"]
+    assert "risks" not in withheld_coverage["covered"]
+    assert "_risk_source_projection" not in withheld_coverage["per_section"]
+    assert withheld_coverage["total_count"] == len(TRACKED_SECTIONS_V2)
+
+    monkeypatch.setattr(service, "_request_content", request)
 
     summary = SimpleNamespace(
         id=1, filing_id=2, business_overview=result["business_overview"],

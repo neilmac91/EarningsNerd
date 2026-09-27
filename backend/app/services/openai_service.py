@@ -827,7 +827,12 @@ Rules:
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
-        coverage_keys.update(sections_info.keys())
+        # The projection record is application-private provenance metadata, not a summary section.
+        # It may be nonempty even when every model-authored risk was withheld, so including it here
+        # would inflate both the numerator and denominator used by completion/progress decisions.
+        coverage_keys.update(
+            key for key in sections_info.keys() if key != RISK_PROJECTION_KEY
+        )
         coverage_map = {
             section: _section_has_content(sections_info.get(section))
             for section in sorted(coverage_keys)
