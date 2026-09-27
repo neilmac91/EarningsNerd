@@ -266,7 +266,11 @@ def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
     keys and adding no quality or completeness claim.
     """
     raw_summary = getattr(summary, "raw_summary", None)
-    has_sections = isinstance(raw_summary, dict) and isinstance(raw_summary.get("sections"), dict)
+    has_sections = (
+        isinstance(raw_summary, dict)
+        and isinstance(raw_summary.get("sections"), dict)
+        and bool(raw_summary["sections"])
+    )
     compatibility_risks = getattr(summary, "risk_factors", None)
     if not has_sections and isinstance(compatibility_risks, list) and compatibility_risks:
         raw_summary = copy.deepcopy(raw_summary) if isinstance(raw_summary, dict) else {}
@@ -324,7 +328,11 @@ def source_safe_business_overview(summary: Any, filing: Any) -> str:
     """Render cached/final markdown from the source-owned projection, including legacy rows."""
     projected = project_summary_risks(summary, filing)
     raw_summary = getattr(summary, "raw_summary", None)
-    has_sections = isinstance(raw_summary, dict) and isinstance(raw_summary.get("sections"), dict)
+    has_sections = (
+        isinstance(raw_summary, dict)
+        and isinstance(raw_summary.get("sections"), dict)
+        and bool(raw_summary["sections"])
+    )
     compatibility_risks = getattr(summary, "risk_factors", None)
     return replace_business_overview_risks(
         getattr(summary, "business_overview", None),
@@ -717,8 +725,10 @@ def enrich_summary_provenance(
     raw_source = _select_source_text(filing) if filing is not None else None
     normalized_source = normalize_for_match(raw_source)
     stored_raw = getattr(summary, "raw_summary", None)
-    has_stored_sections = isinstance(stored_raw, dict) and isinstance(
-        stored_raw.get("sections"), dict
+    has_stored_sections = (
+        isinstance(stored_raw, dict)
+        and isinstance(stored_raw.get("sections"), dict)
+        and bool(stored_raw["sections"])
     )
     projected_raw = project_summary_risks(summary, filing)
     enriched_raw = enrich_raw_summary(

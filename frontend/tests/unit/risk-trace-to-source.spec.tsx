@@ -20,9 +20,10 @@ describe('Risk factor Trace-to-Source', () => {
     expect(link.getAttribute('href')).toContain('#:~:text=')
     expect(link.getAttribute('aria-label')).toMatch(/verified in filing/i)
     expect(link.textContent).toContain('Verified in filing')
+    expect(screen.getByText('Supply chain constraints persisted through Q3.')).toBeTruthy()
     // The section ref lives in the hover/focus panel (ambient provenance), not inline.
     fireEvent.mouseEnter(link)
-    expect(screen.getByText(/Filing excerpt/)).toBeTruthy()
+    expect(screen.getAllByText(/Filing excerpt/).length).toBeGreaterThan(0)
   })
 
   it('reports withheld evidence without rendering an unverified citation', () => {
@@ -38,7 +39,7 @@ describe('Risk factor Trace-to-Source', () => {
     ]
     const { container } = render(<SummaryRisks risks={risks} />)
     expect(container.textContent).not.toContain('Evidence text only.')
-    expect(container.textContent).toContain('No source-verified risk excerpts available')
+    expect(container.textContent).toContain('No source-verified risk excerpts found')
     expect(screen.queryByRole('link')).toBeNull()
   })
 

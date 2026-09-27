@@ -193,7 +193,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
 
     # Legacy compatibility-only rows retain matching excerpts on every shared surface.
     legacy_good = SimpleNamespace(
-        id=10, filing_id=2, raw_summary=None,
+        id=10, filing_id=2, raw_summary={"sections": {}},
         business_overview="## Legacy Overview\n\nOperating history remains visible.\n",
         financial_highlights={}, risk_factors=[{
             "summary": unsafe_summary, "supporting_evidence": source_span,

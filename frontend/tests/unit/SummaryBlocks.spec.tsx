@@ -73,17 +73,18 @@ const sections: RenderedSection[] = [
 const summary = {
   business_overview: 'x',
   raw_summary: {
+    risk_source_context_version: 1,
     sections: {
-      risk_factors: [
+      risks: [
         {
-          title: 'Supply concentration',
-          description: 'Substantially dependent on a small number of foundries.',
+          summary: 'Filing excerpt',
           supporting_evidence: 'Item 1A: “substantially dependent on TSMC.”',
           source_url: 'https://www.sec.gov/Archives/edgar/data/1/2/3',
           source_verified: true,
-          source_section_ref: 'Item 1A',
+          source_section_ref: 'Filing excerpt',
         },
       ],
+      _risk_source_projection: { version: 1, verified_count: 1, withheld_count: 0 },
     },
   },
 } as unknown as Summary
@@ -118,7 +119,7 @@ describe('SummaryBlocks', () => {
 
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
-    expect(screen.getByText('Substantially dependent on a small number of foundries.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 4, name: 'Filing excerpt 1' })).toBeInTheDocument()
     expect(screen.getByText(/substantially dependent on TSMC/)).toBeInTheDocument()
     // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
     expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
@@ -208,44 +209,48 @@ describe('SummaryBlocks', () => {
     expect(mobileNav.querySelectorAll('a')).toHaveLength(sections.length)
   })
 
-  it('gives untitled risks distinct derived headings instead of repeating "Risk Factor"', () => {
+  it('uses neutral headings instead of model-authored risk labels', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
     ]
     const untitled = {
       business_overview: 'x',
       raw_summary: {
+        risk_source_context_version: 1,
         sections: {
-          risk_factors: [
-            { summary: 'Customer concentration remains high. Two customers were 40% of revenue.', supporting_evidence: 'Item 1A: verbatim quote one.' },
-            { summary: 'FX headwinds persist; the euro weakened 8%.', supporting_evidence: 'Item 1A: verbatim quote two.' },
+          risks: [
+            { summary: 'Filing excerpt', supporting_evidence: 'Item 1A: verbatim quote one.' },
+            { summary: 'Filing excerpt', supporting_evidence: 'Item 1A: verbatim quote two.' },
           ],
+          _risk_source_projection: { version: 1, verified_count: 2, withheld_count: 0 },
         },
       },
     } as unknown as Summary
     render(<SummaryBlocks sections={riskSections} summary={untitled} />)
     const headings = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)
-    expect(headings).toEqual(['Customer concentration remains high', 'FX headwinds persist'])
-    expect(screen.queryByText('Risk Factor')).not.toBeInTheDocument()
+    expect(headings).toEqual(['Filing excerpt 1', 'Filing excerpt 2'])
+    expect(screen.queryByText(/Customer concentration|FX headwinds/)).not.toBeInTheDocument()
   })
 
-  it('matches the risks section by role and filters placeholder-evidence risks', () => {
+  it('matches the risks section by role and renders only owner-projected excerpts', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
     ]
     const withPlaceholder = {
       business_overview: 'x',
       raw_summary: {
+        risk_source_context_version: 1,
         sections: {
-          risk_factors: [
-            { title: 'Real', description: 'A concrete, evidenced risk.', supporting_evidence: 'Item 1A: verbatim quote.' },
-            { title: 'Filler', description: 'Vague.', supporting_evidence: 'Data not available in provided excerpts.' },
+          risks: [
+            { summary: 'Filing excerpt', supporting_evidence: 'Item 1A: verbatim quote.' },
           ],
+          _risk_source_projection: { version: 1, verified_count: 1, withheld_count: 1 },
         },
       },
     } as unknown as Summary
     render(<SummaryBlocks sections={riskSections} summary={withPlaceholder} />)
-    expect(screen.getByText('A concrete, evidenced risk.')).toBeInTheDocument()
+    expect(screen.getByText('Item 1A: verbatim quote.')).toBeInTheDocument()
+    expect(screen.getByText(/1 item withheld/)).toBeInTheDocument()
     expect(screen.queryByText('Vague.')).not.toBeInTheDocument()
   })
 })
