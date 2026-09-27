@@ -100,6 +100,26 @@ class TestInflectionDetectors:
         assert "three most recent measurable observations" in flags[0]["detail"]
         assert "straight periods" not in flags[0]["detail"]
 
+        close = _dataset([{
+            "concept": "revenue", "unit": "USD", "percent": False,
+            "points": [
+                _point("FY2021", 100, "F1"),
+                _point("FY2022", 110, "F2", yoy=0.1004),
+                _point("FY2023", 120, "F3", yoy=0.1003),
+                _point("FY2024", 130, "F4", yoy=0.1002),
+            ],
+        }])
+        assert "+10.04% → +10.03% → +10.02%" in svc.detect_growth_deceleration(close)[0]["detail"]
+
+        close["series"][0]["points"][1]["yoy"] = 0.1
+        close["series"][0]["points"][2]["yoy"] = math.nextafter(0.1, 0.0)
+        close["series"][0]["points"][3]["yoy"] = math.nextafter(
+            close["series"][0]["points"][2]["yoy"], 0.0
+        )
+        adjacent = svc.detect_growth_deceleration(close)[0]["detail"]
+        assert "+10.0000%, +10.0000%, +10.0000%" in adjacent
+        assert "effectively equal where values match at four-decimal precision" in adjacent
+
     def test_growth_deceleration_quiet_when_growth_reaccelerates(self):
         ds = _dataset([{
             "concept": "revenue", "unit": "USD", "percent": False,
@@ -118,6 +138,14 @@ class TestInflectionDetectors:
             _point("FY2024", 25.0, "F3"),
         ]}])
         assert svc.detect_margin_compression(compressed)[0]["kind"] == "margin_compression"
+
+        compressed["series"][0]["points"] = [
+            _point("FY2022", 30.00004, "F1"), _point("FY2023", 30.00003, "F2"),
+            _point("FY2024", 28.00002, "F3"),
+        ]
+        close_detail = svc.detect_margin_compression(compressed)[0]["detail"]
+        assert "30.0000%, 30.0000%, 28.0000%" in close_detail
+        assert "effectively equal where values match at four-decimal precision" in close_detail
 
         shallow = _dataset([{**base, "points": [
             _point("FY2022", 30.0, "F1"), _point("FY2023", 29.5, "F2"),
@@ -153,6 +181,10 @@ class TestInflectionDetectors:
         liquidity = svc.detect_liquidity_squeeze(ds)
         assert liquidity[0]["kind"] == "liquidity_squeeze"
         assert "below 1.0" in liquidity[0]["detail"]
+
+        ds["series"][1]["points"][-1]["value"] = 0.99999
+        liquidity = svc.detect_liquidity_squeeze(ds)
+        assert "below 1.0 (0.99999x in FY2024)" in liquidity[0]["detail"]
 
 
 def _observation_series(concept, label, points, *, unit="USD", percent=False):
@@ -206,13 +238,25 @@ class TestCodeOwnedObservations:
         }
 
     def test_retained_false_relations_and_absence_cannot_be_rendered(self):
-        catalogue = svc.build_observation_catalogue(self._dataset())
+        dataset = self._dataset()
+        catalogue = svc.build_observation_catalogue(dataset)
         text = "\n".join(item.markdown for item in catalogue)
 
         assert "free cash flow of USD 14,923,000,000" in text
         assert "was below net income of USD 21,893,000,000" in text
         assert "net income growth of +27.1%" in text and "above net interest income growth of +17.6%" in text
         assert "net income growth of +28.3%" in text and "below net interest income growth of +30.1%" in text
+
+        cash = next(s for s in dataset["series"] if s["concept"] == "free_cash_flow")
+        income = next(s for s in dataset["series"] if s["concept"] == "net_income")
+        cash["points"][-1]["value"] = 20_000_000_000.4
+        income["points"][-1]["value"] = 20_000_000_000.3
+        rounded_level = next(
+            item.markdown for item in svc.build_observation_catalogue(dataset)
+            if item.id.startswith("cash_balance_sheet.level-comparison.free-cash-flow")
+        )
+        assert "USD 20,000,000,000" in rounded_level
+        assert "was effectively equal to net income" in rounded_level
 
         googl = self._dataset()
         next(s for s in googl["series"] if s["concept"] == "net_income")["points"][-1]["yoy"] = 0.32
@@ -272,6 +316,22 @@ class TestCodeOwnedObservations:
         )
         ratio_citation = next(c for c in citations if c["concept"] == "current_ratio")
         assert f"Current ratio = {display}" in ratio_citation["excerpt"]
+
+        ratio_point = next(
+            point
+            for series in dataset["series"] if series["concept"] == "current_ratio"
+            for point in series["points"] if point["period"] == "2026Q2"
+        )
+        dataset["inflections"] = [{
+            "kind": "liquidity_squeeze",
+            "detail": f"Current ratio is below 1.0 ({display} in 2026Q2).",
+            "markers": [ratio_point["marker"]],
+        }]
+        signal = next(
+            item for item in svc.build_observation_catalogue(dataset)
+            if item.id.startswith("red_flags.signal")
+        )
+        assert f"Source operands: Current ratio {display} in 2026Q2" in signal.markdown
 
     def test_growth_relations_require_numeric_same_period_operands(self):
         dataset = self._dataset()

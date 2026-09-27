@@ -557,6 +557,13 @@ def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
         last3 = points[-3:]
         yoys = [p["yoy"] for p in last3]
         if yoys[0] > yoys[1] > yoys[2]:
+            displays, display_is_distinct = _ordered_percentage_values(yoys)
+            sequence = (" → " if display_is_distinct else ", ").join(displays)
+            display_qualifier = (
+                ""
+                if display_is_distinct
+                else " (effectively equal where values match at four-decimal precision)"
+            )
             markers = [
                 marker
                 for point in last3
@@ -569,8 +576,7 @@ def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                     "periods": [p["period"] for p in last3],
                     "detail": (
                         f"{concept_label(concept)} YoY growth decelerated across its three most "
-                        f"recent measurable observations: {_pct_str(yoys[0])} → "
-                        f"{_pct_str(yoys[1])} → {_pct_str(yoys[2])}."
+                        f"recent measurable observations: {sequence}{display_qualifier}."
                     ),
                     "markers": list(dict.fromkeys(markers)),
                 }
@@ -592,6 +598,15 @@ def detect_margin_compression(dataset: dict[str, Any]) -> list[dict[str, Any]]:
         last3 = points[-3:]
         values = [p["value"] for p in last3]  # stored ×100 (percent)
         if values[0] > values[1] > values[2] and (values[0] - values[2]) >= 2.0:
+            displays, display_is_distinct = _ordered_percentage_values(
+                values, already_percent=True, signed=False
+            )
+            sequence = (" → " if display_is_distinct else ", ").join(displays)
+            display_qualifier = (
+                ""
+                if display_is_distinct
+                else " (effectively equal where values match at four-decimal precision)"
+            )
             flags.append(
                 {
                     "kind": "margin_compression",
@@ -599,7 +614,7 @@ def detect_margin_compression(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                     "periods": [p["period"] for p in last3],
                     "detail": (
                         f"{concept_label(concept)} compressed {values[0] - values[2]:.1f}pp over "
-                        f"three periods: {values[0]:.1f}% → {values[1]:.1f}% → {values[2]:.1f}%."
+                        f"three periods: {sequence}{display_qualifier}."
                     ),
                     "markers": [p["marker"] for p in last3],
                 }
@@ -676,7 +691,10 @@ def detect_liquidity_squeeze(dataset: dict[str, Any]) -> list[dict[str, Any]]:
         return []
     first, last = points[0], points[-1]
     if last["value"] < 1.0:
-        detail = f"Current ratio is below 1.0 ({last['value']:.2f}× in {last['period']})."
+        detail = (
+            f"Current ratio is below 1.0 "
+            f"({_ratio_threshold_value(last['value'])} in {last['period']})."
+        )
     elif len(points) >= 2 and (first["value"] - last["value"]) >= 0.5 and last["value"] < 1.5:
         detail = (
             f"Current ratio declined from {first['value']:.2f}× ({first['period']}) to "
@@ -851,21 +869,30 @@ def _same_dimension(first: dict[str, Any], second: dict[str, Any]) -> bool:
     )
 
 
+def _ordered_percentage_values(
+    values: list[float], *, already_percent: bool = False, signed: bool = True
+) -> tuple[list[str], bool]:
+    """Render an ordered percentage sequence without hiding strict changes through rounding."""
+    scale = Decimal(1) if already_percent else Decimal(100)
+    scaled = [Decimal(str(value)) * scale for value in values]
+    sign = "+" if signed else ""
+    for decimals in range(1, 5):
+        rendered = [f"{value:{sign}.{decimals}f}%" for value in scaled]
+        if all(first != second for first, second in zip(rendered, rendered[1:])):
+            return rendered, True
+    rendered = [f"{value:{sign}.4f}%" for value in scaled]
+    return rendered, False
+
+
 def _growth_comparison_values(first: float, second: float) -> tuple[str, str, str]:
     """Return the raw-value ordering with displays that make a non-equal ordering visible."""
     if first == second:
         rendered = _pct_str(first)
         return "equal to", rendered, rendered
     relation = "above" if first > second else "below"
-    # Scale the floats' round-trip decimal forms.  Multiplying binary floats first can collapse
-    # adjacent values (for example 0.1 and its predecessor both become the same binary 10.0).
-    first_percent = Decimal(str(first)) * 100
-    second_percent = Decimal(str(second)) * 100
-    for decimals in range(1, 5):
-        first_text = f"{first_percent:+.{decimals}f}%"
-        second_text = f"{second_percent:+.{decimals}f}%"
-        if first_text != second_text:
-            return relation, first_text, second_text
+    (first_text, second_text), display_is_distinct = _ordered_percentage_values([first, second])
+    if display_is_distinct:
+        return relation, first_text, second_text
     # Beyond four percentage decimals the values are immaterially different for this product
     # surface. Avoid asserting a direction that the intentionally bounded display cannot show.
     return "effectively equal to", _pct_str(first), _pct_str(second)
@@ -1060,14 +1087,21 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             continue
         period = shared[-1]
         cash_point, ni_point = cash_by_period[period], ni_by_period[period]
-        relation = "above" if cash_point["value"] > ni_point["value"] else (
-            "below" if cash_point["value"] < ni_point["value"] else "equal to"
-        )
+        cash_value = _point_value(cash, cash_point)
+        income_value = _point_value(net_income, ni_point)
+        if cash_value == income_value:
+            relation = (
+                "equal to"
+                if cash_point["value"] == ni_point["value"]
+                else "effectively equal to"
+            )
+        else:
+            relation = "above" if cash_point["value"] > ni_point["value"] else "below"
         add(
             "cash_balance_sheet", "level-comparison", (
-                f"In {period}, {cash['label'].lower()} of {_point_value(cash, cash_point)} "
+                f"In {period}, {cash['label'].lower()} of {cash_value} "
                 f"[{cash_point['marker']}] was {relation} net income of "
-                f"{_point_value(net_income, ni_point)} [{ni_point['marker']}]"
+                f"{income_value} [{ni_point['marker']}]"
                 f"{_derived_qualifier(cash_point, ni_point)}."
             ), cash_concept, "net-income", period, required=cash_concept == "free_cash_flow",
         )
@@ -1145,8 +1179,12 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                 point = point_index.get(marker)
                 if not point or point.get("kind") == "cagr":
                     continue
+                ratio_precision = (
+                    point.get("concept") == "current_ratio" and point.get("unit") == "pure"
+                )
                 operand_bits.append(
-                    f"{point['label']} {_point_value(point, point)} "
+                    f"{point['label']} "
+                    f"{_point_value(point, point, ratio_precision=ratio_precision)} "
                     f"in {point['period']} [{marker}]"
                     f"{_derived_qualifier(point)}"
                 )
