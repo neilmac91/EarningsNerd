@@ -251,10 +251,21 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     requests = []
     limiter_calls = 0
     breaker_enters = 0
+    waits = []
+    attachment = {"mode": "success", "retry_calls": 0}
 
     def respond(request):
         requests.append(request)
         if str(request.url) == attachment_url:
+            if attachment["mode"] == "redirect":
+                return httpx.Response(
+                    302,
+                    headers={"location": "https://outside.example/chart.gif"},
+                )
+            if attachment["mode"] == "retry":
+                attachment["retry_calls"] += 1
+                if attachment["retry_calls"] == 1:
+                    return httpx.Response(503)
             # The deliberately low header proves the streamed decoded-entity limit does not
             # trust Content-Length. Non-UTF-8 bytes prove there is no text round trip.
             return httpx.Response(
@@ -297,8 +308,12 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
         limiter_calls += 1
         return await fn()
 
+    async def sleep(delay):
+        waits.append(delay)
+
     monkeypatch.setattr(compat, "edgar_circuit_breaker", Breaker())
     monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    monkeypatch.setattr(asyncio, "sleep", sleep)
 
     content, source = await compat.sec_edgar_service.get_filing_attachment_bytes(
         cik, accession, filename
@@ -345,3 +360,44 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     ]
     assert limiter_calls == 3
     assert breaker_enters == 3
+
+    # Unsafe filename forms fail before entering the transport owner.
+    request_count = len(requests)
+    for unsafe_filename in (
+        "",
+        ".",
+        "../chart.gif",
+        "/chart.gif",
+        "chart.gif?version=1",
+        "chart.gif#page",
+        "chart\n.gif",
+    ):
+        with pytest.raises(ValueError, match="filename"):
+            await compat.sec_edgar_service.get_filing_attachment_bytes(
+                cik, accession, unsafe_filename
+            )
+    assert len(requests) == request_count
+    assert limiter_calls == breaker_enters == 3
+
+    # Redirects are an explicit failure and never result in a second physical request.
+    monkeypatch.setattr(compat, "MAX_SEC_ATTACHMENT_BYTES", 32 * 1024 * 1024)
+    attachment["mode"] = "redirect"
+    with pytest.raises(compat.EdgarError, match="Redirect response") as redirect_error:
+        await compat.sec_edgar_service.get_filing_attachment_bytes(
+            cik, accession, filename, max_retries=1
+        )
+    assert redirect_error.value.context["physical_attempts"] == 1
+    assert len(requests) == request_count + 1
+
+    # An explicitly requested retry records both physical attempts and the owned backoff.
+    attachment.update(mode="retry", retry_calls=0)
+    retry_content, retry_source = await compat.sec_edgar_service.get_filing_attachment_bytes(
+        cik, accession, filename, max_retries=2
+    )
+    assert retry_content == raw
+    assert retry_source == {**source, "physical_attempts": 2}
+    assert attachment["retry_calls"] == 2
+    assert waits == [1]
+    assert len(requests) == request_count + 3
+    assert limiter_calls == 6
+    assert breaker_enters == 5

@@ -28,6 +28,7 @@ from app.utils.sec_urls import build_sec_archive_url, normalize_accession, norma
 logger = logging.getLogger(__name__)
 
 MAX_SEC_ATTACHMENT_BYTES = 32 * 1024 * 1024
+SEC_ATTACHMENT_CHUNK_BYTES = 64 * 1024
 
 
 def _decoded_source_provenance(
@@ -70,12 +71,12 @@ async def _bounded_response_content(response: httpx.Response) -> bytes:
             )
 
     content = bytearray()
-    async for chunk in response.aiter_bytes():
-        content.extend(chunk)
-        if len(content) > MAX_SEC_ATTACHMENT_BYTES:
+    async for chunk in response.aiter_bytes(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
+        if len(content) + len(chunk) > MAX_SEC_ATTACHMENT_BYTES:
             raise ValueError(
                 f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
             )
+        content.extend(chunk)
     return bytes(content)
 
 
