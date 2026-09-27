@@ -245,7 +245,7 @@ def _executive_snapshot(sections: dict) -> Section:
     return section
 
 
-def _metrics_block(table: Any) -> Optional[Block]:
+def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[Block]:
     """Build the financial-metrics ``Block`` from a list of P&L row dicts.
 
     Shared by v1 ``financial_highlights`` and v2 ``results_that_matter`` (identical row shape).
@@ -263,7 +263,7 @@ def _metrics_block(table: Any) -> Optional[Block]:
         metric = _clean(row.get("metric"))
         if not metric:
             continue
-        _delta = metric_delta_service.delta_for_row(row)
+        _delta = metric_delta_service.delta_for_row(row, exact_owned=exact_delta_owned)
         change_cell = _delta.display if _delta and _delta.display else "—"
         rows.append(
             [
@@ -285,12 +285,17 @@ def _metrics_block(table: Any) -> Optional[Block]:
         typed = {
             key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
             for key, val in row.items()
-            if key not in ("supporting_evidence", "supportingEvidence")
+            if key not in (
+                "supporting_evidence", "supportingEvidence",
+                "change_display", "change_direction", "change_tone",
+            )
         }
         if _delta and _delta.display:
-            typed.setdefault("change_display", _delta.display)
-            typed.setdefault("change_direction", _delta.direction)
-            typed.setdefault("change_tone", _delta.tone)
+            typed.update({
+                "change_display": _delta.display,
+                "change_direction": _delta.direction,
+                "change_tone": _delta.tone,
+            })
         metric_rows.append(typed)
     if not rows:
         return None
@@ -302,13 +307,13 @@ def _metrics_block(table: Any) -> Optional[Block]:
     )
 
 
-def _financial_highlights(sections: dict) -> Section:
+def _financial_highlights(sections: dict, *, exact_delta_owned: bool = False) -> Section:
     section = Section("Financial Highlights")
     data = sections.get("financial_highlights")
     if not isinstance(data, dict):
         return section
 
-    block = _metrics_block(data.get("table"))
+    block = _metrics_block(data.get("table"), exact_delta_owned=exact_delta_owned)
     if block:
         section.blocks.append(block)
 
@@ -600,11 +605,11 @@ def _v2_the_print(sections: dict) -> Section:
     return section
 
 
-def _v2_results_that_matter(sections: dict) -> Section:
+def _v2_results_that_matter(sections: dict, *, exact_delta_owned: bool = False) -> Section:
     section = Section(SECTION_META["results_that_matter"]["title"])
     data = sections.get("results_that_matter")
     if isinstance(data, dict):
-        block = _metrics_block(data.get("table"))
+        block = _metrics_block(data.get("table"), exact_delta_owned=exact_delta_owned)
         if block:
             section.blocks.append(block)
     return section
@@ -842,6 +847,8 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     capital_owned = type(capital_marker) is int and capital_marker == CAPITAL_CONTEXT_VERSION
     issuer_cash_marker = raw_summary.get(ISSUER_CASH_CONTEXT_KEY)
     issuer_cash_owned = type(issuer_cash_marker) is int and issuer_cash_marker == ISSUER_CASH_CONTEXT_VERSION
+    delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
+    exact_delta_owned = type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
@@ -850,7 +857,9 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
             builder(sections, capital_owned=capital_owned)
             if builder is _v2_value_drivers else
             builder(sections, statement_owned=statement_owned, issuer_cash_owned=issuer_cash_owned)
-            if builder is _v2_earnings_quality else builder(sections)
+            if builder is _v2_earnings_quality else
+            builder(sections, exact_delta_owned=exact_delta_owned)
+            if builder in (_financial_highlights, _v2_results_that_matter) else builder(sections)
         )
         if section.has_content:
             rendered.append(section)

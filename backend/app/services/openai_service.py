@@ -5,6 +5,7 @@ import logging
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional
 from app.config import settings
+from app.schemas.summary import attach_normalized_facts
 from app.services.prompt_loader import get_prompt, get_structured_prompt
 import json
 
@@ -51,6 +52,11 @@ from app.services.ai.source_units import (
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
+from app.services.metric_delta_service import (
+    EXACT_CONTEXT_KEY as METRIC_DELTA_CONTEXT_KEY,
+    EXACT_CONTEXT_VERSION as METRIC_DELTA_CONTEXT_VERSION,
+    bind_exact_xbrl_deltas,
+)
 from app.services.summary_sections import render_sections, sections_to_markdown
 # The generation-side taxonomy: the section keys the current schema_template emits — v2 as of the
 # Tier-3.1 cutover. summarize_filing builds the per_section coverage snapshot from it below. This is
@@ -606,6 +612,12 @@ Rules:
                 sections["results_that_matter"] = _sanitize_bank_financial_highlights(
                     sections["results_that_matter"], xbrl_metrics,
                 )
+                sections["results_that_matter"] = attach_normalized_facts(
+                    sections["results_that_matter"], xbrl_metrics,
+                )
+                sections["results_that_matter"] = bind_exact_xbrl_deltas(
+                    sections["results_that_matter"], xbrl_metrics,
+                )
             # This callback has no excerpt to verify against. When verification is required,
             # attributed quotes wait for the authoritative final gate (other prose can show).
             forward = sections.get("forward_signals")
@@ -617,6 +629,7 @@ Rules:
             rendered = render_sections({
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+                METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
                 **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
             })
             return sections_to_markdown(rendered) or None
@@ -695,6 +708,8 @@ Rules:
         # `sections_info` is the same object every downstream consumer reads, so reassigning it here
         # covers the markdown, "Financial Overview", raw payload, and the response column at once.
         financial_section = _sanitize_bank_financial_highlights(financial_section, xbrl_metrics)
+        financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+        financial_section = bind_exact_xbrl_deltas(financial_section, xbrl_metrics)
         if isinstance(sections_info, dict):
             sections_info["results_that_matter"] = financial_section
 
@@ -875,6 +890,7 @@ Rules:
             "sections": sections_info,
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
         }
@@ -888,6 +904,7 @@ Rules:
             **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
+            METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
             "structured": structured_summary,
             "sections": sections_info,
@@ -1118,4 +1135,3 @@ __all__ = [
     "_is_no_total_bank",
     "_sanitize_bank_financial_highlights",
 ]
-

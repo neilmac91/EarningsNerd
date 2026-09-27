@@ -377,6 +377,7 @@ def enrich_financial_highlights(
     filing: Any,
     xbrl_standardized: Optional[dict],
     normalized_source: Optional[str] = None,
+    exact_delta_owned: bool = False,
 ) -> Optional[dict]:
     """Return a deep-copied ``financial_highlights`` with per-row provenance on ``table`` entries.
 
@@ -402,6 +403,14 @@ def enrich_financial_highlights(
     )
     base_url = _base_url(filing)
     result = copy.deepcopy(financial_highlights)
+    # A generation-stamped envelope may retain each already-bound exact delta when the best-effort
+    # XBRL reload lacks that row's complete operand pair. Every unmarked/forged envelope is scrubbed;
+    # a complete reloaded pair always re-enters strict binding, so conflicting facts are refused.
+    result = metric_delta_service.bind_exact_xbrl_deltas(
+        result,
+        xbrl_standardized,
+        preserve_owned_when_unavailable=exact_delta_owned,
+    )
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
         rows = [
@@ -417,7 +426,8 @@ def enrich_financial_highlights(
             row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
             # Single delta policy: ship the computed change display/direction/tone so the table
             # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
-            row.update(metric_delta_service.row_delta_fields(row))
+            if not row.get("change_display"):
+                row.update(metric_delta_service.row_delta_fields(row))
             if normalized_source is not None:
                 excerpt = row.get("supporting_evidence") or row.get("supportingEvidence")
                 if isinstance(excerpt, str) and excerpt.strip():
@@ -476,14 +486,20 @@ def enrich_raw_summary(
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
     result = copy.deepcopy(raw_summary)
+    delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
+    exact_delta_owned = (
+        type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
+    )
     if has_risks:
         result["sections"][risk_key] = enrich_risk_list(risks, filing, normalized_source)
     if has_fh:
         # v2 metric rows carry a model Investor-Takeaway excerpt to cite; v1 rows don't, so only the
         # v2 path threads normalized_source (which turns on commentary_evidence).
         result["sections"][metrics_key] = enrich_financial_highlights(
-            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None
+            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None,
+            exact_delta_owned=exact_delta_owned,
         )
+        result[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
     if version >= 2:
         # T4.1: generalize trace-to-source beyond risks/metrics to the other citable v2 surfaces.
         # Quotes verify verbatim (the quote is the excerpt); footnotes verify their supporting excerpt.
@@ -508,12 +524,19 @@ def enrich_summary_provenance(
     enriched_raw = enrich_raw_summary(
         summary.raw_summary, filing, normalized_source, xbrl_standardized
     )
+    raw_marker = summary.raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY) if isinstance(
+        summary.raw_summary, dict
+    ) else None
+    exact_delta_owned = (
+        type(raw_marker) is int and raw_marker == metric_delta_service.EXACT_CONTEXT_VERSION
+    )
     return {
         "id": summary.id,
         "filing_id": summary.filing_id,
         "business_overview": summary.business_overview,
         "financial_highlights": enrich_financial_highlights(
-            summary.financial_highlights, filing, xbrl_standardized
+            summary.financial_highlights, filing, xbrl_standardized,
+            exact_delta_owned=exact_delta_owned,
         ),
         "risk_factors": enrich_risk_list(summary.risk_factors, filing, normalized_source),
         "management_discussion": summary.management_discussion,
