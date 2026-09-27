@@ -1,0 +1,20 @@
+{
+  "observed_at": "2026-09-27T01:23:04.605122+00:00",
+  "reference_sha256": "8ce13076933ceb392f909d9661449e9374d8a2874a8318f24191550939ef7c70",
+  "context_evidence_sha256": "96519bf96b9327edf24e6e98a3285ac2eb5f45892e508007d5a64291dc539d6d",
+  "source_brief_sha256": {
+    "source_reference_a": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240",
+    "source_reference_b": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f"
+  },
+  "draft_sha256": "c6433a134858fd3cc6f27d8f3e54f65fbb355c3d309e5d953a1e04d715f078ad",
+  "read_log_sha256": "e57b21e9d68fe41174c172f966126aa429b9eb637377ad636de707f53c05dcef",
+  "adverse_ledger_sha256": "80a1daee5ebfbd6119f4349ecd2b6d7d9cea556a2c696ac42686ac3977a09872",
+  "material_issues": 10,
+  "current_dispositions": 19,
+  "resolved_disagreements": 12,
+  "historical_rows": 52,
+  "historical_unresolved_custody_claims": 1,
+  "financial_findings_unchanged": true,
+  "admission_approved": false,
+  "limitations": "Individual freeze only. H30 historical integration and full-programme readiness remain unexecuted."
+}

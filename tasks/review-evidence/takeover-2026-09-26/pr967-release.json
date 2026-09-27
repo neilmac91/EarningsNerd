@@ -1,0 +1,43 @@
+{
+  "pr": 967,
+  "main_sha": "537bf59b923922d2215ae1399920756e014bd4e5",
+  "run_id": 36285042203,
+  "deploy_job_id": 108524676404,
+  "run_conclusion": "success",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "revision": "earningsnerd-backend-00391-rgl",
+  "traffic_percent": 100,
+  "deploy_completed_at": "2026-09-27T01:23:55Z",
+  "independent_health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.49
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1790472270.891471
+  },
+  "health_observed_at": "2026-09-27T01:24:30.891471+00:00",
+  "files": {
+    "pr967-deploy.log": "beb1128ef8a5d02682678113e151056aa791ec8f4690a27f1eccb2e014e9b6ae",
+    "pr967-health.json": "cad0ee8538632d38c332b4628804f0580b2664e3bab1971e50f297c0fab83334"
+  }
+}

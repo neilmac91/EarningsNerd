@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Replay three accepted E7 graph-custody counterexamples from a Git revision.
+
+Usage after fetching the repository:
+
+    PYTHONDONTWRITEBYTECODE=1 python3 e7-graph-reproductions.py /path/to/EarningsNerd main
+
+This reads committed Python through ``git show`` and executes the committed synthetic fixture in
+memory. It writes nothing to the target repository, imports no application/provider client, and
+makes no network, model, budget-ledger or guard call. Exit 0 means all three counterexamples were
+still accepted; an assertion/error means the revision changed or rejected one.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import subprocess
+import sys
+import types
+from pathlib import Path
+from typing import Any
+
+
+def git(repo: Path, revision: str, path: str) -> bytes:
+    return subprocess.check_output(
+        ["git", "show", f"{revision}:{path}"], cwd=repo, stderr=subprocess.STDOUT
+    )
+
+
+def load_fixture(repo: Path, revision: str) -> tuple[types.ModuleType, dict[str, Any]]:
+    backend = str(repo / "backend")
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+
+    graph_module = types.ModuleType("evals.acceptance_source_review_graph")
+    graph_module.__file__ = f"<git:{revision}:acceptance_source_review_graph.py>"
+    sys.modules[graph_module.__name__] = graph_module
+    source = git(repo, revision, "backend/evals/acceptance_source_review_graph.py")
+    exec(compile(source, graph_module.__file__, "exec"), graph_module.__dict__)
+
+    # The committed fixture imports pytest only for decorators/context managers that these direct
+    # reproductions never call. A tiny decorator stub avoids adding pytest as a runtime dependency.
+    pytest_stub = types.ModuleType("pytest")
+
+    class Mark:
+        @staticmethod
+        def parametrize(*_args: Any, **_kwargs: Any) -> Any:
+            return lambda function: function
+
+    pytest_stub.mark = Mark()  # type: ignore[attr-defined]
+    sys.modules["pytest"] = pytest_stub
+
+    fixture: dict[str, Any] = {
+        "__name__": "e7_graph_committed_fixture",
+        "__file__": f"<git:{revision}:test_acceptance_source_review_graph.py>",
+    }
+    test_source = git(repo, revision, "backend/tests/unit/test_acceptance_source_review_graph.py")
+    exec(compile(test_source, fixture["__file__"], "exec"), fixture)
+    return graph_module, fixture
+
+
+def arbitrary_prompt(fixture: dict[str, Any]) -> None:
+    graph, artifacts = fixture["_graph"]()
+    node = next(item for item in graph["nodes"] if item["node_id"] == "l2")
+    old = node["receipt"]["rendered_prompt_sha256"]
+    data = b"ARBITRARY PROMPT THAT DOES NOT RENDER TEMPLATE OR INCLUDE UNIT INPUT"
+    new = hashlib.sha256(data).hexdigest()
+    node["receipt"]["rendered_prompt_sha256"] = new
+    artifacts.pop(old)
+    artifacts[new] = data
+    fixture["_validate"](graph, artifacts)
+    print("ACCEPTED arbitrary_prompt", new)
+
+
+def omitted_compacted_attempt(fixture: dict[str, Any]) -> None:
+    graph, artifacts = fixture["_graph"]()
+    graph["context_registry"] = [
+        entry for entry in graph["context_registry"] if entry["context_id"] != "ctx-l1-a"
+    ]
+    next(
+        entry for entry in graph["context_registry"] if entry["context_id"] == "ctx-l1-b"
+    )["attempt"] = 1
+    summary = fixture["_validate"](graph, artifacts)
+    assert "ctx-l1-a" not in summary["source_context_closure"]
+    print("ACCEPTED omitted_compacted_attempt", summary["source_context_closure"])
+
+
+def unused_template_alias(fixture: dict[str, Any]) -> None:
+    shape = [
+        ("l1", "leaf", 0),
+        ("l2", "leaf", 1),
+        ("l3", "leaf", 2),
+        ("s", "role_synthesis", ["l1", "l2", "l3"]),
+    ]
+    leaf_artifact = hashlib.sha256(b"artifact:l1").hexdigest()
+    base = fixture["CONTRACT"]
+    contract = {
+        **base,
+        "node_kinds": {
+            **base["node_kinds"],
+            "reducer": {"template_sha256": leaf_artifact},
+        },
+    }
+    registry = [entry for entry in fixture["REGISTRY"] if entry["node_id"] != "r1"]
+    graph, artifacts = fixture["_graph"](
+        shape=shape, contract=contract, registry=registry
+    )
+    old_reducer_template = hashlib.sha256(fixture["TEMPLATES"]["reducer"]).hexdigest()
+    artifacts.pop(old_reducer_template)
+    summary = fixture["_validate"](graph, artifacts, role_contract=contract)
+    assert summary["node_counts"]["reducer"] == 0
+    assert graph["nodes"][0]["artifact_sha256"] == contract["node_kinds"]["reducer"]["template_sha256"]
+    print("ACCEPTED unused_template_alias", leaf_artifact)
+
+
+def main() -> int:
+    if len(sys.argv) not in (2, 3):
+        raise SystemExit("usage: e7-graph-reproductions.py REPOSITORY [REVISION]")
+    repo = Path(sys.argv[1]).resolve(strict=True)
+    revision = sys.argv[2] if len(sys.argv) == 3 else "main"
+    resolved = subprocess.check_output(
+        ["git", "rev-parse", revision], cwd=repo, text=True
+    ).strip()
+    print("revision", resolved)
+    _, fixture = load_fixture(repo, revision)
+    arbitrary_prompt(fixture)
+    omitted_compacted_attempt(fixture)
+    unused_template_alias(fixture)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

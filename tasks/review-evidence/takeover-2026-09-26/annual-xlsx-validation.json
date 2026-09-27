@@ -1,0 +1,34 @@
+{
+  "sha256": "f4a63eda49f151d9506514912802e656385ca672078fd41336cf51056eb7f12a",
+  "sheets": [
+    "Overview",
+    "Metrics",
+    "Revenue & growth",
+    "Margins",
+    "Cash generation",
+    "Balance sheet"
+  ],
+  "numeric_headline_matches": true,
+  "margin_and_percentage_point_values_match": true,
+  "unavailable_window_growth_preserved": true,
+  "errors": [],
+  "number_formats": {
+    "E2": "#,##0",
+    "E4": "0.0%",
+    "F4": "0.0\" pp\"",
+    "E20": "#,##0",
+    "E21": "0.00\"x\""
+  },
+  "comments": [
+    {
+      "sheet": "Metrics",
+      "cell": "D20",
+      "text": "Unreconciled value: check the source filing before relying on this figure."
+    }
+  ],
+  "macro_workbook": false,
+  "external_links_count": 0,
+  "native_excel_rendering_verified": false,
+  "financial_source_truth_independently_verified": false,
+  "read_only_inspection": true
+}

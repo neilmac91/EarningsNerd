@@ -1,0 +1,86 @@
+{
+  "pull_request": 968,
+  "audited_at": "2026-09-27",
+  "head": {
+    "sha": "c56fe7925443b2d74361b8122f207037fc986f0e",
+    "tree": "8ace43f5956a5398ff52d026fe1343794c1f3154"
+  },
+  "synthetic_merge": {
+    "sha": "a2f5cbd9e219abb2d12674d112602a05ef4803b7",
+    "parents": [
+      "537bf59b923922d2215ae1399920756e014bd4e5",
+      "c56fe7925443b2d74361b8122f207037fc986f0e"
+    ],
+    "tree": "8ace43f5956a5398ff52d026fe1343794c1f3154",
+    "tree_equals_head": true
+  },
+  "runs": [
+    {
+      "id": 36286423496,
+      "name": "CI",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "c56fe7925443b2d74361b8122f207037fc986f0e",
+      "started_at": "2026-09-27T01:44:00Z",
+      "updated_at": "2026-09-27T01:54:43Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36286423496"
+    },
+    {
+      "id": 36286453794,
+      "name": "Copilot filing fidelity",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "c56fe7925443b2d74361b8122f207037fc986f0e",
+      "started_at": "2026-09-27T01:44:38Z",
+      "updated_at": "2026-09-27T01:47:07Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36286453794"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 10919759852,
+      "name": "eval-report-36286423496",
+      "size_in_bytes": 3678508,
+      "api_archive_digest": "sha256:90eea5e87bc3da81c92a04d707f9d26584e451ef9f2aea6f50eade20b213cc96",
+      "expires_at": "2026-10-11T01:54:39Z"
+    },
+    {
+      "id": 10920319401,
+      "name": "copilot-fidelity-36286453794",
+      "size_in_bytes": 78699258,
+      "api_archive_digest": "sha256:dd30ff79d93e66abf8f9b8c0d4f811a8386744165be983a5f1f698369bb72084",
+      "expires_at": "2026-12-26T01:44:38Z"
+    }
+  ],
+  "reports": {
+    "ordinary": {
+      "path": "raw/ci/eval-report-36286423496/eval_20260927T015438Z.json",
+      "sha256": "2397868c6e2e0f2c25d1a8afad899e4457c0506c85c4fdd0baf7ede30756c348",
+      "bytes": 20584024,
+      "source_sha": "a2f5cbd9e219abb2d12674d112602a05ef4803b7",
+      "golden_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+      "expected": 70,
+      "scored": 70,
+      "errors": 0
+    },
+    "copilot": {
+      "path": "raw/copilot/copilot-fidelity-36286453794/copilot-eval.json",
+      "sha256": "e3a98535b999e5fd679d66476934599e16b2e2c91a71d5322023c8c2d5cbef71",
+      "bytes": 9963760,
+      "source_sha": "a2f5cbd9e219abb2d12674d112602a05ef4803b7",
+      "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+      "expected": 18,
+      "scored": 18,
+      "errors": 0
+    }
+  },
+  "review": {
+    "codex_status": "completed",
+    "codex_head": "c56fe79",
+    "completed_at": "2026-09-27T01:45:53.138840Z",
+    "inline_comments": 0,
+    "review_findings": 0
+  }
+}

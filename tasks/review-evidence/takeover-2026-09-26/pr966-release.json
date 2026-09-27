@@ -1,0 +1,41 @@
+{
+  "pr": 966,
+  "pr_url": "https://github.com/neilmac91/EarningsNerd/pull/966",
+  "pr_head_sha": "5440fff0398b5d40a363c8f28968f60a4943848e",
+  "main_sha": "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+  "merged_at": "2026-09-27T02:09:06Z",
+  "main_ci": {
+    "run_id": 36287670902,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36287670902",
+    "head_sha": "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+    "status": "completed",
+    "conclusion": "success",
+    "updated_at": "2026-09-27T02:13:50Z"
+  },
+  "vercel": {
+    "context": "Vercel",
+    "state": "success",
+    "description": "Deployment has completed",
+    "observed_at": "2026-09-27T02:09:46Z",
+    "target_url": "https://vercel.com/neil-mac-aogains-projects/earnings-nerd/35pU6WCcyCprAaRDAGigxhMwK9fg"
+  },
+  "backend_deploy": {
+    "job_id": 108532071114,
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-09-27T02:13:49Z",
+    "backend_changed": false,
+    "deployment_performed": false,
+    "log_observation_at": "2026-09-27T02:13:47.1563654Z",
+    "log_observation": "No backend changes - skipping deploy."
+  },
+  "retained_files": {
+    "pr966-main-deploy.log": "e7ea0ad987f494627fe2c77e918e9d3612aabf4460a5a451b70190649a1762e3"
+  },
+  "verified_at": "2026-09-27T02:22:39Z",
+  "limitations": [
+    "This is a frontend release. The main workflow did not deploy a backend revision or run migrations.",
+    "Pre-release artifact and build checks are recorded separately from the post-release cached production UI observations.",
+    "The production cached UI observations were made by the root operator and are retained in post-release-cache-check.json."
+  ]
+}

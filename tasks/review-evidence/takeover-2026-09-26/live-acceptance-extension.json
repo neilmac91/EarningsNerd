@@ -1,0 +1,59 @@
+{
+  "observed_at_utc": "2026-09-27T01:46:00Z",
+  "url": "https://www.earningsnerd.io/analysis",
+  "account": "founder-signed-in",
+  "production_backend": "537bf59b923922d2215ae1399920756e014bd4e5",
+  "checks": [
+    {
+      "company": "AAPL",
+      "periods": [
+        "FY2024",
+        "FY2025"
+      ],
+      "cached": true,
+      "source_links": 17,
+      "numeric_warning_missing_before_cache_fix": true,
+      "same_narrative_as_fresh": true,
+      "citation_navigation": "Citation 1 moved viewport to matching Revenue 416161000000 FY2025 source entry; no external SEC-link audit",
+      "excel": "annual-xlsx-validation.json"
+    },
+    {
+      "company": "AAPL",
+      "periods": [
+        "2026Q2",
+        "2026Q3"
+      ],
+      "cached_label": false,
+      "source_links": 17,
+      "numeric_mismatch_count": 2,
+      "unreconciled_source": "working_capital 2026Q3",
+      "run_analysis_clicks": 1,
+      "force_refresh_clicks": 0,
+      "pdf": "AAPL-2026Q2-2026Q3.pdf",
+      "pdf_pages": 4,
+      "pdf_visual_review": "All four pages rendered and inspected. Narrative, metrics, 17 source entries and unreconciled warning readable; no layout defect established.",
+      "excel": "quarterly-export-inspection.json",
+      "quality_observation": {
+        "narrative": "current ratio exactly 1.00x; no cushion",
+        "raw_ratio_in_downloaded_workbook": 1.003294804655586,
+        "reported_current_assets": 149818000000,
+        "reported_current_liabilities": 149326000000,
+        "difference": 492000000,
+        "disposition": "Rounded value treated as exact equality. Retain as ordinary product-quality finding, not a formal E7 verdict; original narrative and exports preserved."
+      }
+    },
+    {
+      "company": "NVO",
+      "ui_message": "This company reports under IFRS (foreign filer). Multi-period analysis for IFRS filers is coming later.",
+      "disposition": "Explicit unsupported boundary; no narrative generation requested, no fabricated zero metrics."
+    }
+  ],
+  "limitations": [
+    "Not a frozen E7 holdout or acceptance verdict",
+    "No independent SEC-source audit of the financial numbers",
+    "No native Excel rendering review",
+    "No free-tier or payment flow check",
+    "One AAPL annual and one quarterly window; NVO proves unsupported messaging only",
+    "Cache and visible-warning post-release checks pending"
+  ]
+}
