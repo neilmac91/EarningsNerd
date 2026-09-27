@@ -230,3 +230,108 @@ def test_member_ledger_dispositions_every_member_and_proves_only_hash_linkages(t
     with pytest.raises(ValueError, match="exactly one disposition per mapped member"):
         build_member_ledger(accession_number=ACCESSION, submission=SUBMISSION, document_map=document_map,
                             dispositions=dispositions[:-1], unit_manifests=[manifest])
+
+
+def test_authoritative_attachment_supplement_binds_strict_invalid_member_without_claiming_decode(
+    tmp_path: Path,
+) -> None:
+    filing_cik = "320193"  # Deliberately differs from the synthetic accession's first ten digits.
+    encoded = _uuencode(IMAGE, "g1.jpg")
+    first_line = encoded.split(b"\n")[1]
+    invalid_encoded = encoded.replace(first_line, first_line[:-1], 1)
+    submission = (
+        b"<SEC-DOCUMENT>0000000000-26-000001.txt\n"
+        b"<SEC-HEADER>\nCENTRAL INDEX KEY: 0000320193\n</SEC-HEADER>\n"
+        + _document("GRAPHIC", 1, "g1.jpg", invalid_encoded)
+        + b"</SEC-DOCUMENT>\n"
+    )
+    document_map = _document_map(tmp_path, submission)
+    unresolved = [{"kind": "unresolved", "reason": "invalid_encoding"}]
+    v1 = build_member_ledger(
+        accession_number=ACCESSION, submission=submission, document_map=document_map,
+        dispositions=unresolved, unit_manifests=[],
+    )
+    member = v1["members"][0]
+    assert (member["encoding"], member["decoded"]) == ("invalid_uuencode", None)
+
+    packets = [{"role": "graphic", "sha256": _sha(IMAGE), "byte_length": len(IMAGE)}]
+    manifest = build_unit_manifest(
+        accession_number=ACCESSION, packets=packets, packet_bytes={"graphic": IMAGE},
+        units=[{"packet_role": "graphic", "structural_kind": "binary_image",
+                "registrant_scope": "registrant", "coverage_spans": [{"start": 0, "end": len(IMAGE)}],
+                "context_spans": []}],
+    )
+    manifest_sha = _sha(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("ascii"))
+    url = "https://www.sec.gov/Archives/edgar/data/320193/000000000026000001/g1.jpg"
+    supplement = {
+        "member_id": member["member_id"],
+        "ordinal": 1,
+        "declared_filename": "g1.jpg",
+        "frozen_encoded_sha256": member["content"]["sha256"],
+        "requested_url": url,
+        "final_url": url,
+        "status_code": 200,
+        "representation": "httpx_identity_entity_bytes",
+        "byte_length": len(IMAGE),
+        "sha256": _sha(IMAGE),
+        "transport_owner_sha256": "b" * 64,
+    }
+    disposition = [{"kind": "assigned_to_review_units", "unit_manifest_sha256": manifest_sha,
+                    "packet_role": "graphic", "representation": "authoritative_attachment"}]
+    pristine = copy.deepcopy((document_map, manifest, supplement, disposition))
+    ledger = build_member_ledger(
+        accession_number=ACCESSION, submission=submission, document_map=document_map,
+        dispositions=disposition, unit_manifests=[manifest],
+        authoritative_supplements=[supplement],
+        authoritative_attachment_bytes={member["member_id"]: IMAGE}, filing_cik=filing_cik,
+    )
+    assert (document_map, manifest, supplement, disposition) == pristine
+    assert ledger["schema_version"] == 2
+    assert ledger["members"][0]["decoded"] is None
+    assert "successful decode" in ledger["limitations"][-2]
+    assert all(ledger[flag] is False for flag in FLAGS)
+    summary = validate_member_ledger(
+        json.loads(json.dumps(ledger)), accession_number=ACCESSION, submission=submission,
+        document_map=document_map, unit_manifests=[manifest],
+        authoritative_attachment_bytes={member["member_id"]: IMAGE}, filing_cik=filing_cik,
+    )
+    assert summary["schema_version"] == 2
+    assert summary["authoritative_supplement_count"] == 1
+    assert summary["unresolved_member_ids"] == []
+    assert summary["limitations"] == ledger["limitations"]
+    assert all(summary[flag] is False for flag in FLAGS)
+
+    def rejected(changed: dict[str, Any], message: str, *, bodies: Any = None, cik: Any = filing_cik) -> None:
+        with pytest.raises(ValueError, match=message):
+            validate_member_ledger(
+                changed, accession_number=ACCESSION, submission=submission, document_map=document_map,
+                unit_manifests=[manifest],
+                authoritative_attachment_bytes=({member["member_id"]: IMAGE} if bodies is None else bodies),
+                filing_cik=cik,
+            )
+
+    wrong_url = copy.deepcopy(ledger)
+    wrong_url["authoritative_supplements"][0]["final_url"] = url + "?download=1"
+    rejected(wrong_url, "exact same-filing")
+    wrong_hash = copy.deepcopy(ledger)
+    wrong_hash["authoritative_supplements"][0]["sha256"] = "0" * 64
+    rejected(wrong_hash, "bytes do not match")
+    wrong_member = copy.deepcopy(ledger)
+    wrong_member["authoritative_supplements"][0]["frozen_encoded_sha256"] = "0" * 64
+    rejected(wrong_member, "frozen member identity")
+    rejected(ledger, "trusted filing CIK", cik="18230")
+    body_only_cik = submission.replace(
+        b"CENTRAL INDEX KEY: 0000320193\n", b"",
+    ).replace(
+        b"<TEXT>\n", b"<TEXT>\nCENTRAL INDEX KEY: 0000320193\n", 1,
+    )
+    with pytest.raises(ValueError, match="trusted filing CIK"):
+        validate_member_ledger(
+            ledger, accession_number=ACCESSION, submission=body_only_cik,
+            document_map=_document_map(tmp_path, body_only_cik), unit_manifests=[manifest],
+            authoritative_attachment_bytes={member["member_id"]: IMAGE}, filing_cik=filing_cik,
+        )
+    rejected(ledger, "bytes do not match their declared identity", bodies={})
+    unused = copy.deepcopy(ledger)
+    unused["members"][0]["disposition"] = {"kind": "unresolved", "reason": "invalid_encoding"}
+    rejected(unused, "exactly match their member dispositions")

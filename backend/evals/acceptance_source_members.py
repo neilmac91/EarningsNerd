@@ -11,17 +11,23 @@ coverage status or admission; unresolved members stay visible and hold completio
 from __future__ import annotations
 
 import binascii
+import copy
 import hashlib
 import json
 import re
 from typing import Any
+from urllib.parse import quote
+
+from app.utils.sec_urls import build_sec_archive_url, normalize_cik
 
 
 SCHEMA_VERSION = 1
+AUTHORITATIVE_SCHEMA_VERSION = 2
 LEDGER_KIND = "e7_offline_source_member_ledger"
 VALIDATION_KIND = "e7_offline_source_member_validation"
 DISPOSITIONS = ("assigned_to_review_units", "exact_duplicate", "declared_non_content_packaging", "unresolved")
 REPRESENTATIONS = ("payload", "trimmed_payload", "content", "decoded")
+AUTHORITATIVE_REPRESENTATIONS = (*REPRESENTATIONS, "authoritative_attachment")
 # Any change to these strings, the flags, the dispositions or any key set requires a new schema_version.
 LIMITATIONS = (
     "Member enumeration follows the existing document map's SGML parse; only the mapped byte spans are re-verified here.",
@@ -29,6 +35,10 @@ LIMITATIONS = (
     "Declared non-content packaging and every label are unverified declarations and hold completion; only exact duplicates are hash-proven.",
     "Tables, inline-XBRL facts (including hidden facts) and images inside members are not inventoried or dispositioned.",
     "No source review, E7 coverage_status or E7 admission is attested; unresolved members hold completion.",
+)
+AUTHORITATIVE_LIMITATIONS = (*LIMITATIONS,
+    "Current authoritative attachment bytes are a supplement, not a successful decode of the frozen encoded member or proof that SEC served identical bytes at freeze time.",
+    "The recorded transport-owner SHA-256 is provenance only; it does not establish source review, correctness, completeness or admission.",
 )
 ATTESTATION_FLAGS = (
     "semantic_review_attested",
@@ -46,6 +56,7 @@ _UU_HEADER = re.compile(rb"begin [0-7]{3,4} [^\r\n]+")
 _LEDGER_KEYS = frozenset({
     "schema_version", "kind", "accession_number", "submission", "members", "limitations", *ATTESTATION_FLAGS,
 })
+_AUTHORITATIVE_LEDGER_KEYS = _LEDGER_KEYS | {"authoritative_supplements"}
 _SUBMISSION_KEYS = frozenset({"sha256", "byte_length", "member_count"})
 _MEMBER_KEYS = frozenset({
     "member_id", "ordinal", "declared_type", "declared_filename", "declared_sequence",
@@ -53,6 +64,11 @@ _MEMBER_KEYS = frozenset({
 })
 _SPAN_KEYS = frozenset({"start", "end", "sha256"})
 _DECODED_KEYS = frozenset({"sha256", "byte_length"})
+_SUPPLEMENT_KEYS = frozenset({
+    "member_id", "ordinal", "declared_filename", "frozen_encoded_sha256",
+    "requested_url", "final_url", "status_code", "representation", "byte_length",
+    "sha256", "transport_owner_sha256",
+})
 _DISPOSITION_KEYS = {
     "assigned_to_review_units": frozenset({"kind", "unit_manifest_sha256", "packet_role", "representation"}),
     "exact_duplicate": frozenset({"kind", "duplicate_of_ordinal"}),
@@ -212,7 +228,85 @@ def _members(accession: str, submission: bytes, document_map: Any) -> list[dict[
     return members
 
 
-def _representation_sha(member: dict[str, Any], representation: str) -> str | None:
+def _header_cik(submission: bytes, expected: Any) -> str:
+    cik = normalize_cik(expected)
+    document_start = submission.find(b"<DOCUMENT>")
+    header_start = submission.find(b"<SEC-HEADER>")
+    header_end = submission.find(b"</SEC-HEADER>", header_start + 1)
+    if (header_start < 0 or header_end < 0 or document_start < 0
+            or not header_start < header_end < document_start
+            or submission.find(b"<SEC-HEADER>", header_start + 1, document_start) >= 0
+            or submission.find(b"</SEC-HEADER>", header_end + 1, document_start) >= 0):
+        raise ValueError("frozen submission has no unambiguous SEC-HEADER before its documents")
+    header = submission[header_start + len(b"<SEC-HEADER>"):header_end]
+    matches = re.findall(rb"(?:^\s*CENTRAL INDEX KEY:\s*|<CIK>)([0-9]+)", header, re.MULTILINE)
+    normalized = {str(int(value)) for value in matches}
+    if normalized != {cik}:
+        raise ValueError("trusted filing CIK does not match the frozen submission header")
+    return cik
+
+
+def _authoritative_supplements(
+    accession: str,
+    submission: bytes,
+    members: list[dict[str, Any]],
+    supplements: Any,
+    supplied_bytes: Any,
+    filing_cik: Any,
+) -> dict[str, dict[str, Any]]:
+    """Bind current same-filing bytes to strict-invalid frozen member identities."""
+    if type(supplements) is not list or not supplements:
+        raise ValueError("authoritative_supplements must be a non-empty list")
+    if type(supplied_bytes) is not dict or any(type(key) is not str for key in supplied_bytes):
+        raise ValueError("authoritative attachment bytes must map member_id to immutable bytes")
+    cik = _header_cik(submission, filing_cik)
+    by_id = {member["member_id"]: member for member in members}
+    resolved: dict[str, dict[str, Any]] = {}
+    last_ordinal = 0
+    for record in supplements:
+        _object(record, _SUPPLEMENT_KEYS, "authoritative supplement")
+        member_id = _token(record["member_id"], _SHA256, "authoritative member_id")
+        member = by_id.get(member_id)
+        if member is None or member_id in resolved:
+            raise ValueError("authoritative supplement member_id must name one unique frozen member")
+        if type(record["ordinal"]) is not int or record["ordinal"] != member["ordinal"] or record["ordinal"] <= last_ordinal:
+            raise ValueError("authoritative supplements must follow frozen member ordinal order")
+        last_ordinal = record["ordinal"]
+        if (record["declared_filename"] != member["declared_filename"]
+                or record["frozen_encoded_sha256"] != member["content"]["sha256"]):
+            raise ValueError("authoritative supplement does not match the frozen member identity")
+        if member["encoding"] != "invalid_uuencode" or member["decoded"] is not None:
+            raise ValueError("authoritative supplements apply only to strict-invalid encoded members")
+        filename = member["declared_filename"]
+        if (filename in {".", ".."} or len(filename.encode("utf-8")) > 255
+                or any(char in "/\\?#" or ord(char) < 32 or ord(char) == 127 for char in filename)):
+            raise ValueError("authoritative supplement filename is not a safe path segment")
+        expected_url = build_sec_archive_url(cik, accession) + quote(filename, safe="-._~")
+        if record["requested_url"] != expected_url or record["final_url"] != expected_url:
+            raise ValueError("authoritative supplement URL is not the exact same-filing attachment")
+        if type(record["status_code"]) is not int or record["status_code"] != 200:
+            raise ValueError("authoritative supplement status_code must be 200")
+        if record["representation"] != "httpx_identity_entity_bytes":
+            raise ValueError("authoritative supplement representation must be identity entity bytes")
+        _token(record["sha256"], _SHA256, "authoritative attachment sha256")
+        _token(record["transport_owner_sha256"], _SHA256, "transport owner sha256")
+        data = supplied_bytes.get(member_id)
+        if (type(data) is not bytes or type(record["byte_length"]) is not int
+                or record["byte_length"] < 1 or len(data) != record["byte_length"]
+                or _sha(data) != record["sha256"]):
+            raise ValueError("authoritative attachment bytes do not match their declared identity")
+        resolved[member_id] = record
+    if set(supplied_bytes) != set(resolved):
+        raise ValueError("authoritative attachment bytes differ from the declared supplement set")
+    return resolved
+
+
+def _representation_sha(
+    member: dict[str, Any], representation: str, supplements: dict[str, dict[str, Any]],
+) -> str | None:
+    if representation == "authoritative_attachment":
+        record = supplements.get(member["member_id"])
+        return None if record is None else record["sha256"]
     if representation == "decoded":
         return None if member["decoded"] is None else member["decoded"]["sha256"]
     return member[representation]["sha256"]
@@ -223,6 +317,8 @@ def _check_dispositions(
     members: list[dict[str, Any]],
     dispositions: list[dict[str, Any]],
     unit_manifests: Any,
+    representations: tuple[str, ...],
+    supplements: dict[str, dict[str, Any]],
 ) -> None:
     """Enforce one well-formed disposition per member and every hash-provable linkage."""
     if type(unit_manifests) is not list:
@@ -253,9 +349,9 @@ def _check_dispositions(
             _token(disposition["unit_manifest_sha256"], _SHA256, "unit_manifest_sha256")
             role = _token(disposition["packet_role"], _LABEL, "packet_role")
             representation = disposition["representation"]
-            if type(representation) is not str or representation not in REPRESENTATIONS:
+            if type(representation) is not str or representation not in representations:
                 raise ValueError("invalid member representation")
-            expected = _representation_sha(member, representation)
+            expected = _representation_sha(member, representation, supplements)
             packets = manifest_packets.get(disposition["unit_manifest_sha256"])
             if expected is None or packets is None or packets.get(role) != expected:
                 raise ValueError(f"member {member['ordinal']} is not the named unit-manifest packet's exact bytes")
@@ -277,6 +373,11 @@ def _check_dispositions(
             _token(disposition["basis"], _LABEL, "packaging basis")
         else:
             _token(disposition["reason"], _LABEL, "unresolved reason")
+    used_supplements = {member["member_id"] for member, disposition in zip(members, dispositions)
+                        if disposition["kind"] == "assigned_to_review_units"
+                        and disposition["representation"] == "authoritative_attachment"}
+    if used_supplements != set(supplements):
+        raise ValueError("authoritative supplements must exactly match their member dispositions")
 
 
 def _disposition(value: Any) -> dict[str, Any]:
@@ -292,6 +393,8 @@ def validate_member_ledger(
     submission: Any,
     document_map: Any,
     unit_manifests: Any,
+    authoritative_attachment_bytes: Any = None,
+    filing_cik: Any = None,
 ) -> dict[str, Any]:
     """Recompute every member from the submission bytes and document map; never repair or reorder.
 
@@ -302,19 +405,35 @@ def validate_member_ledger(
     expected_accession = _token(accession_number, _ACCESSION, "expected accession_number")
     if type(submission) is not bytes or not submission:
         raise ValueError("submission must be non-empty immutable bytes")
-    _object(ledger, _LEDGER_KEYS, "source member ledger")
-    version, kind = ledger["schema_version"], ledger["kind"]
-    if type(version) is not int or version != SCHEMA_VERSION or type(kind) is not str or kind != LEDGER_KIND:
+    if type(ledger) is not dict or any(type(key) is not str for key in ledger):
+        raise ValueError("source member ledger must be an object")
+    version, kind = ledger.get("schema_version"), ledger.get("kind")
+    if type(version) is not int or version not in {SCHEMA_VERSION, AUTHORITATIVE_SCHEMA_VERSION} \
+            or type(kind) is not str or kind != LEDGER_KIND:
         raise ValueError("unsupported source member ledger version or kind")
+    _object(ledger, _LEDGER_KEYS if version == SCHEMA_VERSION else _AUTHORITATIVE_LEDGER_KEYS,
+            "source member ledger")
     if any(ledger[flag] is not False for flag in ATTESTATION_FLAGS):
         raise ValueError("a source member ledger cannot attest review, completeness or admission")
     limitations = ledger["limitations"]
-    if type(limitations) is not list or any(type(item) is not str for item in limitations) or limitations != list(LIMITATIONS):
+    expected_limitations = LIMITATIONS if version == SCHEMA_VERSION else AUTHORITATIVE_LIMITATIONS
+    if type(limitations) is not list or any(type(item) is not str for item in limitations) or limitations != list(expected_limitations):
         raise ValueError("source member ledger limitations differ from this format")
     accession = _token(ledger["accession_number"], _ACCESSION, "accession_number")
     if accession != expected_accession:
         raise ValueError("source member ledger declares a different accession")
     members = _members(accession, submission, document_map)
+    if version == SCHEMA_VERSION:
+        if authoritative_attachment_bytes is not None or filing_cik is not None:
+            raise ValueError("schema-1 source member ledger cannot use authoritative supplements")
+        supplements: dict[str, dict[str, Any]] = {}
+        representations = REPRESENTATIONS
+    else:
+        supplements = _authoritative_supplements(
+            accession, submission, members, ledger["authoritative_supplements"],
+            authoritative_attachment_bytes, filing_cik,
+        )
+        representations = AUTHORITATIVE_REPRESENTATIONS
     expected_submission = {"sha256": _sha(submission), "byte_length": len(submission), "member_count": len(members)}
     if not _same(_object(ledger["submission"], _SUBMISSION_KEYS, "submission"), expected_submission):
         raise ValueError("ledger submission identity does not match the supplied bytes and document map")
@@ -329,10 +448,10 @@ def validate_member_ledger(
             if not _same(entry[field], member[field]):
                 raise ValueError(f"member {member['ordinal']} {field} does not match the submission bytes")
         dispositions.append(disposition)
-    _check_dispositions(accession, members, dispositions, unit_manifests)
+    _check_dispositions(accession, members, dispositions, unit_manifests, representations, supplements)
     counts = {kind: sum(1 for disposition in dispositions if disposition["kind"] == kind) for kind in DISPOSITIONS}
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": version,
         "kind": VALIDATION_KIND,
         "ledger_sha256": _sha(_canonical(ledger)),
         "accession_number": accession,
@@ -346,8 +465,9 @@ def validate_member_ledger(
         "unproven_packaging_member_ids": [entry["member_id"] for entry, disposition in zip(recorded, dispositions)
                                           if disposition["kind"] == "declared_non_content_packaging"],
         "every_member_dispositioned": True,
+        **({"authoritative_supplement_count": len(supplements)} if version == AUTHORITATIVE_SCHEMA_VERSION else {}),
         **{flag: False for flag in ATTESTATION_FLAGS},
-        "limitations": list(LIMITATIONS),
+        "limitations": list(expected_limitations),
     }
 
 
@@ -358,6 +478,9 @@ def build_member_ledger(
     document_map: Any,
     dispositions: Any,
     unit_manifests: Any,
+    authoritative_supplements: Any = None,
+    authoritative_attachment_bytes: Any = None,
+    filing_cik: Any = None,
 ) -> dict[str, Any]:
     """Build the ledger in member ordinal order from one disposition per member, then validate it."""
     accession = _token(accession_number, _ACCESSION, "accession_number")
@@ -368,15 +491,22 @@ def build_member_ledger(
         raise ValueError("supply exactly one disposition per mapped member, in ordinal order")
     entries = [{**member, "disposition": dict(_disposition(disposition))}
                for member, disposition in zip(members, dispositions)]
+    version = SCHEMA_VERSION if authoritative_supplements is None else AUTHORITATIVE_SCHEMA_VERSION
+    if version == SCHEMA_VERSION and (authoritative_attachment_bytes is not None or filing_cik is not None):
+        raise ValueError("authoritative supplement inputs must be supplied together")
     ledger = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": version,
         "kind": LEDGER_KIND,
         "accession_number": accession,
         "submission": {"sha256": _sha(submission), "byte_length": len(submission), "member_count": len(members)},
         "members": entries,
         **{flag: False for flag in ATTESTATION_FLAGS},
-        "limitations": list(LIMITATIONS),
+        "limitations": list(LIMITATIONS if version == SCHEMA_VERSION else AUTHORITATIVE_LIMITATIONS),
     }
+    if version == AUTHORITATIVE_SCHEMA_VERSION:
+        ledger["authoritative_supplements"] = copy.deepcopy(authoritative_supplements)
     validate_member_ledger(ledger, accession_number=accession, submission=submission,
-                           document_map=document_map, unit_manifests=unit_manifests)
+                           document_map=document_map, unit_manifests=unit_manifests,
+                           authoritative_attachment_bytes=authoritative_attachment_bytes,
+                           filing_cik=filing_cik)
     return ledger
