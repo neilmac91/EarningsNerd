@@ -1,0 +1,66 @@
+{
+  "recorded_date": "2026-09-27",
+  "scope": "Two named filing member partitions; not the 30-filing source programme",
+  "filings": [
+    {
+      "filing": "H02",
+      "member_count": 268,
+      "authoritative_supplement_count": 7,
+      "assigned_frozen_content_members": 261,
+      "assigned_frozen_content_bytes": 76817137,
+      "current_attachment_bytes": 3476655,
+      "disposition_counts": {
+        "assigned_to_review_units": 268,
+        "declared_non_content_packaging": 0,
+        "exact_duplicate": 0,
+        "unresolved": 0
+      },
+      "member_ledger_sha256": "6375b22345c93673fc368b00ea0b1d678259426f7526281093d8bcdbecca5e98",
+      "private_receipt_sha256": "cd2049e22dc57b8a0b31318ef6b0f8fa79f9f3f83c8006a17ec6b432c1edccaf",
+      "private_acquisition_receipt_sha256": "1a733ebadfaf5918f775591cdfff248d139414b5f5377b07adc006b5bee9fb16",
+      "source_sha256": "38548af7359d2d9145c8375285848ea4caded860d5e80ba44f32a8d552aa30af",
+      "member_code_sha256": "ab81938dc3570e6908243e3f6adaa1d074264df740ac6325bca84b5c7688dcd2",
+      "unit_code_sha256": "392752e55458d179ca301ca214ffa33c4ca63475a13db280e10760f9bb48921b",
+      "new_acquisition_successful_calls": 7,
+      "acquisition_preflight_or_failure_history": "H02 first preflight stopped before HTTP; H25 first launch used one failed physical transport attempt before its successful bounded retry. Both original receipts retained.",
+      "semantic_review_attested": false,
+      "modality_completeness_attested": false,
+      "admission_approved": false,
+      "execution_code_status": "H02 requires PR983 candidate 556ab3e1; H25 ran against released 5d8dfe62."
+    },
+    {
+      "filing": "H25",
+      "member_count": 550,
+      "authoritative_supplement_count": 251,
+      "assigned_frozen_content_members": 299,
+      "assigned_frozen_content_bytes": 178447438,
+      "current_attachment_bytes": 86303733,
+      "disposition_counts": {
+        "assigned_to_review_units": 550,
+        "declared_non_content_packaging": 0,
+        "exact_duplicate": 0,
+        "unresolved": 0
+      },
+      "member_ledger_sha256": "990354720880cd8065c5796800706a4d7d27bcdb3ca3f51b2d743ade015c34f6",
+      "private_receipt_sha256": "245659a209567ffe1767393e21337eced666c377628f4e3d68443deb6e1252bc",
+      "private_acquisition_receipt_sha256": "63ee240b85714443311552c0d14059c7c1f2a479038c7f6bd4b63c87826cf1f8",
+      "source_sha256": "877d8eb00ae65e64981e3e3eafee69c519a74e4cfed162109109b95c23432a32",
+      "member_code_sha256": "54e424cb32f5e01e294029349371f9afecdaefae98315d98ef94894a7b7ac42d",
+      "unit_code_sha256": "392752e55458d179ca301ca214ffa33c4ca63475a13db280e10760f9bb48921b",
+      "new_acquisition_successful_calls": 251,
+      "acquisition_preflight_or_failure_history": "H02 first preflight stopped before HTTP; H25 first launch used one failed physical transport attempt before its successful bounded retry. Both original receipts retained.",
+      "semantic_review_attested": false,
+      "modality_completeness_attested": false,
+      "admission_approved": false,
+      "execution_code_status": "H02 requires PR983 candidate 556ab3e1; H25 ran against released 5d8dfe62."
+    }
+  ],
+  "historical_strict_invalid_encoded_status_unchanged": true,
+  "model_api_calls_for_acquisition_and_assignment": 0,
+  "limits": [
+    "Assignment is exact byte custody, not source understanding or review.",
+    "Current authoritative supplements do not prove historical equivalence to the invalid frozen encoded representation.",
+    "Structural roles and registrant scope remain declarations.",
+    "Candidate selection, full source references and E7 admission remain held."
+  ]
+}

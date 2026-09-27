@@ -1,0 +1,16 @@
+{
+  "pull_request": 982,
+  "merge_sha": "5d8dfe62360dc780c0dc6768c551f0b1d89a4339",
+  "main_ci_run": 36342336793,
+  "conclusion": "success",
+  "backend_tests": "success",
+  "frontend_tests": "success",
+  "migrations_postgres": "success",
+  "e2e": "success",
+  "lighthouse": "success",
+  "eval_baseline_job": "skipped",
+  "deploy_backend_job": "success",
+  "deploy_semantics": "Change detection completed; authentication, build, migrations, Cloud Run deploy, job updates and health steps all skipped for the docs-only change.",
+  "production_revision_changed": false,
+  "new_model_generation": false
+}
