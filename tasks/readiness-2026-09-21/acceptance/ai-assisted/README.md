@@ -80,12 +80,14 @@ reference whose SHA must match `artifact_sha256`. The artifact status does not c
 the context: a context may also own a later eligible source brief. All such contexts still enter the
 shared exclusion closure so no downstream blind role can reuse them. A historical origin or
 technical attempt may reuse a current context only for the same accession; current-context
-ownership by another accession fails validation.
+ownership by another accession fails validation. That ownership map includes current source briefs,
+reconciliations, and declared adverse-source evidence.
 
 `technical_attempts` separately binds incomplete source attempts that produced no financial history
 rows. Each declaration fixes its context, role, `partial_ineligible` status, reservation, dispatch,
-and settlement. The validator checks their accession/context chain and reads every draft, brief, and
-read-log named by the settlement. This no-history route requires `issue_count: 0` and an exact empty
+and settlement. The validator checks their accession/context chain and requires the exact
+`draft.json`, `brief.md`, and `read-log.json` artifact leaves, with each retained byte matching its
+settlement hash. This no-history route requires `issue_count: 0` and an exact empty
 `material_issues` array in the bound settlement draft; an attempt with findings must enter the
 origin/ledger route instead. Technical contexts join the exclusion closure despite their zero issue
 count. `source_context_closure_sha256` is SHA256 over the compact, ASCII, sorted JSON

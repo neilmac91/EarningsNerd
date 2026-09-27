@@ -612,6 +612,16 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     technical["settlement"].update(_write(settlement_path, original_settlement))
     technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
 
+    for omitted_artifact in ("brief.md", "read-log.json"):
+        incomplete_settlement = json.loads(json.dumps(original_settlement))
+        del incomplete_settlement["artifacts"][omitted_artifact]
+        technical["settlement"].update(_write(settlement_path, incomplete_settlement))
+        technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+        assert "ai_reconciliation_history_invalid" in {
+            item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        technical["settlement"].update(_write(settlement_path, original_settlement))
+        technical["settlement"]["path"] = str(settlement_path.relative_to(tmp_path))
+
     draft_path = settlement_path.parent / "draft.json"
     original_draft = json.loads(draft_path.read_text())
     draft_path.write_text(json.dumps({"material_issues": [{"issue_id": "omitted"}]}),
@@ -637,7 +647,7 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     first_retained.write_bytes(original_retained_bytes)
 
     other_accession = "0000000002-26-000002"
-    other, _, _, _, _ = _fixture(
+    other, _, _, other_sources, _ = _fixture(
         tmp_path, accession=other_accession, prefix="other-")
     prereq["ai_assisted"]["source_briefs"].extend(
         other["ai_assisted"]["source_briefs"])
@@ -673,6 +683,32 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     record["history_manifest"].update(_write(manifest_path, original_manifest))
     ledger["history_dispositions"][0]["source_context_id"] = original_origin_context
     record["history_ledger"].update(_write(ledger_path, ledger))
+
+    other_reconciliation_context = json.loads((tmp_path / other["ai_assisted"][
+        "reconciled_references"][0]["path"]).read_text())["context_id"]
+    _add_adverse_evidence(
+        tmp_path, other, other_accession, other_sources,
+        reconciliation_context=other_reconciliation_context)
+    prereq["ai_assisted"]["adverse_source_evidence"] = other["ai_assisted"][
+        "adverse_source_evidence"]
+    cross_accession_context = prereq["ai_assisted"]["adverse_source_evidence"][0]["context_id"]
+    origin["context_id"] = cross_accession_context
+    original_manifest["source_exposed_contexts"][0]["context_id"] = cross_accession_context
+    record["history_manifest"].update(_write(manifest_path, original_manifest))
+    ledger["history_dispositions"][0]["source_context_id"] = cross_accession_context
+    record["history_ledger"].update(_write(ledger_path, ledger))
+    record["source_context_closure_sha256"] = _canonical_set_sha256(
+        current_contexts |
+        {row["context_id"] for row in record["origin_contexts"]} |
+        {row["context_id"] for row in record["technical_attempts"]})
+    with pytest.raises(ValueError, match="owned by another accession"):
+        ai_review_evidence_inventory(path, prereq)
+    origin["context_id"] = original_origin_context
+    original_manifest["source_exposed_contexts"][0]["context_id"] = original_manifest_context
+    record["history_manifest"].update(_write(manifest_path, original_manifest))
+    ledger["history_dispositions"][0]["source_context_id"] = original_origin_context
+    record["history_ledger"].update(_write(ledger_path, ledger))
+    del prereq["ai_assisted"]["adverse_source_evidence"]
     del prereq["ai_assisted"]["source_briefs"][-2:]
     del prereq["ai_assisted"]["reconciled_references"][-1:]
     record["source_context_closure_sha256"] = _canonical_set_sha256(

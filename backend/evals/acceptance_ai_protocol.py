@@ -218,6 +218,24 @@ def _reconciliation_history_inventory(
             reference.get("context_id"), accession, "current reconciliation context_id")
         reconciliations[accession] = (row, reference)
 
+    if "adverse_source_evidence" in ai:
+        from evals.acceptance_ai_adverse import _ROW_KEYS, inventory_rows
+
+        adverse_rows = ai["adverse_source_evidence"]
+        if not isinstance(adverse_rows, list) or not adverse_rows:
+            raise ValueError("adverse source evidence must be a non-empty list")
+        inventory_rows(base, adverse_rows, _artifact)
+        for row in adverse_rows:
+            accession = row.get("accession_number") if isinstance(row, dict) else None
+            reconciliation = reconciliations.get(accession, ({}, {}))[1]
+            if (not isinstance(row, dict) or set(row) != _ROW_KEYS or
+                    row.get("role") != "source_reference_b" or
+                    row.get("terminal_status") != "compacted_ineligible" or
+                    row.get("reconciliation_context_id") != reconciliation.get("context_id")):
+                raise ValueError("history adverse source identity differs")
+            bind_current_context(
+                row.get("context_id"), accession, "adverse source context_id")
+
     inventory: list[dict[str, Any]] = []
     all_history_contexts: set[str] = set()
     runtime_holds = 0
@@ -427,21 +445,20 @@ def _reconciliation_history_inventory(
                     not settlement["artifacts"]):
                 raise ValueError("reconciliation history technical custody differs")
             child_inventory: list[dict[str, Any]] = []
-            draft_seen = False
+            settlement_artifacts = settlement["artifacts"]
+            if (any(not _nonempty(path) or not isinstance(sha256, str) or
+                    _SHA256.fullmatch(sha256) is None
+                    for path, sha256 in settlement_artifacts.items()) or
+                    sorted(Path(path).name for path in settlement_artifacts) !=
+                    ["brief.md", "draft.json", "read-log.json"]):
+                raise ValueError("technical settlement child declaration incomplete")
             for path, sha256 in settlement["artifacts"].items():
-                if (not _nonempty(path) or not isinstance(sha256, str) or
-                        _SHA256.fullmatch(sha256) is None):
-                    raise ValueError("technical settlement child declaration invalid")
                 child, child_value = _child_artifact(
                     base, settlement_reference, {"path": path, "sha256": sha256})
                 if Path(path).name == "draft.json":
-                    if (draft_seen or child_value is None or
-                            child_value.get("material_issues") != []):
+                    if child_value is None or child_value.get("material_issues") != []:
                         raise ValueError("technical settlement draft contains retained issues")
-                    draft_seen = True
                 child_inventory.append(child)
-            if not draft_seen:
-                raise ValueError("technical settlement draft missing")
             technical_contexts.add(context_id)
             all_history_contexts.add(context_id)
             technical_inventory.append({
