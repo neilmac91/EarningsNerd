@@ -1,6 +1,6 @@
 {
   "files": {
-    ".github/workflows/ci.yml": "d76f24a192099d35d0baa37a3a669f6f4e757a64676cee38dde3f38e692745fb",
+    ".github/workflows/ci.yml": "652deb8fa1692ca91cb9f7458ab8619f67b5b9030d357cccc0176da8c1508896",
     "backend/scripts/thinking_low_pilot/README.md": "4945b026f9aa34808f08158b2aa71d654f161a049677cee3db5e6e1d5ced193b",
     "backend/scripts/thinking_low_pilot/finalize_state.py": "76346ec6f3a5f298a5455ba721024687ad37f3efcbc01ffee8cb85e705527ef0",
     "backend/scripts/thinking_low_pilot/inputs/FIGS-10-Q.json": "4c70becf937236b7ac4ee7c24e0f47b96eb81a18294330fabe74206afab9b871",

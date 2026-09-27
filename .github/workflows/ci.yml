@@ -692,9 +692,9 @@ jobs:
     env:
       CAPSULE_ROOT: ${{ github.workspace }}/capsule
       SUBJECT_ROOT: ${{ github.workspace }}/subject
-      STATE_DIR: ${{ runner.temp }}/pilot-state
-      EVIDENCE_DIR: ${{ runner.temp }}/pilot-evidence
-      PREVIOUS_DIR: ${{ runner.temp }}/previous-state
+      STATE_DIR: ${{ github.workspace }}/pilot-state
+      EVIDENCE_DIR: ${{ github.workspace }}/pilot-evidence
+      PREVIOUS_DIR: ${{ github.workspace }}/previous-state
     steps:
       - name: Checkout frozen diagnostic capsule
         uses: actions/checkout@v7
@@ -831,7 +831,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: thinking-low-pilot-state
-          path: ${{ runner.temp }}/previous-state
+          path: ${{ github.workspace }}/previous-state
           github-token: ${{ github.token }}
           run-id: ${{ inputs.previous_run_id }}
 
@@ -905,7 +905,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: thinking-low-pilot-state
-          path: ${{ runner.temp }}/pilot-state
+          path: ${{ github.workspace }}/pilot-state
           if-no-files-found: warn
           retention-days: 30
 
@@ -914,7 +914,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: thinking-low-pilot-evidence
-          path: ${{ runner.temp }}/pilot-evidence
+          path: ${{ github.workspace }}/pilot-evidence
           if-no-files-found: error
           retention-days: 30
 
