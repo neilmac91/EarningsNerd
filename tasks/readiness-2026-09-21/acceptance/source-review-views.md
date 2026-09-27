@@ -30,8 +30,10 @@ not create a `review.txt` file.
 Unknown declarations (including CDATA), ambiguous spans, invalid UTF-8 and markup requiring
 unsupported implicit element boundaries are rejected. The reader requires explicit closes
 for content elements; only trailing `html`/`body` wrapper closes may be omitted. It rejects
-non-void self-closing tags, including foreign/XML forms, instead of approximating browser
-repair or namespace semantics. Properly closed nested lists and tables remain supported.
+non-void self-closing tags in ordinary HTML instead of approximating browser repair or
+namespace semantics. An XML-declared source is accepted as strict XHTML only after complete
+well-formedness and XHTML-root validation; in that mode, exact XML empty elements are
+retained with their source spans. Properly closed nested lists and tables remain supported.
 An existing output is never overwritten.
 
 The module is a review aid only. It has no path to enable paid execution or mark a source

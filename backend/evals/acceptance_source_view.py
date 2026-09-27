@@ -11,6 +11,7 @@ import hashlib
 import html
 import json
 import re
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,12 @@ HIDDEN_STYLE = re.compile(
     r"\s*(?:!\s*important\s*)?(?:;|$)",
     re.I,
 )
+XML_DECLARATION_START = re.compile(br"<\?xml[\t\n\r ]")
+XML_DECLARATION_ENCODING = re.compile(
+    br"\bencoding[\t\n\r ]*=[\t\n\r ]*(['\"])([^'\"]+)\1",
+    re.I,
+)
+XHTML_ROOT_TAG = "{http://www.w3.org/1999/xhtml}html"
 
 
 def _sha(data: bytes) -> str:
@@ -58,11 +65,64 @@ def _span(raw: bytes, start: int, end: int) -> dict[str, Any]:
     return {"start": start, "end": end, "bytes": end - start, "sha256": _sha(payload)}
 
 
+class _StrictXhtmlTarget:
+    """Validate XML and retain only its expanded root name."""
+
+    def __init__(self) -> None:
+        self.root_tag: str | None = None
+
+    def start(self, tag: str, attrs: dict[str, str]) -> None:
+        del attrs
+        if self.root_tag is None:
+            self.root_tag = tag
+
+    def end(self, tag: str) -> None:
+        del tag
+
+    def data(self, data: str) -> None:
+        del data
+
+    def doctype(self, name: str, public_id: str | None, system_id: str | None) -> None:
+        del name, public_id, system_id
+        raise ValueError("XML/XHTML source must not contain a DTD")
+
+    def close(self) -> str | None:
+        return self.root_tag
+
+
+def _is_strict_xhtml(raw: bytes) -> bool:
+    if XML_DECLARATION_START.match(raw) is None:
+        return False
+    declaration_end = raw.find(b"?>")
+    if declaration_end == -1:
+        raise ValueError("XML/XHTML source is not well formed")
+    encoding_match = XML_DECLARATION_ENCODING.search(raw[:declaration_end])
+    if encoding_match is not None:
+        declared_encoding = encoding_match.group(2).lower()
+        if declared_encoding != b"utf-8" and not (
+            declared_encoding == b"ascii" and raw.isascii()
+        ):
+            raise ValueError("XML/XHTML declaration encoding must be UTF-8 or byte-valid ASCII")
+    target = _StrictXhtmlTarget()
+    parser = ET.XMLParser(target=target)
+    try:
+        parser.feed(raw)
+        root_tag = parser.close()
+    except ET.ParseError as exc:
+        raise ValueError(
+            "XML/XHTML source is not well formed; no html or body element was validated"
+        ) from exc
+    if root_tag != XHTML_ROOT_TAG:
+        raise ValueError("XML source root is not XHTML html")
+    return True
+
+
 class _ProjectionParser(HTMLParser):
-    def __init__(self, raw: bytes, text: str) -> None:
+    def __init__(self, raw: bytes, text: str, *, strict_xhtml: bool) -> None:
         super().__init__(convert_charrefs=False)
         self.raw = raw
         self.text = text
+        self.strict_xhtml = strict_xhtml
         self.char_bytes = [0]
         for char in text:
             self.char_bytes.append(self.char_bytes[-1] + len(char.encode("utf-8")))
@@ -285,7 +345,13 @@ class _ProjectionParser(HTMLParser):
             state["cell"] = None
             state["row"] = None
 
-    def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
+    def _handle_starttag(
+        self,
+        tag: str,
+        attrs_list: list[tuple[str, str | None]],
+        *,
+        empty_element: bool,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         del attrs_list
         tag = tag.lower()
         self._validate_start_boundary(tag)
@@ -377,10 +443,14 @@ class _ProjectionParser(HTMLParser):
                     "alt": values.get("alt"),
                 }
             )
-        if tag not in VOID_TAGS:
+        if (self.strict_xhtml or tag not in VOID_TAGS) and not empty_element:
             self.element_stack.append(element)
             if tag == "p":
                 self.open_p_count += 1
+        return event, element
+
+    def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
+        self._handle_starttag(tag, attrs_list, empty_element=False)
 
     @staticmethod
     def _span_value(values: dict[str, str | None], name: str) -> int:
@@ -390,9 +460,36 @@ class _ProjectionParser(HTMLParser):
         return int(raw_value)
 
     def handle_startendtag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
-        if tag.lower() not in VOID_TAGS:
-            self._reject_unsupported_implicit_boundary(f"self-closing non-void <{tag.lower()}/>")
-        self.handle_starttag(tag, attrs_list)
+        tag = tag.lower()
+        if not self.strict_xhtml and tag not in VOID_TAGS:
+            self._reject_unsupported_implicit_boundary(f"self-closing non-void <{tag}/>")
+        event, element = self._handle_starttag(tag, attrs_list, empty_element=self.strict_xhtml)
+        if not self.strict_xhtml:
+            return
+        element["node"]["end_event_id"] = event["id"]
+        if tag in {"script", "style"}:
+            self.exclusions.append(
+                {
+                    "id": f"X{len(self.exclusions) + 1:05d}",
+                    "kind": tag,
+                    "event_id": event["id"],
+                    "content": _span(self.raw, event["end"], event["end"]),
+                    "included_in_compact_text": False,
+                }
+            )
+        if tag in {"td", "th"} and self.table_stack and self.table_stack[-1]["cell"] is not None:
+            self.table_stack[-1]["cell"]["end_event_id"] = event["id"]
+            self._close_table_part(tag)
+        elif tag == "tr" and self.table_stack and self.table_stack[-1]["row"] is not None:
+            self.table_stack[-1]["row"]["end_event_id"] = event["id"]
+            self._close_table_part(tag)
+        elif tag == "caption" and self.table_stack:
+            self.table_stack[-1]["caption"] = False
+        elif tag == "table":
+            if not self.table_stack:
+                raise ValueError("empty table has no table state")
+            state = self.table_stack.pop()
+            state["table"]["end_event_id"] = event["id"]
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
@@ -520,7 +617,8 @@ class _ProjectionParser(HTMLParser):
     def finish(self) -> dict[str, Any]:
         self.close()
         open_tags = [item["tag"] for item in self.element_stack]
-        if open_tags not in ([], ["html"], ["body"], ["html", "body"]):
+        permitted_open_tags = ([],) if self.strict_xhtml else ([], ["html"], ["body"], ["html", "body"])
+        if open_tags not in permitted_open_tags:
             self._reject_unsupported_implicit_boundary(f"EOF with open elements: {', '.join(open_tags)}")
         if self.table_stack:
             raise ValueError("truncated structural markup: open table state")
@@ -825,6 +923,7 @@ def verify_projection(raw: bytes, projection: dict[str, Any]) -> None:
     """Recheck byte identity, event partitioning, unit locators and text projection."""
     if projection.get("source_bytes") != len(raw) or projection.get("source_sha256") != _sha(raw):
         raise ValueError("projection source identity mismatch")
+    strict_xhtml = _is_strict_xhtml(raw)
     cursor = 0
     event_ids: set[str] = set()
     for event in projection.get("events", []):
@@ -839,6 +938,55 @@ def verify_projection(raw: bytes, projection: dict[str, Any]) -> None:
         cursor = end
     if cursor != len(raw):
         raise ValueError("projection event coverage mismatch")
+    events_by_id = {event["id"]: event for event in projection["events"]}
+    event_order = {event["id"]: index for index, event in enumerate(projection["events"])}
+    if strict_xhtml:
+        start_tag_event_ids = [
+            event["id"] for event in projection["events"] if event.get("kind") == "start_tag"
+        ]
+        elements = projection.get("elements", [])
+        element_ids = [element.get("id") for element in elements]
+        element_start_ids = [element.get("start_event_id") for element in elements]
+        if (
+            len(element_ids) != len(set(element_ids))
+            or len(element_start_ids) != len(set(element_start_ids))
+            or set(element_start_ids) != set(start_tag_event_ids)
+        ):
+            raise ValueError("strict XML start-tag element mapping mismatch")
+
+    def verify_structure_boundary(record: dict[str, Any], start_key: str, tag: str) -> None:
+        start_id = record.get(start_key)
+        start_event = events_by_id.get(start_id)
+        if start_event is None or start_event.get("kind") != "start_tag" or start_event.get("tag") != tag:
+            raise ValueError("projection structure start boundary mismatch")
+        end_id = record.get("end_event_id")
+        if end_id is None:
+            if strict_xhtml:
+                raise ValueError("strict XML structure is missing an end boundary")
+            return
+        end_event = events_by_id.get(end_id)
+        if end_event is None:
+            raise ValueError("projection structure end boundary mismatch")
+        if end_id == start_id:
+            source = raw[start_event["start"] : start_event["end"]].rstrip()
+            if not strict_xhtml or not source.endswith(b"/>"):
+                raise ValueError("projection same-event closure is not an XML empty element")
+            return
+        if (
+            end_event.get("kind") != "end_tag"
+            or end_event.get("tag") != tag
+            or event_order[end_id] <= event_order[start_id]
+        ):
+            raise ValueError("projection structure end boundary mismatch")
+
+    for element in projection.get("elements", []):
+        verify_structure_boundary(element, "start_event_id", element.get("tag"))
+    for table in projection.get("tables", []):
+        verify_structure_boundary(table, "event_id", "table")
+        for row in table.get("rows", []):
+            verify_structure_boundary(row, "event_id", "tr")
+            for cell in row.get("cells", []):
+                verify_structure_boundary(cell, "event_id", cell.get("tag"))
     text_events = {
         event["id"]: event
         for event in projection["events"]
@@ -904,7 +1052,7 @@ def project_html(raw: bytes) -> dict[str, Any]:
         text = raw.decode("utf-8", "strict")
     except UnicodeDecodeError as exc:
         raise ValueError("HTML source is not strict UTF-8") from exc
-    parser = _ProjectionParser(raw, text)
+    parser = _ProjectionParser(raw, text, strict_xhtml=_is_strict_xhtml(raw))
     parser.feed(text)
     records = parser.finish()
     compact_text = _normalize_units(records["units"])
