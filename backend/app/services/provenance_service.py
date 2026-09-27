@@ -267,6 +267,8 @@ def project_raw_summary_risks(
         # JSON persistence breaks the fresh producer's shared-object alias: scrub and independently
         # project this legacy copy too, never trusting a nested marker or count.
         structured.pop(RISK_SOURCE_CONTEXT_KEY, None)
+        structured.pop("risks", None)
+        structured.pop("risk_factors", None)
         projected_any = _project_section_container(
             structured, sources=sources, base_url=base_url
         ) or projected_any

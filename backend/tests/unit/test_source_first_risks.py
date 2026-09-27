@@ -145,6 +145,12 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     summary.raw_summary["structured"]["sections"]["risks"] = [
         {"summary": unsafe_summary, "supporting_evidence": unmatched}
     ]
+    summary.raw_summary["structured"]["risks"] = [
+        {"summary": unsafe_summary, "supporting_evidence": unmatched}
+    ]
+    summary.raw_summary["structured"]["risk_factors"] = [
+        {"summary": unsafe_summary, "supporting_evidence": unmatched}
+    ]
     filing = SimpleNamespace(
         id=2, company=SimpleNamespace(name="Example Co"), filing_type="10-K",
         filing_date=date(2026, 9, 1), period_end_date=date(2026, 6, 30),
@@ -278,6 +284,8 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     assert enriched["raw_summary"]["structured"]["sections"]["risks"] == []
     assert "risk_factors" not in enriched["raw_summary"]["sections"]
     assert "risk_factors" not in enriched["raw_summary"]["structured"]["sections"]
+    assert "risks" not in enriched["raw_summary"]["structured"]
+    assert "risk_factors" not in enriched["raw_summary"]["structured"]
 
     # Nested metadata alone cannot authorize display.
     forged = {"schema_version": 2, "sections": supplied["sections"]}
