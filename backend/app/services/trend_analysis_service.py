@@ -1213,14 +1213,21 @@ async def stream_trend_narrative(
             and cached.prompt_version == PROMPT_VERSION
             and cached.dataset_fingerprint == fingerprint
         ):
+            cached_citations = cached.citations_json or []
+            cached_mismatched = scan_numeric_fidelity(
+                cached.narrative_md,
+                cached_citations,
+                marker_index(dataset),
+            )
             yield {
                 "type": "complete",
                 "kind": "analysis",
                 "analysis_id": cached.id,
                 "narrative": cached.narrative_md,
-                "citations": cached.citations_json or [],
+                "citations": cached_citations,
                 "grounded": cached.grounded,
                 "unverified": cached.unverified,
+                "mismatched": len(cached_mismatched),
                 "cached": True,
                 "invalidated": False,
                 "n_periods": len(dataset["periods"]),
@@ -1390,7 +1397,8 @@ async def stream_trend_narrative(
         "unverified": unverified,
         # Figures the deterministic fidelity scan could not reconcile even after the retry —
         # surfaced in the badge tooltip so "verified" never silently overclaims. Not persisted
-        # (no column; cached re-serves rely on the generation-time log line).
+        # (no column; cache hits recompute them from the saved narrative and citations against the
+        # fingerprint-matched dataset).
         "mismatched": len(mismatched),
         "cached": False,
         "invalidated": invalidated,
