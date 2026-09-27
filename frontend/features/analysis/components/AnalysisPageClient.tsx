@@ -41,7 +41,7 @@ import TrendCharts from './TrendCharts'
  * Flow: pick a company (CompanySearch in onSelect mode) → coverage loads the real period chips
  * (auth-only; lazily syncs the SEC companyfacts history server-side) → pick Annual/Quarterly +
  * a period range → Run: the deterministic dataset renders the KPI strip / charts / metrics grid
- * instantly, then the AI narrative streams in with verified citations. Free users get the full
+ * instantly, then the AI narrative streams in with source-linked citations. Free users get the full
  * picker plus the PeekLocked sample instead of live results (zero AI cost, maximum clarity about
  * what Pro unlocks).
  */
@@ -232,8 +232,8 @@ export default function AnalysisPageClient() {
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
-          balance sheet, with an AI analysis where every cited figure is verified against
-          SEC XBRL.
+          balance sheet, plus an AI narrative with source links to SEC XBRL values and computed
+          figures. Source links show provenance; they do not verify every narrative claim.
         </p>
       </header>
 

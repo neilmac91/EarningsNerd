@@ -71,7 +71,7 @@ describe('headline experiment (design tweak `headline`)', () => {
     expect(resolveHeadlineVariant('B')).toBe('B')
     expect(resolveHeadlineVariant('control')).toBe(CONTROL_HEADLINE)
     expect(resolveHeadlineVariant('garbage')).toBe('A')
-    expect(pageTitleFor('A')).toBe('EarningsNerd | Every number in the filing, traced to the filing')
+    expect(pageTitleFor('A')).toBe('EarningsNerd | Read the filing faster. Keep the source in view')
   })
 
   it('renders variant A in server HTML and leaves the document title alone', () => {
@@ -85,7 +85,7 @@ describe('headline experiment (design tweak `headline`)', () => {
   it('swaps to the flagged arm and retitles the document to match', () => {
     mockVariant.value = 'C'
     render(<HeroHeadline />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Understand any SEC filing in minutes')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('From SEC filing to structured summary')
     expect(document.title).toBe(pageTitleFor('C'))
   })
 })

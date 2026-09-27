@@ -29,8 +29,9 @@ export default function LandingHero({
           <div className="min-w-0">
             <HeroHeadline />
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">
-              AI summaries of 10-Ks and 10-Qs for investors who read the source. Nine sections,
-              every figure grounded in SEC XBRL, every claim linked to the passage it came from.
+              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Nine-part
+              summaries use selected filing text and available XBRL data, with source labels where a
+              match is found.
             </p>
 
             <div className="mt-7 flex flex-col items-start gap-2.5">
@@ -50,7 +51,7 @@ export default function LandingHero({
               >
                 Or start with a company
               </label>
-              <CompanySearch shortcuts ariaLabel={null} placeholder="Search any company or ticker" />
+              <CompanySearch shortcuts ariaLabel={null} placeholder="Search company or ticker" />
               <QuickAccessBar />
             </div>
           </div>
