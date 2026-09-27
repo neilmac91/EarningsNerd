@@ -23,10 +23,24 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          gh release download diagnostic-h25-capacity-20260927 \
-            --repo neilmac91/EarningsNerd --pattern linux-capacity-capsule-v2.zip
+          mkdir -p result
+          stage=fetch
+          trap 'status=$?; echo "$stage $status" > result/input-stage-status.txt' EXIT
+          # The prior tag-based request reported not found; cause unestablished.
+          # Use the recorded asset identity through the read-only endpoint.
+          if gh api repos/neilmac91/EarningsNerd/releases/assets/592478224 \
+            -H 'Accept: application/octet-stream' > linux-capacity-capsule-v2.zip; then
+            echo 'downloaded' > result/input-fetch-status.txt
+          else
+            result=$?
+            echo "$result" > result/input-fetch-exit-code.txt
+            exit "$result"
+          fi
+          stage=verify
           echo 'b739ee3a04f2a3f29de8bd0435948036611c31358955baebe1a61be44b59ea3d  linux-capacity-capsule-v2.zip' | sha256sum --check --strict
+          stage=extract
           python -m zipfile -e linux-capacity-capsule-v2.zip capsule
+          stage=ready
       - name: Measure with no network and enforced process limits
         shell: bash
         run: |
@@ -39,6 +53,7 @@ jobs:
           # bounds the parent. No repository, provider or cloud credentials enter.
           if timeout --signal=TERM --kill-after=5s 380s sudo unshare --net -- \
             env -i PATH="$(dirname "$PYTHON_BIN"):/usr/bin:/bin" \
+            LD_LIBRARY_PATH="$(dirname "$PYTHON_BIN")/../lib" \
             HOME="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 \
             "$PYTHON_BIN" runner.py --output "$RUNNER_TEMP/result/capacity-receipt.json" \
             > "$RUNNER_TEMP/result/runner.log" 2>&1; then
