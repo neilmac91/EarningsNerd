@@ -1,0 +1,237 @@
+{
+  "artifact": {
+    "bytes": 3674594,
+    "github_digest_sha256": "448876aa0d422b8b8aaeef13b25b41800aff90731f6f1ece888d38f6bffd8e5d",
+    "id": 10923871389,
+    "name": "eval-report-36294511807",
+    "raw_zip": "ci-36294511807/artifact-10923871389.zip",
+    "raw_zip_sha256": "448876aa0d422b8b8aaeef13b25b41800aff90731f6f1ece888d38f6bffd8e5d"
+  },
+  "denominators": {
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "aggregate_stdev": 0.0,
+    "errors": 0,
+    "figure_trace_errors": 0,
+    "figure_trace_measured": 70,
+    "figure_trace_unavailable": 0,
+    "gate_fail_rate": 0.0,
+    "incurred_provider_usage": {
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "cache_hit_tokens": 2741494,
+      "cache_miss_tokens": 14076,
+      "calls": 70,
+      "completion_tokens": 283167,
+      "operations": {
+        "summary_primary": 70
+      },
+      "prompt_tokens": 2755570,
+      "reasoning_tokens": null,
+      "unknown_calls": 0
+    },
+    "incurred_usage_attempts": 70,
+    "judge_pass_rate": null,
+    "mean_aggregate": 1.0,
+    "mean_citation_checked": 7.5429,
+    "mean_citation_fidelity": 0.9713,
+    "mean_completion_tokens": 4045.2,
+    "mean_coverage": 1.0,
+    "mean_currency_consistency": 0.9998,
+    "mean_delta_consistency": 0.9964,
+    "mean_financial_depth": 0.7762,
+    "mean_forward_quote_fidelity": 1.0,
+    "mean_latency_seconds": 13.638,
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_prompt_tokens": 39365.3,
+    "mean_redundancy": 0.9245,
+    "mean_specificity": 0.996,
+    "mean_untraceable_dollar_figures": 2.3429,
+    "n": 70,
+    "pass_rate": 1.0,
+    "provider_calls": 70,
+    "repaired_rate": 0.0,
+    "retried": 0,
+    "schema_valid_rate": 1.0,
+    "scored": 70,
+    "total_cache_hit_tokens": 2741494,
+    "total_cache_miss_tokens": 14076,
+    "total_completion_tokens": 283167,
+    "total_cost_usd": 0.0,
+    "total_prompt_tokens": 2755570,
+    "usage_attempts": 70
+  },
+  "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+  "head_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725",
+  "limits": [
+    "Deterministic scorers only; judges_run is zero.",
+    "Report cost is zero while application telemetry estimates provider usage; billed provider cost is unknown.",
+    "Persisted XBRL OperationalError messages are expected fallback observations, not output failures.",
+    "Citation violations, low component minima, segment drops, preview observations, and the regression warning are soft advisories despite all hard gates passing.",
+    "This green physical eval does not clear the separate exact-head review hold."
+  ],
+  "observed": {
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "billed_cost_usd": null,
+    "citation_cases": [
+      {
+        "count": 1,
+        "run": 0,
+        "ticker": "PLD"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "AAPL"
+      },
+      {
+        "count": 1,
+        "run": 0,
+        "ticker": "AMZN"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "AMZN"
+      },
+      {
+        "count": 1,
+        "run": 0,
+        "ticker": "XOM"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "PFE"
+      },
+      {
+        "count": 1,
+        "run": 0,
+        "ticker": "BYND"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "BYND"
+      },
+      {
+        "count": 2,
+        "run": 1,
+        "ticker": "ASML"
+      },
+      {
+        "count": 1,
+        "run": 0,
+        "ticker": "TSM"
+      },
+      {
+        "count": 2,
+        "run": 0,
+        "ticker": "PDD"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "PDD"
+      },
+      {
+        "count": 1,
+        "run": 1,
+        "ticker": "MELI"
+      }
+    ],
+    "citation_violation_outputs": 13,
+    "citation_violations": 15,
+    "errors": 0,
+    "estimated_cost_usd": 0.180235,
+    "executive_summary_chars": {
+      "max": 18336,
+      "mean": 11628.23,
+      "min": 7026
+    },
+    "executive_summary_words": {
+      "max": 2780,
+      "mean": 1845.27,
+      "min": 1110
+    },
+    "figure_trace_outputs": 70,
+    "figure_trace_total": 164,
+    "gate_failures": 0,
+    "judges_run": 0,
+    "operations": {
+      "summary_primary": 70
+    },
+    "outputs": 70,
+    "persisted_xbrl_operational_errors": 32,
+    "preview_chars": {
+      "max": 113010,
+      "mean": 56782.83,
+      "min": 18792
+    },
+    "previews_truncated": 0,
+    "provider_calls": 70,
+    "provider_outcomes": {
+      "success": 70
+    },
+    "reasoning_tokens_observed": [
+      null
+    ],
+    "regression_gate_warnings": 1,
+    "reported_cost_usd": 0.0,
+    "retried": 0,
+    "score_maxima": {
+      "citation_fidelity": 1.0,
+      "coverage": 1.0,
+      "currency_consistency": 1.0,
+      "delta_consistency": 1.0,
+      "financial_depth": 1.0,
+      "forward_quote_fidelity": 1.0,
+      "numeric_accuracy": 1.0,
+      "numeric_precision": 1.0,
+      "redundancy": 1.0,
+      "specificity": 1.0
+    },
+    "score_minima": {
+      "citation_fidelity": 0.7143,
+      "coverage": 1.0,
+      "currency_consistency": 0.9859,
+      "delta_consistency": 0.75,
+      "financial_depth": 0.0,
+      "forward_quote_fidelity": 1.0,
+      "numeric_accuracy": 1.0,
+      "numeric_precision": 1.0,
+      "redundancy": 0.7059,
+      "specificity": 0.9459
+    },
+    "segment_table_drops": 2,
+    "system_fingerprints": [
+      "aeb56401ca74e127821c4f9126dcb669"
+    ],
+    "usage": {
+      "cache_hit_tokens": 2741494,
+      "cache_miss_tokens": 14076,
+      "completion_tokens": 283167,
+      "prompt_tokens": 2755570,
+      "total_tokens": 3038737
+    }
+  },
+  "report": {
+    "bytes": 20580011,
+    "path": "ci-36294511807/eval-report-36294511807/eval_20260927T044103Z.json",
+    "sha256": "bc721b3561762efc452ce81565189719a8aa0bb4486366777e0d7c36dcacb203"
+  },
+  "run_id": 36294511807,
+  "run_log": {
+    "bytes": 893320,
+    "path": "ci-36294511807/run.log",
+    "sha256": "0372c9262e8768d8dc239a53e874ea3ceb644e2a1efa755c40695211f7edd35a"
+  },
+  "status": "success",
+  "synthetic_merge_sha": "755ca1ce21711097d2a73ac6dd5a8d5302547937",
+  "synthetic_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725"
+}

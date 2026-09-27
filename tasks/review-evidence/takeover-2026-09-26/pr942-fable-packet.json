@@ -1,0 +1,17 @@
+{
+  "kind": "ordinary_ratio_candidate_judging_handoff",
+  "pr": 942,
+  "repository_commit": "2a00fcfadee12845c3cae906b681b454d18916e5",
+  "packet": {
+    "external_workspace_path": "outputs/ratio-release-2026-09-27/judge-inputs-p-v-q2-v2.zip",
+    "bytes": 7309198,
+    "sha256": "923650df67da0ee686abc5262ddda7c7675cd1724a86fb3b054207af35bc1f84"
+  },
+  "judge_model": "cli:claude-fable-5-1",
+  "judge_contract_version": 2,
+  "judgment_slots": 140,
+  "physical_cli_invocation_ceiling": 280,
+  "formal_e7_or_e8": false,
+  "dispatched_by_this_handoff": false,
+  "scope": "Retained p/q2 semantic comparison only; no generation, promotion, baseline change or acceptance verdict."
+}

@@ -1,0 +1,53 @@
+{
+  "artifacts": [
+    {
+      "path": "AAPL-2026Q2-2026Q3.pdf",
+      "bytes": 46080,
+      "sha256": "61a011dea76f42dca3a46ac50dca6a962e974e78762e1206a10a915b64d1d4d3"
+    },
+    {
+      "path": "AAPL_2026Q2-2026Q3_quarterly-metrics.xlsx",
+      "bytes": 23555,
+      "sha256": "a33a33054d8d036f541452f5f234f6db40b8fca699641ecbd4ec14e516a4a313"
+    }
+  ],
+  "pdf_pages": 4,
+  "pdf_warning_excerpt": [
+    "Some values are unreconciled. Check flagged figures and growth based on them against the source filing. Citation",
+    "verification confirms traceability, not financial reconciliation.",
+    "line where current assets cover current liabilities, with no cushion. On leverage, long-term debt",
+    "Working capital $9.5B $492.0M [unreconciled]",
+    "[10] Working capital = 492,000,000 (2026Q3) XBRL \u00b7 working_capitalUnreconciled value \u2014 check source filing."
+  ],
+  "sheets": [
+    "Overview",
+    "Metrics",
+    "Revenue & growth",
+    "Margins",
+    "Cash generation",
+    "Balance sheet"
+  ],
+  "ratio_rows": [
+    {
+      "sheet": "Metrics",
+      "row": [
+        "Current ratio",
+        "current_ratio",
+        "pure",
+        1.07035746912159,
+        1.003294804655586
+      ],
+      "formats": [
+        "General",
+        "General",
+        "General",
+        "0.00\"x\"",
+        "0.00\"x\""
+      ]
+    }
+  ],
+  "error_cells": [],
+  "external_links": 0,
+  "native_excel_rendering_verified": false,
+  "financial_truth_independently_verified": false
+}

@@ -1,0 +1,81 @@
+{
+  "admission_approved": false,
+  "held": [
+    {
+      "filing": "H25",
+      "reason": "robust OS memory bound unavailable; H25 held by instruction"
+    }
+  ],
+  "kind": "nonadmitting_large_source_projection_capacity",
+  "limitations": [
+    "No admission is approved.",
+    "Only the named primary files were measured; no all-member or modality completeness is claimed.",
+    "No semantic reading, model-context capacity, provider call, or model call was performed.",
+    "The projection was held in memory only and was not serialized."
+  ],
+  "limits_per_input": {
+    "address_space_bound_available": false,
+    "address_space_bound_error": "ValueError: current limit exceeds maximum limit",
+    "memory_mechanism": "RLIMIT_AS soft limit in fresh worker when supported",
+    "requested_address_space_bytes": 3221225472,
+    "wall_mechanism": "parent communicate timeout with process-group SIGKILL",
+    "wall_seconds": 180
+  },
+  "model_calls": 0,
+  "provider_calls": 0,
+  "results": [
+    {
+      "compact": {
+        "bytes": 1299810,
+        "sha256": "99711bdab26d77dfe461345532a43a5323c8a918db394a9130d008012b941542"
+      },
+      "counts": {
+        "attributes": 263856,
+        "cells": 82598,
+        "elements": 171747,
+        "events": 355227,
+        "exclusions": 4,
+        "images": 6,
+        "rows": 7355,
+        "same_event_cells": 54015,
+        "same_event_elements": 54345,
+        "tables": 600,
+        "units": 66074
+      },
+      "exit_code": 0,
+      "filing": "H02",
+      "limits": {
+        "address_space_enforced": false,
+        "address_space_rlimit": [
+          9223372036854775807,
+          9223372036854775807
+        ],
+        "requested_address_space_bytes": 3221225472,
+        "wall_seconds": 180
+      },
+      "max_rss_bytes": 1871659008,
+      "parent_wall_seconds": 15.086853,
+      "source": {
+        "bytes": 16080286,
+        "path": "workspace/work/e7-ai-source-snapshot-2026-09-22/e7-sources/H02/duk-20251231.htm",
+        "sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9"
+      },
+      "status": "ok",
+      "timing_seconds": {
+        "explicit_verify_projection": 3.044728,
+        "project_html": 11.598543,
+        "total_worker": 14.745129
+      }
+    }
+  ],
+  "reviewed_module": {
+    "path": "source-reader-checkout/backend/evals/acceptance_source_view.py",
+    "sha256": "bbe747624efb6b3f28c2b84ae8fc27469ae61b952ff83ed182286849106f7cad"
+  },
+  "runtime": {
+    "platform": "macOS-26.7-arm64-arm-64bit",
+    "python": "3.11.16"
+  },
+  "schema_version": 1,
+  "semantic_review_attested": false
+}

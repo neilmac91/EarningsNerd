@@ -1,0 +1,43 @@
+{
+  "pr": 964,
+  "main_sha": "24d1ca5cd46c29224840c95c9f6ee0e6489e7b8e",
+  "run_id": 36282476636,
+  "deploy_job_id": 108517514659,
+  "run_conclusion": "success",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "revision": "earningsnerd-backend-00390-q8b",
+  "traffic_percent": 100,
+  "deploy_completed_at": "2026-09-27T00:34:19Z",
+  "independent_health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 7.03
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 0,
+          "success_rate": 0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1790469762.361497
+  },
+  "health_observed_at": "2026-09-27T00:42:42.361497+00:00",
+  "files": {
+    "pr964-deploy.log": "ac2fba1476baf2969b9e93ee7e7b27102f177e4f35026ac03c14e2866e3c1069",
+    "pr964-health.json": "25ae6bb493d390166d4cbd6598b9ed5896765d4e2422327abf591ce051eb2d29"
+  }
+}

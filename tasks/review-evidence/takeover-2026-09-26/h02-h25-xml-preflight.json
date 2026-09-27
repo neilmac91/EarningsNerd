@@ -1,0 +1,31 @@
+{
+  "kind": "nonadmitting_xml_grammar_probe",
+  "module_sha256": "bbe747624efb6b3f28c2b84ae8fc27469ae61b952ff83ed182286849106f7cad",
+  "results": [
+    {
+      "filing": "H02",
+      "source_bytes": 16080286,
+      "source_sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9",
+      "strict_xhtml": true,
+      "error": null,
+      "xml_validation_seconds": 0.155,
+      "cdata_occurrences": 0,
+      "xml_declaration": "<?xml version='1.0' encoding='ASCII'?>"
+    },
+    {
+      "filing": "H25",
+      "source_bytes": 57158558,
+      "source_sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+      "strict_xhtml": true,
+      "error": null,
+      "xml_validation_seconds": 0.49,
+      "cdata_occurrences": 0,
+      "xml_declaration": "<?xml version='1.0' encoding='ASCII'?>"
+    }
+  ],
+  "limitations": [
+    "No structural projection or member/modality completeness claim",
+    "No semantic reading, model context capacity or E7 admission",
+    "Code under local review, not released"
+  ]
+}

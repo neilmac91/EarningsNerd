@@ -1,0 +1,126 @@
+{
+  "base_sha": "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+  "candidate_head_sha": "c3a10d017d1b220783ceca8dcc7e3a6177fbf069",
+  "candidate_tree_sha": "8a56ab1128008542e75132351708641b7fa3f723",
+  "checks": {
+    "bandit": {
+      "high": 0,
+      "medium": 0,
+      "result": "pass"
+    },
+    "pytest": {
+      "passed": 3731,
+      "performance_included": true,
+      "postgres_lanes": 4,
+      "result": "pass",
+      "seconds": 161.86,
+      "skipped": 0,
+      "warnings": 40
+    },
+    "ruff": {
+      "result": "pass"
+    }
+  },
+  "environment": {
+    "dyld_fallback_library_path": "/opt/homebrew/lib",
+    "isolated_databases": [
+      "h01f_stripe_0927",
+      "h01f_usage_0927",
+      "h01f_login_0927",
+      "h01f_delivery_0927"
+    ],
+    "postgres_host": "127.0.0.1",
+    "postgres_port": 55436,
+    "postgres_user": "earningsnerd",
+    "pythonpycacheprefix": "<isolated-pycache>"
+  },
+  "files": {
+    "bandit_log": {
+      "bytes": 770,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-final-eea/bandit.log",
+      "sha256": "e6e2c256de8b564bbc03230929ead969f30a89bfe4864ad8da5b3f59099c1934"
+    },
+    "capacity_module": {
+      "bytes": 9846,
+      "path": "<isolated-checkout>/backend/evals/acceptance_source_capacity.py",
+      "sha256": "320b6b2094230885bc9c6d208b539245f4acbacba605959493b2d5b31f73b9ea"
+    },
+    "capacity_test": {
+      "bytes": 6256,
+      "path": "<isolated-checkout>/backend/tests/unit/test_acceptance_source_capacity.py",
+      "sha256": "d6d48bbb6b56c048c8dbcccc63d96fc3dff2864bd1deaa708b35bf567ca59d36"
+    },
+    "fault_receipt": {
+      "bytes": 2048,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/fault-proof-codex-final/receipt.json",
+      "sha256": "3aabc85bd0198942468714c87db2c59faa69c85cd30da28cb79dbf7da7148c2d"
+    },
+    "grammar_audit": {
+      "bytes": 721,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/post-codex-finalfix-regeneration/h01-strict-subset-grammar.json",
+      "sha256": "2b0a512613351758befdaf80f153c44d68e4a7c8d597051978204becf5ae6185"
+    },
+    "guide": {
+      "bytes": 6918,
+      "path": "<isolated-checkout>/tasks/readiness-2026-09-21/acceptance/source-review-views.md",
+      "sha256": "2d3296cf757c3b4eafd92127b30b85b92816a7f2a31a7c9dd440332f53b7863e"
+    },
+    "independent_review": {
+      "bytes": 2787,
+      "path": "outputs/takeover-2026-09-26/pr969-independent-review.md",
+      "sha256": "1d2cf65ebfbfbe597593efa73ba2f1ffe91c982037d348d336b0b9a185c9d4ba"
+    },
+    "module": {
+      "bytes": 58488,
+      "path": "<isolated-checkout>/backend/evals/acceptance_source_view.py",
+      "sha256": "578455e33fd20d9f973f4fac79866bc29fbae2987e79e089b5094053e1f78e97"
+    },
+    "pytest_log": {
+      "bytes": 35508,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-final-eea/pytest.log",
+      "sha256": "3eb8c7789a48da9b0b87076c0d36c40312ef5563b3e5ba3b851a9c43faceff71"
+    },
+    "regeneration_receipt": {
+      "bytes": 24799,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/post-codex-finalfix-regeneration/receipt.json",
+      "sha256": "ef86b3d87acbd2fd7a18702be22b256d31ab5048e197ee5ceed2fb93d5e18f88"
+    },
+    "ruff_log": {
+      "bytes": 19,
+      "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-final-eea/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "view_test": {
+      "bytes": 22756,
+      "path": "<isolated-checkout>/backend/tests/unit/test_acceptance_source_view.py",
+      "sha256": "e3db4979a6e8163358e988928536a32247d61bd5c5d02f2b5408c96652ad2983"
+    }
+  },
+  "note": "The inherited closed-logging-stream teardown diagnostic appeared after pytest exited successfully and did not alter the zero exit status.",
+  "python": "3.11.16 pinned project environment",
+  "schema_version": 1,
+  "scope": "Final gate after exact-head review corrections, independent re-review, and integration of current main eea26d2f. No provider or model calls.",
+  "original_receipt": {
+    "path": "outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-final-eea/receipt.json",
+    "bytes": 4937,
+    "sha256": "19ebf43dae63a60f6283181214a164210aae165a9e60f89e102dc74e24eb18a4"
+  },
+  "public_log_copies": {
+    "pytest.log": {
+      "path": "pr969-final-local-pytest.txt",
+      "bytes": 34732,
+      "sha256": "ce7248abe3f63e1bdfcd49e46b3fe1a844ab0651b09912199c27a0ceb8286d02"
+    },
+    "ruff.log": {
+      "path": "pr969-final-local-ruff.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "bandit.log": {
+      "path": "pr969-final-local-bandit.txt",
+      "bytes": 770,
+      "sha256": "e6e2c256de8b564bbc03230929ead969f30a89bfe4864ad8da5b3f59099c1934"
+    }
+  },
+  "custody_note": "The original receipt and files remain in the external operator workspace at the logical paths above. Public log copies normalize only host-specific checkout/runtime paths; their separate hashes are recorded here. Original hashes and test results are unchanged. The earlier pr969-local-verification.json covers a superseded head only."
+}

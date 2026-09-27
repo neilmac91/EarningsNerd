@@ -1,0 +1,425 @@
+{
+  "file_count": 105,
+  "files": {
+    "README.md": {
+      "bytes": 3770,
+      "sha256": "39816913203f26fe9530dc2c4096982315fb724977328483d72840240e0be57d"
+    },
+    "raw/artifacts-36284201570.json": {
+      "bytes": 758,
+      "sha256": "628fbbf1741629513f7a809473f79ac90b021f65c57a6648ccf2ecfe80beaf94"
+    },
+    "raw/artifacts-36284201573.json": {
+      "bytes": 764,
+      "sha256": "7fbe1f1f229bfe00146a87b89a9e79018902c95d3f0617208321f752651f1efa"
+    },
+    "raw/check-runs.json": {
+      "bytes": 46249,
+      "sha256": "f91d7f9f229e74cfb1fc38bd77429f1ae7cddc00971615310fd5f495d8205100"
+    },
+    "raw/copilot-fidelity-36284201573.zip": {
+      "bytes": 78697358,
+      "sha256": "6244c308b3f23217e44e58698acdddeb2eea5b4a82c015df53c4b48348a55f57"
+    },
+    "raw/eval-baseline-job-108521722874.log": {
+      "bytes": 203380,
+      "sha256": "25c1ed83f27be377c4e534960023b823682faa2850f865b8be472e949a02fc83"
+    },
+    "raw/eval-report-36284201570.zip": {
+      "bytes": 3659053,
+      "sha256": "27540eaf1770958bd6c40d67465a2da5a18b2fe962d03e7f5dceeb0f53bb0b7d"
+    },
+    "raw/git-commit-head.json": {
+      "bytes": 1162,
+      "sha256": "dda4420af97e2a7e9408798192bbaa4fb5bb9749957b289467d06de7cf59123e"
+    },
+    "raw/git-commit-merge.json": {
+      "bytes": 2631,
+      "sha256": "149a71ce131e5713928cb21cb1806c9181a916e48ca483194ddfb4986dd4811a"
+    },
+    "raw/issue-comments.json": {
+      "bytes": 18037,
+      "sha256": "38953db4a56af5f1f6e84bafb4bd1c233e5f88a9cf1f864a746d221ec0f6f138"
+    },
+    "raw/jobs-36284201570.json": {
+      "bytes": 19814,
+      "sha256": "4bc2b48cc05825ab76d0a4c181c2a2489bb9f7aa29b1ba430e1c092da537c73b"
+    },
+    "raw/jobs-36284201573.json": {
+      "bytes": 2865,
+      "sha256": "cb19461c2ec12bba8ecde293c19e0b66be4da95fb206c2240d9bd9cc2fa1760c"
+    },
+    "raw/pr-967.json": {
+      "bytes": 19175,
+      "sha256": "4c9230fe2ad6046ed2351c6d989acd09c6ab42b8dd29229ff52074f3eadb90e3"
+    },
+    "raw/review-comments.json": {
+      "bytes": 10078,
+      "sha256": "ee7e5160be4a5668e87d809b114e304f69e42f636b846b8a915131a3e8eeb137"
+    },
+    "raw/reviews.json": {
+      "bytes": 2455,
+      "sha256": "0d27aa8530a86263c8fc3cc1eed7b65a36275e5d827f1589c99ff330d9875765"
+    },
+    "raw/run-36284201570-logs.zip": {
+      "bytes": 255033,
+      "sha256": "9ca47434066ab78af6a36d22fac883baff7bd2875717cc1979d57a61e99435b9"
+    },
+    "raw/run-36284201570.json": {
+      "bytes": 12833,
+      "sha256": "17a634ca9fa06e362dda29d30cce7d725f57f40ca5ea51c011d2f62fd9708ea4"
+    },
+    "raw/run-36284201573-logs.zip": {
+      "bytes": 37379,
+      "sha256": "dece6600cee782ff88489109e0a1ce6586f10624632cb9f67012d1026d7ab8d7"
+    },
+    "raw/run-36284201573.json": {
+      "bytes": 12863,
+      "sha256": "c52fec5add80647450c28696fe723280cd470d884eb75deee152c0a1e3661399"
+    },
+    "raw/run-36284203330-review-gate.json": {
+      "bytes": 2061,
+      "sha256": "d29c2ef79254d7629f4343ebb0d8ac7988823839a09e2bbea50984f70dd8f2c0"
+    },
+    "review-status.json": {
+      "bytes": 2025,
+      "sha256": "7e94002cd1cfd38753d054299fb8f11fce6ac094cdc4f74968095f80439487b7"
+    },
+    "run-36284201570-ci/ci-execution.txt": {
+      "bytes": 154,
+      "sha256": "79b6319521e66891d1c8eb157e787735abb81502d8dba97b7ef70cf2ebf81918"
+    },
+    "run-36284201570-ci/eval_20260927T011101Z.json": {
+      "bytes": 20233646,
+      "sha256": "a73a0eac32833fc284c4037b75937c8a44c45f60fbb92ae3ba767b22f3618ef8"
+    },
+    "run-36284201570-ci/eval_20260927T011101Z.md": {
+      "bytes": 1272,
+      "sha256": "7a1b7648544d2e51857b7d87cbd2d1b0eee6601194c7d6ea3f48a9fd62d325cf"
+    },
+    "run-36284201570-ci/receipt.json": {
+      "bytes": 3670,
+      "sha256": "add17bf557571a97119089417785049e67074815b3c9e25d2b0a86b87d7cd7ef"
+    },
+    "run-36284201570-ci/telemetry-summary.json": {
+      "bytes": 679,
+      "sha256": "bdcd570f82c82ac5f62d0319bbd136db068eb311f2921a629c5adfc27703a1e5"
+    },
+    "run-36284201573-copilot/0000320193-25-000079/excerpt.txt": {
+      "bytes": 126028,
+      "sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    },
+    "run-36284201573-copilot/0000320193-25-000079/filing.html": {
+      "bytes": 1520328,
+      "sha256": "5e29ae1bebf678d48a617d74ff65fb6f66ea14262bb834b662fafa560516aa12"
+    },
+    "run-36284201573-copilot/0000320193-25-000079/sections.json": {
+      "bytes": 156405,
+      "sha256": "dbe532bc99dd333c1e305302e35448eabec2f1ea8827db211e9a672479f0e283"
+    },
+    "run-36284201573-copilot/0000320193-25-000079/xbrl.json": {
+      "bytes": 11286,
+      "sha256": "986b546c9f34c581bc1f96ea54d6267cc1755191576dd869da70615678548133"
+    },
+    "run-36284201573-copilot/0000950170-25-090161/excerpt.txt": {
+      "bytes": 317834,
+      "sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    },
+    "run-36284201573-copilot/0000950170-25-090161/filing.html": {
+      "bytes": 7720465,
+      "sha256": "4156935b17d01eb4574e2e233e490a72ee95e636f869d1a665f5a30c28bb88f9"
+    },
+    "run-36284201573-copilot/0000950170-25-090161/sections.json": {
+      "bytes": 85506,
+      "sha256": "5ce949c0c971f3567b4d68496a6ec87d6f4dbc48bb45a2ab4d6751f2f0d84bea"
+    },
+    "run-36284201573-copilot/0000950170-25-090161/xbrl.json": {
+      "bytes": 7857,
+      "sha256": "4f40c2944c11bc766569f2970d4dc8ab499c8f8ebbdd97d0bbe05caeddf960b0"
+    },
+    "run-36284201573-copilot/0000950170-25-100235/excerpt.txt": {
+      "bytes": 165156,
+      "sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    },
+    "run-36284201573-copilot/0000950170-25-100235/filing.html": {
+      "bytes": 8158187,
+      "sha256": "868268f937f89cb7e2804f120bd7d01119b3aeaf86eeace8c6f60b33e4c8085f"
+    },
+    "run-36284201573-copilot/0000950170-25-100235/sections.json": {
+      "bytes": 256112,
+      "sha256": "54d37ff58b668f677b8dd8e31bd68efe7e4597a247a1e3d26763f0d6f5d788c1"
+    },
+    "run-36284201573-copilot/0000950170-25-100235/xbrl.json": {
+      "bytes": 10981,
+      "sha256": "71c6815f60fab058b9dcd1ac49b0a2c83e2e6e3f38c136808ad56c9a9b59bc02"
+    },
+    "run-36284201573-copilot/0001193125-26-231755/excerpt.txt": {
+      "bytes": 235128,
+      "sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    },
+    "run-36284201573-copilot/0001193125-26-231755/filing.html": {
+      "bytes": 11745283,
+      "sha256": "1ceefc0b6b4df8022fabed48c64c7db068f9b7eb493d798394a0fa367501a8c8"
+    },
+    "run-36284201573-copilot/0001193125-26-231755/sections.json": {
+      "bytes": 564670,
+      "sha256": "ca524b9bd6dc15bb8b26221f7004ca3bced62dfbd569d3868ae06c09c4617dac"
+    },
+    "run-36284201573-copilot/0001193125-26-231755/xbrl.json": {
+      "bytes": 7863,
+      "sha256": "144a0e30a74475e810882531870264891ab020e5131bd6866cb44d33d268543d"
+    },
+    "run-36284201573-copilot/0001628280-25-003063/excerpt.txt": {
+      "bytes": 165047,
+      "sha256": "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    },
+    "run-36284201573-copilot/0001628280-25-003063/filing.html": {
+      "bytes": 2596579,
+      "sha256": "b3df529af52bb66b5e8c33a82e946df85252a422a85a94b546f506cd8cd7c9e4"
+    },
+    "run-36284201573-copilot/0001628280-25-003063/sections.json": {
+      "bytes": 290266,
+      "sha256": "ad63c0f417bb0d7c8001750c35c29e23b250b464e8a54e0b0e61cc081749822b"
+    },
+    "run-36284201573-copilot/0001628280-25-003063/xbrl.json": {
+      "bytes": 8983,
+      "sha256": "7b4d416be66f0f429f90270bb9903ece2dc5e1feb8bc178aacd0c822c71cc1af"
+    },
+    "run-36284201573-copilot/0001628280-26-011378/excerpt.txt": {
+      "bytes": 262563,
+      "sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    },
+    "run-36284201573-copilot/0001628280-26-011378/filing.html": {
+      "bytes": 24864735,
+      "sha256": "a1f889bf1dcecfcac0065ccb822ef23ec5bcd81f17fea150e2e379ae505d9261"
+    },
+    "run-36284201573-copilot/0001628280-26-011378/sections.json": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "run-36284201573-copilot/0001628280-26-011378/xbrl.json": {
+      "bytes": 10389,
+      "sha256": "0c9b9ae2f21dc2ecf4b35cde7fa5a492112de0df478a3ad2c0ff6ec9aa374364"
+    },
+    "run-36284201573-copilot/copilot-eval.json": {
+      "bytes": 9965255,
+      "sha256": "31f074fae1b601237064ca1c538b139fa9697afed794a45a0695b17205b07609"
+    },
+    "run-36284201573-copilot/copilot-eval.md": {
+      "bytes": 1972,
+      "sha256": "9886f55c43b9bd692e9388f0416c4c2896515b466da78d213c005787fc4e36c0"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000320193.json-97a42994": {
+      "bytes": 28340,
+      "sha256": "16a18f2ab48e09644584496e86f1a32d41e9a5ec4673823e1f7ae2210a6cd928"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000320193.json-97a42994.meta": {
+      "bytes": 119,
+      "sha256": "92ec05a9e7c12f3a06d73ae6a22fae352cde657e5d2a91fb3f5e6c0d61a00ec2"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000789019.json-8bc1f090": {
+      "bytes": 20629,
+      "sha256": "569ab755be7dc8c8f33a123da4598f5cd8dec0a08c662355c9a9fe196ed616b0"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000789019.json-8bc1f090.meta": {
+      "bytes": 119,
+      "sha256": "b378cc924a244bf188df96581c4b749bc980a868a4d2c9d75d27652e71c48aa0"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000937966.json-d10aa7e7": {
+      "bytes": 20260,
+      "sha256": "34f7a99c82ee9150b7c99f035b122a6670044f4283888dc64afcde3caf234512"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0000937966.json-d10aa7e7.meta": {
+      "bytes": 119,
+      "sha256": "f5637ce74bf62f2328a7e7165da114790ea9e29613265c40b91f34a55a3812a3"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0001318605.json-a269acdf": {
+      "bytes": 27429,
+      "sha256": "3539b0a2e983bd76ac8f8aa3e931b25a5f43690643bbd7c1ad506741a79c9ccf"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0001318605.json-a269acdf.meta": {
+      "bytes": 119,
+      "sha256": "ca76179849e24b8dcd3890f7a6bae6b4363a22ac82e657312a62908b6eadbcbf"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0001577552.json-cc8f4d00": {
+      "bytes": 20319,
+      "sha256": "5b9195ad1d299569ac3adac37bd0c703ed50d71497d7fa968f76e70d2a426b22"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/data.sec.gov/submissions-CIK0001577552.json-cc8f4d00.meta": {
+      "bytes": 119,
+      "sha256": "fa75edf21a0b6e41a525a4c8c5b64428922ab685a51c9e079731767025678b55"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-0001628280-25-003063-index.html-2198ac0c": {
+      "bytes": 3309,
+      "sha256": "31eb98bcf32acdda16f781b94abc400e8f56cc191446164e95c429f3d8cebb74"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-0001628280-25-003063-index.html-2198ac0c.meta": {
+      "bytes": 118,
+      "sha256": "4b00de74e8fafe782143a78344d34e02c8bd3b5e575b009b272fc2cafd0e4ff3"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-000162828025003063-0001628280-25-003063.txt-27e4416e": {
+      "bytes": 2376927,
+      "sha256": "de18f3ceacaf2115d7987b0bc5e12aeab280d66efac3e9d46f40bed79431fe38"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-000162828025003063-0001628280-25-003063.txt-27e4416e.meta": {
+      "bytes": 119,
+      "sha256": "e4ed1af4248f95231d7cf8f9acea2a8eab0b62662db33cc7314db18bdb25e514"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-000162828025003063-tsla-20241231.htm-4dd632b0": {
+      "bytes": 195606,
+      "sha256": "e32daa47949db08f07f1c2212e257d9e0d6a61eb992fe604ad4416d031a8434b"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1318605-000162828025003063-tsla-20241231.htm-4dd632b0.meta": {
+      "bytes": 118,
+      "sha256": "a05ea9245b27823c41cc0d211b91d17a024196774db3cc9d88a907ddbbe3b7aa"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-0000950170-25-090161-index.html-d791877d": {
+      "bytes": 4026,
+      "sha256": "2a9a4b17ff139efbc5d101db6d75cbd180d054933535e29a5f8f3809be6a05a5"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-0000950170-25-090161-index.html-d791877d.meta": {
+      "bytes": 133,
+      "sha256": "b5f738af60bbcae2a9932da2763fabd9280da4fcc7648cb60dafdf9a80419d49"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000095017025090161-0000950170-25-090161.txt-55724397": {
+      "bytes": 13514944,
+      "sha256": "6919b079d6d8502f453822af00fc0a2beb7cf43d29598ebcb2f1d07bf83e850f"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000095017025090161-0000950170-25-090161.txt-55724397.meta": {
+      "bytes": 119,
+      "sha256": "556e67a28d4c1aecd1ea000a76bd8f4c31e04efd3dadc661326f7fdf2b97dbe4"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000095017025090161-baba-20250331.htm-c3e89ca1": {
+      "bytes": 392652,
+      "sha256": "5cca48ddd18cea62b0b3c036f793d1e5997dfbd3f3fcb01eddce7f37c7a2fd53"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000095017025090161-baba-20250331.htm-c3e89ca1.meta": {
+      "bytes": 118,
+      "sha256": "654f1ccfb1909e328872b9cf38b293fa85c3fd706f20850409fe6b7c02836ce8"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-0001193125-26-231755-index.html-ec9062fd": {
+      "bytes": 3834,
+      "sha256": "2ba873cd2cb313b5fa8045b758a680e6bd3d6f5170f5a6ae95754d49a10109ec"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-0001193125-26-231755-index.html-ec9062fd.meta": {
+      "bytes": 118,
+      "sha256": "1687b1c067312abf39423c9b39f60fc093aa0fb3d8194f9a9adb6becc46c296a"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000119312526231755-0001193125-26-231755.txt-8f222c4d": {
+      "bytes": 7096520,
+      "sha256": "4a19111304818aef0b68d7da6426ad2e68b608b1dd318550c82bfde202018caa"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000119312526231755-0001193125-26-231755.txt-8f222c4d.meta": {
+      "bytes": 119,
+      "sha256": "27c4d00c9ab83490e21aa9cc6a930065c86c51ed5b788b681cf05e72c5e5c802"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000119312526231755-baba-20260331.htm-9e30c6ae": {
+      "bytes": 723283,
+      "sha256": "b93ee9707c320c9c32daba2293c9837ed437aaec547ff9901de05e1c8ff2c0f7"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-1577552-000119312526231755-baba-20260331.htm-9e30c6ae.meta": {
+      "bytes": 118,
+      "sha256": "d7258b1600ea45477219b91189a3fb8b9190794abf50dfb9677c5026071beca8"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-0000320193-25-000079-index.html-8f1d6d95": {
+      "bytes": 3193,
+      "sha256": "0f9d766be59ba269f831ede304ab07c8cbc2345b5c7c8267efc136565c7573aa"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-0000320193-25-000079-index.html-8f1d6d95.meta": {
+      "bytes": 118,
+      "sha256": "0078e6d38e0d893be15650e04ccdc6cd20df4af85961b4f7a83c7f9aff636a3f"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-000032019325000079-0000320193-25-000079.txt-004fa744": {
+      "bytes": 1158677,
+      "sha256": "54c65b2f34b7f700ede772228ff4c1fffb8ffd4838ac3d682790f627561d2038"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-000032019325000079-0000320193-25-000079.txt-004fa744.meta": {
+      "bytes": 119,
+      "sha256": "91b9b5ece473ac610f904e1598015d43652237794edf6aac7927b4e51fab28ce"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-000032019325000079-aapl-20250927.htm-879f7c09": {
+      "bytes": 111528,
+      "sha256": "9b77673ac10b02912d1e5c3433885999c39f6b2238e37584caddea0477a7064e"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-320193-000032019325000079-aapl-20250927.htm-879f7c09.meta": {
+      "bytes": 118,
+      "sha256": "95e9a0b0e7030333416d08023d7f0e5b1f97e549ef60b6377d4c476c80d33995"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-0000950170-25-100235-index.html-53850cae": {
+      "bytes": 3068,
+      "sha256": "010a228214025f1352f56d403579dcd1f88fc85c95d5b985672bd8d1249f05be"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-0000950170-25-100235-index.html-53850cae.meta": {
+      "bytes": 118,
+      "sha256": "e790f5a758fd1b94cd4e58e678bbc88af3f2ecfa840264a2de27562b7e640985"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-000095017025100235-0000950170-25-100235.txt-e5146d8b": {
+      "bytes": 1930184,
+      "sha256": "b4b4c7d346aca51c15d9b6f02faa7f0cbf3bce254489deffbb079c337c6f8291"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-000095017025100235-0000950170-25-100235.txt-e5146d8b.meta": {
+      "bytes": 119,
+      "sha256": "b71eb9214c5f41407f4c8cd1ce95c0a6a79104338180c7a161c849ea7b08d1a7"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-000095017025100235-msft-20250630.htm-dd1c8f11": {
+      "bytes": 346472,
+      "sha256": "40688b26bfcf9f69ceb1da9991deccaf9148e9d2eab396d2f8fe1f793aa42ee8"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-789019-000095017025100235-msft-20250630.htm-dd1c8f11.meta": {
+      "bytes": 118,
+      "sha256": "06af6264d2c718da15d043f61cca3cf312c32aa09470731d470a4bf99e34cfa4"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-0001628280-26-011378-index.html-0938e88f": {
+      "bytes": 10408,
+      "sha256": "9aa219c1dfe0bbbd973f712952dc6d1c59b2a56ae55f657198a181c7e58fc9be"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-0001628280-26-011378-index.html-0938e88f.meta": {
+      "bytes": 118,
+      "sha256": "9079f68aa9ba46a7a10d63f71bfdcbfad481729ecf2871d7da522117e6bc4115"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-000162828026011378-0001628280-26-011378.txt-3994668b": {
+      "bytes": 42664430,
+      "sha256": "ea63f204198a97b120e9d836cb3ee7ecc793a0d4587dcb93f45d87f2186f4a04"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-000162828026011378-0001628280-26-011378.txt-3994668b.meta": {
+      "bytes": 119,
+      "sha256": "06eaede7db244db3340738856dda23f26bd9e867c46816ddec620dd8b5fc73c8"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-000162828026011378-asml-20251231.htm-51358c9b": {
+      "bytes": 1566658,
+      "sha256": "03a429f27c7b8c43e740a715e5c5d1d8cf9c486f63572b1d554ab08945f7357b"
+    },
+    "run-36284201573-copilot/edgar-cache/_tcache/www.sec.gov/Archives-edgar-data-937966-000162828026011378-asml-20251231.htm-51358c9b.meta": {
+      "bytes": 118,
+      "sha256": "6248450aba4b560803cc719234c295471041ce1f7e66f6e1d97d2a2b5830cc36"
+    },
+    "run-36284201573-copilot/preparation.json": {
+      "bytes": 13617,
+      "sha256": "b85269e2eaef5068b50ea81c3b26798fbc168ee5d8a51febdca7c13e98aa7e14"
+    },
+    "run-36284201573-copilot/preparation.log": {
+      "bytes": 241,
+      "sha256": "1693aa1dd261f93f2f8d3b8e1b91766231c9bed8103ebb8da688b95cc8763094"
+    },
+    "run-36284201573-copilot/prepared-source.db": {
+      "bytes": 2064384,
+      "sha256": "35e821a9dc6f23db0dedba6caa5c7001141214156e3728b64ea4a5729d082efa"
+    },
+    "run-36284201573-copilot/receipt.json": {
+      "bytes": 17821,
+      "sha256": "29f905d8dba823c887b638f7374aeb74bb7cdbc88796ef30b9e7beafb796d7b7"
+    },
+    "run-36284201573-copilot/runner.log": {
+      "bytes": 16589,
+      "sha256": "6a0560dfbfe160dcb8e508a89872f78b11c30206d1d4330268d524a48e532a13"
+    },
+    "run-36284201573-copilot/telemetry-summary.json": {
+      "bytes": 673,
+      "sha256": "de0ac7da8b9d9b1a9129a88d473b169fc9e5f8764987e3f6de2114d444af67c1"
+    },
+    "source-verification.json": {
+      "bytes": 1780,
+      "sha256": "3d5984c90f2c9af51aa84070ecb0c3717d8c250b07ef99005ce56aaa290ac49d"
+    }
+  }
+}
