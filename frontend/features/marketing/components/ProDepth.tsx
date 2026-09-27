@@ -14,7 +14,7 @@ const EXTRAS = [
   {
     icon: FileXlsIcon,
     title: 'Excel export',
-    description: 'Multi-Period Analysis as a workbook, figures still tied to XBRL.',
+    description: 'Multi-Period Analysis as a workbook, with XBRL-backed metrics.',
     tags: ['XLSX'],
   },
   {
@@ -90,14 +90,14 @@ export default function ProDepth() {
               What Pro adds
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Three ways to go deeper than one filing, each grounded in the same SEC data.
+              Three ways to work with filing data beyond one summary.
             </p>
           </div>
 
           <div className="mt-12 space-y-12 lg:space-y-16">
             <FeatureRow
               title="Ask this Filing"
-              description={`Ask a question of one filing. Every answer cites its source: numbered chips for passages, F-numbered chips for XBRL figures, each marked Verified or Cited. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
+              description={`Ask a question of one filing. Answers can include source chips for filing passages and XBRL figures; each chip indicates whether a source match was found or the item is only cited. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
             >
               <AskFilingDemo />
             </FeatureRow>

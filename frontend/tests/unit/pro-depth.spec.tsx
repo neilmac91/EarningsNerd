@@ -154,7 +154,7 @@ describe('ProDepth', () => {
     const section = screen.getByRole('region', { name: 'What Pro adds' })
     expect(section.id).toBe('pro')
     expect(
-      within(section).getByText('Three ways to go deeper than one filing, each grounded in the same SEC data.'),
+      within(section).getByText('Three ways to work with filing data beyond one summary.'),
     ).toBeInTheDocument()
 
     for (const title of ['Ask this Filing', 'Multi-Period Analysis', 'Change Report']) {
