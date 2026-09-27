@@ -1,0 +1,666 @@
+{
+  "base_sha": "e39b475e13a0599d037303aacc75a82d51b053b8",
+  "final_actual": {
+    "ci": {
+      "billed_cost_usd": null,
+      "errors": 0,
+      "estimated_cost_usd": 0.180235,
+      "judges": 0,
+      "outputs": 70,
+      "provider_calls": 70,
+      "retries": 0
+    },
+    "ci_audit": {
+      "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/final-ci-audit.json",
+      "bytes": 6192,
+      "path": "metadata/final-ci-audit.json",
+      "sha256": "6482d021b7a0320013f27293e768da02e3bc3eec5c9385002b63148fa07637ca"
+    },
+    "copilot": {
+      "billed_cost_usd": null,
+      "errors": 0,
+      "estimated_cost_usd": 0.007779,
+      "failures": 0,
+      "judges": 0,
+      "outputs": 18,
+      "provider_calls": 36
+    },
+    "copilot_audit": {
+      "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/final-copilot-audit.json",
+      "bytes": 4618,
+      "path": "metadata/final-copilot-audit.json",
+      "sha256": "92de0e15c96d5da555d218db754c9f2f5fb76d0e8cdfe88f9beacbfc5c184767"
+    }
+  },
+  "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+  "head_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725",
+  "historical_note": "Earlier heads and interrupted/skipped workflow identities are retained for custody; this receipt does not relabel them as final-head execution.",
+  "hold": {
+    "comment_id": 4114089923,
+    "next_step": "First examine reuse of PR964 external history authority/journal for already-retained technical attempts without fabricating past dispatches or creating a generic framework.",
+    "review_id": 5328823266,
+    "severity": "P2",
+    "summary": "technical_attempts completeness is self-authenticating; an omitted attempt plus recomputed closure digest validates and releases its context for downstream reuse",
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/970#discussion_r4114089923"
+  },
+  "is_draft": true,
+  "pr": 970,
+  "pr_url": "https://github.com/neilmac91/EarningsNerd/pull/970",
+  "schema_version": 1,
+  "status": "unmerged-review-hold",
+  "synthetic_merge_sha": "755ca1ce21711097d2a73ac6dd5a8d5302547937",
+  "synthetic_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725",
+  "tree_equivalent": true,
+  "workflow_runs": [
+    {
+      "artifacts": [
+        {
+          "bytes": 3669810,
+          "digest": "sha256:ec9f1b3879cfb0747f143c0ed88dd7089811f7a80fc444fc993c9eb7e36835ee",
+          "id": 10921584228,
+          "name": "eval-report-36290649266"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:10:40Z",
+      "event": "pull_request",
+      "head_sha": "16d2271027ddff11c336cbb848ee1b73fcf1204a",
+      "label": "16d-ci",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36290649266.json",
+          "bytes": 12803,
+          "path": "metadata/workflows/run-36290649266.json",
+          "sha256": "5851b7ab4dd2c7ddc025cec1f08667f07d3aa0c282f88f2bfeaeac9a51f20e75"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36290649266.json",
+          "bytes": 755,
+          "path": "metadata/workflows/artifacts-36290649266.json",
+          "sha256": "3b9cd09594654699c9a3346ad69b67b165ecf6d6cfb276b6a040bd545038cd32"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36290649266/run.log",
+          "bytes": 892776,
+          "path": "ci-36290649266/run.log",
+          "sha256": "c49f3c0ab4192696a768939162a8a8edc4633c86bc2660dee224c8e16831e2dd"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36290649266/eval_20260927T032117Z.json",
+          "bytes": 20507022,
+          "path": "ci-36290649266/eval_20260927T032117Z.json",
+          "sha256": "b0f813aa6bf614496ce3ef9a2e480a8bba2c4c9469c4cfdb4bc566dcdfb34e0f"
+        }
+      ],
+      "run_id": 36290649266,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:21:24Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36290649266",
+      "workflow": "CI"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 78683300,
+          "digest": "sha256:94720e1f3741b18a9df140937fd77a7d319827ef259d328921266feef347fd4e",
+          "id": 10922380908,
+          "name": "copilot-fidelity-36290677310"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:11:15Z",
+      "event": "pull_request",
+      "head_sha": "16d2271027ddff11c336cbb848ee1b73fcf1204a",
+      "label": "16d-copilot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36290677310.json",
+          "bytes": 12833,
+          "path": "metadata/workflows/run-36290677310.json",
+          "sha256": "94f7d6c69dd6e747752133d97281722f6595a6799488660f07fffb98a8669632"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36290677310.json",
+          "bytes": 761,
+          "path": "metadata/workflows/artifacts-36290677310.json",
+          "sha256": "f14a0e83ec291149d568a49135c797f9a2f05346f7516cb182c4598b1d0a668a"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36290677310/run.log",
+          "bytes": 130499,
+          "path": "copilot-36290677310/run.log",
+          "sha256": "9f38f4e677586c0b665fe590a5577815e0d39889261e0ac025ac4805bdda2f98"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36290677310/copilot-eval.json",
+          "bytes": 9964594,
+          "path": "copilot-36290677310/copilot-eval.json",
+          "sha256": "bb1060544a93c449d6ec835344fc3854b6036572a61d26bd01b1f7f3c8076fe3"
+        }
+      ],
+      "run_id": 36290677310,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:14:01Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36290677310",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 3665892,
+          "digest": "sha256:28d64e2ca0a66d8c0aef8c18d3035d31a45f0bc5d54c469a68e7eaa3aa6023d3",
+          "id": 10922149000,
+          "name": "eval-report-36291471420"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:27:45Z",
+      "event": "pull_request",
+      "head_sha": "c08370000f4b6cfac853d2597f3e79a633da6382",
+      "label": "c083-ci",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36291471420.json",
+          "bytes": 12816,
+          "path": "metadata/workflows/run-36291471420.json",
+          "sha256": "ae826f5012d7ed379e21a2eca4aa89bd2319774bacec2cc97a9e9734c814b875"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36291471420.json",
+          "bytes": 755,
+          "path": "metadata/workflows/artifacts-36291471420.json",
+          "sha256": "f426dbb25974f756363e87f12fd4110136599ee72d985b12b15faeb0592ac6e3"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36291471420/run.log",
+          "bytes": 893638,
+          "path": "ci-36291471420/run.log",
+          "sha256": "d7d47bcc11ee2fac8a805cfdc82de5fa15c041aa0520ec7955c216475c7c87b8"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36291471420/eval_20260927T033818Z.json",
+          "bytes": 20401824,
+          "path": "ci-36291471420/eval_20260927T033818Z.json",
+          "sha256": "c9fb496fed743e3cb68ae2e872322ef99341fe0549846e0608cfad51e80a1260"
+        }
+      ],
+      "run_id": 36291471420,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:38:23Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36291471420",
+      "workflow": "CI"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 78699212,
+          "digest": "sha256:d9fd4eaf715fa1c04ba588714a6e605f1aeba6628b6eab8caae0a21bd251dadf",
+          "id": 10922800432,
+          "name": "copilot-fidelity-36291471357"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:27:45Z",
+      "event": "pull_request",
+      "head_sha": "c08370000f4b6cfac853d2597f3e79a633da6382",
+      "label": "c083-copilot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36291471357.json",
+          "bytes": 12846,
+          "path": "metadata/workflows/run-36291471357.json",
+          "sha256": "0e6a0856c79942b401af994e79678514e3024ecbf1a4cf4389a48ad72cb5a7b6"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36291471357.json",
+          "bytes": 761,
+          "path": "metadata/workflows/artifacts-36291471357.json",
+          "sha256": "6b667b5bf5afd551bc42572d2a8b8d5ce4a52b869458fed384c38684bf0b6227"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36291471357/run.log",
+          "bytes": 129972,
+          "path": "copilot-36291471357/run.log",
+          "sha256": "845af7d992182778c86b0cd79ec89bc6e3d234118111ddc6f3feac017b478485"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36291471357/copilot-eval.json",
+          "bytes": 9964081,
+          "path": "copilot-36291471357/copilot-eval.json",
+          "sha256": "14c6f938161c7d5a45523dd87156b77eae75b86691cbc8dd65e96e267ce5894a"
+        }
+      ],
+      "run_id": 36291471357,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:30:32Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36291471357",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 3680469,
+          "digest": "sha256:a6e159e2bf1622268c327eb048c99740d8e1827b5574ad1e26ebbc36956c2257",
+          "id": 10923190890,
+          "name": "eval-report-36292268882"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:44:12Z",
+      "event": "pull_request",
+      "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+      "label": "d5-ci",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36292268882.json",
+          "bytes": 12812,
+          "path": "metadata/workflows/run-36292268882.json",
+          "sha256": "85abb503cc2f2df604ef4b479efdc5c37852f56c65417fcf80a6fc59c1539f95"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36292268882.json",
+          "bytes": 755,
+          "path": "metadata/workflows/artifacts-36292268882.json",
+          "sha256": "adbac73c6ae0e142d9408b475b13ccff703b3c7e9b7c0781888bb70a7c774391"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36292268882/run.log",
+          "bytes": 891378,
+          "path": "ci-36292268882/run.log",
+          "sha256": "b41d621696e8b09b73f9c88269f95939ceeb0d87efe1acf3f582f5ede39f3a15"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36292268882/eval_20260927T035429Z.json",
+          "bytes": 20596591,
+          "path": "ci-36292268882/eval_20260927T035429Z.json",
+          "sha256": "935c871c3c31d9ee0ff44f7a335182ce110f02ab8df1acaaa9decc1a259828d8"
+        }
+      ],
+      "run_id": 36292268882,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:54:35Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36292268882",
+      "workflow": "CI"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 78683073,
+          "digest": "sha256:3069ba4bc133d00aa0cf083e3519fea3f6df4fef738b641897a907b657baeea4",
+          "id": 10922891906,
+          "name": "copilot-fidelity-36292268663"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T03:44:12Z",
+      "event": "pull_request",
+      "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+      "label": "d5-copilot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36292268663.json",
+          "bytes": 12842,
+          "path": "metadata/workflows/run-36292268663.json",
+          "sha256": "833582f09e8e3e4fd1d2393df98e801673b4214de3e7c64fe33d1c37fcdcb6e3"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36292268663.json",
+          "bytes": 761,
+          "path": "metadata/workflows/artifacts-36292268663.json",
+          "sha256": "df14a6b64c316660e9f7ebe51703a39af8b61dc526ddb8b785cb2b5d897078a2"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36292268663/run.log",
+          "bytes": 130247,
+          "path": "copilot-36292268663/run.log",
+          "sha256": "ff76b4cdc5b85721c7b335e6dd8dc013211ba414aca5adb06ddc410ec8869e75"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36292268663/copilot-eval.json",
+          "bytes": 9963700,
+          "path": "copilot-36292268663/copilot-eval.json",
+          "sha256": "76b61e07aa92a33e965f8f0f47846147bc87b54ca5656e3373e5722ff82854c1"
+        }
+      ],
+      "run_id": 36292268663,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:47:00Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36292268663",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [],
+      "conclusion": "cancelled",
+      "created_at": "2026-09-27T03:44:12Z",
+      "event": "pull_request",
+      "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+      "label": "d5-copilot-cancelled-duplicate",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36292268873.json",
+          "bytes": 12844,
+          "path": "metadata/workflows/run-36292268873.json",
+          "sha256": "ea0d6a78a26496b31a7ebb0ea39d7c1d3d29988213100cb11da43d1c07f9d7e9"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36292268873.json",
+          "bytes": 32,
+          "path": "metadata/workflows/artifacts-36292268873.json",
+          "sha256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36292268873.json",
+          "bytes": 929,
+          "path": "metadata/workflows/jobs-36292268873.json",
+          "sha256": "25020ca7e1348851642247b0b1aed5e26a4d138724dc0672e26db5433a50dacf"
+        }
+      ],
+      "run_id": 36292268873,
+      "status": "completed",
+      "updated_at": "2026-09-27T03:44:19Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36292268873",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [],
+      "conclusion": "cancelled",
+      "created_at": "2026-09-27T04:04:04Z",
+      "event": "pull_request",
+      "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+      "label": "d5-ready-copilot-cancelled",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36293227110.json",
+          "bytes": 12844,
+          "path": "metadata/workflows/run-36293227110.json",
+          "sha256": "ac9d528b94faa44e6a430c03f544a4aea574b3eed413f5020556c52753aa04ca"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36293227110.json",
+          "bytes": 32,
+          "path": "metadata/workflows/artifacts-36293227110.json",
+          "sha256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36293227110.json",
+          "bytes": 921,
+          "path": "metadata/workflows/jobs-36293227110.json",
+          "sha256": "8e0581aa438c9d0935d9941d4bd6215fdfc64d33681b4f6f213197eabb56ec7d"
+        }
+      ],
+      "run_id": 36293227110,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:04:07Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36293227110",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [],
+      "conclusion": "skipped",
+      "created_at": "2026-09-27T04:04:06Z",
+      "event": "pull_request",
+      "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+      "label": "ab2-copilot-skipped-draft-snapshot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36293228546.json",
+          "bytes": 12831,
+          "path": "metadata/workflows/run-36293228546.json",
+          "sha256": "df96841897c81cfd9632ab3384048c05448edfbf272092a87508a3b25d1f35bc"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36293228546.json",
+          "bytes": 32,
+          "path": "metadata/workflows/artifacts-36293228546.json",
+          "sha256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36293228546.json",
+          "bytes": 929,
+          "path": "metadata/workflows/jobs-36293228546.json",
+          "sha256": "40669d9384236c5fc6cd95c513fb39eb66cc4563e057fffe9a3d163ad816a91d"
+        }
+      ],
+      "run_id": 36293228546,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:04:07Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36293228546",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 3673971,
+          "digest": "sha256:4a81c0390c6a367e7cf28785ff1f699e7fb4e36975721575ca9890337711f720",
+          "id": 10923485770,
+          "name": "eval-report-36293228553"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T04:04:06Z",
+      "event": "pull_request",
+      "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+      "label": "ab2-ci",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36293228553.json",
+          "bytes": 12801,
+          "path": "metadata/workflows/run-36293228553.json",
+          "sha256": "ba57bf52d1d18f29849c825e28a6c5df7a3b47c2b585b58a21dbd3f8bef40223"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36293228553.json",
+          "bytes": 755,
+          "path": "metadata/workflows/artifacts-36293228553.json",
+          "sha256": "311249fd5d5412d227061ff9e07b5642e0433e5430a15d6f9b8709f581696291"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36293228553/run.log",
+          "bytes": 888811,
+          "path": "ci-36293228553/run.log",
+          "sha256": "85b134e3d6f137ae2c517bf9794bb8aed6b40f834fa65ffa7664061f9af36d64"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36293228553/artifact-10923485770.zip",
+          "bytes": 3673971,
+          "path": "ci-36293228553/artifact-10923485770.zip",
+          "sha256": "4a81c0390c6a367e7cf28785ff1f699e7fb4e36975721575ca9890337711f720"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36293228553/eval-report-36293228553/eval_20260927T041435Z.json",
+          "bytes": 20530140,
+          "path": "ci-36293228553/eval-report-36293228553/eval_20260927T041435Z.json",
+          "sha256": "2c8d41e4b2dd647db49f09377b9f2f1eb9751444e6a21eab02ab8956ea783431"
+        }
+      ],
+      "run_id": 36293228553,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:14:41Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36293228553",
+      "workflow": "CI"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 78683390,
+          "digest": "sha256:019433407a267301e69c6c2448263f624d8a4355c55deb3dbf71d9f2b0915097",
+          "id": 10923406045,
+          "name": "copilot-fidelity-36293325534"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T04:06:03Z",
+      "event": "pull_request",
+      "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+      "label": "ab2-copilot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36293325534.json",
+          "bytes": 12831,
+          "path": "metadata/workflows/run-36293325534.json",
+          "sha256": "8e607123f04e542a043c46f908c0ecf9ed681adc59b6e83a746ead924c3870e3"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36293325534.json",
+          "bytes": 761,
+          "path": "metadata/workflows/artifacts-36293325534.json",
+          "sha256": "5ead7b6228483930771d859c9cfc2facdfa3d6a4bb27ddacee381c84a752d497"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36293325534/run.log",
+          "bytes": 130363,
+          "path": "copilot-36293325534/run.log",
+          "sha256": "15db3d714a0d044165b2cf3468bf10f9f17aa0301b038dc5ecfcb1e2f79ff3fc"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36293325534/artifact-10923406045.zip",
+          "bytes": 78683390,
+          "path": "copilot-36293325534/artifact-10923406045.zip",
+          "sha256": "019433407a267301e69c6c2448263f624d8a4355c55deb3dbf71d9f2b0915097"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36293325534/copilot-eval.json",
+          "bytes": 9964548,
+          "path": "copilot-36293325534/copilot-eval.json",
+          "sha256": "d0a33935e2b2fa1c638d0de15d9a126f1c553ba465fa41e90e92a452209bddd6"
+        }
+      ],
+      "run_id": 36293325534,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:08:46Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36293325534",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 3674594,
+          "digest": "sha256:448876aa0d422b8b8aaeef13b25b41800aff90731f6f1ece888d38f6bffd8e5d",
+          "id": 10923871389,
+          "name": "eval-report-36294511807"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T04:30:33Z",
+      "event": "pull_request",
+      "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+      "label": "final-68e8-ci",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36294511807.json",
+          "bytes": 12807,
+          "path": "metadata/workflows/run-36294511807.json",
+          "sha256": "d3deadc2ee2080a9dc57dbcc2dcb34190e3181b69eadeec42d450804405fc296"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36294511807.json",
+          "bytes": 755,
+          "path": "metadata/workflows/artifacts-36294511807.json",
+          "sha256": "dc877f7172237f193f76b6621fac8fabdfd51e9e36405863c1539ec5af2452c3"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36294511807/run.log",
+          "bytes": 893320,
+          "path": "ci-36294511807/run.log",
+          "sha256": "0372c9262e8768d8dc239a53e874ea3ceb644e2a1efa755c40695211f7edd35a"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36294511807/artifact-10923871389.zip",
+          "bytes": 3674594,
+          "path": "ci-36294511807/artifact-10923871389.zip",
+          "sha256": "448876aa0d422b8b8aaeef13b25b41800aff90731f6f1ece888d38f6bffd8e5d"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36294511807/eval-report-36294511807/eval_20260927T044103Z.json",
+          "bytes": 20580011,
+          "path": "ci-36294511807/eval-report-36294511807/eval_20260927T044103Z.json",
+          "sha256": "bc721b3561762efc452ce81565189719a8aa0bb4486366777e0d7c36dcacb203"
+        }
+      ],
+      "run_id": 36294511807,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:41:09Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36294511807",
+      "workflow": "CI"
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 78695557,
+          "digest": "sha256:4458011c791866b12aff5321578e6630ef2dd36fd99517e66ab67a20a527f0da",
+          "id": 10923945246,
+          "name": "copilot-fidelity-36294511938"
+        }
+      ],
+      "conclusion": "success",
+      "created_at": "2026-09-27T04:30:33Z",
+      "event": "pull_request",
+      "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+      "label": "final-68e8-copilot",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36294511938.json",
+          "bytes": 12837,
+          "path": "metadata/workflows/run-36294511938.json",
+          "sha256": "1ed2e67254519bc4e5817be4c1b43753ecd8d8c68776bdc6fd18b2fd95bc9452"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36294511938.json",
+          "bytes": 761,
+          "path": "metadata/workflows/artifacts-36294511938.json",
+          "sha256": "e43b9a01d0e59093642bf0446fa75f5ed5eefcba3946c6e777ddc0b79b43225d"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36294511938/run.log",
+          "bytes": 130496,
+          "path": "copilot-36294511938/run.log",
+          "sha256": "967016e7894f69e3ebf76fdd87407c1809f8bc95106002c5e56e07f9e7af96e7"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36294511938/artifact-10923945246.zip",
+          "bytes": 78695557,
+          "path": "copilot-36294511938/artifact-10923945246.zip",
+          "sha256": "4458011c791866b12aff5321578e6630ef2dd36fd99517e66ab67a20a527f0da"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36294511938/copilot-fidelity-36294511938/copilot-eval.json",
+          "bytes": 9964319,
+          "path": "copilot-36294511938/copilot-fidelity-36294511938/copilot-eval.json",
+          "sha256": "07ca01c3b2d65ed5e1bac27d4cba624395e8f9d2b91260919aae6bacb66674f6"
+        }
+      ],
+      "run_id": 36294511938,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:33:10Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36294511938",
+      "workflow": "Copilot filing fidelity"
+    },
+    {
+      "artifacts": [],
+      "conclusion": "success",
+      "created_at": "2026-09-27T04:30:33Z",
+      "event": "pull_request_target",
+      "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+      "label": "final-68e8-review-gate",
+      "retained_files": [
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/run-36294511812.json",
+          "bytes": 12831,
+          "path": "metadata/workflows/run-36294511812.json",
+          "sha256": "c1dcd21e9922285a84194fadb9e6a0e4cd9bf9dc9eeaa3d92f06bccbee752584"
+        },
+        {
+          "absolute_path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/artifacts-36294511812.json",
+          "bytes": 32,
+          "path": "metadata/workflows/artifacts-36294511812.json",
+          "sha256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c"
+        }
+      ],
+      "run_id": 36294511812,
+      "status": "completed",
+      "updated_at": "2026-09-27T04:35:04Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36294511812",
+      "workflow": "Review gate"
+    }
+  ]
+}

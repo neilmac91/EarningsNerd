@@ -1,3 +1,9 @@
+## September 27 — seven verified releases and H30 review hold
+
+- [x] Engineering releases #963–#969 are verified; current backend is `00393-6m9` from main `e39b475e13a0599d037303aacc75a82d51b053b8`. The [current continuation](continuation-plan-2026-09-26.md) and its evidence index contain actual output, deployment and independent-health receipts.
+- [ ] #970 remains draft at `68e8ff1f29a3ec844d595cfce93b72225d46dba3`: complete technical-attempt omission evades its self-declared closure. Bind the complete retained attempt/context set independently, first examining #964’s existing authority; do not fabricate legacy dispatches. See the [bounded correction plan](review-evidence/takeover-2026-09-26/h30-next-integration-plan.md).
+- [ ] Complete same-Fable #942 judging, corpus capacity/source references and E7 acceptance; correct Analysis ratio precision, prove recovery and collect real controlled-beta evidence. None is established by ordinary CI or the seven releases.
+
 ## September 27 — verified overnight implementation and remaining gates
 
 The founder gave Codex full authority for necessary Master Plan changes and explicitly approved

@@ -2,7 +2,7 @@
 
 ## Purpose and current boundary
 
-This handoff scopes the smallest remaining H30 engineering step under the founder’s existing implementation authority. It requires no new provider call, candidate/comparator evaluation or financial re-judgment. The implementation passed independent review, its actual-artifact smoke, one failing/restored fault proof and the full local gate (3,732 tests); hosted checks and release verification remain pending. This document retains its original bounded requirements; the [AI-assisted protocol guide](../../readiness-2026-09-21/acceptance/ai-assisted/README.md) and the final release receipt govern the implemented schema. This plan is not programme admission.
+This handoff scopes the smallest remaining H30 engineering step under the founder’s existing implementation authority. It requires no new provider call, candidate/comparator evaluation or financial re-judgment. PR #970 is **DRAFT / REVIEW HOLD / UNMERGED** at `68e8ff1f29a3ec844d595cfce93b72225d46dba3`. Its actual-artifact smoke and full local gate (3,732 tests) pass, but final independent review confirmed that a whole technical attempt can be omitted. The [review finding](https://github.com/neilmac91/EarningsNerd/pull/970#discussion_r4114089923) governs the hold; there is no release receipt. The [AI-assisted protocol guide](../../readiness-2026-09-21/acceptance/ai-assisted/README.md) on main documents the released protocol; the proposed history extension remains on #970. This plan is not programme admission.
 
 H30’s frozen current record is complete within its existing source-only scope:
 
@@ -14,6 +14,16 @@ H30’s frozen current record is complete within its existing source-only scope:
 - `old-reconciliation:disagreement:0` is an unresolved operator-runtime custody claim.
 
 The current schema-2 reconciled reference can carry the 19 current dispositions and 12 current disagreements. It has no field for the separate 52-row cross-role history. H29’s retired-B-only adverse-evidence shape cannot represent old A, old B, old reconciliation and same-context partial-A origins together.
+
+## Confirmed blocker and next bounded correction
+
+On the final head, delete one complete `technical_attempts` entry and recompute `source_context_closure_sha256`. Validation accepts the remaining declaration and omits the deleted context from downstream exclusion, allowing its later reuse as a blind-review context. This is a completeness failure even when every retained child hash is correct.
+
+Two independent refutations failed: (1) the closure seal cannot establish completeness because it derives from the same editable list; (2) reservation, dispatch, settlement and child checks cannot find an attempt that is absent from that list. A successful smoke over the complete actual eight-context package does not prove omission rejection.
+
+First inspect #964’s separately retained history authority and journal for a minimal truthful binding of the already retained A2/B2 attempts and the complete known context set. Determine whether legacy evidence can be bound without representing it as newly journal-dispatched work. Preserve every original receipt; do not invent past dispatches, regenerate source opinions or use another self-recomputed wrapper seal as the independent anchor. If the existing authority cannot express that distinction, document the smallest explicit legacy-evidence boundary before implementing it.
+
+Extend the existing gate with the exact coherently re-sealed whole-attempt omission, alongside the complete actual package and existing no-history controls. Only then run the normal correction/review/release sequence. Further implementation and additional paid regression runs stop for this tranche; frozen financial source work remains retained and valid within its stated source-only scope.
 
 ## Frozen inputs
 
@@ -33,7 +43,7 @@ The current compact receipts are `tasks/review-evidence/takeover-2026-09-26/h30-
 
 Add one optional `reconciliation_history` entry per accession to the AI prerequisite wrapper. Keep the existing top-level schema-2 prerequisite, current A/B brief records and current reconciliation record unchanged. A no-history accession must produce the same inventory bytes it produces today.
 
-The implemented wrapper additionally binds the raw reconciliation draft, a stable history prefix and actual byte-bound artifact for each origin, both technical attempt custody chains, declared runtime holds, and the complete source-context closure. Use the protocol guide for the exact field shape; the earlier abbreviated proposal is intentionally removed to prevent it being mistaken for an executable example.
+The unmerged proposed wrapper additionally binds the raw reconciliation draft, a stable history prefix and actual byte-bound artifact for each origin, both technical attempt custody chains, declared runtime holds, and the complete source-context closure. Use the protocol guide for the exact field shape; the earlier abbreviated proposal is intentionally removed to prevent it being mistaken for an executable example.
 
 `identity_set_sha256` hashes a canonical JSON array of the exact `history_id` values, sorted lexically using `ensure_ascii=True`, compact comma/colon separators and `allow_nan=False`. Completeness must also be derived from the bound origins’ actual issue IDs and disagreement indices, then paired with each row’s exact origin context/hash; a self-recomputed count and set hash are insufficient. Do not adopt an ad hoc newline hash. `source_context_closure_sha256` must cover the complete sorted exclusion set, including all old A/B/reconciliation contexts and `/root/h30_source_a_retry3`.
 
@@ -79,7 +89,7 @@ The implemented hold set is bound to the exact originally unresolved disagreemen
 
 Filing bytes can support the 51 financial dispositions. They cannot prove what an old runtime retained. The runtime row therefore remains a custody hold even though the surrounding historical financial rows are source-backed.
 
-## Implemented surface
+## Proposed surface
 
 The bounded change uses `backend/evals/acceptance_ai_protocol.py`, its existing unit-test module, and the existing protocol guide. Shared inventory/context helpers already connect to readiness and blind-decision validation; those consumers need no parallel implementation. Existing no-history and retired-B-only adverse-evidence routes remain supported. Legacy source contexts are retained as historical evidence; no journal dispatch records are fabricated for them.
 
@@ -90,6 +100,7 @@ Extend the existing protocol, readiness and decision tests. Required cases:
 - no-history compatibility retains byte-identical current inventory behavior;
 - H30 accepts exactly the bound 52 IDs with origin counts 12/11/23/6;
 - omission, duplication, unknown identity, origin change, artifact/hash change and current-target change fail;
+- deleting an entire issue-free technical attempt and coherently re-sealing the declared closure fails against independent retained history;
 - a financial row without a valid filing locator or current target fails;
 - the runtime row fails if marked source-supported, given a financial target, or allowed to clear the custody hold;
 - any old or partial context reused as a blind quality or source-challenge context fails;
@@ -99,4 +110,4 @@ Reuse the existing one-accession actual-artifact smoke, deterministic protocol/r
 
 ## Exit condition
 
-The step is complete only when the unchanged current H30 reconciliation is wrapped under the existing schema-2 boundary, the optional history record binds all 52 identities and all eight known source contexts (including the two issue-free technical attempts), the one runtime claim remains explicitly unresolved, and downstream review rejects every history context. Passing this step establishes bounded custody and exclusion only. It does not establish H30 semantic correctness beyond the frozen source dispositions, E7 admission, full-corpus readiness or candidate quality.
+The step is complete only when the unchanged current H30 reconciliation is wrapped under the existing schema-2 boundary, the optional history record binds all 52 identities and all eight known source contexts (including the two issue-free technical attempts), the one runtime claim remains explicitly unresolved, and an independently retained complete-history authority rejects whole-attempt omission even after coherent re-sealing. Downstream review must reject every history context. Passing this step establishes bounded custody and exclusion only. It does not establish H30 semantic correctness beyond the frozen source dispositions, E7 admission, full-corpus readiness or candidate quality.

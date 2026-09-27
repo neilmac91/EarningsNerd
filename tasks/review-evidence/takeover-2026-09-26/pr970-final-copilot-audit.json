@@ -1,0 +1,154 @@
+{
+  "artifact": {
+    "bytes": 78695557,
+    "github_digest_sha256": "4458011c791866b12aff5321578e6630ef2dd36fd99517e66ab67a20a527f0da",
+    "id": 10923945246,
+    "name": "copilot-fidelity-36294511938",
+    "raw_zip": "copilot-36294511938/artifact-10923945246.zip",
+    "raw_zip_sha256": "4458011c791866b12aff5321578e6630ef2dd36fd99517e66ab67a20a527f0da"
+  },
+  "denominators": {
+    "completed": 18,
+    "errors": 0,
+    "expected": 18,
+    "pass_rate": 1.0,
+    "passed": 18,
+    "scored": 18
+  },
+  "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+  "head_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725",
+  "limits": [
+    "No judge model ran.",
+    "Telemetry estimate is not a billed invoice; actual billed provider cost is unknown.",
+    "Uncited numeric figures are soft advisories; hard provenance, currency, adjacency, excerpt, and gate checks all passed.",
+    "Source preparation produced documented incoherent-segment drops; ASML sections.json remains literal null."
+  ],
+  "observed": {
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "answer_chars": {
+      "max": 328,
+      "mean": 194.06,
+      "min": 89
+    },
+    "answer_words": {
+      "max": 53,
+      "mean": 31.56,
+      "min": 14
+    },
+    "billed_cost_usd": null,
+    "citations": 37,
+    "contradictory_currencies": 0,
+    "errors": 0,
+    "estimated_cost_usd": 0.007779,
+    "failures": 0,
+    "figures": 47,
+    "hard_gate_failures": 0,
+    "invalid_provenance": 0,
+    "judges_run": 0,
+    "misplaced_fact_citations": 0,
+    "operations": {
+      "copilot_chat": 36
+    },
+    "outputs": 18,
+    "provider_calls": 36,
+    "provider_outcomes": {
+      "success": 36
+    },
+    "reasoning_tokens_observed": [
+      null
+    ],
+    "reported_cost_usd": null,
+    "segment_table_drops": 2,
+    "source_preparation": {
+      "artifact_mismatches": [],
+      "artifact_set_sha256": "6039c373f2e2821cbde1863fd5103113aa21c1d21699c3845df995f34ee36233",
+      "artifacts": 24,
+      "database_sha256": "d1f38ce057b7e8dccc71a0cb7a119b4cc8aee2ddea1887a21827d72fe4258857",
+      "errors": 0,
+      "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+      "sources": 6,
+      "status": "complete"
+    },
+    "system_fingerprints": [
+      "aeb56401ca74e127821c4f9126dcb669"
+    ],
+    "uncited_cases": [
+      {
+        "accession": "0000950170-25-100235",
+        "figure_count": 3,
+        "question_id": "sales-diluted-eps-2025",
+        "run": 0,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      },
+      {
+        "accession": "0000950170-25-100235",
+        "figure_count": 3,
+        "question_id": "sales-diluted-eps-2025",
+        "run": 1,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      },
+      {
+        "accession": "0000950170-25-100235",
+        "figure_count": 3,
+        "question_id": "sales-diluted-eps-2025",
+        "run": 2,
+        "ticker": "MSFT",
+        "uncited_figures": 1
+      },
+      {
+        "accession": "0001193125-26-231755",
+        "figure_count": 4,
+        "question_id": "native-revenue-2026",
+        "run": 0,
+        "ticker": "BABA",
+        "uncited_figures": 1
+      },
+      {
+        "accession": "0001628280-26-011378",
+        "figure_count": 6,
+        "question_id": "us-gaap-sales-net-income-2025",
+        "run": 0,
+        "ticker": "ASML",
+        "uncited_figures": 2
+      }
+    ],
+    "uncited_figures": 6,
+    "uncited_outputs": 5,
+    "unverified_excerpts": 0,
+    "usage": {
+      "cache_hit_tokens": 1121280,
+      "cache_miss_tokens": 7094,
+      "completion_tokens": 5586,
+      "prompt_tokens": 1128374,
+      "total_tokens": 1133960
+    }
+  },
+  "preparation": {
+    "bytes": 13617,
+    "path": "copilot-36294511938/copilot-fidelity-36294511938/preparation.json",
+    "sha256": "bdd6e8aeb4c1a5ff73a4cd768b928aa790dfbc4608e8437f34421ebc15cd01b6"
+  },
+  "report": {
+    "bytes": 9964319,
+    "path": "copilot-36294511938/copilot-fidelity-36294511938/copilot-eval.json",
+    "sha256": "07ca01c3b2d65ed5e1bac27d4cba624395e8f9d2b91260919aae6bacb66674f6"
+  },
+  "run_id": 36294511938,
+  "run_log": {
+    "bytes": 130496,
+    "path": "copilot-36294511938/run.log",
+    "sha256": "967016e7894f69e3ebf76fdd87407c1809f8bc95106002c5e56e07f9e7af96e7"
+  },
+  "runner_log": {
+    "bytes": 16645,
+    "path": "copilot-36294511938/copilot-fidelity-36294511938/runner.log",
+    "sha256": "c50ec474836c56b4d7a595ccc9a9071386e067a17228b86cab774fdb9a4187fe"
+  },
+  "status": "success",
+  "synthetic_merge_sha": "755ca1ce21711097d2a73ac6dd5a8d5302547937",
+  "synthetic_tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725"
+}

@@ -1,0 +1,10 @@
+{
+  "observed_at": "2026-09-27T04:28:07.608872+00:00",
+  "purpose": "Check whether normal signed-in Chrome access could unblock existing Claude CLI judging",
+  "result": "unavailable",
+  "observation": "Connected Chrome inventory exposed no Claude tab. Opening the normal Claude homepage through the current Chrome connection timed out; no authenticated page was obtained.",
+  "account_auth_state_established": false,
+  "credential_or_account_change": false,
+  "judge_calls": 0,
+  "limit": "Browser connection failure is not proof of account or model unavailability. Existing CLI auth check and external same-Fable handoff remain the actionable record."
+}
