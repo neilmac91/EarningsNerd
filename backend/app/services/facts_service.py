@@ -1939,6 +1939,60 @@ _inflight_syncs: dict[int, asyncio.Event] = {}
 COMPANYFACTS_INFLIGHT_WAIT_SECONDS = 25.0
 
 
+def _companyfacts_fresh_result(
+    db: Session, company: Company, *, force: bool
+) -> Optional[dict[str, Any]]:
+    """Return the unchanged TTL result, or ``None`` when this company needs a fetch."""
+    synced_at = company.facts_synced_at
+    if synced_at is not None and synced_at.tzinfo is None:
+        synced_at = synced_at.replace(tzinfo=timezone.utc)  # SQLite returns naive datetimes
+    if force or synced_at is None:
+        return None
+
+    from app.config import settings
+
+    if datetime.now(timezone.utc) - synced_at >= timedelta(
+        hours=settings.COMPANYFACTS_SYNC_TTL_HOURS
+    ):
+        return None
+    newer_filing = (
+        db.query(Filing.id)
+        .filter(Filing.company_id == company.id, Filing.filing_date > synced_at)
+        .first()
+    )
+    if newer_filing is not None:
+        return None
+    return {
+        "synced": True, "refreshed": False, "inserted": 0, "skipped": 0,
+        "demoted": 0, "unsupported_ifrs": False,
+    }
+
+
+def _persist_companyfacts_payload(
+    db: Session, company: Company, payload: dict[str, Any]
+) -> dict[str, Any]:
+    """Normalize and persist one already-fetched payload in the caller's short transaction."""
+    facts, meta = normalize_companyfacts(
+        company.id, payload, financial_sic=_is_financial_sic(company.sic)
+    )
+    result = (
+        upsert_facts_bulk(db, facts, commit=False)
+        if facts
+        else {"inserted": 0, "skipped": 0, "demoted": 0}
+    )
+    company.facts_synced_at = datetime.now(timezone.utc)
+    db.commit()
+    logger.info(
+        "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",
+        company.id, result["inserted"], result["skipped"], result["demoted"],
+        meta["unsupported_ifrs"],
+    )
+    return {
+        "synced": True, "refreshed": True, **result,
+        "unsupported_ifrs": meta["unsupported_ifrs"],
+    }
+
+
 async def ingest_companyfacts(
     db: Session,
     company: Company,
@@ -1954,23 +2008,9 @@ async def ingest_companyfacts(
     refetched hourly; a FAILED fetch does not stamp (retry on next touch). ``fetcher`` is
     injectable for tests (async ``cik -> dict | None``).
     """
-    synced_at = company.facts_synced_at
-    if synced_at is not None and synced_at.tzinfo is None:
-        synced_at = synced_at.replace(tzinfo=timezone.utc)  # SQLite returns naive datetimes
-    if not force and synced_at is not None:
-        from app.config import settings
-
-        if datetime.now(timezone.utc) - synced_at < timedelta(
-            hours=settings.COMPANYFACTS_SYNC_TTL_HOURS
-        ):
-            newer_filing = (
-                db.query(Filing.id)
-                .filter(Filing.company_id == company.id, Filing.filing_date > synced_at)
-                .first()
-            )
-            if newer_filing is None:
-                return {"synced": True, "refreshed": False, "inserted": 0, "skipped": 0,
-                        "demoted": 0, "unsupported_ifrs": False}
+    fresh = _companyfacts_fresh_result(db, company, force=force)
+    if fresh is not None:
+        return fresh
 
     inflight = _inflight_syncs.get(company.id)
     if inflight is not None:
@@ -1990,26 +2030,70 @@ async def ingest_companyfacts(
         if payload is None:
             return {"synced": False, "refreshed": False, "inserted": 0, "skipped": 0, "demoted": 0,
                     "unsupported_ifrs": False, "error": "fetch_failed"}
-        facts, meta = normalize_companyfacts(
-            company.id, payload, financial_sic=_is_financial_sic(company.sic)
-        )
-        result = (
-            upsert_facts_bulk(db, facts, commit=False)
-            if facts
-            else {"inserted": 0, "skipped": 0, "demoted": 0}
-        )
-        company.facts_synced_at = datetime.now(timezone.utc)
-        db.commit()
-        logger.info(
-            "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",
-            company.id, result["inserted"], result["skipped"], result["demoted"],
-            meta["unsupported_ifrs"],
-        )
-        return {"synced": True, "refreshed": True, **result,
-                "unsupported_ifrs": meta["unsupported_ifrs"]}
+        return _persist_companyfacts_payload(db, company, payload)
     finally:
         if _inflight_syncs.get(company.id) is event:
             _inflight_syncs.pop(company.id, None)
+        event.set()
+
+
+async def ingest_companyfacts_by_id(
+    company_id: int,
+    *,
+    session_factory: Callable[[], Session],
+    force: bool = False,
+    fetcher: Optional[Callable[[str], Any]] = None,
+) -> dict[str, Any]:
+    """Sync coverage facts without retaining a database connection during external waits.
+
+    The coverage route can outlive its request while the SEC fetch continues in the background.
+    Keep its database ownership to two short units: a freshness/snapshot read, then (for the
+    leader) persistence after the fetch.  A same-company follower waits on the process-local event
+    with no session of its own.  The caller-owned ``ingest_companyfacts`` contract remains intact
+    for batch jobs and tests that deliberately manage a larger transaction.
+    """
+    with session_factory() as db:
+        company = db.get(Company, company_id)
+        if company is None:
+            return {"synced": False}
+
+        fresh = _companyfacts_fresh_result(db, company, force=force)
+        if fresh is not None:
+            return fresh
+
+        cik = company.cik
+
+    inflight = _inflight_syncs.get(company_id)
+    if inflight is not None:
+        try:
+            await asyncio.wait_for(inflight.wait(), timeout=COMPANYFACTS_INFLIGHT_WAIT_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+        with session_factory() as db:
+            synced_at = db.query(Company.facts_synced_at).filter(Company.id == company_id).scalar()
+        return {
+            "synced": synced_at is not None, "refreshed": False, "inserted": 0, "skipped": 0,
+            "demoted": 0, "unsupported_ifrs": False, "waited": True,
+        }
+
+    event = asyncio.Event()
+    _inflight_syncs[company_id] = event
+    try:
+        fetch = fetcher or _fetch_companyfacts_async
+        payload = await fetch(cik)
+        if payload is None:
+            return {
+                "synced": False, "refreshed": False, "inserted": 0, "skipped": 0,
+                "demoted": 0, "unsupported_ifrs": False, "error": "fetch_failed",
+            }
+        with session_factory() as db:
+            company = db.get(Company, company_id)
+            if company is None:
+                return {"synced": False}
+            return _persist_companyfacts_payload(db, company, payload)
+    finally:
+        if _inflight_syncs.get(company_id) is event:
+            _inflight_syncs.pop(company_id, None)
         event.set()
 
 
