@@ -30,7 +30,7 @@ a formal Fable verdict, or an adoption decision for candidate r.
 | WMT run 1 — "$3,542 … Total: $38,166" from an "(Amounts in millions)" table | **Corrected by this patch** (declared table-cell scale owner). |
 | JPM run 0 — 2023 gain called "prior year" in a 2025-vs-2024 filing | Still applicable, unresolved; smallest next decision below. |
 | FIGS run 0 — reconciliation "deducts" items the table adds | Still applicable, unresolved; needs a structured reconciliation-table owner. |
-| FIGS run 1 — statutory-rate explanation moved to the YoY comparison | Still applicable, unresolved; causal-transfer class owned by the attribution gate/verify flags (both off, founder-held). |
+| FIGS run 1 — statutory-rate explanation moved to the YoY comparison | Still applicable, unresolved; causal-transfer class, but its slot (`notable_footnotes[].impact`) is not scanned by the attribution gate at all, so arming the flags would not reach it. |
 | PLTR run 0 — aggregate other income assigned to one gain component | Still applicable, unresolved; needs the statement-line owner (`statement_source` null for PLTR). |
 | PLTR run 1 — cost-of-revenue driver presented as the gross-margin cause | Still applicable, unresolved; same causal-transfer class as FIGS run 1. |
 | RIVN customer conflation, MELI fee scope (Risks) | Already prevented in the serving path by #981/#987 (`provenance_service` risk projection + truthful fallback); not prevented outside Risks. |
@@ -88,8 +88,9 @@ percentage form are non-candidates by construction.
 
 ### Gate and mutation proof
 
-`backend/tests/unit/test_table_cell_units.py` (16 cases): the retained WMT lines restored 7/7 including
-year-glued cells ("20283,237"); prose-bare (BA), missing, mixed-scale, percent, non-dollar banner,
+`backend/tests/unit/test_table_cell_units.py` (18 cases): the retained WMT lines restored 7/7 including
+year-glued cells ("20283,237"); cells at either end of a line under the two other edgartools table
+flattenings; prose-bare (BA), missing, mixed-scale, percent, non-dollar banner,
 banner-above-prose, share-count and XBRL-literal cases untouched with the documented reason; verbatim
 evidence untouched; recovered section skipped; audit vocabulary; and the actual consumer
 (`OpenAIService.summarize_filing` final path, `_partial_markdown_preview` with and without the index,
@@ -125,12 +126,20 @@ r was cherry-picked and no r adoption claim is revived.
   immediately prior period (`xbrl_grounding.*.prior.period`), measured on the retained 70 rows
   before any rewrite is allowed.
 - **Causal transfer (FIGS run 1, PLTR run 1).** The owners exist (`attribution_gate`,
-  `attribution_verify`); the lexical finder passes both because the clause shares tokens with the
-  source line it was transferred from. The decision is founder-held (`AI_ATTRIBUTION_VERIFY`, one
-  bounded model call per flagged generation) and was not touched.
+  `attribution_verify`) but cover only some slots. PLTR run 1 lives in `the_print.what_changed`, which
+  is scanned, and the lexical finder passes it because the clause shares tokens with the source line
+  it was transferred from. FIGS run 1 lives in `notable_footnotes[].impact`, which
+  `attribution_gate._slots` never yields, so it is unscanned rather than passed; reaching it needs the
+  slot list widened before any flag matters. The flag decision is founder-held
+  (`AI_ATTRIBUTION_VERIFY`, one bounded model call per flagged generation) and was not touched.
 - **Reconciliation sign (FIGS run 0) and aggregate-vs-component (PLTR run 0).** Need a structured
   reconciliation-row owner and the statement-line owner respectively; not bounded enough for this
   handoff.
+- **Banner inheritance.** `_governing_table_scale` walks up through table-like lines until a banner
+  or prose; a banner-less table that follows a bannered one with only short headings between them
+  inherits the earlier banner. No retained packet exercises this and the 70-output replay produced
+  no false insertion, but it is the residual precision risk of the heuristic; the next test to add is
+  a two-table fixture where the second table's scale differs and has no banner of its own.
 - **Hosted measurement.** The draft PR triggers the advisory `eval-baseline` job (about USD 0.19–0.38
   per run at recent telemetry). Scorers read rendered prose, so the restored "$3,542 million" is now a
   scaled figure visible to numeric dims; expected neutral (it grounds via the excerpt), to be read from
