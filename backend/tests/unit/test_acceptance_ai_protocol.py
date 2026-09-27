@@ -251,6 +251,27 @@ def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_pat
     adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
     adverse["operator_reservation"].update(_write(reservation_path, original_reservation))
     adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+    addendum = json.loads(json.dumps(original_addendum))
+    addendum["original_artifacts"][0]["path"], addendum["original_artifacts"][1]["path"] = (
+        addendum["original_artifacts"][1]["path"], addendum["original_artifacts"][0]["path"])
+    adverse["status_addendum"].update(_write(addendum_path, addendum))
+    prompt_path.write_text(
+        original_prompt.replace(old_addendum_sha, adverse["status_addendum"]["sha256"]),
+        encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    reservation = {**original_reservation,
+                   "prompt_sha256": adverse["reconciliation_prompt"]["sha256"]}
+    adverse["operator_reservation"].update(_write(reservation_path, reservation))
+    ledger = {**original_ledger,
+              "status_addendum_sha256": adverse["status_addendum"]["sha256"]}
+    adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+    assert "ai_adverse_source_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    adverse["status_addendum"].update(_write(addendum_path, original_addendum))
+    prompt_path.write_text(original_prompt, encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    adverse["operator_reservation"].update(_write(reservation_path, original_reservation))
+    adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
     alternate_ledger = json.loads(json.dumps(original_ledger))
     alternate_ledger["adverse_dispositions"][0].update(
         source_role="index", source_sha256="b" * 64,

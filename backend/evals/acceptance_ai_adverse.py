@@ -115,15 +115,18 @@ def validate_rows(
             issue_by_id[retired_issue["issue_id"]] = retired_issue
 
         originals = addendum.get("original_artifacts")
+        expected_originals = {
+            (Path(row[name]["path"]).name, row[name]["sha256"])
+            for name in ("draft", "narrative", "read_log")
+        }
         if (not isinstance(originals, list) or len(originals) != 3 or
                 any(not isinstance(item, dict) or set(item) != {"path", "sha256"} or
                     not _nonempty(item.get("path")) or not _nonempty(item.get("sha256"))
                     for item in originals) or
                 len({item["path"] for item in originals}) != 3 or
-                sorted(item["sha256"] for item in originals) != sorted((
-                    row["draft"]["sha256"], row["narrative"]["sha256"],
-                    row["read_log"]["sha256"],
-                ))):
+                len(expected_originals) != 3 or
+                {(Path(item["path"]).name, item["sha256"]) for item in originals} !=
+                expected_originals):
             raise ValueError("retired source original artifact set invalid")
         retired = decision.get("reference_b")
         if (read_log.get("accession_number") != accession or

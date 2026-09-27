@@ -26,6 +26,8 @@ status `compacted_ineligible`, plus `{path, sha256}` records for these nine arti
 
 The addendum must name exactly the original draft, narrative and read log. Original absolute
 locations are historical labels; the row's copied artifacts supply the hash-bound bytes. The
+historical paths may relocate by directory, but each leaf filename and hash must remain paired
+with the corresponding row artifact; swapping labels between the three records is invalid. The
 reservation binds the governing protocol prompt, actual prompt, eligible A/B hashes and current
 reconciliation context, declares no candidate inputs and records no admission approval. It is
 retained operator evidence, not an independently authenticated provider attestation.
