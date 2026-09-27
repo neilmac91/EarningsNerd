@@ -228,6 +228,25 @@ carries `<target>_purged` counts and `dry_run`. Nothing user-facing changes: eve
 row is already invisible or unusable. Account deletion for inactivity, waitlist and referral
 rows, audit logs, usage counters and billing rows are outside this job by design.
 
+### Monthly Cloud SQL export
+
+The `Monthly Cloud SQL export` Actions workflow is the scheduled owner for one logical PostgreSQL
+export each month. A green run means either that its one exact export operation reached `DONE`
+without an error and the bound object passed metadata and gzip-prefix checks, or that the same
+month already had both that successful bound operation and that verified object. Object shape
+alone is never success. If the provider no longer returns the operation that created an existing
+object, the workflow stops at `state-hold`; a privileged operator must inspect the retained cloud
+history rather than overwrite it.
+
+The workflow submits at most once, adopts one exact active operation, and performs only one
+lookup after an uncertain submission result. It never redraws that request. A failed operation
+is a state hold and never permits an implicit same-month retry. It may leave the deterministic
+object name occupied; cleanup requires a separately authorized operator because the workflow
+identities have no delete permission. Public database health is
+checked before and after the export. This proves recurrence and custody of a compressed logical
+export; it does not read the SQL contents or prove restoration. See `docs/DEPLOYMENT.md` for the
+dedicated identity, IAM, secret, and bucket-lifecycle setup.
+
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
