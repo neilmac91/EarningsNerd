@@ -50,3 +50,11 @@ PR #981 is [verified live](pr981-release.json) on revision `00402-tj6`, with 1 m
 The [code-rendered Analysis observation diagnostic](analysis-observation-diagnostic.json) completed 14/14 outputs using 14 calls, with no material candidate rendering findings against the frozen inputs. It preserves older failed candidates separately and does not establish full-source or E7 acceptance. The candidate is not yet released: final #988 review identified two display-precision findings requiring correction and offline replay. A separate coverage-session repair addresses the four-connection exhaustion path observed during SEC latency.
 
 [Released #986](pr986-release.json) persists service and revision maximum 2. Its [hosted audit](pr986-hosted-audit.json) records 18 Copilot outputs and zero baseline-generation calls. Revision `00403-rjh`, migrations 0/40, all eight job images and pool recipes, 100% traffic and independent health are verified. [PR #989 hosted evidence](pr989-hosted-audit.json) clears its narrow short-session repair. [Release verification](pr989-release.json) records revision `00404-46p`, migrations 0/40, all eight jobs on the release image, service maximum 2 and healthy independent readback. A later browser coverage smoke was unavailable after its debugger connection failed; it is not counted as passed.
+
+PR #991 is [verified live](pr991-release.json) on revision `00405-6hm`, migrations 0/40 and
+100% traffic. Company lookup, search and trending routes snapshot response data and release their
+request session before external waits. The [hosted audit](pr991-hosted-audit.json) records 70 summary
+outputs and 18 Copilot outputs, 106 successful calls, exact source/head parity and a USD 0.185997
+usage estimate; billed cost is unknown. Clear code review and the real size-four pool regression
+preceded release. Point-in-time health does not establish fleet capacity, and ordinary regression
+measurements do not constitute E7 or Fable acceptance.
