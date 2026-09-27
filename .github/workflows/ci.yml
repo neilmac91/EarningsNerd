@@ -68,7 +68,7 @@ concurrency:
 
 jobs:
   backend-tests:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -119,7 +119,7 @@ jobs:
   # must live in `migration_ledger` and never read or write the legacy name.
   # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
   migrations-postgres:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -214,7 +214,7 @@ jobs:
         run: python -m pytest tests/integration/test_notification_delivery_transactions.py
 
   frontend-tests:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -261,7 +261,7 @@ jobs:
   # Treat it as a regression signal for the static shell; get the authoritative
   # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
   lighthouse:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -305,7 +305,7 @@ jobs:
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
   eval-baseline:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot' && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     continue-on-error: true
     # Each run is a real DeepSeek measurement (see step below). Without this, every new
@@ -450,7 +450,7 @@ jobs:
           retention-days: 14
 
   e2e-tests:
-    if: github.ref_name != 'codex/wave3-thinking-low-pilot'
+    if: github.ref_name != 'codex/wave3-thinking-low-pilot' && github.head_ref != 'codex/wave3-thinking-low-pilot'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
