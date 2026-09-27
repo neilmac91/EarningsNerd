@@ -614,8 +614,6 @@ Rules:
             # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
             restore_authored_plan_units(sections, capital_plan)
-            # Same table-cell owner as the final render, over the same supplied excerpt.
-            restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
             completed_keys = tuple(
                 key for key in sections
                 if key != "the_print" or not self._section_is_empty(sections[key])
@@ -646,6 +644,9 @@ Rules:
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
+            # Same table-cell owner as the final render, over the same supplied excerpt, after the
+            # same binders, so preview and final restore the same surviving prose.
+            restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
             rendered = render_sections({
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
@@ -825,21 +826,23 @@ Rules:
             restore_authored_plan_units(
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
-        # Declared table-cell scales for bare model dollar figures (source_units): the SAME
-        # supplied excerpt, in place on sections_info before the coverage snapshot and render, so
-        # stored sections, exports and the persisted markdown agree. Recovery-authored sections
-        # are skipped (separately selected context). Measure-always: the audit records every
-        # restored and abstained figure.
-        table_cell_unit_audit = restore_table_cell_units(
-            sections_info, build_table_unit_index(filing_excerpt or ""),
-            xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
-        )
-
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
         bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
+        )
+        # Declared table-cell scales for bare model dollar figures (source_units): the SAME
+        # supplied excerpt, in place on sections_info AFTER the source binders above have replaced
+        # or removed the model prose they own (statement relationship, capital allocation,
+        # issuer cash) and before the coverage snapshot and render, so the audit describes only
+        # prose that survives into the stored sections, exports and persisted markdown. Verified
+        # source-envelope bytes are not policed slots. Recovery-authored sections are skipped
+        # (separately selected context). Measure-always: the audit carries total counts beside its
+        # capped detail lists.
+        table_cell_unit_audit = restore_table_cell_units(
+            sections_info, build_table_unit_index(filing_excerpt or ""),
+            xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)

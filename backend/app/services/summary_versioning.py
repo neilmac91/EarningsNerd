@@ -108,7 +108,16 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   manufacturing an operating margin from amounts whose denominator basis is unverified. Align
 #   the shared inline segment rule with that code-owned table; model commentary stays unchanged.
 #   Taxonomy remains v2. The stamp marks older rows stale without scheduling regeneration.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-p"
+# summary-2026-09-q / summary-2026-09-r: RESERVED by the held #942 experiment (candidate prompt
+#   identities with completed or pending semantic measurement); never reuse either name here.
+# summary-2026-09-s: deterministic content revision — bare model dollar figures copied from a
+#   scaled source table regain the table's declared scale word (source_units
+#   restore_table_cell_units, after the source binders, on final and preview). Prompt text, schema,
+#   flags and baseline pins unchanged; taxonomy remains v2. The stamp identifies rows generated
+#   before this owner as stale; it does not authorize an automatic historical regeneration or
+#   drain, and existing cached summaries remain an explicit rollout limitation until a separately
+#   bounded refresh is verified. Not an adoption of the q/r prompt candidates.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-s"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

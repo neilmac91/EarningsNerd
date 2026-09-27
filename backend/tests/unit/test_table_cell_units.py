@@ -131,6 +131,46 @@ def test_other_table_flattenings_own_a_cell_at_either_end_of_its_line(source):
     assert audit["unresolved"] == []
 
 
+@pytest.mark.parametrize("figure, reason, source, prose", [
+    # Review P1: a short sentence under a banner is prose, not a row, even when it ends the block.
+    ("$3,237", "prose_occurrence",
+     "(Amounts in millions)\n\nDebt  9,000\n\nThe registration fee was $3,237.",
+     "The registration fee was $3,237."),
+    # A figure with no cell separator around it is not a demonstrated cell, sentence or not.
+    ("$3,237", "undelimited_cell",
+     "(Amounts in millions)\n\nDebt  9,000\n\nRegistration fee was $3,237.",
+     "The registration fee was $3,237."),
+    # Review P1: a per-share row whose label is detached on the line above (one value per line).
+    ("$3,237", "unscaled_row",
+     "(Amounts in millions, except per share data)\n\nRevenue\n\n9,000\n\nDividends per share\n\n3,237",
+     "Dividends per share were $3,237."),
+    # Review P1: a new table whose header carries its own unit token never inherits the banner above.
+    ("$3,237", "no_governing_banner",
+     "(Amounts in millions)\n\nDebt  9,000\n\nOther fees\n\nName  Fee ($)\n\nSmith  3,237",
+     "Smith paid $3,237."),
+    # A run of headings longer than a header block separates a row from the banner.
+    ("$3,237", "no_governing_banner",
+     "(Amounts in millions)\n\nDebt  9,000\n\nPart II\n\nItem 5\n\nMarket information\n\nOther matters\n\nSmith  3,237",
+     "Smith paid $3,237."),
+])
+def test_review_adverse_sources_abstain(figure, reason, source, prose):
+    sections = _sections(prose)
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [prose]
+    assert audit["restored"] == []
+    assert audit["unresolved"] == [
+        {"slot": "balance_sheet_liquidity.maturities_covenants[0]", "figure": figure, "reason": reason},
+    ]
+
+
+def test_plural_scale_words_are_already_unit_bound():
+    # Review P2: "$3,237 millions" is unit-bound prose, never a candidate, whatever the source says.
+    text = "Debt was $3,237 millions and fees were $1,200 Thousands; other debt $9,000 billions."
+    sections = _sections(text)
+    assert restore_table_cell_units(sections, build_table_unit_index("(Amounts in millions)\n\nDebt  3,237\n\nFees  1,200\n\nOther  9,000")) is None
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [text]
+
+
 def test_scaled_decimal_currency_prefixed_and_percent_figures_are_not_bare():
     # Already-unit-bound or non-dollar forms are never candidates, however the source reads.
     text = ("Proceeds of $10,550M and a gain of $9,566 million; US$996.3M of notes; NT$129,663,077,605 "
@@ -175,6 +215,62 @@ def test_recovered_sections_verbatim_fields_and_missing_source_are_untouched():
     untouched = _sections()
     assert restore_table_cell_units(untouched, None) is None
     assert untouched["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET]
+
+
+def test_audit_totals_are_exact_while_detail_lists_are_capped():
+    figures = " ".join(f"${1_000 + i:,}" for i in range(source_units._AUDIT_CAP + 5))
+    sections = _sections(f"Fees were {figures}.")
+    audit = restore_table_cell_units(sections, build_table_unit_index(WMT_SOURCE))
+    assert audit["unresolved_count"] == source_units._AUDIT_CAP + 5
+    assert len(audit["unresolved"]) == source_units._AUDIT_CAP
+    assert audit["restored_count"] == 0 and audit["restored"] == []
+
+
+def _statement_source():
+    """The smallest statement source the earnings-quality binder accepts."""
+    def column(year, end):
+        return {"year": year, "period_end": end,
+                "operating": {"label": "Operating income", "value": 100_000_000},
+                "pretax": {"label": "Income before income taxes", "value": 90_000_000},
+                "components": [{"label": "Interest expense", "value": -10_000_000}]}
+    return {"scale": 1_000_000, "current": column(2026, "2026-01-31"), "prior": column(2025, "2025-01-31"),
+            "operating_disclosures": [{"year": 2026, "rows": []}, {"year": 2025, "rows": []}],
+            "expense_notes": [], "comparative_notes": [], "additional_disclosures": []}
+
+
+@pytest.mark.asyncio
+async def test_owner_runs_after_the_source_binders_on_final_and_preview(monkeypatch):
+    # Slots the binders replace or remove (operating_vs_one_time under a statement source;
+    # capital_allocation and highlights always) must never appear in the audit, while the surviving
+    # maturities bullet is restored identically on the final and preview paths.
+    service = OpenAIService()
+    sections = _sections(
+        earnings_quality={"operating_vs_one_time": "Debt of $3,542 was reclassified."},
+        value_drivers={"capital_allocation": "Buybacks of $38,166 were funded.", "highlights": ["Repaid $3,237."]},
+    )
+    structured = {"schema_version": SUMMARY_SCHEMA_VERSION, "sections": deepcopy(sections), "metadata": {}}
+
+    async def generated(*args, **kwargs):
+        return deepcopy(structured)
+
+    monkeypatch.setattr(service, "generate_structured_summary", generated)
+    result = await service.summarize_filing(WMT_SOURCE, "Walmart", "10-K", xbrl_metrics=WMT_XBRL,
+                                            filing_excerpt=WMT_SOURCE, statement_source=_statement_source())
+    raw = result["raw_summary"]
+    audit = raw["table_cell_unit_audit"]
+    assert {r["slot"] for r in audit["restored"]} == {"balance_sheet_liquidity.maturities_covenants[0]"}
+    assert audit["restored_count"] == 7 and audit["unresolved_count"] == 0
+    assert "operating_vs_one_time" not in raw["sections"]["earnings_quality"]
+    assert "capital_allocation" not in raw["sections"]["value_drivers"]
+    assert "highlights" not in raw["sections"]["value_drivers"]
+    final_markdown = sections_to_markdown(render_sections({**raw, "schema_version": SUMMARY_SCHEMA_VERSION}))
+    assert final_markdown == result["business_overview"] and WMT_RESTORED in final_markdown
+    preview = service._partial_markdown_preview(
+        json.dumps(structured), WMT_XBRL, statement_source=_statement_source(),
+        unit_index=build_table_unit_index(WMT_SOURCE))
+    assert preview and WMT_RESTORED in preview
+    assert "$3,542 million was reclassified" not in preview and "$38,166 million were funded" not in preview
+    assert "$3,542 million was reclassified" not in final_markdown
 
 
 def test_audit_reasons_are_the_documented_vocabulary():

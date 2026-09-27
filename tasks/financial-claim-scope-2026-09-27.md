@@ -58,21 +58,32 @@ the text byte-identical and recording the reason, when:
 - the issuer's own prose writes the figure bare (`prose_occurrence`; the COST section convention),
 - the digits occur under different banners (`mixed_scales`), as a percentage (`percent_occurrence`),
   not at all (`no_occurrence`), or only under a non-dollar banner or below prose (`no_governing_banner`),
-- the row is excluded from the scale — per-share, share counts, counts (`unscaled_row`),
+- the figure is not a demonstrated table cell — no cell separator (non-breaking space, two spaces,
+  parentheses) or value-only line owns it (`undelimited_cell`),
+- the row, or the detached label above a value-only row, is excluded from the scale — per-share,
+  share counts, counts, or a unit/scope token such as "Fee ($)" (`unscaled_row`),
 - standardized XBRL supports the literal reading (`literal_xbrl_match`),
 - the section was recovery-authored (`recovered`).
 
 Digits are never changed; verbatim `supporting_evidence` and quotes are never touched; nothing is
-rescaled. The audit is persisted at `raw_summary["table_cell_unit_audit"]` and the pipeline emits the
-count-first counter `table_cell_units restored=… unresolved=… reasons=…` (figure-trace convention).
-Previews and the final render use the same owner over the same supplied excerpt (`unit_index` threaded
-through `_request_content` → `_stream_collect` → `_partial_markdown_preview`). No flag, schema, stamp,
-scorer, judge contract, baseline pin or locked test changed.
+rescaled. The owner runs after the source binders (`bind_statement_relationship`,
+`bind_capital_allocation`, `bind_issuer_cash_disclosure`) on both the final and the preview path, so it
+measures only model prose that survives into the stored sections; slots those binders replace or remove
+(`operating_vs_one_time` under a statement source, `capital_allocation`, `highlights`) never enter the
+audit. The audit is persisted at `raw_summary["table_cell_unit_audit"]` with exact `restored_count` /
+`unresolved_count` totals beside detail lists capped at 40, and the pipeline emits the count-first
+counter `table_cell_units restored=… unresolved=… reasons=…` from the totals. Previews and the final
+render use the same owner over the same supplied excerpt (`unit_index` threaded through
+`_request_content` → `_stream_collect` → `_partial_markdown_preview`). The content stamp advances to
+`summary-2026-09-s` (a deterministic content revision; `q`/`r` stay reserved by the held #942
+experiment; no automatic regeneration or drain is authorized, so existing cached summaries remain an
+explicit rollout limitation). No flag, schema, scorer, judge contract, baseline pin or locked test changed.
 
 Files: `backend/app/services/ai/source_units.py`, `backend/app/services/ai/figure_trace.py`
 (`policed_prose_slots`, a pure refactor of `_prose_blob` so both owners share one allowlist),
 `backend/app/services/openai_service.py`, `backend/app/services/ai/provider_requests.py`,
-`backend/app/services/summary_pipeline.py`, `backend/tests/unit/test_table_cell_units.py`,
+`backend/app/services/summary_pipeline.py`, `backend/app/services/summary_versioning.py`,
+`backend/tests/unit/test_table_cell_units.py`,
 `lessons/arch-bind-bare-table-figures-to-the-declared-scale.md` (+ index).
 
 ### Preservation of valid source-supported cases
@@ -88,7 +99,7 @@ percentage form are non-candidates by construction.
 
 ### Gate and mutation proof
 
-`backend/tests/unit/test_table_cell_units.py` (18 cases): the retained WMT lines restored 7/7 including
+`backend/tests/unit/test_table_cell_units.py` (27 cases): the retained WMT lines restored 7/7 including
 year-glued cells ("20283,237"); cells at either end of a line under the two other edgartools table
 flattenings; prose-bare (BA), missing, mixed-scale, percent, non-dollar banner,
 banner-above-prose, share-count and XBRL-literal cases untouched with the documented reason; verbatim
@@ -104,7 +115,10 @@ r changes `openai_service.py` only at the `xbrl_narrative` import block and the 
 prompt rule; this branch changes the `source_units` import, `generate_structured_summary`,
 `_stream_collect`, `_partial_markdown_preview`, the final owner site and the raw-summary payload —
 different hunks. r advances `summary_versioning.SUMMARY_PROMPT_VERSION` to `summary-2026-09-r`; this
-branch leaves it at `-p` on purpose so the two stamp lineages do not collide. No other file overlaps
+branch advances it to `summary-2026-09-s` on the chief engineer's instruction, documenting `q`/`r` as
+reserved, so the two branches now conflict on that one line and its comment block. Integration order
+decides the resolution: whichever lands second keeps `-s` as the later content revision (or a
+successor), never reusing `q`/`r`. No other file overlaps
 (`figure_trace.py`, `source_units.py`, `provider_requests.py`, `summary_pipeline.py` and the new test
 are not touched by r; r's `debt_scope.py`, `markdown_render.py`, `xbrl_narrative.py`,
 `xbrl_service.py`, `financial_basis.py`, `summary_schema.py` and prompt edits are not touched here).
@@ -113,10 +127,10 @@ r was cherry-picked and no r adoption claim is revived.
 
 ## Remaining risks and the next smallest decision
 
-- **Stamp.** Repo precedent (`-n`) advanced `SUMMARY_PROMPT_VERSION` for a deterministic-only change
-  so older rows read as stale. This branch does not, because r already claims the next identity and a
-  bump schedules regeneration spend. Decision for Codex at integration: bump when r lands (one
-  lineage), or accept that cached summaries keep bare figures until regenerated for another reason.
+- **Stamp (resolved by the chief engineer's integration decision).** `SUMMARY_PROMPT_VERSION` is
+  `summary-2026-09-s`; `q`/`r` are documented as reserved by #942. Old rows read as stale; no automatic
+  historical regeneration or drain is authorized, so cached summaries keep bare figures until a
+  separately bounded refresh is verified.
 - **Coverage.** The owner corrects table-cell copies only. The COST-style convention (issuer prose
   written bare under a section declaration) is abstained by design and remains reader-visible; the
   next bounded step is extending `attach_quote_unit_context`'s MD&A-title declaration path to bare
@@ -135,11 +149,16 @@ r was cherry-picked and no r adoption claim is revived.
 - **Reconciliation sign (FIGS run 0) and aggregate-vs-component (PLTR run 0).** Need a structured
   reconciliation-row owner and the statement-line owner respectively; not bounded enough for this
   handoff.
-- **Banner inheritance.** `_governing_table_scale` walks up through table-like lines until a banner
-  or prose; a banner-less table that follows a bannered one with only short headings between them
-  inherits the earlier banner. No retained packet exercises this and the 70-output replay produced
-  no false insertion, but it is the residual precision risk of the heuristic; the next test to add is
-  a two-table fixture where the second table's scale differs and has no banner of its own.
+- **Banner inheritance (narrowed after review).** The chief engineer's review of `d7f5ce0` showed
+  three false insertions the first owner allowed: a short sentence under a banner, a per-share row
+  whose label sits on the line above its value, and a new table whose header carries "Fee ($)".
+  The owner now binds a scale only to a demonstrated cell (delimited or value-only), reads the
+  detached label of a value-only row, and stops the banner walk at any prose line, any other
+  unit/scope token, or a run of more than three heading lines; single-space prose figures and
+  plural scale words ("$3,237 millions") are never candidates. Undelimited single-cell rows
+  ("Total$38,166" with no trailing separator) are a narrowed, abstaining shape. The residual risk
+  is a banner-less table of at most three short headings following a bannered one with a
+  different scale and no unit token; the 70-output replay still changes exactly one slot.
 - **Hosted measurement.** The draft PR triggers the advisory `eval-baseline` job (about USD 0.19–0.38
   per run at recent telemetry). Scorers read rendered prose, so the restored "$3,542 million" is now a
   scaled figure visible to numeric dims; expected neutral (it grounds via the excerpt), to be read from
@@ -149,9 +168,12 @@ r was cherry-picked and no r adoption claim is revived.
 
 DeepSeek balance read before push: USD 55.65 available (`balance-before-push.json`, 21:41:07 UTC).
 No model call was made locally; the two network reads (balance, one SEC companyconcept corroboration)
-cost nothing. Hosted CI spend for this PR's `eval-baseline` runs is recorded below once the run
-completes; billed provider cost is not readable from this session. Cancelled or superseded attempts:
-none paid. Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
+cost nothing. Hosted `eval-baseline` runs are the only paid measurements: the first (run
+36354356433, job 108718982686) was cancelled by my own documentation push after 47 successful
+summary calls, USD 0.119453 by the run's telemetry, wasted; its replacement (run 36354819301) and
+the run for the review-corrected head are recorded in `run-ledger.json` and in the PR thread, since a
+further docs push would itself retrigger the paid job. Billed provider cost is not readable from this
+session. Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
 
 ## Engineering evidence versus acceptance
 
@@ -182,6 +204,17 @@ and one aborted run superseded by the cell-boundary fix.
 
 Frontend gate not run: no frontend file changes; the only new backend JSON key
 (`raw_summary.table_cell_unit_audit`) is not read by the web client.
+
+### Hosted evidence (advisory `eval-baseline`, real DeepSeek generation)
+
+Run 36354819301 on head `d7f5ce0` (the first owner, before the review corrections): regression gate
+`PASS — no hard regressions (1 warning(s))` against `baseline_scores.json` (35 filings × 3 runs), the
+warning being the standing advisory `mean_untraceable_dollar_figures = 2.6286`. 70/70 attempted and
+scored, 0 errors, actual model `deepseek-flash`; pass_rate 1.0, numeric_accuracy 1.0,
+numeric_precision 1.0, coverage 1.0, delta_consistency 0.9917, citation_fidelity 0.9682,
+currency_consistency 1.0, redundancy 0.9264, financial_depth 0.7857. Telemetry estimate USD 0.181092
+across 71 calls; billed cost unknown. The run for the review-corrected head is recorded in the PR
+thread, because a further documentation push would itself retrigger the paid job.
 
 ## Mutation proof (one deliberate implementation fault, committed state `ce72481`)
 

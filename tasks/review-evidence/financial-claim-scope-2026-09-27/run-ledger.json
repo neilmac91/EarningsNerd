@@ -60,6 +60,33 @@
       "outcome": "counted fault (prose no longer ends banner scope): false '$3,237 million' insertion caught, 1 failed/17 passed; restored 18 passed",
       "cost_usd": 0.0,
       "file": "mutation-proof.log"
+    },
+    {
+      "id": 9,
+      "kind": "hosted_eval_baseline",
+      "run_id": 36354356433,
+      "job_id": 108718982686,
+      "head": "b65bfe7",
+      "outcome": "cancelled by this engineer's documentation push (concurrency group); 47/70 summary_primary calls succeeded, 0 errors, 22 'Persisted XBRL read failed' warnings with fallback",
+      "estimated_cost_usd": 0.119453,
+      "billed_cost_usd": "unknown",
+      "counted": "wasted spend, this engineer's error"
+    },
+    {
+      "id": 10,
+      "kind": "hosted_eval_baseline",
+      "run_id": 36354819301,
+      "head": "d7f5ce0",
+      "outcome": "completed 22:29:02 UTC; report eval_20260927T222858Z.json; regression gate PASS, no hard regressions, 1 standing advisory (mean_untraceable_dollar_figures 2.6286); 70/70 attempted/scored, 0 errors; 71 ai_call telemetry entries, actual model deepseek-flash; pass_rate 1.0, numeric_accuracy 1.0, numeric_precision 1.0, coverage 1.0, delta_consistency 0.9917, citation_fidelity 0.9682, currency_consistency 1.0, redundancy 0.9264, financial_depth 0.7857; 32 'Persisted XBRL read failed' warnings with fallback (pre-existing CI condition)",
+      "estimated_cost_usd": 0.181092,
+      "billed_cost_usd": "unknown"
+    },
+    {
+      "id": 11,
+      "kind": "offline_replay",
+      "outcome": "review-corrected owner over 70 retained rows: 1 slot changed (WMT run 1, 7/7), 8 abstained (COST prose_occurrence x6, BYND no_governing_banner x2)",
+      "cost_usd": 0.0,
+      "file": "offline-replay-70.json"
     }
   ],
   "unknowns": [
@@ -69,5 +96,6 @@
   "cancelled_or_superseded": [
     "attempt 5 (aborted local gate)",
     "attempt 7 (superseded mutation fault)"
-  ]
+  ],
+  "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR; expected total after the review-corrected push is about USD 0.12 (cancelled) + up to 0.19 (run 2) + about 0.19 (run 3) = about 0.50 at the observed cache-hit rates; no further pushes are planned."
 }

@@ -148,12 +148,15 @@ def restore_authored_plan_units(
 # writes "$3,542": the VALUE is source-exact while the UNIT is one million times too small
 # (retained candidate-r WMT 10-K run 1, maturities bullet). ``figure_trace`` deliberately ignores
 # unit-less dollar figures, so the class was invisible to the dollar gate. This owner restores ONLY
-# the scale word the source table declares, and only when every whole-cell occurrence of that
-# exact figure in the offered excerpt sits under one and the same declaration. It abstains when the
-# source's own prose writes the figure bare (an issuer convention the MD&A-title owner above
-# handles for its one documented form), when occurrences disagree, when a row is excluded from the
-# declared scale (per-share, counts, rates), or when a literal reading is supported by XBRL. The
-# figure's digits are never changed; nothing is rescaled.
+# the scale word the source table declares, and only when every occurrence of that exact figure in
+# the offered excerpt is a DEMONSTRATED table cell (delimited by the flattening's own cell
+# separators, or a value-only line) whose row and banner are bound through table lines alone. It
+# abstains when the source's own prose writes the figure bare (an issuer convention the MD&A-title
+# owner above handles for its one documented form), when a cell is not delimited, when occurrences
+# disagree, when the row or its detached label is excluded from the declared scale (per-share,
+# counts, a foreign unit token), when prose, a heading run or another scope token separates the row
+# from its banner, or when a literal reading is supported by XBRL. The figure's digits are never
+# changed; nothing is rescaled.
 
 _TABLE_SCALE_WORD = {
     "thousand": "thousand", "thousands": "thousand",
@@ -173,28 +176,42 @@ _NON_DOLLAR_BANNER = re.compile(
     r"|nt\$|hk\$|€|£|¥",
     re.I,
 )
-# A model-authored bare dollar figure: "$" + comma-grouped integer, no scale word, no decimals, not
-# a currency-prefixed form ("US$", "NT$") and not a percentage.
+# A model-authored bare dollar figure: "$" + comma-grouped integer, no scale word (singular or
+# plural), no decimals, not a currency-prefixed form ("US$", "NT$") and not a percentage.
 _BARE_DOLLAR_FIGURE = re.compile(
     r"(?<![A-Za-z$\d,.])\$(\d{1,3}(?:,\d{3})+)"
-    r"(?![\d,]|\.\d|\s*(?:thousand|million|billion|trillion|bn|mn|tn|[kmbt])\b|\s*%)",
+    r"(?![\d,]|\.\d|\s*(?:thousands?|millions?|billions?|trillions?|bn|mn|tn|[kmbt])\b|\s*%)",
     re.I,
 )
 # Rows a "(… in millions, except …)" banner does not scale, or that are not dollar amounts at all.
-# Comma-grouped values in a period, rate or ratio row are not dollar amounts either, but a label
-# such as "due within one year" names a maturity band, so "year" alone never excludes a row.
+# "due within one year" names a maturity band, so "year" alone never excludes a row.
 _UNSCALED_ROW_LABEL = re.compile(
     r"\b(?:per[\s-]+(?:share|unit|adr|ads)|shares?|units?|counts?|number of|employees|associates|"
     r"stores|clubs|warehouses|square|percent|percentage|ratio|basis points)\b|\((?:in )?years?\)",
     re.I,
 )
+# A parenthesised unit, currency, per-unit or scope token on a header or label ("Fee ($)",
+# "(in dollars)", "(per share)", "(%)") declares a scope this owner does not resolve.
+_SCOPE_TOKEN = re.compile(
+    r"\(\s*(?:\$|%|us\$|in\s+[a-z]|per\s+[a-z]|amounts?\b|dollars?\b|thousands?\b|millions?\b|billions?\b)",
+    re.I,
+)
 _LINE_WORDS = re.compile(r"[A-Za-z]{2,}")
-_SENTENCE_END = re.compile(r"(?<!\bU\.S)(?<!\bInc)(?<!\bCorp)(?<!\bNo)(?<!\bMr)(?<!\bMs)[.!?](?:\s|$)")
+_SENTENCE_END = re.compile(r"(?<!\bU\.S)(?<!\bInc)(?<!\bCorp)(?<!\bNo)(?<!\bMr)(?<!\bMs)[.!?:](?:\s|$)")
+# A whole line made of numeric cells (one-value-per-line flattening), dashes included.
+_VALUE_ONLY_LINE = re.compile(
+    r"^(?:[\s\xa0]*(?:\(?\$?\s*-?\d[\d,]*(?:\.\d+)?\s*%?\)?|[—–-])[\s\xa0]*)+$"
+)
+# A numeric cell on a row: a comma-grouped, decimal or percentage number at a cell boundary, or any
+# digits closed by the flattening's own separator. A heading's stray digit ("Item 5") is not a cell.
+_ROW_CELL = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+\.\d+|\d+%)(?=\)|\xa0|  |%|$)|\d(?=\xa0|  |\))")
 _PROSE_WORDS = 12
-_SENTENCE_WORDS = 6
-_DECLARATION_LOOKBACK_LINES = 200
+_SENTENCE_WORDS = 4
+_MAX_TEXT_RUN = 3
+_DECLARATION_LOOKBACK_LINES = 80
 _AUDIT_CAP = 40
 _YEAR_GLUE = re.compile(r"(?:^|\D)((?:19|20)\d{2})$")
+_CELL_DELIMITERS = ("\xa0", "  ")
 
 
 def _is_prose_line(line: str) -> bool:
@@ -205,9 +222,18 @@ def _is_prose_line(line: str) -> bool:
     return len(words) >= _SENTENCE_WORDS and bool(_SENTENCE_END.search(line))
 
 
+def _is_value_only(line: str) -> bool:
+    return bool(line.strip()) and bool(_VALUE_ONLY_LINE.match(line))
+
+
 def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
-    """The banner that governs line ``index``: walk up through table-like lines only."""
+    """The banner bound to line ``index`` through table lines only.
+
+    Walking up, a banner resolves; prose, a heading run longer than a header block, any other
+    unit/scope token, or a non-dollar banner abstains. Numeric rows, value-only lines and short
+    header/label lines are the only lines a table may contain between its banner and a row."""
     seen = 0
+    text_run = 0
     for j in range(index - 1, -1, -1):
         line = lines[j].strip()
         if not line:
@@ -217,17 +243,34 @@ def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
             if _NON_DOLLAR_BANNER.search(banner.group(0)):
                 return None
             return _TABLE_SCALE_WORD[banner.group(1).lower()]
-        if _is_prose_line(line):
+        if _SCOPE_TOKEN.search(line) or _is_prose_line(line):
             return None
+        if _ROW_CELL.search(line):
+            text_run = 0
+        else:
+            text_run += 1
+            if text_run > _MAX_TEXT_RUN:
+                return None
         seen += 1
         if seen > _DECLARATION_LOOKBACK_LINES:
             return None
     return None
 
 
-def _cell_boundaries(line: str, start: int, end: int) -> str | None:
-    """'cell' when ``line[start:end]`` is a whole figure, 'percent' when it is a percentage cell,
-    None when it is part of a larger number (a decimal, a longer digit run)."""
+def _detached_label(lines: Sequence[str], index: int) -> str | None:
+    """The nearest preceding non-value line of a value-only row, or None when none exists."""
+    for j in range(index - 1, -1, -1):
+        line = lines[j].strip()
+        if not line or _is_value_only(line):
+            continue
+        return "" if _TABLE_DECLARATION.match(line) else line
+    return None
+
+
+def _cell_kind(line: str, start: int, end: int) -> str | None:
+    """'cell' when ``line[start:end]`` is a demonstrated table cell, 'percent' when it is a
+    percentage cell, 'undelimited' when the digits are whole but no cell separator owns them, None
+    when they are part of a larger number (a decimal, a longer digit run)."""
     before = line[:start]
     after = line[end:]
     if after and (after[0] in "0123456789," or (after[0] == "." and after[1:2].isdigit())):
@@ -237,9 +280,17 @@ def _cell_boundaries(line: str, start: int, end: int) -> str | None:
     if before and before[-1].isdigit() and not _YEAR_GLUE.search(before):
         # Two cells glued without a separator, or a longer number: not this figure.
         return None
-    if after.lstrip()[:1] == "%":
+    if after.lstrip(" \xa0")[:1] == "%":
         return "percent"
-    return "cell"
+    if _is_value_only(line):
+        return "cell"
+    opened = before.endswith("(") or before.endswith("($")
+    if after.startswith(_CELL_DELIMITERS) or (after.startswith(")") and opened):
+        return "cell"
+    stripped_before = before[:-1] if before.endswith("$") else before
+    if not after and (opened or stripped_before.endswith(_CELL_DELIMITERS)):
+        return "cell"
+    return "undelimited"
 
 
 @dataclass(frozen=True)
@@ -250,55 +301,46 @@ class TableUnitIndex:
     _cache: dict = field(default_factory=dict, compare=False)
 
     def resolve(self, figure: str) -> tuple[str | None, str]:
-        """``(scale word, reason)``: the one declared scale every whole-cell occurrence of ``figure``
-        shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
+        """``(scale word, reason)``: the one declared scale every demonstrated-cell occurrence of
+        ``figure`` shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
         if figure in self._cache:
             return self._cache[figure]
+        result = self._resolve(figure)
+        self._cache[figure] = result
+        return result
+
+    def _resolve(self, figure: str) -> tuple[str | None, str]:
         scales: set[str] = set()
-        reason = "no_occurrence"
         for index, line in enumerate(self.lines):
             position = line.find(figure)
             while position >= 0:
                 start, position = position, line.find(figure, position + 1)
-                kind = _cell_boundaries(line, start, start + len(figure))
+                kind = _cell_kind(line, start, start + len(figure))
                 if kind is None:
                     continue
                 if kind == "percent":
-                    reason = "percent_occurrence"
-                    scales.clear()
-                    break
+                    return None, "percent_occurrence"
                 if _is_prose_line(line):
                     tail = line[start + len(figure):].lstrip()
                     word = tail.split(" ", 1)[0].rstrip(",.;:)").lower() if tail else ""
                     if word in _TABLE_SCALE_WORD:
                         scales.add(_TABLE_SCALE_WORD[word])
                         continue
-                    reason = "prose_occurrence"
-                    scales.clear()
-                    break
-                label = line[:start]
-                if _UNSCALED_ROW_LABEL.search(label):
-                    reason = "unscaled_row"
-                    scales.clear()
-                    break
+                    return None, "prose_occurrence"
+                if kind == "undelimited":
+                    return None, "undelimited_cell"
+                label = _detached_label(self.lines, index) if _is_value_only(line) else line[:start]
+                if label is None:
+                    return None, "no_governing_banner"
+                if _UNSCALED_ROW_LABEL.search(label) or _SCOPE_TOKEN.search(label):
+                    return None, "unscaled_row"
                 scale = _governing_table_scale(self.lines, index)
                 if scale is None:
-                    reason = "no_governing_banner"
-                    scales.clear()
-                    break
+                    return None, "no_governing_banner"
                 scales.add(scale)
-            else:
-                continue
-            break  # a disqualifying occurrence ends the search
-        else:
-            if len(scales) == 1:
-                result = (next(iter(scales)), "declared")
-                self._cache[figure] = result
-                return result
-            reason = "mixed_scales" if scales else reason
-        result = (None, reason)
-        self._cache[figure] = result
-        return result
+        if len(scales) == 1:
+            return next(iter(scales)), "declared"
+        return None, ("mixed_scales" if scales else "no_occurrence")
 
 
 def build_table_unit_index(offered_excerpt: str = "") -> TableUnitIndex | None:
@@ -323,8 +365,10 @@ def restore_table_cell_units(
     """Insert the declared scale word after each bare dollar figure the source table owns.
 
     Mutates the policed model-prose slots in place (``figure_trace.policed_prose_slots``); recovered
-    sections are skipped because their context was separately selected. Returns the audit
-    ``{"restored": [...], "unresolved": [...]}`` or None when no bare figure was found.
+    sections are skipped because their context was separately selected. Callers run it after the
+    source binders so only surviving model prose is measured. Returns the audit
+    ``{"restored_count", "unresolved_count", "restored": [...], "unresolved": [...]}`` (lists
+    capped at ``_AUDIT_CAP``) or None when no bare figure was found.
     """
     from app.services.ai.figure_trace import policed_prose_slots, xbrl_values
 
@@ -364,4 +408,6 @@ def restore_table_cell_units(
             container[key] = edited
     if not found:
         return None
-    return {"restored": restored[:_AUDIT_CAP], "unresolved": unresolved[:_AUDIT_CAP]}
+    # Totals are exact; the detail lists are capped so a pathological summary cannot bloat the row.
+    return {"restored_count": len(restored), "unresolved_count": len(unresolved),
+            "restored": restored[:_AUDIT_CAP], "unresolved": unresolved[:_AUDIT_CAP]}

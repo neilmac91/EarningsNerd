@@ -1,7 +1,7 @@
 {
- "generated_at_utc": "2026-09-27T22:03:17.109755+00:00",
- "code_commit": "ce72481 (implementation commit on codex/wave3-financial-claim-scope)",
- "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections, grounding_excerpt and xbrl_grounding; no provider call, no generation.",
+ "generated_at_utc": "2026-09-27T22:37:53.898292+00:00",
+ "code_state": "second review round: demonstrated cells, detached labels, scope tokens, plural scale words, owner after source binders, exact audit totals; commit recorded in the handback",
+ "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections (retained after the eval's own binders), grounding_excerpt and xbrl_grounding; no provider call, no generation.",
  "report_path": "retained-r/eval_20260927T141938Z.json",
  "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
  "expected_report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
@@ -337,6 +337,8 @@
    "excerpt_chars": 170233,
    "excerpt_sha256": "9dc278401d957be1417c71b84d4534b5b8f248ff058677c2a327354c8f88854c",
    "audit": {
+    "restored_count": 7,
+    "unresolved_count": 0,
     "restored": [
      {
       "slot": "balance_sheet_liquidity.maturities_covenants[0]",
@@ -391,6 +393,8 @@
    "excerpt_chars": 68765,
    "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
    "audit": {
+    "restored_count": 0,
+    "unresolved_count": 5,
     "restored": [],
     "unresolved": [
      {
@@ -428,6 +432,8 @@
    "excerpt_chars": 68765,
    "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
    "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
     "restored": [],
     "unresolved": [
      {
@@ -525,6 +531,8 @@
    "excerpt_chars": 177945,
    "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
    "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
     "restored": [],
     "unresolved": [
      {
@@ -542,6 +550,8 @@
    "excerpt_chars": 177945,
    "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
    "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
     "restored": [],
     "unresolved": [
      {
