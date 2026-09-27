@@ -1,0 +1,119 @@
+{
+  "base_sha": "a364c58fe8270ad76598e7161f48762d918b044f",
+  "ci": {
+    "application_estimated_cost_usd": 0.177099,
+    "artifact_id": 10927359912,
+    "artifact_sha256": "16b3a8c3944325c7ef322a4b1e781100c7616b1dc46209329c0a92df5226a914",
+    "billed_provider_cost_usd": null,
+    "errors": 0,
+    "essential_usage_unknown_calls": 0,
+    "hard_gate_failures": 0,
+    "judges_run": 0,
+    "outputs": 70,
+    "physical_provider_attempts": 70,
+    "previews_truncated": 0,
+    "reasoning_tokens_null_calls": 70,
+    "retries": 0,
+    "run_id": 36308684201,
+    "run_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36308684201",
+    "soft": {
+      "citation_violation_outputs": 14,
+      "citation_violations": 16,
+      "executive_summary_words": {
+        "max": 2565,
+        "mean": 1831.33,
+        "min": 1191
+      },
+      "persisted_xbrl_fallbacks": 32,
+      "regression_warnings": 1,
+      "score_minima": {
+        "citation_fidelity": 0.6667,
+        "coverage": 1.0,
+        "currency_consistency": 0.9851,
+        "delta_consistency": 0.75,
+        "financial_depth": 0.0,
+        "forward_quote_fidelity": 1.0,
+        "numeric_accuracy": 1.0,
+        "numeric_precision": 1.0,
+        "redundancy": 0.7097,
+        "specificity": 0.9561
+      },
+      "segment_table_drops": 2,
+      "untraceable_dollar_figures": 163
+    },
+    "unique_identities": 70,
+    "usage": {
+      "cache_hit_tokens": 2741494,
+      "cache_miss_tokens": 14076,
+      "completion_tokens": 277943,
+      "prompt_tokens": 2755570,
+      "total_tokens": 3033513
+    }
+  },
+  "combined": {
+    "application_estimated_cost_usd": 0.184669,
+    "billed_provider_cost_usd": null,
+    "physical_provider_attempts": 105,
+    "provider_error_attempts": 0,
+    "successful_provider_attempts": 105,
+    "unknown_error_cost_attempts": 0
+  },
+  "copilot": {
+    "application_estimated_cost_usd": 0.00757,
+    "artifact_id": 10927324514,
+    "artifact_sha256": "827cfcc5b31b28ce9ea9e778fd00c8a22382310c6538358c19ec51afc61aa860",
+    "billed_provider_cost_usd": null,
+    "errors": 0,
+    "essential_usage_unknown_calls": 0,
+    "hard_gate_failures": 0,
+    "judges_run": 0,
+    "outputs": 18,
+    "physical_provider_attempts": 35,
+    "reasoning_tokens_null_calls": 35,
+    "retries": 0,
+    "run_id": 36308699128,
+    "soft": {
+      "outputs": 3,
+      "uncited_figures": 3
+    },
+    "unique_identities": 18,
+    "usage": {
+      "cache_hit_tokens": 1091072,
+      "cache_miss_tokens": 6909,
+      "completion_tokens": 5435,
+      "prompt_tokens": 1097981,
+      "reasoning_tokens": null,
+      "total_tokens": 1103416
+    }
+  },
+  "disposition": "Hosted CI and Copilot artifacts clear the retained hard gates for the exact PR head. Soft advisories remain observations. This audit does not itself establish human semantic acceptance, merge approval, deployment health, or billed provider cost.",
+  "head_sha": "9f56781f81c05562bf60595e556ac7baf7f328a7",
+  "head_tree": "e1bfb9312a9894872c511e32567a4a9b9b2279b2",
+  "pull_request": 972,
+  "schema_version": 1,
+  "skipped_duplicate": {
+    "artifacts": 0,
+    "conclusion": "skipped",
+    "event": "pull_request",
+    "head_sha": "9f56781f81c05562bf60595e556ac7baf7f328a7",
+    "jobs": [
+      {
+        "conclusion": "skipped",
+        "id": 108590252615,
+        "name": "copilot-eval",
+        "steps": 0
+      }
+    ],
+    "limits": [
+      "The skipped workflow has no steps or artifacts; no provider attempt is evidenced by this run."
+    ],
+    "provider_attempts_supported_by_retained_evidence": 0,
+    "run_id": 36308684140,
+    "run_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36308684140",
+    "status": "completed"
+  },
+  "status": "clear",
+  "synthetic_merge_sha": "d6f8e2d61de4f60ba9f315c8e64eba422c407592",
+  "synthetic_tree": "e1bfb9312a9894872c511e32567a4a9b9b2279b2",
+  "synthetic_tree_matches_head": true
+}

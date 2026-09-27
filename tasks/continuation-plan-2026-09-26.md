@@ -8,7 +8,7 @@ Shipping more evaluation infrastructure does not establish those outcomes.
 This checkpoint supersedes the current-state/queue descriptions in the
 [September 23 continuation](continuation-plan-2026-09-23.md), through main
 `b53455bb3b13817d44cf089f3280ced143998583` (#961), with the verified overnight release
-now at `5c8d0f40833a1d464a2fec9eb48bcea07ea10399` (#970), with backend revision `00394-m56`. Historical results, approvals, budgets and
+now at `c53c7361c6d63efd7a2399467c4980854d48d7b3` (#972), with backend revision `00395-cqg`. The [source-view release receipt](review-evidence/source-view-ascii-2026-09-27/pr972-release.json) records passing main CI, migrations 0/39, 100% traffic and independent healthy readback. Historical results, approvals, budgets and
 specific holds remain in force except for the [explicit September 27 Notable ownership supersession](handover-astra-2026-09-19.md). The subsequently returned
 [agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
 confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
@@ -112,7 +112,7 @@ Existing approvals and release gates, rather than the priority ordering, govern 
 | Stage | Owner and next deliverable | Observable exit condition |
 | --- | --- | --- |
 | 1. Reconcile active work | Complete: all three handbacks received, Agent B's archive and 80 manifest entries verified. | No active external ownership or evaluation queue; SDK assignment closed. Codex owns the next branch. |
-| 2. Close the candidate configuration | The founder confirmed sending the frozen Fable packet on September 27; returned results have not yet been ingested. Codex owns #942's actual-output/release decision. Prefer completing the formula-label fix before E7; keep it outside other agents' custody work. | Current-main integration, documented actual baseline plus two independent same-contract draws and review, serial verified release; then freeze candidate stamp `q`. Until that evidence exists, production remains `p`; no assumed promotion or paid holdout start. |
+| 2. Close the candidate configuration | The [returned Fable comparison and disposition](review-evidence/pr942-fable-2026-09-27/README.md) complete the 140-slot queue. q does not meet the grounding-candidate bar; #942 stays draft and its q3 pin stays unapplied. Codex owns corrections to the evidenced financial statements and causal transfers. | Measure and accept the actual corrected configuration before freezing its stamp. Production remains `p` as an operational hold, not a quality acceptance; do not assume `q` is the eventual E7 candidate or begin the paid holdout prematurely. |
 | 3. Complete bounded source-review integration | Complete for the named H29/H30 path: #970 released with exact-head review, actual 70/18 measurements and verified deployment. | Four origins and two technical attempts independently pinned; successor contexts retained; authority module frozen in both trees. Freeze this bounded interface. Full-corpus readiness and programme admission remain Stages 4–5. |
 | 4. Prove corpus capacity and finish references | Codex owns the [measured source blockers](review-evidence/source-capacity-2026-09-27/README.md): all 980 byte identities validate, but 264 encoded members fail strict decoding. The subsequent [ASCII-offset correction](review-evidence/source-view-ascii-2026-09-27/README.md) lets the H25 and H02 direct primaries complete projection and verification under the unchanged 3 GiB/180-second limits; full member and role-input coverage remain unproved. | Resolve acquisition/encoding provenance and bounded structural capacity, then establish real member/modality and role-input coverage. The unchanged 30 filings still require 60 independent source briefs and 30 reconciliations, with no unresolved material coverage/issue holds. |
 | 5. Execute E7 | Codex owns the frozen run and evidence dossier under existing approvals. | Preflight and metered non-holdout smoke; exactly 90 candidate + 30 comparator identities, source-based blind reviews, retained Fable judgments, and pass/fail/incomplete report within ceilings. |
@@ -177,16 +177,9 @@ claim is made for them. The initial narrow H01 parser experiment stopped at the 
 
 - **#970 — H30 history binding:** corrected implementation `e4424f34` plus synthetic-fixture isolation `b62ca437` bind the complete retained origin and technical sets to authority SHA `836403b0…19678c6`. The [new receipt](review-evidence/h30-history-binding-2026-09-27/authority-local-gate-receipt.json) records 3,732 passing tests, four PostgreSQL lanes, performance, the real 52-row/eight-context smoke and a failing/restored omission proof. Independent review is clear. The final hosted 70/18 measurements and exact-head review passed; [release verification](review-evidence/source-capacity-2026-09-27/pr970-release.json) confirms revision `00394-m56`, migrations 0/39 and healthy readback. E7 admission remains separate. The [earlier design record](review-evidence/takeover-2026-09-26/h30-independent-history-design.md) remains historical.
 
-- **#942 — formula labels:** remains draft after current-main integration and fresh 70-output
-  q2 / 105-output q3 measurement. p/q2 source and grounding parity is verified; all deterministic
-  hard gates passed. Same-Fable contract-2 semantic judging of the 70+70 pair remains pending.
-  The q3 baseline is an unapplied proposal: citation fidelity would move from 0.9648 to 0.9532,
-  so the existing backend bar stays unchanged until the semantic disposition. The [prepared Fable prompt](review-evidence/takeover-2026-09-26/pr942-fable-prompt.md) and [v2 packet receipt](review-evidence/takeover-2026-09-26/pr942-fable-packet.json) describe a
-  7.3 MB judging packet that distinguishes 140 judgment slots from a maximum 280 physical invocations
-  in the unchanged retrying harness, and requires durable checkpointing. This changes generator
-  grounding as well as rendering; ordinary CI does not replace its required actual-output evidence. Resolve it before the E7 candidate freeze, or explicitly
-  document a decision to defer it and the accepted scope of `p`; do not invalidate a completed
-  E7 run by silently switching to `q` afterward.
+- **#972 — ASCII source offsets:** [released and independently health-checked](review-evidence/source-view-ascii-2026-09-27/pr972-release.json) at `c53c7361`, revision `00395-cqg`, migrations 0/39 and 100% traffic. The exact measured module completes H25/H02 projection and verification under the existing Linux 3 GiB/180-second limits. Full serialized export remains unmeasured; the prepared bounded export capsule is a next execution step, not a pass. Local 3,733 tests and hosted 70-summary/18-Copilot hard gates passed; soft quality advisories remain.
+
+- **#942 — formula labels:** the [independent Fable comparison](review-evidence/pr942-fable-2026-09-27/README.md) is complete: p 48/70 negative and q 40/70, with zero judge errors. The narrow ratio-label mechanism is supported in two issuer-name-collision cases, but q still fails five of 18 negative controls on G4/G5 and introduces G2/G3 findings. It does not meet the existing grounding-candidate adoption rule. Codex's disposition is to keep #942 draft and decline the prospective q3 pin (citation fidelity 0.9648 → 0.9532). Preserve the original reports, judgments and agent hand-checks; do not redraw completed slots or relax the bar. Correct source-supported financial wording and the distinct causal-transfer defects before the next measured candidate; resolve that candidate before E7 freeze. Production `p` remains an operational hold, not a semantic-quality acceptance.
 - **#952 — E8 launch/recovery:** remains draft at
   `1d48eb336a8a22427d466966b1814fce2e94c3f2`. Park it while E7 progresses; all three checkpoints
   report no running E8 work. E8 remains 140 reused
@@ -210,7 +203,7 @@ The isolated Linux H25 direct-primary probe reached source processing and failed
 
 ## Founder inputs that actually remain
 
-The local Claude CLI is unauthenticated. A [bounded Chrome access check](review-evidence/takeover-2026-09-26/claude-login-access-check.json) could not establish the normal Claude homepage through the connected browser, so it did not unblock CLI sign-in. No credential change or judging call occurred. This does not establish that the account or required model is unavailable elsewhere; the founder has since sent the frozen PR942 handoff to Fable; returned results are pending.
+The local Claude CLI is unauthenticated. A [bounded Chrome access check](review-evidence/takeover-2026-09-26/claude-login-access-check.json) could not establish the normal Claude homepage through the connected browser, so it did not unblock CLI sign-in. No credential change or judging call occurred. This does not establish that the account or required model is unavailable elsewhere; the founder has since returned the completed PR942 Fable comparison. The [ingestion and disposition](review-evidence/pr942-fable-2026-09-27/README.md) record the evidence and hold decision; local CLI access is not a blocker to accepting this handback.
 
 No clarification is needed to accept the three handbacks and proceed with the corrective engineering.
 The following access and product inputs remain unavailable; they are not requests to repeat
@@ -242,9 +235,11 @@ The source-view correction preserves the measured module exactly and retains the
 
 ## Retained spend
 
+The subsequent #972 hosted measurements add USD 0.184669 in known application estimates across 105 successful recorded calls, with zero retry/error attempts. Billed provider cost remains unknown; this is separate from the historical subtotal.
+
 The subsequent final #970 hosted measurements add USD 0.186447 in known estimates across 111 recorded attempts, including five transient failures with unknown cost; see the [separate audit](review-evidence/source-capacity-2026-09-27/pr970-hosted-audit.json). Do not rewrite the historical subtotal below or treat either as a complete provider invoice.
 
-The [overnight audit](review-evidence/takeover-2026-09-26/overnight-spend-audit.md) deduplicates ordinary hosted runs and the separate #942 measurements. Known application cost estimates total USD 3.440169 across those distinct subtotals; 141 recorded calls have unknown cost. This is not an invoice. Missing-cost events, unknown in-flight or hidden SDK attempts and the two fresh live Analysis requests remain explicit unknowns; no reported zero is used as proof of free usage. Formal E7/E8 generation and Fable judging did not run in this tranche.
+The [overnight audit](review-evidence/takeover-2026-09-26/overnight-spend-audit.md) deduplicates ordinary hosted runs and the separate #942 measurements. Known application cost estimates total USD 3.440169 across those distinct subtotals; 141 recorded calls have unknown cost. This is not an invoice. Missing-cost events, unknown in-flight or hidden SDK attempts and the two fresh live Analysis requests remain explicit unknowns; no reported zero is used as proof of free usage. Formal E7/E8 generation and Fable judging did not run in that historical overnight tranche. The subsequent independent PR942 handback contains 140 completed Fable slots / 140 recorded physical calls against its separate 280-call ceiling. Its CLI nominal cost field is not a provider invoice or proof of incremental API billing; keep it separate from DeepSeek estimates and E7/E8 accounting.
 
 ## Master-plan position
 

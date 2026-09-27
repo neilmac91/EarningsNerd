@@ -1,0 +1,102 @@
+{
+  "deploy_completed_at": "2026-09-27T09:41:59Z",
+  "deploy_job_id": 108594045898,
+  "derivation": "Raw evidence remains unchanged in the operator workspace; this repository copy makes its storage locations explicit and links a retained compact hosted audit.",
+  "evidence_urls": {
+    "closure_comment": "https://github.com/neilmac91/EarningsNerd/pull/972#issuecomment-5854752497",
+    "deploy_job": "https://github.com/neilmac91/EarningsNerd/actions/runs/36309809794/job/108594045898",
+    "main_ci": "https://github.com/neilmac91/EarningsNerd/actions/runs/36309809794",
+    "pull_request": "https://github.com/neilmac91/EarningsNerd/pull/972"
+  },
+  "fable_pr942_queue_touched": false,
+  "formal_e7_admission": false,
+  "health_http_status": 200,
+  "health_observation_scope": "Independent public health response after completed deployment; revision and traffic are established separately by the deployment log, not the health endpoint.",
+  "health_request_started_at": "2026-09-27T09:43:19.645464+00:00",
+  "health_response_received_at": "2026-09-27T09:43:20.104698+00:00",
+  "hosted_audit": "pr972-hosted-audit.json",
+  "hosted_audit_sha256": "69a89a825b637bd8bbabbf9359c2912b72996017374729bd9ba6e4759f60df1f",
+  "independent_health": {
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.8
+      },
+      "redis": {
+        "disabled": true,
+        "healthy": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "healthy": true,
+        "state": "closed",
+        "stats": {
+          "rejected_requests": 0,
+          "success_rate": 0,
+          "total_requests": 0
+        }
+      }
+    },
+    "status": "healthy",
+    "timestamp": 1790502200.108073
+  },
+  "main_sha": "c53c7361c6d63efd7a2399467c4980854d48d7b3",
+  "merged_at": "2026-09-27T09:34:31Z",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "pr": 972,
+  "pr_head_sha": "9f56781f81c05562bf60595e556ac7baf7f328a7",
+  "receipt_kind": "derived_repository_release_receipt",
+  "retained_files": [
+    {
+      "bytes": 220205,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/deploy.log",
+      "retention": "operator workspace",
+      "sha256": "a36708cec0aebd48c8845e7a9d07e9ff7634668804639b32b3e1c95bae18eb82"
+    },
+    {
+      "bytes": 286,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/health.json",
+      "retention": "operator workspace",
+      "sha256": "f6f4bc3cb7a9513c90f0243b98c5d36b38f7c59f810f4e7f86c6b5fdaaee5eba"
+    },
+    {
+      "bytes": 15698,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/main-ci.json",
+      "retention": "operator workspace",
+      "sha256": "8d0e2801da2fa611e95ba2adc3cff9b3e62fd31d978d3b95c878c2cf2ba4c9a8"
+    },
+    {
+      "bytes": 246,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/merged-pr.json",
+      "retention": "operator workspace",
+      "sha256": "0253d2d0c6c0909c40d24725ce4a08efa6854c732910247392e1f6aded03b42a"
+    },
+    {
+      "bytes": 5612,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/premerge-pr-final.json",
+      "retention": "operator workspace",
+      "sha256": "9bf67587ba3da75938a648cc8a7f777aa23b6347ff90be30467d100b58c669a5"
+    },
+    {
+      "bytes": 2,
+      "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/review-comments.json",
+      "retention": "operator workspace",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  ],
+  "revision": "earningsnerd-backend-00395-cqg",
+  "run_conclusion": "success",
+  "run_id": 36309809794,
+  "source_receipt": {
+    "bytes": 2464,
+    "path_relative_to_workspace": "outputs/takeover-2026-09-26/pr972-release/release.json",
+    "retention": "operator workspace",
+    "sha256": "4a8aef792689dcf4821806c5e07a2c026b0d9560baa0b51116dda9d0516b61c3"
+  },
+  "traffic_percent": 100,
+  "tree": "e1bfb9312a9894872c511e32567a4a9b9b2279b2",
+  "tree_matches_reviewed_and_measured_head": true
+}
