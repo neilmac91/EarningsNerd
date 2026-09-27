@@ -231,3 +231,117 @@ async def test_document_source_observation_preserves_transport_and_decoded_text(
     assert calls == old_calls
     assert len(calls) == (2 if mode in {"retry", "redirect"} else 1)
     assert waits == old_waits == ([1] if mode == "retry" else [])
+
+
+@pytest.mark.asyncio
+async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limits(monkeypatch):
+    import hashlib
+    from app.services.edgar import compat
+
+    cik = "0000320193"
+    accession = "0000320193-23-000077"
+    filename = "chart image.gif"
+    attachment_url = (
+        "https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/"
+        "chart%20image.gif"
+    )
+    text_url = "https://sec.example/selected.htm"
+    raw = b"GIF89a\x00\xff\xfe\x80binary"
+    text_raw = b"<p>caf\xe9</p>"
+    requests = []
+    limiter_calls = 0
+    breaker_enters = 0
+
+    def respond(request):
+        requests.append(request)
+        if str(request.url) == attachment_url:
+            # The deliberately low header proves the streamed decoded-entity limit does not
+            # trust Content-Length. Non-UTF-8 bytes prove there is no text round trip.
+            return httpx.Response(
+                200,
+                content=raw,
+                headers={
+                    "content-type": "image/gif",
+                    "content-encoding": "identity",
+                    "content-length": "1",
+                    "etag": '"binary-etag"',
+                    "last-modified": "Mon, 01 Jan 2024 00:00:00 GMT",
+                },
+            )
+        if str(request.url) == text_url:
+            return httpx.Response(
+                200,
+                content=text_raw,
+                headers={"content-type": "text/html; charset=iso-8859-1"},
+            )
+        return httpx.Response(404)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        compat.httpx,
+        "AsyncClient",
+        lambda: real_client(transport=httpx.MockTransport(respond)),
+    )
+
+    class Breaker:
+        async def __aenter__(self):
+            nonlocal breaker_enters
+            breaker_enters += 1
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    async def execute(fn):
+        nonlocal limiter_calls
+        limiter_calls += 1
+        return await fn()
+
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", Breaker())
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+
+    content, source = await compat.sec_edgar_service.get_filing_attachment_bytes(
+        cik, accession, filename
+    )
+    assert content == raw
+    assert source == {
+        "schema_version": 1,
+        "representation": "httpx_response_content_bytes",
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "bytes": len(raw),
+        "cik": "320193",
+        "accession_number": "000032019323000077",
+        "filename": filename,
+        "requested_url": attachment_url,
+        "final_url": attachment_url,
+        "status_code": 200,
+        "content_type": "image/gif",
+        "content_encoding": "identity",
+        "content_length": "1",
+        "etag": '"binary-etag"',
+        "last_modified": "Mon, 01 Jan 2024 00:00:00 GMT",
+        "physical_attempts": 1,
+    }
+    assert requests[0].headers["user-agent"] == compat.EDGAR_IDENTITY
+
+    # The pre-existing decoded-text API keeps its response.text behavior.
+    assert await compat.sec_edgar_service.get_filing_document(text_url) == text_raw.decode(
+        "iso-8859-1"
+    )
+
+    monkeypatch.setattr(compat, "MAX_SEC_ATTACHMENT_BYTES", len(raw) - 1)
+    with pytest.raises(compat.EdgarError, match="SEC attachment exceeds") as error:
+        await compat.sec_edgar_service.get_filing_attachment_bytes(
+            cik, accession, filename, max_retries=1
+        )
+    assert error.value.context == {
+        "requested_url": attachment_url,
+        "physical_attempts": 1,
+    }
+    assert [str(request.url) for request in requests] == [
+        attachment_url,
+        text_url,
+        attachment_url,
+    ]
+    assert limiter_calls == 3
+    assert breaker_enters == 3
