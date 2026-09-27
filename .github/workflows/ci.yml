@@ -579,13 +579,14 @@ jobs:
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
           # sessions and one execution of each other job, configured application demand is 18 and
-          # preserves an operational database reserve. This is not a hard ceiling: rolling revisions
-          # and overlapping job executions are excluded from this bound; measure them before expanding
-          # traffic or schedules.
+          # preserves an operational database reserve. --max=2 pins the service-level limit across
+          # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
+          # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
+          # them before expanding traffic or schedules.
           gcloud run deploy earningsnerd-backend --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --cpu=1 --memory=1Gi --cpu-boost \
-            --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
+            --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --remove-env-vars=ENABLE_GUEST_DAILY_QUOTA \
             --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0,NOTABLE_FILINGS_ENABLED=false,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \

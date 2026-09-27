@@ -342,6 +342,25 @@ def test_deploy_job_has_a_bounded_timeout():
     )
 
 
+def test_deploy_job_pins_service_and_revision_instance_limits():
+    step = _step(_deploy_job(_load_ci()), "Deploy Cloud Run service")
+    run = _executable(step["run"])
+    command = re.search(
+        r"gcloud run deploy earningsnerd-backend\b(?P<args>.*?)(?:\n\s*--quiet\b)",
+        run,
+        re.S,
+    )
+    assert command is not None, "the production deploy command must remain machine-readable"
+    args = command.group("args")
+    assert re.findall(r"(?<![\w-])--max(?:=|\s+)(\d+)\b", args) == ["2"], (
+        "pin exactly one service-level maximum of two traffic-serving instances; this bounds "
+        "sustained capacity across revisions (Cloud Run can briefly exceed a configured maximum)"
+    )
+    assert re.findall(r"(?<![\w-])--max-instances(?:=|\s+)(\d+)\b", args) == ["2"], (
+        "pin exactly one per-revision maximum of two instances alongside the service-level limit"
+    )
+
+
 def _executable(text: str) -> str:
     """Drop `#` comment lines so no assertion below can be satisfied by prose (YAML or shell)."""
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
