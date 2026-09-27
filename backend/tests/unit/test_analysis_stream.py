@@ -5,6 +5,7 @@ these tests pin the event contract, marker→citation resolution, the D4 cache s
 (cached re-serve / force / fingerprint invalidation), and the route's meter-on-fresh-complete rule.
 """
 
+import json
 import uuid
 from datetime import date
 from types import SimpleNamespace
@@ -186,6 +187,12 @@ def _fake_stream_seq(attempts, calls=None):
     return fake
 
 
+def _selection(**overrides):
+    selected = {key: [] for key, _ in svc.ANALYSIS_SECTIONS}
+    selected.update(overrides)
+    return json.dumps(selected, separators=(",", ":"))
+
+
 async def _drain(company_id, monkeypatch, chunks, *, force=False, calls=None, fake=None):
     from app.services import openai_service as oa
 
@@ -207,7 +214,7 @@ class TestStreamTrendNarrative:
         from app.models import TrendAnalysis
 
         company_id = _seed_company_with_history()
-        chunks = ["## The trajectory\nRevenue reached ", "1,500 [F3] this year."]
+        chunks = [_selection()]
         events = await _drain(company_id, monkeypatch, chunks)
 
         types = [e["type"] for e in events]
@@ -219,7 +226,7 @@ class TestStreamTrendNarrative:
         assert complete["invalidated"] is False  # first generation — no cached row existed
         assert complete["n_periods"] == 3
         assert "[1]" in complete["narrative"]
-        assert complete["grounded"] == 1
+        assert complete["grounded"] > 0
         assert complete["unverified"] == 0
         assert complete["citations"][0]["verified"] is True
         assert complete["usage"]["prompt_tokens"] == 100  # clean draft — exactly one model call
@@ -236,7 +243,7 @@ class TestStreamTrendNarrative:
     @pytest.mark.asyncio
     async def test_cached_reserve_skips_model(self, monkeypatch):
         company_id = _seed_company_with_history()
-        await _drain(company_id, monkeypatch, ["Solid year [F1]."])
+        await _drain(company_id, monkeypatch, [_selection()])
 
         calls = []
         events = await _drain(company_id, monkeypatch, ["MUST NOT RUN"], calls=calls)
@@ -248,34 +255,36 @@ class TestStreamTrendNarrative:
     @pytest.mark.asyncio
     async def test_cached_reserve_recomputes_numeric_mismatch_without_model(self, monkeypatch):
         company_id = _seed_company_with_history()
-        generation_calls: list = []
-        mismatched = _fake_stream_seq(
-            [["Revenue reached 9,999 [F3]."], ["Revenue reached 9,999 [F3]."]],
-            generation_calls,
-        )
+        from app.database import SessionLocal
+        from app.models import TrendAnalysis
 
-        fresh = (await _drain(company_id, monkeypatch, None, fake=mismatched))[-1]
-        assert fresh["mismatched"] == 1
-        assert len(generation_calls) == 2
+        fresh = (await _drain(company_id, monkeypatch, [_selection()]))[-1]
+        assert fresh["mismatched"] == 0
+        db = SessionLocal()
+        row = db.query(TrendAnalysis).filter_by(company_id=company_id).one()
+        row.narrative_md = "Revenue reached 9,999 [1]."
+        row.citations_json = [fresh["citations"][0]]
+        db.commit()
+        db.close()
 
         cache_calls: list = []
         cached = (await _drain(company_id, monkeypatch, ["MUST NOT RUN"], calls=cache_calls))[-1]
         assert cached["cached"] is True
-        assert cached["narrative"] == fresh["narrative"]
-        assert cached["mismatched"] == fresh["mismatched"]
+        assert cached["narrative"] == "Revenue reached 9,999 [1]."
+        assert cached["mismatched"] == 1
         assert cache_calls == []
 
     @pytest.mark.asyncio
     async def test_force_regenerates(self, monkeypatch):
         company_id = _seed_company_with_history()
-        await _drain(company_id, monkeypatch, ["First [F1]."])
+        await _drain(company_id, monkeypatch, [_selection()])
         calls = []
-        events = await _drain(company_id, monkeypatch, ["Second [F1]."], force=True, calls=calls)
+        events = await _drain(company_id, monkeypatch, [_selection()], force=True, calls=calls)
         assert len(calls) == 1
         assert events[-1]["cached"] is False
         # User-initiated refresh over a still-valid cache is NOT system-invalidated (it meters).
         assert events[-1]["invalidated"] is False
-        assert "Second" in events[-1]["narrative"]
+        assert "## The trajectory" in events[-1]["narrative"]
 
     @pytest.mark.asyncio
     async def test_new_facts_invalidate_cache(self, monkeypatch):
@@ -283,7 +292,7 @@ class TestStreamTrendNarrative:
         from app.models import FinancialFact
 
         company_id = _seed_company_with_history()
-        await _drain(company_id, monkeypatch, ["First [F1]."])
+        await _drain(company_id, monkeypatch, [_selection()])
 
         # A restatement changes the dataset fingerprint → the cached narrative must not re-serve.
         db = SessionLocal()
@@ -302,7 +311,7 @@ class TestStreamTrendNarrative:
         db.close()
 
         calls = []
-        events = await _drain(company_id, monkeypatch, ["Restated [F1]."], calls=calls)
+        events = await _drain(company_id, monkeypatch, [_selection()], calls=calls)
         assert len(calls) == 1
         assert events[-1]["cached"] is False
         # A stale cached row triggered this regeneration — flagged so the route skips the meter.
@@ -326,11 +335,22 @@ class TestStreamTrendNarrative:
         from app.models import TrendAnalysis
 
         company_id = _seed_company_with_history()
-        events = await _drain(company_id, monkeypatch, [svc.NOT_ENOUGH_DATA_SENTINEL])
+        from app.services import openai_service as oa
+
+        calls = []
+        monkeypatch.setattr(oa.openai_service, "stream_chat", _fake_stream([_selection()], calls))
+        events = [
+            event
+            async for event in svc.stream_trend_narrative(
+                company_id=company_id, mode="annual", start_period="FY2023",
+                end_period="FY2023", force=False, user_id=None,
+            )
+        ]
         complete = events[-1]
         assert complete["type"] == "complete"
         assert complete["kind"] == "not_enough_data"
         assert complete["analysis_id"] is None
+        assert calls == []
         db = SessionLocal()
         assert db.query(TrendAnalysis).filter_by(company_id=company_id).count() == 0
         db.close()
@@ -352,12 +372,11 @@ class TestStreamTrendNarrative:
 
 
 @pytest.mark.requires_db
-class TestRegenerateOnStrip:
-    """One-shot retry when the draft carries citation defects (audit D2): illegal refs or
-    figures that don't match the cited dataset values."""
+class TestObservationSelectionBoundary:
+    """The model selects request-local IDs; its untrusted text never reaches a token event."""
 
     @pytest.mark.asyncio
-    async def test_retry_fires_once_and_replaces_the_defective_draft(self, monkeypatch):
+    async def test_malformed_selection_retries_once_then_renders_code_text(self, monkeypatch):
         from app.database import SessionLocal
         from app.models import TrendAnalysis
 
@@ -365,8 +384,8 @@ class TestRegenerateOnStrip:
         calls: list = []
         fake = _fake_stream_seq(
             [
-                ["Revenue reached 1,500 [F3]. Bogus [F99]."],  # draft 1: illegal ref
-                ["Revenue reached 1,500 [F3] this year."],  # retry: clean
+                ['{"trajectory":["replacement prose"]}'],
+                [_selection()],
             ],
             calls,
         )
@@ -374,16 +393,12 @@ class TestRegenerateOnStrip:
 
         assert len(calls) == 2
         complete = events[-1]
-        # The clean retry wins: no unverified refs, and the retry's text is the narrative.
         assert complete["unverified"] == 0
-        assert "this year" in complete["narrative"]
-        assert "F99" not in complete["narrative"]
-        # Usage sums BOTH model calls (cost telemetry must not undercount retried runs).
+        assert "## The trajectory" in complete["narrative"]
+        assert "replacement prose" not in complete["narrative"]
         assert complete["usage"]["prompt_tokens"] == 200
-        # The user keeps watching draft 1 — attempt-2 tokens are never streamed.
         streamed = "".join(e["text"] for e in events if e["type"] == "token")
-        assert "Bogus" in streamed and "this year" not in streamed
-        # A "verifying" progress event announces the re-check.
+        assert streamed == complete["narrative"]
         assert any(e["type"] == "progress" and e.get("stage") == "verifying" for e in events)
 
         db = SessionLocal()
@@ -392,63 +407,65 @@ class TestRegenerateOnStrip:
         db.close()
 
     @pytest.mark.asyncio
-    async def test_retry_prompt_carries_draft_and_illegal_refs(self, monkeypatch):
+    async def test_retry_prompt_repeats_the_selection_contract_without_untrusted_draft(self, monkeypatch):
         company_id = _seed_company_with_history()
         calls: list = []
         fake = _fake_stream_seq(
-            [["Solid [F1]. Bogus [F99]."], ["Solid [F1]."]],
+            [["not json"], [_selection()]],
             calls,
         )
         await _drain(company_id, monkeypatch, None, fake=fake)
         retry_messages = calls[1]
-        assert retry_messages[-2]["role"] == "assistant"
-        assert "Bogus" in retry_messages[-2]["content"]
         assert retry_messages[-1]["role"] == "user"
-        assert "[F99]" in retry_messages[-1]["content"]
+        assert "all six required keys" in retry_messages[-1]["content"]
+        assert all(message.get("content") != "not json" for message in retry_messages)
 
     @pytest.mark.asyncio
-    async def test_worse_retry_keeps_the_first_draft(self, monkeypatch):
+    async def test_two_invalid_selections_fail_closed_without_tokens_or_persistence(self, monkeypatch):
+        from app.database import SessionLocal
+        from app.models import TrendAnalysis
+
         company_id = _seed_company_with_history()
         calls: list = []
         fake = _fake_stream_seq(
             [
-                ["Revenue [F3]. Bogus [F99]."],  # 1 defect
-                ["Revenue [F98]. Bogus [F99]. Also [F97]."],  # 3 defects — must not replace
+                [_selection(trajectory=["growth_quality.growth.revenue.fy2023"])],
+                [_selection(trajectory=["unknown.id"])],
             ],
             calls,
         )
         events = await _drain(company_id, monkeypatch, None, fake=fake)
         assert len(calls) == 2
-        complete = events[-1]
-        assert complete["unverified"] == 1  # draft 1's count
-        assert complete["grounded"] == 1
+        assert events[-1]["type"] == "error"
+        assert all(event["type"] != "token" for event in events)
+        db = SessionLocal()
+        assert db.query(TrendAnalysis).filter_by(company_id=company_id).count() == 0
+        db.close()
 
     @pytest.mark.asyncio
-    async def test_numeric_mismatch_triggers_the_retry(self, monkeypatch):
+    async def test_valid_selection_cannot_supply_replacement_text(self, monkeypatch):
         company_id = _seed_company_with_history()
         calls: list = []
-        fake = _fake_stream_seq(
-            [
-                # [F3] is real (revenue FY2023 = 1,500) but the printed figure is wrong: the
-                # resolver passes it, the deterministic fidelity scan must not.
-                ["Revenue reached 9,999 [F3]."],
-                ["Revenue reached 1,500 [F3]."],
-            ],
-            calls,
+        payload = json.loads(_selection())
+        payload["text"] = "Revenue reached 9,999 [F3]."
+        events = await _drain(
+            company_id, monkeypatch, None,
+            fake=_fake_stream_seq([[json.dumps(payload)], [_selection()]], calls),
         )
-        events = await _drain(company_id, monkeypatch, None, fake=fake)
         assert len(calls) == 2
-        assert "1,500" in events[-1]["narrative"]
+        assert "9,999" not in events[-1]["narrative"]
 
     @pytest.mark.asyncio
-    async def test_clean_draft_never_retries(self, monkeypatch):
+    async def test_valid_selection_never_retries_and_raw_json_is_not_streamed(self, monkeypatch):
         company_id = _seed_company_with_history()
         calls: list = []
         events = await _drain(
-            company_id, monkeypatch, ["Revenue reached 1,500 [F3]."], calls=calls
+            company_id, monkeypatch, [_selection()], calls=calls
         )
         assert len(calls) == 1
         assert events[-1]["usage"]["prompt_tokens"] == 100
+        streamed = "".join(e["text"] for e in events if e["type"] == "token")
+        assert streamed == events[-1]["narrative"] and "trajectory\":[]" not in streamed
 
 
 class TestNumericFidelityScan:
