@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -146,6 +147,16 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     coherent["compact_text_sha256"] = hashlib.sha256(coherent["compact_text"].encode()).hexdigest()
     with pytest.raises(ValueError, match="decoding mismatch"):
         source_view.verify_projection(raw, coherent)
+    false_empty_element = copy.deepcopy(projected)
+    heading = next(element for element in false_empty_element["elements"] if element["tag"] == "h1")
+    heading["end_event_id"] = heading["start_event_id"]
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(raw, false_empty_element)
+    false_empty_cell = copy.deepcopy(projected)
+    first_cell = false_empty_cell["tables"][0]["rows"][0]["cells"][0]
+    first_cell["end_event_id"] = first_cell["event_id"]
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(raw, false_empty_cell)
 
     for malformed in (
         b"<table><tr><td>truncated",
@@ -202,6 +213,7 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
         b"<div>A",
         b"<div hidden/>B",
         b"<ix:hidden/>",
+        b'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:link="urn:example"><link:schemaRef/></html>',
     ):
         with pytest.raises(ValueError, match="unsupported implicit HTML boundary"):
             source_view.project_html(implicit_boundary)
@@ -219,6 +231,165 @@ def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch:
     assert inner_list_unit["hidden_reasons"] == ["hidden_attribute"]
     void_self_closing = source_view.project_html(b"<p>A<br/>B</p>")
     assert void_self_closing["compact_text"] == "AB"
+    ordinary_bom = source_view.project_html(source_view.UTF8_BOM + b"<p>A</p>")
+    assert ordinary_bom["compact_text"] == "\ufeffA"
+    xhtml_raw = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<html xmlns="http://www.w3.org/1999/xhtml" '
+        b'xmlns:link="http://www.xbrl.org/2003/linkbase" '
+        b'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        b'<head><link:schemaRef xlink:type="simple" xlink:href="example.xsd"/></head>'
+        b'<body><custom/><table><tr><td/><td>Cell</td></tr></table>'
+        b'<p>After empty element</p></body></html>'
+    )
+    xhtml_projected = source_view.project_html(xhtml_raw)
+    source_view.verify_projection(xhtml_raw, xhtml_projected)
+    bom_xhtml_raw = source_view.UTF8_BOM + xhtml_raw
+    bom_xhtml_projected = source_view.project_html(bom_xhtml_raw)
+    source_view.verify_projection(bom_xhtml_raw, bom_xhtml_projected)
+    assert bom_xhtml_projected["compact_text"] == xhtml_projected["compact_text"]
+    assert all(unit["decoded"] != "\ufeff" for unit in bom_xhtml_projected["units"])
+    bom_first_event = bom_xhtml_projected["events"][0]
+    assert bom_first_event["start"] == 0
+    assert bom_xhtml_raw[: bom_first_event["end"]].startswith(source_view.UTF8_BOM + b"<?xml")
+    assert bom_xhtml_raw[: bom_first_event["end"]].endswith(b"?>")
+    ascii_bom_raw = source_view.UTF8_BOM + xhtml_raw.replace(b'encoding="UTF-8"', b'encoding="ASCII"')
+    ascii_bom_projected = source_view.project_html(ascii_bom_raw)
+    source_view.verify_projection(ascii_bom_raw, ascii_bom_projected)
+    assert ascii_bom_projected["compact_text"] == xhtml_projected["compact_text"]
+    strict_reference_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<p title="&#x80; &amp; &apos; &quot; &lt; &gt;" '
+        b'data-whitespace="a\tb\r\nc&#x9;d">'
+        b'&#x80; &amp; &apos; &quot; &lt; &gt;</p></body></html>'
+    )
+    strict_reference_projected = source_view.project_html(strict_reference_raw)
+    source_view.verify_projection(strict_reference_raw, strict_reference_projected)
+    expected_reference_text = '\x80 & \' " < >'
+    assert strict_reference_projected["compact_text"] == expected_reference_text
+    title = next(
+        attribute
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "title"
+    )
+    assert title["value"] == expected_reference_text
+    whitespace_value = next(
+        attribute["value"]
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "data-whitespace"
+    )
+    assert whitespace_value == "a b c\td"
+    xml_paragraph = next(element for element in ET.fromstring(strict_reference_raw).iter() if element.tag.endswith("}p"))
+    assert title["value"] == xml_paragraph.attrib["title"]
+    assert whitespace_value == xml_paragraph.attrib["data-whitespace"]
+    forged_reference = copy.deepcopy(strict_reference_projected)
+    next(
+        attribute for attribute in forged_reference["attributes"] if attribute["name"] == "title"
+    )["value"] = "€ & ' \" < >"
+    with pytest.raises(ValueError, match="XML attribute decoding mismatch"):
+        source_view.verify_projection(strict_reference_raw, forged_reference)
+    strict_pi_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<?audit a><div/>?><p>After PI</p></body></html>'
+    )
+    strict_pi_projected = source_view.project_html(strict_pi_raw)
+    source_view.verify_projection(strict_pi_raw, strict_pi_projected)
+    assert strict_pi_projected["compact_text"] == "After PI"
+    assert all(element["tag"] != "div" for element in strict_pi_projected["elements"])
+    audit_pi = next(
+        event
+        for event in strict_pi_projected["events"]
+        if event["kind"] == "processing_instruction" and event["start"] > 0
+    )
+    assert strict_pi_raw[audit_pi["start"] : audit_pi["end"]] == b"<?audit a><div/>?>"
+    declaration_end = xhtml_raw.index(b"?>") + 2
+    ordinary_html = b" " * declaration_end + xhtml_raw[declaration_end:]
+    forged_html_projection = copy.deepcopy(xhtml_projected)
+    forged_html_projection["source_sha256"] = hashlib.sha256(ordinary_html).hexdigest()
+    first_event = forged_html_projection["events"][0]
+    first_event["sha256"] = hashlib.sha256(
+        ordinary_html[first_event["start"] : first_event["end"]]
+    ).hexdigest()
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(ordinary_html, forged_html_projection)
+    missing_cell_end = copy.deepcopy(xhtml_projected)
+    missing_cell_end["tables"][0]["rows"][0]["cells"][0].pop("end_event_id")
+    with pytest.raises(ValueError, match="strict XML structure is missing an end boundary"):
+        source_view.verify_projection(xhtml_raw, missing_cell_end)
+    missing_element_end = copy.deepcopy(xhtml_projected)
+    next(
+        element
+        for element in missing_element_end["elements"]
+        if element["tag"] == "link:schemaref"
+    ).pop("end_event_id")
+    with pytest.raises(ValueError, match="strict XML structure is missing an end boundary"):
+        source_view.verify_projection(xhtml_raw, missing_element_end)
+    missing_elements = copy.deepcopy(xhtml_projected)
+    missing_elements["elements"] = []
+    with pytest.raises(ValueError, match="strict XML start-tag element mapping mismatch"):
+        source_view.verify_projection(xhtml_raw, missing_elements)
+    schema_ref = next(element for element in xhtml_projected["elements"] if element["tag"] == "link:schemaref")
+    assert schema_ref["end_event_id"] == schema_ref["start_event_id"]
+    empty_cell = xhtml_projected["tables"][0]["rows"][0]["cells"][0]
+    assert empty_cell["end_event_id"] == empty_cell["event_id"]
+    events = {event["id"]: event for event in xhtml_projected["events"]}
+    cell_event = events[empty_cell["event_id"]]
+    assert xhtml_raw[cell_event["start"] : cell_event["end"]] == b"<td/>"
+    after_unit = next(unit for unit in xhtml_projected["units"] if unit["decoded"] == "After empty element")
+    element_tags = {element["id"]: element["tag"] for element in xhtml_projected["elements"]}
+    assert [element_tags[node_id] for node_id in after_unit["element_path"]] == ["html", "body", "p"]
+    for malformed_xhtml, message in (
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><a></html>',
+            "not well formed",
+        ),
+        (
+            b'<?xml version="1.0"?><!DOCTYPE html [<!ENTITY x "expanded">]>'
+            b'<html xmlns="http://www.w3.org/1999/xhtml">&x;</html>',
+            "must not contain a DTD",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">&custom;</html>',
+            "not well formed",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<body><![CDATA[unsupported]]></body></html>',
+            "unknown declaration",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<SCRIPT>text</SCRIPT></html>',
+            "case-sensitive XHTML element name",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<p A="one" a="two"/></html>',
+            "case-distinct strict XML names",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<table><tr><td ROWSPAN="2"/></tr></table></html>',
+            "case-sensitive XHTML semantic attribute",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<script><custom/></script></html>',
+            "strict XML raw-text markup",
+        ),
+        (
+            b'<?xml version="1.0" encoding="iso-8859-1"?>'
+            b'<html xmlns="http://www.w3.org/1999/xhtml"><p>\xc3\xa9</p></html>',
+            "declaration encoding must be UTF-8 or byte-valid ASCII",
+        ),
+        (b'<?xml version="1.0"?><html><custom/></html>', "root is not XHTML html"),
+        (
+            b'<?xml version="1.0"?><meta/><html xmlns="http://www.w3.org/1999/xhtml"/>',
+            "not well formed",
+        ),
+    ):
+        with pytest.raises(ValueError, match=message):
+            source_view.project_html(malformed_xhtml)
     explicit_ruby = source_view.project_html(b"<ruby><rtc><rt>A</rt><rp>B</rp></rtc></ruby>")
     assert explicit_ruby["compact_text"] == "AB"
 
