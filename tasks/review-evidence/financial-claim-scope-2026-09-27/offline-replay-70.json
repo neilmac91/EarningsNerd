@@ -1,0 +1,685 @@
+{
+ "generated_at_utc": "2026-09-27T22:03:17.109755+00:00",
+ "code_commit": "ce72481 (implementation commit on codex/wave3-financial-claim-scope)",
+ "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections, grounding_excerpt and xbrl_grounding; no provider call, no generation.",
+ "report_path": "retained-r/eval_20260927T141938Z.json",
+ "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+ "expected_report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+ "rows": 70,
+ "rows_with_bare_figures": 5,
+ "rows_changed": 1,
+ "figures_restored": 7,
+ "figures_unresolved": 8,
+ "changed_slots": [
+  {
+   "row": "WMT-10-K-run1",
+   "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+   "before": "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter: $23,255; Total: $38,166.",
+   "after": "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 million; Total: $38,166 million."
+  }
+ ],
+ "per_row": [
+  {
+   "row": "ASML-6-K-run0",
+   "policed_slots": 21,
+   "excerpt_chars": 12957,
+   "excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-6-K-run1",
+   "policed_slots": 21,
+   "excerpt_chars": 12957,
+   "excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-6-K-run0",
+   "policed_slots": 21,
+   "excerpt_chars": 57809,
+   "excerpt_sha256": "5f90e79025c47b4760e463cdf3230575799251611ba2482b24e290cecf6d00d3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-6-K-run1",
+   "policed_slots": 21,
+   "excerpt_chars": 57809,
+   "excerpt_sha256": "5f90e79025c47b4760e463cdf3230575799251611ba2482b24e290cecf6d00d3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-6-K-run0",
+   "policed_slots": 21,
+   "excerpt_chars": 40750,
+   "excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-6-K-run1",
+   "policed_slots": 21,
+   "excerpt_chars": 40750,
+   "excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLD-10-K-run0",
+   "policed_slots": 23,
+   "excerpt_chars": 231325,
+   "excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLD-10-K-run1",
+   "policed_slots": 18,
+   "excerpt_chars": 231325,
+   "excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NEE-10-Q-run0",
+   "policed_slots": 23,
+   "excerpt_chars": 96406,
+   "excerpt_sha256": "0b4f8575014572cc4028b0f1c425ffb80be1ac33e66c77bf26bd10583c44b66d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NEE-10-Q-run1",
+   "policed_slots": 21,
+   "excerpt_chars": 96406,
+   "excerpt_sha256": "0b4f8575014572cc4028b0f1c425ffb80be1ac33e66c77bf26bd10583c44b66d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PGR-10-K-run0",
+   "policed_slots": 20,
+   "excerpt_chars": 175835,
+   "excerpt_sha256": "5d3093c2c3e4a3f5db868a5ad9f0fc76ed379add6c5cb3520546dbfdc6e9fe83",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PGR-10-K-run1",
+   "policed_slots": 18,
+   "excerpt_chars": 175835,
+   "excerpt_sha256": "5d3093c2c3e4a3f5db868a5ad9f0fc76ed379add6c5cb3520546dbfdc6e9fe83",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "FIGS-10-Q-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 112432,
+   "excerpt_sha256": "7e6c85de3f4e88d5d3266827b2d2b570b90dbac642699e34ba400a143d34398e",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "FIGS-10-Q-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 112432,
+   "excerpt_sha256": "7e6c85de3f4e88d5d3266827b2d2b570b90dbac642699e34ba400a143d34398e",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "GPRO-10-K-run0",
+   "policed_slots": 27,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "9589fe772dd89dc09da7ca68d571f984732a6bbf449173ac462f1b4fe63a7c5b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "GPRO-10-K-run1",
+   "policed_slots": 28,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "9589fe772dd89dc09da7ca68d571f984732a6bbf449173ac462f1b4fe63a7c5b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AAPL-10-K-run0",
+   "policed_slots": 31,
+   "excerpt_chars": 124125,
+   "excerpt_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AAPL-10-K-run1",
+   "policed_slots": 31,
+   "excerpt_chars": 124125,
+   "excerpt_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MSFT-10-K-run0",
+   "policed_slots": 29,
+   "excerpt_chars": 164767,
+   "excerpt_sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MSFT-10-K-run1",
+   "policed_slots": 29,
+   "excerpt_chars": 164767,
+   "excerpt_sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVDA-10-Q-run0",
+   "policed_slots": 28,
+   "excerpt_chars": 102206,
+   "excerpt_sha256": "5064f0672a5dda672d45849c3c1414074e42c1e3dcb19daa240b74aaf07548d0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVDA-10-Q-run1",
+   "policed_slots": 28,
+   "excerpt_chars": 102206,
+   "excerpt_sha256": "5064f0672a5dda672d45849c3c1414074e42c1e3dcb19daa240b74aaf07548d0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JPM-10-K-run0",
+   "policed_slots": 24,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JPM-10-K-run1",
+   "policed_slots": 27,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "KO-10-Q-run0",
+   "policed_slots": 28,
+   "excerpt_chars": 95851,
+   "excerpt_sha256": "e3ae3569f70bb6337b37ecc1c66c704beb7ab59706ccecb392e93f5ad8f47d9b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "KO-10-Q-run1",
+   "policed_slots": 28,
+   "excerpt_chars": 95851,
+   "excerpt_sha256": "e3ae3569f70bb6337b37ecc1c66c704beb7ab59706ccecb392e93f5ad8f47d9b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSLA-10-K-run0",
+   "policed_slots": 27,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "44300b8bc6c977f6de6392f8ef9ca5c927343a0b049019d4ca55c7f90fed2471",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSLA-10-K-run1",
+   "policed_slots": 28,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "44300b8bc6c977f6de6392f8ef9ca5c927343a0b049019d4ca55c7f90fed2471",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AMZN-10-K-run0",
+   "policed_slots": 24,
+   "excerpt_chars": 161529,
+   "excerpt_sha256": "325868836bd0c74df66599dbe92c1bd7793cf4ca1f6e0688593e2503b0c2b5aa",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AMZN-10-K-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 161529,
+   "excerpt_sha256": "325868836bd0c74df66599dbe92c1bd7793cf4ca1f6e0688593e2503b0c2b5aa",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BRK.B-10-K-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 147121,
+   "excerpt_sha256": "d4a2e2e4259c58577186c29511249dba4c29d893258b27c9d5afe417557a8fe9",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BRK.B-10-K-run1",
+   "policed_slots": 25,
+   "excerpt_chars": 147121,
+   "excerpt_sha256": "d4a2e2e4259c58577186c29511249dba4c29d893258b27c9d5afe417557a8fe9",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "XOM-10-K-run0",
+   "policed_slots": 19,
+   "excerpt_chars": 160904,
+   "excerpt_sha256": "df0a0fdf0001cb4869bff5145a0dc54ce513efd9d28f0988341a8e005e648e8c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "XOM-10-K-run1",
+   "policed_slots": 19,
+   "excerpt_chars": 160904,
+   "excerpt_sha256": "df0a0fdf0001cb4869bff5145a0dc54ce513efd9d28f0988341a8e005e648e8c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PFE-10-Q-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 181166,
+   "excerpt_sha256": "071c1e13c2144258bfb5fc0c686132a3e3eb8d676f83c7a6b70f51fa092bf90a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PFE-10-Q-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 181166,
+   "excerpt_sha256": "071c1e13c2144258bfb5fc0c686132a3e3eb8d676f83c7a6b70f51fa092bf90a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "F-10-Q-run0",
+   "policed_slots": 28,
+   "excerpt_chars": 98293,
+   "excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "F-10-Q-run1",
+   "policed_slots": 25,
+   "excerpt_chars": 98293,
+   "excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "WMT-10-K-run0",
+   "policed_slots": 23,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "9dc278401d957be1417c71b84d4534b5b8f248ff058677c2a327354c8f88854c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "WMT-10-K-run1",
+   "policed_slots": 23,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "9dc278401d957be1417c71b84d4534b5b8f248ff058677c2a327354c8f88854c",
+   "audit": {
+    "restored": [
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$38,166",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$23,255",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$2,600",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$2,143",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,389",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,237",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,542",
+      "unit": "million",
+      "xbrl_corroborated": false
+     }
+    ],
+    "unresolved": []
+   },
+   "changed_slots": 1
+  },
+  {
+   "row": "COST-10-Q-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 68765,
+   "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
+   "audit": {
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "the_print.what_changed",
+      "figure": "$6,055",
+      "reason": "prose_occurrence"
+     },
+     {
+      "slot": "the_print.what_changed",
+      "figure": "$7,189",
+      "reason": "prose_occurrence"
+     },
+     {
+      "slot": "forward_signals.guidance",
+      "figure": "$6,500",
+      "reason": "prose_occurrence"
+     },
+     {
+      "slot": "notable_footnotes[1].impact",
+      "figure": "$1,359",
+      "reason": "prose_occurrence"
+     },
+     {
+      "slot": "notable_footnotes[1].impact",
+      "figure": "$4,000",
+      "reason": "prose_occurrence"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "COST-10-Q-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 68765,
+   "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
+   "audit": {
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "forward_signals.guidance",
+      "figure": "$6,500",
+      "reason": "prose_occurrence"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BA-10-K-run0",
+   "policed_slots": 28,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "5938be154354eea6ca2b85f3c8ab995d0ff85daba79d197d0179acb8bd705a60",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BA-10-K-run1",
+   "policed_slots": 25,
+   "excerpt_chars": 170233,
+   "excerpt_sha256": "5938be154354eea6ca2b85f3c8ab995d0ff85daba79d197d0179acb8bd705a60",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "INTC-10-Q-run0",
+   "policed_slots": 31,
+   "excerpt_chars": 181072,
+   "excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "INTC-10-Q-run1",
+   "policed_slots": 31,
+   "excerpt_chars": 181072,
+   "excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLTR-10-Q-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 116850,
+   "excerpt_sha256": "ec9b60144ae701cfdc2f65a0b089116dd199a765827fa511e28cfc34b8a8c8f3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLTR-10-Q-run1",
+   "policed_slots": 25,
+   "excerpt_chars": 116850,
+   "excerpt_sha256": "ec9b60144ae701cfdc2f65a0b089116dd199a765827fa511e28cfc34b8a8c8f3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "RIVN-10-K-run0",
+   "policed_slots": 28,
+   "excerpt_chars": 129484,
+   "excerpt_sha256": "11884363f8ad99928dc50b436f15e7fe278a6e41c4ed3f1194cafd59b10b57db",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "RIVN-10-K-run1",
+   "policed_slots": 25,
+   "excerpt_chars": 129484,
+   "excerpt_sha256": "11884363f8ad99928dc50b436f15e7fe278a6e41c4ed3f1194cafd59b10b57db",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "COIN-10-Q-run0",
+   "policed_slots": 19,
+   "excerpt_chars": 91192,
+   "excerpt_sha256": "56a62db08972a06d4c50aacd6832eb0f33a1b16ed94ed65c4b86d3126b32506b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "COIN-10-Q-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 91192,
+   "excerpt_sha256": "56a62db08972a06d4c50aacd6832eb0f33a1b16ed94ed65c4b86d3126b32506b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BYND-10-Q-run0",
+   "policed_slots": 31,
+   "excerpt_chars": 177945,
+   "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
+   "audit": {
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "notable_footnotes[3].impact",
+      "figure": "$130,000",
+      "reason": "no_governing_banner"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BYND-10-Q-run1",
+   "policed_slots": 31,
+   "excerpt_chars": 177945,
+   "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
+   "audit": {
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "notable_footnotes[3].impact",
+      "figure": "$130,000",
+      "reason": "no_governing_banner"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BABA-20-F-run0",
+   "policed_slots": 27,
+   "excerpt_chars": 231089,
+   "excerpt_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BABA-20-F-run1",
+   "policed_slots": 27,
+   "excerpt_chars": 231089,
+   "excerpt_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-20-F-run0",
+   "policed_slots": 25,
+   "excerpt_chars": 260154,
+   "excerpt_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-20-F-run1",
+   "policed_slots": 23,
+   "excerpt_chars": 260154,
+   "excerpt_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSM-20-F-run0",
+   "policed_slots": 19,
+   "excerpt_chars": 217082,
+   "excerpt_sha256": "84be2cfba0adc96838353869fd55fab43c5226a0fdb01ff179745eb2eaa37042",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSM-20-F-run1",
+   "policed_slots": 22,
+   "excerpt_chars": 217082,
+   "excerpt_sha256": "84be2cfba0adc96838353869fd55fab43c5226a0fdb01ff179745eb2eaa37042",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JD-20-F-run0",
+   "policed_slots": 21,
+   "excerpt_chars": 230528,
+   "excerpt_sha256": "39bd48032cd1e851ffd9c94ea99a82f8346597c0caef2244c677aea57a91373c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JD-20-F-run1",
+   "policed_slots": 27,
+   "excerpt_chars": 230528,
+   "excerpt_sha256": "39bd48032cd1e851ffd9c94ea99a82f8346597c0caef2244c677aea57a91373c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-20-F-run0",
+   "policed_slots": 23,
+   "excerpt_chars": 109573,
+   "excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-20-F-run1",
+   "policed_slots": 22,
+   "excerpt_chars": 109573,
+   "excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVO-20-F-run0",
+   "policed_slots": 19,
+   "excerpt_chars": 40972,
+   "excerpt_sha256": "896fec3ca2365b036bcf0ed312d6bf9e4f81e59d8e6231ababa3a429d8158832",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVO-20-F-run1",
+   "policed_slots": 22,
+   "excerpt_chars": 40972,
+   "excerpt_sha256": "896fec3ca2365b036bcf0ed312d6bf9e4f81e59d8e6231ababa3a429d8158832",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-20-F-run0",
+   "policed_slots": 24,
+   "excerpt_chars": 226630,
+   "excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-20-F-run1",
+   "policed_slots": 24,
+   "excerpt_chars": 226630,
+   "excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MELI-10-K-run0",
+   "policed_slots": 24,
+   "excerpt_chars": 230682,
+   "excerpt_sha256": "f426e9f88ea6b0597d42b9b6ee5dd4bdb560298c1ea994317d34f620c76b98f0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MELI-10-K-run1",
+   "policed_slots": 23,
+   "excerpt_chars": 230682,
+   "excerpt_sha256": "f426e9f88ea6b0597d42b9b6ee5dd4bdb560298c1ea994317d34f620c76b98f0",
+   "audit": null,
+   "changed_slots": 0
+  }
+ ]
+}

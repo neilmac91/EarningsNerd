@@ -1,0 +1,73 @@
+{
+  "scope": "Fable engineering handoff, 2026-09-27, branch codex/wave3-financial-claim-scope",
+  "planning_ceiling_usd": 1.0,
+  "model_calls_made_locally": 0,
+  "paid_measurements_triggered_by_this_engineer": "none locally; hosted CI eval-baseline runs on the draft PR (see hosted section, appended after push)",
+  "attempts": [
+    {
+      "id": 1,
+      "kind": "provider_balance_read",
+      "endpoint": "GET https://api.deepseek.com/user/balance",
+      "outcome": "http 200, total_balance USD 55.65, is_available true",
+      "cost_usd": 0.0,
+      "file": "balance-before-push.json"
+    },
+    {
+      "id": 2,
+      "kind": "sec_corroboration_read",
+      "endpoint": "GET https://data.sec.gov/api/xbrl/companyconcept/CIK0000104169/us-gaap/LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo.json",
+      "outcome": "http 200; FY2026 (end 2026-01-31, accn 0000104169-26-000055) val 3237000000 USD",
+      "cost_usd": 0.0,
+      "note": "single manual read with a descriptive User-Agent; not app code"
+    },
+    {
+      "id": 3,
+      "kind": "offline_replay",
+      "outcome": "70/70 retained rows replayed; 1 slot changed (WMT-10-K-run1 maturities), 7 restored, 8 abstained",
+      "cost_usd": 0.0,
+      "file": "offline-replay-70.json"
+    },
+    {
+      "id": 4,
+      "kind": "local_gate",
+      "outcome": "first pass on pre-fix tree: ruff/bandit clean, 3718 passed, 39 skipped, 2 deselected",
+      "cost_usd": 0.0,
+      "file": "local-gate-first-pass.log"
+    },
+    {
+      "id": 5,
+      "kind": "local_gate",
+      "outcome": "aborted by this engineer after the cell-boundary fix superseded it (pytest_exit=143); not counted",
+      "cost_usd": 0.0
+    },
+    {
+      "id": 6,
+      "kind": "local_gate",
+      "outcome": "final on committed ce72481: ruff/bandit clean, 3720 passed, 39 skipped, 2 deselected",
+      "cost_usd": 0.0,
+      "file": "local-gate.log"
+    },
+    {
+      "id": 7,
+      "kind": "mutation_proof",
+      "outcome": "superseded weaker fault (prose-occurrence abstention removed): 1 failed/17 passed, no false insertion; restored 18 passed",
+      "cost_usd": 0.0,
+      "file": "mutation-proof-superseded.log"
+    },
+    {
+      "id": 8,
+      "kind": "mutation_proof",
+      "outcome": "counted fault (prose no longer ends banner scope): false '$3,237 million' insertion caught, 1 failed/17 passed; restored 18 passed",
+      "cost_usd": 0.0,
+      "file": "mutation-proof.log"
+    }
+  ],
+  "unknowns": [
+    "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
+    "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
+  ],
+  "cancelled_or_superseded": [
+    "attempt 5 (aborted local gate)",
+    "attempt 7 (superseded mutation fault)"
+  ]
+}
