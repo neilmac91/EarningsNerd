@@ -725,9 +725,9 @@ Rules:
         raw_risk_section = sections_info.get("risks")
         if isinstance(raw_risk_section, str):
             raw_risk_section = [raw_risk_section]
-        risk_section = _normalize_risk_factors(raw_risk_section)
+        risk_candidates = _normalize_risk_factors(raw_risk_section)
         risk_section, risk_projection = project_risk_list(
-            risk_section,
+            risk_candidates,
             sources=(
                 [filing_excerpt]
                 if isinstance(filing_excerpt, str) and filing_excerpt.strip()
@@ -906,6 +906,8 @@ Rules:
         structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
         structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
         structured_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
+        structured_summary.pop("_risk_source_candidates", None)
+        structured_summary.pop("_risk_source_candidate_count", None)
         render_envelope = {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "sections": sections_info,
@@ -1108,8 +1110,10 @@ Rules:
             if missing_sections_list:
                 message += f" Missing sections: {', '.join(missing_sections_list[:3])}"
         
-        # If we have no sections at all, it's an error
-        if not sections:
+        # A source owner may withhold every presentation card from otherwise valid structured
+        # output (for example, an ungrounded Risks item). Treat the response as unusable only when
+        # the provider returned no covered structured section at all.
+        if not sections and covered_sections == 0:
             status = "error"
             message = "Unable to retrieve this filing at the moment — please try again shortly."
         
@@ -1132,10 +1136,10 @@ Rules:
             "management_discussion": management_section,
             "key_changes": guidance_section,
             "raw_summary": raw_summary_payload,
-            # Internal handoff to summary_pipeline. This count is constructed after parsing and is
-            # not copied from the model envelope; it preserves honest withholding across the second
-            # same-source projection without trusting model-supplied reserved metadata.
-            "_risk_source_candidate_count": risk_projection["candidate_count"],
+            # Private application-constructed handoff to the shared finalizer. This preserves the
+            # parsed candidates when excerpt enrichment was unavailable but the model used the
+            # cleaned filing sample; the finalizer pops it before persistence.
+            "_risk_source_candidates": risk_candidates,
         }
         
         # Add message if status is error or partial

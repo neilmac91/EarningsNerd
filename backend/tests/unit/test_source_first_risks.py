@@ -10,6 +10,7 @@ from app.services.change_report_service import assemble_report
 from app.services.export_service import ExportService
 from app.services.openai_service import OpenAIService
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
+from app.services.summary_pipeline import _finalize_summary_projection
 from app.services.summary_sections import render_sections, sections_to_markdown
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
@@ -83,6 +84,17 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         content_cache=SimpleNamespace(filing_id=2, critical_excerpt=filing_text, markdown_content=None),
         xbrl_data=None,
     )
+
+    # Supported degraded primary path: no precomputed excerpt, but generation uses filing_text.
+    degraded = await service.summarize_filing(filing_text, "Example Co", "10-K", filing_excerpt=None)
+    _, degraded_raw, degraded_sections, _ = _finalize_summary_projection(
+        degraded, None, degraded["status"], source_text=filing_text,
+        filing_document_url=filing.document_url,
+    )
+    assert degraded_sections["_risk_source_projection"]["verified_count"] == 3
+    assert source_span in degraded_sections["risks"][0]["supporting_evidence"]
+    assert "_risk_source_candidates" not in degraded and "_risk_source_candidates" not in degraded_raw
+
     enriched = enrich_summary_provenance(summary, filing)
     exporter = ExportService()
     change_report = assemble_report(filing, filing, summary, summary)
@@ -94,10 +106,45 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         "change_report": json.dumps(change_report),
         "pdf": exporter.generate_pdf_html(summary, filing), "csv": exporter.generate_csv(summary, filing),
     }
+
+    # Exercise the router's ordinary existing-summary SSE short circuit, which precedes the shared
+    # pipeline cache paths.
+    from app.routers import summaries as summaries_router
+
+    class FakeQuery:
+        def __init__(self, value): self.value = value
+        def options(self, *args): return self
+        def filter(self, *args): return self
+        def first(self): return self.value
+
+    class FakeDb:
+        def __init__(self, filing_value, summary_value):
+            self.filing_value, self.summary_value, self.closed = filing_value, summary_value, False
+        def query(self, model):
+            return FakeQuery(self.filing_value if model.__name__ == "Filing" else self.summary_value)
+        def close(self): self.closed = True
+
+    route_summary = SimpleNamespace(**{
+        **summary.__dict__,
+        "id": 9,
+        "business_overview": f"## Risks\n\n{unsafe_summary}\n",
+    })
+    route_db = FakeDb(filing, route_summary)
+    monkeypatch.setattr(summaries_router, "enforce_rate_limit", lambda *args, **kwargs: None)
+    route_response = await summaries_router.generate_summary_stream(
+        2, SimpleNamespace(client=SimpleNamespace(host="offline")),
+        current_user=SimpleNamespace(id=7), db=route_db,
+    )
+    route_body = b"".join([
+        chunk if isinstance(chunk, bytes) else chunk.encode()
+        async for chunk in route_response.body_iterator
+    ]).decode()
+    surfaces["router_cached_sse"] = route_body
+    assert route_db.closed is True
     for name, rendered in surfaces.items():
         for unsafe in (unsafe_summary, unmatched, boundary_attack, "attacker.invalid", "Item 1A. Risk Factors"):
             assert unsafe not in rendered, (name, unsafe)
-    for name in ("final_sse", "cached_sse", "joined_sse", "api", "pdf", "csv"):
+    for name in ("final_sse", "cached_sse", "joined_sse", "router_cached_sse", "api", "pdf", "csv"):
         assert source_span in surfaces[name], name
         assert "Selected excerpts are not a complete risk inventory" in surfaces[name], name
     assert literal_span in surfaces["pdf"] and literal_span in surfaces["csv"]
@@ -143,3 +190,21 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     canonical_without_risks = "# Summary\n\nAcme\n"
     no_risks = SimpleNamespace(filing_id=2, raw_summary=None, business_overview=canonical_without_risks)
     assert source_safe_business_overview(no_risks, filing) == canonical_without_risks
+
+    # Legacy compatibility-only rows retain matching excerpts on every shared surface.
+    legacy_good = SimpleNamespace(
+        id=10, filing_id=2, raw_summary=None,
+        business_overview=f"## Risks\n\n{unsafe_summary}\n",
+        financial_highlights={}, risk_factors=[{
+            "summary": unsafe_summary, "supporting_evidence": source_span,
+        }], management_discussion="", key_changes="", schema_version=1, prompt_version=None,
+    )
+    legacy_enriched = enrich_summary_provenance(legacy_good, filing)
+    legacy_surfaces = (
+        source_safe_business_overview(legacy_good, filing),
+        json.dumps(legacy_enriched),
+        exporter.generate_pdf_html(legacy_good, filing),
+        exporter.generate_csv(legacy_good, filing),
+    )
+    for rendered in legacy_surfaces:
+        assert source_span in rendered and unsafe_summary not in rendered

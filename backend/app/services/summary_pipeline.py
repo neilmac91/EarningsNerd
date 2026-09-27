@@ -122,12 +122,16 @@ def _finalize_summary_projection(
     sections_info.pop(RISK_PROJECTION_KEY, None)
     sections_info.pop("risk_factors", None)
     raw_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
-    prior_candidate_count = summary_payload.pop("_risk_source_candidate_count", None)
+    summary_payload.pop("_risk_source_candidate_count", None)
+    private_candidates = summary_payload.pop("_risk_source_candidates", None)
+    risk_candidates = (
+        private_candidates if isinstance(private_candidates, list)
+        else summary_payload.get("risk_factors") or []
+    )
     risk_section, risk_projection = project_risk_list(
-        summary_payload.get("risk_factors") or [],
+        risk_candidates,
         sources=[source_text] if isinstance(source_text, str) and source_text.strip() else [],
         base_url=filing_document_url,
-        original_count=prior_candidate_count if type(prior_candidate_count) is int else None,
     )
     sections_info["risks"] = risk_section
     sections_info[RISK_PROJECTION_KEY] = risk_projection

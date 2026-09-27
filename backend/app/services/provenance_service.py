@@ -258,6 +258,30 @@ def project_raw_summary_risks(
     return result
 
 
+def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
+    """Project a Summary row, including source-backed legacy compatibility risks.
+
+    Historical rows may have ``risk_factors`` without structured ``raw_summary.sections``. Build
+    only the minimal section container needed by the shared renderers, preserving any other raw
+    keys and adding no quality or completeness claim.
+    """
+    raw_summary = getattr(summary, "raw_summary", None)
+    has_sections = isinstance(raw_summary, dict) and isinstance(raw_summary.get("sections"), dict)
+    compatibility_risks = getattr(summary, "risk_factors", None)
+    if not has_sections and isinstance(compatibility_risks, list) and compatibility_risks:
+        raw_summary = copy.deepcopy(raw_summary) if isinstance(raw_summary, dict) else {}
+        schema_version = getattr(summary, "schema_version", None)
+        version = schema_version if type(schema_version) is int else 1
+        raw_summary["schema_version"] = version
+        risk_key = "risks" if version >= 2 else "risk_factors"
+        raw_summary["sections"] = {risk_key: copy.deepcopy(compatibility_risks)}
+    return project_raw_summary_risks(
+        raw_summary,
+        filing,
+        summary_filing_id=getattr(summary, "filing_id", None),
+    )
+
+
 def replace_business_overview_risks(business_overview: Any, projected: Optional[dict]) -> str:
     """Replace only the Risks markdown while preserving every other notice and section."""
     rendered = render_sections(projected)
@@ -289,11 +313,7 @@ def replace_business_overview_risks(business_overview: Any, projected: Optional[
 
 def source_safe_business_overview(summary: Any, filing: Any) -> str:
     """Render cached/final markdown from the source-owned projection, including legacy rows."""
-    projected = project_raw_summary_risks(
-        getattr(summary, "raw_summary", None),
-        filing,
-        summary_filing_id=getattr(summary, "filing_id", None),
-    )
+    projected = project_summary_risks(summary, filing)
     return replace_business_overview_risks(getattr(summary, "business_overview", None), projected)
 
 
@@ -676,8 +696,9 @@ def enrich_summary_provenance(
     """
     raw_source = _select_source_text(filing) if filing is not None else None
     normalized_source = normalize_for_match(raw_source)
+    projected_raw = project_summary_risks(summary, filing)
     enriched_raw = enrich_raw_summary(
-        summary.raw_summary,
+        projected_raw,
         filing,
         normalized_source,
         xbrl_standardized,

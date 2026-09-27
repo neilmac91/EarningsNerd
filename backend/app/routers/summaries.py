@@ -42,7 +42,7 @@ from app.services.summary_generation_service import (
 from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
-from app.services.provenance_service import enrich_summary_provenance
+from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
 from app.services.change_report_service import build_change_report
 
 router = APIRouter()
@@ -214,7 +214,7 @@ async def generate_summary_stream(
             # Capture the response before closing the dependency's read transaction.
             payload = {
                 'type': 'complete',
-                'summary': summary.business_overview,
+                'summary': source_safe_business_overview(summary, filing),
                 'summary_id': summary.id,
             }
             db.close()
