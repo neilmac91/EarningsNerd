@@ -7,8 +7,9 @@ Shipping more evaluation infrastructure does not establish those outcomes.
 
 This checkpoint supersedes the current-state/queue descriptions in the
 [September 23 continuation](continuation-plan-2026-09-23.md), through main
-`b53455bb3b13817d44cf089f3280ced143998583` (#961), with the verified overnight release
-now at `a7983ddc04f5991462367b6d97222d3726430d93` (#974), with backend revision `00396-p2f`. The [source-export release receipt](review-evidence/source-view-streaming-2026-09-27/pr974-release.json) records passing main CI, migrations 0/39, 100% traffic and independent healthy readback. Historical results, approvals, budgets and
+`b53455bb3b13817d44cf089f3280ced143998583` (#961). The overnight release reached
+`a7983ddc04f5991462367b6d97222d3726430d93` (#974), with backend revision `00396-p2f`;
+the [September 27 execution update](#september-27-execution-update) records subsequent releases. The [source-export release receipt](review-evidence/source-view-streaming-2026-09-27/pr974-release.json) records passing main CI, migrations 0/39, 100% traffic and independent healthy readback. Historical results, approvals, budgets and
 specific holds remain in force except for the [explicit September 27 Notable ownership supersession](handover-astra-2026-09-19.md). The subsequently returned
 [agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
 confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
@@ -38,6 +39,48 @@ its existing backend floor and draft semantic-release hold remain unchanged. No 
 plus the `ac60` evidence update passed the full 3,730-test gate and five fault proofs, including
 leaf-name/hash pairing. The final hosted 70-summary/18-Copilot telemetry audit is retained in
 [final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). The [verified release](review-evidence/takeover-2026-09-26/pr967-release.json) serves revision `00391-rgl` at 100%, migrations 0/39, main CI `36285042203` and independent healthy database readback at 01:24:30 UTC.
+
+## September 27 execution update
+
+The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) record two additional
+verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
+accounting, and #978 binds current authoritative attachments to invalid frozen members without
+claiming a successful historical decode. Latest verified backend revision is `00398-wxp`,
+100% traffic, migrations 0 applied / 39 skipped, and independent healthy database readback.
+
+H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
+current authoritative supplements. This closes its byte-assignment gap. It does not finish
+modality interpretation, the independent role briefs or E7 source acceptance.
+
+The bounded thinking-low diagnostic stopped at its first fresh RIVN pair: the candidate repeated
+the known customer-identity conflation. Two provider calls completed; the other fourteen planned
+outputs were not run. The source-based finding and unchanged retained state are recorded in the
+[stop disposition](review-evidence/progress-2026-09-27/thinking-low-stop.json). Conservative
+reservations were USD 0.071674800; reported usage at uncached input prices gives an upper estimate
+of USD 0.018610650. Billed cost is unknown. This was an AI diagnostic, not a Fable or E7 verdict.
+No production model, prompt, quality threshold or judge contract changed.
+
+### Acceleration decisions
+
+- Close deterministic product defects independently when complete request-byte parity shows the
+  writer did not change. #977 remains the active exact-metric-delta correction until its final
+  fallback, cached-read and export paths pass review and serial release verification.
+- Freeze the completed custody interfaces. Execute the remaining source work against actual
+  filings rather than adding hypothetical review infrastructure.
+- Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
+  candidate batch when known material defects remain. Do not redraw the failed thinking-low pair.
+- Prepare a source-first Risks candidate using the existing provenance owner. Offline retained-output
+  assessment matched 272/296 excerpts under whitespace-only normalization; this is an excerpt-match
+  measurement, not a semantic acceptance. The candidate must cover previews, cached reads and
+  exports, display actual filing spans, and expose unmatched items as a coverage limitation. It
+  does not solve other sections' unit, component or causal errors and is not released.
+- Keep recovery and beta preparation parallel to quality work. An isolated successful restore
+  and two real weekly cohort readouts remain outcomes to earn; neither CI nor an account login
+  substitutes for them. Existing customer-consent and invitation boundaries remain in force.
+
+The whole-plan estimate remains about 55% under the weighted calculation below. The foundation
+bucket is much further along; quality acceptance, demonstrated recovery and real-user evidence
+still control progression. New PRs and byte-valid packets are not counted as completed acceptance.
 
 ## What the agents delivered
 
@@ -116,7 +159,7 @@ Existing approvals and release gates, rather than the priority ordering, govern 
 | 3. Complete bounded source-review integration | Complete for the named H29/H30 path: #970 released with exact-head review, actual 70/18 measurements and verified deployment. | Four origins and two technical attempts independently pinned; successor contexts retained; authority module frozen in both trees. Freeze this bounded interface. Full-corpus readiness and programme admission remain Stages 4–5. |
 | 4. Prove corpus capacity and finish references | Codex owns the [measured source blockers](review-evidence/source-capacity-2026-09-27/README.md): all 980 byte identities validate, but 264 encoded members fail strict decoding. The subsequent [ASCII-offset correction](review-evidence/source-view-ascii-2026-09-27/README.md) lets the H25 and H02 direct primaries complete projection and verification under the unchanged 3 GiB/180-second limits; full serialized export is now [released and measured](review-evidence/source-view-streaming-2026-09-27/README.md), while full member and role-input coverage remain unproved. | Resolve acquisition/encoding provenance and bounded structural capacity, then establish real member/modality and role-input coverage. The unchanged 30 filings still require 60 independent source briefs and 30 reconciliations, with no unresolved material coverage/issue holds. |
 | 5. Execute E7 | Codex owns the frozen run and evidence dossier under existing approvals. | Preflight and metered non-holdout smoke; exactly 90 candidate + 30 comparator identities, source-based blind reviews, retained Fable judgments, and pass/fail/incomplete report within ceilings. |
-| 6. Prove recoverability | Codex owns the current cost estimate, bounded clone rehearsal and cleanup of its own drill resources under overnight authority; interactive cloud authentication is still unavailable. | One isolated PITR restore, read-only integrity check and confirmed clone cleanup, with timings, costs and limitations. Record a numeric all-in cap from current rates before creating the clone. |
+| 6. Prove recoverability | Codex owns the current cost estimate, bounded clone rehearsal and cleanup of its own drill resources under overnight authority; current read-only recovery preflight is in progress. | One isolated PITR restore, read-only integrity check and confirmed clone cleanup, with timings, costs and limitations. Record a numeric all-in cap from current rates before creating the clone. |
 | 7. Controlled beta | Founder supplies recruitment/commitments; Codex owns engineering acceptance, evidence-based product-scope recommendation and support readouts. | 5–10 consenting target users, two dated weekly readouts of useful analysis, different-filing return, misleading outputs, support burden and observed cost; explicit expand/hold/narrow decision. |
 
 A live production audit also identified request/background database sessions retained across SEC

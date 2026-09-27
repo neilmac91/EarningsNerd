@@ -1,0 +1,231 @@
+{
+  "ci": {
+    "harness_differences_from_p": {},
+    "identity_coverage": {
+      "duplicates": 0,
+      "exact_set_match": true,
+      "expected_slots": 70,
+      "identity_fields": [
+        "ticker",
+        "filing_type",
+        "run"
+      ],
+      "missing": [],
+      "observed_slots": 70,
+      "observed_unique_slots": 70,
+      "unexpected": []
+    },
+    "observed": {
+      "citation_violations": 20,
+      "hard_gate_failures": 0,
+      "judge_results": 0,
+      "output_errors": 0,
+      "preview_truncations": 0,
+      "retried_outputs": 0,
+      "untraceable_dollar_figures": 159
+    },
+    "report": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-27/sec-attachment-bytes/hosted/head-1a209a7/ci-36330831900/artifact/eval_20260927T155739Z.json",
+      "sha256": "d693a73ca043246da24805ee957a7b144cf4e1c024d847556678815dc7fa6c53"
+    },
+    "summary": {
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "aggregate_stdev": 0.0,
+      "errors": 0,
+      "figure_trace_errors": 0,
+      "figure_trace_measured": 70,
+      "figure_trace_unavailable": 0,
+      "gate_fail_rate": 0.0,
+      "incurred_provider_usage": {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "calls": 70,
+        "completion_tokens": 273731,
+        "operations": {
+          "summary_primary": 70
+        },
+        "prompt_tokens": 2755570,
+        "reasoning_tokens": null,
+        "unknown_calls": 0
+      },
+      "incurred_usage_attempts": 70,
+      "judge_pass_rate": null,
+      "mean_aggregate": 1.0,
+      "mean_citation_checked": 7.3571,
+      "mean_citation_fidelity": 0.9618,
+      "mean_completion_tokens": 3910.4,
+      "mean_coverage": 1.0,
+      "mean_currency_consistency": 1.0,
+      "mean_delta_consistency": 1.0,
+      "mean_financial_depth": 0.7857,
+      "mean_forward_quote_fidelity": 1.0,
+      "mean_latency_seconds": 13.1,
+      "mean_numeric_accuracy": 1.0,
+      "mean_numeric_precision": 1.0,
+      "mean_prompt_tokens": 39365.3,
+      "mean_redundancy": 0.9332,
+      "mean_specificity": 0.9961,
+      "mean_untraceable_dollar_figures": 2.2714,
+      "n": 70,
+      "pass_rate": 1.0,
+      "provider_calls": 70,
+      "repaired_rate": 0.0,
+      "retried": 0,
+      "schema_valid_rate": 1.0,
+      "scored": 70,
+      "total_cache_hit_tokens": 2741494,
+      "total_cache_miss_tokens": 14076,
+      "total_completion_tokens": 273731,
+      "total_cost_usd": 0.0,
+      "total_prompt_tokens": 2755570,
+      "usage_attempts": 70
+    },
+    "telemetry": {
+      "actual_models": {
+        "deepseek-flash": 70
+      },
+      "billed_cost_usd": null,
+      "estimated_cost_unknown_calls": 0,
+      "estimated_cost_usd_known": 0.174569,
+      "known_usage": {
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "completion_tokens": 273731,
+        "prompt_tokens": 2755570,
+        "reasoning_tokens": 0,
+        "total_tokens": 3029301
+      },
+      "operations": {
+        "summary_primary": 70
+      },
+      "outcomes": {
+        "success": 70
+      },
+      "provider_attempts": 70,
+      "system_fingerprints": {
+        "aeb56401ca74e127821c4f9126dcb669": 70
+      },
+      "unknown_usage_calls": {
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+        "completion_tokens": 0,
+        "prompt_tokens": 0,
+        "reasoning_tokens": 70,
+        "total_tokens": 0
+      }
+    }
+  },
+  "copilot": {
+    "identity_coverage": {
+      "duplicates": 0,
+      "exact_set_match": true,
+      "expected_slots": 18,
+      "identity_fields": [
+        "ticker",
+        "accession_number",
+        "question_id",
+        "run_index"
+      ],
+      "missing": [],
+      "observed_slots": 18,
+      "observed_unique_slots": 18,
+      "unexpected": []
+    },
+    "observed": {
+      "hard_gate_failures": 0,
+      "invalid_provenance": 0,
+      "output_errors": 0,
+      "uncited_figures": 5,
+      "unverified_excerpts": 0
+    },
+    "report": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-27/sec-attachment-bytes/hosted/head-1a209a7/copilot-36330832009/artifact/copilot-eval.json",
+      "sha256": "7cacc11de2844144d45be13fbd2ff4787ee0155d474c80e158172df707d1336f"
+    },
+    "source_preparation": {
+      "artifact_checks": 24,
+      "artifact_mismatches": [],
+      "database_sha256": "de1e468ffc1cf68a2ea4ddd812a9ddf311bf68b4a2543f646c97e17a7cf04387",
+      "errors": [],
+      "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+      "sources": 6,
+      "status": "complete"
+    },
+    "summary": {
+      "completed": 18,
+      "errors": 0,
+      "expected": 18,
+      "pass_rate": 1.0,
+      "passed": 18,
+      "scored": 18
+    },
+    "telemetry": {
+      "actual_models": {
+        "deepseek-flash": 35
+      },
+      "billed_cost_usd": null,
+      "estimated_cost_unknown_calls": 0,
+      "estimated_cost_usd_known": 0.007609,
+      "known_usage": {
+        "cache_hit_tokens": 1089408,
+        "cache_miss_tokens": 6872,
+        "completion_tokens": 5517,
+        "prompt_tokens": 1096280,
+        "reasoning_tokens": 0,
+        "total_tokens": 1101797
+      },
+      "operations": {
+        "copilot_chat": 35
+      },
+      "outcomes": {
+        "success": 35
+      },
+      "provider_attempts": 35,
+      "system_fingerprints": {
+        "aeb56401ca74e127821c4f9126dcb669": 35
+      },
+      "unknown_usage_calls": {
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+        "completion_tokens": 0,
+        "prompt_tokens": 0,
+        "reasoning_tokens": 35,
+        "total_tokens": 0
+      }
+    }
+  },
+  "errors": [],
+  "expected_head": "1a209a7fcabd57a0513d3174bf7284fb3dab62d3",
+  "limits": [
+    "This accounts for hosted identities, errors, retries, model telemetry, cost estimates, source artifact custody, and source/head stamps.",
+    "It does not compare candidate output/source bytes with retained p and does not establish Fable quality or adoption.",
+    "Known cost is application telemetry, not a provider invoice; calls with missing cost remain explicit."
+  ],
+  "receipt_provenance": {
+    "kind": "repository summary copy; raw records retained locally",
+    "operator_original": "outputs/takeover-2026-09-27/sec-attachment-bytes/hosted/head-1a209a7/audit.json",
+    "operator_original_sha256": "c4db35810f56050b869bb41716629ae52aea9dd1f52be93e14ff7f1831974277",
+    "relative_path_scope": "Paths in this receipt refer to retained operator files unless explicitly qualified; they are not repository siblings."
+  },
+  "report_source_sha": "97638af875a4952c5b5495e4e4184733463b3c61",
+  "schema_version": 1,
+  "status": "clear",
+  "synthetic_merge": {
+    "head_parent_present": true,
+    "head_tree": "cc8d0aa6cbd707675cbcd0b7c2719dd15fea560f",
+    "parents": [
+      "b63bee6b0d1c6c9abff7347ac4e5bf920eb80bc2",
+      "1a209a7fcabd57a0513d3174bf7284fb3dab62d3"
+    ],
+    "sha": "97638af875a4952c5b5495e4e4184733463b3c61",
+    "source_sha_matches": true,
+    "tree": "cc8d0aa6cbd707675cbcd0b7c2719dd15fea560f",
+    "tree_matches_head": true
+  },
+  "warnings": []
+}
