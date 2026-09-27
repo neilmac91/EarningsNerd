@@ -383,7 +383,17 @@ def generate_xbrl_summary(
     # meaningfully fills at most the_print + results_that_matter + risks + earnings_quality.
     total_sections = 9
 
-    covered_sections = 1  # the_print is always populated
+    per_section = {
+        "the_print": True,
+        "results_that_matter": False,
+        "earnings_quality": False,
+        "value_drivers": False,
+        "forward_signals": False,
+        "risks": False,
+        "segments": False,
+        "balance_sheet_liquidity": False,
+        "notable_footnotes": False,
+    }
 
     # Check if financial_highlights has real data (not just placeholders)
     if has_xbrl_data and financial_highlights.get("table"):
@@ -392,22 +402,25 @@ def generate_xbrl_summary(
             for row in financial_highlights.get("table", [])
         )
         if table_has_data:
-            covered_sections += 1
+            per_section["results_that_matter"] = True
 
     # Check if risk_factors has real extracted content
     if risk_factors and len(risk_factors) > 0:
         # Check it's not just placeholder content
         first_risk = risk_factors[0] if risk_factors else {}
         if not first_risk.get("summary", "").startswith("Risk factors for"):
-            covered_sections += 1
+            per_section["risks"] = True
 
     # Check if management_discussion has real extracted content
     if management_discussion and "From the SEC Filing" in management_discussion:
-        covered_sections += 1
+        per_section["earnings_quality"] = True
 
     # forward_signals + value_drivers/segments/balance_sheet_liquidity/notable_footnotes are absent
     # on this degraded path (0)
 
+    covered = [section for section, has_content in per_section.items() if has_content]
+    missing = [section for section, has_content in per_section.items() if not has_content]
+    covered_sections = len(covered)
     coverage_ratio = round(covered_sections / total_sections, 2)
 
     return {
@@ -421,9 +434,13 @@ def generate_xbrl_summary(
         "raw_summary": {
             "sections": sections_for_frontend,
             "section_coverage": {
+                "per_section": per_section,
+                "covered": covered,
+                "missing": missing,
                 "covered_count": covered_sections,
                 "total_count": total_sections,
-                "coverage_ratio": coverage_ratio
+                "coverage_ratio": coverage_ratio,
+                "not_applicable": [],
             }
         }
     }

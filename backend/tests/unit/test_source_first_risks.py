@@ -9,6 +9,7 @@ import pytest
 from app.services.change_report_service import assemble_report
 from app.services.content_cache import upsert_content_cache
 from app.services.export_service import ExportService
+from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import OpenAIService
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
 from app.services.summary_pipeline import _finalize_summary_projection
@@ -63,6 +64,37 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         return json.dumps(supplied)
 
     monkeypatch.setattr(service, "_request_content", request)
+
+    # The timeout fallback initially counts an extracted risk whose generic provenance string is not
+    # a filing quote. The shared finalizer withholds it and rebuilds the persisted/progress snapshot
+    # from the actual finalized sections, retaining every non-risk contribution and the v2 denominator.
+    fallback_text = (
+        "Item 1A Risk Factors\n"
+        "- Supply concentration could materially disrupt our operations and increase costs if a "
+        "critical vendor cannot meet demand for an extended period.\n"
+        "Item 2 Properties"
+    )
+    fallback = generate_xbrl_summary(
+        None, "Example Co", filing_text=fallback_text, filing_type="10-K",
+    )
+    fallback_before = fallback["raw_summary"]["section_coverage"].copy()
+    assert fallback_before["covered_count"] == 2
+    assert fallback_before["per_section"]["risks"] is True
+    _, fallback_raw, fallback_sections, _ = _finalize_summary_projection(
+        fallback, None, fallback["status"], source_text=fallback_text,
+        filing_document_url="https://www.sec.gov/Archives/example.htm",
+    )
+    assert fallback_sections["risks"] == []
+    fallback_coverage = fallback_raw["section_coverage"]
+    assert fallback_coverage["per_section"]["risks"] is False
+    assert fallback_coverage["covered"] == ["the_print"]
+    assert "risks" in fallback_coverage["missing"]
+    assert fallback_coverage["covered_count"] == 1
+    assert fallback_coverage["total_count"] == len(TRACKED_SECTIONS_V2)
+    assert fallback_coverage["coverage_ratio"] == 1 / len(TRACKED_SECTIONS_V2)
+    # This is the returned raw snapshot stream_summary uses for persistence and progress recording;
+    # the focused gate exercises their shared finalization input rather than the full stream loop.
+    assert fallback["raw_summary"]["section_coverage"] == fallback_coverage
     preview = service._partial_markdown_preview(json.dumps(supplied), {}) or ""
     result = await service.summarize_filing(filing_text, "Example Co", "10-K", filing_excerpt=filing_text)
     raw = result["raw_summary"]

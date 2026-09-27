@@ -31,6 +31,7 @@ from app.config import settings
 from app.models import Filing, Summary, User, Subscription
 from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
+from app.services.ai.normalize import _section_has_content
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.edgar.sixk_classifier import classify_sixk_text
@@ -74,6 +75,7 @@ from app.services.provenance_service import (
     source_safe_business_overview,
 )
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.services.summary_schema import TRACKED_SECTIONS_V2
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +86,61 @@ logger = logging.getLogger(__name__)
 # this does not prevent duplicate provider work across processes while Redis stays off.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+def _finalized_section_coverage(
+    sections_info: dict, previous_snapshot: object,
+) -> dict:
+    """Align Risks coverage with the finalized source projection.
+
+    Producers own the non-Risks coverage booleans because they know which placeholder rules they
+    applied. This shared persistence/progress boundary preserves those values, recounts Risks from
+    its finalized source-bound list, and then rebuilds the canonical aggregate fields.
+    """
+    prior_per_section = (
+        previous_snapshot.get("per_section")
+        if isinstance(previous_snapshot, dict)
+        else None
+    )
+    # Aggregate-only snapshots predate the canonical per-section contract. Their non-Risks
+    # contributions cannot be reconstructed from compatibility columns without changing historical
+    # quality semantics. Current primary and timeout producers both provide per_section, so retain
+    # this legacy shape unchanged rather than guessing.
+    if isinstance(previous_snapshot, dict) and not isinstance(prior_per_section, dict):
+        return dict(previous_snapshot)
+    coverage_map = {
+        section: (
+            bool(prior_per_section.get(section))
+            if isinstance(prior_per_section, dict)
+            else _section_has_content(sections_info.get(section))
+        )
+        for section in TRACKED_SECTIONS_V2
+    }
+    # Risks are the section this finalizer projects. Recount it from the finalized source-bound
+    # list even when an earlier producer supplied a complete non-risk coverage map.
+    coverage_map["risks"] = _section_has_content(sections_info.get("risks"))
+    covered = [section for section, has_content in coverage_map.items() if has_content]
+    missing = [section for section, has_content in coverage_map.items() if not has_content]
+    total_count = len(coverage_map)
+    covered_count = len(covered)
+    prior_not_applicable = (
+        previous_snapshot.get("not_applicable", [])
+        if isinstance(previous_snapshot, dict)
+        else []
+    )
+    not_applicable = [
+        section for section in prior_not_applicable
+        if section in coverage_map and not coverage_map[section]
+    ]
+    return {
+        "per_section": coverage_map,
+        "covered": covered,
+        "missing": missing,
+        "covered_count": covered_count,
+        "total_count": total_count,
+        "coverage_ratio": (covered_count / total_count) if total_count else None,
+        "not_applicable": not_applicable,
+    }
 
 
 def _finalize_summary_projection(
@@ -141,6 +198,9 @@ def _finalize_summary_projection(
     sections_info["risks"] = risk_section
     sections_info[RISK_PROJECTION_KEY] = risk_projection
     raw_summary["sections"] = sections_info
+    raw_summary["section_coverage"] = _finalized_section_coverage(
+        sections_info, raw_summary.get("section_coverage")
+    )
     raw_summary["status"] = summary_status
     raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
