@@ -146,3 +146,25 @@ coherently resealed current-brief mutation pass and therefore fails
 the independent [technical-child alias](fault-proof-final-technical-child-fail.log), which is
 rejected again after [exact guard restoration](fault-proof-final-technical-child-restored.log). The
 inherited closed-stream diagnostic remained after pytest's successful summary and zero exit.
+
+## Independent-authority release verification
+
+[Local gate receipt](authority-local-gate-receipt.json) records the corrected implementation
+and synthetic-fixture isolation. [Full gate](authority-full-backend-gate.log) passes **3732 tests, 40 warnings in 169.48 seconds**
+with performance and four isolated PostgreSQL 15.15 lanes; Ruff passes and Bandit reports zero
+medium/high findings. The first full run found one synthetic-fixture conflict; its fixture-only
+correction preserves the production wrong-manifest hold. Locked contract tests are unchanged.
+
+[Actual retained-bundle smoke](authority-actual-smoke.json) preserves 52 IDs, eight contexts and
+one unresolved custody hold, and rejects all six coherent omissions with zero provider calls.
+The [origin omission mutation](authority-mutation-fail.log) fails exactly at the omission-rejection
+assertion; [restoration](authority-mutation-restored.log) passes. The preliminary
+[technical-equality probe](authority-mutation-technical-equality-redundant-guard.log) stayed green
+because the separate authority-backed closure check also rejects that omission; it is retained
+as a redundant-guard probe, not a successful mutation proof.
+
+[Independent review](independent-authority-review.md) is clear across correctness, rules/brief
+and tests/gates after the four accepted findings. Publication of these receipts does not admit
+E7 or promote a production prompt. For a prerequisite rooted in the operator workspace, the
+required authority location is `outputs/takeover-2026-09-26/h30-independent-history/legacy-source-review-history-complete.json`
+for accession `0001104659-25-086034`; the reviewed code supplies its expected digest.

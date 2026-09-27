@@ -42,3 +42,12 @@ No source artifact was rewritten and no provider was called for these checks.
 The final correctness, rules/brief and tests/gates review and committed-state verification are
 recorded with the release evidence. Structural custody validation does not establish financial
 truth, resolve the retained runtime dispute, prove unseen provider activity or admit E7.
+
+## Final fixture review
+
+The full backend run found that the synthetic decision integration graph reused H30's accession
+with invented evidence and an unrelated synthetic manifest. The production guard correctly
+rejected it. Independent review accepted a test-local registry override: it neither changes the
+production wrong-manifest hold nor leaks beyond pytest's restored monkeypatch scope. Rewriting
+all synthetic accession labels would not add coverage. The complete repeated gate passes 3,732
+tests; the real pinned-bundle smoke and protocol invariant retain production authority coverage.
