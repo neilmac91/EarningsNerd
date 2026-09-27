@@ -46,7 +46,7 @@ The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) r
 verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
 accounting, #978 binds current authoritative attachments to invalid frozen members without
 claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
-period-bound XBRL operands. Latest verified backend revision is `00404-46p` (#989; [release receipt](review-evidence/progress-2026-09-27/pr989-release.json)),
+period-bound XBRL operands. Latest verified backend revision is `00405-6hm` (#991; [release receipt](review-evidence/progress-2026-09-27/pr991-release.json)),
 100% traffic, migrations 0 applied / 40 skipped, and independent healthy database readback. The preceding #981 applied the source-excerpt migration (1 applied / 39 skipped).
 
 H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
@@ -109,7 +109,7 @@ The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-o
 now passed its read-only integrity checks and confirmed clone cleanup. Production configuration
 and users remained unchanged. The whole-plan estimate therefore moves from 53.5% to **57.5%,
 about 58%**, under the same weighted calculation below. A current production pool timeout exposed an Analysis coverage path that can retain two
-connections per request across SEC waits. The [short-session repair is released](review-evidence/progress-2026-09-27/pr989-release.json), with [70-summary/18-Copilot regression evidence](review-evidence/progress-2026-09-27/pr989-hosted-audit.json). Its real four-connection regression exercises failed and successful same-company fetches, concurrent reads and fresh-cache reuse. A separate read-only audit found remaining company lookup/search/trending paths holding sessions across external waits; their correction remains open. Healthy point-in-time readback does not close fleet headroom. Quality acceptance and real-user
+connections per request across SEC waits. The [short-session repair is released](review-evidence/progress-2026-09-27/pr989-release.json), with [70-summary/18-Copilot regression evidence](review-evidence/progress-2026-09-27/pr989-hosted-audit.json). Its real four-connection regression exercises failed and successful same-company fetches, concurrent reads and fresh-cache reuse. The subsequent [company-route repair is released as #991](review-evidence/progress-2026-09-27/pr991-release.json): lookup, search and trending requests release their database connection before SEC or quote waits. A real four-connection regression, full local gates, clear review and [70-summary/18-Copilot measurements](review-evidence/progress-2026-09-27/pr991-hosted-audit.json) passed. The 106 provider calls have an estimated USD 0.185997 cost; billed cost is unknown. Healthy point-in-time readback does not close fleet headroom. Quality acceptance and real-user
 evidence still control progression; new PRs and byte-valid packets do not count as acceptance.
 
 ## What the agents delivered
@@ -174,6 +174,23 @@ under a one-accession smoke fixture. PR #967 now contains the merged implementat
 hosted audit and verified production release. Full-programme readiness and
 blinded decision boundaries remain unexecuted. Preserve required gates and the two previously
 denied E7 proof holds.
+
+### Source-reference progress clarification
+
+H29 and H30 count as **2 of 30 completed source-preparation dossiers**, with their existing
+independent briefs, source-reading reconciliations and adverse history preserved. The schema-2
+single-context route remains available; the optional hierarchy's text-prompt/journal requirements
+are not prerequisites for those dossiers. Their eligible opinions must not be redrawn to fit the
+hierarchy. The later programme freeze must bind the unchanged artifacts to the approved 30-filing
+manifest and all source-context exclusions. This is a progress count, not partial programme
+admission, candidate acceptance or permission to generate the holdout.
+
+The next bounded preparation is H28. Its retained 6-K and index readers are constructed, but the
+35 filing graphics were acquired and independently hash-bound to the exact frozen member identities
+after the retained complete-submission encoding failed strict decoding. Two fresh source-only
+reference contexts are reading the complete filing and all native images. Their outputs remain
+drafts: current supplements do not prove historical equality, and the later source authority must
+bind their ledger before programme admission. Reconciliation and full role coverage remain open.
 
 ## Ordered completion path and ownership
 
