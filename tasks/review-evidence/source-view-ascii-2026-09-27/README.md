@@ -47,6 +47,15 @@ is retained as additional evidence, not a substitute for the runner's version. L
 workflow checks, raw hosted logs, the ZIP and hashes remain under the operator workspace's
 `outputs/takeover-2026-09-26/h25-ascii-capacity/`.
 
+## Local release checks
+
+The [public-API resource proof](local-proof.json) bounds traced allocations for a 512 KiB ASCII
+projection to less than 16 MiB. Restoring the old offset-list allocation failed at 23,563,280
+traced bytes; restoring the candidate passed. This small regression test is distinct from the
+Linux address-space measurement. The [full local gate](full-gate-receipt.json) passed Ruff,
+Bandit `-ll` and 3,733 tests, including performance and all four PostgreSQL concurrency suites
+(40 warnings, 173.74 seconds). Its post-test shutdown logging diagnostic is retained in the receipt.
+
 ## Remaining limits
 
 H25 is the 57,158,558-byte direct primary, not the SGML member that differs by 111 wrapper bytes.
