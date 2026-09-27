@@ -1,6 +1,8 @@
 # EarningsNerd landing redesign · rationale
 
-Files: `Landing (redesign).dc.html` (live, fluid, both themes via the header toggle or Tweaks), `Landing (redesign) — Breakpoints.dc.html` (380 / 768 / 1280 / 1440 × light / dark), `Landing (current).dc.html` (the shipped page, recreated from `frontend/app/page.tsx` for comparison).
+> **Retired historical design snapshot.** The three `.dc.html` mocks in this directory are retained only as design history. Their product claims and copy are obsolete and must not be used as implementation guidance. The live landing sources are `frontend/features/marketing/lib/headline.ts`, `frontend/features/marketing/components/LandingHero.tsx`, and `frontend/features/marketing/components/MeasuredClaims.tsx`.
+
+Files retained as historical snapshots: `Landing (redesign).dc.html` (fluid mock), `Landing (redesign) - Breakpoints.dc.html` (380 / 768 / 1280 / 1440 × light / dark), and `Landing (current).dc.html` (the page as recreated when this design was made).
 
 ## Headline
 
