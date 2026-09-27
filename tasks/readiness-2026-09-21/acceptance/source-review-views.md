@@ -30,8 +30,20 @@ not create a `review.txt` file.
 Unknown declarations (including CDATA), ambiguous spans, invalid UTF-8 and markup requiring
 unsupported implicit element boundaries are rejected. The reader requires explicit closes
 for content elements; only trailing `html`/`body` wrapper closes may be omitted. It rejects
-non-void self-closing tags, including foreign/XML forms, instead of approximating browser
-repair or namespace semantics. Properly closed nested lists and tables remain supported.
+non-void self-closing tags in ordinary HTML instead of approximating browser repair or
+namespace semantics. An XML-declared source, with an optional UTF-8 byte-order mark, is accepted
+as strict XHTML only after complete well-formedness and XHTML-root validation; in that mode,
+exact XML empty elements are retained with their source spans. Properly closed nested lists and
+tables remain supported.
+Strict mode is a bounded lexical XHTML subset, not a general XML renderer. It uses XML reference
+semantics and consumes processing instructions through `?>`. CDATA and case-distinct names that
+would collapse under the HTML tokenizer are rejected; unprefixed XHTML element names must be
+lowercase. Camel-case namespaced inline-XBRL names remain supported when their spelling is
+consistent. Nested markup or entity references inside strict `script`/`style` raw text are rejected.
+Case-changed XHTML attributes used by the projection (`hidden`, `aria-hidden`, `style`, `rowspan`,
+`colspan`, `src`, and `alt`) are rejected rather than assigned HTML semantics.
+Recorded tag and attribute labels are lowercase indexes; their raw event/name spans remain the
+authority for exact spelling.
 An existing output is never overwritten.
 
 The module is a review aid only. It has no path to enable paid execution or mark a source
@@ -76,4 +88,10 @@ python -m evals.acceptance_source_capacity \
   --output /path/to/new-capacity-audit.json
 ```
 
-The output must not exist. The preflight verifies and parses the same bounded source buffer, preserves whole-input callbacks and checks their actual positions and byte spans. It records event counts and the first maximum event under the existing 64 MiB source and 2 MiB event ceilings. It does not build the structural view or attest grammar, source meaning or admission. [H01/H02/H25 measurements and verification](../../review-evidence/e7-source-capacity-2026-09-23/README.md) close primary event sizing only; projection, model-context, all-member and modality capacity remain open.
+The output must not exist. The preflight verifies and parses the same bounded source buffer, uses
+the same strict-XHTML selection and processing-instruction boundaries as the source view, preserves
+whole-input callbacks, and checks their actual positions and byte spans. It records event counts and
+the first maximum event under the existing 64 MiB source and 2 MiB event ceilings. It does not build
+the structural view or attest the projection's supported structural grammar, source meaning or
+admission. Strict-mode selection validates XML well-formedness and the XHTML root only.
+[H01/H02/H25 measurements and verification](../../review-evidence/e7-source-capacity-2026-09-23/README.md) close primary event sizing only; projection, model-context, all-member and modality capacity remain open.

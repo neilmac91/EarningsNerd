@@ -1,3 +1,44 @@
+## September 27 — seven verified releases and H30 review hold
+
+- [x] Engineering releases #963–#969 are verified; current backend is `00393-6m9` from main `e39b475e13a0599d037303aacc75a82d51b053b8`. The [current continuation](continuation-plan-2026-09-26.md) and its evidence index contain actual output, deployment and independent-health receipts.
+- [ ] #970 remains draft at `68e8ff1f29a3ec844d595cfce93b72225d46dba3`: complete technical-attempt omission evades its self-declared closure. Bind the complete retained attempt/context set independently, first examining #964’s existing authority; do not fabricate legacy dispatches. See the [bounded correction plan](review-evidence/takeover-2026-09-26/h30-next-integration-plan.md).
+- [ ] Complete same-Fable #942 judging, corpus capacity/source references and E7 acceptance; correct Analysis ratio precision, prove recovery and collect real controlled-beta evidence. None is established by ordinary CI or the seven releases.
+
+## September 27 — verified overnight implementation and remaining gates
+
+The founder gave Codex full authority for necessary Master Plan changes and explicitly approved
+DeepSeek spend while unavailable overnight. Continue engineering, bounded measurements and verified
+releases without repeating approval requests. Preserve existing quality criteria, evaluator identities,
+specific universe-generation prerequisites and evidence; do not infer customer consent.
+
+- [x] All A/B/C checkpoints reconciled; 80 archive checksum entries verified. No active branch ownership remains outside Codex.
+- [x] Custody corrections implemented in [#963](https://github.com/neilmac91/EarningsNerd/pull/963): full local gate 3,718 passed; four failing/restored regression proofs; 58 focused passes; independent review clear; eleven locked files unchanged.
+- [x] #963 hosted checks and serial release verified: main `5554bc87`, revision `00388-6z4` at 100%, migrations 0/39, independent healthy readback.
+- [x] #964 exact prompt construction, durable pre-dispatch history and recovery released: 3,729 local tests; final hosted 70/70 summaries and 18/18 Copilot draws; revision `00390-q8b` at 100%; migrations 0/39; independent healthy readback. Semantic acceptance remains separate.
+- [x] #965 releases request/background sessions before SEC waits: 3,719 tests, real one-connection regression, hosted 70/70 summaries and 18/18 Copilot draws, revision `00389-c6j` at 100%, and independent health verified before #964.
+- [x] #966 merged at `eea26d2f` after #968 deployment. Hosted default builds, Vercel deployment and main CI 36287670902 are verified; the backend deploy step skipped. Signed-in annual/quarterly cached repeats retained 17 source links and one/two visible warnings.
+- [x] #967 merged as `537bf59b923922d2215ae1399920756e014bd4e5` at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9` plus `ac60` evidence passed 3,730 tests and five fault proofs, including leaf-name/hash pairing; the final hosted 70+18 telemetry audit is in [final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). Release verified: main CI 36285042203, revision 00391-rgl at 100%, migrations 0/39 and independent healthy readback.
+- [x] #968 cached numeric warnings released: 3,731 local tests, actual hosted 70/70 summaries and 18/18 Copilot draws; main `2dce80c4`, revision `00392-zph` at 100%, migrations 0/39 and independent healthy readback.
+- [x] H29 eligible pair and reconciliation retained: 25 current plus 15 adverse dispositions, 13 material reference issues and 11 resolved disagreements. This does not certify candidate-output quality.
+- [x] H30 current A/B briefs and source-only reconciliation retained: A has 9 issues and B has 10; the reconciliation has 10 material issues, all 19 current dispositions and 12 resolved source disagreements. All 52 historical identities remain separate, with 51 source-supported and one runtime-only claim unresolved for custodian classification. Old A/B/reconciliation contexts remain retired; the partial A3 artifact is historical while its later current source-only brief is retained. All eight known contexts must remain excluded from blind roles; no programme admission is claimed.
+- [x] #969 corrected head `c3a10d01` merged as `e39b475e` after [3,731 local tests on the exact corrected head](review-evidence/takeover-2026-09-26/pr969-final-local-gate.json), 70/70 summaries, 18/18 Copilot draws and exact-head review. Main CI 36289833641, revision `00393-6m9` at 100%, migrations 0/39 and independent healthy readback are verified. Eight readable H01 members construct locally; H02 primary projection/verification completes with observed 1.87 GB RSS. H25 full projection is held for a memory-limited worker; all-member/modality/semantic/provider-capacity proof remains open.
+- [x] #942 current-main integration and fresh q2/q3 evidence retained: 70/70 and 105/105, zero recorded harness errors/retries, all deterministic gates pass; p/q2 source parity verified. Backend floor remains unchanged.
+- [ ] Run the prepared matched Fable comparison (140 slots, up to 280 actual CLI invocations, durable checkpointing) before q release/pin; E7 candidate freeze follows that disposition.
+- [ ] Correct Analysis ratio precision in model input, preserving display formatting and versioning the prompt/cache stamp. Verify the captured just-above-one case and a bounded matched before/after response; existing deterministic checks alone do not prove narrative quality. [Bounded follow-up](review-evidence/takeover-2026-09-26/analysis-ratio-precision-followup.md).
+- [x] Notable ownership/disposition reviewed: retain implementation and keep activation deferred. Engineering owns the missing seven-day job/source-quality readout; the original seed/scheduler evidence does not establish acceptance. [Disposition](review-evidence/takeover-2026-09-26/notable-disposition-review.md).
+- [ ] Recovery: local cloud reauthentication remains unavailable. Existing WIF can supply an allowlisted read, but automatic approval review rejected the proposed GitHub Actions metadata destination; explicit storage approval is pending. No workflow patch, permission grant, SQL query or cloud mutation occurred. Codex owns pricing/cap and bounded rehearsal/cleanup after access is resolved.
+
+## September 26 — chief-engineer takeover
+
+Reconciled merged #940/#951/#953–#961, current open #942/draft #952, actual regression/Copilot
+executions and release logs. Three independently reproduced offline graph-custody gaps remain
+after #961; no E7 acceptance result or beta/recovery outcome follows from the source tooling.
+The [current continuation](continuation-plan-2026-09-26.md) assigns the minimum correction,
+H29 reconciliation/integration, candidate freeze, E7 execution, recovery and cohort sequence.
+All three agent checkpoints are now reconciled; their sessions are idle and Codex owns the
+remaining work. Agent B's original fixtures and follow-up findings are retained. This update
+changes documentation only.
+
 ## September 23 — bounded source-review implementation
 
 The subsequent [markup-boundary correction](review-evidence/e7-source-view-2026-09-23/markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes, fixes the exporter guide and removes an introduced repeated ancestry scan. Final full gate: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips. One guard fault/restoration proof and independent review pass; all 24 H29 artifacts remain unchanged.
@@ -735,7 +776,7 @@ See [the handover](handover-astra-2026-09-09.md) for verified releases, exact pr
 
 ## September 9 verified quality release
 
-- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.
+- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations 0/39, healthy CI/independent detailed health.
 - [ ] Complete source-identity fallback, chat cleanup, segment-share and return-basis releases; each has its own gate/review and serial deploy verification.
 - [ ] Account observations remain access-blocked: controllable in-app browser has no Stripe/Google session; existing Chrome PostHog session is readable but Chrome browser automation is unavailable in this task. No account setting changed. Resume with an authenticated controllable session; continue engineering meanwhile.
 
@@ -5141,7 +5182,7 @@ local preparation. The ordinary review and serial production verification remain
 
 This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
 
-- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
+- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations 0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
 - [x] Confirm #796 error-outcome and #799 reported-metric d are already merged and verified. Do not reimplement either or launch a third #799 assessment. #805 is the genuinely unfinished explanation candidate, held after its first failed financial assessment.
 - [x] Verify current official Flash prices and peak schedule. DeepSeek now states V4 Pro continues after September14 at its own unchanged rates; the old retirement premise is superseded. Flash with thinking off remains the approved configuration.
 - [ ] Finish clean current-main backend (four PostgreSQL lanes/performance) and frontend lint/TypeScript/Vitest/build gates. Local database recovery and cold file reads delayed startup; no partial pass is claimed.
@@ -5785,3 +5826,12 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - Implemented the non-admitting capacity CLI and one invariant on a separate branch stacked on #940. Corrective code `abf4ca64` passes 3,656 tests, all four PostgreSQL lanes, performance, Ruff/Bandit/dependency checks.
 - Measured revised H01/H02/H25 primary identities: largest raw events 1,499/2,186/941 bytes; H25 is 57,158,558 bytes, 1,278,811 events, 3.49 seconds and about 142 MiB preflight peak RSS. [Receipts](review-evidence/e7-source-capacity-2026-09-23/README.md) preserve the skipped-prefix correction, both guard proofs and bounded independent review.
 - Source custody, issue propagation/reconciliation, admission integration and actual quality evidence remain next. No E7 generation, Fable calls or production deployment; prior denied proof holds remain.
+
+### September 27 — bounded serialized source export
+
+- [x] Reproduced the remaining H25 public-export failure in Linux run 36311408531: projection returned, whole JSON encoding exhausted memory, H02 held. Implemented byte-preserving streamed export with a public-API memory gate and exact Unicode/manifest parity checks.
+- [x] Both direct-primary exports passed the unchanged H25/H02 Linux contract (run 36318572864); full local gate passed 3,734 tests.
+- [x] #974 hosted review/70-summary/18-Copilot measurements cleared; merged `a7983ddc`, main CI `36320062558` passed, revision `00396-p2f` serves 100%, migrations 0/39 and independent health passed. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
+
+- [x] Current H25 complete-submission entity matches the frozen 297,209,475-byte capture; one authoritative terminal-case GIF matches its retained diagnostic identity. Two SEC requests total across these successful observations, no model calls, no decoder repair or admission.
+- [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.

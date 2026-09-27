@@ -70,15 +70,23 @@ def test_frozen_checkout_requires_reviewed_meter_bytes_in_both_trees(tmp_path: P
     with pytest.raises(ValueError, match="reviewed instrumentation lacks"):
         executor.frozen_checkout(config, missing_commit)
 
-    (executing / executor.MEASUREMENT_FILES[0]).write_text("unreviewed controller", encoding="utf-8")
-    with pytest.raises(ValueError, match="executing controller differs"):
-        executor.frozen_checkout(config, reviewed_commit)
-    (executing / executor.MEASUREMENT_FILES[0]).write_bytes(
-        (checkout / executor.MEASUREMENT_FILES[0]).read_bytes())
-    hook.write_text("drifted provider hook", encoding="utf-8")
-    config["source_commit"] = commit("candidate checkout meter drift")
-    with pytest.raises(ValueError, match="frozen checkout differs"):
-        executor.frozen_checkout(config, reviewed_commit)
+    legacy_authority = "backend/evals/acceptance_legacy_history.py"
+    assert legacy_authority in executor.MEASUREMENT_FILES
+    for relative in (executor.MEASUREMENT_FILES[0], legacy_authority):
+        controller = executing / relative
+        controller.write_text("unreviewed controller", encoding="utf-8")
+        with pytest.raises(ValueError, match="executing controller differs"):
+            executor.frozen_checkout(config, reviewed_commit)
+        controller.write_bytes((checkout / relative).read_bytes())
+    for relative in (legacy_authority, executor.MEASUREMENT_FILES[-1]):
+        changed = checkout / relative
+        changed.write_text("drifted measurement code", encoding="utf-8")
+        config["source_commit"] = commit("candidate checkout measurement drift")
+        with pytest.raises(ValueError, match="frozen checkout differs"):
+            executor.frozen_checkout(config, reviewed_commit)
+        changed.write_bytes((executing / relative).read_bytes())
+        config["source_commit"] = commit("restore reviewed measurement bytes")
+        assert executor.frozen_checkout(config, reviewed_commit) == checkout
 
 
 def test_verified_runtime_rejects_mismatched_or_unsupported_lock(tmp_path: Path, monkeypatch) -> None:

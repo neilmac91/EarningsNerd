@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "e7_ascii_source_offset_production_gate",
+  "branch": "codex/wave3-ascii-source-offsets",
+  "base_sha": "a364c58fe8270ad76598e7161f48762d918b044f",
+  "head_sha": "c9e028f2678aac0b377a7255ece98fbef884223e",
+  "production_module": {
+    "path": "backend/evals/acceptance_source_view.py",
+    "sha256": "be3142802e443b92e38bf4723e8c98d7067732d80cc2249ae4d9d14f276520c7",
+    "matches_measured_v3_module": true
+  },
+  "test_module": {
+    "path": "backend/tests/unit/test_acceptance_source_view.py",
+    "sha256": "9e413d2568d5df12c035f313eaa03e1d861e27139a5547bb29fda95c42007534"
+  },
+  "resource_gate": {
+    "public_api": "project_html",
+    "synthetic_ascii_payload_bytes": 524288,
+    "traced_peak_growth_limit_bytes": 16777216,
+    "semantic_contract_reused": "existing source-view invariant test",
+    "large_frozen_source_executed_locally": false
+  },
+  "verification": {
+    "python": "3.11.16",
+    "fresh_pycache_prefixes": true,
+    "focused_precommit": {
+      "result": "2 passed, 2 warnings",
+      "log": "focused-precommit.log",
+      "bytes": 1067,
+      "sha256": "e45213f24f110a0731b30805a6e5f127703e9402aaef6942eec274bb38a7d625"
+    },
+    "mutation_old_offset_list": {
+      "result": "failed as required",
+      "observed_traced_peak_bytes": 23563280,
+      "limit_bytes": 16777216,
+      "log": "mutation-old-offset-list-fails.log",
+      "bytes": 2198,
+      "sha256": "362ae9d213db999718f606bb160cdec137fb6a1ca73fd808eb722ed652af96bf"
+    },
+    "restored_focused": {
+      "result": "2 passed, 2 warnings",
+      "log": "restored-focused-pass.log",
+      "bytes": 1067,
+      "sha256": "f9e3a0468675b53258e8933d4040c4494681fcae16a8808cd7fe3cafcf4196f6"
+    },
+    "ruff": {
+      "result": "passed",
+      "log": "ruff-focused.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "diff_check": "passed",
+    "working_tree": "clean"
+  },
+  "network_calls": 0,
+  "provider_calls": 0,
+  "model_calls": 0,
+  "pushed": false,
+  "full_gate_run": false
+}

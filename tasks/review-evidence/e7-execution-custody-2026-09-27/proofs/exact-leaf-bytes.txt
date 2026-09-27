@@ -1,0 +1,75 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ae22350>
+
+    def test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+        before = copy.deepcopy(MANIFEST)
+        rendered = _leaf()
+        assert MANIFEST == before
+        assert set(rendered) == {"schema_version", "kind", "prompt_bytes", "prompt_sha256",
+                                 "input_manifest_bytes", "input_manifest_sha256", "input_sha256"}
+        assert rendered["schema_version"] == SCHEMA_VERSION
+        assert rendered["kind"] == RENDER_KIND
+        assert rendered["input_sha256"] == UNIT["unit_id"]
+    
+        packet = MANIFEST["declared_packets"][0]
+        parts = [BODY, HEADER]  # Declared coverage first, then separately labelled context.
+        input_manifest = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": INPUT_MANIFEST_KIND,
+            "node_kind": "leaf",
+            "accession_number": ACCESSION,
+            "role": ROLE,
+            "node_id": "leaf-2",
+            "role_contract_sha256": CONTRACT_SHA,
+            "reservation_id": "reserve-leaf-2-1",
+            "template": {"byte_length": len(TEMPLATE), "sha256": _sha(TEMPLATE)},
+            "input_sha256": UNIT["unit_id"],
+            "leaf": {
+                "manifest_sha256": _sha(_canonical(MANIFEST)),
+                "packet_id": packet["packet_id"],
+                "packet_role": "primary",
+                "packet_sha256": _sha(PRIMARY),
+                "packet_byte_length": len(PRIMARY),
+                "unit_id": UNIT["unit_id"],
+                "unit_sha256": UNIT["unit_sha256"],
+                "structural_kind": "text",
+                "registrant_scope": "registrant",
+            },
+            "parts": [
+                {"part_index": 0, "part_kind": "coverage", "packet_role": "primary",
+                 "packet_id": packet["packet_id"], "unit_id": UNIT["unit_id"],
+                 "start": len(HEADER), "end": len(PRIMARY), "byte_length": len(BODY),
+                 "sha256": _sha(BODY)},
+                {"part_index": 1, "part_kind": "context", "packet_role": "primary",
+                 "packet_id": packet["packet_id"], "unit_id": UNIT["unit_id"],
+                 "start": 0, "end": len(HEADER), "byte_length": len(HEADER),
+                 "sha256": _sha(HEADER)},
+            ],
+        }
+        expected_manifest = _canonical(input_manifest)
+        expected_prompt = _oracle_prompt(TEMPLATE, input_manifest, parts)
+        assert rendered["input_manifest_bytes"] == expected_manifest
+        assert rendered["input_manifest_sha256"] == _sha(expected_manifest)
+>       assert rendered["prompt_bytes"] == expected_prompt
+E       AssertionError: assert b'Review the ...T_END_V1>>>\n' == b'Review the ...T_END_V1>>>\n'
+E         
+E         At index 1873 diff: b'6' != b'7'
+E         Use -v to get more diff
+
+tests/unit/test_acceptance_source_review_prompts.py:136: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_prompts.py::test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_prompts.py::test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_prompts.py::test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts
+1 failed, 2 warnings in 0.76s

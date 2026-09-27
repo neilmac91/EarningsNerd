@@ -1,0 +1,60 @@
+{
+  "admission_approved": false,
+  "authority_sha256": "836403b0b85d0a6169d6ab49aedfe99442ceccb159f9084aaa5d6b29219678c6",
+  "excluded_source_contexts": [
+    "/root/e7_h30_reconciliation",
+    "/root/e7_h30_source_a",
+    "/root/e7_h30_source_b",
+    "/root/h30_reconciliation_retry2",
+    "/root/h30_source_a_retry2",
+    "/root/h30_source_a_retry3",
+    "/root/h30_source_b_retry2",
+    "/root/h30_source_b_retry3"
+  ],
+  "filing_source_rows": 51,
+  "history_rows": 52,
+  "kind": "legacy_history_authority_actual_smoke",
+  "known_origins": 4,
+  "limitations": [
+    "Offline retained custody and omission checks only; not financial judgment, provider-global completeness, or programme readiness."
+  ],
+  "operator_runtime_holds": 1,
+  "provider_calls": 0,
+  "rejected_omissions": [
+    {
+      "case": "whole_technical_attempt_removed_and_closure_resealed",
+      "error": "technical history differs from reviewed legacy authority",
+      "result": "rejected"
+    },
+    {
+      "case": "whole_history_wrapper_removed",
+      "error": "reconciliation history must be a non-empty list",
+      "result": "rejected"
+    },
+    {
+      "case": "wrapper_and_authority_location_removed",
+      "error": "registered legacy history authority location missing",
+      "result": "rejected"
+    },
+    {
+      "case": "manifest_key_wrapper_and_authority_location_removed",
+      "error": "legacy history manifest is not registered",
+      "result": "rejected"
+    },
+    {
+      "case": "authority_attempt_removed_and_file_rehashed",
+      "error": "legacy history authority digest differs from reviewed code",
+      "result": "rejected"
+    },
+    {
+      "case": "partial_same_context_origin_and_six_rows_removed_and_resealed",
+      "error": "history origins differ from reviewed legacy authority",
+      "result": "rejected"
+    }
+  ],
+  "result": "pass",
+  "schema_version": 1,
+  "successor_witnesses": 2,
+  "technical_attempts": 2,
+  "tested_head": "e4424f348e3ce2c7f292c98ddf8f21235ec63620"
+}

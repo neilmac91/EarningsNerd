@@ -10,13 +10,14 @@ from pathlib import Path
 
 import pytest
 
-from evals import acceptance_worker
+from evals import acceptance_legacy_history, acceptance_worker
 from evals.acceptance_ai_decision import build_decision, _judge_input_sha
 from evals.acceptance_ai_judge_evidence import _ARGV, MODEL
 from evals.acceptance_outputs import inspect_outputs
 from evals.acceptance_readiness import build_blinded_packets, review_evidence_inventory
 from evals.judge import build_judge_messages
 from evals.runner import _baseline_to_canonical
+from tests.unit.test_acceptance_ai_protocol import _add_adverse_evidence
 from tests.unit.test_acceptance_readiness import _fixture as human_fixture
 
 
@@ -111,6 +112,15 @@ def _v2_evidence(fixture: dict) -> dict:
     original.update(schema_version=2, review_protocol="ai_assisted",
                     ai_assisted={"protocol": protocol, "source_briefs": briefs,
                                  "reconciled_references": references, "exposure_review": exposure})
+    adverse_filing = manifest["filings"][0]
+    adverse_accession = adverse_filing["accession_number"]
+    _add_adverse_evidence(
+        base, original, adverse_accession,
+        {adverse_accession: {packet["role"]: packet["sha256"]
+                             for packet in adverse_filing["source_packets"]}},
+        reconciliation_context=f"ctx-{adverse_filing['holdout_id']}-source_reconciliation",
+        reconciled_issue_id="i1",
+    )
     for old in ("reviewers", "adjudicator", "reference_briefs", "exposure_attestation"):
         original.pop(old)
     path.write_text(json.dumps(original), encoding="utf-8")
@@ -294,6 +304,10 @@ def _review_evidence(fixture: dict, prereq: dict, mapping_path: Path) -> Path:
 
 def _full_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setattr(acceptance_worker, "archive_binding_hold", lambda: None)
+    # This invented decision graph reuses the selection's accession labels, including H30,
+    # but has no production custody history. Keep its synthetic programme registry isolated;
+    # the protocol gate and actual retained-bundle smoke exercise the real authority boundary.
+    monkeypatch.setattr(acceptance_legacy_history, "APPROVED_LEGACY_HISTORY_AUTHORITIES", {})
     fixture = human_fixture(tmp_path)
     prereq = _v2_evidence(fixture)
     _upgrade_collector(fixture, prereq)
@@ -364,9 +378,13 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     assessment_path = fixture["evidence"].parent / assessment_ref["path"]
     assessment = json.loads(assessment_path.read_text())
     original_quality_context = assessment["quality_context_id"]
+    original_challenge_context = assessment["challenge_context_id"]
     quality_context_path = fixture["evidence"].parent / assessment["quality_response"]["path"]
+    challenge_context_path = fixture["evidence"].parent / assessment["challenge_response"]["path"]
     quality_context_response = json.loads(quality_context_path.read_text())
-    source_context = json.loads(fixture["preflight"].read_text())["ai_assisted"]["source_briefs"][0]["context_id"]
+    challenge_context_response = json.loads(challenge_context_path.read_text())
+    source_context = json.loads(fixture["preflight"].read_text())[
+        "ai_assisted"]["adverse_source_evidence"][0]["context_id"]
     assessment["quality_context_id"] = source_context
     quality_context_response["context_id"] = source_context
     assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
@@ -375,6 +393,20 @@ def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
     with pytest.raises(ValueError, match="reused across review roles"):
         _decide(fixture)
 
+    assessment["quality_context_id"] = original_quality_context
+    quality_context_response["context_id"] = original_quality_context
+    assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
+    assessment["challenge_context_id"] = source_context
+    challenge_context_response["context_id"] = source_context
+    assessment["challenge_response"].update(_write(challenge_context_path, challenge_context_response))
+    assessment_ref.update(_write(assessment_path, assessment))
+    fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    with pytest.raises(ValueError, match="reused across review roles"):
+        _decide(fixture)
+
+    assessment["challenge_context_id"] = original_challenge_context
+    challenge_context_response["context_id"] = original_challenge_context
+    assessment["challenge_response"].update(_write(challenge_context_path, challenge_context_response))
     assessment["quality_context_id"] = assessment["challenge_context_id"]
     quality_context_response["context_id"] = assessment["challenge_context_id"]
     assessment["quality_response"].update(_write(quality_context_path, quality_context_response))

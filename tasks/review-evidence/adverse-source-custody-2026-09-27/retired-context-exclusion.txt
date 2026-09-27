@@ -1,0 +1,87 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_full_ai_decision_uses_retained_packet_and_judge_bytes __________
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-311/test_full_ai_decision_uses_ret0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a8f00d0>
+
+    def test_full_ai_decision_uses_retained_packet_and_judge_bytes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        fixture = _full_fixture(tmp_path, monkeypatch)
+        report = _decide(fixture)
+        assert report["status"] == "pass"
+        assert report["joint_at_least_4"] == 90
+        assert report["human_acceptance"] is False
+        assert report["exposure_status"] == "no_known_candidate_exposure_external_unknown"
+    
+        index_path = fixture["packets"] / "ai-packet-1" / "index.json"
+        original_index = index_path.read_bytes()
+        index = json.loads(original_index)
+        index["packets"][0]["packet_dir"] = index["packets"][1]["packet_dir"]
+        index_path.write_text(json.dumps(index), encoding="utf-8")
+        with pytest.raises(ValueError, match="index points to a different packet"):
+            _decide(fixture)
+        index_path.write_bytes(original_index)
+    
+        mapping = json.loads(fixture["mapping"].read_text())
+        copied = fixture["packets"] / "ai-packet-1" / next(iter(
+            mapping["packet_sets"]["ai-packet-1"][0]["reviewer_artifacts"].values()))["path"]
+        original = copied.read_bytes()
+        copied.write_bytes(original + b"\nchanged after packet construction")
+        with pytest.raises(ValueError, match="evidence SHA256 mismatch"):
+            _decide(fixture)
+        copied.write_bytes(original)
+    
+        evidence = json.loads(fixture["evidence"].read_text())
+        ledger_path = fixture["evidence"].parent / evidence["judge_ledger"]["path"]
+        judge_ledger = json.loads(ledger_path.read_text())
+        removed = judge_ledger["entries"].pop()
+        evidence["judge_ledger"].update(_write(ledger_path, judge_ledger))
+        fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+        incomplete = _decide(fixture)
+        assert incomplete["status"] == "incomplete"
+        assert any("judging:" in reason for reason in incomplete["incomplete_reasons"])
+        judge_ledger["entries"].append(removed)
+        evidence["judge_ledger"].update(_write(ledger_path, judge_ledger))
+        fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+    
+        # Packet order is deliberately randomized. The absolute fabricated-quote veto
+        # belongs to the candidate arm; comparator defects remain descriptive.
+        candidate_ids = {p["packet_id"] for p in mapping["packet_sets"]["ai-packet-1"]
+                         if p["arm"] == "candidate"}
+        assessment_ref = next(ref for ref in evidence["assessments"]
+                              if json.loads((fixture["evidence"].parent / ref["path"]).read_text())["packet_id"]
+                              in candidate_ids)
+        assessment_path = fixture["evidence"].parent / assessment_ref["path"]
+        assessment = json.loads(assessment_path.read_text())
+        original_quality_context = assessment["quality_context_id"]
+        original_challenge_context = assessment["challenge_context_id"]
+        quality_context_path = fixture["evidence"].parent / assessment["quality_response"]["path"]
+        challenge_context_path = fixture["evidence"].parent / assessment["challenge_response"]["path"]
+        quality_context_response = json.loads(quality_context_path.read_text())
+        challenge_context_response = json.loads(challenge_context_path.read_text())
+        source_context = json.loads(fixture["preflight"].read_text())[
+            "ai_assisted"]["adverse_source_evidence"][0]["context_id"]
+        assessment["quality_context_id"] = source_context
+        quality_context_response["context_id"] = source_context
+        assessment["quality_response"].update(_write(quality_context_path, quality_context_response))
+        assessment_ref.update(_write(assessment_path, assessment))
+        fixture["evidence"].write_text(json.dumps(evidence), encoding="utf-8")
+>       with pytest.raises(ValueError, match="reused across review roles"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_ai_decision_integration.py:389: Failed
+=============================== warnings summary ===============================
+app/config.py:21
+  /private/tmp/earningsnerd-pr948-review/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /private/tmp/earningsnerd-pr948-review/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_ai_decision_integration.py::test_full_ai_decision_uses_retained_packet_and_judge_bytes
+1 failed, 2 warnings in 8.65s

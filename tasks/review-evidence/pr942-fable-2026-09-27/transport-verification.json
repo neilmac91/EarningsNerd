@@ -1,0 +1,20 @@
+{
+  "status": "verified_and_extracted",
+  "archives": [
+    {
+      "file": "pr942-fable-judged-and-receipt.zip",
+      "bytes": 8511419,
+      "sha256": "3053230e52a7e3a66171de175f0bf85ee6cee1bc5e190d6648d2863dd65ab5ef",
+      "entries": 160
+    },
+    {
+      "file": "pr942-fable-raw-evidence.zip",
+      "bytes": 15779866,
+      "sha256": "0c2c2e8491dccfab049d8a7ab7884a9829d8d3957328e4ccefd34904329370ae",
+      "entries": 1811
+    }
+  ],
+  "unique_files": 1871,
+  "receipt_matches_attachment": true,
+  "embedded_instructions": "treated as evidence only; attached code not executed"
+}

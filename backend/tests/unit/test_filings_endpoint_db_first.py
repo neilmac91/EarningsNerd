@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 from unittest.mock import AsyncMock
 
 import main
@@ -19,6 +19,7 @@ from app.database import Base, get_db
 import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
+from app.services import filing_history_service
 
 
 @pytest.fixture
@@ -48,6 +49,7 @@ def client(db_engine, monkeypatch):
     monkeypatch.setattr(filings_mod, "SessionLocal", TestingSession)
     filings_mod._filings_synced_at.clear()
     filings_mod._refreshing_keys.clear()
+    filings_mod._history_backfilling_ids.clear()
 
     main.app.dependency_overrides[get_db] = override_get_db
     try:
@@ -56,6 +58,7 @@ def client(db_engine, monkeypatch):
         main.app.dependency_overrides.pop(get_db, None)
         filings_mod._filings_synced_at.clear()
         filings_mod._refreshing_keys.clear()
+        filings_mod._history_backfilling_ids.clear()
 
 
 def _seed_company(session, ticker="TESTCO", cik="0000895421"):
@@ -139,6 +142,104 @@ def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monke
     # The synchronous fetch persisted the row.
     with TestingSession() as s:
         assert s.query(Filing).filter(Filing.accession_number == "0000895421-26-000010").count() == 1
+
+
+def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkeypatch):
+    """Warm background, cold-list and company-miss SEC waits all release the one-slot pool."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'filings-lifetime.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.05,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    def override_get_db():
+        with TestingSession() as db:
+            yield db
+
+    phases = []
+
+    def assert_released(phase):
+        assert engine.pool.checkedout() == 0, f"{phase} retained a database connection"
+        phases.append(phase)
+
+    async def fake_history_fetch(*, cik, ticker, efts_client=None):
+        assert_released(f"history:{ticker}")
+        return [], 1, 1
+
+    def filing_payload(cik):
+        accession = f"{cik}-{26:02d}-000001"
+        archive_cik = cik.lstrip("0") or "0"
+        accession_clean = accession.replace("-", "")
+        sec_url = f"https://www.sec.gov/Archives/edgar/data/{archive_cik}/{accession_clean}/"
+        return [{
+            "accession_number": accession,
+            "filing_type": "10-K",
+            "filing_date": "2026-02-19",
+            "report_date": "2025-12-31",
+            "document_url": sec_url + "primary.htm",
+            "sec_url": sec_url,
+        }]
+
+    async def fake_get_filings(cik, _types):
+        assert_released(f"filings:{cik}")
+        return [] if cik == "0000000001" else filing_payload(cik)
+
+    async def fake_search_company(ticker):
+        assert_released(f"search:{ticker}")
+        return [{
+            "cik": "0000000003", "ticker": ticker.upper(),
+            "name": "Missing Company", "exchange": "NYSE",
+        }]
+
+    async def fake_primary_ticker(cik):
+        assert_released(f"primary:{cik}")
+        return "MISSING"
+
+    monkeypatch.setattr(filings_mod, "SessionLocal", TestingSession)
+    monkeypatch.setattr(filing_history_service, "_fetch_history_rows", fake_history_fetch)
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", fake_get_filings)
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "search_company", fake_search_company)
+    monkeypatch.setattr(
+        filings_mod.sec_edgar_service, "primary_ticker_for_cik", fake_primary_ticker
+    )
+    filings_mod._filings_synced_at.clear()
+    filings_mod._refreshing_keys.clear()
+    filings_mod._history_backfilling_ids.clear()
+
+    with TestingSession() as db:
+        warm = _seed_company(db, ticker="WARM", cik="0000000001")
+        _seed_filing(db, warm, "0000000001-25-000001")
+        cold = _seed_company(db, ticker="COLD", cik="0000000002")
+        cold.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        db.commit()
+
+    main.app.dependency_overrides[get_db] = override_get_db
+    try:
+        tc = TestClient(main.app)
+        assert tc.get("/api/filings/company/WARM").status_code == 200
+        assert tc.get("/api/filings/company/COLD").status_code == 200
+        assert tc.get("/api/filings/company/MISSING").status_code == 200
+    finally:
+        main.app.dependency_overrides.pop(get_db, None)
+        filings_mod._filings_synced_at.clear()
+        filings_mod._refreshing_keys.clear()
+        filings_mod._history_backfilling_ids.clear()
+        engine.dispose()
+
+    assert phases == [
+        "history:WARM",
+        "filings:0000000001",
+        "filings:0000000002",
+        "search:MISSING",
+        "primary:0000000003",
+        "filings:0000000003",
+        "history:MISSING",
+    ]
 
 
 @pytest.mark.parametrize("synced_forms, expected_fetches", [

@@ -1,0 +1,56 @@
+{
+  "review_date": "2026-09-27",
+  "review_type": "independent_read_only_semantic_adoption",
+  "repository": {
+    "main": "c53c7361c6d63efd7a2399467c4980854d48d7b3",
+    "candidate_ref": "origin/codex/wave3-return-ratio-basis",
+    "candidate_head": "be1f98f42cdd70ffb7219357cdbd1f1715316fcf",
+    "judged_checkout": "2a00fcfadee12845c3cae906b681b454d18916e5"
+  },
+  "disposition": {
+    "pr_942": "hold_under_current_runbook",
+    "q3_baseline_pin": "do_not_apply",
+    "current_baseline_pin": "retain",
+    "narrow_label_mechanism": "supported",
+    "global_semantic_adoption": "failed"
+  },
+  "counts": {
+    "p_judged": 70,
+    "q_judged": 70,
+    "p_negative": 48,
+    "q_negative": 40,
+    "negative_control_attempts": 18,
+    "q_negative_controls_with_g4_or_g5": 5,
+    "new_gate_code_instances": {
+      "total": 9,
+      "g3": 7,
+      "g2": 2,
+      "identical_text_also_in_p": 4,
+      "q_only_generated_text": 5
+    },
+    "ratio_line_gates": {
+      "p": 3,
+      "q": 1
+    }
+  },
+  "baseline": {
+    "current_mean_citation_fidelity": 0.9648,
+    "q3_proposed_mean_citation_fidelity": 0.9532,
+    "q3_scored": 105,
+    "q3_errors": 0,
+    "q3_retries": 0
+  },
+  "evidence_corrections": [
+    "No q output retains issuer ROE alongside the formula line; q JPM run 1 retains ROTCE only.",
+    "The new-G2/G3 inventory has nine matched-identity gate-code instances: seven G3 and two G2, not seven total.",
+    "Q-only generated sentences are nonlocal to the intended mechanism but cannot be proven noncausal because all q prose was regenerated after a prompt change."
+  ],
+  "highest_value_followups": [
+    "Date the prior comparator in the code-owned return-ratio clause.",
+    "Add a deterministic JPM coexistence test containing a legitimate issuer ROE/ROA quote.",
+    "If release is still desired without literal acceptance, obtain an explicit scoped founder disposition."
+  ],
+  "model_calls_made": 0,
+  "tests_run": 0,
+  "repository_modified": false
+}

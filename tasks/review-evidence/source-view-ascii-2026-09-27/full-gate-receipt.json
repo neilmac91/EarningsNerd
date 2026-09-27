@@ -1,0 +1,26 @@
+{
+  "bandit_ll": "passed",
+  "exit_code": 0,
+  "initial_environment_refusal": "Sandbox denied localhost database access before tests; preserved separately. Successful gate used permitted localhost access.",
+  "kind": "ascii_source_view_full_local_gate",
+  "log": {
+    "bytes": 17169,
+    "sha256": "861ad7d0e2e58b29399af61540a6c4d7ca6a385095843a6a293a8739d6232b30"
+  },
+  "pytest": {
+    "passed": 3733,
+    "performance_included": true,
+    "postgresql_concurrency_databases": [
+      "ascii_source_stripe",
+      "ascii_source_usage",
+      "ascii_source_login",
+      "ascii_source_delivery"
+    ],
+    "seconds": 173.74,
+    "warnings": 40
+  },
+  "python": "3.11.16",
+  "ruff": "passed",
+  "shutdown_diagnostic": "After the passing pytest summary, the Yahoo client atexit callback logged to an already closed stream; retained in full log. Process exit code remained zero.",
+  "tested_commit": "4a96e1d1499142746e4757b7560eb02b17e92009"
+}

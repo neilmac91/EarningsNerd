@@ -1,0 +1,85 @@
+{
+  "accession_number": "0001104659-25-086034",
+  "admission_approved": false,
+  "filing_source_rows": 51,
+  "frozen_artifacts": {
+    "a": {
+      "bytes": 19483,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/source-evidence/reference-a-attempt-3/brief.json",
+      "sha256": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240"
+    },
+    "b": {
+      "bytes": 21660,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/source-evidence/reference-b-attempt-3/brief.json",
+      "sha256": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f"
+    },
+    "ledger": {
+      "bytes": 38736,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/reconciliation-attempt-2/custody-clarification/adverse-dispositions.json",
+      "sha256": "80a1daee5ebfbd6119f4349ecd2b6d7d9cea556a2c696ac42686ac3977a09872"
+    },
+    "manifest": {
+      "bytes": 2514,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/generated/external-history-manifest.json",
+      "sha256": "63a03048de3269ca3bfc3c21b4489fe0ef03355432826e32cd6190a172c089e6"
+    },
+    "reconciliation": {
+      "bytes": 39413,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/source-evidence/reconciliation-attempt-2/reference.json",
+      "sha256": "8ce13076933ceb392f909d9661449e9374d8a2874a8318f24191550939ef7c70"
+    },
+    "reconciliation_draft": {
+      "bytes": 37877,
+      "path": "outputs/takeover-2026-09-26/h30-source-bundle/reconciliation-attempt-2/custody-clarification/draft.json",
+      "sha256": "c6433a134858fd3cc6f27d8f3e54f65fbb355c3d309e5d953a1e04d715f078ad"
+    }
+  },
+  "history_rows": 52,
+  "hosted_review_fixes": {
+    "adverse_source_context_ownership_bound": true,
+    "canonical_manifest_counts_required": true,
+    "cross_accession_current_context_ownership_bound": true,
+    "current_eligible_origin_alias_rejected": true,
+    "current_eligible_technical_child_alias_rejected": true,
+    "origin_artifact_sha_unique": true,
+    "same_accession_current_context_reuse_allowed": true,
+    "technical_artifact_leaf_set_exact": true,
+    "technical_control_artifacts_distinct": true,
+    "technical_prompt_sha256_syntax_required": true
+  },
+  "identity_set_sha256": "79f7ba4468d0ab2f2c8e90127a73b7e1118cd17c14ab4c75d3c83bedaf9364e1",
+  "kind": "h30_cross_role_history_actual_smoke",
+  "limitations": [
+    "Custody and exclusion only; no financial re-judgment, provider call, or programme admission.",
+    "Historical artifact status does not classify every use of a reused context.",
+    "Unresolved origin status is preserved exactly; this bounded route does not infer financial-versus-runtime semantics for other histories.",
+    "Prompt digest syntax and retained custody do not prove the original provider runtime."
+  ],
+  "operator_runtime_rows": 1,
+  "origin_contexts": 4,
+  "origin_counts": {
+    "/root/e7_h30_reconciliation": 23,
+    "/root/e7_h30_source_a": 12,
+    "/root/e7_h30_source_b": 11,
+    "/root/h30_source_a_retry3": 6
+  },
+  "provider_calls": 0,
+  "result": "pass",
+  "runtime_holds": 1,
+  "schema_version": 1,
+  "source_context_closure": [
+    "/root/e7_h30_reconciliation",
+    "/root/e7_h30_source_a",
+    "/root/e7_h30_source_b",
+    "/root/h30_reconciliation_retry2",
+    "/root/h30_source_a_retry2",
+    "/root/h30_source_a_retry3",
+    "/root/h30_source_b_retry2",
+    "/root/h30_source_b_retry3"
+  ],
+  "source_context_closure_sha256": "4143e5140879fa5dfea41b517abe652f8ef05f2c9d983ba4b31b43236a2d9113",
+  "technical_attempts": 2,
+  "transitively_bound_manifest_artifacts": 9,
+  "transitively_bound_technical_artifacts": 6,
+  "validated_head": "cc8fa102af25ed01c5bba01e7004c2a6375808b6"
+}

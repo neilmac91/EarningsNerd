@@ -1,0 +1,43 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_declared_context_is_bounded_before_it_is_hashed _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a02d8d0>
+
+    def test_declared_context_is_bounded_before_it_is_hashed(monkeypatch: pytest.MonkeyPatch) -> None:
+        manifest = build_unit_manifest(**_declared())
+        caption, header = len(CAPTION), len(HEADER)
+        # Unit 2 declares caption + header of context and unit 3 repeats the header.
+        summary = validate_unit_manifest(manifest, accession_number=ACCESSION, expected_packets=_packets(),
+                                         packet_bytes=RAW_BY_ROLE, max_unit_context_bytes=caption + header,
+                                         max_total_context_bytes=caption + 2 * header)
+        assert (summary["max_unit_context_bytes"], summary["max_total_context_bytes"]) == (
+            caption + header, caption + 2 * header)
+        source_fragments: list[bytes] = []
+        original_sha = source_units._sha
+    
+        def record_source_fragments(*parts: bytes | memoryview) -> str:
+            source_fragments.extend(bytes(part) for part in parts if isinstance(part, memoryview))
+            return original_sha(*parts)
+    
+        monkeypatch.setattr(source_units, "_sha", record_source_fragments)
+        _rejected(manifest, f"unit context_spans total {caption + header} bytes, above the "
+                            f"{caption + header - 1}-byte per-unit context limit",
+                  max_unit_context_bytes=caption + header - 1)
+>       assert CAPTION not in source_fragments
+E       AssertionError: assert b'<caption>Revenue (\xe2\x82\xac million)</caption>' not in [b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x...ment excluded.</p>', b'<caption>Revenue (\xe2\x82\xac million)</caption>', b'<tr><th>Quarter</th><th>Amount</th></tr>']
+
+tests/unit/test_acceptance_source_units.py:421: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_units.py::test_declared_context_is_bounded_before_it_is_hashed
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_units.py::test_declared_context_is_bounded_before_it_is_hashed
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_units.py::test_declared_context_is_bounded_before_it_is_hashed
+1 failed, 2 warnings in 0.79s

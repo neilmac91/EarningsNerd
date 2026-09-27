@@ -17,22 +17,22 @@ export interface Headline {
 
 export const HEADLINES: Record<HeadlineVariant, Headline> = {
   A: {
-    pre: 'Every number in the filing, ',
-    accent: 'traced to the filing',
+    pre: 'Read the filing faster. ',
+    accent: 'Keep the source in view',
     post: '.',
-    title: 'Every number in the filing, traced to the filing',
+    title: 'Read the filing faster. Keep the source in view',
   },
   B: {
-    pre: 'The 10-K, read for you. ',
-    accent: 'Sources included',
+    pre: 'The 10-K, summarized for you. ',
+    accent: 'Source context included',
     post: '.',
-    title: 'The 10-K, read for you. Sources included',
+    title: 'The 10-K, summarized for you. Source context included',
   },
   C: {
-    pre: 'Understand any ',
+    pre: 'From ',
     accent: 'SEC filing',
-    post: ' in minutes',
-    title: 'Understand any SEC filing in minutes',
+    post: ' to structured summary',
+    title: 'From SEC filing to structured summary',
   },
 }
 

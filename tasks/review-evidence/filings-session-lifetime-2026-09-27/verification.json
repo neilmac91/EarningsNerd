@@ -1,0 +1,17 @@
+{
+  "code_commit": "f1eceae500d8745927ed9ad38018610c1aa00ac3",
+  "base_main": "5554bc87495dbb76e70ab10e32236260936080e8",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3719 passed, 40 warnings in 143.40s",
+  "ruff": "pass",
+  "bandit": "pass",
+  "mutation_code_commit": "0a542f54681ae52600baea6eb9efa98c0b7b2ca8",
+  "mutation_tested_files_byte_identical": true,
+  "files": {
+    "backend/app/routers/filings.py": "bbeeb56775ae98953b4e3f63cfd2554f7928879eaab131256df572b39233136d",
+    "backend/app/services/filing_history_service.py": "b6df9882d7f5e4c3e844195f820c1d7292de94666ec27932440be587f75787aa",
+    "backend/tests/unit/test_filings_endpoint_db_first.py": "016246d97d642dd12ae00064396b7d2b800ace110e4b8669c8f08895355df59c"
+  },
+  "independent_review": "No remaining correctness finding; detached-ORM and concurrent-backfill concerns refuted against implementation and bounded gate. The retained independent-release-review predates completed standalone run; its pending-gate caveat is resolved by standalone-full-gate.txt and recorded exit0.",
+  "production_revision_verified": false
+}

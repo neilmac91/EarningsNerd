@@ -1,0 +1,17 @@
+{
+  "code_commit": "0cfae653b0e2fa85548235199247399a60b3177a",
+  "backend_tree": "e810dbc3af97aa6a0a58cde8f97900156da3af93",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3729 passed, 40 warnings in 158.61s (0:02:38)",
+  "restored_focused": "25 passed, 2 warnings in 1.13s",
+  "locked_files_unchanged": 11,
+  "files": {
+    "independent-review.md": "b17dcea7bb7b3c673d761387962591da0b91689cd6401ed1549deaa7154fa1a0",
+    "lost_intent_payload.txt": "9ea0c87ee032f84317830595a19d5960d54a3b6a29d4bc96fc48d865fe108670",
+    "non_atomic_publish.txt": "aefc3bae8c25ca08665d3aa0ff1a996317924d1ff9c40312c611c9f3cb618b07",
+    "proof-receipt.json": "d5c5b590f16dc73996e492b2153b414c1bcb0c1ff3c4f3669bc82021dcb38ee3",
+    "proof-runner.py.txt": "176801017cbda56ad257c1e1e0035d281d3cfe446f37b0cc8e56927a32f5e6ab",
+    "restored.txt": "2766c9b447d7276299253a61158926a3e46b6dd7574dcf7e2b6ebb99a35f91fc",
+    "full-gate.txt": "4138ef2c0acadd8b514dc0e5ae897223aed7d092765b896bcc9dce8d68a917ff"
+  }
+}

@@ -1,0 +1,120 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_every_table_fact_and_image_is_enumerated_and_dispositioned_once _____
+
+    def test_every_table_fact_and_image_is_enumerated_and_dispositioned_once() -> None:
+        inventory = _build()
+        expected = [
+            _oracle_item("table", "T00001", TABLE, []),
+            _oracle_item("inline_xbrl_fact", "F00001", HIDDEN_FACT,
+                         ["inline_style_hidden", "inline_xbrl_hidden", "hidden_attribute"]),
+            _oracle_item("inline_xbrl_fact", "F00002", FACT, []),
+            _oracle_item("inline_xbrl_fact", "F00003", FRACTION, []),
+            _oracle_item("image", "I00001", IMAGE, []),
+        ]
+        assert [{k: v for k, v in item.items() if k != "disposition"} for item in inventory["items"]] == expected
+        assert all(inventory[flag] is False for flag in FLAGS) and "coverage_status" not in inventory
+    
+        stored = _canonical(inventory)
+        summary = _validate(load_modality_inventory(stored))
+        assert summary == {
+            "schema_version": 1,
+            "kind": "e7_offline_source_modality_validation",
+            "inventory_sha256": _sha(stored),
+            "accession_number": ACCESSION,
+            "packet_role": "primary",
+            "unit_manifest_sha256": _sha(_canonical(MANIFEST)),
+            "item_counts": {"table": 1, "inline_xbrl_fact": 3, "image": 1},
+            # The hidden header fact stays counted rather than dropping out of scope.
+            "hidden_item_counts": {"table": 0, "inline_xbrl_fact": 1, "image": 0},
+            "assigned_item_count": 4,
+            "unresolved_item_ids": [expected[4]["item_id"]],
+            "every_item_dispositioned": True,
+            **{flag: False for flag in FLAGS},
+            "limitations": inventory["limitations"],
+        }
+    
+        # An item cannot drop out of scope: every omission, addition, reorder or relabel is rejected.
+        items = inventory["items"]
+        _rejected({**inventory, "items": items[:-1]}, "exactly the 5 items enumerated")
+        _rejected({**inventory, "items": [*items, items[-1]]}, "exactly the 5 items enumerated")
+        _rejected({**inventory, "items": [items[0], items[2], items[1], *items[3:]]}, "fact F00001 view_id does not match")
+        for field, value in (("start", items[2]["start"] + 1), ("end", items[2]["end"] - 1),
+                             ("sha256", _sha(b"forged")), ("item_id", _sha(b"forged"))):
+            forged = copy.deepcopy(items)
+            forged[2][field] = value
+            _rejected({**inventory, "items": forged}, f"F00002 {field} does not match")
+        unhidden = copy.deepcopy(items)
+        unhidden[1]["hidden_reasons"] = []
+        _rejected({**inventory, "items": unhidden}, "F00001 hidden_reasons does not match")
+        relabelled = copy.deepcopy(items)
+        relabelled[4]["modality"] = "table"
+        _rejected({**inventory, "items": relabelled}, "image I00001 modality does not match")
+        with pytest.raises(ValueError, match="no disposition for items: I00001"):
+            _build(dispositions={k: v for k, v in _dispositions().items() if k != "I00001"})
+        with pytest.raises(ValueError, match="packet does not contain: T00002"):
+            _build(dispositions=_dispositions(T00002={"kind": "unresolved", "reason": "extra"}))
+    
+        # The inventory is bound to this packet, manifest, accession and the frozen contract.
+        changed = PRIMARY.replace(b"1,204", b"1,205")
+        changed_packets = [PACKETS[0], {**PACKETS[1], "sha256": _sha(changed)}]
+        _rejected(inventory, "differs from the expected contract", expected_packets=changed_packets)
+        other_manifest = build_unit_manifest(accession_number=ACCESSION, packets=PACKETS, packet_bytes=RAW_BY_ROLE,
+                                             units=[_unit("graphic", 0, len(GRAPHIC)), _unit("primary", 0, len(PRIMARY))])
+        _rejected(inventory, "bound to a different unit manifest", unit_manifest=other_manifest)
+        _rejected(inventory, "inventory packet does not match the unit manifest packet", packet_role="graphic")
+        with pytest.raises(ValueError, match="graphic cannot be projected as an HTML source view"):
+            _build(packet_role="graphic", dispositions={})
+        _rejected(inventory, "not declared in the unit manifest", packet_role="index")
+        for key, value, message in (
+            ("accession_number", "0000000000-26-000002", "different accession"),
+            ("packet", {**inventory["packet"], "role": "graphic"}, "packet does not match"),
+            ("admission_approved", True, "cannot attest"),
+            ("visual_review_attested", 0, "cannot attest"),
+            ("limitations", inventory["limitations"][:-1], "limitations differ"),
+            ("schema_version", True, "unsupported"),
+            ("coverage_status", "complete", "must be an object with exactly"),
+        ):
+            _rejected({**inventory, key: value}, message)
+        for variant in (json.dumps(inventory, indent=2).encode("ascii"), stored + b"\n"):
+            with pytest.raises(ValueError, match="not canonical JSON"):
+                load_modality_inventory(variant)
+    
+        # A hidden element left open at end of file has an ambiguous scope, so enumeration fails closed.
+        open_hidden = b"<html><body hidden><p>" + FACT + b"</p>"
+        with pytest.raises(ValueError, match="hidden element N000002 has no explicit end"):
+            _single_packet(open_hidden)
+    
+        # Anything that would let items leave scope silently fails closed instead of counting zero.
+        for raw, message in (
+            (b"plain text exhibit", "no html or body element"),
+            (b'<?xml version="1.0"?><xbrli:xbrl><us-gaap:Revenues>5</us-gaap:Revenues></xbrli:xbrl>',
+             "no html or body element"),
+            (b'<html xmlns="http://www.xbrl.org/2013/inlineXBRL"><body><nonFraction>5</nonFraction></body></html>',
+             "unsupported prefix"),
+            (b"<html><body><nonNumeric>text</nonNumeric></body></html>", "unsupported prefix"),
+            (b"<html><body><fraction>1/3</fraction></body></html>", "unsupported prefix"),
+            (b"<html><body><hidden><ix:nonFraction>5</ix:nonFraction></hidden></body></html>",
+             "unsupported prefix"),
+            (b'<html><body><ixb:nonFraction name="x">5</ixb:nonFraction></body></html>', "unsupported prefix"),
+            (b"<html><body><div><ixb:hidden><p>x</p></ixb:hidden></div></body></html>", "unsupported prefix"),
+            (b'<html><body><p><image src="g.jpg"></image></p></body></html>', "<image> image-bearing markup"),
+            (b'<html><body><object data="g.svg"></object></body></html>', "<object> image-bearing markup"),
+        ):
+>           with pytest.raises(ValueError, match=message):
+E           Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_modalities.py:210: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once
+1 failed, 2 warnings in 0.80s

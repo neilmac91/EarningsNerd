@@ -1,0 +1,72 @@
+{
+  "accession_number": "0001193125-25-183155",
+  "boundary_names_exercised": [
+    "validate_ai_prerequisites",
+    "ai_review_evidence_inventory",
+    "source_context_ids",
+    "owner-relative context_evidence resolution",
+    "separate adverse disposition exact-set validation",
+    "predispatch reconciliation prompt/reservation binding"
+  ],
+  "dispositions": {
+    "adverse_count": 15,
+    "current_count": 25,
+    "current_rows_unchanged_from_provider_output": true,
+    "projection_count": 40,
+    "projection_is_exact_concatenation": true,
+    "unresolved_count": 0
+  },
+  "integration_protocol_scope": {
+    "contracts": "explicit integration-only fixture contracts; no dispatch approval",
+    "manifest": "one-accession integration manifest, not the approved 30-filing manifest",
+    "prompts": "the five retained E7 AI review prompt files"
+  },
+  "inventory": {
+    "adverse_artifact_count": 9,
+    "path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/h29-single-context-retry/integration-pair-fix/bundle/inventory.json",
+    "sha256": "ac4627f865ad65fff58833cac617f6d8026604df7e0e7bbcbc84745161c161c3"
+  },
+  "kind": "h29_schema2_adverse_integration_receipt",
+  "programme_admission_authorized": false,
+  "protocol_validation": {
+    "exposure_status": "no_known_candidate_exposure_external_unknown",
+    "freeze": "2026-09-27T00:10:57.642854+00:00",
+    "issues": [],
+    "limitations": [
+      "AI source coverage and independence are retained claims, not human verification",
+      "adverse dispositions reattribute some retired issues within the frozen source packets",
+      "external holdout exposure history is unknown"
+    ]
+  },
+  "provider_calls": 0,
+  "remaining_hard_holds": [
+    "Only one of the required 30 filing source units is present in this integration bundle.",
+    "The other 29 eligible A/B references and reconciliations are not supplied.",
+    "Pricing, balance, Fable quota, development smoke and budget-control readiness were not evaluated.",
+    "External/provider exposure history remains explicitly unknown.",
+    "Blind packets, quality/challenge responses and the final E7 decision were not built.",
+    "The role contracts are integration-only fixtures and the pilot manifest is not approved programme evidence."
+  ],
+  "repository_evidence": {
+    "file_sha256": {
+      "backend/evals/acceptance_ai_adverse.py": "5b5dae3d5b20e84dc967d86f71f054c3fc39ceff0e01d70395146733b490625f",
+      "backend/evals/acceptance_ai_decision.py": "b65a0851578a3862981c6043809d1e6ec6d1fff205aeee8a23e1acfbba3b78d5",
+      "backend/evals/acceptance_ai_protocol.py": "a414ec92721776df55960367f2dc749309c0addbced94ade36f5b4585f9e4622",
+      "backend/evals/source-review-adverse-evidence.md": "5464b570e680af0db722738b778759e1f6a28cbe956aa2e0c020d18f8d47baa6",
+      "backend/tests/unit/test_acceptance_ai_decision_integration.py": "e947f2cfc21612fabcaf6b8de8dca6140c56d08bc0b332e2010fd5e30781ab55",
+      "backend/tests/unit/test_acceptance_ai_protocol.py": "e00ba40b269cba97ee82b5d42a28ef31881c3d4e9e94bbbe5f760e06cea148f3"
+    },
+    "head_commit_diff_sha256": "cb6911daaf260e35d505671c75626c40958a17c769895bd550063140cb8dc991",
+    "parent_commit": "e9efafa1ca43ec0523174c3872b0181711ad6e4f",
+    "working_tree_clean": true,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "repository_head": "1bc5a9f921adc599eb578b0a10d4108d488bb1b5",
+  "schema_version": 1,
+  "source_context_exclusion_closure": [
+    "/root/h29_reference_a",
+    "/root/h29_reference_b",
+    "/root/h29_reference_b_retry2",
+    "/root/h29_source_reconciliation"
+  ]
+}

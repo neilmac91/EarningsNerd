@@ -53,13 +53,13 @@ SHAPE = [("l1", "leaf", 0), ("l2", "leaf", 1), ("r1", "reducer", ["l1", "l2"]), 
 REGISTRY = [
     {"context_id": "prior-b-1", "node_id": "legacy-b", "attempt": 1, "status": "retired"},
     {"context_id": "ctx-l1-a", "node_id": "l1", "attempt": 1, "status": "compacted"},
-    {"context_id": "ctx-l1-b", "node_id": "l1", "attempt": 2, "status": "eligible"},
+    {"context_id": "/root/h29_reference_a", "node_id": "l1", "attempt": 2, "status": "eligible"},
     {"context_id": "ctx-l2", "node_id": "l2", "attempt": 1, "status": "eligible"},
     {"context_id": "ctx-r1", "node_id": "r1", "attempt": 1, "status": "eligible"},
     {"context_id": "ctx-l3", "node_id": "l3", "attempt": 1, "status": "eligible"},
     {"context_id": "ctx-s", "node_id": "s", "attempt": 1, "status": "eligible"},
 ]
-CONTEXT = {"l1": "ctx-l1-b", "l2": "ctx-l2", "r1": "ctx-r1", "l3": "ctx-l3", "s": "ctx-s"}
+CONTEXT = {"l1": "/root/h29_reference_a", "l2": "ctx-l2", "r1": "ctx-r1", "l3": "ctx-l3", "s": "ctx-s"}
 
 
 def _graph(shape: list[tuple[str, str, Any]] = SHAPE, contexts: dict[str, str] | None = None,
@@ -173,6 +173,11 @@ def test_every_node_runs_in_its_own_latest_eligible_context() -> None:
     _rejected(_graph(registry=unused)[0], artifacts, "l3 must use its latest registered attempt")
     idle = [*REGISTRY, {"context_id": "ctx-idle", "node_id": "l8", "attempt": 1, "status": "eligible"}]
     _rejected(_graph(registry=idle)[0], artifacts, "eligible contexts are not used by any node: ctx-idle")
+    for invalid in ("/root//h29_reference_a", "/root/h29_reference_a/",
+                    "/root/../h29_reference_a", "/root/h29_reference_a\n"):
+        registry = copy.deepcopy(REGISTRY)
+        registry[2]["context_id"] = invalid
+        _rejected(_graph(registry=registry)[0], artifacts, "invalid context_id")
 
     # A receipt admitting truncation, compaction, candidate inputs or non-source input is rejected.
     for field, value in (("truncated", True), ("compaction_observed", True), ("source_only", False),
@@ -233,7 +238,7 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
     # A later node kind's template cannot be an earlier node's output either.
     aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"], "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
     aliased_graph, aliased_artifacts = _graph(contract=aliased)
-    _rejected(aliased_graph, aliased_artifacts, "r1 template aliases an earlier node artifact", role_contract=aliased)
+    _rejected(aliased_graph, aliased_artifacts, "l1 artifact must be distinct", role_contract=aliased)
     for key, value, message in (
         ("accession_number", "0000000000-26-000002", "different accession"),
         ("role", "role-a", "role differs from the role contract"),
@@ -259,6 +264,23 @@ def test_graph_structure_and_receipts_are_bound_to_frozen_bytes() -> None:
             load_review_graph(variant)
     with pytest.raises(ValueError, match="must be bytes"):
         load_review_graph(_canonical(graph).decode("ascii"))
+
+
+def test_unused_contract_templates_are_frozen_and_cannot_alias_outputs() -> None:
+    shape = [SHAPE[0], SHAPE[1], SHAPE[3], ("s", "role_synthesis", ["l1", "l2", "l3"])]
+    registry = [entry for entry in REGISTRY if entry["node_id"] != "r1"]
+    graph, artifacts = _graph(shape=shape, registry=registry)
+    summary = _validate(graph, artifacts)
+    assert summary["node_counts"]["reducer"] == 0
+    reducer_template = _sha(TEMPLATES["reducer"])
+    assert reducer_template in summary["frozen_artifact_sha256s"]
+    _rejected(graph, {key: data for key, data in artifacts.items() if key != reducer_template}, "artifacts missing")
+
+    aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"],
+                                         "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
+    graph, artifacts = _graph(shape=shape, registry=registry, contract=aliased)
+    artifacts.pop(reducer_template)
+    _rejected(graph, artifacts, "l1 artifact must be distinct", role_contract=aliased)
 
 
 class _Text(str):

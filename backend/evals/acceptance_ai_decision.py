@@ -16,6 +16,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from evals.acceptance_ai_protocol import source_context_ids
 from evals.acceptance_readiness import (
     APPROVED_MANIFEST_SHA256, COMPARATOR_HOLDOUT_IDS, _evidence, _json, _safe_file, _sha256, _reviewer_artifact,
     inspect_readiness, verify_review_evidence_binding,
@@ -207,12 +208,7 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
         raise ValueError("assessment inventory is not bound to AI protocol and packet mapping")
     _, protocol = _evidence(prerequisites_path.parent, prereq["ai_assisted"]["protocol"])
     roles = {r["role"]: r for r in protocol["roles"]}
-    source_context_ids = {r.get("context_id") for r in prereq["ai_assisted"]["source_briefs"]}
-    for reference_record in prereq["ai_assisted"]["reconciled_references"]:
-        _, reference = _evidence(prerequisites_path.parent, reference_record)
-        source_context_ids.add(reference.get("context_id"))
-    if any(not _nonempty(context_id) for context_id in source_context_ids):
-        raise ValueError("source review context identity missing")
+    source_contexts = source_context_ids(prereq, prerequisites_path.parent)
     quality_context_ids: set[str] = set()
     challenge_context_ids: set[str] = set()
     identities = expected_identities(manifest)
@@ -313,7 +309,7 @@ def build_decision(manifest_path: Path, archive: Path, prerequisites_path: Path,
         challenge_context_id = row.get("challenge_context_id")
         if (not _nonempty(quality_context_id) or not _nonempty(challenge_context_id) or
                 quality_context_id == challenge_context_id or
-                quality_context_id in source_context_ids or challenge_context_id in source_context_ids or
+                quality_context_id in source_contexts or challenge_context_id in source_contexts or
                 quality_context_id in challenge_context_ids or challenge_context_id in quality_context_ids):
             raise ValueError("assessment context is missing or reused across review roles")
         quality_context_ids.add(quality_context_id)

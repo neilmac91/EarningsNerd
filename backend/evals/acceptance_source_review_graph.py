@@ -3,11 +3,12 @@
 This is an internal, non-admitting engineering format. For one role, it proves only that every
 review unit of a validated unit manifest is bound to exactly one leaf; that leaves, reducers and the
 single role synthesis form a tree whose child references match the children's artifact hashes; that
-every node ran in its own registered, eligible context; that every receipt matches the frozen role
+every node declares its own registered, eligible context; that every receipt matches the frozen role
 contract (node kind, template, provider, model and version) and the exact supplied bytes of its
 template, rendered prompt and artifact; and that no receipt admits truncation, compaction or
-candidate inputs. Failed, compacted, truncated and retired contexts stay in the context closure and
-can never become eligible. Issues, evidence fragments and reconciliation are not validated, and
+candidate inputs. Supplied failed, compacted, truncated and retired contexts stay in the declared
+context list and cannot become eligible. Completeness of that caller-supplied history and construction
+of prompts from templates/inputs are not verified. Issues, evidence fragments and reconciliation are not validated, and
 no review, E7 coverage status or admission is attested.
 """
 
@@ -45,7 +46,10 @@ ATTESTATION_FLAGS = (
 
 _ACCESSION = re.compile(r"[0-9]{10}-[0-9]{2}-[0-9]{6}")
 _LABEL = re.compile(r"[a-z0-9][a-z0-9_.:-]{0,127}")
-_CONTEXT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
+_OPAQUE_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
+_ABSOLUTE_CONTEXT_ID = re.compile(
+    r"/[A-Za-z0-9][A-Za-z0-9_.:-]*(?:/[A-Za-z0-9][A-Za-z0-9_.:-]*)*"
+)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _CHILD_SET_TAG = b"e7-source-review-children-v1\x00"
 
@@ -86,6 +90,20 @@ def _token(value: Any, pattern: re.Pattern[str], name: str) -> str:
     return value
 
 
+def validate_source_context_id(value: Any, name: str = "context_id") -> str:
+    """Validate one bounded opaque context ID without rewriting its provider-issued identity."""
+    if (
+        type(value) is not str
+        or len(value) > 128
+        or (
+            _OPAQUE_TOKEN.fullmatch(value) is None
+            and _ABSOLUTE_CONTEXT_ID.fullmatch(value) is None
+        )
+    ):
+        raise ValueError(f"invalid {name}")
+    return value
+
+
 def _list(value: Any, name: str) -> list[Any]:
     if type(value) is not list:
         raise ValueError(f"{name} must be a list")
@@ -111,7 +129,7 @@ def validate_role_contract(contract: Any) -> str:
         # An unavailable immutable build is recorded as an explicit exposure limit, never inferred.
         _token(limit, _LABEL, "exposure_limit (required when provider_version is null)")
     else:
-        _token(version, _CONTEXT_ID, "contract provider_version")
+        _token(version, _OPAQUE_TOKEN, "contract provider_version")
         if limit is not None:
             raise ValueError("exposure_limit must be null when provider_version is declared")
     kinds = contract["node_kinds"]
@@ -127,12 +145,12 @@ def validate_role_contract(contract: Any) -> str:
 
 
 def _registry(value: Any, foreign: set[str]) -> dict[str, dict[str, Any]]:
-    """Append-only attempt history: unique context IDs and consecutive attempts per node from 1."""
+    """Check the declared snapshot's IDs and numbering, not append-only custody or completeness."""
     entries: dict[str, dict[str, Any]] = {}
     attempts: dict[str, int] = {}
     for entry in _list(value, "context_registry"):
         _object(entry, _REGISTRY_KEYS, "context registry entry")
-        context_id = _token(entry["context_id"], _CONTEXT_ID, "context_id")
+        context_id = validate_source_context_id(entry["context_id"])
         node_id = _token(entry["node_id"], _LABEL, "registry node_id")
         if type(entry["attempt"]) is not int or entry["attempt"] != attempts.get(node_id, 0) + 1:
             raise ValueError(f"node {node_id} attempts must be consecutive from 1 in registry order")
@@ -161,9 +179,12 @@ def validate_review_graph(
     """Recompute every custody check for one role's review graph; never repair or reorder.
 
     ``expected_packets`` must come from the frozen source contract. ``artifacts`` maps SHA-256 to the
-    exact bytes of every template, rendered prompt and node artifact the graph references, and nothing
+    exact bytes of every contract-declared template, rendered prompt and node artifact, and nothing
     else. ``foreign_context_ids`` lists the context IDs registered by the other roles for this
-    accession, so a context cannot be shared across roles.
+    accession, so a context cannot be shared across roles within those supplied lists. The returned
+    ``source_context_closure`` is only the caller-declared registry, not independently retained history;
+    neither it nor recorded prompt hashes can establish admission without the pending external history
+    binding and deterministic rendering checks.
     """
     manifest = validate_unit_manifest(unit_manifest, accession_number=accession_number,
                                       expected_packets=expected_packets, packet_bytes=packet_bytes)
@@ -208,7 +229,9 @@ def validate_review_graph(
     parents: dict[str, str] = {}
     used_contexts: set[str] = set()
     leaf_units: dict[str, str] = {}
-    referenced: set[str] = set()
+    # Freeze every allowed kind's template, including kinds unused by this graph. Otherwise a leaf
+    # output could masquerade as an unused reducer template and escape the per-node alias checks.
+    referenced: set[str] = {declaration["template_sha256"] for declaration in role_contract["node_kinds"].values()}
     node_artifacts: set[str] = set()
     for position, node in enumerate(nodes):
         _object(node, _NODE_KEYS, "review node")
@@ -255,7 +278,7 @@ def validate_review_graph(
                 parents[child_id] = node_id
             expected_input = children_sha256(children)
 
-        context_id = _token(node["context_id"], _CONTEXT_ID, f"node {node_id} context_id")
+        context_id = validate_source_context_id(node["context_id"], f"node {node_id} context_id")
         entry = registry.get(context_id)
         if entry is None or entry["node_id"] != node_id:
             raise ValueError(f"node {node_id} context {context_id} is not registered for this node")
@@ -285,8 +308,6 @@ def validate_review_graph(
         # A node's output must be its own bytes, not another node's output, a template or a prompt.
         if artifact in referenced or artifact in (declared, prompt) or prompt in node_artifacts:
             raise ValueError(f"node {node_id} artifact must be distinct from every other artifact, template and prompt")
-        if declared in node_artifacts:
-            raise ValueError(f"node {node_id} template aliases an earlier node artifact")
         node_artifacts.add(artifact)
         referenced.update((declared, prompt, artifact))
         seen[node_id] = node
@@ -318,7 +339,7 @@ def validate_review_graph(
         "role_contract_sha256": contract_sha256,
         "node_counts": counts,
         "root_artifact_sha256": nodes[-1]["artifact_sha256"],
-        # Every registered context, including failed, compacted, truncated and retired ones.
+        # Every supplied context; omitted historical contexts cannot be detected by this snapshot.
         "source_context_closure": list(registry),
         "ineligible_context_ids": [context_id for context_id, entry in registry.items() if entry["status"] != "eligible"],
         "frozen_artifact_sha256s": sorted(referenced),

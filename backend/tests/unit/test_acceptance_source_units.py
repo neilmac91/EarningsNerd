@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+import evals.acceptance_source_units as source_units
 from evals.acceptance_source_units import (
     MAX_TOTAL_CONTEXT_BYTES,
     MAX_UNIT_CONTEXT_BYTES,
@@ -134,7 +135,7 @@ class _MasqueradingKey(str):
         return other == "kind"
 
 
-def test_units_partition_declared_packets_and_bind_recomputable_identities() -> None:
+def test_units_partition_declared_packets_and_bind_recomputable_identities(monkeypatch: pytest.MonkeyPatch) -> None:
     declared = _declared()
     pristine = copy.deepcopy(declared)
     manifest = build_unit_manifest(**declared)
@@ -211,6 +212,31 @@ def test_units_partition_declared_packets_and_bind_recomputable_identities() -> 
         assert covered == len(GRAPHIC) + len(PRIMARY)
         with pytest.raises(ValueError, match=message):
             build_unit_manifest(**_declared(units=shifted))
+
+    # Cross-unit overlap is rejected before the unit that would push declared coverage beyond the
+    # packet length is hashed. Distinct labels keep the unit IDs distinct, so the running length
+    # bound, rather than duplicate detection, is what stops validation.
+    whole_graphic_units = []
+    for index in range(3):
+        whole_graphic_units.append(_oracle_unit(ACCESSION, GRAPHIC, {
+            "packet_role": "graphic",
+            "structural_kind": "binary_image",
+            "registrant_scope": f"registrant_{index}",
+            "coverage_spans": [{"start": 0, "end": len(GRAPHIC)}],
+            "context_spans": [],
+        }))
+    overlapping = {**manifest, "units": [*whole_graphic_units, *manifest["units"][1:]]}
+    source_slice_bytes = 0
+    original_sha = source_units._sha
+
+    def count_source_slices(*parts: bytes | memoryview) -> str:
+        nonlocal source_slice_bytes
+        source_slice_bytes += sum(part.nbytes for part in parts if isinstance(part, memoryview))
+        return original_sha(*parts)
+
+    monkeypatch.setattr(source_units, "_sha", count_source_slices)
+    _rejected(overlapping, "coverage spans overlap in packet graphic")
+    assert source_slice_bytes == len(GRAPHIC)
 
     # Context cannot fill a coverage gap, and every declared packet needs coverage units.
     context_only = _units()[:3]
@@ -372,7 +398,7 @@ def test_declared_packets_must_equal_the_expected_source_contract() -> None:
         assert manifest == before
 
 
-def test_declared_context_is_bounded_before_it_is_hashed() -> None:
+def test_declared_context_is_bounded_before_it_is_hashed(monkeypatch: pytest.MonkeyPatch) -> None:
     manifest = build_unit_manifest(**_declared())
     caption, header = len(CAPTION), len(HEADER)
     # Unit 2 declares caption + header of context and unit 3 repeats the header.
@@ -381,11 +407,24 @@ def test_declared_context_is_bounded_before_it_is_hashed() -> None:
                                      max_total_context_bytes=caption + 2 * header)
     assert (summary["max_unit_context_bytes"], summary["max_total_context_bytes"]) == (
         caption + header, caption + 2 * header)
+    source_fragments: list[bytes] = []
+    original_sha = source_units._sha
+
+    def record_source_fragments(*parts: bytes | memoryview) -> str:
+        source_fragments.extend(bytes(part) for part in parts if isinstance(part, memoryview))
+        return original_sha(*parts)
+
+    monkeypatch.setattr(source_units, "_sha", record_source_fragments)
     _rejected(manifest, f"unit context_spans total {caption + header} bytes, above the "
                         f"{caption + header - 1}-byte per-unit context limit",
               max_unit_context_bytes=caption + header - 1)
+    assert CAPTION not in source_fragments
+    assert HEADER not in source_fragments
+    source_fragments.clear()
     _rejected(manifest, f"exceeds the {caption + 2 * header - 1}-byte total context limit",
               max_total_context_bytes=caption + 2 * header - 1)
+    assert source_fragments.count(CAPTION) == 1
+    assert source_fragments.count(HEADER) == 1
     # Callers may tighten the ceilings, never loosen or blur them.
     for limits in ({"max_unit_context_bytes": MAX_UNIT_CONTEXT_BYTES + 1},
                    {"max_total_context_bytes": MAX_TOTAL_CONTEXT_BYTES + 1},

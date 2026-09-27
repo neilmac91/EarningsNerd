@@ -43,6 +43,7 @@ MEASUREMENT_FILES = (
     'backend/evals/acceptance_archive.py',
     'backend/evals/acceptance_source_contract.py',
     'backend/evals/acceptance_ai_protocol.py',
+    'backend/evals/acceptance_legacy_history.py',
     'backend/app/services/ai/provider_requests.py',
 )
 

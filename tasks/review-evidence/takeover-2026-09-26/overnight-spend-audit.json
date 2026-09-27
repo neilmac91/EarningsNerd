@@ -1,0 +1,1337 @@
+{
+  "deduplication": {
+    "artifact_hash_rule": "Byte-identical evidence files are read once. Differently wrapped copies of the same event stream are also ignored when their workflow run ID matches.",
+    "event_key_when_raw_log_available": "workflow run ID plus retained ai_call sequence index; sanitized events expose no provider event ID.",
+    "primary_key": "GitHub workflow run ID; each run appears once in a subtotal.",
+    "summary_rule": "A receipt, telemetry-summary, raw log, and copied artifact for the same run are evidence for one spend row, not additive spend."
+  },
+  "excluded_authenticated_live_analysis": {
+    "cached_repeats_observed": true,
+    "classification": "authenticated production product acceptance outside hosted-workflow telemetry",
+    "estimated_cost_usd": null,
+    "evidence": [
+      {
+        "bytes": 1903,
+        "path": "outputs/takeover-2026-09-26/live-analysis/receipt.json",
+        "sha256": "1a7c43a11a6c6151fbf236e23948a3cd621f91db68eef2849a31589bfdc82aa6"
+      },
+      {
+        "bytes": 2370,
+        "path": "outputs/takeover-2026-09-26/live-analysis/live-acceptance-extension.json",
+        "sha256": "c8132cfd4072b1d1995b9e183654959c8430be6a41f4a7544fc0f6f8cf8bd456"
+      },
+      {
+        "bytes": 1781,
+        "path": "outputs/takeover-2026-09-26/live-analysis/post-release-cache-check.json",
+        "sha256": "955c6a8382b30a4b72b6b011f5f018db53401ca70c008d75e00b5031d26a370f"
+      }
+    ],
+    "observed_fresh_request_windows": [
+      {
+        "company": "AAPL",
+        "fresh_request_observed": true,
+        "periods": [
+          "FY2024",
+          "FY2025"
+        ]
+      },
+      {
+        "company": "AAPL",
+        "fresh_request_observed": true,
+        "periods": [
+          "2026Q2",
+          "2026Q3"
+        ]
+      }
+    ],
+    "provider_calls": null,
+    "reason_excluded": "No per-provider call or cost telemetry was recovered. Two fresh user requests do not prove exactly two provider calls, and cached repeats do not establish zero incremental provider cost."
+  },
+  "formal_program_boundaries": {
+    "fable_calls_included": 0,
+    "formal_e7_calls_included": 0,
+    "formal_e8_calls_included": 0,
+    "note": "No ordinary hosted or p/q call is relabeled as formal E7/E8 generation or Fable judging. Existing formal programme ledgers remain separate and unchanged."
+  },
+  "observed_date": "2026-09-27",
+  "ordinary_pr963_970": {
+    "by_pr": {
+      "963": {
+        "error_calls": 0,
+        "known_cost_calls": 35,
+        "known_estimated_cost_usd": 0.00755,
+        "provider_producing_runs": 2,
+        "recorded_application_provider_calls": 105,
+        "successful_calls": 105,
+        "unknown_cost_calls": 70,
+        "workflow_runs": 2
+      },
+      "964": {
+        "error_calls": 0,
+        "known_cost_calls": 427,
+        "known_estimated_cost_usd": 0.764475,
+        "provider_producing_runs": 9,
+        "recorded_application_provider_calls": 427,
+        "successful_calls": 427,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 10
+      },
+      "965": {
+        "error_calls": 0,
+        "known_cost_calls": 106,
+        "known_estimated_cost_usd": 0.18715,
+        "provider_producing_runs": 2,
+        "recorded_application_provider_calls": 106,
+        "successful_calls": 106,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 2
+      },
+      "966": {
+        "error_calls": 0,
+        "known_cost_calls": 0,
+        "known_estimated_cost_usd": 0.0,
+        "provider_producing_runs": 0,
+        "recorded_application_provider_calls": 0,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 1
+      },
+      "967": {
+        "error_calls": 0,
+        "known_cost_calls": 211,
+        "known_estimated_cost_usd": 0.367071,
+        "provider_producing_runs": 4,
+        "recorded_application_provider_calls": 211,
+        "successful_calls": 211,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 4
+      },
+      "968": {
+        "error_calls": 0,
+        "known_cost_calls": 105,
+        "known_estimated_cost_usd": 0.187215,
+        "provider_producing_runs": 2,
+        "recorded_application_provider_calls": 105,
+        "successful_calls": 105,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 2
+      },
+      "969": {
+        "error_calls": 1,
+        "known_cost_calls": 317,
+        "known_estimated_cost_usd": 0.555938,
+        "provider_producing_runs": 6,
+        "recorded_application_provider_calls": 318,
+        "successful_calls": 317,
+        "unknown_cost_calls": 1,
+        "workflow_runs": 6
+      },
+      "970": {
+        "error_calls": 0,
+        "known_cost_calls": 528,
+        "known_estimated_cost_usd": 0.931226,
+        "provider_producing_runs": 10,
+        "recorded_application_provider_calls": 528,
+        "successful_calls": 528,
+        "unknown_cost_calls": 0,
+        "workflow_runs": 13
+      }
+    },
+    "limitations": [
+      "Costs are sanitized application telemetry estimates, not provider invoices or balance deltas.",
+      "PR963 CI retained 70 completed calls but no per-call pricing telemetry; all 70 costs remain unknown.",
+      "PR969 prior-head CI retained one error event with unknown usage and cost; its following success is counted separately.",
+      "Cancelled PR964 CI retained five completed events, but an interrupted request before telemetry emission cannot be excluded.",
+      "Application telemetry cannot exclude transport-level retries hidden inside one SDK call.",
+      "Authenticated live Analysis acceptance is excluded: two fresh AAPL request windows and cached repeats were observed, but no per-provider call/cost telemetry was recovered.",
+      "PR969 run 36287848125 is included as superseded spend/output evidence; its hard-gate pass is not quality acceptance because later exact-head review found three parser defects.",
+      "PR970 includes every retained provider-workflow identity across superseded and final heads; three cancelled/skipped workflows made zero calls, proven by job metadata with no steps.",
+      "PR970 final green physical runs are spend/output evidence only. PR970 remains unmerged DRAFT/HOLD because exact-head review 5328823266/comment 4114089923 found self-authenticating technical-attempt completeness.",
+      "PR969 post-merge main CI scoped the eval job out and generated no application provider calls; it is outside the PR workflow accounting rows."
+    ],
+    "runs": [
+      {
+        "classification": "final_head",
+        "cost_status": "unknown; report total_cost_usd=0.0 is not free-usage evidence",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 20569154,
+            "path": "outputs/takeover-2026-09-26/pr963-baseline/eval_20260926T222439Z.json",
+            "sha256": "3a327d6888194ad94a56d2a74f7755e894629c23312480864cd81c03ca962e25"
+          },
+          {
+            "bytes": 4469,
+            "path": "outputs/takeover-2026-09-26/corrections-pr-body.md",
+            "sha256": "4a73a3b4df4d4003772920d8ba83db9c1acfb3aa40c04f07b8b00902301f6bb8"
+          }
+        ],
+        "known_cost_calls": 0,
+        "pr": 963,
+        "recorded_calls": 70,
+        "run_id": 36275579348,
+        "successful_calls": 70,
+        "unknown_cost_calls": 70,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.00755,
+        "evidence": [
+          {
+            "bytes": 16140,
+            "path": "outputs/takeover-2026-09-26/pr963-copilot/runner.log",
+            "sha256": "8c76cff46fccfeea5f9df0bc771a443d800d53a0a7d0caa1227d2a6e79210d78"
+          },
+          {
+            "bytes": 4469,
+            "path": "outputs/takeover-2026-09-26/corrections-pr-body.md",
+            "sha256": "4a73a3b4df4d4003772920d8ba83db9c1acfb3aa40c04f07b8b00902301f6bb8"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 963,
+        "recorded_calls": 35,
+        "run_id": 36275609240,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_head_72606af",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.179889,
+        "evidence": [
+          {
+            "bytes": 203376,
+            "path": "outputs/takeover-2026-09-26/pr964-baseline/github-job.log",
+            "sha256": "5f989c710830477f58773a4dababc0cad0ce2372fe07b433e37ccdd7f777ba34"
+          },
+          {
+            "bytes": 2289,
+            "path": "outputs/takeover-2026-09-26/pr964-baseline/receipt.md",
+            "sha256": "9188e61cd1ad75cce80104de6cd8b0ccc010b19922e3e15aa546e93787634a28"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 964,
+        "recorded_calls": 70,
+        "run_id": 36277672161,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "superseded_head_72606af",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007741,
+        "evidence": [
+          {
+            "bytes": 16536,
+            "path": "outputs/takeover-2026-09-26/pr964-copilot/runner.log",
+            "sha256": "f9044c3ecabb28c92497ad5da815704f2c8998aaf80eac72ed7a20c93d7c4c1e"
+          },
+          {
+            "bytes": 2540,
+            "path": "outputs/takeover-2026-09-26/pr964-copilot/receipt.md",
+            "sha256": "ae8243f2f18a83c777d14461fc6b6ba8ce82945b8eeddd029cea701e01561f6c"
+          }
+        ],
+        "known_cost_calls": 36,
+        "pr": 964,
+        "recorded_calls": 36,
+        "run_id": 36277680092,
+        "successful_calls": 36,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_head_f936034",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.177923,
+        "evidence": [
+          {
+            "bytes": 679,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36278890564-ci-f936/telemetry-summary.json",
+            "sha256": "d1b39b75720a3990516a3be90bf7d911ea840494e99082e816cb4d4fbc99b522"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 964,
+        "recorded_calls": 70,
+        "run_id": 36278890564,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "superseded_head_f936034",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007558,
+        "evidence": [
+          {
+            "bytes": 16085,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36278890657-copilot-f936/runner.log",
+            "sha256": "41ad699a2721d77c61c8188908c09e59d0fee2558aeb01c23e9d30f7dfe3208a"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 964,
+        "recorded_calls": 35,
+        "run_id": 36278890657,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "cancelled_head_ec54da7",
+        "cost_status": "completed-event telemetry; an interrupted un-emitted request cannot be excluded",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.011953,
+        "evidence": [
+          {
+            "bytes": 1968,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36279709143-ci-ec54-cancelled/receipt.json",
+            "sha256": "c7ee12cb475042145e608d7a42270e1fd9e0f39bce99225ecbe5198f7bebc788"
+          }
+        ],
+        "known_cost_calls": 5,
+        "pr": 964,
+        "recorded_calls": 5,
+        "run_id": 36279709143,
+        "successful_calls": 5,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "cancelled_head_ec54da7",
+        "cost_status": "generation step skipped; receipt establishes zero generation calls",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 1174,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36279709150-copilot-ec54-cancelled/receipt.json",
+            "sha256": "9aefc97d955912b71df7a6240e647a6734349529fcaa122ddf3a6d82aeb4e19c"
+          }
+        ],
+        "known_cost_calls": 0,
+        "pr": 964,
+        "recorded_calls": 0,
+        "run_id": 36279709150,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_head_ecbca22",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007831,
+        "evidence": [
+          {
+            "bytes": 16647,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36279743291-copilot-ecbca22/runner.log",
+            "sha256": "f55f6cb30dc47816744bb18e35586341fbf46361c1f10c066c4e9712112ab3ae"
+          }
+        ],
+        "known_cost_calls": 36,
+        "pr": 964,
+        "recorded_calls": 36,
+        "run_id": 36279743291,
+        "successful_calls": 36,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_head_ecbca22",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.184655,
+        "evidence": [
+          {
+            "bytes": 706,
+            "path": "outputs/takeover-2026-09-26/pr964-final/run-36279743337-ci-ecbca22/telemetry-summary.json",
+            "sha256": "ba0b21777d84e50205fd498cddd3a93c80bfe64fceb81b58a9e3b7a992491274"
+          }
+        ],
+        "known_cost_calls": 71,
+        "pr": 964,
+        "recorded_calls": 71,
+        "run_id": 36279743337,
+        "successful_calls": 71,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head_7689e7d",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.179537,
+        "evidence": [
+          {
+            "bytes": 679,
+            "path": "outputs/takeover-2026-09-26/pr964-hosted-final/run-36280955339-ci/telemetry-summary.json",
+            "sha256": "0770533639380cb81be890834d5a49b4f5dc9d5cda1c1caca452aa40332a8b28"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 964,
+        "recorded_calls": 70,
+        "run_id": 36280955339,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head_7689e7d",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007388,
+        "evidence": [
+          {
+            "bytes": 673,
+            "path": "outputs/takeover-2026-09-26/pr964-hosted-final/run-36280955340-copilot/telemetry-summary.json",
+            "sha256": "a1e895550b71d185d76f866f04a51adfc1213cf3087a586dbbe66c81c6f981a9"
+          }
+        ],
+        "known_cost_calls": 34,
+        "pr": 964,
+        "recorded_calls": 34,
+        "run_id": 36280955340,
+        "successful_calls": 34,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "final_head_1b213ac",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.179368,
+        "evidence": [
+          {
+            "bytes": 679,
+            "path": "outputs/takeover-2026-09-26/pr965-hosted/run-36280769684-ci/telemetry-summary.json",
+            "sha256": "1680a62672705909d6c67d6b27a5ce7778dba8297b99a6f96665037913dd849a"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 965,
+        "recorded_calls": 70,
+        "run_id": 36280769684,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head_1b213ac",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007782,
+        "evidence": [
+          {
+            "bytes": 673,
+            "path": "outputs/takeover-2026-09-26/pr965-hosted/run-36280788989-copilot/telemetry-summary.json",
+            "sha256": "269066785baac7632ecf9d1799c25eba1ff60f2ed819504a3fb28492d26729c7"
+          }
+        ],
+        "known_cost_calls": 36,
+        "pr": 965,
+        "recorded_calls": 36,
+        "run_id": 36280788989,
+        "successful_calls": 36,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "final_head_5440fff",
+        "cost_status": "AI-relevant change detector skipped eval-baseline",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 17517,
+            "path": "outputs/takeover-2026-09-26/landing-claims/pr966-ci/eval-baseline-job-108519309265.log",
+            "sha256": "dd0f4da3a7578fe73ade19f5694268ffcb141ed2a9bb29255e63ad048b3e7b04"
+          }
+        ],
+        "known_cost_calls": 0,
+        "pr": 966,
+        "recorded_calls": 0,
+        "run_id": 36285942076,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "superseded_initial_head_e9efafa",
+        "cost_status": "receipt derived from per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.177367,
+        "evidence": [
+          {
+            "bytes": 1993,
+            "path": "outputs/takeover-2026-09-26/pr967-hosted-initial/baseline-receipt.json",
+            "sha256": "0484448e3bddc9aaa398864b75b9facc46c278dbd0d967560ab12904d2529303"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 967,
+        "recorded_calls": 70,
+        "run_id": 36283494502,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "superseded_initial_head_e9efafa",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007633,
+        "evidence": [
+          {
+            "bytes": 594,
+            "path": "outputs/takeover-2026-09-26/pr967-hosted-initial/copilot-receipt.json",
+            "sha256": "18d8c51f74d12c1a3a05434b46a5153af357cc2576bd0dc92cdc604d2db3ee34"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 967,
+        "recorded_calls": 35,
+        "run_id": 36283507434,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "final_head_ac60f49",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.174298,
+        "evidence": [
+          {
+            "bytes": 679,
+            "path": "outputs/takeover-2026-09-26/pr967-hosted-final/run-36284201570-ci/telemetry-summary.json",
+            "sha256": "bdcd570f82c82ac5f62d0319bbd136db068eb311f2921a629c5adfc27703a1e5"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 967,
+        "recorded_calls": 70,
+        "run_id": 36284201570,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head_ac60f49",
+        "cost_status": "sanitized telemetry summary",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007773,
+        "evidence": [
+          {
+            "bytes": 673,
+            "path": "outputs/takeover-2026-09-26/pr967-hosted-final/run-36284201573-copilot/telemetry-summary.json",
+            "sha256": "de0ac7da8b9d9b1a9129a88d473b169fc9e5f8764987e3f6de2114d444af67c1"
+          }
+        ],
+        "known_cost_calls": 36,
+        "pr": 967,
+        "recorded_calls": 36,
+        "run_id": 36284201573,
+        "successful_calls": 36,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "final_head_c56fe79",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.179593,
+        "evidence": [
+          {
+            "bytes": 889485,
+            "path": "outputs/takeover-2026-09-26/pr968-hosted-final/logs/ci-run.log",
+            "sha256": "f6843640d00e7192344404b33fdd97b2fde77ab7fec3d548a66c796f6c16978c"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 968,
+        "recorded_calls": 70,
+        "run_id": 36286423496,
+        "successful_calls": 70,
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "final_head_c56fe79",
+        "cost_status": "per-event sanitized telemetry; duplicate artifact runner copy ignored by run ID",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007622,
+        "evidence": [
+          {
+            "bytes": 129695,
+            "path": "outputs/takeover-2026-09-26/pr968-hosted-final/logs/copilot-run.log",
+            "sha256": "f12a55088889cbee8aa35e45b9102c438c664aa396c556fffa21d8891338338b"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 968,
+        "recorded_calls": 35,
+        "run_id": 36286453794,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_prior_head_6c0e7fc",
+        "cost_status": "70 known-cost successes plus one error event with unknown usage/cost",
+        "error_calls": 1,
+        "estimated_cost_usd_known": 0.178558,
+        "evidence": [
+          {
+            "bytes": 3781,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/ci-36287000069/baseline-receipt.json",
+            "sha256": "f6a6c6798160d92bc8438a27d26c077c7d90d9304a1a6bf113508c696be5b69f"
+          }
+        ],
+        "known_cost_calls": 70,
+        "pr": 969,
+        "recorded_calls": 71,
+        "run_id": 36287000069,
+        "successful_calls": 70,
+        "unknown_cost_calls": 1,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "superseded_prior_head_6c0e7fc",
+        "cost_status": "per-event sanitized telemetry; copied artifact log ignored by run ID",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007617,
+        "evidence": [
+          {
+            "bytes": 3815,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/copilot-36287008284/copilot-receipt.json",
+            "sha256": "cf126af06a00567efe0db47d4b41212f3f6c61e5338f3e0c541e0a11d03eceda"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 969,
+        "recorded_calls": 35,
+        "run_id": 36287008284,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "moving_tail_head_7ff7762",
+        "cost_status": "per-event sanitized telemetry; current evidence is provisional because PR head is being corrected",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007574,
+        "evidence": [
+          {
+            "bytes": 5928,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/copilot-36287848187/copilot-receipt.json",
+            "sha256": "07aaa5ed132e9f84029897f2ddf95d9edd9c8617d7bf0a28faeaf82a22e7c1d4"
+          }
+        ],
+        "known_cost_calls": 35,
+        "pr": 969,
+        "recorded_calls": 35,
+        "run_id": 36287848187,
+        "successful_calls": 35,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "superseded_intermediate_head_7ff7762_not_release_clearance",
+        "cost_status": "per-event sanitized telemetry; retained spend/output history only",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.178062,
+        "evidence": [
+          {
+            "bytes": 3214,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/ci-36287848125/baseline-receipt.json",
+            "sha256": "fa292749af456ba000563fb3bec4d1ee89a63f1523fc38d0d5cc65c950a543c1"
+          },
+          {
+            "bytes": 20446923,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/ci-36287848125/artifact/eval-report-36287848125/eval_20260927T022257Z.json",
+            "sha256": "3a1ee56b5996763f6364aa98f2a6a9bc91088f622c98ea965bf1cc8dca4259c8"
+          }
+        ],
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "pr": 969,
+        "quality_boundary": "70/70 scored and hard gate passed, but later exact-head review found three parser defects; not release clearance",
+        "recorded_calls": 70,
+        "run_id": 36287848125,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.1429
+          }
+        ],
+        "successful_calls": 70,
+        "synthetic_source": {
+          "parents": [
+            "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+            "7ff7762132286f22678c814ab42fa3440e56d545"
+          ],
+          "sha": "6709deefe6f55d7cff5b4b3014f2e8e443db1340",
+          "tree": "c120d3e5c39fe2e19f1f1382fda61f0f77bdc16d"
+        },
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "classification": "corrected_final_head_c3a10d0_hosted_evidence",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007865,
+        "evidence": [
+          {
+            "bytes": 6455,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/copilot-36289097425/copilot-receipt.json",
+            "sha256": "3d59abacd8c171f9e67a4af3efda0a896c18e2a0dc8e850659fd2e84b3821532"
+          }
+        ],
+        "known_cost_calls": 36,
+        "observed_retries": 0,
+        "pr": 969,
+        "quality_boundary": "18/18 accepted on exact-tree synthetic merge with five soft advisories; paired corrected-head CI is retained separately",
+        "recorded_calls": 36,
+        "run_id": 36289097425,
+        "soft_advisories": [
+          {
+            "count": 3,
+            "figure_coverage": 0.6667,
+            "question_id": "sales-diluted-eps-2025",
+            "ticker": "MSFT"
+          },
+          {
+            "count": 2,
+            "figure_coverage": 0.75,
+            "question_id": "native-revenue-2026",
+            "ticker": "BABA"
+          }
+        ],
+        "successful_calls": 36,
+        "synthetic_source": {
+          "parents": [
+            "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+            "c3a10d017d1b220783ceca8dcc7e3a6177fbf069"
+          ],
+          "sha": "f46600b6c37d41ed51f500bbb5edb34206b574d9",
+          "tree": "8a56ab1128008542e75132351708641b7fa3f723"
+        },
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot fidelity"
+      },
+      {
+        "classification": "corrected_exact_head_c3a10d0_hosted_evidence",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.176262,
+        "evidence": [
+          {
+            "bytes": 3071,
+            "path": "outputs/takeover-2026-09-26/pr969-hosted-final/ci-36289097435/baseline-receipt.json",
+            "sha256": "5e3bf30bc39855150c101d13857e12b738c89e3e2db8d35bae9c11af2e5f2f99"
+          }
+        ],
+        "known_cost_calls": 71,
+        "observed_retries": 0,
+        "operations": {
+          "section_recovery": 1,
+          "summary_primary": 70
+        },
+        "pr": 969,
+        "quality_boundary": "70/70 scored and hard gate passed on exact-head-matching tree; hosted evidence supports release review but does not itself admit filing sources",
+        "recorded_calls": 71,
+        "run_id": 36289097435,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.5,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 71,
+        "synthetic_source": {
+          "parents": [
+            "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+            "c3a10d017d1b220783ceca8dcc7e3a6177fbf069"
+          ],
+          "sha": "f46600b6c37d41ed51f500bbb5edb34206b574d9",
+          "tree": "8a56ab1128008542e75132351708641b7fa3f723"
+        },
+        "unknown_cost_calls": 0,
+        "workflow": "CI baseline"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.178289,
+        "evidence": [
+          {
+            "bytes": 892776,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36290649266/run.log",
+            "sha256": "c49f3c0ab4192696a768939162a8a8edc4633c86bc2660dee224c8e16831e2dd"
+          }
+        ],
+        "head_sha": "16d2271027ddff11c336cbb848ee1b73fcf1204a",
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "output_denominator": "70/70 scored",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 70,
+        "run_id": 36290649266,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.5,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 70,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "CI"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007741,
+        "evidence": [
+          {
+            "bytes": 130499,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36290677310/run.log",
+            "sha256": "9f38f4e677586c0b665fe590a5577815e0d39889261e0ac025ac4805bdda2f98"
+          }
+        ],
+        "head_sha": "16d2271027ddff11c336cbb848ee1b73fcf1204a",
+        "known_cost_calls": 36,
+        "observed_retries": 0,
+        "operations": {
+          "copilot_chat": 36
+        },
+        "output_denominator": "18/18 completed/scored/passed",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 36,
+        "run_id": 36290677310,
+        "successful_calls": 36,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.176607,
+        "evidence": [
+          {
+            "bytes": 893638,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36291471420/run.log",
+            "sha256": "d7d47bcc11ee2fac8a805cfdc82de5fa15c041aa0520ec7955c216475c7c87b8"
+          }
+        ],
+        "head_sha": "c08370000f4b6cfac853d2597f3e79a633da6382",
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "output_denominator": "70/70 scored",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 70,
+        "run_id": 36291471420,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.2429,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 70,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "CI"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007612,
+        "evidence": [
+          {
+            "bytes": 129972,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36291471357/run.log",
+            "sha256": "845af7d992182778c86b0cd79ec89bc6e3d234118111ddc6f3feac017b478485"
+          }
+        ],
+        "head_sha": "c08370000f4b6cfac853d2597f3e79a633da6382",
+        "known_cost_calls": 35,
+        "observed_retries": 0,
+        "operations": {
+          "copilot_chat": 35
+        },
+        "output_denominator": "18/18 completed/scored/passed",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 35,
+        "run_id": 36291471357,
+        "successful_calls": 35,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.179231,
+        "evidence": [
+          {
+            "bytes": 891378,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36292268882/run.log",
+            "sha256": "b41d621696e8b09b73f9c88269f95939ceeb0d87efe1acf3f582f5ede39f3a15"
+          }
+        ],
+        "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "output_denominator": "70/70 scored",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 70,
+        "run_id": 36292268882,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.3857,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 70,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "CI"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007594,
+        "evidence": [
+          {
+            "bytes": 130247,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36292268663/run.log",
+            "sha256": "ff76b4cdc5b85721c7b335e6dd8dc013211ba414aca5adb06ddc410ec8869e75"
+          }
+        ],
+        "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+        "known_cost_calls": 35,
+        "observed_retries": 0,
+        "operations": {
+          "copilot_chat": 35
+        },
+        "output_denominator": "18/18 completed/scored/passed",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 35,
+        "run_id": 36292268663,
+        "successful_calls": 35,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity"
+      },
+      {
+        "classification": "cancelled_or_skipped_pre_provider",
+        "cost_status": "zero calls proven by retained job metadata: no steps, no runner/provider artifact",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 929,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36292268873.json",
+            "sha256": "25020ca7e1348851642247b0b1aed5e26a4d138724dc0672e26db5433a50dacf"
+          }
+        ],
+        "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+        "known_cost_calls": 0,
+        "observed_retries": 0,
+        "pr": 970,
+        "recorded_calls": 0,
+        "run_id": 36292268873,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity",
+        "workflow_conclusion": "cancelled"
+      },
+      {
+        "classification": "cancelled_or_skipped_pre_provider",
+        "cost_status": "zero calls proven by retained job metadata: no steps, no runner/provider artifact",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 921,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36293227110.json",
+            "sha256": "8e0581aa438c9d0935d9941d4bd6215fdfc64d33681b4f6f213197eabb56ec7d"
+          }
+        ],
+        "head_sha": "d5ec63f86c412f2a33af5351fb2231e502915644",
+        "known_cost_calls": 0,
+        "observed_retries": 0,
+        "pr": 970,
+        "recorded_calls": 0,
+        "run_id": 36293227110,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity",
+        "workflow_conclusion": "cancelled"
+      },
+      {
+        "classification": "cancelled_or_skipped_pre_provider",
+        "cost_status": "zero calls proven by retained job metadata: no steps, no runner/provider artifact",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 929,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/workflows/jobs-36293228546.json",
+            "sha256": "40669d9384236c5fc6cd95c513fb39eb66cc4563e057fffe9a3d163ad816a91d"
+          }
+        ],
+        "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+        "known_cost_calls": 0,
+        "observed_retries": 0,
+        "pr": 970,
+        "recorded_calls": 0,
+        "run_id": 36293228546,
+        "successful_calls": 0,
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity",
+        "workflow_conclusion": "skipped"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.178363,
+        "evidence": [
+          {
+            "bytes": 888811,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36293228553/run.log",
+            "sha256": "85b134e3d6f137ae2c517bf9794bb8aed6b40f834fa65ffa7664061f9af36d64"
+          }
+        ],
+        "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "output_denominator": "70/70 scored",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 70,
+        "run_id": 36293228553,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.4857,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 70,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "CI"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "superseded_pr970_head_spend_history",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007775,
+        "evidence": [
+          {
+            "bytes": 130363,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36293325534/run.log",
+            "sha256": "15db3d714a0d044165b2cf3468bf10f9f17aa0301b038dc5ecfcb1e2f79ff3fc"
+          }
+        ],
+        "head_sha": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f",
+        "known_cost_calls": 36,
+        "observed_retries": 0,
+        "operations": {
+          "copilot_chat": 36
+        },
+        "output_denominator": "18/18 completed/scored/passed",
+        "pr": 970,
+        "quality_boundary": "retained spend/output history; later exact-head findings superseded this head",
+        "recorded_calls": 36,
+        "run_id": 36293325534,
+        "successful_calls": 36,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "final_head_68e8_unmerged_review_hold",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.180235,
+        "evidence": [
+          {
+            "bytes": 6192,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/final-ci-audit.json",
+            "sha256": "6482d021b7a0320013f27293e768da02e3bc3eec5c9385002b63148fa07637ca"
+          },
+          {
+            "bytes": 893320,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/ci-36294511807/run.log",
+            "sha256": "0372c9262e8768d8dc239a53e874ea3ceb644e2a1efa755c40695211f7edd35a"
+          }
+        ],
+        "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+        "known_cost_calls": 70,
+        "observed_retries": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "output_denominator": "70/70 scored",
+        "pr": 970,
+        "quality_boundary": "green physical evidence; PR remains unmerged DRAFT/HOLD due review 5328823266/comment 4114089923",
+        "recorded_calls": 70,
+        "run_id": 36294511807,
+        "soft_advisories": [
+          {
+            "kind": "absolute_figure_trace_advisory",
+            "mean_untraceable_dollar_figures": 2.3429,
+            "outputs_measured": 70
+          }
+        ],
+        "successful_calls": 70,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "CI"
+      },
+      {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "classification": "final_head_68e8_unmerged_review_hold",
+        "cost_status": "per-event sanitized telemetry; billed cost unknown",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.007779,
+        "evidence": [
+          {
+            "bytes": 4618,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/metadata/final-copilot-audit.json",
+            "sha256": "92de0e15c96d5da555d218db754c9f2f5fb76d0e8cdfe88f9beacbfc5c184767"
+          },
+          {
+            "bytes": 130496,
+            "path": "outputs/takeover-2026-09-26/pr970-hosted-final/copilot-36294511938/run.log",
+            "sha256": "967016e7894f69e3ebf76fdd87407c1809f8bc95106002c5e56e07f9e7af96e7"
+          }
+        ],
+        "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+        "known_cost_calls": 36,
+        "observed_retries": 0,
+        "operations": {
+          "copilot_chat": 36
+        },
+        "output_denominator": "18/18 completed/scored/passed",
+        "pr": 970,
+        "quality_boundary": "green physical evidence; PR remains unmerged DRAFT/HOLD due review 5328823266/comment 4114089923",
+        "recorded_calls": 36,
+        "run_id": 36294511938,
+        "successful_calls": 36,
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "unknown_cost_calls": 0,
+        "workflow": "Copilot filing fidelity"
+      }
+    ],
+    "subtotal": {
+      "error_calls": 1,
+      "known_cost_calls": 1729,
+      "known_estimated_cost_usd": 3.000625,
+      "provider_producing_runs": 35,
+      "recorded_application_provider_calls": 1800,
+      "successful_calls": 1799,
+      "unknown_cost_calls": 71,
+      "workflow_runs": 40
+    }
+  },
+  "pending": [],
+  "pr970_custody": {
+    "full_checksum_inventory": {
+      "bytes": 70415,
+      "path": "outputs/takeover-2026-09-26/pr970-hosted-final/files.sha256",
+      "sha256": "bb38143f03ce997910e3411fb05fdfb054fcb6ec75b4b528b8a6e64235a65b92"
+    },
+    "head_sha": "68e8ff1f29a3ec844d595cfce93b72225d46dba3",
+    "hold": {
+      "comment_id": 4114089923,
+      "next_step": "First examine reuse of PR964 external history authority/journal for already-retained technical attempts without fabricating past dispatches or creating a generic framework.",
+      "review_id": 5328823266,
+      "severity": "P2",
+      "summary": "technical_attempts completeness is self-authenticating; an omitted attempt plus recomputed closure digest validates and releases its context for downstream reuse",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/970#discussion_r4114089923"
+    },
+    "inventory": {
+      "bytes": 33815,
+      "path": "outputs/takeover-2026-09-26/pr970-hosted-final/inventory.json",
+      "sha256": "a9d0993fa4371f69ab11d240bcb2351e7119caea947d0b86e5fe65415e32e659"
+    },
+    "status": "unmerged-review-hold",
+    "synthetic_merge_sha": "755ca1ce21711097d2a73ac6dd5a8d5302547937",
+    "tree": "aff6a974ba58158f3bc6f9157b8bbb56293f5725",
+    "tree_equivalent": true
+  },
+  "schema_version": 1,
+  "scope": "Retained ordinary hosted DeepSeek application telemetry for PR963-PR970, including superseded, cancelled, skipped, and held-draft runs, plus a separately reported p/q measurement subtotal.",
+  "scope_boundary": "Hosted workflow application telemetry only. The PR963-970 subtotal includes every retained provider workflow in scope and remains a lower bound, not a complete provider invoice.",
+  "separate_p_q_measurement": {
+    "fable_calls": 0,
+    "reason_separate": "These PR942 p/q release measurements are not ordinary PR963-PR970 hosted regression spend and are not charged to formal E7/E8.",
+    "runs": [
+      {
+        "arm": "p-control",
+        "cost_status": "retained report has no per-call pricing telemetry; zero report cost is not free-usage evidence",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.0,
+        "evidence": [
+          {
+            "bytes": 2148,
+            "path": "outputs/ratio-release-2026-09-27/p-control-36272463033/receipt.json",
+            "sha256": "9bd7b95042f21d7c1862309670011f0764cbe47cd56cb5eff6c5e17c6f7e8294"
+          }
+        ],
+        "known_cost_calls": 0,
+        "recorded_calls": 70,
+        "run_id": 36272463033,
+        "successful_calls": 70,
+        "unknown_cost_calls": 70
+      },
+      {
+        "arm": "q-two-repeat",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.17687,
+        "evidence": [
+          {
+            "bytes": 204272,
+            "path": "outputs/ratio-release-2026-09-27/q-current-36276521637/eval-job.log",
+            "sha256": "5bee5f9162dd88ac8de98d4155036e7f9a1cf44ba6b108b1b29bb27880a78021"
+          }
+        ],
+        "known_cost_calls": 71,
+        "recorded_calls": 71,
+        "run_id": 36276521637,
+        "successful_calls": 71,
+        "unknown_cost_calls": 0
+      },
+      {
+        "arm": "q-three-repeat",
+        "cost_status": "per-event sanitized telemetry",
+        "error_calls": 0,
+        "estimated_cost_usd_known": 0.262674,
+        "evidence": [
+          {
+            "bytes": 248377,
+            "path": "outputs/ratio-release-2026-09-27/q-current-36276551360/eval-job.log",
+            "sha256": "b0fb80cd1ffceeacf95c9fb37009f686dc8aa9dd9587c80834a49f608f225be6"
+          }
+        ],
+        "known_cost_calls": 105,
+        "recorded_calls": 105,
+        "run_id": 36276551360,
+        "successful_calls": 105,
+        "unknown_cost_calls": 0
+      }
+    ],
+    "semantic_judging_status": "unavailable/pending in retained receipts; no substitute call included",
+    "subtotal": {
+      "error_calls": 0,
+      "known_cost_calls": 176,
+      "known_estimated_cost_usd": 0.439544,
+      "provider_producing_runs": 3,
+      "recorded_application_provider_calls": 246,
+      "successful_calls": 246,
+      "unknown_cost_calls": 70,
+      "workflow_runs": 3
+    }
+  },
+  "status": "final_bounded_hosted_lower_bound_pr963_970",
+  "workspace_root": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote"
+}

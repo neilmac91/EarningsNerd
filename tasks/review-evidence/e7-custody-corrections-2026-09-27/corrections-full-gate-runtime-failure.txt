@@ -1,0 +1,487 @@
+CODE 9abd0a2b681d7af7eed27f50b145c48616259e77
+Python 3.11.16
+PostgreSQL 15.15 (Homebrew)
+All checks passed!
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+...................................................FF................... [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........F.....F......................................................... [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+......................................................F................. [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+..............................................                           [100%]
+=================================== FAILURES ===================================
+_____ test_actual_source_normalization_is_independent_of_expected_answers ______
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-258/test_actual_source_normalizati0')
+
+    def test_actual_source_normalization_is_independent_of_expected_answers(tmp_path):
+>       first = _prepare(tmp_path / "one", expectation="999999")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_copilot_bootstrap.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-258/test_actual_source_normalizati0/one')
+expectation = '999999', failure = False
+
+    def _prepare(tmp_path, *, expectation="999999", failure=False):
+        tmp_path.mkdir()
+        env = {**os.environ, "PREP_ROOT": str(tmp_path), "GOLDEN_EXPECTATION": expectation}
+        if failure:
+            env["FAIL_PREPARATION"] = "yes"
+        result = subprocess.run([sys.executable, "-c", PREPARE], env=env, text=True, capture_output=True, timeout=60)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Could not find platform independent libraries <prefix>
+E         Python path configuration:
+E           PYTHONHOME = (not set)
+E           PYTHONPATH = (not set)
+E           program name = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           isolated = 0
+E           environment = 1
+E           user site = 1
+E           safe_path = 0
+E           import site = 1
+E           is in build tree = 0
+E           stdlib dir = '/install/lib/python3.11'
+E           sys._base_executable = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/bin/python3.11'
+E           sys.base_prefix = '/install'
+E           sys.base_exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.platlibdir = 'lib'
+E           sys.executable = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           sys.prefix = '/install'
+E           sys.exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.path = [
+E             '/install/lib/python311.zip',
+E             '/install/lib/python3.11',
+E             '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/lib/python3.11/lib-dynload',
+E           ]
+E         Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding
+E         Python runtime state: core initialized
+E         ModuleNotFoundError: No module named 'encodings'
+E         
+E         Current thread 0x00000001f2de21c0 (most recent call first):
+E           <no Python frame>
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/private/tmp/earningsnerd-e7-corrections-venv/bin/python', '-c', "\nimport asyncio, json, os\n...or: No module named 'encodings'\n\nCurrent thread 0x00000001f2de21c0 (most recent call first):\n  <no Python frame>\n").returncode
+
+tests/unit/test_copilot_bootstrap.py:135: AssertionError
+___ test_missing_extraction_retains_declared_population_and_partial_evidence ___
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-258/test_missing_extraction_retain0')
+
+    def test_missing_extraction_retains_declared_population_and_partial_evidence(tmp_path):
+>       result = _prepare(tmp_path / "failed", failure=True)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_copilot_bootstrap.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-258/test_missing_extraction_retain0/failed')
+expectation = '999999', failure = True
+
+    def _prepare(tmp_path, *, expectation="999999", failure=False):
+        tmp_path.mkdir()
+        env = {**os.environ, "PREP_ROOT": str(tmp_path), "GOLDEN_EXPECTATION": expectation}
+        if failure:
+            env["FAIL_PREPARATION"] = "yes"
+        result = subprocess.run([sys.executable, "-c", PREPARE], env=env, text=True, capture_output=True, timeout=60)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Could not find platform independent libraries <prefix>
+E         Python path configuration:
+E           PYTHONHOME = (not set)
+E           PYTHONPATH = (not set)
+E           program name = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           isolated = 0
+E           environment = 1
+E           user site = 1
+E           safe_path = 0
+E           import site = 1
+E           is in build tree = 0
+E           stdlib dir = '/install/lib/python3.11'
+E           sys._base_executable = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/bin/python3.11'
+E           sys.base_prefix = '/install'
+E           sys.base_exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.platlibdir = 'lib'
+E           sys.executable = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           sys.prefix = '/install'
+E           sys.exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.path = [
+E             '/install/lib/python311.zip',
+E             '/install/lib/python3.11',
+E             '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/lib/python3.11/lib-dynload',
+E           ]
+E         Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding
+E         Python runtime state: core initialized
+E         ModuleNotFoundError: No module named 'encodings'
+E         
+E         Current thread 0x00000001f2de21c0 (most recent call first):
+E           <no Python frame>
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/private/tmp/earningsnerd-e7-corrections-venv/bin/python', '-c', "\nimport asyncio, json, os\n...or: No module named 'encodings'\n\nCurrent thread 0x00000001f2de21c0 (most recent call first):\n  <no Python frame>\n").returncode
+
+tests/unit/test_copilot_bootstrap.py:135: AssertionError
+_______________ TestExportPdfBytes.test_export_pdf_returns_bytes _______________
+
+self = <test_export_service.TestExportPdfBytes object at 0x11caf5990>
+service = <app.services.export_service.ExportService object at 0x164cb0090>
+
+    @pytest.mark.asyncio
+    async def test_export_pdf_returns_bytes(self, service):
+>       pytest.importorskip("weasyprint")
+
+tests/unit/test_export_service.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    ???
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+<frozen importlib._bootstrap_external>:940: in exec_module
+    ???
+<frozen importlib._bootstrap>:241: in _call_with_frames_removed
+    ???
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/weasyprint/__init__.py:13: in <module>
+    import cssselect2
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/cssselect2/__init__.py:9: in <module>
+    from webencodings import ascii_lower
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/webencodings/__init__.py:135: in <module>
+    _UTF16LE = lookup('utf-16le')
+               ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+label = 'utf-16le'
+
+    def lookup(label):
+        """
+        Look for an encoding by its label.
+        This is the spec’s `get an encoding
+        <http://encoding.spec.whatwg.org/#concept-encoding-get>`_ algorithm.
+        Supported labels are listed there.
+    
+        :param label: A string.
+        :returns:
+            An :class:`Encoding` object, or :obj:`None` for an unknown label.
+    
+        """
+        # Only strip ASCII whitespace: U+0009, U+000A, U+000C, U+000D, and U+0020.
+        label = ascii_lower(label.strip('\t\n\f\r '))
+        name = LABELS.get(label)
+        if name is None:
+            return None
+        encoding = CACHE.get(name)
+        if encoding is None:
+            if name == 'x-user-defined':
+                from .x_user_defined import codec_info
+            else:
+                python_name = PYTHON_NAMES.get(name, name)
+                # Any python_name value that gets to here should be valid.
+>               codec_info = codecs.lookup(python_name)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               LookupError: unknown encoding: utf-16le
+
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/webencodings/__init__.py:85: LookupError
+---------------------------- Captured stdout setup -----------------------------
+[2026-09-26 22:01:01] DEBUG    [no-id] asyncio - Using selector: KqueueSelector
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: KqueueSelector
+_ TestBrandedShell.test_rendered_pdf_has_portrait_first_page_and_landscape_metrics _
+
+self = <test_export_service.TestBrandedShell object at 0x11caf6390>
+service = <app.services.export_service.ExportService object at 0x164f7d690>
+
+    @pytest.mark.asyncio
+    async def test_rendered_pdf_has_portrait_first_page_and_landscape_metrics(self, service):
+        """End-to-end WeasyPrint render: the metrics section must actually land on a landscape
+        page (width > height) while page 1 stays portrait — the layout fix for clipped grids."""
+>       weasyprint = pytest.importorskip("weasyprint")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_export_service.py:430: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    ???
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+<frozen importlib._bootstrap_external>:940: in exec_module
+    ???
+<frozen importlib._bootstrap>:241: in _call_with_frames_removed
+    ???
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/weasyprint/__init__.py:13: in <module>
+    import cssselect2
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/cssselect2/__init__.py:9: in <module>
+    from webencodings import ascii_lower
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/webencodings/__init__.py:135: in <module>
+    _UTF16LE = lookup('utf-16le')
+               ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+label = 'utf-16le'
+
+    def lookup(label):
+        """
+        Look for an encoding by its label.
+        This is the spec’s `get an encoding
+        <http://encoding.spec.whatwg.org/#concept-encoding-get>`_ algorithm.
+        Supported labels are listed there.
+    
+        :param label: A string.
+        :returns:
+            An :class:`Encoding` object, or :obj:`None` for an unknown label.
+    
+        """
+        # Only strip ASCII whitespace: U+0009, U+000A, U+000C, U+000D, and U+0020.
+        label = ascii_lower(label.strip('\t\n\f\r '))
+        name = LABELS.get(label)
+        if name is None:
+            return None
+        encoding = CACHE.get(name)
+        if encoding is None:
+            if name == 'x-user-defined':
+                from .x_user_defined import codec_info
+            else:
+                python_name = PYTHON_NAMES.get(name, name)
+                # Any python_name value that gets to here should be valid.
+>               codec_info = codecs.lookup(python_name)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               LookupError: unknown encoding: utf-16le
+
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/webencodings/__init__.py:85: LookupError
+---------------------------- Captured stdout setup -----------------------------
+[2026-09-26 22:01:01] DEBUG    [no-id] asyncio - Using selector: KqueueSelector
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: KqueueSelector
+______ test_production_pins_match_defaults_pregenerate_and_ops_visibility ______
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-258/test_production_pins_match_def0')
+
+    def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path):
+        job = _workflow("ci.yml")["jobs"]["deploy-backend"]
+        service = _env_map(_step(job, "Deploy Cloud Run service")["run"])
+        assert pin_baseline.production_env() == service  # independent YAML selection vs stdlib parser
+        script = ROOT / "backend/scripts/pin_baseline.py"
+        probe = subprocess.run([sys.executable, "-S", "-c",
+                                "import runpy,sys; m=runpy.run_path(sys.argv[1]); m['production_env']()", str(script)],
+                               cwd=tmp_path, capture_output=True, text=True)
+>       assert probe.returncode == 0, probe.stderr  # no site packages, app imports or cwd dependency
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Could not find platform independent libraries <prefix>
+E         Python path configuration:
+E           PYTHONHOME = (not set)
+E           PYTHONPATH = (not set)
+E           program name = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           isolated = 0
+E           environment = 1
+E           user site = 1
+E           safe_path = 0
+E           import site = 0
+E           is in build tree = 0
+E           stdlib dir = '/install/lib/python3.11'
+E           sys._base_executable = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/bin/python3.11'
+E           sys.base_prefix = '/install'
+E           sys.base_exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.platlibdir = 'lib'
+E           sys.executable = '/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+E           sys.prefix = '/install'
+E           sys.exec_prefix = '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none'
+E           sys.path = [
+E             '/install/lib/python311.zip',
+E             '/install/lib/python3.11',
+E             '/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11-macos-aarch64-none/lib/python3.11/lib-dynload',
+E           ]
+E         Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding
+E         Python runtime state: core initialized
+E         ModuleNotFoundError: No module named 'encodings'
+E         
+E         Current thread 0x00000001f2de21c0 (most recent call first):
+E           <no Python frame>
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/private/tmp/earningsnerd-e7-corrections-venv/bin/python', '-S', '-c', "import runpy,sys; m=ru...or: No module named 'encodings'\n\nCurrent thread 0x00000001f2de21c0 (most recent call first):\n  <no Python frame>\n").returncode
+
+tests/unit/test_prod_flag_visibility.py:69: AssertionError
+=============================== warnings summary ===============================
+app/config.py:21
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:110
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/schemas/summary.py:110: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:168
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/schemas/summary.py:168: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:134
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/filings.py:134: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:85
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/summaries.py:85: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+tests/integration/test_stream_latency.py::test_stream_handles_high_latency_fetch
+  /private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/httpxthrottlecache/httpxclientmanager.py:189: DeprecationWarning: <class 'httpx.Timeout'> passed: migrate to httpx2.Timeout
+    self._normalize_timeout(params)
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 1A'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 7'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 8'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_earnings_alerts.py::test_free_cap_blocks_fourth_alert
+tests/unit/test_earnings_alerts.py::test_disable_frees_a_slot_and_reenable_works
+tests/unit/test_earnings_alerts.py::test_reenable_same_company_is_idempotent_not_a_new_slot
+tests/unit/test_earnings_alerts.py::test_pro_cap_is_100_and_flagged_pro
+tests/unit/test_earnings_alerts.py::test_enabled_tickers_lists_only_enabled
+  /private/tmp/earningsnerd-takeover-20260926/backend/tests/unit/test_earnings_alerts.py:75: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    u = db.query(User).get(uid)
+
+tests/unit/test_notification_delivery.py::test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_realtime
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[write_error]
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[ownership_collision]
+tests/unit/test_notification_delivery.py::test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_same_run
+tests/unit/test_notification_delivery.py::test_retry_freezes_complete_envelope_and_rejects_changed_recipient
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/services/notification_delivery_service.py:173: SAWarning: Identity map already had an identity for (<class 'app.models.notification_delivery.DeliveryItem'>, (1,), None), replacing it with newly flushed object.   Are there load operations occurring inside of an event handler within the flush?
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_copilot_bootstrap.py::test_actual_source_normalization_is_independent_of_expected_answers
+FAILED tests/unit/test_copilot_bootstrap.py::test_missing_extraction_retains_declared_population_and_partial_evidence
+FAILED tests/unit/test_export_service.py::TestExportPdfBytes::test_export_pdf_returns_bytes
+FAILED tests/unit/test_export_service.py::TestBrandedShell::test_rendered_pdf_has_portrait_first_page_and_landscape_metrics
+FAILED tests/unit/test_prod_flag_visibility.py::test_production_pins_match_defaults_pregenerate_and_ops_visibility
+5 failed, 3713 passed, 40 warnings in 202.90s (0:03:22)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py", line 1113, in emit
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/private/tmp/earningsnerd-takeover-20260926/backend/app/routers/companies.py", line 117, in _close_yahoo_client_sync
+    asyncio.run(_async_close())
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 189, in run
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 59, in __enter__
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 137, in _lazy_init
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/events.py", line 810, in new_event_loop
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/events.py", line 699, in new_event_loop
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/unix_events.py", line 64, in __init__
+  File "/private/tmp/earningsnerd-e7-runtime311/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/selector_events.py", line 54, in __init__
+Message: 'Using selector: %s'
+Arguments: ('KqueueSelector',)
