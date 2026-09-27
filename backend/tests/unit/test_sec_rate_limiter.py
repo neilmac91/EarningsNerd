@@ -474,10 +474,22 @@ async def test_attachment_transport_failures_trip_real_breaker(monkeypatch, fail
     if failure == 404:
         # An absent member is not an SEC outage and must not open the shared breaker.
         assert not breaker.is_open
+        assert breaker.stats.failed_requests == 2
+        assert breaker.stats.consecutive_failures == 0
+        # The missing members must not lower the threshold for a later genuine outage.
+        failure = 503
+        for outage_count in (1, 2):
+            with pytest.raises(compat.EdgarError):
+                await compat.sec_edgar_service.get_filing_attachment_bytes(
+                    "320193", "0000320193-23-000077", "chart.gif",
+                )
+            assert breaker.is_open == (outage_count == 2)
+        assert len(requests) == 4
     else:
         assert breaker.is_open
-        with pytest.raises(compat.EdgarError, match="circuit breaker is open"):
-            await compat.sec_edgar_service.get_filing_attachment_bytes(
-                "320193", "0000320193-23-000077", "chart.gif",
-            )
-        assert len(requests) == 2
+    requests_before_rejection = len(requests)
+    with pytest.raises(compat.EdgarError, match="circuit breaker is open"):
+        await compat.sec_edgar_service.get_filing_attachment_bytes(
+            "320193", "0000320193-23-000077", "chart.gif",
+        )
+    assert len(requests) == requests_before_rejection
