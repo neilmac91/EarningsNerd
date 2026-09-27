@@ -1,0 +1,60 @@
+name: H25 bounded offline capacity probe
+
+# A single diagnostic branch push; this workflow is not a production release path.
+on:
+  push:
+    branches: [codex/wave3-h25-capacity-probe]
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Fetch and verify frozen public-source capsule
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          gh release download diagnostic-h25-capacity-20260927 \
+            --repo neilmac91/EarningsNerd --pattern linux-capacity-capsule-v2.zip
+          echo 'b739ee3a04f2a3f29de8bd0435948036611c31358955baebe1a61be44b59ea3d  linux-capacity-capsule-v2.zip' | sha256sum --check --strict
+          python -m zipfile -e linux-capacity-capsule-v2.zip capsule
+      - name: Measure with no network and enforced process limits
+        shell: bash
+        run: |
+          set -uo pipefail
+          cd "$RUNNER_TEMP/capsule"
+          PYTHON_BIN="$(command -v python)"
+          mkdir -p "$RUNNER_TEMP/result"
+          # The capsule independently sets a hard 3 GiB RLIMIT_AS before each child
+          # and kills its process group after 180 seconds. This outer timeout also
+          # bounds the parent. No repository, provider or cloud credentials enter.
+          if timeout --signal=TERM --kill-after=5s 380s sudo unshare --net -- \
+            env -i PATH="$(dirname "$PYTHON_BIN"):/usr/bin:/bin" \
+            HOME="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 \
+            "$PYTHON_BIN" runner.py --output "$RUNNER_TEMP/result/capacity-receipt.json" \
+            > "$RUNNER_TEMP/result/runner.log" 2>&1; then
+            result=0
+          else
+            result=$?
+          fi
+          echo "$result" > "$RUNNER_TEMP/result/exit-code.txt"
+          # A measured resource failure is retained as a failing diagnostic,
+          # never retried or converted to a successful capacity claim.
+          exit "$result"
+      - name: Retain bounded diagnostic result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: h25-capacity-${{ github.run_id }}
+          path: ${{ runner.temp }}/result/
+          if-no-files-found: error
+          retention-days: 7
