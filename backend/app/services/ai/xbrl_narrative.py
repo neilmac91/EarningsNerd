@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import _is_no_total_bank
+from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import (
     build_debt_scope_view,
     debt_balance_label,
@@ -58,6 +59,19 @@ def returns_ratio_in_band(value: Any) -> bool:
         isinstance(value, (int, float)) and not isinstance(value, bool)
         and -RETURNS_RATIO_BAND_PCT <= value <= RETURNS_RATIO_BAND_PCT
     )
+
+
+def return_ratio_period(point: Any) -> Optional[str]:
+    """Return a usable stored ratio period; ambiguous comparators must abstain."""
+    if not isinstance(point, dict):
+        return None
+    period = point.get("period")
+    if not isinstance(period, str):
+        return None
+    period = period.strip()
+    if not period or period.lower() in _PLACEHOLDER_STRINGS:
+        return None
+    return period
 
 
 # Standardized financial metrics surfaced in the prompt's grounding block, as
@@ -183,8 +197,18 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         if key in _RETURNS_BAND_KEYS:
             if not returns_ratio_in_band(current.get("value")):
                 continue
-            if isinstance(prior, dict) and not returns_ratio_in_band(prior.get("value")):
+            prior_period = return_ratio_period(prior)
+            if (
+                isinstance(prior, dict)
+                and (
+                    not returns_ratio_in_band(prior.get("value"))
+                    or prior_period is None
+                )
+            ):
                 prior = None
+            elif isinstance(prior, dict):
+                # Use the shared validator's canonical value; do not re-read padded raw text.
+                prior = {**prior, "period": prior_period}
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"

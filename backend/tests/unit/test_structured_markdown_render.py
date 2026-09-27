@@ -660,8 +660,8 @@ def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read
         "(prior $94.9B); capital expenditures $12.7B (prior $9.4B) (selected cash-flow amount, not necessarily total capital investment)."
     )
     assert vd["returns_on_capital"] == (
-        "Period net income / period-end equity, not annualized: 151.3% (prior 164.6%); "
-        "period net income / period-end assets, not annualized: 28.4% (prior 25.7%)."
+        "Period net income / period-end equity, not annualized: 151.3% (prior at FY2024: 164.6%); "
+        "period net income / period-end assets, not annualized: 28.4% (prior at FY2024: 25.7%)."
     )
     assert "free cash flow" not in vd["shareholder_returns"].lower()
 
@@ -776,7 +776,7 @@ def test_apply_structured_fallbacks_returns_read_authors_for_banks():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
 
     assert sections["value_drivers"]["returns_on_capital"] == (
-        "Period net income / period-end equity, not annualized: 17.2% (prior 15.8%); "
+        "Period net income / period-end equity, not annualized: 17.2% (prior at FY2024: 15.8%); "
         "period net income / period-end assets, not annualized: 1.4%."
     )
 

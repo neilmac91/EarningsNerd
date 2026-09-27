@@ -112,7 +112,11 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   equity-or-assets formulas in both generator grounding and deterministic rendering, rather than
 #   reusing issuer-facing ROE/ROA names for a different basis. Taxonomy remains v2. The stamp marks
 #   older rows stale without scheduling regeneration or historical replay.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-q"
+# summary-2026-09-r: date each admitted prior return-ratio point in deterministic rendering so a
+#   sequential comparison cannot silently read as YoY. This is a new candidate identity because q
+#   has completed semantic measurement; its evidence remains immutable and cannot cover new bytes.
+#   Taxonomy remains v2. No regeneration or historical replay is scheduled by this stamp alone.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-r"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

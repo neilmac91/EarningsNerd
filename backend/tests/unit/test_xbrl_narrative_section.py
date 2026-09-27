@@ -300,12 +300,47 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
     assert "period net income / period-end assets, not annualized" in text.lower()
     assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
     assert "quarter" not in text.lower() and "average" not in text.lower()
+    if surface == "grounding":
+        assert "prior: 22.4% (2025-04-27)" in text
+    else:
+        assert "(prior at 2025-04-27: 22.4%)" in text
+
+    # Both surfaces use the shared canonical period, not the padded raw spelling.
+    metrics["return_on_equity"]["prior"]["period"] = " 2025-04-27 "
+    if surface == "grounding":
+        text = build_xbrl_narrative_section(metrics)
+        assert "prior: 22.4% (2025-04-27)" in text
+    else:
+        sections = {}
+        openai_service._apply_structured_fallbacks(sections, {}, metrics)
+        text = sections["value_drivers"]["returns_on_capital"]
+        assert "(prior at 2025-04-27: 22.4%)" in text
+    assert " 2025-04-27 " not in text
+
+    # A numeric prior without an actual usable period is not an honest comparator. Both model-
+    # facing surfaces abstain rather than reopening the ambiguous bare-"prior" FIGS defect.
+    for unavailable_period in (None, "", " N/A ", 20250427):
+        metrics["return_on_equity"]["prior"]["period"] = unavailable_period
+        if surface == "grounding":
+            text = build_xbrl_narrative_section(metrics)
+        else:
+            sections = {}
+            openai_service._apply_structured_fallbacks(sections, {}, metrics)
+            text = sections["value_drivers"]["returns_on_capital"]
+        assert "22.4%" not in text
 
 
 @pytest.mark.asyncio
 async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
-    """JPM reports named ROE/ROA on average balances; these selected ratios use period-end bases."""
+    """Real issuer ROE/ROA text coexists unchanged with the differently-based derived ratios."""
     from app.services.openai_service import openai_service
+
+    # Retained JPM table wording with extraction whitespace/NBSPs normalized for this unit fixture.
+    issuer_ratio_excerpt = (
+        "Selected ratios and metrics\n"
+        "Return on common equity (\u201cROE\u201d) 17% 18% 17%\n"
+        "Return on assets (\u201cROA\u201d) 1.29% 1.43% 1.30%"
+    )
 
     metrics = {
         "net_interest_income": {"current": {"value": 95_443_000_000}},
@@ -325,7 +360,7 @@ async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
     captured: dict = {}
 
     monkeypatch.setattr(openai_service, "_parse_and_clean_text", lambda *_args: {
-        "filing_sample": "Retained JPM filing excerpt.",
+        "filing_sample": issuer_ratio_excerpt,
         "financial_data": {
             "revenue": [], "net_income": [], "cash_flow": [], "segments": [], "guidance": [],
         },
@@ -342,17 +377,23 @@ async def test_jpm_derived_returns_do_not_take_issuer_ratio_names(monkeypatch):
     monkeypatch.setattr(openai_service, "_request_content", capture_request)
     monkeypatch.setattr(openai_service, "_assemble_structured_summary", finish_without_recovery)
     await openai_service.generate_structured_summary(
-        "Retained JPM filing excerpt.", "JPMorgan Chase", "10-K", metrics,
-        filing_excerpt="Retained JPM filing excerpt.",
+        issuer_ratio_excerpt, "JPMorgan Chase", "10-K", metrics,
+        filing_excerpt=issuer_ratio_excerpt,
     )
     prompt = captured["messages"][1]["content"]
 
     for text in (rendered, grounding, prompt):
         assert "period net income / period-end equity, not annualized: 15.7%" in text.lower()
         assert "period net income / period-end assets, not annualized: 1.3%" in text.lower()
+    for text in (rendered, grounding):
         assert "Return on Equity" not in text and "Return on Assets" not in text
-    assert "ROE" not in prompt and "ROA" not in prompt
-    assert "prior 17.0%" in rendered and "prior 1.5%" in rendered
+    # The source's real issuer-defined ratios remain present verbatim beside the formula-qualified
+    # code-owned ratios; the generator must not erase one merely to avoid a naming collision.
+    assert issuer_ratio_excerpt in prompt
+    assert "Return on common equity (\u201cROE\u201d) 17% 18% 17%" in prompt
+    assert "Return on assets (\u201cROA\u201d) 1.29% 1.43% 1.30%" in prompt
+    assert "prior at 2024-12-31: 17.0%" in rendered
+    assert "prior at 2024-12-31: 1.5%" in rendered
 
 
 @pytest.mark.parametrize("surface", ["grounding", "web", "markdown", "pdf", "csv"])

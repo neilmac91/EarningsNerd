@@ -17,7 +17,12 @@ from app.services.ai.cash_claims import cash_conversion_basis, conventional_cash
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
-from app.services.ai.xbrl_narrative import cash_flow_basis, return_ratio_basis, returns_ratio_in_band
+from app.services.ai.xbrl_narrative import (
+    cash_flow_basis,
+    return_ratio_basis,
+    return_ratio_period,
+    returns_ratio_in_band,
+)
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -566,8 +571,12 @@ class _MarkdownRenderMixin:
             clause = f"{return_ratio_basis(key)}: {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
-            if returns_ratio_in_band(prior_value):
-                clause += f" (prior {prior_value:.1f}%)"
+            prior_period = return_ratio_period(prior)
+            if returns_ratio_in_band(prior_value) and prior_period is not None:
+                # Comparative selection remains the extractor's existing immediately-prior point.
+                # Name that point's actual date so a sequential instant cannot silently read as the
+                # filing's otherwise-prevailing YoY comparison (observed on FIGS Q2 2026).
+                clause += f" (prior at {prior_period}: {prior_value:.1f}%)"
             return clause
 
         ratio_clauses = [c for c in (_ratio_clause("return_on_equity", roe),
