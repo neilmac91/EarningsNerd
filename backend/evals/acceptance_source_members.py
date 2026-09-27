@@ -240,8 +240,8 @@ def _header_cik(submission: bytes, expected: Any) -> str:
         raise ValueError("frozen submission has no unambiguous SEC-HEADER before its documents")
     header = submission[header_start + len(b"<SEC-HEADER>"):header_end]
     matches = re.findall(rb"(?:^\s*CENTRAL INDEX KEY:\s*|<CIK>)([0-9]+)", header, re.MULTILINE)
-    normalized = {str(int(value)) for value in matches}
-    if normalized != {cik}:
+    header_ciks = {str(int(value)) for value in matches}
+    if cik not in header_ciks:
         raise ValueError("trusted filing CIK does not match the frozen submission header")
     return cik
 
