@@ -31,7 +31,7 @@ function view(authenticated = false, pro = false, tier: string | undefined = und
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   clients.push(client)
   return <QueryClientProvider client={client}>
-    <SummaryDisplay filing={selected} summary={{ id: 91, filing_id: selected.id, business_overview: 'The selected filing narrative.', raw_summary: { quality: { tier } } }}
+    <SummaryDisplay filing={selected} summary={{ id: 91, filing_id: selected.id, business_overview: '## Legacy Overview\n\nThe selected filing narrative.\n\n## Risks\n\nA source-owned excerpt.', rendered_sections: [], raw_summary: { quality: { tier } } }}
       isAuthenticated={authenticated} isPro={pro} isSaved={false}
       saveMutation={{ mutate: actions.save, isPending: false }} onAsk={vi.fn()} />
   </QueryClientProvider>
@@ -67,6 +67,7 @@ describe('canonical filing link action', () => {
     expect(write).toHaveBeenCalledExactlyOnceWith(canonical)
     expect(posthog.capture).toHaveBeenCalledExactlyOnceWith('filing_link_copied', { filing_id: 42 })
     expect(screen.getByText('The selected filing narrative.')).toBeInTheDocument()
+    expect(screen.getByText('A source-owned excerpt.')).toBeInTheDocument()
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
     expect(!!screen.queryByRole('button', { name: 'Save Summary' })).toBe(authenticated)

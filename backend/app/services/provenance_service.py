@@ -282,7 +282,12 @@ def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
     )
 
 
-def replace_business_overview_risks(business_overview: Any, projected: Optional[dict]) -> str:
+def replace_business_overview_risks(
+    business_overview: Any,
+    projected: Optional[dict],
+    *,
+    append_if_missing: bool = False,
+) -> str:
     """Replace only the Risks markdown while preserving every other notice and section."""
     rendered = render_sections(projected)
     stored = str(business_overview or "")
@@ -306,7 +311,11 @@ def replace_business_overview_risks(business_overview: Any, projected: Optional[
         return re.sub(pattern, _replace, stored)
     if stored:
         # A legacy/custom overview without a recognized Risks section has no unsafe risk block to
-        # replace. Preserve it byte-for-byte; structured surfaces carry the honest availability note.
+        # replace. Only compatibility rows that actually carried a risk list append the source-owned
+        # replacement; current/custom summaries remain byte-identical.
+        if append_if_missing:
+            separator = "" if stored.endswith("\n\n") else "\n\n"
+            return stored + separator + risk_markdown
         return stored
     return sections_to_markdown(rendered)
 
@@ -314,7 +323,18 @@ def replace_business_overview_risks(business_overview: Any, projected: Optional[
 def source_safe_business_overview(summary: Any, filing: Any) -> str:
     """Render cached/final markdown from the source-owned projection, including legacy rows."""
     projected = project_summary_risks(summary, filing)
-    return replace_business_overview_risks(getattr(summary, "business_overview", None), projected)
+    raw_summary = getattr(summary, "raw_summary", None)
+    has_sections = isinstance(raw_summary, dict) and isinstance(raw_summary.get("sections"), dict)
+    compatibility_risks = getattr(summary, "risk_factors", None)
+    return replace_business_overview_risks(
+        getattr(summary, "business_overview", None),
+        projected,
+        append_if_missing=(
+            not has_sections
+            and isinstance(compatibility_risks, list)
+            and bool(compatibility_risks)
+        ),
+    )
 
 
 def normalize_for_match(text: Optional[str]) -> str:
@@ -696,6 +716,10 @@ def enrich_summary_provenance(
     """
     raw_source = _select_source_text(filing) if filing is not None else None
     normalized_source = normalize_for_match(raw_source)
+    stored_raw = getattr(summary, "raw_summary", None)
+    has_stored_sections = isinstance(stored_raw, dict) and isinstance(
+        stored_raw.get("sections"), dict
+    )
     projected_raw = project_summary_risks(summary, filing)
     enriched_raw = enrich_raw_summary(
         projected_raw,
@@ -736,7 +760,10 @@ def enrich_summary_provenance(
         # The one structured projection the web renders (T2.3): computed on read from the ENRICHED
         # raw_summary, so its metrics rows carry the verified deltas + provenance. Same Section/Block
         # model feeds the PDF/CSV exports — one source of truth for web + exports.
-        "rendered_sections": render_sections_json(enriched_raw),
+        # Compatibility-only legacy rows must keep the complete stored markdown surface. A
+        # synthesized Risks-only container is useful to project safe excerpts into that markdown,
+        # but must not make the web replace every other legacy section with one structured card.
+        "rendered_sections": render_sections_json(enriched_raw) if has_stored_sections else [],
         # Version stamps pass through so the client can tell a stale (NULL/behind) summary from a
         # current one; enrichment never regenerates, so the stamps reflect the stored row.
         "schema_version": getattr(summary, "schema_version", None),
