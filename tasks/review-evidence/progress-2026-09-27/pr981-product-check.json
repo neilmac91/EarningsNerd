@@ -1,0 +1,24 @@
+{
+  "checked_at": "2026-09-27T20:48:10.909001+00:00",
+  "filing_id": 3,
+  "ticker": "AAPL",
+  "form": "10-K",
+  "filing_date": "2025-10-31",
+  "backend_revision": "earningsnerd-backend-00402-tj6",
+  "authenticated_view": {
+    "verified_excerpt_count": 4,
+    "neutral_labels": true,
+    "incomplete_inventory_notice": true
+  },
+  "csv": {
+    "bytes": 10149,
+    "sha256": "44afdf1007b02e6b9ac2e898dee96166648aa748013828d1dce01f992a4b19a6",
+    "verified_excerpt_count": 4,
+    "incomplete_inventory_notice": true
+  },
+  "limitations": [
+    "Cached filing only; no new generation or full-summary semantic acceptance.",
+    "Initial server-rendered legacy data without projection still uses a speculative company-format empty-state explanation; hydrated view is correct. Follow-up UI correction required.",
+    "Browser download event timed out, but the fresh local CSV was found and its Risks rows read directly."
+  ]
+}

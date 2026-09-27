@@ -1,0 +1,654 @@
+{
+  "schema_version": 1,
+  "head": "fdbbb0e1c786b3e132f5724b523da7e9db670681",
+  "report_sha256": "447f333d311c3693258363b09e6cc45026bff78720eb8e1a822a1c182112d736",
+  "outputs": 70,
+  "totals": {
+    "verified_count": 271,
+    "withheld_count": 27,
+    "candidate_count": 298
+  },
+  "source_available": {
+    "true": 70
+  },
+  "outputs_with_verified": 70,
+  "outputs_with_withheld": 24,
+  "outputs_with_zero_candidates": 0,
+  "all_withheld_count": 0,
+  "all_withheld_cases": [],
+  "cases": [
+    {
+      "ticker": "ASML",
+      "filing_type": "6-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "ASML",
+      "filing_type": "6-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "SE",
+      "filing_type": "6-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "SE",
+      "filing_type": "6-K",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PDD",
+      "filing_type": "6-K",
+      "run": 0,
+      "verified_count": 2,
+      "withheld_count": 1,
+      "candidate_count": 3,
+      "source_available": true
+    },
+    {
+      "ticker": "PDD",
+      "filing_type": "6-K",
+      "run": 1,
+      "verified_count": 2,
+      "withheld_count": 1,
+      "candidate_count": 3,
+      "source_available": true
+    },
+    {
+      "ticker": "PLD",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PLD",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NEE",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NEE",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PGR",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "PGR",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "FIGS",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "FIGS",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 0,
+      "candidate_count": 3,
+      "source_available": true
+    },
+    {
+      "ticker": "GPRO",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "GPRO",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 2,
+      "withheld_count": 2,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "MSFT",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 2,
+      "withheld_count": 2,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "MSFT",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NVDA",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NVDA",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "JPM",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "JPM",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "KO",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "KO",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "TSLA",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "TSLA",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "AMZN",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "AMZN",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "BRK.B",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "BRK.B",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "XOM",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "XOM",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PFE",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PFE",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "F",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "F",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "WMT",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "WMT",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "COST",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "COST",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "BA",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "BA",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "INTC",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "INTC",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PLTR",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "PLTR",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "RIVN",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "COIN",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "COIN",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "BYND",
+      "filing_type": "10-Q",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "BYND",
+      "filing_type": "10-Q",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "BABA",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "BABA",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "ASML",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "ASML",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 2,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "TSM",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "TSM",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "JD",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "JD",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "SE",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "SE",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NVO",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 4,
+      "withheld_count": 0,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "NVO",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 3,
+      "withheld_count": 0,
+      "candidate_count": 3,
+      "source_available": true
+    },
+    {
+      "ticker": "PDD",
+      "filing_type": "20-F",
+      "run": 0,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "PDD",
+      "filing_type": "20-F",
+      "run": 1,
+      "verified_count": 5,
+      "withheld_count": 0,
+      "candidate_count": 5,
+      "source_available": true
+    },
+    {
+      "ticker": "MELI",
+      "filing_type": "10-K",
+      "run": 0,
+      "verified_count": 3,
+      "withheld_count": 1,
+      "candidate_count": 4,
+      "source_available": true
+    },
+    {
+      "ticker": "MELI",
+      "filing_type": "10-K",
+      "run": 1,
+      "verified_count": 4,
+      "withheld_count": 1,
+      "candidate_count": 5,
+      "source_available": true
+    }
+  ],
+  "limits": [
+    "Counts only; no semantic-quality inference."
+  ]
+}

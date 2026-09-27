@@ -1,0 +1,61 @@
+{
+  "verified_at": "2026-09-27T21:02:18.642206+00:00",
+  "pr": 987,
+  "head": "333b2695f29932554c47b5c10e660e9dc84aae2a",
+  "merge": "3178b1b91d3a83a0da3496c764c701abb91ab6cd",
+  "main_ci": 36349897339,
+  "conclusion": "success",
+  "vercel": "success",
+  "production_ui": {
+    "legacy_notice_correct": true,
+    "hydrated_four_verified_excerpts": true
+  },
+  "backend_deployment_steps": [
+    {
+      "Set up job": "success"
+    },
+    {
+      "Run actions/checkout@v7": "success"
+    },
+    {
+      "Load AI model configuration": "success"
+    },
+    {
+      "Detect backend changes": "success"
+    },
+    {
+      "Authenticate to Google Cloud": "skipped"
+    },
+    {
+      "Set up gcloud": "skipped"
+    },
+    {
+      "Build and push image": "skipped"
+    },
+    {
+      "Apply database migrations": "skipped"
+    },
+    {
+      "Deploy Cloud Run service": "skipped"
+    },
+    {
+      "Update pregenerate job image": "skipped"
+    },
+    {
+      "Update filing-scan + digest + backfill-facts + earnings-calendar job images": "skipped"
+    },
+    {
+      "Verify health": "skipped"
+    },
+    {
+      "Post Run actions/checkout@v7": "success"
+    },
+    {
+      "Complete job": "success"
+    }
+  ],
+  "backend_revision_changed": false,
+  "local_tests": 641,
+  "actual_review_comment": 5859737101,
+  "source_acceptance_claim": false
+}

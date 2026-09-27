@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "head": "fdbbb0e1c786b3e132f5724b523da7e9db670681",
+  "tree": "0356edc4e7feed53a40c21902230c6158e0e678c",
+  "status": "artifact_accounting_clear_actual_review_clear",
+  "workflow_runs": {
+    "ci": 36347640867,
+    "copilot": 36347640993,
+    "review": 36347639970
+  },
+  "workflow_conclusions": {
+    "ci": "success",
+    "copilot": "success",
+    "review": "success"
+  },
+  "identities": {
+    "ci_expected": 70,
+    "ci_observed_unique": 70,
+    "ci_exact": true,
+    "copilot_expected": 18,
+    "copilot_observed_unique": 18,
+    "copilot_exact": true
+  },
+  "physical_calls": {
+    "ci": 70,
+    "copilot": 35,
+    "total": 105
+  },
+  "models": {
+    "ci": {
+      "deepseek-flash": 70
+    },
+    "copilot": {
+      "deepseek-flash": 35
+    }
+  },
+  "outcomes": {
+    "ci": {
+      "success": 70
+    },
+    "copilot": {
+      "success": 35
+    },
+    "ci_retries": 0,
+    "ci_output_errors": 0,
+    "copilot_output_errors": 0
+  },
+  "cost_usd": {
+    "ci_estimated_known": 0.176147,
+    "copilot_estimated_known": 0.00758,
+    "total_estimated_known": 0.183727,
+    "billed_actual": null
+  },
+  "risk_projection_counts": {
+    "outputs": 70,
+    "totals": {
+      "verified_count": 271,
+      "withheld_count": 27,
+      "candidate_count": 298
+    },
+    "source_available": {
+      "true": 70
+    },
+    "outputs_with_verified": 70,
+    "outputs_with_withheld": 24,
+    "outputs_with_zero_candidates": 0,
+    "all_withheld_count": 0,
+    "all_withheld_cases": []
+  },
+  "source_preparation": {
+    "artifact_checks": 24,
+    "artifact_mismatches": [],
+    "database_sha256": "89ce8712b5815aeb3eb660ce65307b95fa3366e12efdc11f6587f4461148c1c6",
+    "errors": [],
+    "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+    "sources": 6,
+    "status": "complete"
+  },
+  "synthetic_merge": {
+    "schema_version": 1,
+    "expected_head": "fdbbb0e1c786b3e132f5724b523da7e9db670681",
+    "head_tree": "0356edc4e7feed53a40c21902230c6158e0e678c",
+    "synthetic_merge_sha": "725a6198bf8b32717d8f6e640befad9d440840eb",
+    "synthetic_merge_tree": "be8f3289f5ea4b436b2e38f43399d5afd6650bba",
+    "synthetic_merge_parents": [
+      "e3fce73a43cba9145b8462c9e56b8c1b9c145306",
+      "fdbbb0e1c786b3e132f5724b523da7e9db670681"
+    ],
+    "full_tree_equal": false,
+    "reason_full_tree_differs": "main advanced by three independently merged commits after the PR branch base",
+    "base_advance_from": "9cb097365baf60815800b06379f0749205538075",
+    "base_advance_to": "e3fce73a43cba9145b8462c9e56b8c1b9c145306",
+    "base_advance_commits": 3,
+    "base_advance_files": [
+      ".github/workflows/monthly-sql-export.yml",
+      "backend/evals/acceptance_source_members.py",
+      "backend/tests/unit/test_acceptance_source_members.py",
+      "backend/tests/unit/test_scheduled_workflows_fail_loud.py",
+      "docs/DEPLOYMENT.md",
+      "docs/OPERATIONS.md",
+      "tasks/continuation-plan-2026-09-26.md",
+      "tasks/review-evidence/progress-2026-09-27/README.md",
+      "tasks/review-evidence/progress-2026-09-27/analysis-ratio-measurement.json",
+      "tasks/review-evidence/progress-2026-09-27/deletion-protection-outcome.json",
+      "tasks/review-evidence/progress-2026-09-27/h01-native-inspection.md",
+      "tasks/review-evidence/progress-2026-09-27/logical-export-outcome.json",
+      "tasks/review-evidence/progress-2026-09-27/pr977-release.json",
+      "tasks/review-evidence/progress-2026-09-27/recovery-outcome.json"
+    ],
+    "pr_changed_file_count": 28,
+    "pr_changed_blob_mismatches": [],
+    "pr_changed_blobs_equal": true
+  },
+  "actual_review": {
+    "request_comment": 5859492993,
+    "clear_comment": 5859536876,
+    "reviewed_commit": "fdbbb0e1c7",
+    "result": "no major issues",
+    "new_inline_findings": 0
+  },
+  "superseded_hosted_known_estimates_usd": {
+    "c343d032": 0.184203,
+    "68bb1ba4": 0.185818,
+    "f272d8a1": 0.183556,
+    "53ab00ad": 0.185473,
+    "aed3ae95": 0.180946
+  },
+  "superseded_total_estimated_known_usd": 0.919996,
+  "limits": [
+    "Application telemetry estimate is not a provider invoice; billed actual is unknown.",
+    "Risk projection counts are mechanical and imply no semantic-quality, Fable, E7, or adoption verdict.",
+    "The full synthetic merge tree differs only because main advanced; every PR-changed blob matches the synthetic merge."
+  ]
+}
