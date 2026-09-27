@@ -1,0 +1,23 @@
+{
+  "code_commit": "1604f0ff97bbfa5af40b6fe63b9ee701fe823457",
+  "base": "24d1ca5cd46c29224840c95c9f6ee0e6489e7b8e",
+  "ruff": "pass",
+  "bandit": "pass",
+  "full_pytest": "3730 passed, 40 warnings in 164.50s",
+  "postgres_lanes": [
+    "stripe",
+    "usage",
+    "login",
+    "delivery"
+  ],
+  "performance_included": true,
+  "exit_code": 0,
+  "full_log_sha256": "de4462005c217a2faa0c958242f3a8ef3f0b8f8983b98e5414a43605485745db",
+  "known_post_test_diagnostic": "Existing Yahoo client atexit logging on closed stream after successful pytest; not a test failure.",
+  "review_lenses": [
+    "correctness",
+    "rules-and-brief",
+    "tests-and-gates"
+  ],
+  "locked_tests": "No locked file changed; only test_acceptance_ai_protocol.py and test_acceptance_ai_decision_integration.py changed."
+}

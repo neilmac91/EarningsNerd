@@ -1,0 +1,69 @@
+{
+  "kind": "adverse_original_artifact_pairing_verification",
+  "schema_version": 1,
+  "repository": {
+    "checkout": "/private/tmp/earningsnerd-pr948-review",
+    "head": "1bc5a9f921adc599eb578b0a10d4108d488bb1b5",
+    "parent": "e9efafa1ca43ec0523174c3872b0181711ad6e4f",
+    "head_commit_diff_sha256": "cb6911daaf260e35d505671c75626c40958a17c769895bd550063140cb8dc991",
+    "working_tree_clean_after_verification": true,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finding_evaluation": {
+    "finding_stands": true,
+    "historical_path_refutation": "Historical directories are labels and need not be dereferenced, so directory relocation remains allowed.",
+    "custody_consistency": "Each structured path and SHA-256 tuple identifies one artifact. Hash-multiset validation alone allowed false leaf-label permutation, while the actual H29 historical paths and bound row copies have matching leaf filenames.",
+    "implemented_rule": "The three required addendum original_artifacts must exactly match the corresponding draft, narrative, and read-log row artifacts by leaf filename plus SHA-256. Historical parent directories may differ."
+  },
+  "changed_files": {
+    "backend/evals/acceptance_ai_adverse.py": "5b5dae3d5b20e84dc967d86f71f054c3fc39ceff0e01d70395146733b490625f",
+    "backend/evals/source-review-adverse-evidence.md": "5464b570e680af0db722738b778759e1f6a28cbe956aa2e0c020d18f8d47baa6",
+    "backend/tests/unit/test_acceptance_ai_protocol.py": "e00ba40b269cba97ee82b5d42a28ef31881c3d4e9e94bbbe5f760e06cea148f3"
+  },
+  "focused_restored": {
+    "result": "14 passed, 2 warnings in 25.79s",
+    "log": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/adverse-pair-fix/focused-restored.log",
+    "sha256": "f1cb3894f74dc5b46f860b59b3f870613c47da23c8f05f9bd4bab61a4e3df5c4"
+  },
+  "single_predicate_bypass_proof": {
+    "mutation": "Replace leaf-filename-plus-hash equality with the former hash-only equality predicate.",
+    "expected_result": "The coherent swapped-path negative case is accepted and its assertion fails.",
+    "observed_result": "1 failed, 2 warnings; assertion expected ai_adverse_source_invalid but validation returned no issue.",
+    "restored_after_proof": true,
+    "log": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/adverse-pair-fix/mutation-bypass-pairing.log",
+    "sha256": "0f09502a0560c7a970732304d084abb669f75262f22e4872c71093b479e4f4e5"
+  },
+  "full_backend_gate": {
+    "command": "bash /private/tmp/earningsnerd-e7-adverse-gate.sh",
+    "result": "passed",
+    "ruff": "All checks passed!",
+    "pytest": "3730 passed, 40 warnings in 150.83s (0:02:30)",
+    "note": "A harmless post-summary logging error occurred after pytest completed while the Yahoo client close hook wrote to a closed captured stream.",
+    "log": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/adverse-pair-fix/full-backend-gate.log",
+    "sha256": "57cd47b45d4a4f98d81140c7db59c5ed9c1b6aa4ff7ad45effafa079f8b8cbb1"
+  },
+  "h29_integration_pair_fix": {
+    "preserved_prior_evidence": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/h29-single-context-retry/integration-final",
+    "directory": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/h29-single-context-retry/integration-pair-fix",
+    "harness_sha256": "b353ec2efead0fd4d086fb1873155a45fcf48038bfe3e430c978aed5b42a9bd0",
+    "receipt_sha256": "fd4cb8d0e230419ce7227dd581ead95cefd2376356452fd2cc112381324270e1",
+    "inventory_sha256": "ac4627f865ad65fff58833cac617f6d8026604df7e0e7bbcbc84745161c161c3",
+    "prerequisites_sha256": "f6391566d63652dc6eced10d8b8af45383725472a27c28290baa0b50d8b6e454",
+    "deterministic_rebuild": true,
+    "run_1_sha256": "fd4cb8d0e230419ce7227dd581ead95cefd2376356452fd2cc112381324270e1",
+    "run_2_sha256": "fd4cb8d0e230419ce7227dd581ead95cefd2376356452fd2cc112381324270e1",
+    "protocol_issues": [],
+    "actual_h29_unchanged_labels_pass": true,
+    "adverse_artifact_count": 9,
+    "current_disposition_count": 25,
+    "adverse_disposition_count": 15,
+    "exact_projection_count": 40,
+    "excluded_source_context_count": 4,
+    "programme_admission_authorized": false,
+    "provider_calls": 0,
+    "limitation": "This is a one-accession integration fixture with no dispatch approval. It does not establish 30-filing programme readiness, external exposure completeness, budget readiness, blind packets, challenge responses, or a final E7 decision."
+  },
+  "provider_calls": 0,
+  "source_reviews_run": 0,
+  "pushed": false
+}

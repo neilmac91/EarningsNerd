@@ -97,30 +97,239 @@ def _validate(prereq: dict, path: Path, accession: str,
     return validate_ai_prerequisites(prereq, path.parent, [accession], sources, now)
 
 
+def _add_adverse_evidence(
+    tmp_path: Path, prereq: dict, accession: str, sources: dict[str, dict[str, str]],
+    *, reconciliation_context: str = "ctx-source_reconciliation",
+    reconciled_issue_id: str = "revenue",
+) -> dict:
+    packets = [{"role": role, "sha256": sha} for role, sha in sources[accession].items()]
+    issues = [{
+        "issue_id": f"retired-{index}", "issue": f"Retired issue {index}",
+        "source_role": "primary", "source_sha256": sources[accession]["primary"],
+        "source_locator": f"Item 7, paragraph {index}",
+        "amounts_and_bases": "USD million, FY2026", "qualifiers": "reported basis",
+        "importance": "material trend", "disclosure_limits": "reported only",
+    } for index in range(15)]
+    retired_prompt_path = tmp_path / "retired-prompt.md"
+    retired_prompt_path.write_text("Retired source review prompt", encoding="utf-8")
+    retired_prompt = {"path": retired_prompt_path.name,
+                      "sha256": hashlib.sha256(retired_prompt_path.read_bytes()).hexdigest()}
+    narrative_path = tmp_path / "retired.md"
+    narrative_path.write_text("Retired source review narrative", encoding="utf-8")
+    narrative = {"path": narrative_path.name,
+                 "sha256": hashlib.sha256(narrative_path.read_bytes()).hexdigest()}
+    draft = _write(tmp_path / "retired.json", {
+        "accession_number": accession, "source_packets": packets, "coverage_status": "complete",
+        "context_window_truncated": True, "coverage_limits": "compacted", "material_issues": issues})
+    read_log = _write(tmp_path / "retired-read-log.json", {
+        "accession_number": accession, "reviewer_role": "source_reference_b",
+        "coverage_status": "complete", "observed_context_window_truncated": True,
+        "context_compaction_observed": True, "source_packets": packets})
+    addendum = _write(tmp_path / "retired-addendum.json", {
+        "accession_number": accession, "reviewer_role": "source_reference_b",
+        "observed_compaction": {"occurred": True},
+        "original_artifacts": [draft, narrative, read_log],
+        "custodian_disposition": {"coverage_status": "partial", "eligibility": "ineligible"}})
+    decision = _write(tmp_path / "retired-decision.json", {
+        "accession_number": accession, "reference_b": {
+            "context_id": "ctx-retired-source-b", "draft_sha256": draft["sha256"],
+            "read_log_sha256": read_log["sha256"], "material_issue_count": len(issues),
+            "context_compaction_observed": True,
+            "custodian_coverage_disposition": "partial_ineligible",
+            "individual_evidence_frozen": False}})
+    prompt_path = tmp_path / "reconciliation-prompt.md"
+    prompt_path.write_text(
+        f"Bind {draft['sha256']} and {addendum['sha256']}; write a separate "
+        f"adverse-dispositions.json with exactly {len(issues)} rows.", encoding="utf-8")
+    reconciliation_prompt = {
+        "path": prompt_path.name, "sha256": hashlib.sha256(prompt_path.read_bytes()).hexdigest()}
+    current_hashes = {row["role"]: row["sha256"] for row in prereq["ai_assisted"]["source_briefs"]
+                      if row["accession_number"] == accession}
+    protocol = json.loads((tmp_path / prereq["ai_assisted"]["protocol"]["path"]).read_text())
+    protocol_prompt_sha256 = next(
+        role["prompt"]["sha256"] for role in protocol["roles"]
+        if role["role"] == "source_reconciliation")
+    reservation = _write(tmp_path / "reconciliation-reservation.json", {
+        "requested_context_name": reconciliation_context,
+        "prompt_sha256": reconciliation_prompt["sha256"],
+        "protocol_prompt_sha256": protocol_prompt_sha256,
+        "a_sha256": current_hashes["source_reference_a"],
+        "b_sha256": current_hashes["source_reference_b"], "candidate_inputs": [],
+        "admission_approved": False})
+    dispositions = [{
+        "source_context_id": "ctx-retired-source-b", "source_issue_id": item["issue_id"],
+        "status": "supported", "reason": "Checked against source",
+        "source_role": item["source_role"], "source_sha256": item["source_sha256"],
+        "source_locator": item["source_locator"], "reconciled_issue_id": reconciled_issue_id,
+    } for item in issues]
+    ledger = _write(tmp_path / "adverse-dispositions.json", {
+        "accession_number": accession, "source_context_id": "ctx-retired-source-b",
+        "eligibility": "ineligible_due_to_observed_context_compaction",
+        "original_draft_sha256": draft["sha256"],
+        "status_addendum_sha256": addendum["sha256"], "adverse_dispositions": dispositions})
+    row = {
+        "accession_number": accession, "role": "source_reference_b",
+        "context_id": "ctx-retired-source-b",
+        "reconciliation_context_id": reconciliation_context,
+        "terminal_status": "compacted_ineligible", "retired_prompt": retired_prompt,
+        "draft": draft, "narrative": narrative, "read_log": read_log,
+        "status_addendum": addendum, "custody_decision": decision,
+        "reconciliation_prompt": reconciliation_prompt, "operator_reservation": reservation,
+        "adverse_dispositions": ledger,
+    }
+    prereq["ai_assisted"]["adverse_source_evidence"] = [row]
+    return row
+
+
 def test_ai_source_evidence_keeps_unknown_exposure_visible_and_is_sealed(tmp_path: Path) -> None:
     prereq, path, accession, sources, now = _fixture(tmp_path)
+    nested_record = prereq["ai_assisted"]["source_briefs"][0]
+    original_brief_path = tmp_path / nested_record["path"]
+    nested_brief = json.loads(original_brief_path.read_text())
+    original_receipt_path = tmp_path / nested_brief["context_evidence"]["path"]
+    nested_dir = tmp_path / "nested-a"
+    nested_dir.mkdir()
+    nested_brief_path = nested_dir / original_brief_path.name
+    nested_receipt_path = nested_dir / original_receipt_path.name
+    nested_brief_path.write_bytes(original_brief_path.read_bytes())
+    nested_receipt_path.write_bytes(original_receipt_path.read_bytes())
+    original_brief_path.unlink()
+    original_receipt_path.unlink()
+    nested_record["path"] = str(nested_brief_path.relative_to(tmp_path))
     issues, freezes, status, limitations = _validate(prereq, path, accession, sources, now)
     assert issues == []
     assert accession in freezes
     assert status == "no_known_candidate_exposure_external_unknown"
     assert any("unknown" in text for text in limitations)
+    original_receipt_path.write_text("{}", encoding="utf-8")
+    assert "ai_brief_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    original_receipt_path.unlink()
+    receipt_bytes = nested_receipt_path.read_bytes()
+    original_receipt_path.write_bytes(receipt_bytes)
+    nested_receipt_path.write_text("{}", encoding="utf-8")
+    assert "ai_brief_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    nested_receipt_path.write_bytes(receipt_bytes)
+    original_receipt_path.unlink()
     inventory = ai_review_evidence_inventory(path, prereq)
+    assert inventory["source_briefs"][0]["context_evidence"]["resolved_path"] == str(
+        nested_receipt_path.resolve())
     assert len(inventory["source_briefs"]) == 2
+    assert "adverse_source_evidence" not in inventory
+    ordinary_inventory = inventory
+
+    adverse = _add_adverse_evidence(tmp_path, prereq, accession, sources)
+    path.write_text(json.dumps(prereq), encoding="utf-8")
+    assert _validate(prereq, path, accession, sources, now)[0] == []
+    addendum_path = tmp_path / adverse["status_addendum"]["path"]
+    prompt_path = tmp_path / adverse["reconciliation_prompt"]["path"]
+    reservation_path = tmp_path / adverse["operator_reservation"]["path"]
+    ledger_path = tmp_path / adverse["adverse_dispositions"]["path"]
+    original_addendum = json.loads(addendum_path.read_text())
+    original_prompt = prompt_path.read_text()
+    original_reservation = json.loads(reservation_path.read_text())
+    original_ledger = json.loads(ledger_path.read_text())
+    old_addendum_sha = adverse["status_addendum"]["sha256"]
+    addendum = json.loads(json.dumps(original_addendum))
+    addendum["original_artifacts"].append({"path": "undeclared-fourth.txt", "sha256": "d" * 64})
+    adverse["status_addendum"].update(_write(addendum_path, addendum))
+    prompt_path.write_text(
+        original_prompt.replace(old_addendum_sha, adverse["status_addendum"]["sha256"]),
+        encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    reservation = {**original_reservation,
+                   "prompt_sha256": adverse["reconciliation_prompt"]["sha256"]}
+    adverse["operator_reservation"].update(_write(reservation_path, reservation))
+    ledger = {**original_ledger,
+              "status_addendum_sha256": adverse["status_addendum"]["sha256"]}
+    adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+    assert "ai_adverse_source_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    adverse["status_addendum"].update(_write(addendum_path, original_addendum))
+    prompt_path.write_text(original_prompt, encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    adverse["operator_reservation"].update(_write(reservation_path, original_reservation))
+    adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+    addendum = json.loads(json.dumps(original_addendum))
+    addendum["original_artifacts"][0]["path"], addendum["original_artifacts"][1]["path"] = (
+        addendum["original_artifacts"][1]["path"], addendum["original_artifacts"][0]["path"])
+    adverse["status_addendum"].update(_write(addendum_path, addendum))
+    prompt_path.write_text(
+        original_prompt.replace(old_addendum_sha, adverse["status_addendum"]["sha256"]),
+        encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    reservation = {**original_reservation,
+                   "prompt_sha256": adverse["reconciliation_prompt"]["sha256"]}
+    adverse["operator_reservation"].update(_write(reservation_path, reservation))
+    ledger = {**original_ledger,
+              "status_addendum_sha256": adverse["status_addendum"]["sha256"]}
+    adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+    assert "ai_adverse_source_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    adverse["status_addendum"].update(_write(addendum_path, original_addendum))
+    prompt_path.write_text(original_prompt, encoding="utf-8")
+    adverse["reconciliation_prompt"]["sha256"] = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    adverse["operator_reservation"].update(_write(reservation_path, original_reservation))
+    adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+    alternate_ledger = json.loads(json.dumps(original_ledger))
+    alternate_ledger["adverse_dispositions"][0].update(
+        source_role="index", source_sha256="b" * 64,
+        source_locator="Index source independently confirms the retained issue")
+    adverse["adverse_dispositions"].update(_write(ledger_path, alternate_ledger))
+    issues, _, _, adverse_limitations = _validate(prereq, path, accession, sources, now)
+    assert "ai_adverse_source_invalid" not in {item["code"] for item in issues}
+    assert any("reattribute" in text for text in adverse_limitations)
+    adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+    adverse_inventory = ai_review_evidence_inventory(path, prereq)
+    assert len(adverse_inventory["adverse_source_evidence"][0]["artifacts"]) == 9
+    assert len(adverse_inventory["source_briefs"]) == 2
+    del prereq["ai_assisted"]["adverse_source_evidence"]
+    assert ai_review_evidence_inventory(path, prereq) == ordinary_inventory
+    prereq["ai_assisted"]["adverse_source_evidence"] = [adverse]
+    inventory = adverse_inventory
     with sqlite3.connect(tmp_path / "budget.sqlite3") as db:
         db.execute("CREATE TABLE binding (id INTEGER PRIMARY KEY, value TEXT)")
         db.execute("INSERT INTO binding VALUES (1, ?)", (json.dumps({"review_evidence": inventory}),))
     verify_review_evidence_binding(tmp_path, path)
 
     # A coherent rewrite and updated inline hash still differs from the original seal.
-    record = prereq["ai_assisted"]["reconciled_references"][0]
-    reference_path = tmp_path / record["path"]
-    reference = json.loads(reference_path.read_text())
-    reference["material_issues"][0]["importance"] = "Changed after output"
-    record.update(_write(reference_path, reference))
+    retired_prompt_path = tmp_path / adverse["retired_prompt"]["path"]
+    retired_prompt_path.write_text("Changed retired prompt", encoding="utf-8")
+    adverse["retired_prompt"]["sha256"] = hashlib.sha256(retired_prompt_path.read_bytes()).hexdigest()
     path.write_text(json.dumps(prereq), encoding="utf-8")
     assert _validate(prereq, path, accession, sources, now)[0] == []
     with pytest.raises(ValueError, match="review evidence differs"):
         verify_review_evidence_binding(tmp_path, path)
+
+    for mutation, expected in (("omitted", "ai_adverse_source_invalid"),
+                               ("unresolved", "ai_adverse_source_issue_unresolved"),
+                               ("invalid_status", "ai_adverse_source_invalid"),
+                               ("wrong_source", "ai_adverse_source_invalid"),
+                               ("wrong_target", "ai_adverse_source_invalid")):
+        ledger = json.loads(json.dumps(original_ledger))
+        if mutation == "omitted":
+            ledger["adverse_dispositions"].pop()
+        elif mutation == "unresolved":
+            ledger["adverse_dispositions"][0].update(status="unresolved", reconciled_issue_id=None)
+        elif mutation == "invalid_status":
+            ledger["adverse_dispositions"][0]["status"] = "omitted"
+        elif mutation == "wrong_source":
+            ledger["adverse_dispositions"][0]["source_sha256"] = "f" * 64
+        else:
+            ledger["adverse_dispositions"][0]["reconciled_issue_id"] = "missing"
+        adverse["adverse_dispositions"].update(_write(ledger_path, ledger))
+        codes = {item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        assert expected in codes
+    adverse["adverse_dispositions"].update(_write(ledger_path, original_ledger))
+
+    for field, value in (("prompt_sha256", "f" * 64),
+                         ("protocol_prompt_sha256", "f" * 64),
+                         ("admission_approved", True)):
+        reservation = {**original_reservation, field: value}
+        adverse["operator_reservation"].update(_write(reservation_path, reservation))
+        codes = {item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+        assert "ai_adverse_source_invalid" in codes
 
 
 @pytest.mark.parametrize("mutation,code", [
