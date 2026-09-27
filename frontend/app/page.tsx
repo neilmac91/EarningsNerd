@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     images: [
       {
         // Same card as the root layout (a nested `openGraph` replaces the layout's, not merges).
-        url: '/og-image.png?v=2',
+        url: '/og-image.png?v=3',
         width: 1200,
         height: 630,
         alt: 'EarningsNerd - SEC filing summaries with source context',
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: pageTitleFor(DEFAULT_HEADLINE),
     description: DESCRIPTION,
-    images: ['/og-image.png?v=2'],
+    images: ['/og-image.png?v=3'],
   },
 }
 
