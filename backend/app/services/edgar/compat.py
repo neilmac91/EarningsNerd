@@ -19,7 +19,7 @@ import httpx
 
 from .client import edgar_client
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
-from .exceptions import EdgarError
+from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, EdgarTimeoutError
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
@@ -421,8 +421,26 @@ class SECEdgarServiceCompat:
                     for attempt in range(max_retries):
                         try:
                             return await sec_rate_limiter.execute(_do_get)
-                        except Exception:
+                        except Exception as exc:
                             if attempt == max_retries - 1:
+                                # The shared breaker counts Edgar network errors, not HTTPX's
+                                # hierarchy. Translate before leaving its context, after the
+                                # caller-owned retry budget is exhausted.
+                                if isinstance(exc, httpx.TimeoutException):
+                                    raise EdgarTimeoutError(
+                                        timeout_seconds=timeout, cause=exc,
+                                    ) from exc
+                                if isinstance(exc, httpx.RequestError):
+                                    raise EdgarNetworkError(
+                                        "SEC attachment transport failed", cause=exc,
+                                    ) from exc
+                                if isinstance(exc, httpx.HTTPStatusError):
+                                    if exc.response.status_code == 429:
+                                        raise EdgarRateLimitError(cause=exc) from exc
+                                    if exc.response.status_code >= 500:
+                                        raise EdgarNetworkError(
+                                            "SEC attachment server failed", cause=exc,
+                                        ) from exc
                                 raise
                             await aio.sleep(2 ** attempt)
         except CircuitOpenError as exc:

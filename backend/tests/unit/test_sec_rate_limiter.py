@@ -431,3 +431,53 @@ async def test_same_filing_attachment_preserves_binary_bytes_and_transport_limit
     assert len(requests) == request_count + 4
     assert limiter_calls == 7
     assert breaker_enters == 6
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["connect", "timeout", 429, 503, 404])
+async def test_attachment_transport_failures_trip_real_breaker(monkeypatch, failure):
+    from app.services.edgar import compat
+    from app.services.edgar.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        if failure == "connect":
+            raise httpx.ConnectError("synthetic connection failure", request=request)
+        if failure == "timeout":
+            raise httpx.ReadTimeout("synthetic timeout", request=request)
+        return httpx.Response(failure)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        compat.httpx, "AsyncClient",
+        lambda: real_client(transport=httpx.MockTransport(respond)),
+    )
+    breaker = CircuitBreaker(
+        "attachment-test", CircuitBreakerConfig(failure_threshold=2, recovery_timeout=3600),
+    )
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", breaker)
+
+    async def execute(fn):
+        return await fn()
+
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    for _ in range(2):
+        with pytest.raises(compat.EdgarError) as error:
+            await compat.sec_edgar_service.get_filing_attachment_bytes(
+                "320193", "0000320193-23-000077", "chart.gif",
+            )
+        assert error.value.context["physical_attempts"] == 1
+    assert len(requests) == 2
+
+    if failure == 404:
+        # An absent member is not an SEC outage and must not open the shared breaker.
+        assert not breaker.is_open
+    else:
+        assert breaker.is_open
+        with pytest.raises(compat.EdgarError, match="circuit breaker is open"):
+            await compat.sec_edgar_service.get_filing_attachment_bytes(
+                "320193", "0000320193-23-000077", "chart.gif",
+            )
+        assert len(requests) == 2
