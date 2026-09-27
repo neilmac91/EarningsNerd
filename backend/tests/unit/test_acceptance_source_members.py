@@ -241,7 +241,8 @@ def test_authoritative_attachment_supplement_binds_strict_invalid_member_without
     invalid_encoded = encoded.replace(first_line, first_line[:-1], 1)
     submission = (
         b"<SEC-DOCUMENT>0000000000-26-000001.txt\n"
-        b"<SEC-HEADER>\nCENTRAL INDEX KEY: 0000320193\n</SEC-HEADER>\n"
+        b"<SEC-HEADER>\nCENTRAL INDEX KEY: 0000004904\n"
+        b"CENTRAL INDEX KEY: 0000320193\n</SEC-HEADER>\n"
         + _document("GRAPHIC", 1, "g1.jpg", invalid_encoded)
         + b"</SEC-DOCUMENT>\n"
     )
@@ -326,7 +327,7 @@ def test_authoritative_attachment_supplement_binds_strict_invalid_member_without
     wrong_member = copy.deepcopy(ledger)
     wrong_member["authoritative_supplements"][0]["frozen_encoded_sha256"] = "0" * 64
     rejected(wrong_member, "frozen member identity")
-    rejected(ledger, "trusted filing CIK", cik="18230")
+    rejected(ledger, "trusted filing CIK", cik="18230")  # Not a member of the joint filing header.
     body_only_cik = submission.replace(
         b"CENTRAL INDEX KEY: 0000320193\n", b"",
     ).replace(
