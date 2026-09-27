@@ -2,7 +2,9 @@
 
 Engineering handback for the remaining financial-claim fidelity work, delivered as a separate
 dated document; the continuation plan is not modified. Branch `codex/wave3-financial-claim-scope`
-from main `7800a7392d04f1d12e6f81d7886bac1471c1c712` (#989). Codex owns integration and release;
+from main `7800a7392d04f1d12e6f81d7886bac1471c1c712` (#989); draft PR
+[#992](https://github.com/neilmac91/EarningsNerd/pull/992), implementation commit `ce72481`,
+evidence commit `2ac3226`; working tree clean at push. Codex owns integration and release;
 nothing here merges, deploys, changes a flag, an account, a subscription or a database.
 
 This is engineering evidence from retained packets and offline replay. It is not an E7 source brief,
