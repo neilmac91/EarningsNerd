@@ -9,14 +9,40 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app import database
-from app.models import Company, FinancialFact
+from app.models import Company, Filing, FinancialFact
 from app.routers import analysis
 from app.services import facts_service
 
 
+def _companyfacts_payload():
+    return {
+        "facts": {
+            "us-gaap": {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                    "units": {
+                        "USD": [
+                            {
+                                "val": 100_000_000,
+                                "start": "2024-01-01",
+                                "end": "2024-12-31",
+                                "accn": "0001326801-25-000001",
+                                "fy": 2024,
+                                "fp": "FY",
+                                "form": "10-K",
+                                "filed": "2025-02-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+
+@pytest.mark.parametrize("successful_fetch", [False, True])
 @pytest.mark.asyncio
 async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
-    monkeypatch, tmp_path,
+    monkeypatch, tmp_path, successful_fetch,
 ):
     """Two same-ticker requests used to consume all four production pool slots while waiting."""
     engine = create_engine(
@@ -28,6 +54,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         pool_timeout=0.05,
     )
     Company.__table__.create(engine)
+    Filing.__table__.create(engine)
     FinancialFact.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     with sessions() as seed:
@@ -45,7 +72,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         fetch_calls += 1
         fetch_started.set()
         await release_fetch.wait()
-        return None
+        return _companyfacts_payload() if successful_fetch else None
 
     monkeypatch.setattr(database, "SessionLocal", sessions)
     monkeypatch.setattr(facts_service, "_fetch_companyfacts_async", stalled_fetch)
@@ -82,6 +109,29 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         responses = await asyncio.gather(first, second)
         assert all(response.ticker == "META" for response in responses)
         assert all(response.syncing is False for response in responses)
+        assert fetch_calls == 1  # the follower joined the leader instead of starting another fetch
+
+        with sessions() as verify_db:
+            synced_at = verify_db.query(Company.facts_synced_at).filter_by(id=company_id).scalar()
+            fact_count = verify_db.query(FinancialFact).filter_by(company_id=company_id).count()
+        if successful_fetch:
+            assert synced_at is not None
+            assert fact_count > 0
+            assert all(response.synced_at is not None for response in responses)
+
+            # A new request reuses the persisted TTL stamp and does not call SEC again.
+            ttl_db = sessions()
+            try:
+                ttl_response = await analysis.get_coverage(
+                    "META", request=request, current_user=user, db=ttl_db
+                )
+            finally:
+                ttl_db.close()
+            assert ttl_response.synced_at is not None
+            assert fetch_calls == 1
+        else:
+            assert synced_at is None
+            assert fact_count == 0
     finally:
         release_fetch.set()
         await asyncio.gather(first, second, return_exceptions=True)
