@@ -147,6 +147,17 @@ class CompanyResponse(BaseModel):
         from_attributes = True
 
 
+def _company_identity(company: Company) -> dict:
+    """Snapshot response fields before the request Session is released for network I/O."""
+    return {
+        "id": company.id,
+        "cik": company.cik,
+        "ticker": company.ticker,
+        "name": company.name,
+        "exchange": company.exchange,
+    }
+
+
 def _unsupported_foreign_response(ticker: str) -> Optional[CompanyResponse]:
     """Honest 'coverage unavailable' response for a known unsupported foreign name, else None.
 
@@ -181,6 +192,15 @@ async def search_companies(
         
         if not sec_results:
             return []
+
+        # Resolve every external/cache-backed identity before the first database checkout.  The
+        # integrity-recovery path reuses this frozen mapping instead of awaiting inside a
+        # transaction.
+        primary_by_cik: Dict[str, Optional[str]] = {}
+        for sec_data in sec_results:
+            cik = sec_data.get("cik")
+            if cik and cik not in primary_by_cik:
+                primary_by_cik[cik] = await sec_edgar_service.primary_ticker_for_cik(cik)
         
         # Store or update companies in database — ONE row per CIK (data-quality plan P0-1).
         # SEC's ticker file carries one entry per LISTED SECURITY: iterating it raw returned N
@@ -208,7 +228,7 @@ async def search_companies(
             # The canonical listing ticker — NEVER assigned from the per-entry sec_data, which
             # for a multi-class issuer can be any share class. None (CIK absent from the file,
             # e.g. delisted) leaves an existing row's ticker unchanged.
-            primary = await sec_edgar_service.primary_ticker_for_cik(cik)
+            primary = primary_by_cik[cik]
 
             company = existing_companies.get(cik)
             if not company:
@@ -264,7 +284,7 @@ async def search_companies(
                 by_cik: Dict[str, Company] = {}
                 for cik in response_ciks:
                     sec_data = next(r for r in sec_results if r.get("cik") == cik)
-                    primary = await sec_edgar_service.primary_ticker_for_cik(cik)
+                    primary = primary_by_cik[cik]
                     by_cik[cik] = resolve_or_create_company_by_cik(
                         db,
                         cik=cik,
@@ -277,20 +297,19 @@ async def search_companies(
                 db.commit()
                 companies = [by_cik[c] for c in response_ciks]
 
+        company_rows = [_company_identity(company) for company in companies]
+        db.close()
+
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
-        quote_tasks = [_get_stock_quote_with_timeout(company.ticker) for company in companies]
+        quote_tasks = [_get_stock_quote_with_timeout(row["ticker"]) for row in company_rows]
         stock_quotes = await asyncio.gather(*quote_tasks, return_exceptions=True)
         
         # Create response with stock quotes
         result = []
-        for i, company in enumerate(companies):
+        for i, row in enumerate(company_rows):
             quote = stock_quotes[i] if not isinstance(stock_quotes[i], Exception) else None
             result.append(CompanyResponse(
-                id=company.id,
-                cik=company.cik,
-                ticker=company.ticker,
-                name=company.name,
-                exchange=company.exchange,
+                **row,
                 stock_quote=quote
             ))
         
@@ -332,20 +351,28 @@ async def get_trending_companies(
     ).order_by(
         desc('filing_count')
     ).limit(limit).all()
+
+    company_rows = [
+        {
+            "id": row.id,
+            "cik": row.cik,
+            "ticker": row.ticker,
+            "name": row.name,
+            "exchange": row.exchange,
+        }
+        for row in trending_query
+    ]
+    db.close()
     
     # Convert to CompanyResponse
     result = []
-    quote_tasks = [get_stock_quote(row.ticker) for row in trending_query]
+    quote_tasks = [get_stock_quote(row["ticker"]) for row in company_rows]
     quotes = await asyncio.gather(*quote_tasks, return_exceptions=True) if quote_tasks else []
 
-    for row, quote in zip(trending_query, quotes):
+    for row, quote in zip(company_rows, quotes):
         resolved_quote = quote if not isinstance(quote, Exception) else None
         result.append(CompanyResponse(
-            id=row.id,
-            cik=row.cik,
-            ticker=row.ticker,
-            name=row.name,
-            exchange=row.exchange,
+            **row,
             stock_quote=resolved_quote
         ))
 
@@ -448,6 +475,9 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
 
     if not company:
         # Try to fetch from SEC
+        # The initial SELECT opened a transaction. Release it before the SEC wait; the Session is
+        # reusable for the short persistence unit below.
+        db.close()
         try:
             sec_results = await sec_edgar_service.search_company(ticker)
             if sec_results:
@@ -478,19 +508,12 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
-    
+
+    company_row = _company_identity(company)
+    db.close()
+
     # Fetch stock quote
-    stock_quote = await get_stock_quote(company.ticker)
+    stock_quote = await get_stock_quote(company_row["ticker"])
     
     # Create response with stock quote
-    company_dict = {
-        "id": company.id,
-        "cik": company.cik,
-        "ticker": company.ticker,
-        "name": company.name,
-        "exchange": company.exchange,
-        "stock_quote": stock_quote
-    }
-    
-    return CompanyResponse(**company_dict)
-
+    return CompanyResponse(**company_row, stock_quote=stock_quote)
