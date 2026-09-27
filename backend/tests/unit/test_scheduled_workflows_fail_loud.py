@@ -5,31 +5,50 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEDULED_FAIL_LOUD = ("refresh-index-membership.yml", "prod-smoke.yml")
+SCHEDULED_FAIL_LOUD = (
+    "monthly-sql-export.yml",
+    "prod-smoke.yml",
+    "refresh-index-membership.yml",
+)
 
 
 @pytest.mark.parametrize("name", SCHEDULED_FAIL_LOUD)
 def test_scheduled_workflow_has_final_failure_issue(name):
     workflow = yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
     assert any(entry.get("cron", "").strip() for entry in workflow["on"]["schedule"])
-    assert workflow["permissions"]["issues"] == "write"
     jobs = workflow["jobs"]
-    if name == "prod-smoke.yml":
-        worker = jobs["smoke"]
+    if name in {"monthly-sql-export.yml", "prod-smoke.yml"}:
+        worker_name = "export" if name == "monthly-sql-export.yml" else "smoke"
+        result_name = "EXPORT_RESULT" if name == "monthly-sql-export.yml" else "SMOKE_RESULT"
+        worker = jobs[worker_name]
         reporter = jobs["report-failure"]
-        assert worker["timeout-minutes"] == "15"
-        assert reporter["needs"] == "smoke"
-        assert reporter["if"] == "always() && needs.smoke.result != 'success'"
+        assert reporter["needs"] == worker_name
+        assert "always()" in reporter["if"]
+        assert f"needs.{worker_name}.result != 'success'" in reporter["if"]
         assert 0 < int(reporter["timeout-minutes"]) <= 5
-        upload = worker["steps"][-1]
-        assert upload["uses"].startswith("actions/upload-artifact@")
-        assert upload["if"] == "always()"
+        if name == "monthly-sql-export.yml":
+            assert workflow["permissions"] == {"contents": "read"}
+            assert worker["permissions"] == {"contents": "read", "id-token": "write"}
+            assert reporter["permissions"] == {"issues": "write"}
+            assert "refs/heads/main" in reporter["if"]
+            assert "github.repository" in reporter["if"]
+            assert worker["outputs"]["failure_stage"] == "${{ steps.export-run.outputs.failure_stage }}"
+        else:
+            assert workflow["permissions"]["issues"] == "write"
+            assert reporter["if"] == "always() && needs.smoke.result != 'success'"
+            assert worker["timeout-minutes"] == "15"
+            upload = worker["steps"][-1]
+            assert upload["uses"].startswith("actions/upload-artifact@")
+            assert upload["if"] == "always()"
         step = reporter["steps"][-1]
         assert "if" not in step
         assert step["env"]["GH_REPO"] == "${{ github.repository }}"
-        assert step["env"]["SMOKE_RESULT"] == "${{ needs.smoke.result }}"
+        assert step["env"][result_name] == f"${{{{ needs.{worker_name}.result }}}}"
+        if name == "monthly-sql-export.yml":
+            assert step["env"]["FAILURE_STAGE"] == "${{ needs.export.outputs.failure_stage || 'workflow-setup' }}"
         issue_steps = [step]
     else:
+        assert workflow["permissions"]["issues"] == "write"
         issue_steps = [job["steps"][-1] for job in jobs.values()]
         for step in issue_steps:
             assert step.get("if") == "failure()"

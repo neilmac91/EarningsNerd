@@ -1,0 +1,589 @@
+name: Monthly Cloud SQL export
+
+on:
+  schedule:
+    - cron: '15 4 1 * *' # 04:15 UTC on the first day of each month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-sql-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main' && github.repository == 'neilmac91/EarningsNerd'
+    outputs:
+      failure_stage: ${{ steps.export-run.outputs.failure_stage }}
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Prepare private configuration and self-test the state machine
+        env:
+          # One masked JSON secret prevents project, instance, database, bucket and limit values
+          # from appearing in the runner's startup environment display. The first runtime action
+          # masks each individual value before any command can mention it.
+          SQL_EXPORT_CONFIG_JSON: ${{ secrets.GCP_SQL_EXPORT_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          raw = os.environ.get("SQL_EXPORT_CONFIG_JSON", "")
+          try:
+              config = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON is not valid JSON") from exc
+          expected = {"project", "region", "instance", "database", "bucket", "max_disk_gib"}
+          if set(config) != expected:
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has the wrong keys")
+          for key in expected - {"max_disk_gib"}:
+              value = config[key]
+              if not isinstance(value, str) or not value or any(ord(char) < 32 for char in value):
+                  raise SystemExit(f"GCP_SQL_EXPORT_CONFIG_JSON has an invalid {key}")
+          if not re.fullmatch(r"[a-z][a-z0-9-]{4,62}", config["project"]):
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has an invalid project")
+          if not re.fullmatch(r"[a-z]+-[a-z]+[0-9]", config["region"]):
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has an invalid region")
+          if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,97}", config["instance"]):
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has an invalid instance")
+          if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,62}", config["database"]):
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has an invalid database")
+          if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]", config["bucket"]):
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON has an invalid bucket")
+          if not isinstance(config["max_disk_gib"], int) or not 1 <= config["max_disk_gib"] <= 10:
+              raise SystemExit("GCP_SQL_EXPORT_CONFIG_JSON max_disk_gib must be an integer from 1 to 10")
+          for key in expected - {"max_disk_gib"}:
+              print(f"::add-mask::{config[key]}")
+          path = Path(os.environ["RUNNER_TEMP"]) / "monthly-sql-export-config.json"
+          path.write_text(json.dumps(config, sort_keys=True) + "\n")
+          path.chmod(0o600)
+          PY
+
+          cat > "$RUNNER_TEMP/monthly_sql_export.py" <<'PY'
+          #!/usr/bin/env python3
+          """One-submission monthly Cloud SQL export runner for GitHub Actions."""
+
+          from __future__ import annotations
+
+          import argparse
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any
+
+
+          class SafeStop(RuntimeError):
+              """A failure whose stage name is safe to print without provider details."""
+
+
+          def decide_action(
+              *,
+              object_exists: bool,
+              matching_active: int,
+              other_active: int,
+              matching_done: int,
+              matching_failed: int,
+          ) -> str:
+              """Return the only safe next action for the observed durable state."""
+              if matching_failed or other_active or matching_active > 1 or matching_done > 1:
+                  return "hold"
+              if matching_active and matching_done:
+                  return "hold"
+              if matching_active == 1:
+                  return "adopt"
+              if object_exists:
+                  return "complete" if matching_done == 1 else "hold"
+              if matching_done:
+                  return "hold"
+              return "submit"
+
+
+          def self_test() -> None:
+              cases = [
+                  ({"object_exists": False, "matching_active": 0, "other_active": 0, "matching_done": 0, "matching_failed": 0}, "submit"),
+                  ({"object_exists": False, "matching_active": 1, "other_active": 0, "matching_done": 0, "matching_failed": 0}, "adopt"),
+                  ({"object_exists": True, "matching_active": 1, "other_active": 0, "matching_done": 0, "matching_failed": 0}, "adopt"),
+                  ({"object_exists": True, "matching_active": 0, "other_active": 0, "matching_done": 1, "matching_failed": 0}, "complete"),
+                  ({"object_exists": True, "matching_active": 0, "other_active": 0, "matching_done": 0, "matching_failed": 0}, "hold"),
+                  ({"object_exists": False, "matching_active": 0, "other_active": 0, "matching_done": 1, "matching_failed": 0}, "hold"),
+                  ({"object_exists": False, "matching_active": 0, "other_active": 0, "matching_done": 0, "matching_failed": 1}, "hold"),
+                  ({"object_exists": False, "matching_active": 0, "other_active": 1, "matching_done": 0, "matching_failed": 0}, "hold"),
+                  ({"object_exists": False, "matching_active": 2, "other_active": 0, "matching_done": 0, "matching_failed": 0}, "hold"),
+                  ({"object_exists": True, "matching_active": 1, "other_active": 0, "matching_done": 1, "matching_failed": 0}, "hold"),
+                  ({"object_exists": True, "matching_active": 1, "other_active": 1, "matching_done": 1, "matching_failed": 0}, "hold"),
+              ]
+              for kwargs, expected in cases:
+                  actual = decide_action(**kwargs)
+                  if actual != expected:
+                      raise AssertionError(f"state-machine mismatch: expected {expected}, got {actual}")
+              config = {"project": "example-project", "instance": "example-instance", "database": "app"}
+              uri = "gs://example-bucket/monthly/2026-09/example.sql.gz"
+              operation = {
+                  "operationType": "EXPORT",
+                  "targetProject": config["project"],
+                  "targetId": config["instance"],
+                  "exportContext": {
+                      "fileType": "SQL",
+                      "uri": uri,
+                      "databases": [config["database"]],
+                      "offload": True,
+                      "sqlExportOptions": {
+                          "postgresExportOptions": {"clean": True, "ifExists": True}
+                      },
+                  },
+              }
+              if not exact_export_operation(operation, config, uri):
+                  raise AssertionError("exact operation binding was rejected")
+              other_database = json.loads(json.dumps(operation))
+              other_database["exportContext"]["databases"] = ["other"]
+              if exact_export_operation(other_database, config, uri):
+                  raise AssertionError("different database operation was accepted")
+              failed_operation = json.loads(json.dumps(operation))
+              failed_operation.update({"status": "DONE", "error": {"errors": [{"code": "FAILED"}]}})
+              active, done, failed, other = classify_operations([failed_operation], config, uri)
+              if (len(active), len(done), len(failed), len(other)) != (0, 0, 1, 0):
+                  raise AssertionError("failed exact operation was not retained as a hold")
+              if decide_action(
+                  object_exists=False,
+                  matching_active=len(active),
+                  other_active=len(other),
+                  matching_done=len(done),
+                  matching_failed=len(failed),
+              ) != "hold":
+                  raise AssertionError("failed exact operation permitted a repeat submission")
+              print("monthly export state-machine self-test: 11 decisions and 4 bindings passed")
+
+
+          def run_process(args: list[str], stage: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
+              env = os.environ.copy()
+              env["CLOUDSDK_CORE_DISABLE_PROMPTS"] = "1"
+              try:
+                  return subprocess.run(
+                      args,
+                      check=False,
+                      capture_output=True,
+                      text=True,
+                      timeout=timeout,
+                      env=env,
+                  )
+              except (OSError, subprocess.TimeoutExpired) as exc:
+                  raise SafeStop(stage) from exc
+
+
+          def run_json(args: list[str], stage: str) -> Any:
+              result = run_process(args, stage)
+              if result.returncode != 0:
+                  raise SafeStop(stage)
+              try:
+                  return json.loads(result.stdout)
+              except json.JSONDecodeError as exc:
+                  raise SafeStop(stage) from exc
+
+
+          def access_token() -> str:
+              result = run_process(["gcloud", "auth", "print-access-token"], "storage-auth")
+              token = result.stdout.strip()
+              if result.returncode != 0 or not token:
+                  raise SafeStop("storage-auth")
+              return token
+
+
+          def health_check(stage: str) -> None:
+              request = urllib.request.Request(
+                  "https://api.earningsnerd.io/health/detailed",
+                  headers={"Accept": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      payload = json.load(response)
+              except (OSError, ValueError, urllib.error.URLError) as exc:
+                  raise SafeStop(stage) from exc
+              database = payload.get("checks", {}).get("database", {})
+              if payload.get("status") == "unhealthy" or database.get("healthy") is not True:
+                  raise SafeStop(stage)
+
+
+          def storage_request(url: str, stage: str, *, byte_range: str | None = None) -> bytes | None:
+              headers = {"Authorization": f"Bearer {access_token()}"}
+              if byte_range is not None:
+                  headers["Range"] = byte_range
+              request = urllib.request.Request(url, headers=headers)
+              try:
+                  with urllib.request.urlopen(request, timeout=45) as response:
+                      if byte_range is not None:
+                          if response.status != 206 or not response.headers.get("Content-Range", "").startswith("bytes 0-1/"):
+                              raise SafeStop(stage)
+                          return response.read(3)
+                      return response.read()
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404 and byte_range is None:
+                      return None
+                  raise SafeStop(stage) from exc
+              except (OSError, urllib.error.URLError) as exc:
+                  raise SafeStop(stage) from exc
+
+
+          def object_metadata(config: dict[str, Any], object_name: str) -> dict[str, Any] | None:
+              bucket = urllib.parse.quote(config["bucket"], safe="")
+              encoded_name = urllib.parse.quote(object_name, safe="")
+              url = f"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{encoded_name}"
+              raw = storage_request(url, "object-metadata")
+              if raw is None:
+                  return None
+              try:
+                  payload = json.loads(raw)
+              except (TypeError, json.JSONDecodeError) as exc:
+                  raise SafeStop("object-metadata") from exc
+              if payload.get("bucket") != config["bucket"] or payload.get("name") != object_name:
+                  raise SafeStop("object-identity")
+              return payload
+
+
+          def verify_object(config: dict[str, Any], object_name: str, metadata: dict[str, Any]) -> int:
+              try:
+                  size = int(metadata["size"])
+              except (KeyError, TypeError, ValueError) as exc:
+                  raise SafeStop("object-size") from exc
+              if size <= 0 or metadata.get("storageClass") != "STANDARD":
+                  raise SafeStop("object-shape")
+              bucket = urllib.parse.quote(config["bucket"], safe="")
+              encoded_name = urllib.parse.quote(object_name, safe="")
+              url = f"https://storage.googleapis.com/download/storage/v1/b/{bucket}/o/{encoded_name}?alt=media"
+              prefix = storage_request(url, "object-prefix", byte_range="bytes=0-1")
+              if prefix != b"\x1f\x8b":
+                  raise SafeStop("object-prefix")
+              return size
+
+
+          def list_operations(config: dict[str, Any]) -> list[dict[str, Any]]:
+              payload = run_json(
+                  [
+                      "gcloud", "sql", "operations", "list",
+                      f"--project={config['project']}",
+                      f"--instance={config['instance']}",
+                      "--limit=200",
+                      "--sort-by=~startTime",
+                      "--format=json",
+                      "--quiet",
+                  ],
+                  "operations-list",
+              )
+              if not isinstance(payload, list):
+                  raise SafeStop("operations-list")
+              return payload
+
+
+          def exact_export_operation(operation: dict[str, Any], config: dict[str, Any], uri: str) -> bool:
+              context = operation.get("exportContext")
+              if not isinstance(context, dict):
+                  return False
+              sql_options = context.get("sqlExportOptions")
+              if not isinstance(sql_options, dict):
+                  return False
+              postgres_options = sql_options.get("postgresExportOptions")
+              if not isinstance(postgres_options, dict):
+                  return False
+              return (
+                  operation.get("operationType") == "EXPORT"
+                  and operation.get("targetProject") == config["project"]
+                  and operation.get("targetId") == config["instance"]
+                  and context.get("fileType") == "SQL"
+                  and context.get("uri") == uri
+                  and context.get("databases") == [config["database"]]
+                  and context.get("offload") is True
+                  and postgres_options.get("clean") is True
+                  and postgres_options.get("ifExists") is True
+              )
+
+
+          def operation_failed(operation: dict[str, Any]) -> bool:
+              error = operation.get("error")
+              return isinstance(error, dict) and bool(error.get("errors"))
+
+
+          def classify_operations(
+              operations: list[dict[str, Any]], config: dict[str, Any], uri: str
+          ) -> tuple[
+              list[dict[str, Any]],
+              list[dict[str, Any]],
+              list[dict[str, Any]],
+              list[dict[str, Any]],
+          ]:
+              matching_active: list[dict[str, Any]] = []
+              matching_done: list[dict[str, Any]] = []
+              matching_failed: list[dict[str, Any]] = []
+              other_active: list[dict[str, Any]] = []
+              for operation in operations:
+                  if operation.get("operationType") != "EXPORT":
+                      continue
+                  if exact_export_operation(operation, config, uri):
+                      if operation.get("status") == "DONE":
+                          if operation_failed(operation):
+                              matching_failed.append(operation)
+                          else:
+                              matching_done.append(operation)
+                      else:
+                          matching_active.append(operation)
+                  elif operation.get("status") != "DONE":
+                      other_active.append(operation)
+              return matching_active, matching_done, matching_failed, other_active
+
+
+          def describe_operation(config: dict[str, Any], name: str) -> dict[str, Any]:
+              if not name or any(ord(char) < 33 for char in name) or len(name) > 160:
+                  raise SafeStop("operation-identity")
+              payload = run_json(
+                  [
+                      "gcloud", "sql", "operations", "describe", name,
+                      f"--project={config['project']}",
+                      "--format=json",
+                      "--quiet",
+                  ],
+                  "operation-describe",
+              )
+              if not isinstance(payload, dict):
+                  raise SafeStop("operation-describe")
+              return payload
+
+
+          def wait_for_operation(
+              config: dict[str, Any], uri: str, operation: dict[str, Any]
+          ) -> dict[str, Any]:
+              name = operation.get("name")
+              if not isinstance(name, str):
+                  raise SafeStop("operation-identity")
+              deadline = time.monotonic() + 100 * 60
+              while True:
+                  current = describe_operation(config, name)
+                  if not exact_export_operation(current, config, uri):
+                      raise SafeStop("operation-context")
+                  if current.get("status") == "DONE":
+                      if operation_failed(current):
+                          raise SafeStop("operation-failed")
+                      return current
+                  if time.monotonic() >= deadline:
+                      raise SafeStop("operation-timeout")
+                  time.sleep(20)
+
+
+          def submit_once(config: dict[str, Any], uri: str) -> dict[str, Any]:
+              try:
+                  result = run_process(
+                      [
+                          "gcloud", "sql", "export", "sql", config["instance"], uri,
+                          f"--project={config['project']}",
+                          f"--database={config['database']}",
+                          "--offload", "--clean", "--if-exists", "--async",
+                          "--format=json", "--quiet",
+                      ],
+                      "export-submit",
+                      timeout=120,
+                  )
+              except SafeStop:
+                  result = None
+              if result is not None and result.returncode == 0:
+                  try:
+                      operation = json.loads(result.stdout)
+                  except json.JSONDecodeError:
+                      operation = None
+                  if isinstance(operation, dict) and isinstance(operation.get("name"), str):
+                      return operation
+
+              # The submission result is uncertain. Inspect once and adopt only the exact operation;
+              # never redraw or issue a second export command in this execution.
+              operations = list_operations(config)
+              matching_active, _, _, other_active = classify_operations(operations, config, uri)
+              if len(matching_active) == 1 and not other_active:
+                  return matching_active[0]
+              raise SafeStop("export-submit-uncertain")
+
+
+          def run_export() -> None:
+              config_path = Path(os.environ["RUNNER_TEMP"]) / "monthly-sql-export-config.json"
+              try:
+                  config = json.loads(config_path.read_text())
+              except (OSError, json.JSONDecodeError) as exc:
+                  raise SafeStop("config-load") from exc
+
+              health_check("health-before")
+              instance = run_json(
+                  [
+                      "gcloud", "sql", "instances", "describe", config["instance"],
+                      f"--project={config['project']}",
+                      "--format=json", "--quiet",
+                  ],
+                  "source-preflight",
+              )
+              try:
+                  disk_gib = int(instance["settings"]["dataDiskSizeGb"])
+              except (KeyError, TypeError, ValueError) as exc:
+                  raise SafeStop("source-preflight") from exc
+              if (
+                  instance.get("name") != config["instance"]
+                  or instance.get("project") != config["project"]
+                  or instance.get("region") != config["region"]
+                  or instance.get("state") != "RUNNABLE"
+                  or disk_gib > config["max_disk_gib"]
+              ):
+                  raise SafeStop("source-preflight")
+
+              period = datetime.now(timezone.utc).strftime("%Y-%m")
+              object_name = f"monthly/{period}/earningsnerd-{period}.sql.gz"
+              uri = f"gs://{config['bucket']}/{object_name}"
+              metadata = object_metadata(config, object_name)
+              operations = list_operations(config)
+              matching_active, matching_done, matching_failed, other_active = classify_operations(
+                  operations, config, uri
+              )
+              action = decide_action(
+                  object_exists=metadata is not None,
+                  matching_active=len(matching_active),
+                  other_active=len(other_active),
+                  matching_done=len(matching_done),
+                  matching_failed=len(matching_failed),
+              )
+
+              if action == "hold":
+                  raise SafeStop("state-hold")
+              if action == "complete":
+                  if metadata is None:
+                      raise SafeStop("state-hold")
+                  operation_name = matching_done[0].get("name")
+                  if not isinstance(operation_name, str):
+                      raise SafeStop("operation-identity")
+                  bound_operation = describe_operation(config, operation_name)
+                  if (
+                      bound_operation.get("status") != "DONE"
+                      or operation_failed(bound_operation)
+                      or not exact_export_operation(bound_operation, config, uri)
+                  ):
+                      raise SafeStop("operation-context")
+                  size = verify_object(config, object_name, metadata)
+                  health_check("health-after")
+                  print(f"monthly SQL export already complete: period={period} bytes={size}")
+                  return
+              if action == "adopt":
+                  operation = matching_active[0]
+              elif action == "submit":
+                  operation = submit_once(config, uri)
+              else:
+                  raise SafeStop("state-hold")
+
+              wait_for_operation(config, uri, operation)
+              final_metadata = object_metadata(config, object_name)
+              if final_metadata is None:
+                  raise SafeStop("object-missing")
+              size = verify_object(config, object_name, final_metadata)
+              health_check("health-after")
+              print(f"monthly SQL export complete: period={period} bytes={size}")
+
+
+          def main() -> None:
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--self-test", action="store_true")
+              parser.add_argument("--run", action="store_true")
+              args = parser.parse_args()
+              if args.self_test == args.run:
+                  raise SystemExit("choose exactly one of --self-test or --run")
+              if args.self_test:
+                  self_test()
+                  return
+              try:
+                  run_export()
+              except SafeStop as exc:
+                  output_path = os.environ.get("GITHUB_OUTPUT")
+                  if output_path:
+                      with open(output_path, "a", encoding="utf-8") as output:
+                          output.write(f"failure_stage={exc}\n")
+                  print(f"::error::monthly SQL export stopped at stage {exc}")
+                  raise SystemExit(1) from None
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+          chmod 700 "$RUNNER_TEMP/monthly_sql_export.py"
+          python3 "$RUNNER_TEMP/monthly_sql_export.py" --self-test
+
+      - name: Authenticate as the export-only service account
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SQL_EXPORTER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Export or adopt the current monthly snapshot
+        id: export-run
+        run: python3 "$RUNNER_TEMP/monthly_sql_export.py" --run
+
+      - name: Remove runner-private files
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/monthly-sql-export-config.json"
+          rm -f "$RUNNER_TEMP/monthly_sql_export.py"
+
+  report-failure:
+    needs: export
+    if: >-
+      always() && github.ref == 'refs/heads/main' &&
+      github.repository == 'neilmac91/EarningsNerd' && needs.export.result != 'success'
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or update a failure issue
+        shell: bash
+        env:
+          EXPORT_RESULT: ${{ needs.export.result }}
+          FAILURE_STAGE: ${{ needs.export.outputs.failure_stage || 'workflow-setup' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Monthly SQL export failed"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$BODY_FILE"' EXIT
+          cat > "$BODY_FILE" <<EOF_BODY
+          The monthly Cloud SQL export finished with result $EXPORT_RESULT at stage
+          $FAILURE_STAGE: $RUN_URL
+
+          Inspect the failed or cancelled job. The export runner reports only a bounded stage name;
+          cloud resource metadata, SQL bytes, and private configuration are not published. Resolve
+          the observed cause, then use the reviewed manual workflow on main. Never repeat an
+          uncertain export or remove an occupied monthly object without separate operator review.
+          EOF_BODY
+          EXISTING="$(gh issue list --state open --search '"Monthly SQL export failed" in:title' \
+            --json number,title \
+            --jq '[.[] | select(.title == "Monthly SQL export failed")] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi

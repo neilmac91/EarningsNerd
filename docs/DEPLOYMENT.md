@@ -374,6 +374,47 @@ gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
 CI updates this job's image with the others once it exists; until then the deploy logs
 "not found — create it once per DEPLOYMENT.md. Skipping."
 
+### Monthly Cloud SQL logical export
+
+`.github/workflows/monthly-sql-export.yml` runs at 04:15 UTC on the first day of each month and
+also supports manual dispatch from `main`. Its job refuses every other repository or ref. It uses
+the existing repository-scoped Workload Identity provider,
+but authenticates as a dedicated export-only service account. Do not reuse or widen the deployer
+service account. Bootstrap the dedicated account with a custom project role containing exactly:
+
+```text
+cloudsql.instances.get
+cloudsql.instances.list
+cloudsql.instances.export
+```
+
+Copy the deployer's existing repository-scoped `roles/iam.workloadIdentityUser` member to the new
+service account without broadening its principal. At the dedicated private export bucket, grant
+the workflow account `roles/storage.objectViewer`. Grant the Cloud SQL instance service account
+`roles/storage.objectCreator`. The export writes one nonparallel object, so the documented
+`storage.objects.create` permission is sufficient; do not grant object admin, list, or delete to
+the Cloud SQL service account.
+
+Configure two masked GitHub Actions secrets:
+
+- `GCP_SQL_EXPORTER_SA`: the dedicated service-account email.
+- `GCP_SQL_EXPORT_CONFIG_JSON`: an object with exactly `project`, `region`, `instance`, `database`,
+  `bucket`, and integer `max_disk_gib` keys. Keep the authorized ceiling at or below 10 GiB.
+
+The existing `GCP_WIF_PROVIDER` repository variable remains the provider selector. Resource IDs
+stay in the masked JSON secret; do not move them to workflow or job environment variables or
+dispatch inputs.
+
+The workflow writes `monthly/YYYY-MM/earningsnerd-YYYY-MM.sql.gz` with offload, clean, and
+if-exists enabled. It submits at most once. Same-month reuse requires a retained successful
+operation bound to the exact source, database, options, and URI, plus matching object metadata
+and gzip bytes. If operation history has expired, the workflow holds rather than overwriting the
+object. It adopts one matching active operation, refuses any other active export, and never
+resubmits an uncertain request. Run it manually once and rerun it in the same month before relying
+on the schedule. The workflow publishes no artifacts. The bucket keeps objects live for 35 days
+plus its configured soft-delete window; this is short-overlap evidence, not an import proof or a
+long-term archive.
+
 **One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Since the DB is only reachable from Cloud Run, this is also the way to
