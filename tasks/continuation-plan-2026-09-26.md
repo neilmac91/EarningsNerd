@@ -8,7 +8,7 @@ Shipping more evaluation infrastructure does not establish those outcomes.
 This checkpoint supersedes the current-state/queue descriptions in the
 [September 23 continuation](continuation-plan-2026-09-23.md), through main
 `b53455bb3b13817d44cf089f3280ced143998583` (#961), with the verified overnight release
-now at `24d1ca5cd46c29224840c95c9f6ee0e6489e7b8e` (#964). Historical results, approvals, budgets and
+now at `e39b475e13a0599d037303aacc75a82d51b053b8` (#969), with backend revision `00393-6m9`. Historical results, approvals, budgets and
 specific holds remain in force. The subsequently returned
 [agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
 confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
@@ -32,6 +32,12 @@ records attempts before dispatch against an externally retained sealed history. 
 passed 3,729 tests; hosted review prompted an additional pending-reservation recovery correction,
 plus atomic payload retention and committed-seal recovery. Final hosted measurements passed: 70/70 ordinary summaries and 18/18 Copilot draws, with real retained provider telemetry. The [verified release](review-evidence/takeover-2026-09-26/pr964-release.json) serves revision 00390-q8b at 100%, migrations 0/39 and healthy independent database readback. PR #942 has current-runtime p/q2 (70 each) and q3 (105) measurements;
 its existing backend floor and draft semantic-release hold remain unchanged. No E7 holdout run has started.
+
+[#967](https://github.com/neilmac91/EarningsNerd/pull/967) has since merged as
+`537bf59b923922d2215ae1399920756e014bd4e5` at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9`
+plus the `ac60` evidence update passed the full 3,730-test gate and five fault proofs, including
+leaf-name/hash pairing. The final hosted 70-summary/18-Copilot telemetry audit is retained in
+[final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). The [verified release](review-evidence/takeover-2026-09-26/pr967-release.json) serves revision `00391-rgl` at 100%, migrations 0/39, main CI `36285042203` and independent healthy database readback at 01:24:30 UTC.
 
 ## What the agents delivered
 
@@ -88,7 +94,12 @@ of 300,432. One fresh source-only B attempt and a separate source-reading reconc
 completed without reported context compaction; provider build and capacity remain unexposed.
 The prior compacted B and its 15 adverse findings remain retained outside the reviewer context.
 The separate source-backed ledger now resolves every prior finding. No hierarchy
-capability or positive verdict is inferred from the smaller input. The actual retained H29 pair/reconciliation now pass the existing schema-2 protocol, inventory and context boundaries under a one-accession smoke fixture; #967 is the implementation in review. Full-programme readiness and blinded decision boundaries remain unexecuted. Preserve required gates and the two previously denied E7 proof holds.
+capability or positive verdict is inferred from the smaller input. The actual retained H29
+pair and reconciliation pass the existing schema-2 protocol, inventory and context boundaries
+under a one-accession smoke fixture. PR #967 now contains the merged implementation and final
+hosted audit and verified production release. Full-programme readiness and
+blinded decision boundaries remain unexecuted. Preserve required gates and the two previously
+denied E7 proof holds.
 
 ## Ordered completion path and ownership
 
@@ -139,24 +150,36 @@ separately from those acceptance programmes. All three external agents report ze
 E7/E8/judge calls or guard changes. Their ordinary hosted CI measurements remain separate; a
 cancelled ordinary CI generation has an unknown call count and must not be reported as zero spend.
 
-H30 is the next bounded source reference. Its two HTML members and index reduce to three exact
+H30 is the current bounded source reference. Its two HTML members and index reduce to three exact
 nonduplicated readers totaling 122,883 bytes; standalone packet differences are proven SEC
 wrappers/scripts. Filing content has no image references; the index's unfetched SEC logo is an
-explicit limit. Old A/B/reconciliation partials remain external adverse history. Two new technical failures were retained as partial with zero findings. A later A attempt preserved a six-finding checkpoint after another no-content command typo; explicit same-context continuation completed all sources without observed compaction and retained all six findings. The current A/B pair has nine and ten material issues, respectively. A fresh source-reading reconciliation is running against all 19 current issues and 52 separately identified historical issues/disagreements. No older artifact was overwritten or silently promoted.
-H01/H02/H25 remain the named all-member/modality/capacity blockers; no generic context-fit claim
-is made for them. Do not expand the machinery without a concrete blocker from those filings.
+explicit limit. The current A/B briefs retain nine and ten material issues. Their completed
+source-only reconciliation retains 10 material issues, all 19 current dispositions and 12 resolved
+source disagreements. All 52 historical identities remain separate: 51 are freshly source-supported,
+and one runtime-only execution claim remains unresolved for custodian classification. The old
+A/B/reconciliation contexts remain retired and ineligible for current source roles; the same-context partial A3 artifact remains historical while its later current source-only brief is retained; no older artifact was overwritten or
+promoted. The revised reconciliation was individually frozen after an independent 29/29 structural custody audit ([freeze receipt](review-evidence/takeover-2026-09-26/h30-freeze-receipt.json), [audit](review-evidence/takeover-2026-09-26/h30-custody-audit.json)); the original draft and clarification remain retained. H30 still needs a bounded cross-role historical-evidence binding: H29’s retired-B-only schema cannot represent its 52 identities and technical attempts. The [bounded integration handoff](review-evidence/takeover-2026-09-26/h30-next-integration-plan.md) specifies the remaining optional wrapper and existing-gate acceptance path. Do not discard that history or regenerate source opinions to fit the schema. The financial dispositions are source evidence; the runtime-only row remains unresolved custody history. Neither establishes programme admission or a candidate-quality verdict.
 
-## Open PRs and deferred work
+H01/H02/H25 remain the named all-member/modality/capacity blockers, and no generic context-fit
+claim is made for them. The initial narrow H01 parser experiment stopped at the next self-closing `<td>` and remains retained as an unreleased experiment. A subsequent strict-XHTML implementation validates the entire XML document and its encoding before allowing explicit XML empty-element boundaries; it leaves ordinary HTML behavior unchanged. All eight readable H01 members now construct and verify locally, including the 6,100,468-byte primary with 67,242 elements and 150 tables. Six H29 and five H30 views remain byte-identical. The final corrected head passed review and #969 is verified in production. This closes a specific parser blocker; the other H01 members, all modalities, semantic completeness and provider/context capacity remain unproved. The [bounded large-primary measurement](review-evidence/takeover-2026-09-26/large-source-capacity.json) also constructs and verifies H02’s 16,080,286-byte primary: 600 tables, 66,074 units, 1,299,810 compact bytes, about 15.1 seconds and 1,871,659,008-byte peak RSS. H25’s 57,158,558-byte primary passes XML grammar validation, but its full projection was deliberately held because macOS did not enforce the requested 3 GiB address-space cap. Next use an explicitly memory-limited worker for that one measurement; do not infer provider fit or complete filing coverage from XML validity.
 
-- **#966 — visible source warnings and accurate landing claims:** frontend correction in review.
-- **#967 — adverse source custody:** 3,730 tests and four predicate-bypass proofs passed; actual H29 integration smoke reproduces. Hosted review/measurement/release pending.
+## Recent releases, open PRs and deferred work
+
+- **#966 — visible source warnings and accurate landing claims:** exact head `5440fff0` has passing hosted checks and final review. Local 641 unit tests, lint/typecheck and webpack build pass; default local Turbopack is environment-blocked; [raw hosted E2E and Lighthouse logs](review-evidence/takeover-2026-09-26/pr966-hosted-build.md) independently confirm default Turbopack builds with all 27 pages. Its cache-warning finding is resolved by #968. The [verified frontend release](review-evidence/takeover-2026-09-26/pr966-release.json) merged as `eea26d2f` at 02:09:06 UTC, with Vercel success at 02:09:46 and main CI 36287670902 passing. The backend deploy step correctly skipped this frontend-only change. Signed-in annual and quarterly cached repeats retained one and two visible numeric warnings respectively.
+- **#967 — adverse source custody:** merged as `537bf59b923922d2215ae1399920756e014bd4e5`
+  at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9` plus `ac60` evidence passed 3,730 tests and
+  five fault proofs, including leaf-name/hash pairing; the final hosted 70+18 telemetry audit is
+  retained in [final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). [Release verification](review-evidence/takeover-2026-09-26/pr967-release.json) is complete at revision `00391-rgl`, migrations 0/39 and independent healthy readback.
+- **#968 — cached numeric warnings:** deterministic recomputation preserves warnings on the same narrative without another model call or schema change. Full local gate 3,731 passed and the missing-field fault failed/restored. [Hosted audit](review-evidence/takeover-2026-09-26/pr968-hosted-final.md) passed 70/70 summaries and 18/18 Copilot draws with 105 successful telemetry events, estimated $0.187215 and no exact-head review findings. [Verified release](review-evidence/takeover-2026-09-26/pr968-release.json): merged at `2dce80c4` on September 27 02:00:07 UTC, revision `00392-zph` at 100%, migrations 0/39, main CI 36287214542 and independent healthy readback at 02:08:15 UTC.
+
+- **#969 — strict XHTML source boundaries:** corrected final head `c3a10d017d1b220783ceca8dcc7e3a6177fbf069` passed 3,731 local tests and exact-head review, including BOM, XML references, processing instructions, attribute whitespace and shared capacity/parser boundary corrections. All 19 verified views / 76 outputs remain byte-identical. The [actual hosted audit](review-evidence/takeover-2026-09-26/pr969-hosted-final.md) records 70/70 summaries and 18/18 Copilot draws, 107 successful provider calls, $0.184127 estimated cost, no recorded retries/errors/judge calls, and retained soft advisories. Merged as `e39b475e13a0599d037303aacc75a82d51b053b8` at 02:53:46 UTC; the [verified release](review-evidence/takeover-2026-09-26/pr969-release.json) records main CI 36289833641 passing, revision `00393-6m9` at 100%, migrations 0/39 and independent healthy database readback at 03:01:52 UTC. The narrower accepted XML subset fails closed on unsupported constructs; all-member/modality and provider capacity are separate gates.
 
 - **#942 — formula labels:** remains draft after current-main integration and fresh 70-output
   q2 / 105-output q3 measurement. p/q2 source and grounding parity is verified; all deterministic
   hard gates passed. Same-Fable contract-2 semantic judging of the 70+70 pair remains pending.
   The q3 baseline is an unapplied proposal: citation fidelity would move from 0.9648 to 0.9532,
-  so the existing backend bar stays unchanged until the semantic disposition. The prepared v2
-  7.3 MB judging packet distinguishes 140 judgment slots from a maximum 280 physical invocations
+  so the existing backend bar stays unchanged until the semantic disposition. The [prepared Fable prompt](review-evidence/takeover-2026-09-26/pr942-fable-prompt.md) and [v2 packet receipt](review-evidence/takeover-2026-09-26/pr942-fable-packet.json) describe a
+  7.3 MB judging packet that distinguishes 140 judgment slots from a maximum 280 physical invocations
   in the unchanged retrying harness, and requires durable checkpointing. This changes generator
   grounding as well as rendering; ordinary CI does not replace its required actual-output evidence. Resolve it before the E7 candidate freeze, or explicitly
   document a decision to defer it and the accepted scope of `p`; do not invalidate a completed
@@ -195,23 +218,23 @@ the newly created drill clone before any billable action. Backup/export observat
 Daily backup and PITR approval is already settled. Monthly export needs verification or an
 explicit engineering/product disposition; a restore does not silently satisfy that requirement.
 
-The existing founder account supported one bounded live Analysis run for AAPL FY2024–FY2025:
-the dataset and narrative completed, and a five-page PDF exported with the unreconciled-value
-warning retained. A flagged numeric mismatch was visible only in a tooltip beneath a green
-verification badge; the correction is in review as [#966](https://github.com/neilmac91/EarningsNerd/pull/966). It exposes the mismatch in normal content, labels links without asserting verification and removes unsupported universal landing claims. Local 112-file/641-test and production-build gates passed, with both-theme visual checks of the actual component. An apparent PDF preview cropping issue was refuted
-by PDF geometry, text coordinates and a full-page raster; no export defect is established.
-This is a partial acceptance observation: quarterly,
-IFRS, cache-repeat, source navigation and XLSX cases remain. Chrome lost its debugger attachment
-after the download; the retained result was not regenerated. Notable retain/kill and cohort
-recruitment/commitments remain. Do not repeat provisioning, invent a test payment or send invitations.
+The [live acceptance observations](review-evidence/takeover-2026-09-26/live-analysis-acceptance.md) record that the signed-in founder account supported AAPL FY2024–FY2025 and 2026Q2–2026Q3 analyses, internal source-entry navigation, both PDF downloads and both Excel exports. The five-page annual and four-page quarterly PDFs were rendered and visually inspected; unreconciled warnings were retained. Workbook inspection preserved numeric precision, percentage-point formats, missing-data blanks and unreconciled-value comments; no spreadsheet error cells or external workbook links were found. Native Excel rendering and independent financial-source truth were not established. A fresh Chrome tab restored browser control after the original tab lost its debugger attachment.
+
+A cached repeat of the annual result lost the numeric warning while retaining the same narrative: #968 corrects this. Fresh annual/quarterly results reported one/two numeric mismatches. #966 exposes these in normal content and replaces unsupported verification claims. Post-release cached repeats of both windows showed 17 source links and retained one/two warnings as ordinary visible paragraphs ([observations](review-evidence/takeover-2026-09-26/post-release-cache-check.json)). The quarterly narrative also treats a displayed `1.00x` current ratio as exact equality/no cushion, although the exported raw value is `1.003294804655586` and the stated assets exceed liabilities by $492 million. The [bounded follow-up](review-evidence/takeover-2026-09-26/analysis-ratio-precision-followup.md) locates the cause in display rounding reused for model input and specifies the correction/evidence path. Preserve this ordinary product-quality example for the next bounded narrative correction and evaluation; do not count it as a formal E7 verdict or redraw it away. NVO showed the explicit IFRS unsupported message and no narrative was requested. Free-tier/payment behavior, external SEC-link navigation, Notable retain/kill and cohort recruitment/commitments remain unverified. Do not invent a test payment or customer consent.
 
 ## Master-plan position
 
-The product's core engineering is largely complete, approximately 90% as a planning estimate.
-The full beta-to-scale outcome remains around **55–60% complete**, with substantial uncertainty;
-this is a milestone-weighted judgment, not a count of merged PRs. Since the prior checkpoint,
-source-review prerequisites improved, but no new quality verdict, recovery proof, cohort, retention
-or economic outcome was established. Those missing outcomes limit the estimate.
+This is a **new, explicit planning estimate**, dated September 27, rather than a percentage taken from the original plan or a count of PRs. The [September 8 checkpoint](master-plan-status-2026-09-08.md) correctly declined an unweighted percentage. To answer the founder’s later request, the table below groups the [CEO plan’s deliverables](ceo-implementation-plan-2026-09-08.md#prioritized-delivery-sequence), assigns judgmental importance weights totaling 100%, and scores five milestones within each group. Completed milestones receive one point, materially advanced but unaccepted milestones receive half a point, and open milestones receive zero. This is a planning convention, not a measure of elapsed effort, quality or launch probability.
+
+| Outcome group | Weight | Milestone evidence and unfinished work | Score / 5 | Weighted contribution |
+| --- | --- | --- | --- | --- |
+| Core product and engineering foundation | 35% | Four complete: auth/billing/quota plumbing; filing ingestion/grounding; summary/Copilot delivery; automated regression and release discipline. Analysis/Notable product acceptance is partial (0.5); configuration or a smoke run does not close it. | 4.5 | 31.5 points |
+| Independent quality acceptance | 25% | Protocol/budget frozen (1); source tooling/capacity materially advanced (0.5). Complete 30-filing references, candidate semantic disposition, and blind holdout/adjudication remain open. | 1.5 | 7.5 points |
+| Operational readiness | 20% | Verified deployment/health, quota/payment/alert reliability, and configured backup/PITR protection are complete (3). Isolated recovery and measured fleet/headroom evidence remain open. | 3 | 12 points |
+| Controlled-beta usefulness and retention | 15% | Measurement preparation is partial (0.5). Consenting cohort, first weekly readout, second weekly readout, and expansion/hold decision remain open. | 0.5 | 1.5 points |
+| Safe scale and wider rollout | 5% | Bounded coordination design is prepared (1). Effective fleet budgets, implemented/proven coordination, quality-cleared canary, and approved wider rollout remain open. | 1 | 1 point |
+
+Arithmetic: `31.5 + 7.5 + 12 + 1.5 + 1 = 53.5%`. Report this as **about 55%, with a rough 50–60% planning range**. The foundation bucket alone scores 90%; that is not a claim that 90% of the whole implementation or beta-to-scale effort is complete. Weights and partial credit are chief-engineer judgment and should change if scope or evidence changes. The estimate replaces the earlier uncalculated 55–60% statement. Quality acceptance, recovery and real cohort evidence remain explicit exit gates regardless of the percentage.
 
 The shortest route is therefore: correct and finish one E7 path, freeze the candidate, execute
 the quality programme, prove recovery, and observe a small controlled cohort. Two weekly cohort

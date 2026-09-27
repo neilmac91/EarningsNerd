@@ -1,0 +1,614 @@
+{
+  "accession_number": "0001104659-25-086034",
+  "admission_approved": false,
+  "checks": [
+    {
+      "details": {
+        "actual": {
+          "adverse-dispositions.json": "29c76997d5782c5a02d9d9828416264cc4ff1796c7323becd3516b7a3a338098",
+          "brief.md": "6a07d10dc2fc4d11e92c060d088d02996edbdba853e7d760a0a8c663886c300e",
+          "draft.json": "20ebecfa8d4315e6efd37180b191ea92962e852066a7370c0a1698b386f213ad",
+          "read-log.json": "e57b21e9d68fe41174c172f966126aa429b9eb637377ad636de707f53c05dcef"
+        },
+        "reserved": {
+          "adverse-dispositions.json": "29c76997d5782c5a02d9d9828416264cc4ff1796c7323becd3516b7a3a338098",
+          "brief.md": "6a07d10dc2fc4d11e92c060d088d02996edbdba853e7d760a0a8c663886c300e",
+          "draft.json": "20ebecfa8d4315e6efd37180b191ea92962e852066a7370c0a1698b386f213ad",
+          "read-log.json": "e57b21e9d68fe41174c172f966126aa429b9eb637377ad636de707f53c05dcef"
+        }
+      },
+      "name": "original_four_match_clarification_reservation",
+      "passed": true
+    },
+    {
+      "details": {
+        "actual_prompt_sha256": "8107b2e964c87aa2c439807356caa9b3aae8b9f23e8a3d6a83fde27cb7d39093",
+        "admission_approved": false,
+        "reserved_prompt_sha256": "8107b2e964c87aa2c439807356caa9b3aae8b9f23e8a3d6a83fde27cb7d39093"
+      },
+      "name": "clarification_prompt_hash_bound",
+      "passed": true
+    },
+    {
+      "details": {
+        "named_artifacts": [
+          "draft.json",
+          "brief.md",
+          "read-log.json",
+          "adverse-dispositions.json"
+        ]
+      },
+      "name": "prompt_requires_original_four_preserved",
+      "passed": true
+    },
+    {
+      "details": {
+        "statement_present": true
+      },
+      "name": "clarification_attests_original_four_unchanged",
+      "passed": true
+    },
+    {
+      "details": {
+        "prompt_sha256": "f419ea1631408123032d745020e65ba7fa2644ef50057ef4d0c27daf19b69403",
+        "reservation_sha256": "37fe9b942210a7b25144d0edaeb0db96ddb3de808e05f7d1eeaedd92fbbb7654"
+      },
+      "name": "original_reconciliation_dispatch_binding",
+      "passed": true
+    },
+    {
+      "details": {
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/generated/external-history-manifest.json": {
+          "actual": "63a03048de3269ca3bfc3c21b4489fe0ef03355432826e32cd6190a172c089e6",
+          "expected": "63a03048de3269ca3bfc3c21b4489fe0ef03355432826e32cd6190a172c089e6",
+          "match": true
+        },
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-a-attempt-3/continuation/operator-dispatch.json": {
+          "actual": "2f6562fc9260c3b517f42d3abeb76571dbdf058c550c125988c0271ed70d83e0",
+          "expected": "2f6562fc9260c3b517f42d3abeb76571dbdf058c550c125988c0271ed70d83e0",
+          "match": true
+        },
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-a-attempt-3/continuation/operator-reservation.json": {
+          "actual": "434dc9041c02f7d580491150e2d0f818705f6cb338aa925e85712ed65e764dcd",
+          "expected": "434dc9041c02f7d580491150e2d0f818705f6cb338aa925e85712ed65e764dcd",
+          "match": true
+        },
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-a-attempt-3/continuation/read-log.json": {
+          "actual": "3a6fb769b8655149a554cabc8cf0eeec6e18ba57196a01ad8357f52cf9f0fa48",
+          "expected": "3a6fb769b8655149a554cabc8cf0eeec6e18ba57196a01ad8357f52cf9f0fa48",
+          "match": true
+        },
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-a-attempt-3/operator-partial-checkpoint.json": {
+          "actual": "29de5c77d9778d6736c3d9167c4ab683835b1fee96104006e9e44dbd64363ead",
+          "expected": "29de5c77d9778d6736c3d9167c4ab683835b1fee96104006e9e44dbd64363ead",
+          "match": true
+        },
+        "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-b-attempt-3/read-log.json": {
+          "actual": "65410e2052080f8e72175dbaca3d9771fa012daf7fc7b14590ed7480bac4b2b9",
+          "expected": "65410e2052080f8e72175dbaca3d9771fa012daf7fc7b14590ed7480bac4b2b9",
+          "match": true
+        }
+      },
+      "name": "clarification_custody_evidence_hashes_match",
+      "passed": true
+    },
+    {
+      "details": {
+        "external-history-manifest": "63a03048de3269ca3bfc3c21b4489fe0ef03355432826e32cd6190a172c089e6",
+        "prompt.md": "8107b2e964c87aa2c439807356caa9b3aae8b9f23e8a3d6a83fde27cb7d39093",
+        "revised-adverse-dispositions": "80a1daee5ebfbd6119f4349ecd2b6d7d9cea556a2c696ac42686ac3977a09872",
+        "revised-draft": "c6433a134858fd3cc6f27d8f3e54f65fbb355c3d309e5d953a1e04d715f078ad",
+        "source-a-continuation-dispatch": "2f6562fc9260c3b517f42d3abeb76571dbdf058c550c125988c0271ed70d83e0",
+        "source-a-continuation-read-log": "3a6fb769b8655149a554cabc8cf0eeec6e18ba57196a01ad8357f52cf9f0fa48",
+        "source-a-continuation-reservation": "434dc9041c02f7d580491150e2d0f818705f6cb338aa925e85712ed65e764dcd",
+        "source-a-partial-checkpoint": "29de5c77d9778d6736c3d9167c4ab683835b1fee96104006e9e44dbd64363ead",
+        "source-b-read-log": "65410e2052080f8e72175dbaca3d9771fa012daf7fc7b14590ed7480bac4b2b9"
+      },
+      "name": "clarification_report_hashes_match_files",
+      "passed": true
+    },
+    {
+      "details": {
+        "brief_hashes": {
+          "source_reference_a": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240",
+          "source_reference_b": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f"
+        },
+        "reserved": {
+          "a": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240",
+          "b": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f"
+        }
+      },
+      "name": "frozen_brief_hashes_match_reconciliation_reservation",
+      "passed": true
+    },
+    {
+      "details": {
+        "a_context": "/root/h30_source_a_retry3",
+        "a_issue_count": 9,
+        "b_context": "/root/h30_source_b_retry3",
+        "b_issue_count": 10,
+        "source_packets": {
+          "complete_submission": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+          "earnings_exhibit": "3171345cdf084bc932366e1207eb861f4e81f9baef1dcb66ce08d92bc0bfea91",
+          "index": "ab96cce39a4d7ca5043cf203a0f16052de365f17a7dc221d1b448e6cd5acfad3",
+          "primary": "f54558ababca2a641dde8bba57a587bb397b2deeae8035e590790e8dd75b06c6"
+        }
+      },
+      "name": "frozen_briefs_complete_independent_and_packet_bound",
+      "passed": true
+    },
+    {
+      "details": {
+        "complete_submission": {
+          "bytes_actual": 539951,
+          "bytes_expected": 539951,
+          "match": true,
+          "path": "workspace/work/e7-ai-source-snapshot-2026-09-22/e7-sources/H30/0001104659-25-086034.txt",
+          "sha256_actual": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+          "sha256_expected": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd"
+        },
+        "earnings_exhibit": {
+          "bytes_actual": 528179,
+          "bytes_expected": 528179,
+          "match": true,
+          "path": "workspace/work/e7-ai-source-snapshot-2026-09-22/e7-sources/H30/tm2524949d3_ex99-1.htm",
+          "sha256_actual": "3171345cdf084bc932366e1207eb861f4e81f9baef1dcb66ce08d92bc0bfea91",
+          "sha256_expected": "3171345cdf084bc932366e1207eb861f4e81f9baef1dcb66ce08d92bc0bfea91"
+        },
+        "index": {
+          "bytes_actual": 7406,
+          "bytes_expected": 7406,
+          "match": true,
+          "path": "workspace/work/e7-ai-source-snapshot-2026-09-22/e7-sources/H30/0001104659-25-086034-index.htm",
+          "sha256_actual": "ab96cce39a4d7ca5043cf203a0f16052de365f17a7dc221d1b448e6cd5acfad3",
+          "sha256_expected": "ab96cce39a4d7ca5043cf203a0f16052de365f17a7dc221d1b448e6cd5acfad3"
+        },
+        "primary": {
+          "bytes_actual": 10821,
+          "bytes_expected": 10821,
+          "match": true,
+          "path": "workspace/work/e7-ai-source-snapshot-2026-09-22/e7-sources/H30/tm2524949d3_6k.htm",
+          "sha256_actual": "f54558ababca2a641dde8bba57a587bb397b2deeae8035e590790e8dd75b06c6",
+          "sha256_expected": "f54558ababca2a641dde8bba57a587bb397b2deeae8035e590790e8dd75b06c6"
+        }
+      },
+      "name": "raw_source_packet_hashes_match",
+      "passed": true
+    },
+    {
+      "details": {
+        "expected": "029141956e6bdfee2ef3cd75dac4552626ce7f7a71d005e535d8caa1df2a4b44",
+        "path": "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-evidence/reference-a-attempt-3/context-evidence.json",
+        "sha256": "029141956e6bdfee2ef3cd75dac4552626ce7f7a71d005e535d8caa1df2a4b44"
+      },
+      "name": "frozen_a_owner_relative_context_receipt_matches",
+      "passed": true
+    },
+    {
+      "details": {
+        "expected": "dde4348d436581492743b731d4321c6ad7489f5fba0999539a12862ba43d075e",
+        "path": "workspace/outputs/takeover-2026-09-26/h30-source-bundle/source-evidence/reference-b-attempt-3/context-evidence.json",
+        "sha256": "dde4348d436581492743b731d4321c6ad7489f5fba0999539a12862ba43d075e"
+      },
+      "name": "frozen_b_owner_relative_context_receipt_matches",
+      "passed": true
+    },
+    {
+      "details": {
+        "count": 10,
+        "ids": [
+          "H30-R2-001",
+          "H30-R2-002",
+          "H30-R2-003",
+          "H30-R2-004",
+          "H30-R2-005",
+          "H30-R2-006",
+          "H30-R2-007",
+          "H30-R2-008",
+          "H30-R2-009",
+          "H30-R2-010"
+        ]
+      },
+      "name": "financial_material_issues_byte_structure_unchanged",
+      "passed": true
+    },
+    {
+      "details": {
+        "count": 19
+      },
+      "name": "current_issue_dispositions_unchanged",
+      "passed": true
+    },
+    {
+      "details": {
+        "fields": [
+          "accession_number",
+          "source_packets",
+          "source_brief_sha256",
+          "coverage_status",
+          "context_window_truncated"
+        ]
+      },
+      "name": "all_other_draft_fields_unchanged",
+      "passed": true
+    },
+    {
+      "details": {
+        "changed_indexes": [
+          2
+        ],
+        "original": "No source-output truncation, no-content command error, missing chunk, or context compaction occurred in this reconciliation. The prior current-A/current-B command-history difference is not a filing fact and remains unresolved in adverse history; it holds acceptance pending custodian evidence but does not create a byte gap in this context.",
+        "revised": "No source-output truncation, no-content command error, missing chunk, or context compaction occurred in this reconciliation. Custody evidence shows that current A and current B were separate contexts: A corrected its own no-content path typo in the same uncompacted context, while B had no error in its own run. Those compatible records are not a source disagreement. The separately retained old contexts remain retired partial/ineligible history; their unresolved execution claim has no filing locator and remains for custodian classification without changing the freshly checked financial findings."
+      },
+      "name": "only_one_coverage_limit_revised",
+      "passed": true
+    },
+    {
+      "details": {
+        "added": [],
+        "removed": [
+          {
+            "claim": "Current source-A records a corrected no-content command-path error; current source-B records no command error.",
+            "resolution": "The filing cannot adjudicate prior execution history. Both current briefs report complete source coverage and no actual context truncation, but the differing command-history observations remain retained and hold acceptance pending custodian evidence.",
+            "source_locator": "Execution-history disagreement; not a filing-text fact",
+            "source_role": "complete_submission",
+            "source_sha256": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+            "status": "unresolved"
+          }
+        ]
+      },
+      "name": "exactly_false_runtime_disagreement_removed",
+      "passed": true
+    },
+    {
+      "details": {
+        "statuses": {
+          "rejected": 1,
+          "supported": 11
+        }
+      },
+      "name": "revised_disagreements_exact_12_no_unresolved",
+      "passed": true
+    },
+    {
+      "details": {
+        "counts_by_context": {
+          "/root/h30_source_a_retry3": 9,
+          "/root/h30_source_b_retry3": 10
+        },
+        "expected_identity_count": 19,
+        "identity_count": 19,
+        "statuses": {
+          "supported": 19
+        }
+      },
+      "name": "current_19_exact_dispositions_a9_b10",
+      "passed": true
+    },
+    {
+      "details": {
+        "origin_counts": {
+          "/root/e7_h30_reconciliation | f3d0a75b17121120e705066b2a13c5140cf9bb002493e618a497e8ded99cff21": 23,
+          "/root/e7_h30_source_a | 6e47757b5eef8edecc085ae4c621c068865e2b09ffdb66e176a31fd90d53a285": 12,
+          "/root/e7_h30_source_b | 9af8e2dd4a826f10cbf03c3b91ecafbbf9cfe2d2afad8dfc5d3034b7352cc9d3": 11,
+          "/root/h30_source_a_retry3 | 9350718ae851132ce8e12a42f97d2c705eaf5f1a829c0ecc659a034949c578ed": 6
+        },
+        "prefix_counts": {
+          "old-a": 12,
+          "old-b": 11,
+          "old-reconciliation": 23,
+          "same-context-a-partial": 6
+        },
+        "row_count": 52,
+        "unique_ids": 52
+      },
+      "name": "historical_52_unique_exact_manifest_origins",
+      "passed": true
+    },
+    {
+      "details": {
+        "statuses": {
+          "supported": 51,
+          "unresolved": 1
+        }
+      },
+      "name": "historical_rows_have_valid_source_and_targets",
+      "passed": true
+    },
+    {
+      "details": {
+        "changed_history_fields": {
+          "old-reconciliation:disagreement:0": {
+            "reason": [
+              "The filing cannot adjudicate prior runtime retention or tool-output history. The source bytes are complete in this context, but the historical coverage dispute remains unresolved and holds acceptance.",
+              "This is not a financial source dispute. The external-history manifest identifies the old A and B reviews as distinct retired partial/ineligible contexts, so their different coverage/truncation observations may both describe their own executions. Exact historical runtime retention is outside this source-only role and is not source-confirmed; the row remains unresolved with no reconciled issue link."
+            ],
+            "source_locator": [
+              "Prior execution coverage/truncation dispute; not determinable from filing text",
+              "No filing locator: historical execution claim retained for custodian classification."
+            ]
+          }
+        },
+        "unresolved": [
+          {
+            "history_id": "old-reconciliation:disagreement:0",
+            "original_artifact_sha256": "f3d0a75b17121120e705066b2a13c5140cf9bb002493e618a497e8ded99cff21",
+            "reason": "This is not a financial source dispute. The external-history manifest identifies the old A and B reviews as distinct retired partial/ineligible contexts, so their different coverage/truncation observations may both describe their own executions. Exact historical runtime retention is outside this source-only role and is not source-confirmed; the row remains unresolved with no reconciled issue link.",
+            "reconciled_issue_id": null,
+            "source_context_id": "/root/e7_h30_reconciliation",
+            "source_locator": "No filing locator: historical execution claim retained for custodian classification.",
+            "source_role": "complete_submission",
+            "source_sha256": "bea9518d6b1841c30e9617520e02595333c0d98e8fd94a8a407bd657c9201cdd",
+            "status": "unresolved"
+          }
+        ]
+      },
+      "name": "history_51_supported_one_runtime_only_unresolved_preserved",
+      "passed": true
+    },
+    {
+      "details": {
+        "all_reported_read": true,
+        "manifest_set_matches_read_log": true,
+        "partition_details": {
+          "current-a": {
+            "artifact_sha256": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240",
+            "bytes": 19483,
+            "chunks": 3,
+            "contiguous": true,
+            "end": 19483,
+            "start": 0
+          },
+          "current-b": {
+            "artifact_sha256": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f",
+            "bytes": 21660,
+            "chunks": 4,
+            "contiguous": true,
+            "end": 21660,
+            "start": 0
+          },
+          "old-a": {
+            "artifact_sha256": "6e47757b5eef8edecc085ae4c621c068865e2b09ffdb66e176a31fd90d53a285",
+            "bytes": 23693,
+            "chunks": 4,
+            "contiguous": true,
+            "end": 23693,
+            "start": 0
+          },
+          "old-b": {
+            "artifact_sha256": "9af8e2dd4a826f10cbf03c3b91ecafbbf9cfe2d2afad8dfc5d3034b7352cc9d3",
+            "bytes": 19901,
+            "chunks": 4,
+            "contiguous": true,
+            "end": 19901,
+            "start": 0
+          },
+          "old-reconciliation": {
+            "artifact_sha256": "f3d0a75b17121120e705066b2a13c5140cf9bb002493e618a497e8ded99cff21",
+            "bytes": 42475,
+            "chunks": 7,
+            "contiguous": true,
+            "end": 42475,
+            "start": 0
+          },
+          "same-context-a-partial": {
+            "artifact_sha256": "9350718ae851132ce8e12a42f97d2c705eaf5f1a829c0ecc659a034949c578ed",
+            "bytes": 12216,
+            "chunks": 2,
+            "contiguous": true,
+            "end": 12216,
+            "start": 0
+          }
+        }
+      },
+      "name": "reviewer_24_chunks_read_digest_and_partition_exact",
+      "passed": true
+    },
+    {
+      "details": {
+        "all_reported_read": true,
+        "contiguous_coverage_matches": true,
+        "manifest_set_matches_read_log": true,
+        "partition_details": {
+          "views/member-001/reader.txt": {
+            "bytes": 8791,
+            "chunks": 2,
+            "contiguous": true,
+            "end": 8791,
+            "expected_sha256": "d1ad7354f9ea9a22e1ab148662c9bc0bd089e5a14426dde0d4b5fdc7c9044da5",
+            "reader_sha256": "d1ad7354f9ea9a22e1ab148662c9bc0bd089e5a14426dde0d4b5fdc7c9044da5",
+            "start": 0
+          },
+          "views/member-002/reader.txt": {
+            "bytes": 107082,
+            "chunks": 16,
+            "contiguous": true,
+            "end": 107082,
+            "expected_sha256": "a4c7eec3e6747961cabad14e75e00be44cca4b87fd3fc7f35575e427c8bc7cec",
+            "reader_sha256": "a4c7eec3e6747961cabad14e75e00be44cca4b87fd3fc7f35575e427c8bc7cec",
+            "start": 0
+          },
+          "views/packet-index/reader.txt": {
+            "bytes": 7010,
+            "chunks": 2,
+            "contiguous": true,
+            "end": 7010,
+            "expected_sha256": "f8815de944124bf456d9995471184f48e9f51515475dc13e399a364ae106a433",
+            "reader_sha256": "f8815de944124bf456d9995471184f48e9f51515475dc13e399a364ae106a433",
+            "start": 0
+          }
+        }
+      },
+      "name": "source_20_chunks_read_digest_and_partition_exact",
+      "passed": true
+    },
+    {
+      "details": {
+        "actual_compaction": false,
+        "actual_output_truncation": false,
+        "command_errors": [],
+        "context_window_truncated": false,
+        "coverage_status": "complete"
+      },
+      "name": "reconciliation_read_log_complete_untruncated",
+      "passed": true
+    },
+    {
+      "details": {
+        "input_manifest": {
+          "actual_bytes": 25826,
+          "actual_sha256": "df0e6e0184ccb411ba8c572a1b9a3399b2bd531b8ce017439317704f377d62ef",
+          "expected_bytes": 25826,
+          "expected_sha256": "df0e6e0184ccb411ba8c572a1b9a3399b2bd531b8ce017439317704f377d62ef"
+        },
+        "prompt": {
+          "actual_bytes": 7691,
+          "actual_sha256": "f419ea1631408123032d745020e65ba7fa2644ef50057ef4d0c27daf19b69403",
+          "expected_bytes": 7691,
+          "expected_sha256": "f419ea1631408123032d745020e65ba7fa2644ef50057ef4d0c27daf19b69403"
+        },
+        "proposed_prompt_inventory": {
+          "actual_bytes": 3230,
+          "actual_sha256": "5f57cae88628b22624b01bf4c6a01d0a2ecb38297e4e1d3f4426731852b3d5d5",
+          "expected_bytes": 3230,
+          "expected_sha256": "5f57cae88628b22624b01bf4c6a01d0a2ecb38297e4e1d3f4426731852b3d5d5"
+        },
+        "source_chunk_manifest": {
+          "actual_bytes": 7214,
+          "actual_sha256": "81ae6f6957abe1c6d8cf2ee719a348c2bbb7f636690210e4fa149c7d91edf718",
+          "expected_bytes": 7214,
+          "expected_sha256": "81ae6f6957abe1c6d8cf2ee719a348c2bbb7f636690210e4fa149c7d91edf718"
+        }
+      },
+      "name": "read_log_inventory_hashes_match",
+      "passed": true
+    },
+    {
+      "details": {
+        "compaction_observed": false,
+        "context_id": "/root/h30_source_a_retry3",
+        "continued_issue_ids": [
+          "A-001",
+          "A-002",
+          "A-003",
+          "A-004",
+          "A-005",
+          "A-006",
+          "A-007",
+          "A-008",
+          "A-009"
+        ],
+        "failed_delivery_events": [
+          {
+            "delivered": false,
+            "error": "Malformed command path returned No such file or directory and emitted no source bytes.",
+            "file": "member-002-005.txt",
+            "phase": "initial",
+            "range": [
+              35000,
+              42000
+            ],
+            "reader": "views/member-002/reader.txt",
+            "sequence": 8
+          }
+        ],
+        "partial_artifacts": {
+          "brief.md": "0ec3056465054f61521b49042dadc6ebb13d3878a8ab7cdfe9d2971913e000e1",
+          "draft.json": "9350718ae851132ce8e12a42f97d2c705eaf5f1a829c0ecc659a034949c578ed",
+          "read-log.json": "026f5f783d4735de70248155f9f6a374bdbe5f1c89d28f670f0598b1abcdf3ad"
+        },
+        "partial_issue_ids": [
+          "A-001",
+          "A-002",
+          "A-003",
+          "A-004",
+          "A-005",
+          "A-006"
+        ],
+        "source_output_truncation_observed": false
+      },
+      "name": "source_a_same_context_continuation_preserves_six_partial_findings",
+      "passed": true
+    },
+    {
+      "details": {
+        "current_contexts": [
+          "/root/h30_reconciliation_retry2",
+          "/root/h30_source_a_retry3",
+          "/root/h30_source_b_retry3"
+        ],
+        "eligible_source_evidence": false,
+        "fresh_role_input": false,
+        "old_contexts": [
+          "/root/e7_h30_reconciliation",
+          "/root/e7_h30_source_a",
+          "/root/e7_h30_source_b"
+        ]
+      },
+      "name": "old_partial_contexts_remain_excluded_from_current_authority",
+      "passed": true
+    },
+    {
+      "details": {
+        "checked_records": 6
+      },
+      "name": "no_admission_approval_claimed",
+      "passed": true
+    }
+  ],
+  "counts": {
+    "current_a_dispositions": 9,
+    "current_b_dispositions": 10,
+    "current_disagreements": 12,
+    "current_dispositions": 19,
+    "current_unresolved_disagreements": 0,
+    "historical_rows": 52,
+    "historical_supported": 51,
+    "historical_unresolved": 1,
+    "material_issues": 10,
+    "partial_a_preserved_findings": 6,
+    "reviewer_evidence_chunks": 24,
+    "source_chunks": 20
+  },
+  "evidence_hashes": {
+    "chunk-manifest.json": "81ae6f6957abe1c6d8cf2ee719a348c2bbb7f636690210e4fa149c7d91edf718",
+    "external-history-manifest.json": "63a03048de3269ca3bfc3c21b4489fe0ef03355432826e32cd6190a172c089e6",
+    "frozen_briefs": {
+      "source_reference_a": "932deaca7cf64be22ca6ab463e05a48a817c1b9fce749358b9ab4108fc461240",
+      "source_reference_b": "99fc6975901a3ab5919cea9fa45265e8afd1588a24365524da89e1ab34268c7f"
+    },
+    "input_manifest.json": "df0e6e0184ccb411ba8c572a1b9a3399b2bd531b8ce017439317704f377d62ef",
+    "original_reconciliation": {
+      "adverse-dispositions.json": "29c76997d5782c5a02d9d9828416264cc4ff1796c7323becd3516b7a3a338098",
+      "brief.md": "6a07d10dc2fc4d11e92c060d088d02996edbdba853e7d760a0a8c663886c300e",
+      "draft.json": "20ebecfa8d4315e6efd37180b191ea92962e852066a7370c0a1698b386f213ad",
+      "read-log.json": "e57b21e9d68fe41174c172f966126aa429b9eb637377ad636de707f53c05dcef"
+    },
+    "revised": {
+      "adverse-dispositions.json": "80a1daee5ebfbd6119f4349ecd2b6d7d9cea556a2c696ac42686ac3977a09872",
+      "clarification.md": "d80e61a23063523049b0f5832ebbc3dffea07fae0f265603d9dff936ba34b2e0",
+      "draft.json": "c6433a134858fd3cc6f27d8f3e54f65fbb355c3d309e5d953a1e04d715f078ad"
+    }
+  },
+  "generated_at": "2026-09-27T01:21:53.184224+00:00",
+  "kind": "h30_reconciliation_custody_final_structural_audit",
+  "limitations": [
+    "This audit is structural. It does not regenerate or semantically re-judge financial findings, source locators, amounts, qualifiers, or importance.",
+    "The single unresolved historical row is an operator-runtime custody claim. Filing bytes cannot certify exact retention in the retired executions.",
+    "The old source-A, source-B, and reconciliation contexts remain partial, ineligible adverse history and must stay excluded from current source authority.",
+    "The revised current reconciliation still requires an immutable schema-2 wrapper/context receipt and protocol inventory entry before validation; this audit does not freeze or admit it.",
+    "No provider call, human adjudication, programme admission, or all-30-filing readiness is established here."
+  ],
+  "metadata_rewritten": false,
+  "provider_calls": 0,
+  "required_next_integration_gap": {
+    "current_protocol_boundary": "The schema-2 reconciled reference can carry the unchanged 19 current dispositions and 12 current disagreements, but acceptance_ai_protocol has no field for the separate 52-row reconciliation history ledger. The existing adverse_source_evidence validator only accepts compacted retired source_reference_b attempts and cannot represent H30 old A, old B, old reconciliation, and same-context partial-A origins.",
+    "must_not_do": "Do not place these rows into the H29-only retired-B format, relabel the runtime row as source-confirmed, rewrite frozen artifacts, rerun a provider, or treat the structural pass as admission.",
+    "name": "separate reconciliation-history custody integration",
+    "required_minimum": "After freezing the revised current reconciliation under existing schema 2, add a bounded optional history-evidence record keyed by accession and reconciliation context. Bind the input history manifest, all original and revised reconciliation artifact hashes, the exact 52-row identity/origin set, valid source roles/hashes and current targets, and add all retired origin contexts to the shared exclusion closure. Preserve old-reconciliation:disagreement:0 as unresolved operator custody with a null target and explicit hold."
+  },
+  "result": "pass",
+  "schema_version": 1,
+  "scope": "read-only structural comparison of frozen original/revised reconciliation, current A/B briefs, manifests, read logs, chunks and custody records",
+  "semantic_regeneration": false
+}

@@ -9,6 +9,22 @@ ownership, preserves Agent B's independent fixture pack and consolidates additio
 It also records the agents' dated corrections and historical-health attestations without treating
 them as independently observed raw responses.
 
+## September 27 implementation and evidence index
+
+The sections below this index retain the initial September 26 retrospective audit. Subsequent implementation and paid ordinary CI measurements are recorded separately here; its earlier “no new measurement” statements describe only that initial audit.
+
+- [#963 verified release](pr963-release.json): custody and source-unit corrections.
+- [#964 verified release](pr964-release.json): exact prompts, durable pre-dispatch history and crash recovery.
+- [#965 verified release](pr965-release.json): release database sessions before SEC network waits.
+- [#966 verified frontend release](pr966-release.json) and [hosted default-build evidence](pr966-hosted-build.md): visible warnings and bounded product claims; its main backend deploy job explicitly skipped because no backend files changed.
+- [#967 verified release](pr967-release.json) and [actual hosted audit](pr967-hosted-final.md): retained adverse source evidence.
+- [#968 verified release](pr968-release.json) and [actual hosted audit](pr968-hosted-final.md): cached numeric warning persistence.
+- [#969 initial local gate](pr969-local-verification.json), [independent final code review](pr969-independent-review.md) and [actual hosted audit](pr969-hosted-final.md): final corrected head passed 3,731 local tests, 70/70 summaries and 18/18 Copilot draws. [Release verification](pr969-release.json) is complete at revision `00393-6m9`; initial receipts do not claim to cover later heads.
+- [H30 individual freeze](h30-freeze-receipt.json) and [custody audit](h30-custody-audit.json): financial source evidence plus one separate unresolved runtime-only history row; no programme admission.
+- [Live Analysis observations](live-analysis-acceptance.md), [post-release cached-warning check](post-release-cache-check.json) and [bounded large-source capacity](large-source-capacity.json).
+
+This repository retains compact receipts, inventories and hashes. Large raw bundles remain in the operator workspace under `outputs/takeover-2026-09-26/`, at the per-receipt subdirectory named in each record; they are not silently repository-local. Release JSON filenames in `files` also refer to that external workspace root. Public compact copies normalize host-specific workspace/checkout paths to logical locations; original receipts and frozen artifacts remain byte-for-byte retained in the workspace. Their source/artifact hashes are unchanged. Evidence inventory hashes describe the original external bundles, not a recomputed claim that the compact copies contain them.
+
 ## Verified release chain
 
 Each backend job below reported `apply_migrations: applied=0 skipped=39`, the named revision
