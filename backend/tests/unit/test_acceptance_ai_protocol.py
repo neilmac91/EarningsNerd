@@ -626,6 +626,39 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
 
     settlement_path = tmp_path / technical["settlement"]["path"]
     original_settlement = json.loads(settlement_path.read_text())
+    original_dispatch_declaration = json.loads(json.dumps(technical["dispatch"]))
+    original_settlement_declaration = json.loads(json.dumps(technical["settlement"]))
+    union_path = settlement_path.parent / "dispatch-settlement-union.json"
+    union_reference = _write(union_path, {**original_dispatch, **original_settlement})
+    union_reference["path"] = str(union_path.relative_to(tmp_path))
+    technical["dispatch"] = json.loads(json.dumps(union_reference))
+    technical["settlement"] = json.loads(json.dumps(union_reference))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    technical["dispatch"] = original_dispatch_declaration
+    technical["settlement"] = original_settlement_declaration
+
+    technical_alias = record["technical_attempts"][1]
+    current_brief = next(
+        row for row in prereq["ai_assisted"]["source_briefs"]
+        if row["role"] == "source_reference_b")
+    current_brief_bytes = (tmp_path / current_brief["path"]).read_bytes()
+    alias_settlement_path = tmp_path / technical_alias["settlement"]["path"]
+    alias_child_path = alias_settlement_path.parent / "brief.md"
+    original_alias_child_bytes = alias_child_path.read_bytes()
+    original_alias_settlement = json.loads(alias_settlement_path.read_text())
+    original_alias_settlement_declaration = json.loads(json.dumps(technical_alias["settlement"]))
+    alias_child_path.write_bytes(current_brief_bytes)
+    alias_settlement = json.loads(json.dumps(original_alias_settlement))
+    alias_settlement["artifacts"]["brief.md"] = current_brief["sha256"]
+    technical_alias["settlement"].update(_write(alias_settlement_path, alias_settlement))
+    technical_alias["settlement"]["path"] = str(alias_settlement_path.relative_to(tmp_path))
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    alias_child_path.write_bytes(original_alias_child_bytes)
+    _write(alias_settlement_path, original_alias_settlement)
+    technical_alias["settlement"] = original_alias_settlement_declaration
+
     positive_settlement = json.loads(json.dumps(original_settlement))
     positive_settlement["issue_count"] = 1
     technical["settlement"].update(_write(settlement_path, positive_settlement))
@@ -668,6 +701,71 @@ def test_cross_role_history_binds_typed_rows_and_excludes_every_origin(tmp_path:
     assert "ai_reconciliation_history_invalid" in {
         item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
     first_retained.write_bytes(original_retained_bytes)
+
+    same_context_origin = next(
+        row for row in record["origin_contexts"]
+        if row["history_prefix"] == "same-context-a-partial")
+    original_same_context_origin = json.loads(json.dumps(same_context_origin))
+    current_brief = next(
+        row for row in prereq["ai_assisted"]["source_briefs"]
+        if row["context_id"] == same_context_origin["context_id"])
+    same_context_origin.update({
+        "artifact_sha256": current_brief["sha256"],
+        "artifact": {key: current_brief[key] for key in ("path", "sha256")},
+    })
+    aliased_ledger = json.loads(original_ledger_bytes)
+    aliased_row = next(
+        row for row in aliased_ledger["history_dispositions"]
+        if row["history_id"].startswith("same-context-a-partial:"))
+    aliased_row.update({
+        "history_id": "same-context-a-partial:issue:revenue",
+        "original_artifact_sha256": current_brief["sha256"],
+    })
+    aliased_declaration = json.loads(json.dumps(original_declaration))
+    aliased_declaration["identity_set_sha256"] = _canonical_set_sha256({
+        row["history_id"] for row in aliased_ledger["history_dispositions"]})
+    aliased_declaration.update(_write(ledger_path, aliased_ledger))
+    record["history_ledger"] = aliased_declaration
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    same_context_origin.clear()
+    same_context_origin.update(original_same_context_origin)
+    record["history_ledger"] = json.loads(json.dumps(original_declaration))
+    ledger_path.write_text(original_ledger_bytes, encoding="utf-8")
+
+    first_origin = record["origin_contexts"][0]
+    duplicate_origin = record["origin_contexts"][1]
+    original_duplicate_origin = json.loads(json.dumps(duplicate_origin))
+    duplicate_origin.update({
+        "artifact_sha256": first_origin["artifact_sha256"],
+        "artifact": json.loads(json.dumps(first_origin["artifact"])),
+    })
+    duplicate_manifest = json.loads(json.dumps(original_manifest))
+    duplicate_manifest["retained_artifacts"] = [
+        artifact for artifact in duplicate_manifest["retained_artifacts"]
+        if artifact["sha256"] != original_duplicate_origin["artifact_sha256"]
+    ]
+    record["history_manifest"].update(_write(manifest_path, duplicate_manifest))
+    duplicate_ledger = json.loads(original_ledger_bytes)
+    duplicate_row = next(
+        row for row in duplicate_ledger["history_dispositions"]
+        if row["history_id"].startswith("old-b:"))
+    duplicate_row.update({
+        "history_id": "old-b:issue:ISSUE-1",
+        "original_artifact_sha256": first_origin["artifact_sha256"],
+    })
+    duplicate_declaration = json.loads(json.dumps(original_declaration))
+    duplicate_declaration["identity_set_sha256"] = _canonical_set_sha256({
+        row["history_id"] for row in duplicate_ledger["history_dispositions"]})
+    duplicate_declaration.update(_write(ledger_path, duplicate_ledger))
+    record["history_ledger"] = duplicate_declaration
+    assert "ai_reconciliation_history_invalid" in {
+        item["code"] for item in _validate(prereq, path, accession, sources, now)[0]}
+    duplicate_origin.clear()
+    duplicate_origin.update(original_duplicate_origin)
+    record["history_manifest"].update(_write(manifest_path, original_manifest))
+    record["history_ledger"] = json.loads(json.dumps(original_declaration))
+    ledger_path.write_text(original_ledger_bytes, encoding="utf-8")
 
     other_accession = "0000000002-26-000002"
     other, _, _, other_sources, _ = _fixture(

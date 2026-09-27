@@ -187,6 +187,7 @@ def _reconciliation_history_inventory(
 
     briefs_by_accession: dict[str, list[dict[str, Any]]] = {}
     current_context_owners: dict[str, str] = {}
+    current_context_artifact_hashes: dict[str, set[str]] = {}
 
     def bind_current_context(context: Any, accession: Any, label: str) -> str:
         context_id = validate_source_context_id(context, label)
@@ -194,6 +195,9 @@ def _reconciliation_history_inventory(
         if owner != accession:
             raise ValueError("current source context is owned by another accession")
         return context_id
+
+    def bind_current_artifacts(context: Any, hashes: set[str]) -> None:
+        current_context_artifact_hashes.setdefault(context, set()).update(hashes)
 
     for row in ai.get("source_briefs", []):
         if not isinstance(row, dict):
@@ -203,7 +207,9 @@ def _reconciliation_history_inventory(
         if (brief.get("accession_number") != accession or
                 brief.get("context_id") != row.get("context_id")):
             raise ValueError("history source brief context differs")
-        bind_current_context(row.get("context_id"), accession, "current source context_id")
+        context_id = bind_current_context(
+            row.get("context_id"), accession, "current source context_id")
+        bind_current_artifacts(context_id, {row["sha256"]})
         briefs_by_accession.setdefault(accession, []).append(row)
 
     reconciliations: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
@@ -214,8 +220,9 @@ def _reconciliation_history_inventory(
         accession = row.get("accession_number")
         if reference.get("accession_number") != accession or accession in reconciliations:
             raise ValueError("history reconciliation identity differs or is duplicated")
-        bind_current_context(
+        context_id = bind_current_context(
             reference.get("context_id"), accession, "current reconciliation context_id")
+        bind_current_artifacts(context_id, {row["sha256"]})
         reconciliations[accession] = (row, reference)
 
     if "adverse_source_evidence" in ai:
@@ -236,8 +243,10 @@ def _reconciliation_history_inventory(
             bind_current_context(
                 row.get("context_id"), accession, "adverse source context_id")
 
+    current_eligible_hashes = set().union(*current_context_artifact_hashes.values())
     inventory: list[dict[str, Any]] = []
     all_history_contexts: set[str] = set()
+    all_history_artifact_hashes: set[str] = set()
     runtime_holds = 0
     seen_accessions: set[str] = set()
     for record in records:
@@ -264,7 +273,6 @@ def _reconciliation_history_inventory(
         }
         current_contexts.add(validate_source_context_id(
             reconciliation.get("context_id"), "current reconciliation context_id"))
-
         origins = record.get("origin_contexts")
         if not isinstance(origins, list) or not origins:
             raise ValueError("reconciliation history origins missing")
@@ -289,7 +297,10 @@ def _reconciliation_history_inventory(
                     not isinstance(origin.get("artifact_sha256"), str) or
                     _SHA256.fullmatch(origin["artifact_sha256"]) is None or
                     not isinstance(origin.get("artifact"), dict) or
-                    origin["artifact"].get("sha256") != origin["artifact_sha256"]):
+                    origin["artifact"].get("sha256") != origin["artifact_sha256"] or
+                    origin["artifact_sha256"] in all_history_artifact_hashes or
+                    origin["artifact_sha256"] in
+                    current_context_artifact_hashes.get(context_id, set())):
                 raise ValueError("reconciliation history origin invalid or reused")
             _history_file_reference(origin["artifact"])
             artifact_reference, artifact_value = _artifact(base, origin["artifact"])
@@ -300,6 +311,7 @@ def _reconciliation_history_inventory(
             origin_by_context[context_id] = origin
             history_prefixes.add(origin["history_prefix"])
             all_history_contexts.add(context_id)
+            all_history_artifact_hashes.add(origin["artifact_sha256"])
 
         manifest_record = _history_file_reference(record.get("history_manifest"))
         manifest_reference, manifest = _reference(base, manifest_record)
@@ -423,6 +435,12 @@ def _reconciliation_history_inventory(
             reservation_reference, reservation = _reference(base, reservation_record)
             dispatch_reference, dispatch = _reference(base, dispatch_record)
             settlement_reference, settlement = _reference(base, settlement_record)
+            if (len({reservation_record["sha256"], dispatch_record["sha256"],
+                     settlement_record["sha256"]}) != 3 or
+                    len({str(Path(reference["resolved_path"]).resolve()) for reference in
+                         (reservation_reference, dispatch_reference,
+                          settlement_reference)}) != 3):
+                raise ValueError("technical history control artifacts are not distinct")
             if (type(reservation.get("schema_version")) is not int or
                     reservation["schema_version"] != 1 or
                     reservation.get("context_id") != context_id or
@@ -451,7 +469,9 @@ def _reconciliation_history_inventory(
                     _SHA256.fullmatch(sha256) is None
                     for path, sha256 in settlement_artifacts.items()) or
                     sorted(Path(path).name for path in settlement_artifacts) !=
-                    ["brief.md", "draft.json", "read-log.json"]):
+                    ["brief.md", "draft.json", "read-log.json"] or
+                    any(sha256 in current_eligible_hashes
+                        for sha256 in settlement_artifacts.values())):
                 raise ValueError("technical settlement child declaration incomplete")
             for path, sha256 in settlement["artifacts"].items():
                 child, child_value = _child_artifact(
