@@ -5,6 +5,7 @@ import logging
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional
 from app.config import settings
+from app.schemas.summary import attach_normalized_facts
 from app.services.prompt_loader import get_prompt, get_structured_prompt
 import json
 
@@ -611,6 +612,9 @@ Rules:
                 sections["results_that_matter"] = _sanitize_bank_financial_highlights(
                     sections["results_that_matter"], xbrl_metrics,
                 )
+                sections["results_that_matter"] = attach_normalized_facts(
+                    sections["results_that_matter"], xbrl_metrics,
+                )
                 sections["results_that_matter"] = bind_exact_xbrl_deltas(
                     sections["results_that_matter"], xbrl_metrics,
                 )
@@ -704,6 +708,7 @@ Rules:
         # `sections_info` is the same object every downstream consumer reads, so reassigning it here
         # covers the markdown, "Financial Overview", raw payload, and the response column at once.
         financial_section = _sanitize_bank_financial_highlights(financial_section, xbrl_metrics)
+        financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
         financial_section = bind_exact_xbrl_deltas(financial_section, xbrl_metrics)
         if isinstance(sections_info, dict):
             sections_info["results_that_matter"] = financial_section

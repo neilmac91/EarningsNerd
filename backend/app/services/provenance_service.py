@@ -377,6 +377,7 @@ def enrich_financial_highlights(
     filing: Any,
     xbrl_standardized: Optional[dict],
     normalized_source: Optional[str] = None,
+    exact_delta_owned: bool = False,
 ) -> Optional[dict]:
     """Return a deep-copied ``financial_highlights`` with per-row provenance on ``table`` entries.
 
@@ -401,9 +402,12 @@ def enrich_financial_highlights(
         or financial_highlights.get("sourceSectionRef")
     )
     base_url = _base_url(filing)
-    result = metric_delta_service.bind_exact_xbrl_deltas(
-        copy.deepcopy(financial_highlights), xbrl_standardized,
-    )
+    result = copy.deepcopy(financial_highlights)
+    # A generation-stamped envelope may retain its already-bound exact deltas when the best-effort
+    # XBRL reload is unavailable. Every unmarked/forged envelope is still scrubbed and recomputed
+    # from its visible operands; a successful reload always rebinds from the current exact facts.
+    if isinstance(xbrl_standardized, dict) or not exact_delta_owned:
+        result = metric_delta_service.bind_exact_xbrl_deltas(result, xbrl_standardized)
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
         rows = [
@@ -479,13 +483,18 @@ def enrich_raw_summary(
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
     result = copy.deepcopy(raw_summary)
+    delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
+    exact_delta_owned = (
+        type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
+    )
     if has_risks:
         result["sections"][risk_key] = enrich_risk_list(risks, filing, normalized_source)
     if has_fh:
         # v2 metric rows carry a model Investor-Takeaway excerpt to cite; v1 rows don't, so only the
         # v2 path threads normalized_source (which turns on commentary_evidence).
         result["sections"][metrics_key] = enrich_financial_highlights(
-            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None
+            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None,
+            exact_delta_owned=exact_delta_owned,
         )
         result[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
     if version >= 2:
@@ -512,12 +521,19 @@ def enrich_summary_provenance(
     enriched_raw = enrich_raw_summary(
         summary.raw_summary, filing, normalized_source, xbrl_standardized
     )
+    raw_marker = summary.raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY) if isinstance(
+        summary.raw_summary, dict
+    ) else None
+    exact_delta_owned = (
+        type(raw_marker) is int and raw_marker == metric_delta_service.EXACT_CONTEXT_VERSION
+    )
     return {
         "id": summary.id,
         "filing_id": summary.filing_id,
         "business_overview": summary.business_overview,
         "financial_highlights": enrich_financial_highlights(
-            summary.financial_highlights, filing, xbrl_standardized
+            summary.financial_highlights, filing, xbrl_standardized,
+            exact_delta_owned=exact_delta_owned,
         ),
         "risk_factors": enrich_risk_list(summary.risk_factors, filing, normalized_source),
         "management_discussion": summary.management_discussion,

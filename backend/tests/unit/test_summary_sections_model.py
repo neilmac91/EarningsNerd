@@ -8,6 +8,7 @@ import pytest
 
 from app.services import metric_delta_service
 from app.services.openai_service import OpenAIService
+from app.services.provenance_service import enrich_raw_summary
 from app.services.summary_sections import (
     Block,
     Section,
@@ -99,6 +100,14 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
             "prior": {"period": "2025-04-27", "period_start": "2025-01-27", "form": "10-Q",
                       "value": 60.5},
         },
+        "operating_income": {
+            "current": {"period": "2025-12-31", "period_start": "2025-01-01", "form": "10-K",
+                        "currency": "USD", "raw_tag": "us-gaap:OperatingIncomeLoss",
+                        "value": 13_305_000_000},
+            "prior": {"period": "2024-12-31", "period_start": "2024-01-01", "form": "10-K",
+                      "currency": "USD", "raw_tag": "us-gaap:OperatingIncomeLoss",
+                      "value": 12_322_000_000},
+        },
     }
     bound = metric_delta_service.bind_exact_xbrl_deltas(section, metrics)
     assert [row.get("change_display") for row in bound["table"]] == [
@@ -129,6 +138,38 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     rejected = metric_delta_service.bind_exact_xbrl_deltas(section, conflicting)
     assert rejected["table"][0].get("change_display") is None
 
+    leading_decimal = {"table": [
+        {"metric": "Revenue", "current_period": "$.5B", "prior_period": "$.4B"},
+    ]}
+    wrong_bucket = copy.deepcopy(metrics)
+    wrong_bucket["revenue"]["current"]["value"] = 900_000_000
+    wrong_bucket["revenue"]["prior"]["value"] = 800_000_000
+    assert metric_delta_service.bind_exact_xbrl_deltas(
+        leading_decimal, wrong_bucket,
+    )["table"][0].get("change_display") is None
+
+    ambiguous_currency = {"table": [
+        {"metric": "Revenue", "current_period": "¥100.0B", "prior_period": "¥80.0B"},
+    ]}
+    yen_shaped_usd = copy.deepcopy(metrics)
+    yen_shaped_usd["revenue"]["current"]["value"] = 100_000_000_000
+    yen_shaped_usd["revenue"]["prior"]["value"] = 80_000_000_000
+    assert metric_delta_service.bind_exact_xbrl_deltas(
+        ambiguous_currency, yen_shaped_usd,
+    )["table"][0].get("change_display") is None
+
+    cached = _raw({"results_that_matter": {"table": [copy.deepcopy(bound["table"][1])]}}, schema_version=2)
+    cached[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
+    preserved = enrich_raw_summary(cached, None, xbrl_standardized=None)
+    preserved_block = next(b for s in render_sections(preserved) for b in s.blocks if b.kind == "metrics")
+    assert preserved_block.rows[0][3] == "+33.3%"
+    forged_cached = copy.deepcopy(cached)
+    forged_cached[metric_delta_service.EXACT_CONTEXT_KEY] = True
+    forged_cached["sections"]["results_that_matter"]["table"][0]["change_display"] = "+99.0%"
+    scrubbed = enrich_raw_summary(forged_cached, None, xbrl_standardized=None)
+    scrubbed_block = next(b for s in render_sections(scrubbed) for b in s.blocks if b.kind == "metrics")
+    assert scrubbed_block.rows[0][3] == "+32.9%"
+
     # Exercise the production extraction/render path and its streaming-preview projection. These
     # retained operands reproduce the AAPL and PGR rounding boundaries that exposed display-string
     # arithmetic; the service must bind the exact values before either surface renders the table.
@@ -145,6 +186,10 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
         },
         "metadata": {},
     }
+    candidate["sections"]["results_that_matter"]["table"].append({
+        "metric": "Operating income", "current_period": "$13.3B",
+        "prior_period": "Not disclosed", "commentary": "Reported operating income.",
+    })
 
     async def request(*args, **kwargs):
         return json.dumps(candidate)
@@ -157,8 +202,12 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     )
     final = result["business_overview"]
     preview = service._partial_markdown_preview(json.dumps(candidate), metrics) or ""
+    normalized_row = result["raw_summary"]["sections"]["results_that_matter"]["table"][-1]
+    assert normalized_row["prior_period"] == "$12,322,000,000"
+    assert normalized_row["change_display"] == "+8.0%"
     for surface in (final, preview):
         assert "+6.4%" in surface and "+33.3%" in surface
+        assert "$12,322,000,000" in surface and "+8.0%" in surface
         assert "+6.5%" not in surface and "+33.4%" not in surface
     assert rejected["table"][1].get("change_display") is None
     conflicting["revenue"]["prior"]["raw_tag"] = (

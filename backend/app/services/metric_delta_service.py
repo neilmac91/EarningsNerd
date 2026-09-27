@@ -60,12 +60,17 @@ _STRICT_XBRL_KEYS = {
 }
 _RATIO_KEYS = frozenset({"net_margin", "gross_margin", "operating_margin"})
 _CODE_DELTA_FIELDS = ("change_display", "change_direction", "change_tone")
-_NUMBER_TOKEN = re.compile(r"(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.(?P<decimals>[0-9]+))?")
+_NUMBER_TOKEN = re.compile(
+    r"(?:(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.(?P<decimals>[0-9]+))?"
+    r"|\.(?P<leading_decimals>[0-9]+))"
+)
 _CURRENCY_CODE = re.compile(
     r"\b(USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD)\b",
     re.IGNORECASE,
 )
-_SYMBOL_CURRENCY = {"$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "₩": "KRW"}
+_SYMBOL_CURRENCY: dict[str, Optional[str]] = {
+    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW",
+}
 _DISPLAY_SCALE = {
     "k": Decimal("1e3"), "thousand": Decimal("1e3"),
     "m": Decimal("1e6"), "mn": Decimal("1e6"), "million": Decimal("1e6"),
@@ -156,7 +161,7 @@ def _display_resolution(text: Any) -> Optional[Decimal]:
     token = _NUMBER_TOKEN.search(text)
     if token is None:
         return None
-    decimals = len(token.group("decimals") or "")
+    decimals = len(token.group("decimals") or token.group("leading_decimals") or "")
     suffix = text[token.end():].casefold().replace(")", "").strip()
     unit_match = re.match(r"(thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b", suffix)
     scale = _DISPLAY_SCALE.get(unit_match.group(1), Decimal(1)) if unit_match else Decimal(1)
@@ -174,22 +179,25 @@ def _display_matches_exact(text: Any, exact: Decimal) -> bool:
     return abs(displayed - exact) <= resolution / 2 + epsilon
 
 
-def _display_currency(text: Any) -> Optional[str]:
+def _display_currency(text: Any) -> tuple[bool, Optional[str]]:
+    """Return whether a currency token is present and its unambiguous ISO code, if any."""
     if not isinstance(text, str):
-        return None
+        return False, None
     code = _CURRENCY_CODE.search(text)
     if code:
         value = code.group(1).upper()
-        return "CNY" if value == "RMB" else value
+        return True, "CNY" if value == "RMB" else value
     # Compound dollar symbols must be checked before the plain "$" fallback.
     for prefix, currency in (("A$", "AUD"), ("C$", "CAD"), ("HK$", "HKD"),
                              ("S$", "SGD"), ("NT$", "TWD"), ("R$", "BRL")):
         if prefix in text:
-            return currency
+            return True, currency
     for symbol, currency in _SYMBOL_CURRENCY.items():
         if symbol in text:
-            return currency
-    return None
+            # A bare yen/yuan symbol is not enough to distinguish JPY from CNY. Keep its explicit
+            # presence so exact binding rejects it rather than treating it as an unlabeled scalar.
+            return True, currency
+    return False, None
 
 
 def _matching_duration_scopes(current: dict, prior: dict) -> bool:
@@ -254,8 +262,8 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
     currency = current.get("currency") or prior.get("currency")
     if isinstance(currency, str):
         for text in (current_text, prior_text):
-            displayed_currency = _display_currency(text)
-            if displayed_currency is not None and displayed_currency != currency.upper():
+            has_currency, displayed_currency = _display_currency(text)
+            if has_currency and displayed_currency != currency.upper():
                 return None
     if not _display_matches_exact(current_text, current_value):
         return None
