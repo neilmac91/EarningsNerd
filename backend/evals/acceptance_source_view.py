@@ -198,9 +198,12 @@ class _ProjectionParser(_StrictXmlPiMixin, HTMLParser):
         self.raw = raw
         self.text = text
         self.strict_xhtml = strict_xhtml
-        self.char_bytes = [0]
-        for char in text:
-            self.char_bytes.append(self.char_bytes[-1] + len(char.encode("utf-8")))
+        if text.isascii():
+            self.char_bytes = range(len(text) + 1)
+        else:
+            self.char_bytes = [0]
+            for char in text:
+                self.char_bytes.append(self.char_bytes[-1] + len(char.encode("utf-8")))
         self.line_chars = [0]
         self.line_chars.extend(index + 1 for index, char in enumerate(text) if char == "\n")
         self.events: list[dict[str, Any]] = []
@@ -1208,6 +1211,7 @@ def project_html(raw: bytes) -> dict[str, Any]:
     parser = _ProjectionParser(raw, text, strict_xhtml=_is_strict_xhtml(raw))
     parser.feed(text)
     records = parser.finish()
+    del parser, text
     compact_text = _normalize_units(records["units"])
     projection = {
         "schema_version": 1,
