@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "risk_source_first_offline_assessment",
+  "inputs": {
+    "pilot_control_payload": {
+      "sha256": "e59e5b31674fd0a57e706f61ed8a3edbef71c47d99784a1b53e081ec181b3c9b"
+    },
+    "pilot_input": {
+      "path": "outputs/takeover-2026-09-27/financial-candidate/thinking-low-pilot/inputs/RIVN-10-K.json",
+      "sha256": "89178a2289142514bd70ba95dbe8937d7503c64e643d67c36619a667d8abf463"
+    },
+    "pilot_thinking_low_payload": {
+      "sha256": "ab8e3efbc1de77f99d5f6d0bda5ec3d4ccad4bc87af0fca5c9f36806f2d3a2ae"
+    },
+    "retained_r70_report": {
+      "path": "outputs/takeover-2026-09-27/financial-candidate/hosted/ci-36324847604/artifact/eval_20260927T141938Z.json",
+      "sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b"
+    }
+  },
+  "method": {
+    "dangling": "nonempty evidence did not match",
+    "full_matched": "nonempty evidence matched",
+    "match": "supporting_evidence is a substring of grounding_excerpt after whitespace-only normalization",
+    "missing": "evidence absent or empty",
+    "model_calls": 0,
+    "mutation": false,
+    "network_calls": 0
+  },
+  "retained_r70": {
+    "dangling": 24,
+    "evidence_length_normalized_chars": {
+      "count": 296,
+      "max": 698,
+      "mean": 233.97,
+      "median": 217.5,
+      "min": 72,
+      "p90": 367
+    },
+    "full_match_rate": 0.918919,
+    "full_matched": 272,
+    "matched_evidence_length_normalized_chars": {
+      "count": 272,
+      "max": 542,
+      "mean": 230.81,
+      "median": 216.0,
+      "min": 72,
+      "p90": 366
+    },
+    "matched_excerpts_remaining_per_summary": {
+      "1": 2,
+      "2": 5,
+      "3": 11,
+      "4": 33,
+      "5": 19
+    },
+    "missing": 0,
+    "risk_items": 296,
+    "summaries": 70,
+    "summaries_all_items_matched": 54,
+    "summaries_no_matched_excerpt": 0,
+    "summaries_some_items_withheld": 16,
+    "with_source_label": 0
+  },
+  "first_pilot_pair": {
+    "dangling": 3,
+    "evidence_length_normalized_chars": {
+      "count": 10,
+      "max": 507,
+      "mean": 258.2,
+      "median": 224.5,
+      "min": 167,
+      "p90": 404
+    },
+    "full_match_rate": 0.7,
+    "full_matched": 7,
+    "matched_evidence_length_normalized_chars": {
+      "count": 7,
+      "max": 507,
+      "mean": 275.57,
+      "median": 219,
+      "min": 167,
+      "p90": 507
+    },
+    "matched_excerpts_remaining_per_summary": {
+      "2": 1,
+      "5": 1
+    },
+    "missing": 0,
+    "risk_items": 10,
+    "summaries": 2,
+    "summaries_all_items_matched": 1,
+    "summaries_no_matched_excerpt": 0,
+    "summaries_some_items_withheld": 1,
+    "with_source_label": 10
+  },
+  "status": "offline_feasibility_only_candidate_not_released",
+  "source_receipt_sha256": "e59ca3ac33a0575717b7e4e73e4f544f564a3774da26cd8fe7006f18e3573d6b",
+  "limitations": [
+    "Excerpt matching is not semantic acceptance, usefulness, completeness or E7 admission.",
+    "Production implementation and cross-surface verification remain outstanding.",
+    "Model-authored section labels do not become trusted when an excerpt matches."
+  ]
+}

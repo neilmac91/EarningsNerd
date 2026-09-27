@@ -1,0 +1,48 @@
+{
+  "deploy_job": 108657078131,
+  "exact_review_comment": 5857440595,
+  "full_local_gate": "3735 passed, 40 warnings in 180.35s",
+  "hosted_audit": "hosted/head-9d7bfacb/audit.json",
+  "independent_health": {
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.57
+      },
+      "redis": {
+        "disabled": true,
+        "healthy": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "healthy": true,
+        "state": "closed",
+        "stats": {
+          "rejected_requests": 0,
+          "success_rate": 0,
+          "total_requests": 0
+        }
+      }
+    },
+    "status": "healthy",
+    "timestamp": 1790526001.9969692
+  },
+  "main_ci": 36332285362,
+  "merge_commit": "794e98a3fbf6d6b1fe6a9241bbfcf9f3a93af45f",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "pr": 978,
+  "production_flags_changed": false,
+  "receipt_provenance": {
+    "operator_original": "outputs/takeover-2026-09-27/h01-authoritative-attachments/release.json",
+    "operator_original_sha256": "a0e8d6d1ce5a436e4b3b839c511924ae91e2ad94a169ba94bc2997b2d43e98ed",
+    "relative_path_scope": "Paths refer to retained operator evidence, not repository siblings."
+  },
+  "revision": "earningsnerd-backend-00398-wxp",
+  "schema": "verified-backend-release-v1",
+  "semantic_review_admission_claim": false,
+  "tested_head": "9d7bfacb31340d6dfcd3b01890480cac6a48ea59",
+  "traffic_percent": 100
+}
