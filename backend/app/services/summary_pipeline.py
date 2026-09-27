@@ -1116,6 +1116,19 @@ async def stream_filing_summary(
                     company_sic or "",
                     "|".join(str(u.get("slot") or "?") for u in attribution_audit["unverified"]),
                 )
+            unit_audit = (raw_summary or {}).get("table_cell_unit_audit") or {}
+            if unit_audit.get("restored") or unit_audit.get("unresolved"):
+                # Declared table-cell scale owner (source_units) measurement channel, count-first:
+                # bare model dollar figures whose declared scale was restored, and those left
+                # untouched with the abstention reason. Unresolved figures stay visible as written.
+                logger.info(
+                    "table_cell_units restored=%d unresolved=%d filing_id=%s sic=%s reasons=%s",
+                    len(unit_audit.get("restored") or []),
+                    len(unit_audit.get("unresolved") or []),
+                    filing_id,
+                    company_sic or "",
+                    "|".join(sorted({str(u.get("reason") or "?") for u in unit_audit.get("unresolved") or []})),
+                )
             quote_audit = (raw_summary or {}).get("forward_quote_audit") or {}
             if quote_audit.get("unverified"):
                 # T5.4 measurement channel (count-first, the figure-trace convention): §5 quotes

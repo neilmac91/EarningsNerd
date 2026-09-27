@@ -1,7 +1,8 @@
-"""Attach exact section-owned units to existing capital-plan quotes; never rescale prose."""
+"""Attach exact section-owned units to model output — capital-plan quotes and declared table-cell scales; never rescale a number."""
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from app.services.ai.recovery_context import clean_filing_source, recovery_blocks
@@ -139,3 +140,228 @@ def restore_authored_plan_units(
         return
     offset = match.end('amount')
     forward['guidance'] = guidance[:offset] + ' million' + guidance[offset:]
+
+
+# --- declared table-cell scale restoration ------------------------------------------------------
+#
+# A model copies a cell ("3,542") from a table whose banner declares "(Amounts in millions)" and
+# writes "$3,542": the VALUE is source-exact while the UNIT is one million times too small
+# (retained candidate-r WMT 10-K run 1, maturities bullet). ``figure_trace`` deliberately ignores
+# unit-less dollar figures, so the class was invisible to the dollar gate. This owner restores ONLY
+# the scale word the source table declares, and only when every whole-cell occurrence of that
+# exact figure in the offered excerpt sits under one and the same declaration. It abstains when the
+# source's own prose writes the figure bare (an issuer convention the MD&A-title owner above
+# handles for its one documented form), when occurrences disagree, when a row is excluded from the
+# declared scale (per-share, counts, rates), or when a literal reading is supported by XBRL. The
+# figure's digits are never changed; nothing is rescaled.
+
+_TABLE_SCALE_WORD = {
+    "thousand": "thousand", "thousands": "thousand",
+    "million": "million", "millions": "million",
+    "billion": "billion", "billions": "billion",
+}
+# A banner at the start of a flattened table line: "(Amounts in millions)", "(Dollars in millions)",
+# "(in thousands, except margin)", "($ in millions)", "(In millions, except per share amounts)".
+_TABLE_DECLARATION = re.compile(
+    r"^\((?:(?:amounts?|dollars?|figures|values|usd|us\$|\$)\s*)?(?:in\s+)?"
+    r"(thousands?|millions?|billions?)\b[^)]*\)",
+    re.I,
+)
+# A banner naming another currency is not a dollar scale; the bare "$" is a separate defect.
+_NON_DOLLAR_BANNER = re.compile(
+    r"\b(?:euros?|eur|rmb|cny|yen|jpy|dkk|sek|nok|chf|gbp|pounds?|krw|inr|brl|twd|hkd|sgd|aud|cad)\b"
+    r"|nt\$|hk\$|€|£|¥",
+    re.I,
+)
+# A model-authored bare dollar figure: "$" + comma-grouped integer, no scale word, no decimals, not
+# a currency-prefixed form ("US$", "NT$") and not a percentage.
+_BARE_DOLLAR_FIGURE = re.compile(
+    r"(?<![A-Za-z$\d,.])\$(\d{1,3}(?:,\d{3})+)"
+    r"(?![\d,]|\.\d|\s*(?:thousand|million|billion|trillion|bn|mn|tn|[kmbt])\b|\s*%)",
+    re.I,
+)
+# Rows a "(… in millions, except …)" banner does not scale, or that are not dollar amounts at all.
+# Comma-grouped values in a period, rate or ratio row are not dollar amounts either, but a label
+# such as "due within one year" names a maturity band, so "year" alone never excludes a row.
+_UNSCALED_ROW_LABEL = re.compile(
+    r"\b(?:per[\s-]+(?:share|unit|adr|ads)|shares?|units?|counts?|number of|employees|associates|"
+    r"stores|clubs|warehouses|square|percent|percentage|ratio|basis points)\b|\((?:in )?years?\)",
+    re.I,
+)
+_LINE_WORDS = re.compile(r"[A-Za-z]{2,}")
+_SENTENCE_END = re.compile(r"(?<!\bU\.S)(?<!\bInc)(?<!\bCorp)(?<!\bNo)(?<!\bMr)(?<!\bMs)[.!?](?:\s|$)")
+_PROSE_WORDS = 12
+_SENTENCE_WORDS = 6
+_DECLARATION_LOOKBACK_LINES = 200
+_AUDIT_CAP = 40
+_YEAR_GLUE = re.compile(r"(?:^|\D)((?:19|20)\d{2})$")
+
+
+def _is_prose_line(line: str) -> bool:
+    """A flattened table row is a label plus cells; a filing sentence is long or ends a sentence."""
+    words = _LINE_WORDS.findall(line)
+    if len(words) >= _PROSE_WORDS:
+        return True
+    return len(words) >= _SENTENCE_WORDS and bool(_SENTENCE_END.search(line))
+
+
+def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
+    """The banner that governs line ``index``: walk up through table-like lines only."""
+    seen = 0
+    for j in range(index - 1, -1, -1):
+        line = lines[j].strip()
+        if not line:
+            continue
+        banner = _TABLE_DECLARATION.match(line)
+        if banner:
+            if _NON_DOLLAR_BANNER.search(banner.group(0)):
+                return None
+            return _TABLE_SCALE_WORD[banner.group(1).lower()]
+        if _is_prose_line(line):
+            return None
+        seen += 1
+        if seen > _DECLARATION_LOOKBACK_LINES:
+            return None
+    return None
+
+
+def _cell_boundaries(line: str, start: int, end: int) -> str | None:
+    """'cell' when ``line[start:end]`` is a whole figure, 'percent' when it is a percentage cell,
+    None when it is part of a larger number (a decimal, a longer digit run)."""
+    before = line[:start]
+    after = line[end:]
+    if after and (after[0] in "0123456789," or (after[0] == "." and after[1:2].isdigit())):
+        return None
+    if before and before[-1] in ",.":
+        return None
+    if before and before[-1].isdigit() and not _YEAR_GLUE.search(before):
+        # Two cells glued without a separator, or a longer number: not this figure.
+        return None
+    if after.lstrip()[:1] == "%":
+        return "percent"
+    return "cell"
+
+
+@dataclass(frozen=True)
+class TableUnitIndex:
+    """The offered excerpt, line-addressed, with per-figure resolutions cached on demand."""
+
+    lines: tuple[str, ...]
+    _cache: dict = field(default_factory=dict, compare=False)
+
+    def resolve(self, figure: str) -> tuple[str | None, str]:
+        """``(scale word, reason)``: the one declared scale every whole-cell occurrence of ``figure``
+        shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
+        if figure in self._cache:
+            return self._cache[figure]
+        scales: set[str] = set()
+        reason = "no_occurrence"
+        for index, line in enumerate(self.lines):
+            position = line.find(figure)
+            while position >= 0:
+                start, position = position, line.find(figure, position + 1)
+                kind = _cell_boundaries(line, start, start + len(figure))
+                if kind is None:
+                    continue
+                if kind == "percent":
+                    reason = "percent_occurrence"
+                    scales.clear()
+                    break
+                if _is_prose_line(line):
+                    tail = line[start + len(figure):].lstrip()
+                    word = tail.split(" ", 1)[0].rstrip(",.;:)").lower() if tail else ""
+                    if word in _TABLE_SCALE_WORD:
+                        scales.add(_TABLE_SCALE_WORD[word])
+                        continue
+                    reason = "prose_occurrence"
+                    scales.clear()
+                    break
+                label = line[:start]
+                if _UNSCALED_ROW_LABEL.search(label):
+                    reason = "unscaled_row"
+                    scales.clear()
+                    break
+                scale = _governing_table_scale(self.lines, index)
+                if scale is None:
+                    reason = "no_governing_banner"
+                    scales.clear()
+                    break
+                scales.add(scale)
+            else:
+                continue
+            break  # a disqualifying occurrence ends the search
+        else:
+            if len(scales) == 1:
+                result = (next(iter(scales)), "declared")
+                self._cache[figure] = result
+                return result
+            reason = "mixed_scales" if scales else reason
+        result = (None, reason)
+        self._cache[figure] = result
+        return result
+
+
+def build_table_unit_index(offered_excerpt: str = "") -> TableUnitIndex | None:
+    """Line-address the exact cleaned excerpt the model read; None when there is no source."""
+    source = clean_filing_source(offered_excerpt or "")
+    if not source.strip():
+        return None
+    return TableUnitIndex(tuple(source.split("\n")))
+
+
+def _literal_supported(value: float, xbrl_values: Sequence[float]) -> bool:
+    return any(abs(value - v) <= 0.5 for v in xbrl_values)
+
+
+def restore_table_cell_units(
+    sections: dict[str, Any],
+    index: TableUnitIndex | None,
+    *,
+    xbrl_metrics: dict | None = None,
+    recovered: Any = (),
+) -> dict[str, Any] | None:
+    """Insert the declared scale word after each bare dollar figure the source table owns.
+
+    Mutates the policed model-prose slots in place (``figure_trace.policed_prose_slots``); recovered
+    sections are skipped because their context was separately selected. Returns the audit
+    ``{"restored": [...], "unresolved": [...]}`` or None when no bare figure was found.
+    """
+    from app.services.ai.figure_trace import policed_prose_slots, xbrl_values
+
+    if index is None or not isinstance(sections, dict):
+        return None
+    recovered_keys = frozenset(recovered or ())
+    grounded = xbrl_values(xbrl_metrics) if xbrl_metrics else []
+    restored: list[dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
+    found = False
+    for slot, container, key, text in list(policed_prose_slots(sections)):
+        matches = list(_BARE_DOLLAR_FIGURE.finditer(text))
+        if not matches:
+            continue
+        found = True
+        section = re.split(r"[.\[]", slot, 1)[0]
+        if section in recovered_keys:
+            unresolved.extend({"slot": slot, "figure": m.group(0), "reason": "recovered"} for m in matches)
+            continue
+        edited = text
+        for match in reversed(matches):
+            figure = match.group(1)
+            scale, reason = index.resolve(figure)
+            value = float(figure.replace(",", ""))
+            if scale is not None and _literal_supported(value, grounded):
+                scale, reason = None, "literal_xbrl_match"
+            if scale is None:
+                unresolved.append({"slot": slot, "figure": match.group(0), "reason": reason})
+                continue
+            corroborated = _literal_supported(
+                value * {"thousand": 1e3, "million": 1e6, "billion": 1e9}[scale], grounded,
+            )
+            edited = edited[:match.end()] + " " + scale + edited[match.end():]
+            restored.append({"slot": slot, "figure": match.group(0), "unit": scale,
+                             "xbrl_corroborated": corroborated})
+        if edited != text:
+            container[key] = edited
+    if not found:
+        return None
+    return {"restored": restored[:_AUDIT_CAP], "unresolved": unresolved[:_AUDIT_CAP]}

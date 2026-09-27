@@ -14,6 +14,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
+- [`arch-bind-bare-table-figures-to-the-declared-scale.md`](./arch-bind-bare-table-figures-to-the-declared-scale.md) — Bind a bare dollar figure copied from a scaled table to the table's declared scale
 
 - [`arch-sitemap-page-eligibility.md`](./arch-sitemap-page-eligibility.md) — Match sitemap eligibility to the existing page predicates
 - [`arch-payments-need-allocation-evidence.md`](./arch-payments-need-allocation-evidence.md) — Measure canonical allocations with explicit attribution, coverage and deletion limits

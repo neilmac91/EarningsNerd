@@ -47,7 +47,8 @@ from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
 )
 from app.services.ai.source_units import (
-    attach_quote_unit_context, capital_plan_proposition, restore_authored_plan_units,
+    attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
+    restore_authored_plan_units, restore_table_cell_units,
 )
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -446,10 +447,13 @@ Rules:
         # Only the supplied excerpt owns this correction on both preview and final paths.
         layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
         plan = capital_plan_proposition(filing_excerpt or "", layout)
+        # Declared table-cell scales: the same supplied excerpt owns previews and the final render.
+        unit_index = build_table_unit_index(filing_excerpt or "")
         content = await self._request_content(
             create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
             xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
             **({"statement_source": statement_source} if statement_source else {}),
+            **({"unit_index": unit_index} if unit_index else {}),
         )
         return await self._assemble_structured_summary(
             content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
@@ -550,7 +554,7 @@ Rules:
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
         *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -585,6 +589,7 @@ Rules:
                     preview = self._partial_markdown_preview(
                         "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
                         **({"statement_source": statement_source} if statement_source else {}),
+                        **({"unit_index": unit_index} if unit_index else {}),
                     )
                     if preview:
                         try:
@@ -597,7 +602,7 @@ Rules:
 
     def _partial_markdown_preview(
         self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None,
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
@@ -609,6 +614,8 @@ Rules:
             # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
             restore_authored_plan_units(sections, capital_plan)
+            # Same table-cell owner as the final render, over the same supplied excerpt.
+            restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
             completed_keys = tuple(
                 key for key in sections
                 if key != "the_print" or not self._section_is_empty(sections[key])
@@ -818,6 +825,15 @@ Rules:
             restore_authored_plan_units(
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
+        # Declared table-cell scales for bare model dollar figures (source_units): the SAME
+        # supplied excerpt, in place on sections_info before the coverage snapshot and render, so
+        # stored sections, exports and the persisted markdown agree. Recovery-authored sections
+        # are skipped (separately selected context). Measure-always: the audit records every
+        # restored and abstained figure.
+        table_cell_unit_audit = restore_table_cell_units(
+            sections_info, build_table_unit_index(filing_excerpt or ""),
+            xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
+        )
 
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
         bind_statement_relationship(sections_info, statement_source)
@@ -955,6 +971,8 @@ Rules:
             raw_summary_payload["attribution_audit"] = attribution_audit
         if evidence_snap_audit:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
+        if table_cell_unit_audit:
+            raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:

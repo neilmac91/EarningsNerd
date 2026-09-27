@@ -189,6 +189,7 @@ class _ProviderRequestsMixin:
         xbrl_metrics=None,
         capital_plan: tuple[str, str] | None = None,
         statement_source: dict | None = None,
+        unit_index=None,
         timeout: float = ATTEMPT_SECONDS,
     ) -> str:
         budget = _budget.get()
@@ -259,6 +260,7 @@ class _ProviderRequestsMixin:
                             request, stream_cb, filing_type_key, xbrl_metrics, _client=client, _observation=observation,
                             **({"capital_plan": capital_plan} if capital_plan else {}),
                             **({"statement_source": statement_source} if statement_source else {}),
+                            **({"unit_index": unit_index} if unit_index else {}),
                         )
                     else:
                         response = await client.chat.completions.create(**request)
