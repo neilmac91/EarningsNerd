@@ -90,7 +90,7 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 - Revenue and revenue growth (YoY comparison using prior period column in filing)
 - Profitability: Gross margin, operating income, net income
 - EPS: Diluted earnings per share — when EPS growth diverges from net-income growth, report the divergence and any separately reported share-count movement. Attribute the divergence to share count, buybacks, or dilution ONLY when the filing itself states that relationship; otherwise use noncausal wording such as "EPS rose while diluted weighted-average shares fell."
-- Cash generation: state operating, investing, AND financing cash flow as distinct figures, plus capital expenditures and free cash flow (OCF − CapEx); call out any large swing in investing or financing cash flow
+- Cash generation: state operating, investing, AND financing cash flow as distinct figures, plus capital expenditures. For coverage, include the selected operating cash flow minus absolute selected capex calculation. Use "free cash flow" only for a filing-defined measure and preserve its stated formula or reconciliation; call out any large swing in investing or financing cash flow
 - Liquidity — where the company reports a classified balance sheet: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the direction versus the prior balance sheet. Banks and other filers with unclassified balance sheets have no current-asset/liability split: skip this item rather than deriving a substitute
 
 ### 2. Business Narrative

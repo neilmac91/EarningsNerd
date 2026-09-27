@@ -854,6 +854,10 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
 
     frames = {income_tag: frame(income), cash_tag: frame(5_024_523_000),
               "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment": frame(513_809_000)}
+    for concept, value in (("us-gaap:StockholdersEquity", 20_000_000_000),
+                           ("us-gaap:Assets", 50_000_000_000)):
+        frames[concept] = pd.DataFrame([{"period_end": "2025-12-31", "currency": "USD",
+                                         "is_dimensioned": False, "numeric_value": value}])
     if income_tag == "us-gaap:NetIncomeLoss":
         # Both exist in source; do not switch to total income to match model prose.
         frames["us-gaap:ProfitLoss"] = frame(1_610_894_000)
@@ -874,7 +878,9 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
     selected = {key: DURATION_CONCEPTS[key] for key in ("net_income", "operating_cash_flow", "capital_expenditures")}
     monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", selected)
-    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {})
+    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {
+        key: xbrl_module.INSTANT_CONCEPTS[key] for key in ("shareholders_equity", "total_assets")
+    })
     monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
     monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
     monkeypatch.setattr(xbrl_module, "debt_component_observations", lambda *a, **k: [])
@@ -883,6 +889,16 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     assert raw["net_income"][0]["raw_tag"] == income_tag
     assert raw["operating_cash_flow"][0]["raw_tag"] == cash_tag
     assert raw["net_income"][0]["value"] == income
+    # Exercise the real producer: synthetic standardized metadata cannot prove custody.
+    selected_metrics = EdgarXBRLService().extract_standardized_metrics(raw)
+    for ratio, key, concept in (("return_on_equity", "shareholders_equity", "us-gaap:StockholdersEquity"),
+                                ("return_on_assets", "total_assets", "us-gaap:Assets")):
+        assert raw[key][0]["raw_tag"] == concept
+        point = selected_metrics[ratio]["current"]
+        assert point["numerator"]["raw_tag"] == income_tag
+        assert point["denominator"]["raw_tag"] == concept
+        assert point["denominator"]["period"] == raw[key][0]["period"]
+        assert point["denominator"]["value"] == raw[key][0]["value"]
     if income_tag == "us-gaap:NetIncomeLoss":
         assert "us-gaap:ProfitLoss" not in calls  # Preserve first-candidate precedence.
     ni, ocf = raw["net_income"][0], raw["operating_cash_flow"][0]

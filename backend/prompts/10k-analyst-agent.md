@@ -103,7 +103,7 @@ When analyzing a 10-K, cover these areas (present naturally, not as a checklist)
 - Revenue trend and growth rates
 - Profitability: Gross margin, operating margin, net margin trends
 - EPS trajectory — when diluted EPS growth diverges from net-income growth, report the divergence and any separately reported share-count movement. Attribute the divergence to share count, buybacks, or dilution ONLY when the filing itself states that relationship; otherwise use noncausal wording such as "EPS rose while diluted weighted-average shares fell."
-- Cash generation: state operating, investing, AND financing cash flow as three distinct figures, plus capital expenditures and free cash flow (operating cash flow − capex). When free cash flow runs well below net income, name the reason ONLY as management states it in the filing; otherwise report the figures without a cause — never supply a plausible-sounding driver (capex intensity, working-capital build) the filing does not state. Call out any large swing in investing or financing cash flow
+- Cash generation: state operating, investing, AND financing cash flow as three distinct figures, plus capital expenditures. For coverage, include the selected operating cash flow minus absolute selected capex calculation. Use "free cash flow" only for a filing-defined measure and preserve its stated formula or reconciliation. When either cash measure runs well below net income, name the reason ONLY as management states it in the filing; otherwise report the figures without a cause — never supply a plausible-sounding driver (capex intensity, working-capital build) the filing does not state. Call out any large swing in investing or financing cash flow
 
 ### Balance Sheet Health
 - Cash position vs. debt levels

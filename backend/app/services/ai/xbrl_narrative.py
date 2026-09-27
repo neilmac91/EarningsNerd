@@ -35,7 +35,7 @@ def return_ratio_basis(metric_key: str, point: Optional[dict] = None) -> str:
     denominator = {"return_on_equity": "equity", "return_on_assets": "assets"}[metric_key]
     numerator = (point or {}).get("numerator") or {}
     basis = net_income_basis(numerator.get("raw_tag"))
-    qualifier = basis or "(numerator scope unavailable)"
+    qualifier = basis or "(numerator scope unestablished)"
     return f"period net income {qualifier} / period-end {denominator}, not annualized"
 
 

@@ -325,6 +325,12 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
             "only when the filing itself states it for that same line, measure, entity/component "
             "scope, period and number role (level or change)" in wire
         )
+        assert (
+            "Name an operating-cash-flow-minus-capex calculation only as 'selected operating "
+            "cash flow minus absolute selected capex.'" in wire
+        )
+        assert "Use 'free cash flow' only when the filing itself defines that measure" in wire
+        assert "stated formula, reconciliation and quoted wording distinct and verbatim" in wire
         assert "Only cite figures present" not in wire
         assert "separate operating results from one-time items" not in wire
         assert "Every OTHER section must ADD" not in wire
@@ -336,8 +342,23 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
     assert 'do not transfer them to total revenue' in primary
     assert primary.count(EARNINGS_RECONCILIATION) == 1
     assert 'or the supported movement alone when the filing states no cause' in primary  # segments
+    assert 'cash-conversion read (NI-vs-CFO, free cash flow)' not in primary
+    assert (
+        'cash-conversion read (NI-vs-CFO, selected operating cash flow minus absolute selected '
+        'capex)' in primary
+    )
     assert 'attribute it (share buybacks reducing the share count, or dilution)' not in primary
     assert 'attribute it (buybacks reducing the share count, or dilution)' not in primary
+    assert 'free cash flow (operating cash flow − capex)' not in primary
+    assert 'free cash flow (OCF − CapEx)' not in primary
+    assert 'plus capital expenditures and free cash flow' not in primary
+    if not structured and form in ('10-K', '10-Q', '20-F'):
+        assert (
+            'For coverage, include the selected operating cash flow minus absolute selected capex '
+            'calculation' in primary
+        )
+        assert 'Use "free cash flow" only for a filing-defined measure' in primary
+        assert 'preserve its stated formula or reconciliation' in primary
     if not structured and form in ('10-K', '10-Q'):
         assert 'report the divergence and any separately reported share-count movement' in primary
         assert 'ONLY when the filing itself states that relationship' in primary

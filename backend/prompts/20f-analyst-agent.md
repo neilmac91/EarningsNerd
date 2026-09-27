@@ -136,8 +136,9 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 
 - **Financial performance:** revenue trend and growth (in reporting currency), profitability
   (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
-  cash flow as three distinct figures, plus capital expenditures and free cash flow; call out any
-  large swing in investing or financing cash flow.
+  cash flow as three distinct figures, plus capital expenditures. For coverage, include the selected
+  operating cash flow minus absolute selected capex calculation. Use "free cash flow" only for a
+  filing-defined measure and preserve its stated formula or reconciliation; call out any large swing in investing or financing cash flow.
 - **Accounting basis & restatements:** state whether the statements are **IFRS or U.S. GAAP**, and
   flag any **restatement, change in accounting policy/basis, or material prior-period
   reclassification the filing discloses** — these break year-over-year comparability, so say so.

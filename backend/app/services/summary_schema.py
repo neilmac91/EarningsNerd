@@ -117,7 +117,10 @@ FINANCIAL_EXPLANATION_SUPPORT = (
     "interchangeable. Signed figures support a movement's direction and size, never its cause: state "
     "a cause, driver or attribution only when the filing itself states it for that same line, measure, "
     "entity/component scope, period and number role (level or change); two figures moving together is "
-    "not a cause. Otherwise retain the supported facts without the unsupported conclusion."
+    "not a cause. Otherwise retain the supported facts without the unsupported conclusion. Name an "
+    "operating-cash-flow-minus-capex calculation only as 'selected operating cash flow minus absolute "
+    "selected capex.' Use 'free cash flow' only when the filing itself defines that measure; keep the "
+    "issuer's stated formula, reconciliation and quoted wording distinct and verbatim."
 )
 FINANCIAL_DRIVER = (
     "Explain the movement or significance on that same supported basis; otherwise state the "

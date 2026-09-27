@@ -460,7 +460,7 @@ def _extract_from_filing_instance_sync(
         ]
     for metric, concepts in instant_concepts.items():
         provenance = {}
-        if metric in ("cash_and_equivalents", "long_term_debt"):
+        if metric in ("cash_and_equivalents", "long_term_debt", "shareholders_equity", "total_assets"):
             series, currency, raw_tag = instant_series_currency_concept(xb, concepts, period_of_report)
             provenance = {"raw_tag": raw_tag}
         else:
