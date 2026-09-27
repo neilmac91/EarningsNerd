@@ -944,6 +944,12 @@ def _md_cell(text: Any) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ").strip()
 
 
+def _md_literal_cell(text: Any) -> str:
+    """Escape retained-source text once so GFM displays its characters literally."""
+    value = str(text).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
+    return re.sub(r"([`*_\[\]<>])", r"\\\1", value)
+
+
 def _markdown_table(headers: List[str], rows: List[List[str]], *, literal_cells: bool = False) -> str:
     if not rows:
         return ""
@@ -953,9 +959,8 @@ def _markdown_table(headers: List[str], rows: List[List[str]], *, literal_cells:
 
     def _line(cells: List[str]) -> str:
         padded = list(cells) + [""] * (cols - len(cells))
-        rendered = [_md_cell(c) for c in padded[:cols]]
-        if literal_cells:
-            rendered = [re.sub(r"([\\`*_\[\]<>])", r"\\\1", cell) for cell in rendered]
+        render_cell = _md_literal_cell if literal_cells else _md_cell
+        rendered = [render_cell(c) for c in padded[:cols]]
         return "| " + " | ".join(rendered) + " |"
 
     head = headers if headers else [""] * cols

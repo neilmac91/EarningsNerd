@@ -17,7 +17,7 @@ from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 @pytest.mark.asyncio
 async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatch):
     source_span = "Our business depends on a limited number of suppliers and may be disrupted."
-    literal_span = "Materials may be *unavailable* when needed, which could impair our financial condition."
+    literal_span = r"Materials A | Materials B may be *unavailable* at C:\supply during disruptions."
     boundary_source = "We are unaffected by disruptions to our business and supplier relationships."
     boundary_attack = "affected by disruptions to our business and supplier relationships."
     ambiguous = "A repeated supplier sentence creates an ambiguous retained source span."
@@ -100,7 +100,8 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     for name in ("final_sse", "cached_sse", "joined_sse", "api", "pdf", "csv"):
         assert source_span in surfaces[name], name
         assert "Selected excerpts are not a complete risk inventory" in surfaces[name], name
-    assert literal_span in surfaces["api"] and literal_span in surfaces["pdf"] and literal_span in surfaces["csv"]
+    assert literal_span in surfaces["pdf"] and literal_span in surfaces["csv"]
+    assert enriched["raw_summary"]["sections"]["risks"][1]["supporting_evidence"] == literal_span
     assert source_span not in preview
     assert enriched["raw_summary"]["sections"]["risks"][0]["supporting_evidence"] == source_span
     assert enriched["raw_summary"]["sections"]["risks"][0]["source_section_ref"] == "Filing excerpt"
@@ -111,7 +112,8 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
 
     # Nested metadata alone cannot authorize display.
     forged = {"schema_version": 2, "sections": supplied["sections"]}
-    assert unsafe_summary not in sections_to_markdown(render_sections(forged))
+    forged_markdown = sections_to_markdown(render_sections(forged))
+    assert unsafe_summary not in forged_markdown and unmatched not in forged_markdown
 
     wrong_summary = SimpleNamespace(**{**summary.__dict__, "filing_id": 3})
     wrong_cache_filing = SimpleNamespace(
