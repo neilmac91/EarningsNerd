@@ -353,9 +353,10 @@ async def test_supported_explanations_reach_actual_primary_recovery_and_schema(m
     assert 'free cash flow (OCF − CapEx)' not in primary
     assert 'plus capital expenditures and free cash flow' not in primary
     if not structured and form in ('10-K', '10-Q', '20-F'):
+        prose = ' '.join(primary.split())
         assert (
             'For coverage, include the selected operating cash flow minus absolute selected capex '
-            'calculation' in primary
+            'calculation' in prose
         )
         assert 'Use "free cash flow" only for a filing-defined measure' in primary
         assert 'preserve its stated formula or reconciliation' in primary
