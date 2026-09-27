@@ -1,0 +1,682 @@
+{
+  "schema_version": 1,
+  "kind": "pr942_fable_accounting_independent_audit",
+  "audited_commit": "2a00fcfadee12845c3cae906b681b454d18916e5",
+  "status": "clear_with_documentation_correction",
+  "problems": [],
+  "deliverables_inventory": {
+    "file_count": 1871,
+    "total_bytes": 120920657,
+    "record_digest_sha256": "7228992e86341811e2dab9e0ccb06ee322526c593eb4f46ef85f4aeefdeec016"
+  },
+  "inputs": {
+    "p": {
+      "bytes": 20816969,
+      "sha256": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+      "packet_byte_identical": true,
+      "expected_sha_match": true
+    },
+    "q": {
+      "bytes": 20318505,
+      "sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "packet_byte_identical": true,
+      "expected_sha_match": true
+    }
+  },
+  "repository_files": {
+    "backend/evals/judge.py": {
+      "git_show_sha256": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+      "retained_claim": "7522f977e1f1a6704508c587c525a1d213cd460ff68af229530ec414bc308857",
+      "match": true
+    },
+    "backend/evals/judge_report.py": {
+      "git_show_sha256": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+      "retained_claim": "11a79f1e8288d4f91b6ae0051f31a93d08a113b7541e540f733cee20c8c0e780",
+      "match": true
+    },
+    "backend/evals/runner.py": {
+      "git_show_sha256": "28bd69aee5ae58ae8545914ae168347a7f0898302577ce5fd73c9fc15f34645f",
+      "retained_claim": "28bd69aee5ae58ae8545914ae168347a7f0898302577ce5fd73c9fc15f34645f",
+      "match": true
+    },
+    "backend/evals/weekly_readout.py": {
+      "git_show_sha256": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+      "retained_claim": "8b171455199aacd135acda99ce8641af8b5e8a1cea8fe029276c6e1cd944070d",
+      "match": true
+    },
+    "backend/evals/golden_set.json": {
+      "git_show_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+      "retained_claim": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c",
+      "match": true
+    }
+  },
+  "packet_slot_reconciliation": {
+    "slots": 140,
+    "per_arm": {
+      "p": 70,
+      "q": 70
+    },
+    "all_packet_rows_equal_frozen_reports": true,
+    "all_row_packet_state_result_hashes_match": true,
+    "statement_evidence_slots": 8,
+    "maximum_input_lengths": {
+      "summary_chars": 34584,
+      "excerpt_chars": 260154,
+      "xbrl_chars": 22768
+    },
+    "caps": {
+      "summary_chars": 100000,
+      "excerpt_chars": 400000,
+      "xbrl_chars": 40000
+    },
+    "grounding_parity_mismatches": []
+  },
+  "physical_calls": {
+    "authorized_slots": 140,
+    "max_invocations": 280,
+    "reservations": 140,
+    "completions": 140,
+    "attempt_numbers": {
+      "1": 140
+    },
+    "denied": 0,
+    "pending": 0,
+    "exit_codes": {
+      "0": 140
+    },
+    "limit_signals": 0,
+    "stderr_nonempty": 0,
+    "max_concurrency_from_intervals": 2,
+    "billing_env_absent_reservations": 140,
+    "stop_reasons": {
+      "end_turn": 140
+    },
+    "model_usage_keys": {
+      "claude-fable-5-1": 140
+    },
+    "canonical_models": {
+      "claude-fable-5-1": 140
+    },
+    "providers": {
+      "firstParty": 140
+    },
+    "nominal_cli_cost_usd_sum": 210.78371,
+    "request_reconstruction_exact": true,
+    "raw_response_to_verdict_exact": true,
+    "cost_interpretation": "210.783710 is the sum of CLI-reported nominal list-cost fields. Retained metadata says OAuth subscription/firstParty and no billing credential; it is not evidence of an API invoice or billed API expense."
+  },
+  "events": {
+    "count": 283,
+    "counts": {
+      "init": 1,
+      "run-start": 1,
+      "slot-dispatched": 140,
+      "slot-finished": 140,
+      "run-end": 1
+    },
+    "dispatch_order_exact": true
+  },
+  "recomputed": {
+    "summaries": {
+      "p": {
+        "attempts": 70,
+        "judgeable": 70,
+        "judged": 70,
+        "errors": 0,
+        "negative": 48,
+        "gate_counts": {
+          "G2 fabricated_comparatives": 0,
+          "G3 hallucinated_facts": 17,
+          "G4 unsupported_cause": 31,
+          "G5 basis_mismatch": 26
+        },
+        "complete": true
+      },
+      "q": {
+        "attempts": 70,
+        "judgeable": 70,
+        "judged": 70,
+        "errors": 0,
+        "negative": 40,
+        "gate_counts": {
+          "G2 fabricated_comparatives": 2,
+          "G3 hallucinated_facts": 14,
+          "G4 unsupported_cause": 22,
+          "G5 basis_mismatch": 22
+        },
+        "complete": true
+      }
+    },
+    "runs": {
+      "p0": {
+        "attempts": 35,
+        "negative": 25,
+        "gate_counts": {
+          "G2": 0,
+          "G3": 8,
+          "G4": 16,
+          "G5": 14
+        }
+      },
+      "p1": {
+        "attempts": 35,
+        "negative": 23,
+        "gate_counts": {
+          "G2": 0,
+          "G3": 9,
+          "G4": 15,
+          "G5": 12
+        }
+      },
+      "q0": {
+        "attempts": 35,
+        "negative": 19,
+        "gate_counts": {
+          "G2": 0,
+          "G3": 6,
+          "G4": 9,
+          "G5": 13
+        }
+      },
+      "q1": {
+        "attempts": 35,
+        "negative": 21,
+        "gate_counts": {
+          "G2": 2,
+          "G3": 8,
+          "G4": 13,
+          "G5": 9
+        }
+      }
+    },
+    "pair_matrix": {
+      "p=PASS/q=PASS": 13,
+      "p=FAIL/q=FAIL": 31,
+      "p=FAIL/q=PASS": 17,
+      "p=PASS/q=FAIL": 9
+    },
+    "q_control_G4_G5": [
+      {
+        "identity": [
+          "AMZN",
+          "10-K",
+          0
+        ],
+        "gates": [
+          "G5"
+        ]
+      },
+      {
+        "identity": [
+          "JPM",
+          "10-K",
+          0
+        ],
+        "gates": [
+          "G4",
+          "G5"
+        ]
+      },
+      {
+        "identity": [
+          "JPM",
+          "10-K",
+          1
+        ],
+        "gates": [
+          "G4"
+        ]
+      },
+      {
+        "identity": [
+          "NVDA",
+          "10-Q",
+          1
+        ],
+        "gates": [
+          "G4",
+          "G5"
+        ]
+      },
+      {
+        "identity": [
+          "RIVN",
+          "10-K",
+          1
+        ],
+        "gates": [
+          "G4"
+        ]
+      }
+    ],
+    "new_q_gate_identities": {
+      "G2": [
+        [
+          "WMT",
+          "10-K",
+          1
+        ],
+        [
+          "XOM",
+          "10-K",
+          1
+        ]
+      ],
+      "G3": [
+        [
+          "AAPL",
+          "10-K",
+          1
+        ],
+        [
+          "ASML",
+          "20-F",
+          0
+        ],
+        [
+          "PGR",
+          "10-K",
+          1
+        ],
+        [
+          "PLD",
+          "10-K",
+          1
+        ],
+        [
+          "RIVN",
+          "10-K",
+          0
+        ],
+        [
+          "RIVN",
+          "10-K",
+          1
+        ],
+        [
+          "WMT",
+          "10-K",
+          0
+        ]
+      ],
+      "G4": [
+        [
+          "ASML",
+          "20-F",
+          0
+        ],
+        [
+          "ASML",
+          "6-K",
+          0
+        ],
+        [
+          "COIN",
+          "10-Q",
+          1
+        ],
+        [
+          "INTC",
+          "10-Q",
+          0
+        ],
+        [
+          "KO",
+          "10-Q",
+          1
+        ],
+        [
+          "MSFT",
+          "10-K",
+          1
+        ],
+        [
+          "NVDA",
+          "10-Q",
+          1
+        ],
+        [
+          "PDD",
+          "20-F",
+          0
+        ],
+        [
+          "PDD",
+          "20-F",
+          1
+        ],
+        [
+          "PDD",
+          "6-K",
+          0
+        ],
+        [
+          "SE",
+          "20-F",
+          0
+        ],
+        [
+          "XOM",
+          "10-K",
+          1
+        ]
+      ],
+      "G5": [
+        [
+          "ASML",
+          "20-F",
+          0
+        ],
+        [
+          "ASML",
+          "20-F",
+          1
+        ],
+        [
+          "BABA",
+          "20-F",
+          0
+        ],
+        [
+          "BABA",
+          "20-F",
+          1
+        ],
+        [
+          "JPM",
+          "10-K",
+          0
+        ],
+        [
+          "KO",
+          "10-Q",
+          0
+        ],
+        [
+          "NEE",
+          "10-Q",
+          1
+        ],
+        [
+          "PGR",
+          "10-K",
+          1
+        ],
+        [
+          "PLD",
+          "10-K",
+          0
+        ],
+        [
+          "PLD",
+          "10-K",
+          1
+        ]
+      ]
+    },
+    "new_q_G2_G3_union_count": 9,
+    "new_q_G2_G3_union": [
+      [
+        "AAPL",
+        "10-K",
+        1
+      ],
+      [
+        "ASML",
+        "20-F",
+        0
+      ],
+      [
+        "PGR",
+        "10-K",
+        1
+      ],
+      [
+        "PLD",
+        "10-K",
+        1
+      ],
+      [
+        "RIVN",
+        "10-K",
+        0
+      ],
+      [
+        "RIVN",
+        "10-K",
+        1
+      ],
+      [
+        "WMT",
+        "10-K",
+        0
+      ],
+      [
+        "WMT",
+        "10-K",
+        1
+      ],
+      [
+        "XOM",
+        "10-K",
+        1
+      ]
+    ],
+    "runbook_adoption": {
+      "negative_controls_abstain": false,
+      "no_new_G2_G3": false,
+      "passes": false
+    }
+  },
+  "documentation_corrections": [
+    {
+      "severity": "documentation",
+      "claim": "The conclusion says “q’s seven new G2/G3 findings split four ... and three ...; q’s two G2 findings ... also ...”.",
+      "correction": "There are seven new G3 attempt-identities plus two new G2 attempt-identities, nine distinct identities total. “Seven new G2/G3” understates the union and conflates the G3 subtotal with both gates.",
+      "new_G3_identities": [
+        [
+          "AAPL",
+          "10-K",
+          1
+        ],
+        [
+          "ASML",
+          "20-F",
+          0
+        ],
+        [
+          "PGR",
+          "10-K",
+          1
+        ],
+        [
+          "PLD",
+          "10-K",
+          1
+        ],
+        [
+          "RIVN",
+          "10-K",
+          0
+        ],
+        [
+          "RIVN",
+          "10-K",
+          1
+        ],
+        [
+          "WMT",
+          "10-K",
+          0
+        ]
+      ],
+      "new_G2_identities": [
+        [
+          "WMT",
+          "10-K",
+          1
+        ],
+        [
+          "XOM",
+          "10-K",
+          1
+        ]
+      ],
+      "union_count": 9
+    }
+  ],
+  "evidence_limitations": [
+    "The delivered evidence internally binds calls to the recorded CLI binary hash, checkout state, auth status, and environment, but it does not include the 241,556,664-byte CLI binary or an external attestation; those runtime facts remain retained self-reports.",
+    "The retained environment records only a hash for ANTHROPIC_BASE_URL. This audit can verify raw modelUsage provider=firstParty on every response, but cannot independently recompute the receipt's separate claim that the undisclosed URL value equalled the public endpoint.",
+    "Hand-check and effect-attribution prose are interpretive and were not re-judged here. This audit validates their underlying slot/call custody and recomputes the requested denominators, gates, controls, and pair matrix."
+  ],
+  "claims": {
+    "new_model_calls": 0,
+    "new_judgments": 0,
+    "original_deliverables_modified": false,
+    "repository_modified": false
+  },
+  "frozen_packet": {
+    "archive_bytes": 7309198,
+    "archive_sha256": "923650df67da0ee686abc5262ddda7c7675cd1724a86fb3b054207af35bc1f84",
+    "manifest_copies": {
+      "manifest.json": {
+        "bytes": 2726,
+        "sha256": "91fa4e4cf2a068a6a3459129f9ba4c9b0cb4f51cf7ecd6a25ed4321c31a766c6",
+        "returned_copy_byte_identical": true
+      },
+      "FABLE-PROMPT.md": {
+        "bytes": 5670,
+        "sha256": "b34d39803106f4fd2ef86026b72b62e34e272017e55473293a8de856c65cf21f",
+        "returned_copy_byte_identical": true
+      },
+      "README.md": {
+        "bytes": 344,
+        "sha256": "5533ee3c629beaeebb5da5032a9a878332994a8c71bb99ec524b9c36d4995bb0",
+        "returned_copy_byte_identical": true
+      }
+    }
+  },
+  "retained_runtime_metadata": {
+    "commit": "2a00fcfadee12845c3cae906b681b454d18916e5",
+    "git_status_porcelain_empty": true,
+    "judge": "cli:claude-fable-5-1",
+    "judge_contract_version": 2,
+    "claude_version": "2.1.283 (Claude Code)",
+    "auth": {
+      "loggedIn": true,
+      "authMethod": "oauth_token",
+      "apiProvider": "firstParty"
+    },
+    "python": "3.11.15",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "real_cli_sha256": "1859583ce32920595c61ef868bee52e1b1594f7486db209935e01f1e5e804ae2",
+    "real_cli_bytes": 241556664
+  },
+  "returned_accounting_crosscheck": {
+    "accounting_reservations": 140,
+    "accounting_completions": 140,
+    "accounting_per_arm": {
+      "p": {
+        "complete": 70,
+        "positive": 22,
+        "negative": 48
+      },
+      "q": {
+        "complete": 70,
+        "negative": 40,
+        "positive": 30
+      }
+    },
+    "accounting_matches_independent_counts": true,
+    "returned_verify_problems": []
+  },
+  "wrapper_boundary": {
+    "all_140_argv_exactly_match_unchanged_harness": true,
+    "all_140_system_prompts_match_commit_literal": true,
+    "all_140_user_prompts_independently_reconstructed_byte_exact": true,
+    "all_140_calls_record_cwd_tmp": true,
+    "shim_source_observation": "The shim reads stdin once, durably writes request+reservation under a lock, then launches [real_cli] + unchanged argv and communicates the same bytes; it records and relays returned stdout/stderr/exit without prompt or argument rewriting.",
+    "independence_limit": "This is source-and-ledger inspection; it is not external observation of the remote provider execution."
+  },
+  "input_report_deterministic_gate": {
+    "p": {
+      "n": 70,
+      "scored": 70,
+      "errors": 0,
+      "pass_rate": 1.0,
+      "gate_fail_rate": 0.0,
+      "retried": 0,
+      "source_sha": "a41794c9e3330852823fde5c462cf5db3137a548",
+      "generator": "deepseek-flash",
+      "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c"
+    },
+    "q": {
+      "n": 70,
+      "scored": 70,
+      "errors": 0,
+      "pass_rate": 1.0,
+      "gate_fail_rate": 0.0,
+      "retried": 0,
+      "source_sha": "65d123ca32f052a491dea4076762e3993d1ae11e",
+      "generator": "deepseek-flash",
+      "golden_set_sha256": "f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c"
+    }
+  },
+  "returned_output_hashes": {
+    "accounting.json": {
+      "bytes": 464,
+      "sha256": "23cde7ac08ff4bf1f0a35d5edbd842c8509436431651fb693df17142989236f9"
+    },
+    "verify.json": {
+      "bytes": 528,
+      "sha256": "6a8aab4858361c8a72623cb4bb497779ee5da5e9b4df0e4c7722cc9efed7e870"
+    },
+    "state/index.json": {
+      "bytes": 73256,
+      "sha256": "5ff702e9dd638ab6b8e1b5a85cccf3358d27dc7eb8362bbd7a4d0f1c04a44190"
+    },
+    "state/environment.json": {
+      "bytes": 4063,
+      "sha256": "16412cfb2896b71a0c10d48b242e9ac3ae84f22d0c303f3e8901dcb8e4c760a9"
+    },
+    "state/events.jsonl": {
+      "bytes": 48250,
+      "sha256": "d0f54caa7e85266058c34473f94b93d1f51c83b311191f5f1548a7f3ec981dcb"
+    },
+    "judged-p/judged.json": {
+      "bytes": 20889732,
+      "sha256": "fed3b645ff87232c27ced1c4e8fab56805c04c9c883e959d7cef030f09bbca4a"
+    },
+    "judged-p/judged.md": {
+      "bytes": 24006,
+      "sha256": "49a2d8036894e4af9f09df78b2e335ce2179684e6272fc2066145598c67fc43a"
+    },
+    "judged-q/judged.json": {
+      "bytes": 20384273,
+      "sha256": "e056e51afd6786fe38bfc5fb3956b6924dd4a000c9bd1b80eb8791ef8808b5c2"
+    },
+    "judged-q/judged.md": {
+      "bytes": 20430,
+      "sha256": "40455c109969576c14bcbe11cc6d65c480fc59d7526f631be5eaaf316e64d770"
+    },
+    "comparison/comparison.json": {
+      "bytes": 191347,
+      "sha256": "b450abb2cd032e6caa6d8e30649ebcd325b995bb8faed0cfe8ec0fab5fb37ff0"
+    },
+    "comparison/comparison.md": {
+      "bytes": 132285,
+      "sha256": "8c85404ecbd4e3ae68bc83f47de33b9e136ec253f6be16c038e49eede8a19a97"
+    },
+    "comparison/conclusion.md": {
+      "bytes": 8393,
+      "sha256": "2878cc4925e0b7ee2db609d7b483b61f8ea991c7c172c740b6bfc6de45338202"
+    }
+  },
+  "verdict": {
+    "custody_and_accounting": "internally coherent; no ledger/input/output mismatch found",
+    "headline_counts": "confirmed: p 48/70 negative, q 40/70 negative",
+    "runbook_adoption": "failed: 5/18 q negative-control attempts retain G4/G5 and 9 matched identities have a new q G2 or G3 code",
+    "release_meaning": "The evidence supports the narrow ratio-label mechanism but does not clear the literal RUNBOOK adoption bar and is incomplete as an effect estimate."
+  }
+}
