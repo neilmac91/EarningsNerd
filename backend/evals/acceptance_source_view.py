@@ -11,6 +11,7 @@ import hashlib
 import html
 import json
 import re
+import tempfile
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
@@ -1247,16 +1248,29 @@ def build_source_view(source: Path, expected_sha256: str, expected_bytes: int, o
     if len(raw) != expected_bytes or _sha(raw) != expected_sha256:
         raise ValueError("source size/hash mismatch")
     projection = project_html(raw)
-    payload = (json.dumps(projection, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
     compact = (projection["compact_text"] + "\n").encode("utf-8")
     reader = render_reader(projection).encode("utf-8")
-    final = source.read_bytes()
-    if len(final) != expected_bytes or _sha(final) != expected_sha256 or final != raw:
-        raise ValueError("source changed during view construction")
-    output.mkdir(parents=True, exist_ok=False)
-    (output / "compact.txt").write_bytes(compact)
-    (output / "reader.txt").write_bytes(reader)
-    (output / "source-view.json").write_bytes(payload)
+    # Keep the encoded projection on disk: large filings can fit the projection
+    # in memory but cannot also fit json.dumps' chunks and joined string.
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", newline="\n") as payload:
+        json.dump(projection, payload, ensure_ascii=False, indent=2, sort_keys=True)
+        payload.write("\n")
+        payload.flush()
+        del projection
+        final = source.read_bytes()
+        if len(final) != expected_bytes or _sha(final) != expected_sha256 or final != raw:
+            raise ValueError("source changed during view construction")
+        output.mkdir(parents=True, exist_ok=False)
+        (output / "compact.txt").write_bytes(compact)
+        (output / "reader.txt").write_bytes(reader)
+        payload.seek(0)
+        payload_bytes = 0
+        payload_hash = hashlib.sha256()
+        with (output / "source-view.json").open("xb") as target:
+            while chunk := payload.buffer.read(1024 * 1024):
+                target.write(chunk)
+                payload_hash.update(chunk)
+                payload_bytes += len(chunk)
     manifest = {
         "schema_version": 1,
         "kind": "e7_offline_html_source_view_bundle",
@@ -1265,7 +1279,9 @@ def build_source_view(source: Path, expected_sha256: str, expected_bytes: int, o
         "files": {
             "compact_text": {"path": "compact.txt", "bytes": len(compact), "sha256": _sha(compact)},
             "reader": {"path": "reader.txt", "bytes": len(reader), "sha256": _sha(reader)},
-            "projection": {"path": "source-view.json", "bytes": len(payload), "sha256": _sha(payload)},
+            "projection": {
+                "path": "source-view.json", "bytes": payload_bytes, "sha256": payload_hash.hexdigest(),
+            },
         },
     }
     manifest_payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
