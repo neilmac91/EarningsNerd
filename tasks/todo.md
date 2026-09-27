@@ -5830,4 +5830,5 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 ### September 27 — bounded serialized source export
 
 - [x] Reproduced the remaining H25 public-export failure in Linux run 36311408531: projection returned, whole JSON encoding exhausted memory, H02 held. Implemented byte-preserving streamed export with a public-API memory gate and exact Unicode/manifest parity checks.
-- [ ] Complete the unchanged H25/H02 Linux contract, full local gate, hosted review/measurements and serial release verification. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
+- [x] Both direct-primary exports passed the unchanged H25/H02 Linux contract (run 36318572864); full local gate passed 3,734 tests.
+- [ ] Complete hosted review/measurements and serial release verification. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
