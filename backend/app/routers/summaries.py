@@ -15,7 +15,6 @@ from fastapi.responses import Response, StreamingResponse
 from starlette.requests import ClientDisconnect
 from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
-from app.services.llm_pricing import estimate_inference_cost_usd
 
 from app.config import settings
 from app.database import get_db, SessionLocal
@@ -380,8 +379,8 @@ def _emit_copilot_cost_best_effort(
     """Emit a Copilot answer's token usage + estimated inference cost to PostHog (roadmap 2.1).
 
     Keyed on ``str(user_id)`` — the same id the frontend identifies on — so it joins the person's
-    journey without a separate alias. Best-effort: telemetry must never break the answer stream, so
-    a missing-usage answer (provider returned none) is a quiet no-op and any failure is swallowed.
+    journey without a separate alias. Use the wrapper's recorded call-cost total; unknown totals
+    stay unknown. An absent accounting payload is a no-op and telemetry failures are swallowed.
     """
     try:
         usage = event.get("usage") or {}
@@ -399,12 +398,7 @@ def _emit_copilot_cost_best_effort(
             total_tokens=usage.get("total_tokens"),
             cache_hit_tokens=cache_hit_tokens,
             cache_miss_tokens=cache_miss_tokens,
-            cost_usd=estimate_inference_cost_usd(
-                prompt_tokens,
-                completion_tokens,
-                cache_hit_tokens=cache_hit_tokens,
-                cache_miss_tokens=cache_miss_tokens,
-            ),
+            cost_usd=usage.get("estimated_cost_usd"),
             filing_id=filing_id,
             ticker=ticker,
             kind=event.get("kind"),

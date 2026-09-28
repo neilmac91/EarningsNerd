@@ -1108,10 +1108,8 @@ async def answer_filing_question(
         pending = ""                          # carry-over tail for cross-chunk sentinel detection
         mode = "answer"                        # answer | citations | not_disclosed
 
-        # Token usage is accumulated here across tool rounds (opt-in via usage_sink) so the router
-        # can emit per-answer inference cost from the `complete` event; empty if the provider
-        # returns no usage.
-        usage_sink: dict[str, int] = {}
+        # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
+        usage_sink: dict[str, Any] = {}
         model_name = openai_service.model
         async for delta in openai_service.stream_chat_with_tools(
             messages,
@@ -1191,9 +1189,8 @@ async def answer_filing_question(
                         yield {"type": "token", "text": emit}
                 break
 
-        # Stream finished. Build the usage payload (tokens + model) for the per-answer cost
-        # telemetry the router emits from the `complete` event; None if the provider gave no usage.
-        usage_payload = {"model": model_name, **usage_sink} if usage_sink else None
+        # Preserve the per-call accounting, including unknown values and mixed-model totals.
+        usage_payload = usage_sink or None
 
         # Flush any held-back tail that turned out to be plain prose.
         if mode == "answer" and pending:

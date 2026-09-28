@@ -219,7 +219,15 @@ def test_nested_cache_split_and_reasoning_tokens_are_read_when_top_level_fields_
 def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_and_cost(monkeypatch):
     from app.services import llm_pricing
 
-    monkeypatch.setattr(llm_pricing, "is_peak_hour", lambda at=None: False)
+    priced_models = []
+
+    def estimator(model, usage):
+        priced_models.append(model)
+        # Model-specific sentinels separate routing coverage from the tariff-table gate.
+        cost = {"deepseek-v4-pro": 7.25, "deepseek-flash": 1.5}[model]
+        return {"cost_usd": cost if usage["prompt_tokens"] is not None else None, "peak": False}
+
+    monkeypatch.setattr(llm_pricing, "estimate_call_cost_usd", estimator)
     result = record({"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
                      "prompt_cache_hit_tokens": 1_000_000, "prompt_cache_miss_tokens": 0},
                     requested_model="deepseek-flash", system_fingerprint="fp_abc123", latency_ms=1234.9,
@@ -229,13 +237,14 @@ def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_an
     assert result["latency_ms"] == 1234 and result["first_token_ms"] == 210
     assert result["trigger"] == "user"
     # Price the actual returned model, even when the request asked for Flash.
-    assert result["estimated_cost_usd"] == round(0.022 + 1.98, 6) and result["peak"] is False
+    assert result["estimated_cost_usd"] == 7.25 and result["peak"] is False
+    assert priced_models == ["deepseek-v4-pro"]
     # Malformed provider metadata never reaches the log.
     junk = record(None, system_fingerprint="x" * 100, latency_ms="fast", first_token_ms=-1)
     assert junk["system_fingerprint"] is None and junk["latency_ms"] is None and junk["first_token_ms"] is None
     assert junk["estimated_cost_usd"] is None  # no token counts: unknown, never a claimed zero
     bucket = [c for c in ai_metrics.get_ai_metrics()["calls"] if c["count"] == 2][0]
-    assert bucket["estimated_cost_usd"] == round(0.022 + 1.98, 6)
+    assert bucket["estimated_cost_usd"] == 7.25
 
 
 def test_trigger_label_is_context_scoped():

@@ -37,7 +37,6 @@ from app.schemas.analysis import (
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
-from app.services.llm_pricing import estimate_inference_cost_usd
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -276,12 +275,7 @@ def _emit_analysis_cost_best_effort(user_id: int, ticker: str, mode: str, event:
             total_tokens=usage.get("total_tokens"),
             cache_hit_tokens=usage.get("cache_hit_tokens"),
             cache_miss_tokens=usage.get("cache_miss_tokens"),
-            cost_usd=estimate_inference_cost_usd(
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-                cache_hit_tokens=usage.get("cache_hit_tokens"),
-                cache_miss_tokens=usage.get("cache_miss_tokens"),
-            ),
+            cost_usd=usage.get("estimated_cost_usd"),
             ticker=ticker,
             mode=mode,
             n_periods=event.get("n_periods"),
