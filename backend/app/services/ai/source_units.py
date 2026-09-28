@@ -226,14 +226,23 @@ def _is_value_only(line: str) -> bool:
     return bool(line.strip()) and bool(_VALUE_ONLY_LINE.match(line))
 
 
+def _is_statement_heading(line: str) -> bool:
+    """A financial statement's own section heading is set in capitals (``ASSETS``)."""
+    return line.upper() == line and any(ch.isalpha() for ch in line)
+
+
 def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
     """The banner bound to line ``index`` through table lines only.
 
-    Walking up, a banner resolves; prose, a heading run longer than a header block, any other
-    unit/scope token, or a non-dollar banner abstains. Numeric rows, value-only lines and short
-    header/label lines are the only lines a table may contain between its banner and a row."""
-    seen = 0
-    text_run = 0
+    The block between the nearest banner above and line ``index`` is validated top-down: prose,
+    any other unit/scope token or a non-dollar banner abstains; the banner may be followed by a
+    header block of at most ``_MAX_TEXT_RUN`` text lines; after the first row, a text line is
+    admitted only as a statement section heading (all capitals, the statements' own convention:
+    ``ASSETS``, ``LIABILITIES AND EQUITY``) or as the label of the row or value-only line directly
+    beneath it. Any other text (a heading run, a new table's title and header, a label with
+    nothing numeric under it) severs the row from the banner."""
+    block: list[str] = []
+    scale: str | None = None
     for j in range(index - 1, -1, -1):
         line = lines[j].strip()
         if not line:
@@ -242,19 +251,32 @@ def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
         if banner:
             if _NON_DOLLAR_BANNER.search(banner.group(0)):
                 return None
-            return _TABLE_SCALE_WORD[banner.group(1).lower()]
+            scale = _TABLE_SCALE_WORD[banner.group(1).lower()]
+            break
         if _SCOPE_TOKEN.search(line) or _is_prose_line(line):
             return None
-        if _ROW_CELL.search(line):
-            text_run = 0
-        else:
-            text_run += 1
-            if text_run > _MAX_TEXT_RUN:
-                return None
-        seen += 1
-        if seen > _DECLARATION_LOOKBACK_LINES:
+        block.append(line)
+        if len(block) > _DECLARATION_LOOKBACK_LINES:
             return None
-    return None
+    if scale is None:
+        return None
+    block.reverse()
+    header = 0
+    for position, line in enumerate(block):
+        if _ROW_CELL.search(line) or _is_value_only(line):
+            header = -1
+            continue
+        if header >= 0:
+            header += 1
+            if header > _MAX_TEXT_RUN:
+                return None
+            continue
+        if _is_statement_heading(line):
+            continue
+        following = block[position + 1] if position + 1 < len(block) else lines[index].strip()
+        if not (_ROW_CELL.search(following) or _is_value_only(following)):
+            return None
+    return scale
 
 
 def _detached_label(lines: Sequence[str], index: int) -> str | None:

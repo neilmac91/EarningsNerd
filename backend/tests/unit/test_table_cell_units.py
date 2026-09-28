@@ -152,6 +152,15 @@ def test_other_table_flattenings_own_a_cell_at_either_end_of_its_line(source):
     ("$3,237", "no_governing_banner",
      "(Amounts in millions)\n\nDebt  9,000\n\nPart II\n\nItem 5\n\nMarket information\n\nOther matters\n\nSmith  3,237",
      "Smith paid $3,237."),
+    # Round 3: a new table's header without any unit token still does not inherit the banner:
+    # after the first row, only the label directly above a row or value line belongs to the table.
+    ("$3,237", "no_governing_banner",
+     "(Amounts in millions)\n\nDebt  9,000\n\nOther fees\n\nName  Fee\n\nSmith  3,237",
+     "Smith paid $3,237."),
+    # Round 3: two text lines before a value line are a heading plus a label, not one row's label.
+    ("$3,237", "no_governing_banner",
+     "(Amounts in millions)\n\nDebt  9,000\n\nOther long-term\n\nobligations\n\n3,237",
+     "Other obligations were $3,237."),
 ])
 def test_review_adverse_sources_abstain(figure, reason, source, prose):
     sections = _sections(prose)
@@ -161,6 +170,31 @@ def test_review_adverse_sources_abstain(figure, reason, source, prose):
     assert audit["unresolved"] == [
         {"slot": "balance_sheet_liquidity.maturities_covenants[0]", "figure": figure, "reason": reason},
     ]
+
+
+def test_statement_section_headings_keep_the_rows_beneath_them_owned():
+    # Round 3: a balance sheet's capitalised section heading plus its colon sub-heading (the retained
+    # WMT statement) is the statement's own structure, not a new table; the rows below stay owned.
+    source = ("(Amounts in millions)20262025\n\nASSETS\n\nCurrent assets:\n\nCash  9,000  8,000\n\n"
+              "Total assets  20,000  18,000\n\nLIABILITIES AND EQUITY\n\nCurrent liabilities:\n\n"
+              "Long-term debt due within one year  3,542  2,598")
+    sections = _sections("Long-term debt due within one year was $3,542.")
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [
+        "Long-term debt due within one year was $3,542 million."]
+    assert audit["unresolved"] == []
+
+
+def test_repeat_application_is_a_no_op():
+    # A restored slot is unit-bound, so a second pass (read-time re-render, cron regeneration of
+    # the same output) finds no bare figure and reports nothing.
+    sections = _sections()
+    index = build_table_unit_index(WMT_SOURCE)
+    first = restore_table_cell_units(sections, index, xbrl_metrics=WMT_XBRL)
+    assert first["restored_count"] == 7 and first["unresolved_count"] == 0
+    restored = sections["balance_sheet_liquidity"]["maturities_covenants"][0]
+    assert restore_table_cell_units(sections, index, xbrl_metrics=WMT_XBRL) is None
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [restored]
 
 
 def test_plural_scale_words_are_already_unit_bound():
