@@ -18,7 +18,10 @@ from urllib.request import Request, urlopen
 
 SERVICE = "earningsnerd-backend"
 INSTANCE = "earningsnerd-db"
-MAX_PAGES = 10
+REGION = "us-west1"
+JOBS = ("pregenerate", "filing-scan", "filing-digest", "backfill-facts",
+        "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings", "retention-purge")
+MAX_PAGES = 5
 MAX_RESPONSE = 8 * 1024 * 1024
 
 
@@ -129,29 +132,39 @@ def collect(api, project, region, start, end):
     first, last = window(start, end)
     if not re.fullmatch(r"[a-z][a-z0-9-]{4,61}[a-z0-9]|[0-9]+", project):
         raise ValueError("Invalid project identifier")
-    if not re.fullmatch(r"[a-z]+-[a-z]+[0-9]+", region):
-        raise ValueError("Invalid region")
+    if region != REGION:
+        raise ValueError("Only the production region is supported")
     result = {"schema_version": 1, "observed_at": datetime.now(timezone.utc).isoformat(),
               "project": project, "region": region, "window": {"start": start, "end": end},
               "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE},
               "interpretation": "Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom. Execution success is not a business outcome. Current SQL snapshots are not historical samples."}
-    runs = api.pages(f"https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/-/executions",
-                     {"pageSize": 100, "showDeleted": "true"}, "executions")
-    raw_runs = runs.pop("items")
-    runs["retained_resources_inspected"] = len(raw_runs)
-    runs["items"] = []
-    runs["unplaced_count"] = 0
-    for record in raw_runs:
-        try:
-            begins = timestamp(record.get("startTime") or record["createTime"])
-            ends = timestamp(record["completionTime"]) if record.get("completionTime") else None
-            if begins < last and (ends is None or ends >= first):
-                runs["items"].append(execution(record))
-        except (KeyError, ValueError, TypeError):
-            runs["unplaced_count"] += 1
-    # The API retains a finite history. Complete pagination is not proof of lifetime completeness.
-    runs["coverage"] = "retained API resources only; expired/deleted history may be absent"
-    result["executions"] = runs
+    result["executions"] = {}
+    for name in JOBS:
+        job = "earningsnerd-" + name
+        runs = api.pages(f"https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}/executions",
+                         {"pageSize": 100, "showDeleted": "true"}, "executions")
+        raw_runs = runs.pop("items")
+        runs["retained_resources_inspected"] = len(raw_runs)
+        runs["items"] = []
+        runs["unplaced_count"] = 0
+        runs["outside_scope_count"] = 0
+        for record in raw_runs:
+            if not re.fullmatch(r"projects/[^/]+/locations/" + region + r"/jobs/" + job + r"/executions/[^/]+",
+                                record.get("name", "")):
+                runs["outside_scope_count"] += 1
+                continue
+            try:
+                begins = timestamp(record.get("startTime") or record["createTime"])
+                ends = timestamp(record["completionTime"]) if record.get("completionTime") else None
+                if begins < last and (ends is None or ends >= first):
+                    item = execution(record)
+                    item["interval_start_basis"] = "startTime" if record.get("startTime") else "createTime; actual start unknown"
+                    runs["items"].append(item)
+            except (KeyError, ValueError, TypeError):
+                runs["unplaced_count"] += 1
+        # Complete pagination is not proof of lifetime completeness or known execution intervals.
+        runs["coverage"] = "retained API resources only; expired/deleted history may be absent"
+        result["executions"][job] = runs
     queries = {
         "database_connections": ('cloudsql.googleapis.com/database/postgresql/num_backends',
                                  f'resource.type="cloudsql_database" AND resource.labels.database_id="{project}:{INSTANCE}"'),
@@ -167,14 +180,28 @@ def collect(api, project, region, start, end):
         data["items"] = [metric(item) for item in data["items"]]
         data["aggregation"] = "none; original series and sample intervals retained"
         result[name] = data
+    job_filter = " OR ".join(f'resource.labels.job_name="earningsnerd-{name}"' for name in JOBS)
     logs = api.pages("https://logging.googleapis.com/v2/entries:list", {
         "resourceNames": [f"projects/{project}"], "pageSize": 100,
         "orderBy": "timestamp asc", "filter": (
             f'timestamp>="{start}" AND timestamp<"{end}" AND '
+            f'resource.labels.location="{region}" AND '
             f'((resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}") OR '
-            'resource.type="cloud_run_job") AND '
+            f'(resource.type="cloud_run_job" AND ({job_filter}))) AND '
             '(severity>=ERROR OR "QueuePool limit" OR "connection pool exhausted")')}, "entries", post=True)
-    logs["items"] = [log_entry(item) for item in logs["items"]]
+    scoped_logs = []
+    logs["outside_scope_count"] = 0
+    for item in logs["items"]:
+        resource = item.get("resource", {})
+        labels = resource.get("labels", {})
+        if labels.get("location") == region and (
+            resource.get("type") == "cloud_run_revision" and labels.get("service_name") == SERVICE
+            or resource.get("type") == "cloud_run_job" and labels.get("job_name") in {"earningsnerd-" + name for name in JOBS}
+        ):
+            scoped_logs.append(log_entry(item))
+        else:
+            logs["outside_scope_count"] += 1
+    logs["items"] = scoped_logs
     result["error_logs"] = logs
     return result
 

@@ -24,7 +24,9 @@ SELECT json_build_object(
 );
 WITH matched AS MATERIALIZED (
   SELECT * FROM earningsnerd_job_runs
-  WHERE started_at < :'readout_end'::timestamptz
+  WHERE job_name IN ('pregenerate', 'filing-scan', 'filing-digest', 'backfill-facts',
+                     'earnings-calendar-refresh', 'earnings-day-alerts', 'notable-filings', 'retention-purge')
+    AND started_at < :'readout_end'::timestamptz
     AND (finished_at IS NULL OR finished_at >= :'readout_start'::timestamptz)
   ORDER BY started_at
   LIMIT 1001
@@ -33,6 +35,7 @@ SELECT json_build_object(
   'kind', 'historical_job_ledger', 'observed_at', clock_timestamp(),
   'window_start', :'readout_start', 'window_end', :'readout_end',
   'row_limit', 1000, 'truncated', (SELECT count(*) > 1000 FROM matched),
+  'unfinished_rows', 'unknown/stale candidates; NULL finish does not prove currently running',
   'counter_scope', 'allowlisted numeric counters only; absent values are unknown, not zero',
   'rows', (SELECT coalesce(json_agg(row_to_json(runs)), '[]'::json) FROM (
     SELECT job_name, started_at, finished_at, status,
@@ -41,7 +44,7 @@ SELECT json_build_object(
          'processed', 'succeeded', 'failed', 'skipped', 'errors', 'extracted', 'pending',
          'filings_found', 'filings_created', 'summaries_generated', 'facts_extracted',
          'companies_processed', 'filings_processed', 'filings_remaining', 'extraction_errors',
-         'processed_filings', 'inserted', 'rejected', 'extract_errors', 'flags_refreshed',
+         'processed_filings', 'inserted', 'rejected', 'facts_inserted', 'facts_skipped', 'facts_rejected', 'extract_errors', 'flags_refreshed',
          'value_mismatch', 'facts_unstored', 'companyfacts_unavailable', 'source_errors',
          'companies_scanned', 'filings_upserted', 'alerts_sent', 'alerts_failed',
          'digests_sent', 'digests_failed', 'filings_included', 'generated', 'already_cached',
