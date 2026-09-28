@@ -343,8 +343,8 @@ class ExportService:
             <h2>Sources</h2>
             <ol class="sources">{citation_items}</ol>
             <p class="footnote">
-                All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
-                computed by EarningsNerd; the AI narrative cites only values from this dataset.
+                Source entries identify SEC XBRL values or computed figures. They do not verify
+                every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.
             </p>
             <h2>About this document</h2>
             <p class="footnote">

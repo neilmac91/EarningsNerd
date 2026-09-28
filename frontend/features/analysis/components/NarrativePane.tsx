@@ -76,7 +76,7 @@ export interface NarrativeState {
 }
 
 const SOURCE_BADGE_BASE =
-  'Source links point to SEC XBRL values or figures computed from those values (marked Computed).'
+  'Source entries identify SEC XBRL values or computed figures (marked Computed).'
 
 function sourceWarningText(
   unverified: number | null | undefined,
@@ -92,7 +92,7 @@ function sourceWarningText(
   if (mismatched) {
     const one = mismatched === 1
     warnings.push(
-      `${mismatched} figure${one ? '' : 's'} printed next to a source link could not be reconciled with the linked dataset value. Check the Sources list before relying on the narrative ${one ? 'figure' : 'figures'}.`
+      `${mismatched} figure${one ? '' : 's'} printed next to a source entry could not be reconciled with the listed dataset value. Check the Sources list before relying on the narrative ${one ? 'figure' : 'figures'}.`
     )
   }
   return warnings.join(' ')
@@ -110,7 +110,7 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (approximate figures)'
-          : 'Sources · linked SEC XBRL values and computed figures'}
+          : 'Sources · SEC XBRL values and computed figures'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -205,7 +205,7 @@ export default function NarrativePane({
               variant={sourceWarning ? 'warning' : 'brand'}
               title={sourceBadgeTitle(completion.unverified, completion.mismatched)}
             >
-              {completion.grounded} source {completion.grounded === 1 ? 'link' : 'links'}
+              {completion.grounded} source {completion.grounded === 1 ? 'entry' : 'entries'}
             </Badge>
           )}
           {state.status === 'done' && completion?.citations.some((citation) => citation.reconciled === false) && (
@@ -275,7 +275,7 @@ export default function NarrativePane({
             <AiDisclaimer className="mt-3">
               {sample
                 ? 'Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
-                : "Source links show provenance; they do not verify every nearby narrative figure or conclusion. Uncited statements are the model's interpretation and can be wrong."}
+                : 'Source entries identify SEC XBRL values or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
             </AiDisclaimer>
           )}
         </>
