@@ -1,7 +1,7 @@
 {
   "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
-  "workflow_sha256": "e38cb711c87a9d0740415eeff1ef5949f40dd25f1e101ba01a9d4d59fed88b51",
-  "embedded_python_sha256": "21208a47018563ba44512f63840e6e3889a26e558724a2217681bcd665586320",
+  "workflow_sha256": "dd80307c109060c7744da48433c6c0a69d261586efd5510fda929c7519a615f2",
+  "embedded_python_sha256": "319d99f48fa867363ecc5f06ee0d6b367423296667c7334aaf93b9e7b026736f",
   "offline_projection_cases": [
     {
       "fixture": "normal",
@@ -26,6 +26,42 @@
       "arbitrary_private_values_absent": true,
       "effective_worker_count": null,
       "egress_ip_identity": null
+    },
+    {
+      "fixture": "text_fields",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "bool_fields",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "mapping_fields",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "below_min",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "above_max",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "max_valid",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
     }
   ],
   "verification": {
@@ -41,10 +77,11 @@
     }
   },
   "gate_log_sha256": {
-    "workflow-readers": "32ea77a2111195dc3841605cd3e1865df524840877dfae88ca3ff1aa4597773d",
-    "frontend-lockstep": "c65d698bc72424cfdb653dbd893fe07c5befcbffb1f7fba59c47cc01602d0e0a"
+    "workflow-readers-v2": "b5a3ba54cd3b750bb9942e7bd1226661de66169a23acd63dc038d9c9f68312eb",
+    "frontend-lockstep-v2": "5f86dae650264a5b4b5be2e99e3d6927efbf4e3e5305bd609b55d8138108cb26"
   },
   "production_dispatches": 0,
   "production_mutations": 0,
-  "provider_calls": 0
+  "provider_calls": 0,
+  "refutation_disposition": "Both passes upheld raw concurrency/timeout projection risk for malformed API documents; exact integers in documented bounds now retained, all other values null."
 }
