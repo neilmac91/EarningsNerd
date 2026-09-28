@@ -1,0 +1,94 @@
+{
+  "recorded_at": "2026-09-28T10:15:22.278137+00:00",
+  "scope": "Verified September28 engineering checkpoint; separate receipts retain exact inputs and limits",
+  "verified_frontend_releases": [
+    {
+      "pr": 998,
+      "merge": "307c5179e6dab50868bd356a858281d910a4afbb",
+      "receipt": "dependency-triage/pr998-review/release.json"
+    },
+    {
+      "pr": 999,
+      "merge": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+      "receipt": "dependency-triage/pr999-sentry11/release.json"
+    }
+  ],
+  "cloud_audit": {
+    "pr": 1004,
+    "merge": "e70b8a4043b3b5809fa3d3b01be4eca569e178fd",
+    "main_ci": 36404486901,
+    "actual_backend_deploy_skipped": true,
+    "describe_service": 36404519502,
+    "describe_jobs": 36404603015,
+    "both_read_only_success": true,
+    "live_backend_sha": "c1b5e2703be6626f5f22dfccdb55bbe6899a329d",
+    "revision": "earningsnerd-backend-00409-r4m",
+    "notable_flag": false,
+    "pr1002_verified": true
+  },
+  "stripe": "Official sign-in blocked by Chrome extension pop-up; no financial operation or account change; credentials not retained in project files.",
+  "quality": {
+    "complete_source_dossiers": 3,
+    "required_source_dossiers": 30,
+    "holdout_started": false,
+    "candidate_accepted": false,
+    "broader_JPM_FIGS_PLTR_findings": "unresolved"
+  },
+  "master_plan_estimate": {
+    "weighted_percent": 57.5,
+    "basis": "Existing outcome-weighted denominator; PR count and byte-valid preparation do not count as acceptance."
+  },
+  "h15_preparation": {
+    "prepared_readers_bytes": 3150219,
+    "combined_reader_raw_bytes": 6151203,
+    "readable_members": 5,
+    "structured_rendering_members": 62,
+    "all_dispositions_unresolved": 78,
+    "archive_unresolved": false,
+    "external_image_unresolved": true,
+    "admitted": false,
+    "archive_relation": "Current archive:5 exact children and5 terminal-LF-only relations; historical archive equality unproved.",
+    "archive_logical_reads": 1
+  },
+  "next_financial_defect": {
+    "measurement": "retained70 offline audit",
+    "eligible_comparison_frames": 42,
+    "ambiguity_flags": 1,
+    "valid_adverse_controls": 3,
+    "output_mutations": 0,
+    "provider_calls": 0,
+    "status": "offline prototype held; enclosing affirmative source ownership is not established",
+    "prototype": "one source-bound proposal across70 rows; eight adverse-control groups passed",
+    "root_review": "two additional source-context counterexamples still trigger the prototype",
+    "root_review_receipt": "pr992-review/jpm-prototype-root-adverse-review.json",
+    "application_integration_approved": false
+  },
+  "released": {
+    "notable_activation": {
+      "pr": 1003,
+      "head": "7f12a7041f5d1b79b093d4061af0db81c26a68e0",
+      "status": "backend, eight-row API and refreshed homepage verified",
+      "merge": "c31667344e8eeeb30b8e0f38f5591a4dd5089769",
+      "main_ci": 36405441708,
+      "revision": "earningsnerd-backend-00410-jm7",
+      "wif_service_run": 36406437936,
+      "wif_jobs_run": 36406525979,
+      "homepage_followup_release": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+      "homepage_receipt": "notable-rollout/serving-receipt.json"
+    },
+    "financial_unit_repair": {
+      "pr": 992,
+      "head": "5936fc4fb5fb8336e6fc3b016b7be9abf05172e3",
+      "status": "merged and production-verified",
+      "cumulative_telemetry_usd_before_copilot": 1.720547,
+      "planning_ceiling_usd": 2.1,
+      "cumulative_telemetry_usd": 1.735815,
+      "ready_audit": "pr992-review/round8-ready-head-audit.json",
+      "merge": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+      "main_ci": 36406918405,
+      "revision": "earningsnerd-backend-00411-wb5",
+      "wif_service_run": 36407933672,
+      "wif_jobs_run": 36408084715
+    }
+  }
+}

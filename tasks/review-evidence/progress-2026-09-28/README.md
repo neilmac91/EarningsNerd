@@ -24,7 +24,7 @@ H28 joins H29/H30 as **3 of 30 completed source-preparation dossiers**. This cou
 
 The next frozen filing, H20 (BRT 10-Q), has a candidate source partition and a separately acquired current SEC archive. The [offline relation check](h20-archive-relation-check.json) verifies all eleven safe ZIP children: six HTML files exactly match frozen members, and five XML/XSD files equal the corresponding frozen content plus one terminal newline outside the strictly parsed document root. The current 191,151-byte archive is a supplement; the invalid historical archive representation has not been decoded or proved equivalent. This closes concrete byte-accounting work, not semantic source review, measured provider capacity or a fourth completed dossier. The conservative partition still requires a practical capacity pass before dispatch; no source-role call was made.
 
-## Notable: seven scheduled days observed, activation deferred
+## Notable: historical seven-day activation checkpoint
 
 The [cohort aggregate](notable-cohort-aggregate.json) contains 312 distinct accessions from 291 issuers, no duplicates, and first-observed age p50 0.938 days / p95 and max 1.521 days. The [decision receipt](notable-disposition.json) records all 14 expected slots across September 21–27 completing eventually, with four failed first attempts recovered automatically. First-attempt slot success is 10/14, not 14/14; the business ledger contains 14 successful and four failed attempts.
 
@@ -34,12 +34,26 @@ The initial disposition was **retain the implementation and defer activation**. 
 
 A separately bounded [follow-up](notable-followup-review.md) used the unchanged application transport with network permission: nine successful requests retained exact bytes for five indices and four primary 8-Ks. The [additive verdicts](notable-followup-verdicts.json) resolve all four earlier indeterminate rows without replacing the frozen sample; OPTU's primary confirms non-reliance with restatements still planned. All twelve sampled reasons now have support under the narrower regulatory labels in [#1002](https://github.com/neilmac91/EarningsNerd/pull/1002). The initial verdicts and actual-UI overclaim findings remain preserved; they were not rewritten into passes. These twelve targeted examples do not estimate full-cohort precision or establish usefulness. Activation remains deferred until the corrected release and bounded rollout readback are verified; no production flag has changed.
 
+**Historical snapshot:** superseded by the final release checkpoint below.
+
 ## Authenticated Analysis and next corrections
 
 The [bounded live check](analysis-live-check.json) completed two authenticated AAPL requests: annual FY2024–FY2025 and quarterly 2026Q2–2026Q3, with 14 and 10 source entries and the current `trends-v7-observations` stamp. Both cache rows updated during the request interval, and the three-page annual PDF rendered without clipping. This was an integration check, not an independent quality verdict. A cached repeat was not verified. The Excel download remained unverified after Chrome requested multiple-download permission; that setting was left unchanged.
 
 [PR #997](https://github.com/neilmac91/EarningsNerd/pull/997) is [released and verified](pr997-release.json) at `67b9be8e`, revision `00408-9b6`, main CI `36395595444`, migrations 0/40 and healthy independent API/database readback. The browser/PDF wording distinguishes source entries from verification of every narrative figure or conclusion. Its final local gate passed 3,716 backend tests and 641 frontend tests plus lint, typecheck and production build. The [hosted audit](pr997-hosted-audit.json) retains 209 physical provider calls across two heads, all successful, estimated USD 0.745421 under the revised USD 1.00 authority. This explicitly corrects the original USD 0.50 underestimate; billed cost is unknown. A representative PDF was rendered locally; an authenticated post-release browser check remains unverified while the Mac is locked. [Fable PR #992](https://github.com/neilmac91/EarningsNerd/pull/992#issuecomment-5865712237) remains draft: root and independent review confirmed that generic year or `Total` labels still permit unrelated financial measures to inherit the debt scale. The next local correction narrows to a complete debt-maturity proposition. That grammar closes the original counterexample, but [root's exact-code refutation](pr992-round6-context-refutation.json) still shows same-CIK subsidiary and cross-dimension facts being rebound to the company-wide claim. Fable is correcting context identity before any further paid push; the latest cumulative telemetry estimate is USD 1.371 against USD 1.65. No additional quality acceptance is inferred from those reviews.
 
-## Newly opened dependency updates
+**Historical snapshot:** superseded by #992’s final release evidence below.
+
+## Dependency updates — historical opening triage
 
 The [current triage](dependency-triage.md) prioritizes #998's Next.js security patch. Its functional hosted checks are green; an exact-head review and local frontend gate are being completed. #999's Sentry 11 major requires an explicit migration and privacy-default review. #1000's SQLAlchemy 2.1 changes the default PostgreSQL driver and fails the actual PostgreSQL migration check with the repository's psycopg2 installation; split that migration from routine updates. Its blank-key Copilot failure is not a model-quality result. No dependency PR is recorded here as merged.
+
+**Historical snapshot:** superseded by the dependency releases below.
+
+## Final release checkpoint
+
+The [checkpoint](execution-checkpoint.json) binds [#998](pr998-release.json)/[#999](pr999-release.json), [#1001](pr1001-main-ci.json)/[#1004](pr1004-main-ci.json) backend skips, and [#1002](pr1002-wif-release.json)/[#1003](pr1003-wif-release.json) flag states. [#992 release](pr992-release.json) and [WIF](pr992-wif-release.json) receipts verify merge `8ff1816c`, run `36406918405`, revision `00411-wb5`, eight jobs, health and exact-SHA Vercel success. [Serving](serving-receipt.json) verifies eight API rows and the homepage section/label. The [initial cached homepage](serving-receipt-initial-api.json), [initial feed](live-feed-initial.json) and [URL correction](url-verifier-correction.json) preserve the HTTP history and archive-directory convention.
+
+[H15](h15-mechanical-preparation.json) records 67 readers plus its index, 3,150,219 reader bytes and 3,000,984 raw bytes. Its [current ZIP](h15-archive-receipt.json) has ten verified children in the [validation](h15-archive-validation-summary.json). Historical archive equality, the logo and all 78 dispositions remain unresolved.
+
+The [JPM prototype](jpm-period-claim-prototype-summary.json) retains one flag and eight initially passed controls, but [review](jpm-prototype-adverse-review.json) finds two unresolved source-context counterexamples. It is not integration-ready; next is source-context ownership or source-first presentation without another paid draw. Dossiers remain **3/30**, progress **57.5%**, and quality, beta and source work stay open. HTTP inspection was not visual or customer engagement. Stripe remains blocked; no credential was copied into project files.

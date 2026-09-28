@@ -1,6 +1,20 @@
 {
  "scope": "Fable engineering handoff, 2026-09-27, branch codex/wave3-financial-claim-scope",
- "planning_ceiling_usd": 1.0,
+ "planning_ceiling_usd": 2.1,
+ "planning_ceiling_history_usd": [
+  {
+   "ceiling_usd": 1.0,
+   "set": "original assignment (incremental, cumulative across follow-ups)"
+  },
+  {
+   "ceiling_usd": 1.65,
+   "set": "root, 2026-09-28 07:35 UTC, one measurement of 7c2f998"
+  },
+  {
+   "ceiling_usd": 2.1,
+   "set": "root, 2026-09-28 09:09 UTC, one measurement of the eighth-round head plus one Copilot check"
+  }
+ ],
  "model_calls_made_locally": 0,
  "paid_measurements_triggered_by_this_engineer": "none locally; hosted CI eval-baseline runs on the draft PR (see hosted section, appended after push)",
  "attempts": [
@@ -368,11 +382,51 @@
    "head": "eighth-round head",
    "outcome": "root replaced the publish hold for the corrected, locally gated candidate (09:09 UTC) under a revised USD 2.10 cumulative planning ceiling; reservation confirmed on the PR before dispatch; one push",
    "cost_usd": 0.0
+  },
+  {
+   "id": 48,
+   "kind": "hosted_eval_baseline",
+   "head": "5936fc4",
+   "run_id": 36403130259,
+   "outcome": "PASS — no hard regressions (standing untraceable-figures advisory only, mean 2.143); expected=70 attempted=70 scored=70 errors=0; 70 summary_primary calls; started 09:23 UTC inside the peak tariff window; ci.yml conclusion success (backend-tests, frontend-tests, e2e-tests, migrations-postgres, lighthouse, eval-baseline); Review gate 36403127979 and Copilot 36403130270 skipped",
+   "cost_usd": 0.349487,
+   "file": "hosted-run-36403130259-eval-job.log.txt"
+  },
+  {
+   "id": 49,
+   "kind": "ledger_commit_held",
+   "head": "5936fc4 + ledger commit",
+   "outcome": "the run receipt is recorded in this ledger and the handback and committed locally; the commit is HELD because every evidence push so far started a full 70-output eval run and the remaining USD 0.379 is reserved for the Copilot check",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 50,
+   "kind": "hosted_copilot_fidelity",
+   "head": "5936fc4",
+   "run_id": 36404908264,
+   "outcome": "root marked the PR ready for review at 09:39 UTC, which started the Copilot filing-fidelity workflow: accepted, expected=18 completed=18 scored=18 errors=0 passed=18; 35 copilot_chat calls; Review gate 36404908749 success; Codex code review completed with no findings (09:42 UTC)",
+   "cost_usd": 0.015268,
+   "file": "hosted-run-36404908264-copilot-job.log.txt"
+  },
+  {
+   "id": 51,
+   "kind": "merged",
+   "head": "5936fc4 -> main 8ff1816",
+   "outcome": "root squash-merged PR #992 into main at 09:59 UTC after verifying the #1003 deployment; the receipt commit was re-based onto main locally and held (root: do not generate another paid head solely to update historical accounting prose)",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 52,
+   "kind": "post_merge_deploy",
+   "head": "main 8ff1816",
+   "outcome": "CI run 36406918405 success (eval-baseline skipped; deploy-backend: image, migrations, Cloud Run deploy, job images, health verified, 10:06 UTC); no additional model/generation calls or provider telemetry cost; infrastructure cost unassessed",
+   "cost_usd": 0.0,
+   "cost_scope": "provider model-call telemetry only; not total deployment or infrastructure cost"
   }
  ],
  "unknowns": [
   "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
-  "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
+  "The cached xbrl_metrics dict may predate this change for some companies and is auxiliary corroboration/abstention input. The released maturity owner requires the filing HTML with tagged debt facts and owned issuer/report-date, unit, scale and sequence context; an untagged excerpt alone is insufficient."
  ],
  "cancelled_or_superseded": [
   "attempt 5 (aborted local gate)",
@@ -382,7 +436,7 @@
   "round-7 full gate attempt 1 (local-gate-10): 1 failed — the sec.gov CIK-scheme literal placed in source_units.py tripped test_sec_gov_importers_allowlist; the helper was moved into the EDGAR layer (statement_context.source_context_identity) and the commit amended",
   "round-7 full gate attempt 2 (local-gate-11): ruff ran at the repository root because of a shell cwd reset (27 pre-existing findings under tasks/fable-e8-repin-2026-09-22), not a backend failure; rerun from backend/ as attempt 3"
  ],
- "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); raised to USD 1.65 at 07:35 UTC (one authorized measurement, run 36392603589); revised to USD 2.10 at 09:09 UTC for the corrected eighth-round head (one 70-output measurement plus one eventual Copilot check). Cumulative telemetry USD 1.371 before the eighth-round push.",
+ "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); raised to USD 1.65 at 07:35 UTC (one authorized measurement, run 36392603589); revised to USD 2.10 at 09:09 UTC for the corrected eighth-round head (one 70-output measurement plus one eventual Copilot check). Cumulative telemetry USD 1.371 before the eighth-round push. | Top-level planning_ceiling_usd was left at the original 1.0 through 5936fc4; corrected to the explicit USD 2.10 authorization here (root, 09:39 UTC review), superseding the stale field without a paid repush.",
  "hosted_runs_cumulative": {
   "runs": [
    {
@@ -426,16 +480,30 @@
     "status": "PASS (peak tariff)",
     "calls": 71,
     "telemetry_usd": 0.353955
+   },
+   {
+    "run_id": 36403130259,
+    "head": "5936fc4",
+    "status": "PASS (peak tariff; the authorized eighth-round measurement)",
+    "calls": 70,
+    "telemetry_usd": 0.349487
+   },
+   {
+    "run_id": 36404908264,
+    "head": "5936fc4",
+    "status": "PASS (Copilot filing fidelity, root-triggered on ready-for-review; 18/18 cases, 0 errors)",
+    "calls": 35,
+    "telemetry_usd": 0.015268
    }
   ],
   "telemetry_usd_spent_before_third_round_push": 0.481047,
   "expected_after_third_round_push": "about 0.66",
   "ceiling_usd": 2.1,
   "ceiling_is_cumulative": true,
-  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry)",
+  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry); balance read 09:20 UTC before the eighth-round push: USD 52.18",
   "telemetry_usd_spent_before_fourth_round_push": 0.660091,
   "expected_after_fourth_round_push": "about 0.84",
-  "telemetry_usd_spent_total": 1.37106,
-  "ceiling_status": "USD 1.371 spent of the revised USD 2.10 cumulative planning ceiling root reserved at 09:09 UTC for one corrected-head measurement and one eventual Copilot check"
+  "telemetry_usd_spent_total": 1.735815,
+  "ceiling_status": "USD 1.735815 spent of the USD 2.10 cumulative planning ceiling (eval-baseline heads plus the one Copilot check); PR #992 merged by root at 09:59 UTC as squash commit 8ff1816; no further hosted measurement is planned by this engineer"
  }
 }

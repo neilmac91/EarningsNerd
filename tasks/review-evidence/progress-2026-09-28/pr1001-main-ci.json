@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "audited_at": "2026-09-28T09:29:00Z",
+  "repository": "neilmac91/EarningsNerd",
+  "pull_request": {
+    "number": 1001,
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/1001",
+    "head_sha": "f687ab50b960d9e5035b72115caa6f322890c852",
+    "merge_sha": "c98ba7a0dc71fadd72f979d0da6472ce919242ea",
+    "merged_at": "2026-09-28T09:20:28Z"
+  },
+  "matching_main_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-09-28T09:20:31Z",
+    "event": "push",
+    "headSha": "c98ba7a0dc71fadd72f979d0da6472ce919242ea",
+    "status": "completed",
+    "updatedAt": "2026-09-28T09:25:20Z",
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36402871175",
+    "run_id": 36402871175,
+    "matches_merge_sha": true
+  },
+  "backend_deploy_job": {
+    "job_id": 108866202675,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36402871175/job/108866202675",
+    "status": "completed",
+    "conclusion": "success",
+    "change_detection_log": "No backend changes - skipping deploy.",
+    "deployment_steps": {
+      "Authenticate to Google Cloud": "skipped",
+      "Set up gcloud": "skipped",
+      "Build and push image": "skipped",
+      "Apply database migrations": "skipped",
+      "Deploy Cloud Run service": "skipped",
+      "Update pregenerate job image": "skipped",
+      "Update filing-scan + digest + calendar + alert + notable + retention job images": "skipped",
+      "Update backfill-facts job image and scheduled entrypoint": "skipped",
+      "Verify health": "skipped"
+    },
+    "backend_deploy_executed": false
+  },
+  "disposition": "verified_docs_only_main_ci_backend_skip",
+  "blockers": [],
+  "limits": [
+    "No workflow rerun or deployment was triggered by this audit.",
+    "The receipt verifies the main CI run and backend deployment skip only."
+  ]
+}

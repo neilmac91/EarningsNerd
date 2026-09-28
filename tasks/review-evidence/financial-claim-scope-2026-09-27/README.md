@@ -23,5 +23,15 @@ archives) and are committed here under the new suffix, byte-identical.
 - `hosted-run-36386298431-eval-job.log.txt` — the fourth-round eval job log (peak tariff, USD 0.357), the run that took cumulative hosted telemetry to about USD 1.017.
 - `local-gate-round6.log.txt`, `mutation-proof-round6.log.txt` — sixth-round gate tail and the counted fault/restored proof (introduction grammar disabled).
 - `hosted-run-36392603589-eval-job.log.txt` — the fifth-round eval job log (the authorized measurement under the USD 1.65 ceiling; peak tariff, USD 0.354).
+- `hosted-run-36403130259-eval-job.log.txt` — the eighth-round eval job log for head `5936fc4` (the authorized measurement under the USD 2.10 ceiling; peak tariff, USD 0.349; 70/70 scored, PASS).
+- `hosted-run-36404908264-copilot-job.log.txt` — the Copilot filing-fidelity job log for head `5936fc4` (root's ready-for-review check; 18/18 cases, 35 calls, USD 0.015).
 - `local-gate-round7.log.txt`, `mutation-proof-round7.log.txt` — seventh-round gate tail and the counted fault/restored proof (context identity reduced to its period end).
 - `local-gate-round8.log.txt`, `mutation-proof-round8.log.txt` — eighth-round gate tail and the counted fault/restored proof (repeated context ID resolving to its last definition).
+
+## Checkpoint 9 integration
+
+Codex verified all 36 checksum-listed files in the September 28 checkpoint archive and applied the held `f1766fc` patch to the existing documentation PR [#1005](https://github.com/neilmac91/EarningsNerd/pull/1005), preserving Fable's authorship. The two added hosted job logs remain byte-identical to the supplied artifacts. Their 36 timestamp-only trailing-space lines are retained as an explicit raw-evidence exception to the whitespace check; other changed files pass it.
+
+The [ingestion receipt](checkpoint9-ingestion.json) records provenance and independently recomputed accounting: USD 1.735815 of the USD 2.10 ceiling, with billed cost unknown. Two narrow ledger clarifications distinguish required tagged filing-source ownership from auxiliary cached XBRL metrics, and zero generation cost from unassessed infrastructure cost. The engineer's held-commit description is historical to delivery; no further action from that session is required.
+
+The chief engineer's [release receipt](../progress-2026-09-28/pr992-release.json), [service/job readback](../progress-2026-09-28/pr992-wif-release.json) and [public serving check](../progress-2026-09-28/serving-receipt.json) cover the later production verification. They do not prove that historical cached rows have been refreshed or that broader JPM, FIGS and PLTR quality defects are resolved. No historical drain or model evaluation is requested by this accounting integration.

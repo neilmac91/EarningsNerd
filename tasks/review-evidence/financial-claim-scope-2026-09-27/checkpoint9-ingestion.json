@@ -1,0 +1,55 @@
+{
+  "recorded_at": "2026-09-28T10:47:54.223633+00:00",
+  "source_archive_sha256": "c10ff57742c49ced9f4fe5292d9ddeacc4005a2037a3060208f1a66d9a5c11f1",
+  "source_manifest_sha256": "cb04638d05f58006fb109d8e392ca18f512ad174278b4e9ff99517f23518df96",
+  "source_patch_sha256": "984909d83b533325014c76aeb7e9529887a571d21119ed9fb0a34d136f7a25e6",
+  "source_commit": "f1766fc283e64201870035f168d84db71e7ae801",
+  "applied_author_commit": "c82e037791c5ab054d89676522eb7ce109ca8179",
+  "destination_pr": 1005,
+  "source_manifest_files_verified": 36,
+  "patch_files": 5,
+  "patch_paths_scope": "tasks/ only",
+  "calls_recomputed": [
+    {
+      "run_id": 36403130259,
+      "operation": "summary_primary",
+      "physical_calls": 70,
+      "successful_calls": 70,
+      "telemetry_usd": 0.349487
+    },
+    {
+      "run_id": 36404908264,
+      "operation": "copilot_chat",
+      "physical_calls": 35,
+      "successful_calls": 35,
+      "telemetry_usd": 0.015268
+    }
+  ],
+  "ledger_runs": 8,
+  "cumulative_telemetry_usd": 1.735815,
+  "planning_ceiling_usd": 2.1,
+  "remaining_ceiling_usd": 0.364185,
+  "billed_cost": "unknown",
+  "logs": [
+    {
+      "file": "hosted-run-36403130259-eval-job.log.txt",
+      "sha256": "282c0c861b05b4b4b52584459f117c26ef2d51de3d96750b43eeb7609cc7475a",
+      "bytes": 154298,
+      "byte_identical_to_checkpoint": true
+    },
+    {
+      "file": "hosted-run-36404908264-copilot-job.log.txt",
+      "sha256": "60fe011c4110819c4d6419e876b2220b8c16ec1353833d6966f015f0a4ae8855",
+      "bytes": 88774,
+      "byte_identical_to_checkpoint": true
+    }
+  ],
+  "review": "Root and independent review: no unmasked live credentials or customer data found. Nonmasked key-like values match committed CI fixture literals; real provider keys are masked.",
+  "raw_artifact_whitespace_exception_lines": 36,
+  "corrections": [
+    "Required tagged source ownership distinguished from auxiliary cached xbrl_metrics.",
+    "Attempt 52 zero cost restricted to model-call telemetry; infrastructure cost unassessed."
+  ],
+  "additional_model_calls_for_integration": 0,
+  "drain_started": false
+}

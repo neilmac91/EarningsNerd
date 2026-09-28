@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-09-28T09:58:06.098782+00:00",
+  "initial_result": "Verifier stopped at first valid archive-directory URL; no product rollback or configuration change.",
+  "cause": "Local verification script incorrectly required accession-index.htm rather than the established canonical archive-directory index contract.",
+  "owner": "backend/app/utils/sec_urls.py",
+  "owner_sha256": "90ae28781084c9c0eb764e24aa40be9aae46587a034bf57a39285748c46c6197",
+  "released_sha": "c31667344e8eeeb30b8e0f38f5591a4dd5089769",
+  "owner_identical_to_release": true,
+  "initial_verifier_sha256": "8062e75c4a351c27a9232674b5b80b3c96533aaf4bd36e54062b3ba55ce99fb6",
+  "corrected_verifier_sha256": "9c9724ee68089b5e8cfc56a6d561213bc093d27bb8a34e21a03200550e0bca78",
+  "initial_feed_retained": "live-feed-initial.json",
+  "correction": "Use the existing pure URL owner; no URL/source/content changed."
+}

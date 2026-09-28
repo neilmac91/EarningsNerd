@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-28T09:32:00Z",
+  "repository": "neilmac91/EarningsNerd",
+  "pull_request": {
+    "number": 999,
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/999",
+    "state": "MERGED",
+    "merged_at": "2026-09-28T09:26:44Z",
+    "head_sha": "1b520328ab1d04b3cd67b1bd03ceda5d6719454c",
+    "merge_sha": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+    "changed_files": [
+      "frontend/instrumentation-client.ts",
+      "frontend/instrumentation.ts",
+      "frontend/lib/sentryConfig.ts",
+      "frontend/package-lock.json",
+      "frontend/package.json",
+      "frontend/tests/unit/sentryBrowserSdk.spec.ts"
+    ],
+    "backend_paths_changed": false
+  },
+  "main_branch": {
+    "observed_sha": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+    "matches_merge_sha": true
+  },
+  "matching_main_ci": {
+    "workflow": "CI",
+    "run_id": 36403538876,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36403538876",
+    "event": "push",
+    "head_sha": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-09-28T09:26:47Z",
+    "completed_at": "2026-09-28T09:31:25Z",
+    "jobs": {
+      "lighthouse": "success",
+      "backend-tests": "success",
+      "frontend-tests": "success",
+      "e2e-tests": "success",
+      "migrations-postgres": "success",
+      "eval-baseline": "skipped",
+      "deploy-backend": "success"
+    },
+    "backend_deploy_job": {
+      "job_id": 108868328708,
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36403538876/job/108868328708",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-09-28T09:31:18Z",
+      "completed_at": "2026-09-28T09:31:24Z",
+      "change_detection": "success",
+      "change_detection_log": "No backend changes - skipping deploy.",
+      "deployment_steps": {
+        "Authenticate to Google Cloud": "skipped",
+        "Set up gcloud": "skipped",
+        "Build and push image": "skipped",
+        "Apply database migrations": "skipped",
+        "Deploy Cloud Run service": "skipped",
+        "Update pregenerate job image": "skipped",
+        "Update filing-scan + digest + calendar + alert + notable + retention job images": "skipped",
+        "Update backfill-facts job image and scheduled entrypoint": "skipped",
+        "Verify health": "skipped"
+      },
+      "backend_deploy_executed": false,
+      "assessment": "Expected: the merged change touched only frontend Sentry initialization, package manifests, and a browser SDK regression test."
+    }
+  },
+  "vercel_production_evidence": {
+    "commit_status": {
+      "context": "Vercel",
+      "sha": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+      "state": "success",
+      "description": "Deployment has completed",
+      "created_at": "2026-09-28T09:27:57Z",
+      "inspector_url": "https://vercel.com/neil-mac-aogains-projects/earnings-nerd/7zpq8r3XDEEa53tzzPnourEyRwqS"
+    },
+    "github_deployment": {
+      "deployment_id": 6706655818,
+      "status_id": 18937167896,
+      "sha": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+      "ref": "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+      "environment": "Production",
+      "transient_environment": false,
+      "github_production_environment_flag": false,
+      "status": "success",
+      "description": "Deployment has completed",
+      "deployment_url": "https://earnings-nerd-7zozw7gvt-neil-mac-aogains-projects.vercel.app",
+      "created_at": "2026-09-28T09:27:57Z",
+      "completed_at": "2026-09-28T09:27:57Z"
+    },
+    "assessment": "The Vercel commit status and GitHub deployment record both identify the exact merge SHA. The deployment environment is literally Production and is non-transient. GitHub’s separate production_environment boolean is false, so the receipt preserves that field rather than inferring from it."
+  },
+  "independent_public_homepage_check": {
+    "requested_url": "https://earningsnerd.io/",
+    "checked_at": "2026-09-28T09:28:15Z",
+    "redirect_status": 307,
+    "redirect_target": "https://www.earningsnerd.io/",
+    "final_status": 200,
+    "final_url": "https://www.earningsnerd.io/",
+    "redirect_count": 1,
+    "server": "Vercel",
+    "matched_path": "/",
+    "vercel_cache": "PRERENDER",
+    "limitation": "The public HTTP response confirms availability but does not expose a commit SHA; exact-SHA attribution comes from the Vercel status and GitHub deployment records above."
+  },
+  "release_assessment": {
+    "frontend_release_verified": true,
+    "exact_merge_sha_deployment_verified": true,
+    "public_homepage_http_200_verified": true,
+    "backend_change_expected": false,
+    "backend_deployment_performed": false,
+    "blockers": []
+  },
+  "audit_actions": {
+    "workflow_reruns": 0,
+    "deployments_triggered": 0,
+    "provider_calls_triggered": 0,
+    "repository_edits": 0
+  },
+  "raw_evidence": {
+    "location": "/private/tmp",
+    "files": [
+      "pr999-homepage-headers.txt",
+      "pr999-homepage-result.json",
+      "pr999-deploy-job.log"
+    ],
+    "note": "Raw transient evidence remains outside the output tree."
+  }
+}

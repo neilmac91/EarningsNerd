@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "publication_path_derivative",
+  "source_artifact": {
+    "path": "outputs/takeover-2026-09-28/pr992-review/jpm-period-claim-prototype.json",
+    "bytes": 7926,
+    "sha256": "6e91e1cc07c699224a20afb826089c366813e5c4d5e8d7f4299ba769755f03b8"
+  },
+  "input": {
+    "path": "outputs/takeover-2026-09-27/fable-financial-claims-handoff/package/retained-r/eval_20260927T141938Z.json",
+    "bytes": 20976292,
+    "sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+    "rows": 70
+  },
+  "scope": {
+    "report_mutations": 0,
+    "app_edits": 0,
+    "model_calls": 0,
+    "network_calls": 0,
+    "quality_verdict": false,
+    "ticker_literals_in_rule": false,
+    "rule": "One notable-footnote clause beginning with the exact relative label, followed by the finite bargain-purchase grammar, uniquely bound component-for-component to its sibling source span and retained excerpt."
+  },
+  "counts": {
+    "rows": 70,
+    "relative_label_notes_considered": 3,
+    "proposed_corrections": 1,
+    "unchanged_rows": 69,
+    "adverse_controls": 8,
+    "adverse_controls_passed": 8
+  },
+  "abstention_contract": [
+    "wrong or unsupported model grammar",
+    "missing/non-unique supporting evidence",
+    "component mismatch in claim, amount, full date, qualifier or acquisition subject",
+    "negated, repeated or conflicting source proposition for the acquisition subject",
+    "missing/conflicting current-prior metric frame",
+    "explicit year inside the current/prior frame",
+    "missing second clause that can be preserved exactly",
+    "already-explicit period label"
+  ],
+  "limitations": [
+    "This is a source-review prototype for one finite proposition, not a generic relative-date rewriter.",
+    "It proposes one string replacement in retained output but does not mutate the report or application.",
+    "It does not establish fleet precision, a quality verdict, or integration readiness."
+  ],
+  "input_hash_after": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+  "publication_limit": "One retained flag; the initial eight controls passed, but two later source-context counterexamples remain unresolved. No report mutation, app edit, paid call, acceptance, integration, fleet precision or quality verdict.",
+  "later_independent_refutation": {
+    "receipt": "jpm-prototype-adverse-review.json",
+    "counterexamples": 2,
+    "decision": "prototype_not_ready_for_application_integration",
+    "unresolved_owner": "affirmative enclosing source context"
+  }
+}

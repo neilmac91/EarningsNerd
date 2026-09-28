@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "publication_path_derivative",
+  "source_artifact": {
+    "path": "outputs/takeover-2026-09-28/h15-source-preparation/current-supplements/archive-validation.json",
+    "bytes": 10479,
+    "sha256": "d7d8f6e67f39efcaeb9b4ab0375cdf3849e7861d56cff1be004b8858cd58307d"
+  },
+  "status": "complete",
+  "archive": {
+    "path": "outputs/takeover-2026-09-28/h15-source-preparation/current-supplements/0001628280-26-035302-xbrl.zip",
+    "bytes": 235520,
+    "sha256": "0c776d02f9c425d3c9f86205e9f4dee5ebbbbaaeff2d70a7a621d53b056a2fff"
+  },
+  "archive_validation": {
+    "central_directory_member_count": 10,
+    "duplicate_names": false,
+    "casefold_collisions": false,
+    "encrypted_entries": 0,
+    "safe_member_paths": true,
+    "symlink_entries": 0,
+    "directory_entries": 0,
+    "uncompressed_bytes": 2627788,
+    "max_uncompressed_bytes": 6291456,
+    "zip_crc_test_passed": true,
+    "receipt_bytes_and_sha256_match": true
+  },
+  "historical_archive_boundary": {
+    "frozen_member_ordinal": 77,
+    "frozen_invalid_encoded_content_bytes": 324410,
+    "frozen_invalid_encoded_content_sha256": "003c694f0be55c255755faa47e3c922aa71bb908c6bb3d6b5293c26dc2b64049",
+    "current_zip_bytes": 235520,
+    "current_zip_sha256": "0c776d02f9c425d3c9f86205e9f4dee5ebbbbaaeff2d70a7a621d53b056a2fff",
+    "historical_zip_byte_equality_proved": false,
+    "limit": "The frozen member is invalid encoded archive content. Current ZIP validity and child relations do not establish historical ZIP-envelope or decoded-payload equality."
+  },
+  "relation_summary": {
+    "children": 10,
+    "matched_frozen_filenames": 10,
+    "verified_relations": 10,
+    "exact_byte_equal": 5,
+    "terminal_lf_relations": 5,
+    "different_bytes": 0,
+    "unmatched_children": 0
+  },
+  "logo": {
+    "status": "held_unfetched",
+    "bytes": null,
+    "sha256": null,
+    "reference_only": true
+  },
+  "operations": {
+    "network_calls": 0,
+    "model_calls": 0,
+    "database_access": 0,
+    "archive_extraction_to_disk": false
+  },
+  "semantic_dispositions_changed": 0,
+  "roles_dispatched": 0,
+  "limit": "Per-child details remain in the operator artifact; current child relations do not prove historical ZIP-envelope or decoded-payload equality."
+}
