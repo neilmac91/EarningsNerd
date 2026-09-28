@@ -253,6 +253,60 @@
    "kind": "push_withheld",
    "outcome": "fifth-round commit held locally; the cumulative hosted ceiling is exceeded (about USD 1.017), so the push is requested from root on the PR and not made without explicit authorization",
    "cost_usd": 0.0
+  },
+  {
+   "id": 33,
+   "kind": "push_authorized",
+   "head": "7c2f998",
+   "outcome": "root raised the PR ceiling to USD 1.65 and authorized one push (07:35 UTC); pushed 07:36:46 UTC after tree/gate receipt checks",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 34,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 53.66 at 2026-09-28T07:36:31Z before the authorized push (54.05 at 06:37; the USD 0.39 fall was other usage on the shared account)",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 35,
+   "kind": "hosted_eval_baseline",
+   "head": "7c2f99897350eb8a871f2e8ec4bdaac0d8fa8792",
+   "run_id": 36392603589,
+   "job_id": 108831586306,
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.3286); 70/70 scored, 0 errors; 71 calls (one bounded retry), every call peak=true; Copilot filing fidelity run 36392603616 and Review gate run 36392600878 skipped",
+   "estimated_cost_usd": 0.353955,
+   "calls": 71,
+   "billed_cost_usd": "unknown; balance fell 53.66 -> 53.30 (USD 0.36) across the run"
+  },
+  {
+   "id": 36,
+   "kind": "offline_replay",
+   "head": "round-6 tree (finite maturity proposition)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 37,
+   "kind": "local_gate",
+   "head": "round-6 tree",
+   "outcome": "round-6 tree (committed locally as d32e4e8): ruff/bandit clean, 3753 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round6.log.txt"
+  },
+  {
+   "id": 38,
+   "kind": "mutation_proof",
+   "head": "d32e4e8",
+   "outcome": "fault (introduction grammar disabled) caught: 3 failed/48 passed with false '$3,542 million' insertions on the subject/qualifier cases; restored 51 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round6.log.txt"
+  },
+  {
+   "id": 39,
+   "kind": "push_withheld",
+   "outcome": "sixth-round commit held locally; root asked for the exact diff and proof before another head measurement",
+   "cost_usd": 0.0
   }
  ],
  "unknowns": [
@@ -265,7 +319,7 @@
   "hosted run 36354356433 (cancelled by own docs push, USD 0.119 wasted)",
   "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit"
  ],
- "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR, cumulative across all rounds and including the cancelled run: EXCEEDED at about USD 1.017 after run 36386298431 (peak tariff, USD 0.357). This correction is not pushed to the branch because a push would start another paid run; the PR thread carries it. Fifth round: committed locally, push withheld pending root's authorization on the PR.",
+ "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); root raised the PR's cumulative hosted planning ceiling to USD 1.65 at 07:35 UTC on 28 September and authorized one measurement (run 36392603589, USD 0.354). Cumulative telemetry USD 1.371. No further push without root's explicit authorization.",
  "hosted_runs_cumulative": {
   "runs": [
    {
@@ -302,16 +356,23 @@
     "status": "PASS (peak tariff)",
     "calls": 70,
     "telemetry_usd": 0.357014
+   },
+   {
+    "run_id": 36392603589,
+    "head": "7c2f998",
+    "status": "PASS (peak tariff)",
+    "calls": 71,
+    "telemetry_usd": 0.353955
    }
   ],
   "telemetry_usd_spent_before_third_round_push": 0.481047,
   "expected_after_third_round_push": "about 0.66",
-  "ceiling_usd": 1.0,
+  "ceiling_usd": 1.65,
   "ceiling_is_cumulative": true,
   "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry)",
   "telemetry_usd_spent_before_fourth_round_push": 0.660091,
   "expected_after_fourth_round_push": "about 0.84",
-  "telemetry_usd_spent_total": 1.017105,
-  "ceiling_status": "EXCEEDED: about USD 1.017 of the cumulative USD 1.00 ceiling, by about USD 0.017; the fourth-round push landed in the peak tariff window (06:00-10:00 UTC weekdays) and the projection did not account for it. No further pushes without explicit authorization."
+  "telemetry_usd_spent_total": 1.37106,
+  "ceiling_status": "USD 1.371 of the USD 1.65 ceiling root set at 07:35 UTC (the original USD 1.00 was exceeded at run 36386298431); about USD 0.28 headroom, less than one peak-window measurement"
  }
 }

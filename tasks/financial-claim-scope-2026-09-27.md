@@ -149,16 +149,14 @@ r was cherry-picked and no r adoption claim is revived.
 - **Reconciliation sign (FIGS run 0) and aggregate-vs-component (PLTR run 0).** Need a structured
   reconciliation-row owner and the statement-line owner respectively; not bounded enough for this
   handoff.
-- **Banner inheritance (closed by proposition-bound ownership).** Four rounds of review showed
-  every heuristic over flattened text, banners, cells and header geometry moving the counterexample:
-  a short sentence, a detached per-share label, a unit-token header, an adjacent unbannered table, a
-  list item, a later in-table declaration, `rowspan`/`tfoot`/full-width headers, an unknown banner
-  exception, and finally a "Revenue" row scaling a registration fee. The fifth round binds the
-  authored proposition itself: the label the text pairs with the figure must be the row label of an
-  inline-XBRL fact with those digits, in USD, with a declared `scale`, on the filing's DEI report
-  period (see "Fifth review round"). Everything else is left unchanged with a reason. Remaining
-  narrowing, all abstentions: unlabelled prose figures, untagged cells, prior-period columns,
-  plain-text sources, cached-excerpt generations, and labels the model paraphrases.
+- **Banner inheritance (closed by one finite proposition).** Five rounds of review showed every
+  general mechanism moving the counterexample: flattened-text heuristics, banner-bound cells, header
+  geometry, and finally digit-and-label binding, where a year or `Total` label bound the retained
+  debt-maturity facts to "Expected registration fees by year are as follows: 2027: $3,542". The sixth
+  round repairs exactly one named proposition, the complete long-term-debt maturity sequence, bound
+  part by part to the filing's tagged schedule concepts and total on the DEI report period (see
+  "Sixth review round"). Everything else is left unchanged with a reason. A second proposition is a
+  second named grammar with its own source binding and gate, never a loosening of this one.
 - **Hosted measurement.** The draft PR triggers the advisory `eval-baseline` job (about USD 0.19–0.38
   per run at recent telemetry). Scorers read rendered prose, so the restored "$3,542 million" is now a
   scaled figure visible to numeric dims; expected neutral (it grounds via the excerpt), to be read from
@@ -564,3 +562,87 @@ fault_exit=1
 43 passed in 3.87s
 restored_exit=0
 ```
+
+## Sixth review round (one finite proposition, 28 September; local, not pushed)
+
+Root's exact-head review of `7c2f998` accepted the unit and report-period binding but held a P1:
+when a year or `Total` is the entire authored label, the round-5 owner bound the retained
+debt-maturity facts to unrelated prose ("Expected registration fees by year are as follows: 2027:
+$3,542; 2028: $3,237" → "$3,542 million"; "Registration fees: Total: $38,166" → "$38,166 million").
+The instruction was to make the supported unit repair one complete, source-owned long-term-debt
+maturity proposition and to abstain on everything else, without label heuristics, issuer
+hardcoding or digit matching.
+
+The owner now recognises exactly one authored form and one source shape:
+
+- **Authored.** `[Annual|Contractual|Scheduled] maturities of [our] long-term debt [during|for|over
+  the next five [fiscal] years and thereafter] [are|were] as follows:` then exactly five consecutive
+  fiscal-year pairs, `Thereafter` and `Total`, each a bare `$N,NNN`, `;`-separated, an optional final
+  period and nothing else (`maturity_proposition`). A different subject, an unknown qualifier, a
+  reordered, partial or already-scaled sequence, or trailing text is not a proposition and every bare
+  figure in it abstains with `unsupported_proposition`.
+- **Source.** On the filing's validated DEI report period, exactly one value for each of the six
+  schedule concepts of the hand-audited `debt_concepts.DEBT_MATURITY_SEQUENCE`
+  (`us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths` … `AfterYearFive`) and
+  for the total (`us-gaap:LongTermDebt`), each in a table row whose leftmost cell is that year /
+  `Thereafter` / `Total`, in USD alone, with one shared `scale` of 3/6/9, whose digits equal the
+  authored amounts in order, whose first year is the year after the report period, and whose six
+  amounts sum to the total. Repeated identical facts (the WMT total is tagged in the debt table and
+  the schedule) are one fact; disagreeing repeats are `conflicting_facts`.
+- **Abstention vocabulary.** `unsupported_proposition`, `no_source_document`, `no_report_period`,
+  `year_mismatch`, `missing_fact`, `conflicting_facts`, `amount_mismatch`, `row_label_mismatch`,
+  `non_dollar_unit`, `declared_unscaled`, `unsupported_scale`, `mixed_scales`,
+  `sequence_does_not_sum`, `literal_xbrl_match`, `recovered`.
+
+Measure (concept), reporting basis (the sum identity between the principal schedule and the
+tagged total), period (context), unit and scale (the fact's own attributes), row (label) and order
+(position) are all read from the source. Root's two reproductions and every earlier round's
+counterexample abstain; the retained WMT bullet restores 7/7 on the fixture and on the full 2.3 MB
+document (0.19 s). The 70-output replay is unchanged at the output level (one slot, 7/7, eight
+abstentions, all `unsupported_proposition`).
+
+Gate: `test_table_cell_units.py`, 51 cases — the retained bullet, a synthetic schedule in the
+source's layout, the proposition grammar (positive and eleven negative forms), nine adverse prose
+forms against the real fixture, fifteen source-ownership abstentions (missing/conflicting facts,
+amount, row, unit, scale, period, DEI, year, sum, flattened excerpt), repeated-fact agreement, repeat
+application, XBRL literal/corroboration, recovered/verbatim/missing-source, audit cap, lazy parse,
+and the final/preview/recovered/cached-excerpt consumers. Mutation proof: the introduction grammar
+disabled (any "… as follows:" prefix admits the sequence — root's P1 shape).
+
+Not pushed: root asked for the exact local diff and proof before spending another head measurement;
+cumulative hosted telemetry is USD 1.371 of the USD 1.65 ceiling.
+
+### Sixth-round verification tails
+
+Local gate from `backend/` on the tree committed locally as `d32e4e8` (`local-gate-round6.log.txt`):
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3753 passed, 39 skipped, 2 deselected, 40 warnings in 289.68s (0:04:49)   EXIT=0
+```
+
+### Sixth-round mutation proof (one deliberate implementation fault, committed state `d32e4e8`)
+
+Fault: the affirmative long-term-debt maturity introduction is no longer required, so any
+"… as follows:" prefix admits a complete sequence (root's P1 shape). The gate fails on exactly the
+subject/qualifier cases with false `$3,542 million` … insertions (a dated qualifier, an operating-lease
+subject), and passes once `git checkout --` restores the file (`mutation-proof-round6.log.txt`):
+
+```
+== committed HEAD: d32e4e8 ==
+fault applied: the debt-maturity introduction is no longer required
+== gate under fault ==
+E   At index 0 diff: 'As of January 31, 2026, annual maturities of long-term debt are as follows: 2027: $3,542 million; …'
+FAILED …test_only_the_complete_maturity_sequence_is_a_proposition[As of January 31, 2026, annual maturities …]
+FAILED …test_only_the_complete_maturity_sequence_is_a_proposition[Maturities of operating lease obligations …]
+FAILED …test_everything_but_the_proposition_stays_as_written[As of January 31, 2026, annual maturities …]
+3 failed, 48 passed in 3.52s
+fault_exit=1
+== restored: clean ==
+51 passed in 3.63s
+restored_exit=0
+```
+
+Root's own two reproductions abstain even under this fault because their sequences are partial; the
+sequence grammar and the introduction grammar are independent guards.

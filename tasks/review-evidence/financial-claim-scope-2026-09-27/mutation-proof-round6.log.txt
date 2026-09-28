@@ -1,0 +1,17 @@
+== committed HEAD: d32e4e841e85884933ef9b6050d3ebab6e6a3eee ==
+fault applied: the debt-maturity introduction is no longer required
+== gate under fault ==
+E           AssertionError: assert {'years': [2027, 2028, 2029, 2030, 2031], 'amounts': ['3,542', '3,237', '3,389', '2,143', '2,600', '23,255', ...], 'ends': [88, 102, 116, 130, 144, 165, ...]} is None
+E           AssertionError: assert {'years': [2027, 2028, 2029, 2030, 2031], 'amounts': ['3,542', '3,237', '3,389', '2,143', '2,600', '23,255', ...], 'ends': [70, 84, 98, 112, 126, 147, ...]} is None
+E       AssertionError: assert ['As of Janua...166 million.'] == ['As of Janua...al: $38,166.']
+E         
+E         At index 0 diff: 'As of January 31, 2026, annual maturities of long-term debt are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 millio
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_only_the_complete_maturity_sequence_is_a_proposition[As of January 31, 2026, annual maturities of long-term debt are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: 
+FAILED tests/unit/test_table_cell_units.py::test_only_the_complete_maturity_sequence_is_a_proposition[Maturities of operating lease obligations are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter
+FAILED tests/unit/test_table_cell_units.py::test_everything_but_the_proposition_stays_as_written[As of January 31, 2026, annual maturities of long-term debt are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,60
+3 failed, 48 passed in 3.52s
+fault_exit=1
+== restored: clean ==
+51 passed in 3.63s
+restored_exit=0
