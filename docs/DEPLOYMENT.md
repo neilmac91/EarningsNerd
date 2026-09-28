@@ -49,6 +49,18 @@ default. Auth is keyless via Workload Identity Federation (repo variables `GCP_W
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 
+### Read-only release configuration audit
+
+Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
+independent release evidence through the repository's existing keyless WIF identity. The first
+operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, and both
+service and revision `maxScale` for operator comparison. The second reports image, task count, and
+pool values for all eight expected jobs, and fails when their release or connection budget
+invariants drift. `describe-jobs` also fails if any expected job, including
+`earningsnerd-retention-purge`, is missing or unreadable.
+They only call Cloud Run describe APIs and do not access the database, application HTTP endpoints,
+or model providers.
+
 ### Rollback (when a bad revision is live)
 
 The pipeline routes 100% of traffic to the newest revision (`update-traffic --to-latest`) **before**

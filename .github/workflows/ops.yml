@@ -188,6 +188,7 @@ jobs:
               "AI_FORWARD_QUOTE_GATE", "AI_ATTRIBUTION_GATE", "AI_ATTRIBUTION_VERIFY",
               "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
               "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
+              "SENTRY_RELEASE", "DB_POOL_SIZE", "DB_MAX_OVERFLOW",
           }
           # Defaults from app/config.py; never include credentials in this allow-list.
           flag_defaults = {
@@ -228,33 +229,102 @@ jobs:
                       print(f"{flag} = <NOT SET -> {message}>")
           show("Serving revision: " + latest, revision["spec"]["containers"])
           show("Job: earningsnerd-pregenerate", pregenerate["spec"]["template"]["spec"]["template"]["spec"]["containers"])
+          service_max = svc.get("metadata", {}).get("annotations", {}).get("run.googleapis.com/maxScale")
+          revision_max = revision.get("metadata", {}).get("annotations", {}).get("autoscaling.knative.dev/maxScale")
+          print("Service maxScale:", service_max)
+          print("Revision maxScale:", revision_max)
           PY
 
-      - name: Describe job envs (names only) and entrypoints
+      - name: Describe expected job release configuration
         if: steps.request.outputs.operation == 'describe-jobs'
         run: |
           set -euo pipefail
-          for job in earningsnerd-pregenerate earningsnerd-filing-scan earningsnerd-filing-digest \
-                     earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh \
-                     earningsnerd-earnings-day-alerts earningsnerd-notable-filings; do
-            echo "== $job"
-            if gcloud run jobs describe "$job" --region="$REGION" --format=json > /tmp/job.json 2>/dev/null; then
-              python3 - <<'PY'
-          import json
-          job = json.load(open("/tmp/job.json"))
-          c = job["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]
-          print("  command:", c.get("command"))
-          print("  args:", c.get("args"))
-          names = []
-          for e in c.get("env", []):
-              kind = "secret-ref" if ("valueFrom" in e or "valueSource" in e) else "plain"
-              names.append(f"{e.get('name')}({kind})")
-          print("  env:", ", ".join(names) if names else "(none)")
-          PY
-            else
-              echo "  (not found)"
+          JOB_DIR="$(mktemp -d /tmp/earningsnerd-expected-jobs.XXXXXX)"
+          jobs=(
+            earningsnerd-pregenerate
+            earningsnerd-filing-scan
+            earningsnerd-filing-digest
+            earningsnerd-backfill-facts
+            earningsnerd-earnings-calendar-refresh
+            earningsnerd-earnings-day-alerts
+            earningsnerd-notable-filings
+            earningsnerd-retention-purge
+          )
+          for job in "${jobs[@]}"; do
+            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json"; then
+              echo "::error::expected Cloud Run job '$job' is missing or unreadable"
+              exit 1
             fi
           done
+          export JOB_DIR
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          expected_pools = {
+              "earningsnerd-pregenerate": "3",
+              "earningsnerd-filing-scan": "1",
+              "earningsnerd-filing-digest": "1",
+              "earningsnerd-backfill-facts": "1",
+              "earningsnerd-earnings-calendar-refresh": "1",
+              "earningsnerd-earnings-day-alerts": "1",
+              "earningsnerd-notable-filings": "1",
+              "earningsnerd-retention-purge": "1",
+          }
+          images = set()
+          for name, expected_pool in expected_pools.items():
+              path = Path(os.environ["JOB_DIR"]) / f"{name}.json"
+              try:
+                  job = json.loads(path.read_text())
+                  task_spec = job["spec"]["template"]["spec"]
+                  containers = task_spec["template"]["spec"]["containers"]
+              except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                  raise SystemExit(f"Unresolved production configuration: cannot read {name}: {exc}") from exc
+              if job.get("metadata", {}).get("name") not in (None, name):
+                  raise SystemExit(f"Unresolved production configuration: response name does not match {name}.")
+              if len(containers) != 1:
+                  raise SystemExit(f"Unresolved production configuration: {name} needs one application container.")
+              container = containers[0]
+              env = {}
+              env_kinds = []
+              for entry in container.get("env", []):
+                  env_name = entry.get("name")
+                  if not env_name or env_name in env:
+                      raise SystemExit(f"Unresolved production configuration: {name} has a missing or duplicate env name.")
+                  env[env_name] = entry
+                  kind = "secret-ref" if ("valueFrom" in entry or "valueSource" in entry) else "plain"
+                  env_kinds.append(f"{env_name}({kind})")
+              values = {}
+              for env_name in ("DB_POOL_SIZE", "DB_MAX_OVERFLOW"):
+                  entry = env.get(env_name)
+                  if not entry or "valueFrom" in entry or "valueSource" in entry or "value" not in entry:
+                      raise SystemExit(f"Unresolved production configuration: {name} needs plain {env_name}.")
+                  values[env_name] = str(entry["value"])
+              if values != {"DB_POOL_SIZE": expected_pool, "DB_MAX_OVERFLOW": "0"}:
+                  raise SystemExit(
+                      f"Unresolved production configuration: {name} pool must be "
+                      f"{expected_pool}+0, got {values['DB_POOL_SIZE']}+{values['DB_MAX_OVERFLOW']}."
+                  )
+              task_count = task_spec.get("taskCount")
+              if str(task_count) != "1":
+                  raise SystemExit(f"Unresolved production configuration: {name} taskCount must be 1.")
+              image = container.get("image")
+              if not isinstance(image, str) or not image:
+                  raise SystemExit(f"Unresolved production configuration: {name} image is missing.")
+              images.add(image)
+              print(f"== {name}")
+              print("  image:", image)
+              print("  taskCount:", task_count)
+              print("  DB_POOL_SIZE:", values["DB_POOL_SIZE"])
+              print("  DB_MAX_OVERFLOW:", values["DB_MAX_OVERFLOW"])
+              print("  command:", container.get("command"))
+              print("  args:", container.get("args"))
+              print("  env:", ", ".join(env_kinds) if env_kinds else "(none)")
+          if len(images) != 1:
+              raise SystemExit("Unresolved production configuration: expected jobs do not share one release image.")
+          print("All expected jobs use one release image with the production pool budget and taskCount=1.")
+          PY
 
       - name: Logs read probe (safeguard-2 alert feasibility)
         if: steps.request.outputs.operation == 'logs-probe'
