@@ -447,8 +447,9 @@ Rules:
         # Only the supplied excerpt owns this correction on both preview and final paths.
         layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
         plan = capital_plan_proposition(filing_excerpt or "", layout)
-        # Declared table-cell scales: the same supplied excerpt owns previews and the final render.
-        unit_index = build_table_unit_index(filing_excerpt or "")
+        # Declared table-cell scales: the filing's own source document (inline-XBRL facts and
+        # <table> cells) owns previews and the final render; a cached-excerpt generation has none.
+        unit_index = build_table_unit_index(filing_text or "")
         content = await self._request_content(
             create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
             xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
@@ -644,7 +645,7 @@ Rules:
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
-            # Same table-cell owner as the final render, over the same supplied excerpt, after the
+            # Same table-cell owner as the final render, over the same source document, after the
             # same binders, so preview and final restore the same surviving prose.
             restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
             rendered = render_sections({
@@ -832,8 +833,8 @@ Rules:
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
         )
-        # Declared table-cell scales for bare model dollar figures (source_units): the SAME
-        # supplied excerpt, in place on sections_info AFTER the source binders above have replaced
+        # Declared table-cell scales for bare model dollar figures (source_units): the filing's own
+        # source document, in place on sections_info AFTER the source binders above have replaced
         # or removed the model prose they own (statement relationship, capital allocation,
         # issuer cash) and before the coverage snapshot and render, so the audit describes only
         # prose that survives into the stored sections, exports and persisted markdown. Verified
@@ -841,7 +842,7 @@ Rules:
         # (separately selected context). Measure-always: the audit carries total counts beside its
         # capped detail lists.
         table_cell_unit_audit = restore_table_cell_units(
-            sections_info, build_table_unit_index(filing_excerpt or ""),
+            sections_info, build_table_unit_index(filing_text or ""),
             xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 

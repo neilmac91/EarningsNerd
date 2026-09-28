@@ -1,12 +1,19 @@
 """Declared table-cell scale restoration: a bare model dollar figure copied from a scaled source
-table carries the table's declared unit; every other bare figure stays exactly as written.
+table carries the scale the filing's own source document declares for it; every other bare figure
+stays exactly as written.
 
-Fixtures are exact lines of the retained candidate-r WMT 10-K packet (report SHA-256
-deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b, run 1, source lines 214 and
-254-258, 946-1012 and 1689-1702) and the retained bullet that dropped the unit. No provider calls.
+Ownership is source-bound: an inline-XBRL fact's ``scale``/unit, or a ``<td>`` holding exactly the
+amount inside a ``<table>`` that declares its own scale. The WMT fixture
+(``tests/fixtures/table_units/wmt-20260131-debt-tables.html.gz``) is the iXBRL unit definitions plus
+the five debt tables of the retained candidate-r WMT 10-K source (wmt-20260131.htm as served on
+28 September 2026, SHA-256 f7fcd37e…; the retained run's provenance hash 60c7be42… differs by ten
+characters of the 2.3 MB document, the tables are byte-identical) and the retained bullet that
+dropped the unit. No provider calls, no network.
 """
 from copy import deepcopy
+import gzip
 import json
+from pathlib import Path
 
 import pytest
 
@@ -16,44 +23,10 @@ from app.services.openai_service import OpenAIService
 from app.services.summary_sections import render_sections, sections_to_markdown
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
-NB = "\xa0"
-# Three tables from the retained excerpt, each under its own "(Amounts in millions)" banner, plus the
-# footnote and lead-in prose that separate them. The maturities table glues each fiscal-year label to
-# its cell ("20283,237") exactly as the flattened source does.
-WMT_SOURCE = "\n\n".join([
-    "(Amounts in millions)20262025",
-    "Accrued income taxes596" + NB + "608" + NB,
-    "Long-term debt due within one year3,542" + NB + "2,598" + NB,
-    "Operating lease obligations due within one year1,631" + NB + "1,499" + NB,
-    "(Amounts in millions)Maturity" + NB + "DatesBy Fiscal YearAmountAverage Rate(1)",
-    "AmountAverage Rate(1)",
-    "Unsecured debt",
-    "2028388" + NB + "0.5%389" + NB + "0.5%",
-    "Total unsecured debt38,802" + NB + "36,846" + NB,
-    "(636)(847)",
-    "Total debt38,166" + NB + "35,999" + NB,
-    "Less amounts due within one year(3,542)(2,598)",
-    "Long-term debt$34,624" + NB + "$33,401" + NB,
-    "(1)The average rate represents the weighted-average stated rate for each corresponding debt "
-    "category, based on year-end balances and year-end interest rates. ",
-    "(2)Includes deferred loan costs, discounts, fair value hedges, foreign-held debt and secured debt. ",
-    "Annual maturities of long-term debt during the next five years and thereafter are as follows:",
-    "(Amounts in millions)Annual",
-    "Fiscal YearMaturities",
-    "2027$3,542" + NB,
-    "20283,237" + NB,
-    "20293,389" + NB,
-    "20302,143" + NB,
-    "20312,600" + NB,
-    "Thereafter23,255" + NB,
-    "Total$38,166" + NB,
-    "Debt Issuances",
-    "Information on significant issuances of long-term debt during fiscal 2026, for general corporate "
-    "purposes, is as follows:",
-    "(Amounts in millions)Long-term debt due within one yearLong-term debtTotal",
-    "Balances as of February 1, 2025$2,598" + NB + "$33,401" + NB + "$35,999" + NB,
-    "Balances as of January 31, 2026$3,542" + NB + "$34,624" + NB + "$38,166" + NB,
-])
+WMT_SOURCE = gzip.open(
+    Path(__file__).parents[1] / "fixtures" / "table_units" / "wmt-20260131-debt-tables.html.gz", "rt",
+    encoding="utf-8",
+).read()
 WMT_BULLET = ("Annual maturities of long-term debt during the next five years and thereafter are as "
               "follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; "
               "Thereafter: $23,255; Total: $38,166.")
@@ -61,13 +34,14 @@ WMT_RESTORED = ("Annual maturities of long-term debt during the next five years 
                 "follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; "
                 "2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 million; "
                 "Total: $38,166 million.")
-# The issuer's own prose writes the figure bare (retained BA and COST packets): the model may be
-# copying a section convention this owner cannot certify, so nothing is inserted.
-PROSE_SOURCE = ("On October 31, 2025, we closed on the sale of portions of our BGS segment’s Digital "
-                "Aviation Solutions business (Digital Aviation Solutions Divestiture) to Thoma Bravo "
-                "for proceeds of $10,550. The sale included Jeppesen, ForeFlight, AerData and OzRunways.")
+# The flattened excerpt the model read is NOT a source of ownership: it carries no table boundary.
+WMT_EXCERPT = "(Amounts in millions)Annual\n\nFiscal YearMaturities\n\n2027$3,542\xa0\n\n20283,237\xa0\n\nTotal$38,166\xa0"
 # The retained WMT standardized metrics carry the noncurrent balance, not any maturity row.
 WMT_XBRL = {"long_term_debt": {"current": {"value": 34_624_000_000.0}, "prior": {"value": 33_401_000_000.0}}}
+UNITS = ('<div style="display:none"><xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>'
+         '<xbrli:unit id="usdPerShare"><xbrli:measure>iso4217:USD</xbrli:measure>'
+         '<xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit></div>')
+MILLIONS_TABLE = "<table><tr><td>(Amounts in millions)</td></tr><tr><td>Debt</td><td>9,000</td></tr></table>"
 
 
 def _sections(bullet: str = WMT_BULLET, **extra):
@@ -89,22 +63,68 @@ def test_retained_wmt_maturities_bullet_regains_the_declared_millions():
     assert all(r["slot"] == "balance_sheet_liquidity.maturities_covenants[0]" for r in audit["restored"])
 
 
+def test_the_flattened_excerpt_never_owns_a_figure():
+    # A cached-excerpt generation has no source document: the owner has nothing to bind and the
+    # bullet stays as written. The excerpt's own banner lines are text, never cells.
+    assert build_table_unit_index("") is None
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(WMT_EXCERPT))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET]
+    assert audit["restored"] == [] and audit["unresolved_count"] == 7
+    reasons = {u["figure"]: u["reason"] for u in audit["unresolved"]}
+    assert reasons["$3,542"] == reasons["$3,237"] == reasons["$38,166"] == "prose_occurrence"
+    assert reasons["$3,389"] == "no_occurrence"
+
+
 @pytest.mark.parametrize("figure, reason, source", [
-    # The source's own prose uses the bare figure.
-    ("$10,550", "prose_occurrence", PROSE_SOURCE),
-    # Not in the offered excerpt at all (the retained BYND salary figure).
+    # The issuer's own prose writes the figure bare and untagged (retained COST MD&A convention).
+    ("$7,189", "prose_occurrence",
+     MILLIONS_TABLE + "<p>Net sales increased $7,189 or 12% during the third quarter.</p>"),
+    # A tagged cell plus an untagged prose mention (retained COST $1,359): prose wins, abstain.
+    ("$1,359", "prose_occurrence",
+     UNITS + '<table><tr><td>(In millions)</td></tr><tr><td>Remaining</td><td>'
+     '<ix:nonFraction unitRef="usd" scale="6" name="x:Y">1,359</ix:nonFraction></td></tr></table>'
+     "<p>The remaining authorization was $1,359.</p>"),
+    # Not in the source document at all (the retained BYND salary figure in a document without it).
     ("$130,000", "no_occurrence", WMT_SOURCE),
     # Same digits under a millions table and a thousands table.
-    ("$3,542", "mixed_scales", WMT_SOURCE + "\n\n(in thousands)\n\nOther3,542" + NB),
-    # A percentage cell is not a dollar amount.
-    ("$38,802", "percent_occurrence", "(Amounts in millions)20262025\n\nMix38,802%"),
-    # A banner scales dollars only when the banner is in dollars.
-    ("$3,237", "no_governing_banner", "(RMB in millions)20262025\n\nRevenue3,237" + NB),
-    # A cell whose only banner is above a prose sentence is not governed by that banner.
+    ("$3,542", "mixed_scales",
+     WMT_SOURCE.replace("</body>", "<table><tr><td>(in thousands)</td></tr><tr><td>Other</td><td>3,542</td></tr></table></body>")),
+    # A percentage cell is not a dollar amount, whether the sign is in the cell or the next one.
+    ("$38,802", "percent_occurrence",
+     "<table><tr><td>(Amounts in millions)</td></tr><tr><td>Mix</td><td>38,802%</td></tr></table>"),
+    ("$38,802", "percent_occurrence",
+     "<table><tr><td>(Amounts in millions)</td></tr><tr><td>Mix</td><td>38,802</td><td>%</td></tr></table>"),
+    # A table declares dollars only when the declaration is in dollars; an unrecognised form is no
+    # declaration at all.
+    ("$3,237", "non_dollar_banner",
+     "<table><tr><td>(In millions of euros)</td></tr><tr><td>Revenue</td><td>3,237</td></tr></table>"),
     ("$3,237", "no_governing_banner",
-     "(Amounts in millions)\n\nThe Company reports the following amounts in its annual filing.\n\nOther3,237" + NB),
-    # Rows a banner excludes from the scale: share counts and per-share amounts.
-    ("$8,022", "unscaled_row", "(Amounts in millions, except per share data)\n\nDiluted shares8,022" + NB),
+     "<table><tr><td>(RMB in millions)</td></tr><tr><td>Revenue</td><td>3,237</td></tr></table>"),
+    # A table without any declaration of its own is not governed by a table before it.
+    ("$3,237", "no_governing_banner",
+     MILLIONS_TABLE + "<table><tr><td>Other</td><td>3,237</td></tr></table>"),
+    # A declaration node before the table governs only when it is the node immediately before it.
+    ("$3,237", "no_governing_banner",
+     "<p>(In millions)</p><p>Schedule of other amounts</p><table><tr><td>Other</td><td>3,237</td></tr></table>"),
+    # Rows a "(… except per share data)" declaration excludes: per-share and share-count rows.
+    ("$8,022", "unscaled_row",
+     "<table><tr><td>(Amounts in millions, except per share data)</td></tr>"
+     "<tr><td>Diluted shares</td><td>8,022</td></tr></table>"),
+    # A column headed "Shares" is not scaled dollars even inside an "(In millions)" table.
+    ("$3,237", "unscaled_column",
+     "<table><tr><td colspan='3'>(In millions)</td></tr><tr><td></td><td>Shares</td><td>Amount</td></tr>"
+     "<tr><td>Issued</td><td>3,237</td><td>9,000</td></tr></table>"),
+    # A value with no label to its left has no row to own it.
+    ("$3,237", "no_row_label",
+     "<table><tr><td>(In millions)</td></tr><tr><td>3,237</td><td>2,598</td></tr></table>"),
+    # An inline-XBRL fact declaring scale 0 says the bare reading is right (retained BYND $130,000).
+    ("$130,000", "declared_unscaled",
+     UNITS + '<p>Base salary of $<ix:nonFraction unitRef="usd" scale="0" name="b:Salary">130,000</ix:nonFraction>.</p>'),
+    # A fact in a per-share (or any non-USD) unit is not a scaled dollar amount.
+    ("$3,237", "non_dollar_unit",
+     UNITS + '<table><tr><td>(In millions)</td></tr><tr><td>Dividends</td><td>'
+     '<ix:nonFraction unitRef="usdPerShare" scale="0" name="x:D">3,237</ix:nonFraction></td></tr></table>'),
 ])
 def test_bare_figures_the_source_does_not_own_stay_as_written(figure, reason, source):
     text = f"The filing reports {figure} for the period."
@@ -117,50 +137,38 @@ def test_bare_figures_the_source_does_not_own_stay_as_written(figure, reason, so
     ]
 
 
-@pytest.mark.parametrize("source", [
-    # One string per line (BeautifulSoup separator path): the cell stands alone on its line.
-    "(Amounts in millions)\n\nTotal debt\n\n38,166\n\n35,999\n\nLess amounts due within one year\n\n(3,542)",
-    # Cells joined by two spaces (edgartools fast table renderer): the cell ends the line.
-    "(Amounts in millions)\n\nTotal debt  38,166  35,999\n\nLess amounts due within one year  (3,542)  (2,598)",
-])
-def test_other_table_flattenings_own_a_cell_at_either_end_of_its_line(source):
-    sections = _sections("Total debt was $38,166 and the current portion $3,542.")
-    audit = restore_table_cell_units(sections, build_table_unit_index(source))
-    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [
-        "Total debt was $38,166 million and the current portion $3,542 million."]
-    assert audit["unresolved"] == []
-
-
 @pytest.mark.parametrize("figure, reason, source, prose", [
-    # Review P1: a short sentence under a banner is prose, not a row, even when it ends the block.
-    ("$3,237", "prose_occurrence",
-     "(Amounts in millions)\n\nDebt  9,000\n\nThe registration fee was $3,237.",
+    # Review round 1: a short sentence after a bannered table is prose, not a row.
+    ("$3,237", "prose_occurrence", MILLIONS_TABLE + "<p>Registration fee was $3,237.</p>",
      "The registration fee was $3,237."),
-    # A figure with no cell separator around it is not a demonstrated cell, sentence or not.
-    ("$3,237", "undelimited_cell",
-     "(Amounts in millions)\n\nDebt  9,000\n\nRegistration fee was $3,237.",
+    # Review round 4: list items and a colon-labelled line after a bannered table are not cells.
+    ("$3,237", "prose_occurrence", MILLIONS_TABLE + "<p>• Registration fee:  $3,237</p>",
      "The registration fee was $3,237."),
-    # Review P1: a per-share row whose label is detached on the line above (one value per line).
-    ("$3,237", "unscaled_row",
-     "(Amounts in millions, except per share data)\n\nRevenue\n\n9,000\n\nDividends per share\n\n3,237",
+    ("$3,237", "prose_occurrence", MILLIONS_TABLE + "<p>1. Registration fee:  $3,237</p>",
+     "The registration fee was $3,237."),
+    ("$3,237", "prose_occurrence", MILLIONS_TABLE + "<div>Registration fee:  $3,237</div>",
+     "The registration fee was $3,237."),
+    # Review round 1: a per-share row whose label sits on the row above its value.
+    ("$3,237", "no_row_label",
+     "<table><tr><td>(Amounts in millions, except per share data)</td></tr><tr><td>Revenue</td><td>9,000</td></tr>"
+     "<tr><td>Dividends per share</td></tr><tr><td></td><td>3,237</td></tr></table>",
      "Dividends per share were $3,237."),
-    # Review P1: a new table whose header carries its own unit token never inherits the banner above.
-    ("$3,237", "no_governing_banner",
-     "(Amounts in millions)\n\nDebt  9,000\n\nOther fees\n\nName  Fee ($)\n\nSmith  3,237",
+    # Review round 1: a column headed with its own unit token never takes the table's scale.
+    ("$3,237", "unscaled_column",
+     "<table><tr><td colspan='2'>(Amounts in millions)</td></tr><tr><td>Name</td><td>Fee ($)</td></tr>"
+     "<tr><td>Smith</td><td>3,237</td></tr></table>",
      "Smith paid $3,237."),
-    # A run of headings longer than a header block separates a row from the banner.
+    # Review round 4: the all-capitals director-compensation transition, and a bare adjacent table.
     ("$3,237", "no_governing_banner",
-     "(Amounts in millions)\n\nDebt  9,000\n\nPart II\n\nItem 5\n\nMarket information\n\nOther matters\n\nSmith  3,237",
+     MILLIONS_TABLE + "<p>DIRECTOR COMPENSATION</p><table><tr><td>Name</td><td>Fee</td></tr>"
+     "<tr><td>Smith</td><td>3,237</td></tr></table>",
      "Smith paid $3,237."),
-    # Round 3: a new table's header without any unit token still does not inherit the banner:
-    # after the first row, only the label directly above a row or value line belongs to the table.
     ("$3,237", "no_governing_banner",
-     "(Amounts in millions)\n\nDebt  9,000\n\nOther fees\n\nName  Fee\n\nSmith  3,237",
+     MILLIONS_TABLE + "<table><tr><td>Name</td><td>Fee</td></tr><tr><td>Smith</td><td>3,237</td></tr></table>",
      "Smith paid $3,237."),
-    # Round 3: two text lines before a value line are a heading plus a label, not one row's label.
-    ("$3,237", "no_governing_banner",
-     "(Amounts in millions)\n\nDebt  9,000\n\nOther long-term\n\nobligations\n\n3,237",
-     "Other obligations were $3,237."),
+    # Flattened text with the renderer's two-space delimiters has no cells at all.
+    ("$3,237", "prose_occurrence", "(Amounts in millions)\n\nDebt  9,000\n\n2027  3,237",
+     "Smith paid $3,237."),
 ])
 def test_review_adverse_sources_abstain(figure, reason, source, prose):
     sections = _sections(prose)
@@ -172,17 +180,34 @@ def test_review_adverse_sources_abstain(figure, reason, source, prose):
     ]
 
 
-def test_statement_section_headings_keep_the_rows_beneath_them_owned():
-    # Round 3: a balance sheet's capitalised section heading plus its colon sub-heading (the retained
-    # WMT statement) is the statement's own structure, not a new table; the rows below stay owned.
-    source = ("(Amounts in millions)20262025\n\nASSETS\n\nCurrent assets:\n\nCash  9,000  8,000\n\n"
-              "Total assets  20,000  18,000\n\nLIABILITIES AND EQUITY\n\nCurrent liabilities:\n\n"
-              "Long-term debt due within one year  3,542  2,598")
-    sections = _sections("Long-term debt due within one year was $3,542.")
+@pytest.mark.parametrize("source", [
+    # The declaration is the whole text of the node immediately before the table.
+    "<p>(In millions, except per share data)</p><table><tr><td>Debt</td><td>3,237</td></tr></table>",
+    # The declaration shares a header cell with other words (retained WMT market-risk table).
+    "<table><tr><td>Expected Maturity Date (Amounts in millions)</td></tr><tr><td>Fixed rate</td><td>$</td><td>3,237</td></tr></table>",
+    # A parenthesised negative cell and an "Amount" column beside a "Shares" column.
+    "<table><tr><td colspan='3'>(In millions)</td></tr><tr><td></td><td>Shares</td><td>Amount</td></tr>"
+    "<tr><td>Repurchased</td><td>12</td><td>( 3,237 )</td></tr></table>",
+])
+def test_table_declarations_own_their_own_cells(source):
+    sections = _sections("Debt of $3,237 was repaid.")
     audit = restore_table_cell_units(sections, build_table_unit_index(source))
-    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [
-        "Long-term debt due within one year was $3,542 million."]
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == ["Debt of $3,237 million was repaid."]
     assert audit["unresolved"] == []
+
+
+def test_an_inline_xbrl_fact_owns_its_own_scale_even_in_prose():
+    # The retained BA prose wrote "$10,550" bare; the issuer tagged that number scale 6 in USD, so
+    # the fact itself declares millions. Without the tag the same prose abstains.
+    tagged = UNITS + '<p>proceeds of $<ix:nonFraction unitRef="usd" scale="6" name="b:P">10,550</ix:nonFraction>.</p>'
+    sections = _sections("Proceeds were $10,550.")
+    audit = restore_table_cell_units(sections, build_table_unit_index(tagged))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == ["Proceeds were $10,550 million."]
+    assert audit["restored"][0]["unit"] == "million"
+    untagged = _sections("Proceeds were $10,550.")
+    audit = restore_table_cell_units(untagged, build_table_unit_index("<p>proceeds of $10,550.</p>"))
+    assert untagged["balance_sheet_liquidity"]["maturities_covenants"] == ["Proceeds were $10,550."]
+    assert audit["unresolved"][0]["reason"] == "prose_occurrence"
 
 
 def test_repeat_application_is_a_no_op():
@@ -201,7 +226,7 @@ def test_plural_scale_words_are_already_unit_bound():
     # Review P2: "$3,237 millions" is unit-bound prose, never a candidate, whatever the source says.
     text = "Debt was $3,237 millions and fees were $1,200 Thousands; other debt $9,000 billions."
     sections = _sections(text)
-    assert restore_table_cell_units(sections, build_table_unit_index("(Amounts in millions)\n\nDebt  3,237\n\nFees  1,200\n\nOther  9,000")) is None
+    assert restore_table_cell_units(sections, build_table_unit_index(WMT_SOURCE)) is None
     assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [text]
 
 
@@ -245,7 +270,6 @@ def test_recovered_sections_verbatim_fields_and_missing_source_are_untouched():
     restore_table_cell_units(evidence, index)
     assert evidence["notable_footnotes"][0]["supporting_evidence"] == "Total$38,166"
     assert evidence["notable_footnotes"][0]["impact"] == "Maturities total $38,166 million."
-    assert build_table_unit_index("") is None
     untouched = _sections()
     assert restore_table_cell_units(untouched, None) is None
     assert untouched["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET]
@@ -258,6 +282,16 @@ def test_audit_totals_are_exact_while_detail_lists_are_capped():
     assert audit["unresolved_count"] == source_units._AUDIT_CAP + 5
     assert len(audit["unresolved"]) == source_units._AUDIT_CAP
     assert audit["restored_count"] == 0 and audit["restored"] == []
+
+
+def test_the_source_document_is_parsed_once_and_only_on_demand():
+    index = build_table_unit_index(WMT_SOURCE)
+    assert index._parsed is False  # holding the document costs nothing until a bare figure appears
+    assert index.resolve("3,542") == ("million", "declared")
+    assert index.resolve("3,542") == ("million", "declared")  # cached answer is identical
+    assert index.resolve("999,999") == (None, "no_occurrence")
+    assert index._parsed is True
+    assert source_units._AUDIT_CAP >= 7
 
 
 def _statement_source():
@@ -289,7 +323,7 @@ async def test_owner_runs_after_the_source_binders_on_final_and_preview(monkeypa
 
     monkeypatch.setattr(service, "generate_structured_summary", generated)
     result = await service.summarize_filing(WMT_SOURCE, "Walmart", "10-K", xbrl_metrics=WMT_XBRL,
-                                            filing_excerpt=WMT_SOURCE, statement_source=_statement_source())
+                                            filing_excerpt=WMT_EXCERPT, statement_source=_statement_source())
     raw = result["raw_summary"]
     audit = raw["table_cell_unit_audit"]
     assert {r["slot"] for r in audit["restored"]} == {"balance_sheet_liquidity.maturities_covenants[0]"}
@@ -307,16 +341,8 @@ async def test_owner_runs_after_the_source_binders_on_final_and_preview(monkeypa
     assert "$3,542 million was reclassified" not in final_markdown
 
 
-def test_audit_reasons_are_the_documented_vocabulary():
-    assert source_units._AUDIT_CAP >= 7
-    index = build_table_unit_index(WMT_SOURCE)
-    assert index.resolve("3,542") == ("million", "declared")
-    assert index.resolve("3,542") == ("million", "declared")  # cached answer is identical
-    assert index.resolve("999,999") == (None, "no_occurrence")
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["final", "preview", "recovered"])
+@pytest.mark.parametrize("case", ["final", "preview", "recovered", "cached_excerpt"])
 async def test_actual_consumer_restores_once_and_renders_the_same_text(monkeypatch, case):
     service = OpenAIService()
     sections = _sections()
@@ -335,12 +361,18 @@ async def test_actual_consumer_restores_once_and_renders_the_same_text(monkeypat
         assert with_index and WMT_RESTORED in with_index
         assert without and WMT_BULLET in without and WMT_RESTORED not in without
         return
-    result = await service.summarize_filing(WMT_SOURCE, "Walmart", "10-K", xbrl_metrics=WMT_XBRL,
-                                            filing_excerpt=WMT_SOURCE)
+    # A cached-excerpt generation supplies no source document: nothing is owned, nothing is audited.
+    source = "" if case == "cached_excerpt" else WMT_SOURCE
+    result = await service.summarize_filing(source, "Walmart", "10-K", xbrl_metrics=WMT_XBRL,
+                                            filing_excerpt=WMT_EXCERPT)
     raw = result["raw_summary"]
     bullets = raw["sections"]["balance_sheet_liquidity"]["maturities_covenants"]
     markdown = sections_to_markdown(render_sections({**raw, "schema_version": SUMMARY_SCHEMA_VERSION}))
     assert markdown == result["business_overview"]
+    if case == "cached_excerpt":
+        assert bullets == [WMT_BULLET] and WMT_BULLET in markdown
+        assert "table_cell_unit_audit" not in raw
+        return
     if case == "recovered":
         assert bullets == [WMT_BULLET] and WMT_BULLET in markdown
         assert raw["table_cell_unit_audit"]["restored"] == []

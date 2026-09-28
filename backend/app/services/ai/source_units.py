@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from typing import Any, Sequence
 
+from lxml import etree, html
+
 from app.services.ai.recovery_context import clean_filing_source, recovery_blocks
+from app.services.edgar.statement_relationship_source import _cells, _nearby, _text
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 # Deliberately narrow: a declaration immediately below the actual MD&A title, not a
@@ -148,29 +150,35 @@ def restore_authored_plan_units(
 # writes "$3,542": the VALUE is source-exact while the UNIT is one million times too small
 # (retained candidate-r WMT 10-K run 1, maturities bullet). ``figure_trace`` deliberately ignores
 # unit-less dollar figures, so the class was invisible to the dollar gate. This owner restores ONLY
-# the scale word the source table declares, and only when every occurrence of that exact figure in
-# the offered excerpt is a DEMONSTRATED table cell (delimited by the flattening's own cell
-# separators, or a value-only line) whose row and banner are bound through table lines alone. It
-# abstains when the source's own prose writes the figure bare (an issuer convention the MD&A-title
-# owner above handles for its one documented form), when a cell is not delimited, when occurrences
-# disagree, when the row or its detached label is excluded from the declared scale (per-share,
-# counts, a foreign unit token), when prose, a heading run or another scope token separates the row
-# from its banner, or when a literal reading is supported by XBRL. The figure's digits are never
-# changed; nothing is rescaled.
+# the scale word the SOURCE DOCUMENT declares for that figure, and only when every occurrence of
+# the exact digits in the filing's own HTML is owned by a structured declaration: an inline-XBRL
+# fact whose ``scale`` attribute and USD unit declare the number's own measure, or a ``<td>`` that
+# holds exactly that amount inside a ``<table>`` whose own cells (or the one node immediately
+# before it) declare the scale, on a row whose label and column headers are not excluded from it.
+# Flattened excerpt text carries no table boundary, so it never owns anything: a list item, a short
+# sentence or an adjacent unbannered table cannot inherit a banner because they are not cells of
+# the declaring table. It abstains when the issuer's prose writes the digits bare anywhere in the
+# document, when a fact declares the bare reading (``scale="0"``), when occurrences disagree, when
+# the row, column or fact unit is per-share/count/percent, when the table has no declaration of
+# its own, when the source document is unavailable (cached-excerpt generations), or when a literal
+# reading is supported by standardized XBRL. The figure's digits are never changed.
 
 _TABLE_SCALE_WORD = {
     "thousand": "thousand", "thousands": "thousand",
     "million": "million", "millions": "million",
     "billion": "billion", "billions": "billion",
 }
-# A banner at the start of a flattened table line: "(Amounts in millions)", "(Dollars in millions)",
-# "(in thousands, except margin)", "($ in millions)", "(In millions, except per share amounts)".
+# Inline-XBRL ``scale`` attribute → the fact's own unit multiplier (``0``/absent = as written).
+_FACT_SCALE_WORD = {"3": "thousand", "6": "million", "9": "billion"}
+# A scale declaration inside a table's own cells or caption, or as the whole text of the node
+# immediately before the table: "(Amounts in millions)", "(Dollars in millions)", "($ in millions)",
+# "(In millions, except per share amounts)", "Expected Maturity Date (Amounts in millions)".
 _TABLE_DECLARATION = re.compile(
-    r"^\((?:(?:amounts?|dollars?|figures|values|usd|us\$|\$)\s*)?(?:in\s+)?"
+    r"\((?:(?:amounts?|dollars?|figures|values|usd|us\$|\$)\s*)?(?:in\s+)?"
     r"(thousands?|millions?|billions?)\b[^)]*\)",
     re.I,
 )
-# A banner naming another currency is not a dollar scale; the bare "$" is a separate defect.
+# A declaration naming another currency is not a dollar scale; the bare "$" is a separate defect.
 _NON_DOLLAR_BANNER = re.compile(
     r"\b(?:euros?|eur|rmb|cny|yen|jpy|dkk|sek|nok|chf|gbp|pounds?|krw|inr|brl|twd|hkd|sgd|aud|cad)\b"
     r"|nt\$|hk\$|€|£|¥",
@@ -183,194 +191,220 @@ _BARE_DOLLAR_FIGURE = re.compile(
     r"(?![\d,]|\.\d|\s*(?:thousands?|millions?|billions?|trillions?|bn|mn|tn|[kmbt])\b|\s*%)",
     re.I,
 )
-# Rows a "(… in millions, except …)" banner does not scale, or that are not dollar amounts at all.
+# Rows a "(… in millions, except …)" declaration does not scale, or that are not dollar amounts.
 # "due within one year" names a maturity band, so "year" alone never excludes a row.
 _UNSCALED_ROW_LABEL = re.compile(
     r"\b(?:per[\s-]+(?:share|unit|adr|ads)|shares?|units?|counts?|number of|employees|associates|"
     r"stores|clubs|warehouses|square|percent|percentage|ratio|basis points)\b|\((?:in )?years?\)",
     re.I,
 )
-# A parenthesised unit, currency, per-unit or scope token on a header or label ("Fee ($)",
-# "(in dollars)", "(per share)", "(%)") declares a scope this owner does not resolve.
+# A parenthesised unit, currency, per-unit or scope token on a label ("Fee ($)", "(in dollars)",
+# "(per share)", "(%)") declares a scope this owner does not resolve.
 _SCOPE_TOKEN = re.compile(
     r"\(\s*(?:\$|%|us\$|in\s+[a-z]|per\s+[a-z]|amounts?\b|dollars?\b|thousands?\b|millions?\b|billions?\b)",
     re.I,
 )
-_LINE_WORDS = re.compile(r"[A-Za-z]{2,}")
-_SENTENCE_END = re.compile(r"(?<!\bU\.S)(?<!\bInc)(?<!\bCorp)(?<!\bNo)(?<!\bMr)(?<!\bMs)[.!?:](?:\s|$)")
-# A whole line made of numeric cells (one-value-per-line flattening), dashes included.
-_VALUE_ONLY_LINE = re.compile(
-    r"^(?:[\s\xa0]*(?:\(?\$?\s*-?\d[\d,]*(?:\.\d+)?\s*%?\)?|[—–-])[\s\xa0]*)+$"
+# A column header that declares a non-dollar or unscaled column ("Shares", "Per share", "Rate", "%");
+# a scope token on a header ("Fee ($)") is checked with the same ``_SCOPE_TOKEN`` as row labels.
+_UNSCALED_COLUMN = re.compile(
+    r"\b(?:shares?|units?|per[\s-]+(?:share|unit|adr|ads)|rate|percent|percentage|counts?|number)\b|%",
+    re.I,
 )
-# A numeric cell on a row: a comma-grouped, decimal or percentage number at a cell boundary, or any
-# digits closed by the flattening's own separator. A heading's stray digit ("Item 5") is not a cell.
-_ROW_CELL = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+\.\d+|\d+%)(?=\)|\xa0|  |%|$)|\d(?=\xa0|  |\))")
-_PROSE_WORDS = 12
-_SENTENCE_WORDS = 4
-_MAX_TEXT_RUN = 3
-_DECLARATION_LOOKBACK_LINES = 80
+# A cell that is exactly one comma-grouped amount, optionally in parentheses or after "$".
+_CELL_AMOUNT = re.compile(r"^\(?\s*\$?\s*(\d{1,3}(?:,\d{3})+)\s*\)?$")
+_SKIP_TAGS = frozenset({"script", "style", "title"})
 _AUDIT_CAP = 40
-_YEAR_GLUE = re.compile(r"(?:^|\D)((?:19|20)\d{2})$")
-_CELL_DELIMITERS = ("\xa0", "  ")
 
 
-def _is_prose_line(line: str) -> bool:
-    """A flattened table row is a label plus cells; a filing sentence is long or ends a sentence."""
-    words = _LINE_WORDS.findall(line)
-    if len(words) >= _PROSE_WORDS:
-        return True
-    return len(words) >= _SENTENCE_WORDS and bool(_SENTENCE_END.search(line))
-
-
-def _is_value_only(line: str) -> bool:
-    return bool(line.strip()) and bool(_VALUE_ONLY_LINE.match(line))
-
-
-def _is_statement_heading(line: str) -> bool:
-    """A financial statement's own section heading is set in capitals (``ASSETS``)."""
-    return line.upper() == line and any(ch.isalpha() for ch in line)
-
-
-def _governing_table_scale(lines: Sequence[str], index: int) -> str | None:
-    """The banner bound to line ``index`` through table lines only.
-
-    The block between the nearest banner above and line ``index`` is validated top-down: prose,
-    any other unit/scope token or a non-dollar banner abstains; the banner may be followed by a
-    header block of at most ``_MAX_TEXT_RUN`` text lines; after the first row, a text line is
-    admitted only as a statement section heading (all capitals, the statements' own convention:
-    ``ASSETS``, ``LIABILITIES AND EQUITY``) or as the label of the row or value-only line directly
-    beneath it. Any other text (a heading run, a new table's title and header, a label with
-    nothing numeric under it) severs the row from the banner."""
-    block: list[str] = []
-    scale: str | None = None
-    for j in range(index - 1, -1, -1):
-        line = lines[j].strip()
-        if not line:
-            continue
-        banner = _TABLE_DECLARATION.match(line)
-        if banner:
-            if _NON_DOLLAR_BANNER.search(banner.group(0)):
-                return None
-            scale = _TABLE_SCALE_WORD[banner.group(1).lower()]
-            break
-        if _SCOPE_TOKEN.search(line) or _is_prose_line(line):
-            return None
-        block.append(line)
-        if len(block) > _DECLARATION_LOOKBACK_LINES:
-            return None
-    if scale is None:
-        return None
-    block.reverse()
-    header = 0
-    for position, line in enumerate(block):
-        if _ROW_CELL.search(line) or _is_value_only(line):
-            header = -1
-            continue
-        if header >= 0:
-            header += 1
-            if header > _MAX_TEXT_RUN:
-                return None
-            continue
-        if _is_statement_heading(line):
-            continue
-        following = block[position + 1] if position + 1 < len(block) else lines[index].strip()
-        if not (_ROW_CELL.search(following) or _is_value_only(following)):
-            return None
-    return scale
-
-
-def _detached_label(lines: Sequence[str], index: int) -> str | None:
-    """The nearest preceding non-value line of a value-only row, or None when none exists."""
-    for j in range(index - 1, -1, -1):
-        line = lines[j].strip()
-        if not line or _is_value_only(line):
-            continue
-        return "" if _TABLE_DECLARATION.match(line) else line
+def _ancestor(node: Any, tags: frozenset[str]) -> Any:
+    for candidate in (node, *node.iterancestors()):
+        if isinstance(candidate.tag, str) and candidate.tag.lower() in tags:
+            return candidate
     return None
 
 
-def _cell_kind(line: str, start: int, end: int) -> str | None:
-    """'cell' when ``line[start:end]`` is a demonstrated table cell, 'percent' when it is a
-    percentage cell, 'undelimited' when the digits are whole but no cell separator owns them, None
-    when they are part of a larger number (a decimal, a longer digit run)."""
-    before = line[:start]
-    after = line[end:]
-    if after and (after[0] in "0123456789," or (after[0] == "." and after[1:2].isdigit())):
-        return None
-    if before and before[-1] in ",.":
-        return None
-    if before and before[-1].isdigit() and not _YEAR_GLUE.search(before):
-        # Two cells glued without a separator, or a longer number: not this figure.
-        return None
-    if after.lstrip(" \xa0")[:1] == "%":
-        return "percent"
-    if _is_value_only(line):
-        return "cell"
-    opened = before.endswith("(") or before.endswith("($")
-    if after.startswith(_CELL_DELIMITERS) or (after.startswith(")") and opened):
-        return "cell"
-    stripped_before = before[:-1] if before.endswith("$") else before
-    if not after and (opened or stripped_before.endswith(_CELL_DELIMITERS)):
-        return "cell"
-    return "undelimited"
-
-
-@dataclass(frozen=True)
 class TableUnitIndex:
-    """The offered excerpt, line-addressed, with per-figure resolutions cached on demand."""
+    """The filing's own source document, parsed on first use; per-figure resolutions cached.
 
-    lines: tuple[str, ...]
-    _cache: dict = field(default_factory=dict, compare=False)
+    Ownership evidence is structural: inline-XBRL facts (``ix:nonFraction`` scale + unit) and
+    ``<table>`` cells under the table's own declaration. Text outside a cell is prose."""
+
+    def __init__(self, source_html: str) -> None:
+        self._html = source_html
+        self._cache: dict[str, tuple[str | None, str]] = {}
+        self._document: Any = None
+        self._parsed = False
+        self._chunks: list[tuple[str, Any]] | None = None
+        self._units: dict[str, list[str]] | None = None
+        self._tables: dict[int, tuple[Any, tuple[str | None, str]]] = {}
 
     def resolve(self, figure: str) -> tuple[str | None, str]:
-        """``(scale word, reason)``: the one declared scale every demonstrated-cell occurrence of
-        ``figure`` shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
+        """``(scale word, reason)``: the one declared scale every occurrence of ``figure`` in the
+        source document shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
         if figure in self._cache:
             return self._cache[figure]
         result = self._resolve(figure)
         self._cache[figure] = result
         return result
 
-    def _resolve(self, figure: str) -> tuple[str | None, str]:
-        scales: set[str] = set()
-        for index, line in enumerate(self.lines):
-            position = line.find(figure)
-            while position >= 0:
-                start, position = position, line.find(figure, position + 1)
-                kind = _cell_kind(line, start, start + len(figure))
-                if kind is None:
+    # -- document access -------------------------------------------------------------------------
+
+    def _parse(self) -> Any:
+        if not self._parsed:
+            self._parsed = True
+            try:
+                self._document = html.fromstring(
+                    self._html.encode("utf-8"),
+                    parser=html.HTMLParser(encoding="utf-8", no_network=True),
+                )
+            except (ValueError, TypeError, etree.ParserError, etree.XMLSyntaxError):
+                self._document = None
+        return self._document
+
+    def _digit_chunks(self) -> list[tuple[str, Any]]:
+        """Every text node carrying a digit, with the element that owns it (tails belong to the
+        parent). Built once; a figure lookup is then a substring scan, not a document walk."""
+        if self._chunks is None:
+            chunks: list[tuple[str, Any]] = []
+            document = self._parse()
+            for node in (document.iter() if document is not None else ()):
+                if not isinstance(node.tag, str) or node.tag.lower() in _SKIP_TAGS:
                     continue
-                if kind == "percent":
-                    return None, "percent_occurrence"
-                if _is_prose_line(line):
-                    tail = line[start + len(figure):].lstrip()
-                    word = tail.split(" ", 1)[0].rstrip(",.;:)").lower() if tail else ""
-                    if word in _TABLE_SCALE_WORD:
-                        scales.add(_TABLE_SCALE_WORD[word])
-                        continue
-                    return None, "prose_occurrence"
-                if kind == "undelimited":
-                    return None, "undelimited_cell"
-                label = _detached_label(self.lines, index) if _is_value_only(line) else line[:start]
-                if label is None:
-                    return None, "no_governing_banner"
-                if _UNSCALED_ROW_LABEL.search(label) or _SCOPE_TOKEN.search(label):
-                    return None, "unscaled_row"
-                scale = _governing_table_scale(self.lines, index)
-                if scale is None:
-                    return None, "no_governing_banner"
-                scales.add(scale)
+                if node.text and any(ch.isdigit() for ch in node.text):
+                    chunks.append((node.text, node))
+                for child in node:
+                    if child.tail and any(ch.isdigit() for ch in child.tail):
+                        chunks.append((child.tail, node))
+            self._chunks = chunks
+        return self._chunks
+
+    def _unit_measures(self) -> dict[str, list[str]]:
+        if self._units is None:
+            units: dict[str, list[str]] = {}
+            document = self._parse()
+            for node in (document.iter() if document is not None else ()):
+                if isinstance(node.tag, str) and node.tag.lower().endswith(":unit") and node.get("id"):
+                    units[node.get("id")] = [
+                        _text(m).lower() for m in node.iter()
+                        if isinstance(m.tag, str) and m.tag.lower().endswith(":measure")
+                    ]
+            self._units = units
+        return self._units
+
+    # -- ownership -------------------------------------------------------------------------------
+
+    def _resolve(self, figure: str) -> tuple[str | None, str]:
+        if self._parse() is None:
+            return None, "no_source_document"
+        scales: set[str] = set()
+        found = False
+        for text, node in self._digit_chunks():
+            if figure not in text:
+                continue
+            found = True
+            fact = _ancestor(node, frozenset({"ix:nonfraction"}))
+            scale, reason = (
+                self._fact_scale(fact, figure) if fact is not None else self._cell_scale(node, figure)
+            )
+            if scale is None:
+                return None, reason
+            scales.add(scale)
+        if not found:
+            return None, "no_occurrence"
         if len(scales) == 1:
             return next(iter(scales)), "declared"
-        return None, ("mixed_scales" if scales else "no_occurrence")
+        return None, "mixed_scales"
+
+    def _fact_scale(self, fact: Any, figure: str) -> tuple[str | None, str]:
+        """An inline-XBRL fact declares its own multiplier and unit; the digits must be the whole fact."""
+        if _text(fact) != figure:
+            return None, "prose_occurrence"
+        measures = self._unit_measures().get(fact.get("unitref") or "", [])
+        if measures != ["iso4217:usd"]:
+            return None, "non_dollar_unit"
+        scale = (fact.get("scale") or "0").strip()
+        if scale == "0":
+            return None, "declared_unscaled"
+        word = _FACT_SCALE_WORD.get(scale)
+        return (word, "declared") if word else (None, "unsupported_scale")
+
+    def _cell_scale(self, node: Any, figure: str) -> tuple[str | None, str]:
+        """An untagged cell is owned by its table's own declaration, its row label and its column."""
+        cell = _ancestor(node, frozenset({"td", "th"}))
+        if cell is None:
+            return None, "prose_occurrence"
+        text = _text(cell)
+        match = _CELL_AMOUNT.match(text)
+        if not match or match.group(1) != figure:
+            return None, ("percent_occurrence" if text.rstrip().endswith("%") else "prose_occurrence")
+        row = _ancestor(cell, frozenset({"tr"}))
+        table = _ancestor(cell, frozenset({"table"}))
+        if row is None or table is None:
+            return None, "prose_occurrence"
+        scale, reason = self._table_scale(table)
+        if scale is None:
+            return None, reason
+        row_cells = row.xpath("./td|./th")
+        cells = _cells(row)
+        if cells is None or cell not in row_cells:
+            return None, "unsupported_row"
+        index = row_cells.index(cell)
+        first = next((i for i, c in enumerate(cells) if c["text"]), None)
+        if first is None or first >= index:
+            return None, "no_row_label"
+        label = cells[first]["text"]
+        if _UNSCALED_ROW_LABEL.search(label) or _SCOPE_TOKEN.search(label):
+            return None, "unscaled_row"
+        following = next((c["text"] for c in cells[index + 1:] if c["text"]), "")
+        if following.startswith("%"):
+            return None, "percent_occurrence"
+        start, end = cells[index]["column"], cells[index]["column"] + cells[index]["colspan"]
+        rows = table.xpath("./tr|./thead/tr|./tbody/tr")
+        matrix = [_cells(r) for r in rows]
+        width = max((c["column"] + c["colspan"] for cs in matrix if cs for c in cs), default=0)
+        for above in matrix[:rows.index(row)] if row in rows else []:
+            for header in above or []:
+                if (header["text"] and header["colspan"] < width
+                        and header["column"] < end and header["column"] + header["colspan"] > start
+                        and not _TABLE_DECLARATION.search(header["text"])
+                        and (_UNSCALED_COLUMN.search(header["text"]) or _SCOPE_TOKEN.search(header["text"]))):
+                    return None, "unscaled_column"
+        return scale, "declared"
+
+    def _table_scale(self, table: Any) -> tuple[str | None, str]:
+        """The one dollar scale a table declares in its own cells or caption, else in the single
+        text node immediately before it; anything else abstains."""
+        key = id(table)
+        if key in self._tables:
+            return self._tables[key][1]
+        words: set[str] = set()
+        non_dollar = False
+        texts = [_text(c) for c in table.xpath("./caption|./tr/td|./tr/th|./thead/tr/th|./thead/tr/td|"
+                                               "./tbody/tr/td|./tbody/tr/th")]
+        if not any(_TABLE_DECLARATION.search(t) for t in texts):
+            preceding = next((n for n in _nearby(table) if _text(n)), None)
+            declaration = _TABLE_DECLARATION.fullmatch(_text(preceding)) if preceding is not None else None
+            texts = [declaration.group(0)] if declaration else []
+        for text in texts:
+            for match in _TABLE_DECLARATION.finditer(text):
+                if _NON_DOLLAR_BANNER.search(match.group(0)):
+                    non_dollar = True
+                words.add(_TABLE_SCALE_WORD[match.group(1).lower()])
+        if non_dollar:
+            result: tuple[str | None, str] = (None, "non_dollar_banner")
+        elif len(words) == 1:
+            result = (next(iter(words)), "declared")
+        else:
+            result = (None, "mixed_scales" if words else "no_governing_banner")
+        self._tables[key] = (table, result)
+        return result
 
 
-def build_table_unit_index(offered_excerpt: str = "") -> TableUnitIndex | None:
-    """Line-address the exact cleaned excerpt the model read; None when there is no source."""
-    source = clean_filing_source(offered_excerpt or "")
-    if not source.strip():
+def build_table_unit_index(source_html: str = "") -> TableUnitIndex | None:
+    """Hold the filing's own source document for on-demand ownership; None when there is none."""
+    if not source_html or not source_html.strip():
         return None
-    return TableUnitIndex(tuple(source.split("\n")))
+    return TableUnitIndex(source_html)
 
 
 def _literal_supported(value: float, xbrl_values: Sequence[float]) -> bool:
