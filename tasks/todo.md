@@ -3,6 +3,7 @@
 - [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
 - [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions, beta offers, prices and the pricing experiment unchanged. OAuth callbacks still return to the homepage.
 - [x] Resolve the reviewed stale-stash defect: accepted email login consumes the signup destination even when an explicit redirect wins; a later login cannot replay that completed return. Failed login retains the pending destination for retry.
+- [x] Preserve the beta offer's neutral pricing entry until account eligibility resolves; verify the actual homepage link in guest pricing, alongside the selected monthly paid-offer trial control. This corrects presentation without changing billing or beta entitlements.
 - [ ] Complete committed-state mutation proofs, full frontend gates and independent review before push; verify the preview in both themes before release.
 - [ ] The separately approved $23/month and $190/year offer remains held until accepted quality readiness and coordinated price activation; this routing fix does not activate it or migrate any subscriber.
 

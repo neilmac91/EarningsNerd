@@ -124,7 +124,7 @@ describe('PricingSection', () => {
     flags.ENABLE_PRO_TRIAL = true
     renderSection({ showBeta: true })
     expect(screen.getByText('Free for beta members')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
   })

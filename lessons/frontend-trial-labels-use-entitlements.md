@@ -40,3 +40,10 @@ calls the consumer only when the parameter is absent leaves the old destination 
 login. `LoginRedirect.spec.tsx` submits the real login page twice to guard this cleanup, explicit
 destination precedence and unsafe-path rejection, with a failed-login/retry control. Its one
 committed-state fault proof restores the old short-circuit and must fail the second-login check.
+
+**Beta-entry follow-up (2026-09-28):** Public beta-offer copy describes the invite/promo
+configuration, not the guest's account. Keep its Pro link at neutral `/pricing` until account
+eligibility resolves; ordinary paid-offer links retain the chosen billing cycle. Otherwise a
+neutral beta CTA can become a guest monthly-trial CTA at its destination. `PricingPage.spec.tsx`
+follows the actual rendered homepage href into guest pricing, with a non-beta monthly control;
+one committed-state mutation restoring the beta monthly link must fail that composed check.

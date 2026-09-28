@@ -26,7 +26,8 @@ import {
  * (the same `pricing-experiment` PostHog arm the pricing page reads), free-tier caps from the
  * planLimits mirror, the account CTA from the page's ONE access decision, and the trial copy from
  * ENABLE_PRO_TRIAL, which the repo flips in lockstep with the backend's PRO_TRIAL_DAYS. Both Pro
- * CTAs preserve the selected cycle on /pricing, where checkout and account eligibility live.
+ * Paid-offer CTAs preserve the selected cycle on /pricing. The beta offer keeps the neutral
+ * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
 // Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
@@ -231,7 +232,7 @@ export default function PricingSection({
                 </p>
               )}
               <Link
-                href={pricingHref(cycleName(billing))}
+                href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
                 className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
               >
                 {showTrial ? 'Start 7-day free trial' : 'Upgrade to Pro'}

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PricingPage from '@/app/pricing/page'
+import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
@@ -55,6 +56,7 @@ vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }))
 vi.mock('@/lib/analytics', () => ({
   default: {
     pricingViewed: (...args: unknown[]) => mockPricingViewed(...args),
+    homepageSectionViewed: vi.fn(),
     billingCycleToggled: vi.fn(),
     checkoutStarted: (...args: unknown[]) => mockCheckoutStarted(...args),
   },
@@ -426,5 +428,30 @@ describe('PricingPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Claim Pro' }))
     expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly'))
+  })
+
+  it.each([true, false])('the actual homepage link preserves its offer at guest pricing (beta=%s)', async (showBeta) => {
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    const landing = render(<PricingSection accessMode={showBeta ? 'invite' : 'public'} showBeta={showBeta} />)
+    const label = showBeta ? 'Upgrade to Pro' : 'Start 7-day free trial'
+    const href = screen.getByRole('link', { name: label }).getAttribute('href')!
+    landing.unmount()
+
+    // Follow the rendered link instead of inventing a destination independent of the homepage.
+    const destination = new URL(href, 'https://www.earningsnerd.io')
+    expect(destination.pathname).toBe('/pricing')
+    destination.searchParams.forEach((value, key) => mockSearchParams.set(key, value))
+    renderPricing()
+    expect(await screen.findByRole('button', { name: label })).toBeEnabled()
+    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(showBeta))
+    const trialNote = 'First 7 days free · cancel anytime, no charge'
+    if (showBeta) {
+      expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
+      expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
+    } else {
+      expect(screen.getByText(trialNote)).toBeInTheDocument()
+    }
+    expect(mockPricingViewed.mock.calls).toEqual([[showBeta ? 'yearly' : 'monthly']])
   })
 })
