@@ -21,8 +21,42 @@ _DISCLOSED = {"Provision for doubtful accounts", "Provision for credit losses", 
 _NOTE_HEADINGS = {"general and administrative expenses", "provision for doubtful accounts"}
 
 
+CIK_SCHEME = "http://www.sec.gov/CIK"
+DIMENSION_TAGS = frozenset({"segment", "scenario", "explicitmember", "typedmember"})
+
+
+def source_context_identity(context: Any) -> tuple[str, str, str, bool] | None:
+    """A context's normalized identity ``(issuer CIK, period kind, period end, dimensional)`` read
+    from the context itself, or None for a malformed or ambiguous context (which then owns nothing)."""
+    identifiers = [n for n in context.iter() if isinstance(n.tag, str)
+                   and n.tag.lower().split(":")[-1] == "identifier"]
+    if len(identifiers) != 1 or identifiers[0].get("scheme") != CIK_SCHEME:
+        return None
+    entity = _text(identifiers[0])
+    if not re.fullmatch(r"\d{1,10}", entity):
+        return None
+    tags = [n.tag.lower().split(":")[-1] for n in context.iter() if isinstance(n.tag, str)]
+    instants = [_text(n) for n in context.iter() if isinstance(n.tag, str) and n.tag.lower().split(":")[-1] == "instant"]
+    ends = [_text(n) for n in context.iter() if isinstance(n.tag, str) and n.tag.lower().split(":")[-1] == "enddate"]
+    starts = [n for n in context.iter() if isinstance(n.tag, str) and n.tag.lower().split(":")[-1] == "startdate"]
+    if len(instants) == 1 and not ends and not starts:
+        kind, end = "instant", instants[0]
+    elif len(ends) == 1 and len(starts) == 1 and not instants:
+        kind, end = "duration", ends[0]
+    else:
+        return None
+    return str(int(entity)), kind, end, any(tag in DIMENSION_TAGS for tag in tags)
+
+
 def source_report_period(document: Any) -> str | None:
     """Validate the actual inline DEI date and its unqualified context; no year inference."""
+    identity = source_report_identity(document)
+    return identity[0] if identity else None
+
+
+def source_report_identity(document: Any) -> tuple[str, str] | None:
+    """The validated DEI ``(report date, issuer CIK)`` from the inline DocumentPeriodEndDate fact and
+    its unqualified duration context; the CIK is normalized (leading zeros dropped). None otherwise."""
     facts = [n for n in document.iter() if isinstance(n.tag, str)
              and (n.get("name") or "").lower() == "dei:documentperiodenddate"]
     dates = set()
@@ -47,18 +81,20 @@ def source_report_period(document: Any) -> str | None:
         tags = [n.tag.lower().split(":")[-1] for n in context.iter() if isinstance(n.tag, str)]
         ends = [_text(n) for n in context.iter() if isinstance(n.tag, str)
                 and n.tag.lower().split(":")[-1] == "enddate"]
-        if ends != [value] or any(t in tags for t in ("segment", "scenario", "explicitmember", "typedmember")):
+        if ends != [value] or any(t in tags for t in DIMENSION_TAGS):
             return None
         identifiers = [n for n in context.iter() if isinstance(n.tag, str)
                        and n.tag.lower().split(":")[-1] == "identifier"]
-        if len(identifiers) != 1 or identifiers[0].get("scheme") != "http://www.sec.gov/CIK":
+        if len(identifiers) != 1 or identifiers[0].get("scheme") != CIK_SCHEME:
             return None
         entity = _text(identifiers[0])
         if not re.fullmatch(r"\d{1,10}", entity):
             return None
-        entities.add(entity)
+        entities.add(str(int(entity)))
         dates.add(value)
-    return next(iter(dates)) if len(dates) == 1 and len(entities) == 1 else None
+    if len(dates) == 1 and len(entities) == 1:
+        return next(iter(dates)), next(iter(entities))
+    return None
 
 
 def _operating_rows(table: Any, source: dict) -> list[dict] | None:

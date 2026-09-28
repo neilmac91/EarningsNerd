@@ -200,6 +200,58 @@ def test_the_source_must_own_every_part_of_the_sequence(reason, source):
     assert {u["reason"] for u in audit["unresolved"]} == {reason}
 
 
+def _context(cid: str, *, date: str = "2026-01-31", cik: str = "104169", kind: str = "instant",
+             member: str | None = None, identifiers: int = 1) -> str:
+    entity = ('<xbrli:identifier scheme="http://www.sec.gov/CIK">' + cik + '</xbrli:identifier>') * identifiers
+    if member:
+        entity += ('<xbrli:segment><xbrldi:explicitMember dimension="us-gaap:SubsidiaryAxis">' + member
+                   + '</xbrldi:explicitMember></xbrli:segment>')
+    period = (f"<xbrli:instant>{date}</xbrli:instant>" if kind == "instant"
+              else f"<xbrli:startDate>2025-02-01</xbrli:startDate><xbrli:endDate>{date}</xbrli:endDate>")
+    return f'<xbrli:context id="{cid}"><xbrli:entity>{entity}</xbrli:entity><xbrli:period>{period}</xbrli:period></xbrli:context>'
+
+
+def _alternating(first: str, second: str) -> dict:
+    return {index: {"context": first if index % 2 == 0 else second} for index in range(7)}
+
+
+@pytest.mark.parametrize("label, source", [
+    # Root round 7: all seven facts on one same-CIK context carrying a subsidiary member.
+    ("one dimensional context", _document(_schedule(context="c-sub"),
+                                          extra_contexts=_context("c-sub", member="example:SubsidiaryMember"))),
+    # Root round 7: the seven facts alternate between two same-CIK subsidiary contexts.
+    ("two dimensional contexts", _document(_schedule(overrides=_alternating("c-sub1", "c-sub2")),
+                                           extra_contexts=_context("c-sub1", member="example:SubMember")
+                                           + _context("c-sub2", member="example:OtherSubMember"))),
+    # Another entity's context on the same date.
+    ("foreign CIK", _document(_schedule(context="c-other"), extra_contexts=_context("c-other", cik="0000012927"))),
+    # A duration ending on the report date is not the report-date instant.
+    ("duration period", _document(_schedule(context="c-dur"), extra_contexts=_context("c-dur", kind="duration"))),
+    # A malformed context (two identifiers) is rejected, never guessed from its date.
+    ("malformed context", _document(_schedule(context="c-bad"), extra_contexts=_context("c-bad", identifiers=2))),
+])
+def test_facts_outside_the_issuers_consolidated_instant_own_nothing(label, source):
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET], label
+    assert audit["restored"] == [] and {u["reason"] for u in audit["unresolved"]} == {"missing_fact"}
+
+
+def test_a_dimensional_duplicate_never_poisons_the_consolidated_schedule():
+    # The consolidated schedule is complete; a subsidiary's own schedule (same concepts, other
+    # amounts, dimensional context) sits beside it and is ignored.
+    subsidiary = _schedule(("1,000", "1,000", "1,000", "1,000", "1,000", "1,000", "6,000"), context="c-sub")
+    source = _document(_schedule() + subsidiary, extra_contexts=_context("c-sub", member="example:SubsidiaryMember"))
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_RESTORED]
+    assert audit["restored_count"] == 7 and audit["unresolved"] == []
+    # Context IDs may differ when their normalized identities agree (leading zeros in the CIK).
+    same = _document(_schedule(overrides=_alternating("c-1", "c-1b")), extra_contexts=_context("c-1b", cik="0000104169"))
+    sections = _sections()
+    assert restore_table_cell_units(sections, build_table_unit_index(same))["restored_count"] == 7
+
+
 def test_repeated_identical_facts_are_one_fact():
     # The retained WMT total (us-gaap:LongTermDebt, 38,166) is tagged in the debt table and again in
     # the schedule; repeats that agree are the same fact and the schedule row still binds.

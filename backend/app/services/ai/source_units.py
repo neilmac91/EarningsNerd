@@ -8,7 +8,7 @@ from lxml import etree, html
 
 from app.services.ai.recovery_context import clean_filing_source, recovery_blocks
 from app.services.edgar.debt_concepts import DEBT_MATURITY_SEQUENCE, DEBT_MATURITY_TOTAL
-from app.services.edgar.statement_context import source_report_period
+from app.services.edgar.statement_context import source_context_identity, source_report_identity
 from app.services.edgar.statement_relationship_source import _text
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
@@ -248,9 +248,9 @@ class TableUnitIndex:
         self._parsed = False
         self._facts: dict[str, list[Any]] | None = None
         self._units: dict[str, list[str]] | None = None
-        self._contexts: dict[str, str | None] | None = None
-        self._period: str | None = None
-        self._period_read = False
+        self._contexts: dict[str, tuple[str, str, str, bool] | None] | None = None
+        self._identity: tuple[str, str] | None = None
+        self._identity_read = False
 
     def resolve_maturity_sequence(self, years: Sequence[int], amounts: Sequence[str]) -> tuple[str | None, str]:
         """``(scale word, reason)`` for the authored sequence, else ``(None, why)``."""
@@ -276,12 +276,12 @@ class TableUnitIndex:
         return self._document
 
     def _index(self) -> None:
-        """One walk: facts by qualified concept, unit measures, and each context's period end."""
+        """One walk: facts by qualified concept, unit measures, and each context's normalized identity."""
         if self._facts is not None:
             return
         facts: dict[str, list[Any]] = {}
         units: dict[str, list[str]] = {}
-        contexts: dict[str, str | None] = {}
+        contexts: dict[str, tuple[str, str, str, bool] | None] = {}
         document = self._parse()
         for node in (document.iter() if document is not None else ()):
             if not isinstance(node.tag, str):
@@ -295,36 +295,40 @@ class TableUnitIndex:
                     if isinstance(m.tag, str) and m.tag.lower().endswith(":measure")
                 ]
             elif tag.endswith(":context") and node.get("id"):
-                ends = [_text(m) for m in node.iter() if isinstance(m.tag, str)
-                        and m.tag.lower().split(":")[-1] in ("instant", "enddate")]
-                contexts[node.get("id")] = ends[0] if len(ends) == 1 else None
+                contexts[node.get("id")] = source_context_identity(node)
         self._facts, self._units, self._contexts = facts, units, contexts
 
-    def _report_period(self) -> str | None:
-        if not self._period_read:
-            self._period_read = True
+    def _report_identity(self) -> tuple[str, str] | None:
+        if not self._identity_read:
+            self._identity_read = True
             document = self._parse()
-            self._period = source_report_period(document) if document is not None else None
-        return self._period
+            self._identity = source_report_identity(document) if document is not None else None
+        return self._identity
 
     # -- ownership -------------------------------------------------------------------------------
 
     def _resolve(self, years: list[int], amounts: list[str]) -> tuple[str | None, str]:
         if self._parse() is None:
             return None, "no_source_document"
-        period = self._report_period()
-        if period is None:
+        identity = self._report_identity()
+        if identity is None:
             return None, "no_report_period"
+        period, issuer = identity
         if years[0] != int(period[:4]) + 1:
             return None, "year_mismatch"
         self._index()
         assert self._facts is not None and self._units is not None and self._contexts is not None
+        # The one context signature this proposition may draw on: the DEI issuer's own CIK, an
+        # instant on the report date, no segment/scenario/dimension member. Facts on any other
+        # signature (a subsidiary member, another entity, a duration, a malformed context) neither
+        # authorize the repair nor poison a complete consolidated sequence.
+        consolidated = (issuer, "instant", period, False)
         concepts = (*DEBT_MATURITY_SEQUENCE, DEBT_MATURITY_TOTAL)
         labels = [*(str(year) for year in years), *_SEQUENCE_LABELS]
         scales: set[str] = set()
         for concept, label, amount in zip(concepts, labels, amounts):
             on_period = [fact for fact in self._facts.get(concept, [])
-                         if self._contexts.get(fact.get("contextref") or "") == period]
+                         if self._contexts.get(fact.get("contextref") or "") == consolidated]
             if not on_period:
                 return None, "missing_fact"
             # Inline XBRL may repeat one fact in several tables (the retained WMT total appears in
