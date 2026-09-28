@@ -1,0 +1,38 @@
+{
+  "backend_deploy_job": {
+    "backend_deployment_performed": false,
+    "conclusion": "success",
+    "deployment_steps": {
+      "Apply database migrations": "skipped",
+      "Authenticate to Google Cloud": "skipped",
+      "Build and push image": "skipped",
+      "Deploy Cloud Run service": "skipped",
+      "Set up gcloud": "skipped",
+      "Update backfill-facts job image and scheduled entrypoint": "skipped",
+      "Update filing-scan + digest + calendar + alert + notable + retention job images": "skipped",
+      "Update pregenerate job image": "skipped",
+      "Verify health": "skipped"
+    },
+    "detect_backend_changes": "success",
+    "job_id": 108871340885
+  },
+  "kind": "publication_path_derivative",
+  "limits": [
+    "This derivative copies selected fields from the retained reviewed source receipt; it does not replace that original artifact.",
+    "No workflow was rerun by publication."
+  ],
+  "main_ci": {
+    "conclusion": "success",
+    "run_id": 36404486901,
+    "status": "completed",
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36404486901"
+  },
+  "merge_sha": "e70b8a4043b3b5809fa3d3b01be4eca569e178fd",
+  "pr": 1004,
+  "schema_version": 1,
+  "source_artifact": {
+    "bytes": 15680,
+    "path": "outputs/takeover-2026-09-28/readonly-release-audit/pr1004-main-ci.json",
+    "sha256": "9d75c84e9ce8532a0284b3cd16916af8d8e48b1d5ff039ec4fb1d70a2b8a1bb2"
+  }
+}

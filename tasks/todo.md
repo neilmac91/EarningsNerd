@@ -5837,7 +5837,7 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.
 
 
-## September 28 execution closure
+## September 28 initial execution snapshot
 
 - [x] Verify #996 release and the first natural weekly facts backfill against its business ledger; retain zero-backlog and unchanged-job readback.
 - [x] Complete H28 independent source briefs, source-reading reconciliation and bounded custody validation; preserve all 55 current/adverse identities (3/30 source-preparation dossiers).
@@ -5854,8 +5854,17 @@ Evidence and current ownership: [September 28 execution update](continuation-pla
 - [x] Release #997 source-entry wording at revision `00408-9b6`; main CI `36395595444`, migrations 0/40, all eight job images and independent healthy readback verified.
 - [x] Resolve the four frozen Notable acquisition gaps without resampling; preserve initial verdicts and UI overclaims. Complete source support is limited to the corrected labels for twelve examples.
 - [x] Verify H20 current ZIP relationships: six exact HTML children and five exact terminal-newline XML/XSD transforms. Historical archive equality and semantic preparation remain unproved.
-- [ ] Complete #1002 responsive label correction and serial release, then reviewed Notable activation and public readback.
-- [ ] Close #992's retained entity/dimension source-ownership defect before another paid head. Existing quality holds remain.
-- [ ] Complete #998 patch review; keep Sentry major and SQLAlchemy driver migration separate.
+- [x] Complete #1002 responsive label correction and serial release, then reviewed Notable activation and public readback.
+- [x] Close #992's retained entity/dimension source-ownership defect and release the reviewed repair. Existing quality holds remain.
+- [x] Complete #998 patch review and #999 Sentry migration; keep SQLAlchemy driver migration separate.
 
 See the [September 28 evidence](review-evidence/progress-2026-09-28/README.md). These closures do not replace E7 or real-user acceptance.
+
+### September 28 final release checkpoint
+
+- [x] Verify final #992/#1003 WIF, health and homepage evidence.
+- [x] Prepare H15’s 67 readers plus index and bind the current ZIP’s ten children.
+- [x] Retain one JPM flag and eight initial controls; record two unresolved source-context counterexamples without mutation or paid calls.
+- [ ] Resolve source-context ownership or choose source-first presentation before integration; no further paid draw.
+
+H15 historical equality, logo and 78 dispositions remain unresolved. Quality, beta and source work remain open; progress is 57.5%, dossiers 3/30. Stripe remains blocked; no credential was copied into project files.

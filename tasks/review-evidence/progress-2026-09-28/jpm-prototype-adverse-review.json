@@ -1,0 +1,26 @@
+{
+  "kind": "offline_root_source_context_refutation",
+  "prototype_sha256": "4d1510424eb67b6cfe989384b656bd6116da8dd350efb7e686d9f852ad46c68e",
+  "scope": "synthetic adversarial source-context review; not a new filing verdict",
+  "cases": [
+    {
+      "case": "explicit_hypothetical_wrapper",
+      "source_excerpt": "Hypothetical example, not the reported results:\nIncluded the estimated bargain purchase gain of $2.8 billion for the year ended December\u00a031, 2023 associated with the First Republic acquisition.",
+      "status": "proposed_correction",
+      "reason": "finite_source_owned_proposition_with_unsupported_relative_period_label",
+      "expected_safe_action": "abstain: affirmative local source ownership is unproved"
+    },
+    {
+      "case": "explicit_retracted_wrapper",
+      "source_excerpt": "The following statement was erroneous and has been retracted:\nIncluded the estimated bargain purchase gain of $2.8 billion for the year ended December\u00a031, 2023 associated with the First Republic acquisition.",
+      "status": "proposed_correction",
+      "reason": "finite_source_owned_proposition_with_unsupported_relative_period_label",
+      "expected_safe_action": "abstain: affirmative local source ownership is unproved"
+    }
+  ],
+  "decision": "prototype_not_ready_for_application_integration",
+  "finding": "Matching a unique affirmative-looking span is insufficient when its enclosing source text explicitly makes it hypothetical or retracted. The prototype does not inspect that ownership context.",
+  "limits": "The retained JPM finding remains valid; these controls challenge general applicability of the proposed repair rule. No report, app, or production changes.",
+  "model_calls": 0,
+  "network_calls": 0
+}

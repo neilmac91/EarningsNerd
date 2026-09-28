@@ -125,6 +125,14 @@ Fable's #992 now has the narrower iXBRL row/period/unit candidate at `7c2f998973
 
 The weighted whole-plan estimate remains **57.5%, about 58%**. These receipts close concrete tasks within already partially credited milestones; they do not manufacture quality acceptance or real-user evidence. The next work is the corrected product-copy releases, the finite source-owned table repair, complete bounded source partitions for the remaining 27 filings, E7 on the eventual accepted configuration, and the consenting beta cohort with two weekly readouts.
 
+**Historical snapshot:** superseded by the final checkpoint below.
+
+## September 28 release checkpoint
+
+The [final checkpoint](review-evidence/progress-2026-09-28/execution-checkpoint.json) records #998/#999 releases, #1001/#1004 actual backend deployment skips and #1002 readback showing Notable disabled before #1003 activation. [#992 release](review-evidence/progress-2026-09-28/pr992-release.json) verifies run `36406918405`, revision `00411-wb5` and exact-SHA Vercel success; [WIF](review-evidence/progress-2026-09-28/pr992-wif-release.json) binds the service and eight jobs. [Serving evidence](review-evidence/progress-2026-09-28/serving-receipt.json) verifies eight API rows and the refreshed homepage section/label. The [URL correction](review-evidence/progress-2026-09-28/url-verifier-correction.json) confirms canonical archive-directory indexes without a product change.
+
+H15 prepares 67 readers plus index: 3,150,219 reader bytes and 3,000,984 raw bytes. Its current ZIP has ten verified children; historical equality is unproved, the logo unsupported and all 78 dispositions unresolved. The [JPM prototype](review-evidence/progress-2026-09-28/jpm-period-claim-prototype-summary.json) retains one flag and passed eight initial controls, but its [adverse review](review-evidence/progress-2026-09-28/jpm-prototype-adverse-review.json) finds two unresolved enclosing-source counterexamples; it is not integration-ready. Dossiers remain **3/30**, weighted progress **57.5%**, and quality, beta and remaining source work stay open. Stripe inspection remains blocked; no credential was copied into project files.
+
 ## What the agents delivered
 
 | Work | Verified position | What it does not establish |
