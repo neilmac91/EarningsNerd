@@ -93,7 +93,7 @@ def test_seeded_and_enabled_returns_ranked_payload(client, monkeypatch):
     assert set(first) == {
         "ticker", "company_name", "form", "reason", "reason_label", "filed_date", "sec_url",
     }
-    assert first["reason_label"] == "Earnings results"
+    assert first["reason_label"] == "Results or financial condition"
 
 
 def test_limit_bounds(client):

@@ -18,3 +18,13 @@ The first E14a header correction restored the issuer, but root's next 320 px scr
 revealed card-edge clipping from the remaining layout constraints. The numeric DOM read
 timed out, so this is screenshot evidence only. Mobile grid/card sizing and metric columns
 were corrected separately; both mobile widths and desktop remain visual acceptance.
+
+**Additional evidence (2026-09-28, Notable labels)**: A longer source-accurate badge passed the
+full frontend suite but consumed 160 px as a sibling of the company column. The real component at
+320 px and at the 640 px two-column transition collapsed that column to 30 px, overflowed its
+contents, and wrapped the filing metadata into many narrow lines while the card itself reported no
+overflow. A layout-equivalent first probe estimated 12–18 px of horizontal ticker/badge overlap;
+the real component instead grew taller around the wrapped metadata, with a deliberately long
+ticker intersecting the badge at 375 px. Moving the badge below the filing metadata removed both
+forms of sibling competition in the real component. This evidence extends the existing
+mobile/both-theme preview process; page-level overflow alone cannot detect internal collapse.
