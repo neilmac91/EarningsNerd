@@ -439,9 +439,15 @@ check whether separately managed database routines need their own backup coverag
 
 **One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
-scheduled run is unaffected. Since the DB is only reachable from Cloud Run, this is also the way to
-run any `backend/scripts/*` maintenance script against prod. Used for the 2026-07 false-"reported"
-cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement day):
+scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
+backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
+`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
+reachable from Cloud Run, execution-scoped arguments are also the way to run any
+`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
+so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
+false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement
+day):
 
 ```bash
 # 1. Re-classify the poisoned window (dry-run first; add ,--execute to apply)

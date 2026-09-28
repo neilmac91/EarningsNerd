@@ -139,6 +139,33 @@ def test_every_scheduled_entrypoint_records_swallowed_failures(sessions, monkeyp
         assert row.job_name == expected and row.status == "failed"
 
 
+def test_facts_cli_rejects_unsupported_dry_run_before_application_work(monkeypatch, capsys):
+    argv = ["backfill_facts.py", "--only-new", "--dry-run"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    app_imports = []
+    original_import = builtins.__import__
+
+    def observe_import(name, *args, **kwargs):
+        if name == "app" or name.startswith("app."):
+            app_imports.append(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", observe_import)
+    with pytest.raises(SystemExit) as exc_info:
+        runpy.run_path(
+            str(Path(__file__).resolve().parents[2] / "scripts/backfill_facts.py"),
+            run_name="__main__",
+        )
+
+    assert exc_info.value.code == 2
+    assert app_imports == [], "Unsupported dry-run must reject before importing the application"
+    assert (
+        "error: --dry-run is supported only with --remediate-financials or "
+        "--backfill-company-sic"
+    ) in capsys.readouterr().err
+
+
 
 @pytest.mark.parametrize("digest", [False, True], ids=["scan", "digest"])
 @pytest.mark.parametrize("dry_run", [True, False], ids=["dry-run", "normal"])

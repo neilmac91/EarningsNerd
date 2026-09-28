@@ -161,6 +161,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    if args.dry_run and not (args.remediate_financials or args.backfill_company_sic):
+        parser.error(
+            "--dry-run is supported only with --remediate-financials or --backfill-company-sic"
+        )
+
     tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
     if args.backfill_company_sic:
         _backfill_sic(tickers=tickers, limit=args.limit, dry_run=args.dry_run)
