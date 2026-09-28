@@ -31,3 +31,15 @@ proof of whole-readback coverage. The new committed mutation is a command emissi
 before the capacity marker, conditional on ordinary Python/Uvicorn commands. Assertions reject
 nonempty raw command/argument arrays in Python or JSON formatting, including the existing numeric
 and known-worker cases, independently of the private sentinel checks.
+
+## Command-token gate correction
+
+A fresh exact-head review of `7d7c1197` found a remaining format-specific blind spot: a pre-marker
+`show()` print of joined ordinary command/argument tokens passed all 20 cases. The adverse
+20-pass reproduction is retained. The same gate now asserts each raw command/argument token is
+absent from all Python stdout. This covers individual tokens, joined text and arrays without
+another test. The service worker argument is 17 and the ordinary Python job fixture uses 29;
+the allowlisted worker environment remains 4, so a leaked argument cannot hide behind a valid
+capacity value. All 20 combinations, private environment/secret-reference checks and unknown
+capacity states remain. The final committed fault uses that same joined pre-marker command leak.
+Prior runs and proofs remain historical evidence; runtime and workflow code are unchanged.

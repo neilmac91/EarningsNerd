@@ -1,7 +1,6 @@
 """The complete Ops Python readback withholds private command/environment values."""
 import json
 from pathlib import Path
-import re
 import subprocess
 from unittest.mock import mock_open
 
@@ -12,7 +11,7 @@ import yaml
 @pytest.mark.parametrize("command,args", [
     ([], []),
     (["python", "123"], []),
-    (["uvicorn", "main:app"], ["--workers", "4"]),
+    (["uvicorn", "main:app"], ["--workers", "17"]),
     (["PRIVATE_COMMAND_SENTINEL"], ["PRIVATE_ARGUMENT_SENTINEL"]),
 ])
 @pytest.mark.parametrize("concurrency,timeout,expected", [
@@ -52,8 +51,8 @@ def test_capacity_projection_withholds_commands_and_private_values(capsys, monke
                    "traffic": [{"revisionName": "revision-1", "percent": 100}]},
         "metadata": {"annotations": {"run.googleapis.com/ingress": "PRIVATE_INGRESS_SENTINEL"}},
     }
-    job_container = {"image": "allowed-job-image", "command": ["PRIVATE_JOB_COMMAND_SENTINEL"],
-                     "args": ["PRIVATE_JOB_ARGUMENT_SENTINEL"], "env": [
+    job_container = {"image": "allowed-job-image", "command": ["python", "job_task.py"],
+                     "args": ["--workers", "29"], "env": [
         {"name": "UNRELATED", "value": "PRIVATE_JOB_ENV_SENTINEL"},
         {"name": "AI_DEFAULT_MODEL", "value": "deepseek-flash"},
         {"name": "AI_FALLBACK_MODEL", "valueSource": {"secretKeyRef": {"name": "PRIVATE_JOB_SECRET_SENTINEL"}}},
@@ -77,12 +76,10 @@ def test_capacity_projection_withholds_commands_and_private_values(capsys, monke
     service_json.assert_called_once_with("/tmp/svc.json")
     assert calls == list(readbacks)
     assert "PRIVATE_" not in output
-    compact_output = re.sub(r"\s+", "", output)
-    for values in (command, args, job_container["command"], job_container["args"]):
-        if values:
-            # Numeric/known commands are private too; cover Python and JSON array formatting.
-            for rendered in (repr(values), json.dumps(values)):
-                assert re.sub(r"\s+", "", rendered) not in compact_output
+    # Every fixture token is distinct from allowed output (worker env stays 4, args use 17/29).
+    # Token absence covers individual/joined values as well as Python/JSON command arrays.
+    for token in command + args + job_container["command"] + job_container["args"]:
+        assert token not in output
     assert "Serving revision: revision-1\nimage: allowed-api-image" in output
     assert "Job: earningsnerd-pregenerate\nimage: allowed-job-image" in output
     assert output.count("AI_DEFAULT_MODEL = 'deepseek-flash'") == 2
