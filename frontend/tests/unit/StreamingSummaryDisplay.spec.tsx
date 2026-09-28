@@ -71,3 +71,19 @@ describe('StreamingSummaryDisplay live region', () => {
     expect(screen.getByText('Generating your analysis.')).toHaveAttribute('aria-live', 'polite')
   })
 })
+
+describe('StreamingSummaryDisplay paywall routing', () => {
+  it.each([true, false])('preserves monthly billing for a promised trial (eligible=%s)', (trialEligible) => {
+    render(
+      <StreamingSummaryDisplay
+        streamingText=""
+        stage="error"
+        message="Monthly limit reached"
+        filing={filing}
+        trialEligible={trialEligible}
+      />,
+    )
+    const label = trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'
+    expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', trialEligible ? '/pricing?billing=monthly' : '/pricing')
+  })
+})

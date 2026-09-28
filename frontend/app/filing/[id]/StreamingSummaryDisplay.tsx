@@ -27,6 +27,7 @@ import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { SparkleIcon } from '@/lib/icons'
 import { useCountUp } from '@/hooks/useCountUp'
 import { MOTION } from '@/lib/motion'
+import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 
 // --- Constants ---
 
@@ -375,7 +376,7 @@ export default function StreamingSummaryDisplay({
               : 'Your free summaries reset next month. Or go unlimited now with Pro.'
           }
           action={
-            <Link href="/pricing" className={buttonVariants()}>
+            <Link href={trialEligible ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
               {trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'}
             </Link>
           }
