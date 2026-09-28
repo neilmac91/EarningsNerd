@@ -239,7 +239,7 @@ function PricingContent() {
         : 'Upgrade to Pro',
       // Trialing counts as current-plan: their card-required trial IS a live subscription that
       // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
-      // above isTrialing). Plan changes go through the billing portal instead.
+      // above isTrialing). Existing subscribers manage billing from their account settings.
       disabled: !accountResolved || isPaidPro || isTrialing,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
@@ -260,7 +260,7 @@ function PricingContent() {
         <div className="text-center mb-12">
           {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
           <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
-            Choose the plan that works for you. Upgrade or downgrade at any time.
+            Choose the plan that works for you, with monthly or annual Pro billing.
           </p>
 
           {identityUnavailable ? (
@@ -305,9 +305,9 @@ function PricingContent() {
             </div>
           )}
 
-          {/* Billing Toggle — free users only. A card-trial user's plan changes go through the
-              billing portal (their buy CTA is disabled as current-plan), so the toggle would
-              only move a button they can't press. */}
+          {/* Billing Toggle — free users only. A card-trial user already holds a subscription
+              (their buy CTA is disabled as current-plan), so the toggle would only move a
+              button they can't press. */}
           {!isPaidPro && !isTrialing && (
             <div className="mt-8 flex items-center justify-center space-x-4">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
@@ -443,10 +443,11 @@ function PricingContent() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                Can I change plans later?
+                How do I manage my subscription?
               </h3>
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.
+                Manage your subscription, payment details and cancellation from your billing settings.
+                Contact us for questions about changing your billing cycle.
               </p>
             </div>
             <div>

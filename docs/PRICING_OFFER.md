@@ -29,6 +29,8 @@ The dated operator receipt retains the exact catalog identifiers; none belong in
 This is a preparation snapshot, not evidence of a configured or completed new-price checkout.
 The default billing portal has subscription updates disabled, so no portal price-switch allowlist
 needs changing. Its existing period-end cancellation and payment-method/invoice features remain.
+The pricing introduction and FAQ describe these available controls without promising immediate
+plan changes. The existing trial-cancellation terms remain unchanged.
 
 ## Activation checklist
 
