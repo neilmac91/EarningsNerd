@@ -717,3 +717,60 @@ fault_exit=1
 57 passed in 3.70s
 restored_exit=0
 ```
+
+## Eighth review round (repeated IDs and the DEI duration, 28 September)
+
+Root verified the seventh-round hashes and reproduced its closures, then isolated one remaining
+ambiguity class: `_index` overwrote duplicate context IDs and duplicate unit IDs, so a dimensional,
+foreign or duration context redefined under the same ID as a consolidated one repaired 7/7 in one
+definition order and abstained in the other, and a duplicate unit ID behaved the same way for
+non-USD → USD. Root supplied the minimal correction and asked that the DEI prerequisite be made
+explicit through the shared normalizer.
+
+- A repeated context ID or unit ID is permanently unavailable in every order: the second definition
+  sets the entry to `None` instead of replacing the first. Distinct IDs with equivalent normalized
+  identities still pass.
+- `source_report_identity` now validates the DEI context through `source_context_identity`: it must
+  be a well-formed, non-dimensional duration whose end equals the parsed DEI date. End-only,
+  instant-plus-end and multiple-start contexts fail closed (`no_report_period`); the issuer check is
+  unchanged.
+
+Gate: 66 cases (the seventh round's 57 plus four repeated-context orders, two repeated-unit orders
+and three malformed DEI forms; the valid duration is every other case's DEI context). Mutation
+proof: a repeated context ID resolving to its last definition again. Replay over the 70 retained
+outputs unchanged (one slot, 7/7, eight `unsupported_proposition`).
+
+Root replaced the publish hold for this corrected, locally gated candidate and reserved a revised
+USD 2.10 cumulative planning ceiling (about USD 1.371 spent) covering one corrected-head 70-output
+measurement and one eventual Copilot check; the reservation is confirmed on the PR before the push.
+
+### Eighth-round verification tails
+
+Local gate from `backend/` on the tree committed locally as `f4ead2f` (`local-gate-round8.log.txt`):
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3768 passed, 39 skipped, 2 deselected, 40 warnings in 328.13s (0:05:28)   EXIT=0
+```
+
+### Eighth-round mutation proof (one deliberate implementation fault, committed state `f4ead2f`)
+
+Fault: a repeated context ID resolves to whichever definition came last again (the seventh-round
+behaviour). The gate fails on exactly the dimension → consolidated, foreign → consolidated and
+duration → consolidated orders with the retained bullet falsely restored, and passes once
+`git checkout --` restores the file (`mutation-proof-round8.log.txt`):
+
+```
+== committed HEAD: f4ead2f ==
+fault applied: a repeated context ID resolves to its last definition
+== gate under fault ==
+FAILED …test_a_repeated_context_id_owns_nothing_in_any_order[dimension then consolidated]
+FAILED …test_a_repeated_context_id_owns_nothing_in_any_order[foreign then consolidated]
+FAILED …test_a_repeated_context_id_owns_nothing_in_any_order[duration then consolidated]
+3 failed, 63 passed in 4.03s
+fault_exit=1
+== restored: clean ==
+66 passed in 3.63s
+restored_exit=0
+```

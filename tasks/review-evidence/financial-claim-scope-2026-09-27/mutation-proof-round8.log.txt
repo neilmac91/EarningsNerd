@@ -1,0 +1,17 @@
+== committed HEAD: f4ead2fbd3432171e7c0f615cbbca7590549bc29 ==
+fault applied: a repeated context ID resolves to its last definition
+== gate under fault ==
+E         Use -v to get more diff
+E       AssertionError: duration then consolidated
+E       assert ['Annual matu...166 million.'] == ['Annual matu...al: $38,166.']
+E         
+E         At index 0 diff: 'Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereaft
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_a_repeated_context_id_owns_nothing_in_any_order[dimension then consolidated-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate"
+FAILED tests/unit/test_table_cell_units.py::test_a_repeated_context_id_owns_nothing_in_any_order[foreign then consolidated-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate">2
+FAILED tests/unit/test_table_cell_units.py::test_a_repeated_context_id_owns_nothing_in_any_order[duration then consolidated-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate">
+3 failed, 63 passed in 4.03s
+fault_exit=1
+== restored: clean ==
+66 passed in 3.63s
+restored_exit=0

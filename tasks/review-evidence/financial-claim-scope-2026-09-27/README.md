@@ -1,7 +1,7 @@
 # financial-claim-scope-2026-09-27 — evidence index
 
 Engineering evidence for `tasks/financial-claim-scope-2026-09-27.md` (branch
-`codex/wave3-financial-claim-scope`, implementation commits `ce72481`, `ffdf371`, `554d3c7`, `595344c`, `acee6d9`, `d32e4e8` and the seventh-round context-identity commit). Not an E7 brief or a Fable verdict.
+`codex/wave3-financial-claim-scope`, implementation commits `ce72481`, `ffdf371`, `554d3c7`, `595344c`, `acee6d9`, `d32e4e8`, `1667523` and the eighth-round repeated-ID commit). Not an E7 brief or a Fable verdict.
 
 - `reconciliation.md` — each historical candidate-r defect: locator, exact quotes, this engineer's two refutation attempts, disposition.
 - `offline-replay-70.json` — the owner replayed over all 70 retained outputs (report SHA verified), regenerated after each review round; from the fourth round with the filings' source documents (hashes inside), from the fifth under proposition-bound and from the sixth under finite-proposition ownership: 1 slot changed, 7 figures restored, 8 abstained with reasons, per-row audit.
@@ -24,3 +24,4 @@ archives) and are committed here under the new suffix, byte-identical.
 - `local-gate-round6.log.txt`, `mutation-proof-round6.log.txt` — sixth-round gate tail and the counted fault/restored proof (introduction grammar disabled).
 - `hosted-run-36392603589-eval-job.log.txt` — the fifth-round eval job log (the authorized measurement under the USD 1.65 ceiling; peak tariff, USD 0.354).
 - `local-gate-round7.log.txt`, `mutation-proof-round7.log.txt` — seventh-round gate tail and the counted fault/restored proof (context identity reduced to its period end).
+- `local-gate-round8.log.txt`, `mutation-proof-round8.log.txt` — eighth-round gate tail and the counted fault/restored proof (repeated context ID resolving to its last definition).

@@ -337,6 +337,37 @@
    "kind": "push_withheld",
    "outcome": "seventh-round commit held locally; root asked for the exact diff, hash and proof before another paid push; no measurement authorized",
    "cost_usd": 0.0
+  },
+  {
+   "id": 44,
+   "kind": "offline_replay",
+   "head": "round-8 tree (repeated IDs, DEI duration)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 45,
+   "kind": "local_gate",
+   "head": "round-8 tree",
+   "outcome": "round-8 tree (committed locally as f4ead2f): ruff/bandit clean, 3768 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round8.log.txt"
+  },
+  {
+   "id": 46,
+   "kind": "mutation_proof",
+   "head": "f4ead2f",
+   "outcome": "fault (repeated context ID resolves to its last definition) caught: 3 failed/63 passed on the dimension/foreign/duration-then-consolidated orders; restored 66 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round8.log.txt"
+  },
+  {
+   "id": 47,
+   "kind": "push_authorized",
+   "head": "eighth-round head",
+   "outcome": "root replaced the publish hold for the corrected, locally gated candidate (09:09 UTC) under a revised USD 2.10 cumulative planning ceiling; reservation confirmed on the PR before dispatch; one push",
+   "cost_usd": 0.0
   }
  ],
  "unknowns": [
@@ -351,7 +382,7 @@
   "round-7 full gate attempt 1 (local-gate-10): 1 failed — the sec.gov CIK-scheme literal placed in source_units.py tripped test_sec_gov_importers_allowlist; the helper was moved into the EDGAR layer (statement_context.source_context_identity) and the commit amended",
   "round-7 full gate attempt 2 (local-gate-11): ruff ran at the repository root because of a shell cwd reset (27 pre-existing findings under tasks/fable-e8-repin-2026-09-22), not a backend failure; rerun from backend/ as attempt 3"
  ],
- "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); root raised the PR's cumulative hosted planning ceiling to USD 1.65 at 07:35 UTC on 28 September and authorized one measurement (run 36392603589, USD 0.354). Cumulative telemetry USD 1.371. No further push without root's explicit authorization.",
+ "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); raised to USD 1.65 at 07:35 UTC (one authorized measurement, run 36392603589); revised to USD 2.10 at 09:09 UTC for the corrected eighth-round head (one 70-output measurement plus one eventual Copilot check). Cumulative telemetry USD 1.371 before the eighth-round push.",
  "hosted_runs_cumulative": {
   "runs": [
    {
@@ -399,12 +430,12 @@
   ],
   "telemetry_usd_spent_before_third_round_push": 0.481047,
   "expected_after_third_round_push": "about 0.66",
-  "ceiling_usd": 1.65,
+  "ceiling_usd": 2.1,
   "ceiling_is_cumulative": true,
   "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry)",
   "telemetry_usd_spent_before_fourth_round_push": 0.660091,
   "expected_after_fourth_round_push": "about 0.84",
   "telemetry_usd_spent_total": 1.37106,
-  "ceiling_status": "USD 1.371 of the USD 1.65 ceiling root set at 07:35 UTC (the original USD 1.00 was exceeded at run 36386298431); about USD 0.28 headroom, less than one peak-window measurement"
+  "ceiling_status": "USD 1.371 spent of the revised USD 2.10 cumulative planning ceiling root reserved at 09:09 UTC for one corrected-head measurement and one eventual Copilot check"
  }
 }
