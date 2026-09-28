@@ -43,3 +43,18 @@ the allowlisted worker environment remains 4, so a leaked argument cannot hide b
 capacity value. All 20 combinations, private environment/secret-reference checks and unknown
 capacity states remain. The final committed fault uses that same joined pre-marker command leak.
 Prior runs and proofs remain historical evidence; runtime and workflow code are unchanged.
+
+## File-descriptor capture correction
+
+A fresh review of `fd1ca3e5` found that combining `capsys` stdout and stderr still omitted
+child-process output. A pre-marker local Python child printing ordinary command tokens to
+stdout and argument tokens to stderr incorrectly passed all 20 cases. Both fresh refutation
+passes upheld this gap. The same gate now uses `capfd` to capture file descriptors 1 and 2,
+including inherited child output. All 20 cases, external JSON stubs, private-value assertions,
+allowlisted output and unknown-capacity states remain unchanged. The identical child emission
+is the committed-state fault for this correction; exact restoration and full pinned backend
+gates follow it. Previous adverse probes and verification receipts remain retained under
+`outputs/overnight-2026-09-28/capacity/`, with this correction in `privacy-fd-repair`.
+This covers the complete Python heredoc plus a constrained shell wrapper; it does not execute
+the Bash wrapper or claim protection against every encoding of fixture values. Runtime,
+workflow and frontend sources are unchanged.

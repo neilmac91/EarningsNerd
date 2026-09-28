@@ -13,10 +13,13 @@ runtime worker and egress identity remain unknown.
 **Evidence**: `backend/tests/unit/test_capacity_projection_privacy.py` executes the
 entire committed describe-service Python heredoc with private service/job sentinels,
 numeric arguments, malformed configuration and valid capacity values. Stub only the
-external JSON reads, capture both Python stdout and stderr, and constrain the surrounding shell
+external JSON reads, capture stdout and stderr at file-descriptor level (including inherited
+child-process output), and constrain the surrounding shell
 to its redirected read. Slicing at the capacity comment skipped earlier `show()`
 emissions and falsely narrowed this rule. A deliberate pre-marker raw-command emission
 fails the same gate; exact restoration passes. Assert every unique fixture command/argument
-token absent from all stdout, including ordinary service and job commands. Array-format checks
+token absent from the combined output, including ordinary service and job commands. Array-format checks
 missed joined command text. Use command numeric values distinct from permitted worker-environment
 values, so privacy assertions cannot confuse a raw argument with allowed capacity evidence.
+Python stream capture alone misses child emissions; a successful local child printing raw
+command/argument tokens must fail the same gate.

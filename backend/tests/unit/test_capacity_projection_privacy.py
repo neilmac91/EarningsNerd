@@ -21,7 +21,7 @@ import yaml
     (True, False, (None, None)),
     (0, 3601, (None, None)),
 ])
-def test_capacity_projection_withholds_commands_and_private_values(capsys, monkeypatch, command, args,
+def test_capacity_projection_withholds_commands_and_private_values(capfd, monkeypatch, command, args,
                                                                   concurrency, timeout, expected):
     workflow = yaml.safe_load((Path(__file__).parents[3] / ".github/workflows/ops.yml").read_text())
     step = next(s for s in workflow["jobs"]["ops"]["steps"]
@@ -72,7 +72,8 @@ def test_capacity_projection_withholds_commands_and_private_values(capsys, monke
     monkeypatch.setattr(subprocess, "check_output", describe)
     service_json = mock_open(read_data=json.dumps(svc))
     exec(projection, {"open": service_json})
-    captured = capsys.readouterr()
+    # Descriptor capture includes inherited child stdout/stderr as well as Python writes.
+    captured = capfd.readouterr()
     output = captured.out + captured.err
     service_json.assert_called_once_with("/tmp/svc.json")
     assert calls == list(readbacks)
