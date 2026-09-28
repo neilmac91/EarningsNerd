@@ -252,6 +252,57 @@ def test_a_dimensional_duplicate_never_poisons_the_consolidated_schedule():
     assert restore_table_cell_units(sections, build_table_unit_index(same))["restored_count"] == 7
 
 
+@pytest.mark.parametrize("label, source", [
+    # Root round 8: a repeated context ID is permanently unavailable in every definition order.
+    ("dimension then consolidated", _document(_schedule(context="c-dup"),
+                                              extra_contexts=_context("c-dup", member="example:SubsidiaryMember") + _context("c-dup"))),
+    ("consolidated then dimension", _document(_schedule(context="c-dup"),
+                                              extra_contexts=_context("c-dup") + _context("c-dup", member="example:SubsidiaryMember"))),
+    ("foreign then consolidated", _document(_schedule(context="c-dup"),
+                                            extra_contexts=_context("c-dup", cik="0000012927") + _context("c-dup"))),
+    ("duration then consolidated", _document(_schedule(context="c-dup"),
+                                             extra_contexts=_context("c-dup", kind="duration") + _context("c-dup"))),
+])
+def test_a_repeated_context_id_owns_nothing_in_any_order(label, source):
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET], label
+    assert audit["restored"] == [] and {u["reason"] for u in audit["unresolved"]} == {"missing_fact"}
+
+
+@pytest.mark.parametrize("label, units", [
+    ("non-USD then USD", '<xbrli:unit id="dup"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>'
+                         '<xbrli:unit id="dup"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>'),
+    ("USD then non-USD", '<xbrli:unit id="dup"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>'
+                         '<xbrli:unit id="dup"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>'),
+])
+def test_a_repeated_unit_id_owns_nothing_in_any_order(label, units):
+    source = _document(_schedule(overrides={i: {"unit": "dup"} for i in range(7)})).replace("<ix:resources>", "<ix:resources>" + units)
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(source))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET], label
+    assert audit["restored"] == [] and {u["reason"] for u in audit["unresolved"]} == {"non_dollar_unit"}
+
+
+@pytest.mark.parametrize("label, dei_period", [
+    ("end only", "<xbrli:endDate>2026-01-31</xbrli:endDate>"),
+    ("instant plus end", "<xbrli:instant>2026-01-31</xbrli:instant><xbrli:endDate>2026-01-31</xbrli:endDate>"),
+    ("two starts plus end", "<xbrli:startDate>2025-02-01</xbrli:startDate><xbrli:startDate>2025-02-01</xbrli:startDate>"
+                            "<xbrli:endDate>2026-01-31</xbrli:endDate>"),
+])
+def test_the_dei_context_must_be_a_well_formed_duration(label, dei_period):
+    # Root round 8: the DEI prerequisite is the same normalized identity the owner uses for facts —
+    # a non-dimensional duration ending on the parsed date. Malformed forms fail closed; the valid
+    # duration (every other test in this module) passes.
+    valid = "<xbrli:startDate>2025-02-01</xbrli:startDate><xbrli:endDate>2026-01-31</xbrli:endDate>"
+    source = _document(_schedule())
+    assert source.count(valid) == 1
+    sections = _sections()
+    audit = restore_table_cell_units(sections, build_table_unit_index(source.replace(valid, dei_period)))
+    assert sections["balance_sheet_liquidity"]["maturities_covenants"] == [WMT_BULLET], label
+    assert {u["reason"] for u in audit["unresolved"]} == {"no_report_period"}
+
+
 def test_repeated_identical_facts_are_one_fact():
     # The retained WMT total (us-gaap:LongTermDebt, 38,166) is tagged in the debt table and again in
     # the schedule; repeats that agree are the same fact and the schedule row still binds.

@@ -247,7 +247,7 @@ class TableUnitIndex:
         self._document: Any = None
         self._parsed = False
         self._facts: dict[str, list[Any]] | None = None
-        self._units: dict[str, list[str]] | None = None
+        self._units: dict[str, list[str] | None] | None = None
         self._contexts: dict[str, tuple[str, str, str, bool] | None] | None = None
         self._identity: tuple[str, str] | None = None
         self._identity_read = False
@@ -280,7 +280,7 @@ class TableUnitIndex:
         if self._facts is not None:
             return
         facts: dict[str, list[Any]] = {}
-        units: dict[str, list[str]] = {}
+        units: dict[str, list[str] | None] = {}
         contexts: dict[str, tuple[str, str, str, bool] | None] = {}
         document = self._parse()
         for node in (document.iter() if document is not None else ()):
@@ -290,12 +290,18 @@ class TableUnitIndex:
             if tag == "ix:nonfraction":
                 facts.setdefault((node.get("name") or "").strip(), []).append(node)
             elif tag.endswith(":unit") and node.get("id"):
-                units[node.get("id")] = [
+                # A repeated unit or context ID is ambiguous in every order: the ID becomes
+                # permanently unavailable rather than resolving to whichever definition came last.
+                unit_id = node.get("id")
+                measures = [
                     _text(m).lower() for m in node.iter()
                     if isinstance(m.tag, str) and m.tag.lower().endswith(":measure")
                 ]
+                units[unit_id] = None if unit_id in units else measures
             elif tag.endswith(":context") and node.get("id"):
-                contexts[node.get("id")] = source_context_identity(node)
+                context_id = node.get("id")
+                identity = source_context_identity(node)
+                contexts[context_id] = None if context_id in contexts else identity
         self._facts, self._units, self._contexts = facts, units, contexts
 
     def _report_identity(self) -> tuple[str, str] | None:

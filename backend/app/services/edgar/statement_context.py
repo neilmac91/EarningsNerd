@@ -77,20 +77,13 @@ def source_report_identity(document: Any) -> tuple[str, str] | None:
         contexts = [n for n in document.iter() if n.get("id") == fact.get("contextref")]
         if len(contexts) != 1:
             return None
-        context = contexts[0]
-        tags = [n.tag.lower().split(":")[-1] for n in context.iter() if isinstance(n.tag, str)]
-        ends = [_text(n) for n in context.iter() if isinstance(n.tag, str)
-                and n.tag.lower().split(":")[-1] == "enddate"]
-        if ends != [value] or any(t in tags for t in DIMENSION_TAGS):
+        # The DEI context must itself be a well-formed, non-dimensional DURATION ending on the
+        # parsed date, under the same normalizer the owners use for fact contexts: an end-only,
+        # instant-plus-end or multiple-start context is malformed and fails closed.
+        identity = source_context_identity(contexts[0])
+        if identity is None or identity[1] != "duration" or identity[2] != value or identity[3]:
             return None
-        identifiers = [n for n in context.iter() if isinstance(n.tag, str)
-                       and n.tag.lower().split(":")[-1] == "identifier"]
-        if len(identifiers) != 1 or identifiers[0].get("scheme") != CIK_SCHEME:
-            return None
-        entity = _text(identifiers[0])
-        if not re.fullmatch(r"\d{1,10}", entity):
-            return None
-        entities.add(str(int(entity)))
+        entities.add(identity[0])
         dates.add(value)
     if len(dates) == 1 and len(entities) == 1:
         return next(iter(dates)), next(iter(entities))
