@@ -1,6 +1,7 @@
 """The complete Ops Python readback withholds private command/environment values."""
 import json
 from pathlib import Path
+import re
 import subprocess
 from unittest.mock import mock_open
 
@@ -76,6 +77,12 @@ def test_capacity_projection_withholds_commands_and_private_values(capsys, monke
     service_json.assert_called_once_with("/tmp/svc.json")
     assert calls == list(readbacks)
     assert "PRIVATE_" not in output
+    compact_output = re.sub(r"\s+", "", output)
+    for values in (command, args, job_container["command"], job_container["args"]):
+        if values:
+            # Numeric/known commands are private too; cover Python and JSON array formatting.
+            for rendered in (repr(values), json.dumps(values)):
+                assert re.sub(r"\s+", "", rendered) not in compact_output
     assert "Serving revision: revision-1\nimage: allowed-api-image" in output
     assert "Job: earningsnerd-pregenerate\nimage: allowed-job-image" in output
     assert output.count("AI_DEFAULT_MODEL = 'deepseek-flash'") == 2

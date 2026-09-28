@@ -28,4 +28,6 @@ read. All 20 cases and capacity/unknown assertions remain; service and job priva
 withheld while allowlisted model/image output remains visible. The workflow, runtime code and
 output schema are unchanged. Earlier fault/CI receipts above remain historical evidence, not
 proof of whole-readback coverage. The new committed mutation is a command emission in `show()`,
-before the capacity marker.
+before the capacity marker, conditional on ordinary Python/Uvicorn commands. Assertions reject
+nonempty raw command/argument arrays in Python or JSON formatting, including the existing numeric
+and known-worker cases, independently of the private sentinel checks.

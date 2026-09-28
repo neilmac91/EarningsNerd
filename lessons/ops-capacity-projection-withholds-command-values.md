@@ -16,4 +16,6 @@ numeric arguments, malformed configuration and valid capacity values. Stub only 
 external JSON reads, capture all Python stdout, and constrain the surrounding shell
 to its redirected read. Slicing at the capacity comment skipped earlier `show()`
 emissions and falsely narrowed this rule. A deliberate pre-marker raw-command emission
-fails the same gate; exact restoration passes.
+fails the same gate; exact restoration passes. Check nonempty raw command/argument
+arrays as well as private sentinels, so conditional leakage of numeric or ordinary
+worker commands cannot escape the same cases.
