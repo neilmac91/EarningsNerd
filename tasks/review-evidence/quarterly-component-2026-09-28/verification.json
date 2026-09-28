@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "decision": "HELD_FOR_FRESH_INDEPENDENT_ENGINEERING_REVIEW",
-  "recorded_at": "2026-09-28T22:09:16.902720+00:00",
+  "decision": "HELD_FOR_INDEPENDENT_RE_REVIEW",
+  "recorded_at": "2026-09-28T22:31:19.827188+00:00",
   "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
-  "implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+  "implementation_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
   "branch": "codex/wave3-quarterly-source-preservation",
   "checkout": "/private/tmp/earningsnerd-quarterly-source-20260928",
   "scope": "Replace one completely matched ambiguous aggregate/component proposition with an explicit capability limitation; preserve compensation continuation and other fields; no reconstructed quarterly facts.",
@@ -12,16 +12,18 @@
       "ruff_exit": 0,
       "bandit_exit": 0,
       "pytest_exit": 0,
-      "passed": 3856,
+      "passed": 3866,
       "skipped": 39,
       "deselected": 2,
       "warnings": 40,
-      "elapsed_seconds": 161.66,
+      "elapsed_seconds": 165.07,
       "command": "ruff check . && bandit -r app -ll && python -m pytest",
       "cwd": "backend",
       "fresh_python_bytecode_prefix": true,
       "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
-      "parallel_pytest_processes": false
+      "parallel_pytest_processes": false,
+      "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+      "post_summary_logging_error": "After the passing summary, unchanged companies.py Yahoo-client shutdown logged a closed-stream error. Pytest exit remained 0; log retained; unrelated teardown path not changed."
     },
     "initial_focused_selection": {
       "passed": 115,
@@ -58,10 +60,71 @@
         "tests": [
           "tests/unit/test_quarterly_component_withholding.py::test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component"
         ]
+      },
+      {
+        "name": "short-header",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/app/services/edgar/quarterly_statement_source.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[one_row_header]",
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[two_row_header]"
+        ],
+        "original_sha256": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+        "fault_sha256": "bb6626dec6446c83b3787d8971ca00c7e0d00de0edbd0aa0fd8fbd879455a666",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
+      },
+      {
+        "name": "leap-date",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/app/services/edgar/quarterly_statement_source.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[leap_day_comparison]"
+        ],
+        "original_sha256": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+        "fault_sha256": "fc7a3bfb2c49cd4beef0c25832b0a843b8726328dae428f3c90a945353c3a818",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
+      },
+      {
+        "name": "quarterly-judge-annex",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/evals/runner.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_source_scope.py::test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operands"
+        ],
+        "original_sha256": "2150865d983f8b38cb45fdd054b5b7b8caf0eba26f72c379deac1b33d399167f",
+        "fault_sha256": "d8290a3b8602a7b5af8ab9d76d2945db37cf6424de010988fb7af87bae0c8a31",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
       }
     ],
     "existing_tests_changed": [],
-    "extra_live_postgres_performance_or_browser_gates_run": false
+    "extra_live_postgres_performance_or_browser_gates_run": false,
+    "prior_required_backend_gate": {
+      "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+      "ruff_exit": 0,
+      "bandit_exit": 0,
+      "pytest_exit": 0,
+      "passed": 3856,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 161.66,
+      "command": "ruff check . && bandit -r app -ll && python -m pytest",
+      "cwd": "backend",
+      "fresh_python_bytecode_prefix": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_pytest_processes": false
+    },
+    "correction_focused_selection": {
+      "passed": 59,
+      "warnings": 9,
+      "elapsed_seconds": 10.39
+    }
   },
   "replay": {
     "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
@@ -76,7 +139,10 @@
     ],
     "unchanged_rows": 69,
     "historical_native_descriptors": 4,
-    "scope": "Both arms use the candidate implementation and retained postbinding sections; historical source versus current-native supplement. Not an independent main binary comparison, fresh generation, original historical ingestion or semantic acceptance."
+    "scope": "Both arms use the candidate implementation and retained postbinding sections; historical source versus current-native supplement. Not an independent main binary comparison, fresh generation, original historical ingestion or semantic acceptance.",
+    "implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+    "not_rerun_for_review_corrections": true,
+    "correction_scope_note": "The retained replay remains the prior implementation receipt; correction tests cover unsupported-source abstention and optional judge inputs, with no change to the claim withholder or renderer."
   },
   "source_format_coverage": {
     "receipt": "source-format-inventory.json",
@@ -105,8 +171,7 @@
     "original_five_scope_tests_unchanged": true
   },
   "review_open": [
-    "Frozen optional judge/acceptance wrapper describes statement_source as application-owned primary-statement evidence. Explicit assertion_scope/use fields have not independently cleared that consumer implication.",
-    "Larger 870-line implementation/test/doc candidate requires fresh engineering review of source/assertion contract and all consumers.",
+    "Independent engineering re-review of the three corrections and full candidate is pending.",
     "Unsupported untagged or extension-tag component disclosures may be withheld despite being source-supported; no universal factual-error classification is claimed.",
     "SBC continuation is byte-preserved authored content, not newly source-verified.",
     "Only actual row46 has changed in this current-source supplement; row47 causal transfer, FIGS/JPM and E7 remain open."
@@ -168,6 +233,155 @@
     "source-format-inventory.json": {
       "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-format-inventory.json",
       "sha256": "8cf050f241c798bba9b9884e6caa86b8ffe1c7ffab4ae5764904b48327439ebd"
+    },
+    "review-corrections/absent-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/absent-judge-user.txt",
+      "sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c"
+    },
+    "review-corrections/annual-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/annual-judge-user.txt",
+      "sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c"
+    },
+    "review-corrections/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/backend-gate.log",
+      "sha256": "8f6f9fc654af4e0a6e5d664fdb54aed9adfa00d3ec1a68302e0d9cc2d423cb0e"
+    },
+    "review-corrections/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/bandit.log",
+      "sha256": "a5680731d101a43aa41cd100bc5821d99f48530b20ef40849ce06f11d0af4ba3"
+    },
+    "review-corrections/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/focused.log",
+      "sha256": "c1ff22910d2afaf6474c717d44f196b4340b38e62143c4de602ab6fcf5bd3f5f"
+    },
+    "review-corrections/message-parity.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.json",
+      "sha256": "3b446a8251b45d08a6a949bad955de4479391e7a1886fa0d4b3122d0f53e2c93"
+    },
+    "review-corrections/message-parity.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.log",
+      "sha256": "3b446a8251b45d08a6a949bad955de4479391e7a1886fa0d4b3122d0f53e2c93"
+    },
+    "review-corrections/message-parity.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.py",
+      "sha256": "1f81672449086b09c8ff8748127e25c83376822b78b188cec2c9c7bf94d4418c"
+    },
+    "review-corrections/mutation-leap-date-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-leap-date-fault.log",
+      "sha256": "7874797ce13dfbcbc2ed446a6ef27dd2c400772c0f3b3fc9537b217aaccf84ce"
+    },
+    "review-corrections/mutation-leap-date-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-leap-date-restored.log",
+      "sha256": "75113cda7d6b2ddaf33656b4e12fadc5db4965a534bd174b3f37f0891ab7646e"
+    },
+    "review-corrections/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-proof.json",
+      "sha256": "ce4745442d36b9874eacc0317809e4f933bdea10f0caba84871228c3be6e4e51"
+    },
+    "review-corrections/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-proof.py",
+      "sha256": "ec61bcac9c7b9119d0bc2f765dc709787e4df7f37c12aa69a8ea787eee0266ff"
+    },
+    "review-corrections/mutation-quarterly-judge-annex-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-quarterly-judge-annex-fault.log",
+      "sha256": "e367ca7f80c9e70842163fa72908b127e4520931c0f170be079f9c45a77e1ef6"
+    },
+    "review-corrections/mutation-quarterly-judge-annex-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-quarterly-judge-annex-restored.log",
+      "sha256": "498c628eb0f4c7677dee375a70986bf93d47847a4137b25df5dbfaa73edeb11c"
+    },
+    "review-corrections/mutation-short-header-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-short-header-fault.log",
+      "sha256": "06b91bde3b81566605ca5c78d269578f813ff8334e31bd577c439380591b7bda"
+    },
+    "review-corrections/mutation-short-header-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-short-header-restored.log",
+      "sha256": "9c058224f56ea4b5fff78401a2e71e7a9f02553c3b7107801a4b1ddc423007e5"
+    },
+    "review-corrections/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/prior-repository-verification.json",
+      "sha256": "28326313586bbe6955cdfa341d963087fde3ed3bfdd9c4b613108ac18f32901d"
+    },
+    "review-corrections/quarterly-qualified-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/quarterly-qualified-judge-user.txt",
+      "sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6"
+    },
+    "review-corrections/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "independent-review.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review.md",
+      "sha256": "e7883bb64c8df19425975ea31ab30b61a596dacac718d3934827c79482a7cca2"
+    },
+    "independent-review.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review.json",
+      "sha256": "782e2474dc8b9d464aaf42aa0785c86954ffff73f9225f11cc25bfae6809ce98"
+    },
+    "independent-review-probes.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review-probes.py",
+      "sha256": "027a2f561e256e8f5a3a6e0db493083d747dad7656dccaa79e0e9196a80277de"
+    },
+    "independent-review-probes.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review-probes.json",
+      "sha256": "81e4fc531d8a9c286fb071129587ab898d13e45539992ab30a5d900a9cd473a8"
+    }
+  },
+  "prior_implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+  "review_corrections": {
+    "reviewed_head": "de5f157b3d200eabee7530f4de1011c79ee0d9dc",
+    "implementation_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+    "disposition": "Implemented and verified offline; independent re-review pending.",
+    "findings": {
+      "R1": "One shared exact-KIND eligibility predicate omits the new quarterly operand-only descriptor from both optional judge/acceptance annexes. Legacy truthiness and frozen wrapper bytes remain unchanged.",
+      "R2": "Require at least three rows before header indexing; unsupported one-/two-row tables return None at the public source seam.",
+      "R3": "Compare date fields without constructing an impossible prior leap-date comparator; the finite fiscal grammar is unchanged and the mismatch returns None."
+    },
+    "message_parity": {
+      "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+      "provider_calls": 0,
+      "judge_module_byte_identical_to_pre_correction": true,
+      "source": "Actual retained native PLTR with a synthetic governing qualification; actual MELI; absent source.",
+      "reference_receipt": "independent-review-probes.json",
+      "messages": [
+        {
+          "case": "quarterly-qualified",
+          "current_user_sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6",
+          "prior_user_sha256": "ff96d6d78cc953974c5767c3c131465e00e34c0e47b51691e45b400ac3b51a46",
+          "prior_user_bytes_preserved": false,
+          "acceptance_reconstruction_sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": false
+        },
+        {
+          "case": "annual",
+          "current_user_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "prior_user_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "prior_user_bytes_preserved": true,
+          "acceptance_reconstruction_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": true
+        },
+        {
+          "case": "absent",
+          "current_user_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "prior_user_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "prior_user_bytes_preserved": true,
+          "acceptance_reconstruction_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": false
+        }
+      ]
+    },
+    "source_parser_controls": "Three synthetic adverse mutations of the retained actual native fixture; no claim that these malformed or leap-date cases occur in the original filing.",
+    "new_machine_gate": "test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operands",
+    "reused_machine_gate": "test_actual_source_adverse_boundaries_abstain",
+    "locked_and_all_preexisting_base_tests_changed": [],
+    "original_five_scope_controls_preserved": true,
+    "runtime_files": {
+      "backend/app/services/edgar/quarterly_statement_source.py": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+      "backend/evals/runner.py": "2150865d983f8b38cb45fdd054b5b7b8caf0eba26f72c379deac1b33d399167f",
+      "backend/evals/acceptance_ai_decision.py": "b5b420799f6f62067b3d9a7138790d55a60f7dc7e7f949bedc10add3f65113f6"
     }
   }
 }

@@ -5925,5 +5925,7 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
   No provider call, push, PR, production change, E7 credit or content-stamp adoption.
 - Independent engineering review requested three fixes: quarterly-only omission
   from both optional judge annexes, short-header abstention and exception-safe
-  leap-date abstention. These are implemented with 59 focused tests passing;
-  committed mutation proofs, the full backend gate and re-review remain required.
+  leap-date abstention. Correction commit `5274fc7e` passes 59 focused tests, three
+  committed fault/restored proofs and the full backend gate (3,866 passed, 39
+  skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
+  candidate remains held for independent re-review; no release action is taken.

@@ -109,6 +109,26 @@ The existing source-boundary gate now covers both short headers and the leap-dat
 case. One actual-consumer parity gate exercises runner and acceptance paths with
 quarterly, qualified-quarterly, actual annual, absent, unknown-kind, no-kind and
 empty descriptors. The focused candidate gate passed 59 tests. Committed mutation
-proofs and the full backend gate for these corrections are pending. The candidate
-remains held for independent re-review. Passing finite controls is not semantic
-source authority, and no E7 acceptance/progress credit is claimed.
+proofs and the full backend gate passed on correction commit
+`5274fc7ec9da66048b475a98fbb1fe38e7a7f174`: Ruff clean, Bandit exit 0 with no
+medium/high issues, **3,866 passed, 39 skipped, 2 deselected**, 40 warnings in
+165.07 seconds. The log retains a post-summary closed-log-stream error in unchanged
+Yahoo-client shutdown code; pytest exited 0 and that unrelated path was not changed.
+
+The short-header mutation failed both controls and restored to two passing; the
+leap-date mutation failed its control and restored to one passing; removing the
+shared annex exclusion failed both quarterly cases and restored to seven passing
+consumer controls. Each proof started from the committed state, used fresh Python
+bytecode and restored the modified file byte-identically.
+
+The actual annual and absent-source full user messages retain the exact hashes
+recorded before correction. The qualified-quarterly message now matches the
+reviewer's omission proposal; actual acceptance reconstruction agrees with the
+runner. The judge module, wrapper wording, model/prompt/flag settings and baseline
+remain unchanged. Private new receipts live under
+`outputs/overnight-2026-09-28/quality/review-corrections/`; prior review and replay
+receipts are preserved. The retained-70 replay is still the prior implementation's
+receipt, not a new replay at this correction commit.
+
+The candidate remains held for independent re-review. Passing finite controls is
+not semantic source authority, and no E7 acceptance/progress credit is claimed.
