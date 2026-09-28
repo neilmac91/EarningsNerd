@@ -1,9 +1,6 @@
 # Handover — 2026-09-19, chief engineer role to GPT-6 Astra
 
-**Current-state addendum, September 26:** use the [takeover and completion plan](continuation-plan-2026-09-26.md)
-for merged work, active-agent ownership, remaining deliverables and release evidence through #961.
-It supersedes this page's dated current-state/queue descriptions. Approvals, budgets and specific
-holds remain except for the explicit September 27 ownership supersession below. The E8-specific addendum below remains historical evidence.
+**Current-state addendum, September 28:** use the [final release checkpoint](continuation-plan-2026-09-26.md#september-28-release-checkpoint) for current releases, ownership and remaining work. It supersedes this page's dated operational snapshot and §5 founder queue, which remain historical evidence. Existing numerical/quality, customer-consent, data/history and programme-admission protections remain in force until their own explicit decisions. The E8 addendum below remains historical evidence.
 
 **Founder authority supersession, September 27:** in the live session the founder gave Codex
 “full approval to make the changes you need to to achieve our master plan,” explicitly approved
@@ -12,16 +9,11 @@ older retain/kill item under §5 “Waiting on the founder” and the blank work
 and recommendation, and Codex as chief engineer owns the disposition and any subsequent release.
 For Notable only, this also supersedes §5’s blanket production-flag hold after the completed
 readout supports activation; every other production flag remains held.
-The current decision is to retain the implementation and defer activation until the missing
-source-quality and job-reliability readout is complete. This delegation is not a completed
-acceptance result or permission to invent one. Numerical evaluation limits, judge identities,
+The activation is now released through #1003. The [final serving receipt](review-evidence/progress-2026-09-28/serving-receipt.json) verifies the enabled release, eight API rows and refreshed homepage label. The bounded sample and its adverse history remain evidence with narrower regulatory labels; release is not full-cohort precision, usefulness, E7 acceptance or permission to invent those results. Numerical evaluation limits, judge identities,
 locked tests, quality prerequisites, customer consent, data/history protections and specific
 unresolved automatic-approval denials remain. See the [bounded Notable disposition](review-evidence/takeover-2026-09-26/notable-disposition-review.md).
 
-This is the authoritative state of EarningsNerd at the handover. Where it disagrees with an older
-handover or with an unchecked row in `tasks/todo.md`, this file wins and the older text is history.
-Every identifier below was read from GitHub, the Actions logs or the live service on 2026-09-19;
-re-read GitHub `main` before acting, because the repository will have moved.
+The body below is the authoritative September 19 snapshot, not current state. Where it then disagreed with an older handover or unchecked `tasks/todo.md` row, it won at that date; the September 28 checkpoint above now governs. Every identifier below was read from GitHub, Actions logs or the live service on September 19.
 
 **Addendum, 2026-09-22 (E8 judging state).** The E8 row in the ledger below is superseded for
 E8 only: the judging containers' Claude CLI moved from `2.1.278` to `2.1.280`, the sealed E8
@@ -30,7 +22,7 @@ reviewed sibling package with a six-line derivation. The current E8 state, packa
 sole-guard recovery ruling and next steps live in
 [`handover-astra-2026-09-22-e8-repin.md`](handover-astra-2026-09-22-e8-repin.md), which this
 file defers to for E8. E8 remains 140 reused E2 controls / 0 new / 160 missing; no model call,
-guard initialization or attestation has occurred. Everything else in this file stands.
+guard initialization or attestation has occurred. The remaining body is retained as dated evidence; current work follows the September 28 checkpoint.
 
 ## 1. Where things stand
 
@@ -142,15 +134,13 @@ is the numbered list at the foot of this file.
 | E8 | `o` variance lead | Generation is complete but judging remains inconclusive: 160 slots missing, conservative prior charge 287 of 601 leaves at most 314 calls for slots and retries. The founder's “No additional E8 judging or probes” answered a past-history question, not a future STOP or authorization. Prepare a guarded continuation only after remote accounting and sole-guard verification. [Status](e1-e9-status-2026-09-20.md). |
 | E9 | Fleet proposal and protection | The [proposal](fleet-coordination-proposal-2026-09-19.md) is complete, with filing ownership and SEC admission still inactive. [September 22 protection readback](review-evidence/fleet-2026-09-22/README.md) confirms backups/PITR enabled and a recent completed backup; monthly lifecycle-managed export and a restore rehearsal remain unverified. Job-outcome reads remain blocked by missing SELECT on `earningsnerd_job_runs`. |
 
-**Notable ownership, superseded September 27:** the earlier founder-waiting row is replaced by
-the explicit delegation at the top of this handover. Engineering owns the missing readout; Codex
-owns the disposition. Retain the implementation and defer activation pending the evidence.
+**Notable ownership and released disposition, updated September 28:** the earlier founder-waiting row was replaced by the delegation above. Engineering completed the bounded readout and Codex released #1003. The [final serving receipt](review-evidence/progress-2026-09-28/serving-receipt.json) verifies activation, eight API rows and the refreshed homepage label. Original sample/adverse records remain preserved; this does not establish full-cohort precision, usefulness, E7 acceptance or customer consent.
 
 **Recurring:** the weekly readout. `data-quality-weekly.yml` generates on Mondays and the judging
 runs on the Fable subscription (`.claude/skills/meta/judge-readout/SKILL.md` is the procedure). The
 next generation is Monday 2026-09-21.
 
-**Waiting on the founder (raise each once, with evidence, then move on):**
+**Historical founder queue (September 19 snapshot):** bounded restore, the initial monthly export/replay and Analysis warm-up were later verified; the natural monthly trigger and managed re-import remain open. Use the [September 28 checkpoint](continuation-plan-2026-09-26.md#september-28-release-checkpoint), not this table, for current action.
 
 | Decision | Why it matters |
 | --- | --- |
@@ -161,8 +151,10 @@ next generation is Monday 2026-09-21.
 | Controlled invite-only beta | Recruitment and commitments are the founder's. |
 | Stripe (E06) | Needs a natural payment after the 13 September event configuration; no test payment. |
 
+Quality acceptance, wider generation, invite-only beta and natural Stripe evidence remain held under the current continuation.
+
 **Held until the founder says otherwise (never touch):** universe-wide pregeneration; historical
-repair or replay; production flags, capacity, prices, trial, promo and registration; legal decisions;
+repair or replay; production flags other than the released Notable activation, capacity, prices, trial, promo and registration; legal decisions;
 destructive data or history operations; new locked-anchor exceptions; live jobs, email or account
 actions as tests; AI provider or model changes; security or secret changes; future dependency
 majors; Dependabot alert #270; D8 (deleting two stale remote branches); purchasing credits.
