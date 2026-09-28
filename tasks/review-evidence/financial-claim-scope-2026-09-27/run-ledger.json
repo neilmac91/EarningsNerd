@@ -419,13 +419,14 @@
    "id": 52,
    "kind": "post_merge_deploy",
    "head": "main 8ff1816",
-   "outcome": "CI run 36406918405 success (eval-baseline skipped; deploy-backend: image, migrations, Cloud Run deploy, job images, health verified, 10:06 UTC); no cost",
-   "cost_usd": 0.0
+   "outcome": "CI run 36406918405 success (eval-baseline skipped; deploy-backend: image, migrations, Cloud Run deploy, job images, health verified, 10:06 UTC); no additional model/generation calls or provider telemetry cost; infrastructure cost unassessed",
+   "cost_usd": 0.0,
+   "cost_scope": "provider model-call telemetry only; not total deployment or infrastructure cost"
   }
  ],
  "unknowns": [
   "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
-  "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
+  "The cached xbrl_metrics dict may predate this change for some companies and is auxiliary corroboration/abstention input. The released maturity owner requires the filing HTML with tagged debt facts and owned issuer/report-date, unit, scale and sequence context; an untagged excerpt alone is insufficient."
  ],
  "cancelled_or_superseded": [
   "attempt 5 (aborted local gate)",
