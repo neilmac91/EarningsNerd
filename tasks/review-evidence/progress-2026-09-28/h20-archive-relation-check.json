@@ -1,0 +1,680 @@
+{
+  "archive_validation": {
+    "archive_comment_bytes": 0,
+    "casefold_collisions": false,
+    "central_directory_member_count": 11,
+    "directory_entries": 0,
+    "duplicate_names": false,
+    "encrypted_entries": 0,
+    "inventory_uncompressed_bytes": 2308305,
+    "receipt_bytes_and_sha256_match": true,
+    "safe_member_paths": true,
+    "symlink_entries": 0,
+    "uncompressed_bytes": 2308305,
+    "zip_crc_test_passed": true
+  },
+  "canonical_range_validation": {
+    "all_11_frozen_ranges_in_bounds": true,
+    "all_11_prepared_files_equal_canonical_ranges": true,
+    "all_11_range_hashes_match_frozen_inventory": true,
+    "all_11_range_lengths_match": true,
+    "complete_submission_bytes": 5870370,
+    "complete_submission_path": "e7-sources/H20/0000014846-26-000037.txt",
+    "complete_submission_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+  },
+  "claims_not_made": {
+    "context_fit_proved": false,
+    "historical_decode_success": false,
+    "historical_zip_byte_equality": false,
+    "provider_capacity_proved": false,
+    "semantic_review_complete": false,
+    "source_admission_proved": false
+  },
+  "historical_archive_boundary": {
+    "current_zip_bytes": 191151,
+    "current_zip_sha256": "4eb2c94e35c64e7edbe1a5fd8777b3f499289bc3dfb828f9a45b77b455bfb2e7",
+    "decoded_historical_zip_bytes_available": false,
+    "direct_byte_equality": false,
+    "historical_member_074_bytes": 263307,
+    "historical_member_074_representation": "invalid_uuencode retained content",
+    "historical_member_074_retained_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-074-0000014846-26-000037-xbrl.zip",
+    "historical_member_074_sha256": "c0effb83202990ad00a50b3e03e2ced21490f45273e34d81ba002def4f5dbcfc",
+    "historical_zip_envelope_or_decoded_payload_equality_proved": false,
+    "limit": "The current ZIP is a later authoritative supplement. Child relations do not prove that its ZIP envelope or decoded payload is byte-identical to the historical member 074 representation."
+  },
+  "inputs": {
+    "current_archive": {
+      "bytes": 191151,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/current-archive/0000014846-26-000037-xbrl.zip",
+      "sha256": "4eb2c94e35c64e7edbe1a5fd8777b3f499289bc3dfb828f9a45b77b455bfb2e7"
+    },
+    "current_archive_inventory": {
+      "bytes": 5900,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/current-archive/inventory.json",
+      "sha256": "f791b61826a10a51e09cfb1eff817d6c5504b4898e0ec76f16015600ba8827fb"
+    },
+    "current_archive_receipt": {
+      "bytes": 1210,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/current-archive/receipt.json",
+      "sha256": "bf9e2d86c7812ea523ba7719dd79ad36a06c176c9628345ef95266aed62c4bf9"
+    },
+    "execution_partition": {
+      "bytes": 152926,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/execution-partition.json",
+      "sha256": "ee24218c2253c3acf37cb520b8144a8eeef958777096b05a84924cbe5e49987a"
+    },
+    "execution_plan": {
+      "bytes": 10352,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/execution-plan.md",
+      "sha256": "64fa4ab3c584fc98a995112772c4a45899300e61f4d832d3136e1694a3011b78"
+    },
+    "frozen_source_inventory": {
+      "bytes": 244377,
+      "path": "outputs/takeover-2026-09-28/h20-source-preparation/inventory.json",
+      "sha256": "c5a33e4a060dcadbd2f49af5d053a71135f61963a27e637fe8f4ce7baea38400"
+    }
+  },
+  "kind": "h20_current_archive_child_relation_check",
+  "members": [
+    {
+      "filename": "brt-20260630.htm",
+      "frozen_content": {
+        "member_content_sha256": "1c552dce8bb820cf62a95e75e776df5f32aecbc704ce5e307b4e407404f19799",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-001.html",
+        "range": {
+          "bytes": 1020083,
+          "end": 1021520,
+          "start": 1437
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 1,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 75411,
+        "compression_method": 8,
+        "crc32": "8704b00f",
+        "encrypted": false,
+        "sha256": "1c552dce8bb820cf62a95e75e776df5f32aecbc704ce5e307b4e407404f19799",
+        "uncompressed_bytes": 1020083
+      }
+    },
+    {
+      "filename": "brt-20260630.xsd",
+      "frozen_content": {
+        "member_content_sha256": "015e6afb0725deb84550d1729c5a39e740f7f5257480b97dd4028e65203690ca",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-007-brt-20260630.xsd",
+        "range": {
+          "bytes": 39088,
+          "end": 1139723,
+          "start": 1100635
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 7,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630.xsd",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "frozen_content_plus_one_terminal_lf",
+      "relation_verified": true,
+      "transform": {
+        "lf_position": "after_strictly_parsed_root_element",
+        "operation": "append_exact_bytes",
+        "prefix_bytes": 39088,
+        "prefix_equals_frozen_content": true,
+        "prefix_sha256": "015e6afb0725deb84550d1729c5a39e740f7f5257480b97dd4028e65203690ca",
+        "suffix_bytes": 1,
+        "suffix_hex": "0a"
+      },
+      "xml_validation": {
+        "current_archive_child": {
+          "bytes_after_root": 1,
+          "bytes_after_root_hex": "0a",
+          "root_close_end": 39088,
+          "root_close_start": 39076,
+          "root_name": "xs:schema",
+          "strict_parse": true
+        },
+        "frozen": {
+          "bytes_after_root": 0,
+          "bytes_after_root_hex": "",
+          "root_close_end": 39088,
+          "root_close_start": 39076,
+          "root_name": "xs:schema",
+          "strict_parse": true
+        },
+        "parser": "Python xml.parsers.expat strict final parse",
+        "same_root_name": true
+      },
+      "zip_entry": {
+        "compressed_bytes": 3650,
+        "compression_method": 8,
+        "crc32": "b02e88e1",
+        "encrypted": false,
+        "sha256": "45b7335b285ba526b33e2c10248c59a4b0cae260d77d737a07ede98ab82312f1",
+        "uncompressed_bytes": 39089
+      }
+    },
+    {
+      "filename": "brt-20260630_cal.xml",
+      "frozen_content": {
+        "member_content_sha256": "cd71655a71fae462f94753af39087da86488f61c883351268309192cf611300e",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-008-brt-20260630_cal.xml",
+        "range": {
+          "bytes": 55120,
+          "end": 1195024,
+          "start": 1139904
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 8,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630_cal.xml",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "frozen_content_plus_one_terminal_lf",
+      "relation_verified": true,
+      "transform": {
+        "lf_position": "after_strictly_parsed_root_element",
+        "operation": "append_exact_bytes",
+        "prefix_bytes": 55120,
+        "prefix_equals_frozen_content": true,
+        "prefix_sha256": "cd71655a71fae462f94753af39087da86488f61c883351268309192cf611300e",
+        "suffix_bytes": 1,
+        "suffix_hex": "0a"
+      },
+      "xml_validation": {
+        "current_archive_child": {
+          "bytes_after_root": 1,
+          "bytes_after_root_hex": "0a",
+          "root_close_end": 55120,
+          "root_close_start": 55104,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "frozen": {
+          "bytes_after_root": 0,
+          "bytes_after_root_hex": "",
+          "root_close_end": 55120,
+          "root_close_start": 55104,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "parser": "Python xml.parsers.expat strict final parse",
+        "same_root_name": true
+      },
+      "zip_entry": {
+        "compressed_bytes": 5072,
+        "compression_method": 8,
+        "crc32": "7b5a9497",
+        "encrypted": false,
+        "sha256": "95e2747183d58ebd1bf9e58bf5498190f13a08de90a2c7974fe2ca189884ca7c",
+        "uncompressed_bytes": 55121
+      }
+    },
+    {
+      "filename": "brt-20260630_def.xml",
+      "frozen_content": {
+        "member_content_sha256": "7b939f5d5e277d5fc815b26e51fe38951bb6287403f431afb27a9798becbd834",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-009-brt-20260630_def.xml",
+        "range": {
+          "bytes": 208696,
+          "end": 1403900,
+          "start": 1195204
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 9,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630_def.xml",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "frozen_content_plus_one_terminal_lf",
+      "relation_verified": true,
+      "transform": {
+        "lf_position": "after_strictly_parsed_root_element",
+        "operation": "append_exact_bytes",
+        "prefix_bytes": 208696,
+        "prefix_equals_frozen_content": true,
+        "prefix_sha256": "7b939f5d5e277d5fc815b26e51fe38951bb6287403f431afb27a9798becbd834",
+        "suffix_bytes": 1,
+        "suffix_hex": "0a"
+      },
+      "xml_validation": {
+        "current_archive_child": {
+          "bytes_after_root": 1,
+          "bytes_after_root_hex": "0a",
+          "root_close_end": 208696,
+          "root_close_start": 208680,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "frozen": {
+          "bytes_after_root": 0,
+          "bytes_after_root_hex": "",
+          "root_close_end": 208696,
+          "root_close_start": 208680,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "parser": "Python xml.parsers.expat strict final parse",
+        "same_root_name": true
+      },
+      "zip_entry": {
+        "compressed_bytes": 15569,
+        "compression_method": 8,
+        "crc32": "081fb45e",
+        "encrypted": false,
+        "sha256": "1ce3e107ac5330a54985bef9fbd21cffaa4a13896225d6763a761cb1ee5fc022",
+        "uncompressed_bytes": 208697
+      }
+    },
+    {
+      "filename": "brt-20260630_lab.xml",
+      "frozen_content": {
+        "member_content_sha256": "cdf24a720ea0d283d82313ac83f290f003147d2987af186b5456a435df0ec5d7",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-010-brt-20260630_lab.xml",
+        "range": {
+          "bytes": 509139,
+          "end": 1913215,
+          "start": 1404076
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 10,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630_lab.xml",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "frozen_content_plus_one_terminal_lf",
+      "relation_verified": true,
+      "transform": {
+        "lf_position": "after_strictly_parsed_root_element",
+        "operation": "append_exact_bytes",
+        "prefix_bytes": 509139,
+        "prefix_equals_frozen_content": true,
+        "prefix_sha256": "cdf24a720ea0d283d82313ac83f290f003147d2987af186b5456a435df0ec5d7",
+        "suffix_bytes": 1,
+        "suffix_hex": "0a"
+      },
+      "xml_validation": {
+        "current_archive_child": {
+          "bytes_after_root": 1,
+          "bytes_after_root_hex": "0a",
+          "root_close_end": 509139,
+          "root_close_start": 509123,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "frozen": {
+          "bytes_after_root": 0,
+          "bytes_after_root_hex": "",
+          "root_close_end": 509139,
+          "root_close_start": 509123,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "parser": "Python xml.parsers.expat strict final parse",
+        "same_root_name": true
+      },
+      "zip_entry": {
+        "compressed_bytes": 48331,
+        "compression_method": 8,
+        "crc32": "9f5e2254",
+        "encrypted": false,
+        "sha256": "24f9027ede937919ceff070e6d90da9408ec6fca0e64b5d11c85986c4a42b379",
+        "uncompressed_bytes": 509140
+      }
+    },
+    {
+      "filename": "brt-20260630_pre.xml",
+      "frozen_content": {
+        "member_content_sha256": "27dee4aba90dc29e39a6c07a579f651f5a9b455b39d5cc87fb6b480a171d6d13",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/other-members/member-011-brt-20260630_pre.xml",
+        "range": {
+          "bytes": 397807,
+          "end": 2311205,
+          "start": 1913398
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 11,
+      "path_safety": {
+        "canonical_posix_path": "brt-20260630_pre.xml",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "frozen_content_plus_one_terminal_lf",
+      "relation_verified": true,
+      "transform": {
+        "lf_position": "after_strictly_parsed_root_element",
+        "operation": "append_exact_bytes",
+        "prefix_bytes": 397807,
+        "prefix_equals_frozen_content": true,
+        "prefix_sha256": "27dee4aba90dc29e39a6c07a579f651f5a9b455b39d5cc87fb6b480a171d6d13",
+        "suffix_bytes": 1,
+        "suffix_hex": "0a"
+      },
+      "xml_validation": {
+        "current_archive_child": {
+          "bytes_after_root": 1,
+          "bytes_after_root_hex": "0a",
+          "root_close_end": 397807,
+          "root_close_start": 397791,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "frozen": {
+          "bytes_after_root": 0,
+          "bytes_after_root_hex": "",
+          "root_close_end": 397807,
+          "root_close_start": 397791,
+          "root_name": "link:linkbase",
+          "strict_parse": true
+        },
+        "parser": "Python xml.parsers.expat strict final parse",
+        "same_root_name": true
+      },
+      "zip_entry": {
+        "compressed_bytes": 28521,
+        "compression_method": 8,
+        "crc32": "28aa4b54",
+        "encrypted": false,
+        "sha256": "948120a56e705384babe8d4439704e92089602329ed916dee0e1e05f3ad4bb29",
+        "uncompressed_bytes": 397808
+      }
+    },
+    {
+      "filename": "exhibit101q22026.htm",
+      "frozen_content": {
+        "member_content_sha256": "2bfaf41f99fd7766ceb98a9c3e3dea4003660d0c8b46abbc30873fbe0bb65621",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-002.html",
+        "range": {
+          "bytes": 51337,
+          "end": 1072982,
+          "start": 1021645
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 2,
+      "path_safety": {
+        "canonical_posix_path": "exhibit101q22026.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 7101,
+        "compression_method": 8,
+        "crc32": "4e455a07",
+        "encrypted": false,
+        "sha256": "2bfaf41f99fd7766ceb98a9c3e3dea4003660d0c8b46abbc30873fbe0bb65621",
+        "uncompressed_bytes": 51337
+      }
+    },
+    {
+      "filename": "exhibit311q22026.htm",
+      "frozen_content": {
+        "member_content_sha256": "a6169c3a86b6c9776d1b70e7ad5465c210231fac716ca9742cca79bc489e53d9",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-003.html",
+        "range": {
+          "bytes": 8855,
+          "end": 1081954,
+          "start": 1073099
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 3,
+      "path_safety": {
+        "canonical_posix_path": "exhibit311q22026.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 1936,
+        "compression_method": 8,
+        "crc32": "a66c5d02",
+        "encrypted": false,
+        "sha256": "a6169c3a86b6c9776d1b70e7ad5465c210231fac716ca9742cca79bc489e53d9",
+        "uncompressed_bytes": 8855
+      }
+    },
+    {
+      "filename": "exhibit312q22026.htm",
+      "frozen_content": {
+        "member_content_sha256": "8359bb2ab86d0bf7e836558cb0062bf9265260f35c29695275955e06c0cfed79",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-004.html",
+        "range": {
+          "bytes": 8974,
+          "end": 1091045,
+          "start": 1082071
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 4,
+      "path_safety": {
+        "canonical_posix_path": "exhibit312q22026.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 1950,
+        "compression_method": 8,
+        "crc32": "adad0468",
+        "encrypted": false,
+        "sha256": "8359bb2ab86d0bf7e836558cb0062bf9265260f35c29695275955e06c0cfed79",
+        "uncompressed_bytes": 8974
+      }
+    },
+    {
+      "filename": "exhibit321q22026.htm",
+      "frozen_content": {
+        "member_content_sha256": "e91e490c6b71b973b2f13de7af8d29c5b6ce9ffb5a5e4597d58177a49ecb49bd",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-005.html",
+        "range": {
+          "bytes": 4625,
+          "end": 1095787,
+          "start": 1091162
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 5,
+      "path_safety": {
+        "canonical_posix_path": "exhibit321q22026.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 1170,
+        "compression_method": 8,
+        "crc32": "d65e0bc7",
+        "encrypted": false,
+        "sha256": "e91e490c6b71b973b2f13de7af8d29c5b6ce9ffb5a5e4597d58177a49ecb49bd",
+        "uncompressed_bytes": 4625
+      }
+    },
+    {
+      "filename": "exhibit322q22026.htm",
+      "frozen_content": {
+        "member_content_sha256": "e778d652ff5d7460cf41f666652f6a392722bccc6fdc08fbbac4495e76bf8480",
+        "prepared_path": "outputs/takeover-2026-09-28/h20-source-preparation/view-sources/member-006.html",
+        "range": {
+          "bytes": 4576,
+          "end": 1100480,
+          "start": 1095904
+        },
+        "source_role": "complete_submission",
+        "source_sha256": "bc581e59ae16f03ac7079ba8f85813eed6c782171f9f3b6d0bdf5deb437f614c"
+      },
+      "frozen_member_ordinal": 6,
+      "path_safety": {
+        "canonical_posix_path": "exhibit322q22026.htm",
+        "nfc_stable": true,
+        "no_backslash": true,
+        "no_dot_segments": true,
+        "no_nul": true,
+        "not_absolute": true,
+        "not_symlink": true,
+        "safe": true,
+        "top_level_basename_only": true
+      },
+      "relation": "exact_byte_equality",
+      "relation_verified": true,
+      "transform": null,
+      "zip_entry": {
+        "compressed_bytes": 1158,
+        "compression_method": 8,
+        "crc32": "cb49d01f",
+        "encrypted": false,
+        "sha256": "e778d652ff5d7460cf41f666652f6a392722bccc6fdc08fbbac4495e76bf8480",
+        "uncompressed_bytes": 4576
+      }
+    }
+  ],
+  "minimal_partition_effect": {
+    "authoritative_source_totals_change": false,
+    "child_dispositions": "The six HTML children may be recorded as hash-proven exact duplicates of frozen members 001-006. The five XML/XSD children must be recorded with the exact append-0x0A transform and strict-root boundary; they are not exact-byte duplicates and should remain separately identified unless the evidence contract explicitly admits this bounded representation relation.",
+    "retry_scope_if_adopted": [
+      "L024",
+      "R006",
+      "role synthesis",
+      "reconciliation"
+    ],
+    "suggestion": "Add this relation check and the current ZIP receipt/inventory as supplemental, hash-bound inputs to L024. Replace the old \u201cno decoded archive inventory exists\u201d statement with \u201ccurrent ZIP inventory exists; historical member-074 decode/equality remains unresolved.\u201d Do not replace or delete the frozen member-074 input.",
+    "target_leaf": "L024",
+    "target_reducer": "R006",
+    "unchanged_leaves": [
+      "L004",
+      "L005",
+      "L018",
+      "L019",
+      "L020"
+    ]
+  },
+  "operations": {
+    "archive_extraction_to_disk": false,
+    "model_calls": 0,
+    "network_calls": 0,
+    "paid_calls": 0,
+    "repository_edits": 0
+  },
+  "relation_summary": {
+    "all_children_have_verified_relation_to_frozen_members_1_through_11": true,
+    "all_xml_prefixes_exactly_equal_frozen_content": true,
+    "all_xml_terminal_lfs_outside_strictly_parsed_root": true,
+    "children": 11,
+    "exact_byte_equal_children": 6,
+    "exact_byte_equal_member_ordinals": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "terminal_lf_member_ordinals": [
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "terminal_lf_relation_children": 5
+  },
+  "schema_version": 1,
+  "scope": "Offline child-relation verification only",
+  "status": "complete"
+}

@@ -5848,3 +5848,14 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - [ ] Execute the remaining 27 source dossiers using measured complete partitions, then the unchanged E7 programme on an accepted configuration.
 
 Evidence and current ownership: [September 28 execution update](continuation-plan-2026-09-26.md#september-28-execution-update).
+
+### September 28 verified release and additive review
+
+- [x] Release #997 source-entry wording at revision `00408-9b6`; main CI `36395595444`, migrations 0/40, all eight job images and independent healthy readback verified.
+- [x] Resolve the four frozen Notable acquisition gaps without resampling; preserve initial verdicts and UI overclaims. Complete source support is limited to the corrected labels for twelve examples.
+- [x] Verify H20 current ZIP relationships: six exact HTML children and five exact terminal-newline XML/XSD transforms. Historical archive equality and semantic preparation remain unproved.
+- [ ] Complete #1002 responsive label correction and serial release, then reviewed Notable activation and public readback.
+- [ ] Close #992's retained entity/dimension source-ownership defect before another paid head. Existing quality holds remain.
+- [ ] Complete #998 patch review; keep Sentry major and SQLAlchemy driver migration separate.
+
+See the [September 28 evidence](review-evidence/progress-2026-09-28/README.md). These closures do not replace E7 or real-user acceptance.

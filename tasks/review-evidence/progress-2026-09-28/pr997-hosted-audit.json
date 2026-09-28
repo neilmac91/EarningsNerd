@@ -1,0 +1,428 @@
+{
+  "schema_version": 1,
+  "audited_at_utc": "2026-09-28T08:01:19Z",
+  "repository": "neilmac91/EarningsNerd",
+  "pull_request": {
+    "number": 997,
+    "url": "https://github.com/neilmac91/EarningsNerd/pull/997",
+    "base_sha": "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
+    "final_head_sha": "e084a06a98397119a8fa53f3ef3617fb2dc63648"
+  },
+  "scope": {
+    "heads_dispatched": 2,
+    "third_head_or_rerun_authorized": false,
+    "production_changes_made_by_auditor": false,
+    "repository_edits_or_pushes_made_by_auditor": false
+  },
+  "spend": {
+    "original_planning_estimate_usd": 0.38,
+    "original_planning_basis": "approximately USD 0.19 for each of two heads",
+    "original_planning_ceiling_usd": 0.5,
+    "revised_authorized_ceiling_usd": 1.0,
+    "revision_reason": "Retained peak-window telemetry showed that the original per-head planning assumption was materially low.",
+    "billing_actual_usd": null,
+    "billing_actual_known": false,
+    "invoice_claim": false,
+    "report_cost_limitation": "Baseline reports record total_cost_usd=0.0, but backend/evals/RUNBOOK.md states that this is unmetered rather than proof of a free run. Copilot runner logs contain telemetry estimates, not invoice charges.",
+    "retrospective_telemetry_estimate": {
+      "method": "Baseline estimates apply the committed peak-aware deepseek-flash rates to aggregate retained usage: cache hit USD 0.003/M, cache miss USD 0.15/M, output USD 0.60/M, multiplied by 2 during the recorded weekday 06:00-10:00 UTC peak window. Copilot estimates sum the retained per-call estimated_cost_usd fields.",
+      "initial_head_usd": 0.369567,
+      "final_head_usd": 0.375854,
+      "two_head_total_usd": 0.745421,
+      "within_revised_ceiling": true,
+      "exceeds_original_ceiling": true,
+      "not_invoice": true
+    }
+  },
+  "initial_head": {
+    "head_sha": "b8e816957e4e4a732aeac2fbb9f0e12a819666db",
+    "ci": {
+      "run_id": 36387298598,
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36387298598",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "b8e816957e4e4a732aeac2fbb9f0e12a819666db",
+      "jobs": {
+        "lighthouse": "success",
+        "backend-tests": "success",
+        "e2e-tests": "success",
+        "frontend-tests": "success",
+        "migrations-postgres": "success",
+        "eval-baseline": "success",
+        "deploy-backend": "skipped"
+      },
+      "artifact": {
+        "id": 10954299507,
+        "name": "eval-report-36387298598",
+        "digest": "sha256:4ab445b12781352f95a92511f3cf0832929490462c6fff0e81b745cc57f276d0",
+        "expired": false,
+        "report_json": {
+          "file": "eval_20260928T064716Z.json",
+          "sha256": "d70be76e12f7819b2046695bbdb2d81edba14d4e3736568aef76ab9721943510"
+        },
+        "report_markdown": {
+          "file": "eval_20260928T064716Z.md",
+          "sha256": "5a8aa3bd6bdfa7f134342ba441cb6084a77e11419407b0472b851ae9f120c145"
+        },
+        "execution_receipt": {
+          "file": "ci-execution.txt",
+          "sha256": "f7f3b12044c3e81b48c318d2b1407b91c5388945d300e15e110bd0a907fe8335",
+          "source_sha": "772157a8bcc4bc734db314ff30fd4daf5e614a06",
+          "invocation": "python -m evals.runner --candidates baseline --runs 2 --concurrency 2",
+          "filing_concurrency": 2
+        }
+      },
+      "baseline_report": {
+        "n": 70,
+        "scored": 70,
+        "errors": 0,
+        "retried": 0,
+        "pass_rate": 1.0,
+        "gate_fail_rate": 0.0,
+        "mean_aggregate": 1.0,
+        "figure_trace_measured": 70,
+        "figure_trace_unavailable": 0,
+        "figure_trace_errors": 0,
+        "mean_citation_fidelity": 0.9574,
+        "judge_pass_rate": null,
+        "judge_enabled": false,
+        "total_cost_usd_reported": 0.0,
+        "cost_unknown": true,
+        "physical_provider_calls": 70,
+        "unknown_calls": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "requested_model": "deepseek-flash",
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "prompt_tokens": 2755570,
+        "completion_tokens": 278178,
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "reasoning_tokens": null,
+        "telemetry_estimate_usd": 0.354485
+      }
+    },
+    "copilot_fidelity": {
+      "run_id": 36387431723,
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36387431723",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "b8e816957e4e4a732aeac2fbb9f0e12a819666db",
+      "artifact": {
+        "id": 10954298758,
+        "name": "copilot-fidelity-36387431723",
+        "digest": "sha256:637f067298674f26ae09d27fc13f6bfb91abffa3f61f6983f530f1c38977ce15",
+        "expired": false,
+        "report_json_sha256": "b110b4c1c2712c115a021b7c17ca785c154e56b853a896c61399019063caea51",
+        "report_markdown_sha256": "9886f55c43b9bd692e9388f0416c4c2896515b466da78d213c005787fc4e36c0",
+        "preparation_json_sha256": "9af1b74248bb2c091a58bd9fa1a54cffde920a8f1f89494c6300471de65e193f",
+        "preparation_log_sha256": "1693aa1dd261f93f2f8d3b8e1b91766231c9bed8103ebb8da688b95cc8763094",
+        "prepared_database_sha256": "6adb4c4e00798e7b28cbaa5eb74caa84bfc2a543d6bb073e0924d875eb7508a5",
+        "runner_log_sha256": "340ff8bcf3f3b3bb4eea887a7a6b917d1e025e2ee8c165e74ceaf1fabb28de26"
+      },
+      "report": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 18,
+        "errors": 0,
+        "passed": 18,
+        "pass_rate": 1.0,
+        "accepted": true,
+        "failures": [],
+        "planned_attempts": 18,
+        "requested_model": "deepseek-flash",
+        "top_level_actual_model": null,
+        "actual_model_note": "Per-call actual identities are in sanitized provider telemetry; not inferred from requested model.",
+        "per_call_actual_models": [
+          "deepseek-flash"
+        ],
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "physical_provider_calls": 34,
+        "unknown_calls": 0,
+        "outcomes": {
+          "success": 34
+        },
+        "operations": {
+          "copilot_chat": 34
+        },
+        "prompt_tokens": 1067571,
+        "completion_tokens": 5584,
+        "cache_hit_tokens": 1060864,
+        "cache_miss_tokens": 6707,
+        "reasoning_tokens": null,
+        "reported_cost_field": null,
+        "cost_unknown": true,
+        "per_call_telemetry_estimate_sum_usd": 0.015082
+      },
+      "source_integrity": {
+        "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+        "source_manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+        "planned_accessions": 6,
+        "complete_sources": 6,
+        "preparation_errors": [],
+        "manifest_artifacts_checked": 24,
+        "manifest_artifacts_matching": 24,
+        "manifest_artifacts_mismatching": 0
+      }
+    },
+    "source_commit_integrity": {
+      "reported_source_sha": "772157a8bcc4bc734db314ff30fd4daf5e614a06",
+      "reported_source_kind": "GitHub synthetic merge",
+      "parents": [
+        "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
+        "b8e816957e4e4a732aeac2fbb9f0e12a819666db"
+      ],
+      "exact_head_is_second_parent": true,
+      "synthetic_merge_tree_sha": "451965d20c632bda7a0ea99e46102def930c5add",
+      "head_tree_sha": "720f5c4129f0190a122bb7bc573ec6aa23edeb88",
+      "whole_tree_equal": false,
+      "whole_tree_difference_reason": "The initial head predated merged #996; the synthetic merge includes the newer base.",
+      "pr_touched_blob_check": {
+        "backend/app/services/export_service.py": {
+          "synthetic_merge_blob": "3a143a73f38c734d485ffaac0c7bd5d0b17e0bf7",
+          "head_blob": "3a143a73f38c734d485ffaac0c7bd5d0b17e0bf7",
+          "match": true
+        }
+      }
+    },
+    "hosted_review": {
+      "formal_review_id": 5334831207,
+      "reviewed_commit": "b8e816957e4e4a732aeac2fbb9f0e12a819666db",
+      "state": "COMMENTED",
+      "inline_findings": [
+        {
+          "id": 4119264587,
+          "priority": "P2",
+          "title": "Replace the nonexistent PDF source links",
+          "reaction_count": 0
+        },
+        {
+          "id": 4119264595,
+          "priority": "P2",
+          "title": "Avoid calling code-owned observations model interpretations",
+          "reaction_count": 0
+        }
+      ]
+    }
+  },
+  "final_head": {
+    "head_sha": "e084a06a98397119a8fa53f3ef3617fb2dc63648",
+    "ready": true,
+    "ci": {
+      "run_id": 36393624415,
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393624415",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "e084a06a98397119a8fa53f3ef3617fb2dc63648",
+      "jobs": {
+        "lighthouse": "success",
+        "backend-tests": "success",
+        "e2e-tests": "success",
+        "frontend-tests": "success",
+        "migrations-postgres": "success",
+        "eval-baseline": "success",
+        "deploy-backend": "skipped"
+      },
+      "artifact": {
+        "id": 10957438829,
+        "name": "eval-report-36393624415",
+        "digest": "sha256:2a668b3ea354273f8caf4661955965a1aacc6b9e2f816e7893b23a07ddece9e8",
+        "expired": false,
+        "report_json": {
+          "file": "eval_20260928T075845Z.json",
+          "sha256": "8eece494fc26a14dea5e105bb85346c2f1e30b952b8d46193cf87cb8f8f2fc43"
+        },
+        "report_markdown": {
+          "file": "eval_20260928T075845Z.md",
+          "sha256": "5364e8b929270f28360e95e670e3c28dc747c3f9884981d0a641240808b8950c"
+        },
+        "execution_receipt": {
+          "file": "ci-execution.txt",
+          "sha256": "bdc1e90a9d249746abab5557421fff1c9f68256d0947163931f83b9431061910",
+          "source_sha": "e160aae9340df3d57a0af60246af13505abc741e",
+          "invocation": "python -m evals.runner --candidates baseline --runs 2 --concurrency 2",
+          "filing_concurrency": 2
+        }
+      },
+      "baseline_report": {
+        "n": 70,
+        "scored": 70,
+        "errors": 0,
+        "retried": 0,
+        "pass_rate": 1.0,
+        "gate_fail_rate": 0.0,
+        "mean_aggregate": 1.0,
+        "figure_trace_measured": 70,
+        "figure_trace_unavailable": 0,
+        "figure_trace_errors": 0,
+        "mean_citation_fidelity": 0.9696,
+        "judge_pass_rate": null,
+        "judge_enabled": false,
+        "total_cost_usd_reported": 0.0,
+        "cost_unknown": true,
+        "physical_provider_calls": 70,
+        "unknown_calls": 0,
+        "operations": {
+          "summary_primary": 70
+        },
+        "requested_model": "deepseek-flash",
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "prompt_tokens": 2755570,
+        "completion_tokens": 283272,
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "reasoning_tokens": null,
+        "telemetry_estimate_usd": 0.360598
+      }
+    },
+    "copilot_fidelity": {
+      "run_id": 36393624255,
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393624255",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "e084a06a98397119a8fa53f3ef3617fb2dc63648",
+      "artifact": {
+        "id": 10956968788,
+        "name": "copilot-fidelity-36393624255",
+        "digest": "sha256:0cb486b75b40b9c62e7a6c437ff3b924c3cb6911987de4e49836d9bb30abae80",
+        "expired": false,
+        "report_json_sha256": "a6589bbb309fc8db3d8ebbab25940d18c58bf4a280a7bf47e2eac86d7f5f9fcc",
+        "report_markdown_sha256": "9886f55c43b9bd692e9388f0416c4c2896515b466da78d213c005787fc4e36c0",
+        "preparation_json_sha256": "0c46056c47cd0dd71fe9473d4b8512a98ce0cd1a6c4f3cf6f92f7f0590f9594d",
+        "preparation_log_sha256": "1693aa1dd261f93f2f8d3b8e1b91766231c9bed8103ebb8da688b95cc8763094",
+        "prepared_database_sha256": "043a6cfa79e3bbf0c1f4ddfee5692006555044fb0b03db5e3478ccbb7b85aa6e",
+        "runner_log_sha256": "a284eeeae71e015a0bbff7c42958aeacc55fb818ae0335835fa15cda12fd3da0"
+      },
+      "report": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 18,
+        "errors": 0,
+        "passed": 18,
+        "pass_rate": 1.0,
+        "accepted": true,
+        "failures": [],
+        "planned_attempts": 18,
+        "requested_model": "deepseek-flash",
+        "top_level_actual_model": null,
+        "actual_model_note": "Per-call actual identities are in sanitized provider telemetry; not inferred from requested model.",
+        "per_call_actual_models": [
+          "deepseek-flash"
+        ],
+        "system_fingerprints": [
+          "aeb56401ca74e127821c4f9126dcb669"
+        ],
+        "physical_provider_calls": 35,
+        "unknown_calls": 0,
+        "outcomes": {
+          "success": 35
+        },
+        "operations": {
+          "copilot_chat": 35
+        },
+        "prompt_tokens": 1097978,
+        "completion_tokens": 5530,
+        "cache_hit_tokens": 1091072,
+        "cache_miss_tokens": 6906,
+        "reasoning_tokens": null,
+        "reported_cost_field": null,
+        "cost_unknown": true,
+        "per_call_telemetry_estimate_sum_usd": 0.015256
+      },
+      "source_integrity": {
+        "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+        "source_manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+        "matches_initial_source_manifest": true,
+        "planned_accessions": 6,
+        "complete_sources": 6,
+        "preparation_errors": [],
+        "manifest_artifacts_checked": 24,
+        "manifest_artifacts_matching": 24,
+        "manifest_artifacts_mismatching": 0
+      }
+    },
+    "source_commit_integrity": {
+      "reported_source_sha": "e160aae9340df3d57a0af60246af13505abc741e",
+      "reported_source_kind": "GitHub synthetic merge",
+      "parents": [
+        "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
+        "e084a06a98397119a8fa53f3ef3617fb2dc63648"
+      ],
+      "exact_head_is_second_parent": true,
+      "synthetic_merge_tree_sha": "64d63ac6f35b94ea8930d92f762752b6d57a5228",
+      "head_tree_sha": "64d63ac6f35b94ea8930d92f762752b6d57a5228",
+      "whole_tree_equal": true,
+      "pr_touched_blob_checks": {
+        "backend/app/services/export_service.py": {
+          "synthetic_merge_blob": "093479f4f03a05255fb09c0a5a634f63b2b17e0f",
+          "head_blob": "093479f4f03a05255fb09c0a5a634f63b2b17e0f",
+          "match": true
+        },
+        "frontend/features/analysis/components/NarrativePane.tsx": {
+          "synthetic_merge_blob": "10e648292bfdf0cd63bb3d542bfd277c7aeb3522",
+          "head_blob": "10e648292bfdf0cd63bb3d542bfd277c7aeb3522",
+          "match": true
+        },
+        "frontend/tests/unit/narrative-pane.spec.tsx": {
+          "synthetic_merge_blob": "84e3d4302067500224fd3ea275fb8c7d9a9f5845",
+          "head_blob": "84e3d4302067500224fd3ea275fb8c7d9a9f5845",
+          "match": true
+        }
+      }
+    },
+    "hosted_review": {
+      "request_comment": {
+        "id": 5865831205,
+        "author": "neilmac91",
+        "created_at": "2026-09-28T07:57:32Z",
+        "requested_exact_head": "e084a06a98397119a8fa53f3ef3617fb2dc63648",
+        "reactions": [],
+        "required_request_reaction_present": false
+      },
+      "completion_comment": {
+        "id": 5865864351,
+        "author": "chatgpt-codex-connector[bot]",
+        "created_at": "2026-09-28T07:59:59Z",
+        "reviewed_commit": "e084a06a98",
+        "result": "Didn't find any major issues.",
+        "reactions": []
+      },
+      "summary_comment": {
+        "id": 5864771350,
+        "updated_at": "2026-09-28T08:00:01Z",
+        "status": "Completed",
+        "commit": "e084a06",
+        "trigger": "Manual request",
+        "reactions": []
+      },
+      "formal_review_object_present_for_final_head": false,
+      "final_head_inline_comments": [],
+      "review_gate": {
+        "run_id": 36393648610,
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "e084a06a98397119a8fa53f3ef3617fb2dc63648"
+      },
+      "interpretation": "The connector completed a clean exact-head review through issue comments and the repository review gate accepted it. GitHub recorded no reaction on the manual request or completion comments; readiness therefore relies on the exact-head completion comment, updated summary comment, and successful review-gate run rather than a reaction."
+    }
+  },
+  "aggregate": {
+    "physical_provider_calls": 209,
+    "unknown_provider_calls": 0,
+    "baseline_attempts": 140,
+    "copilot_scored_attempts": 36,
+    "hosted_run_errors": 0,
+    "all_ci_and_copilot_runs_successful": true,
+    "final_exact_head_review_clean": true,
+    "final_exact_head_review_gate_successful": true,
+    "final_head_ready_for_root_independent_review": true,
+    "merge_or_deploy_performed": false
+  }
+}
