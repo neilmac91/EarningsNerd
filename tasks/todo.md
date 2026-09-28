@@ -1,8 +1,9 @@
 # September 28 — isolated non-ORM dependency maintenance
 
 - [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
-- [ ] Verify the exact compiled candidate, full backend gate, disposable PostgreSQL 15 migration/concurrency lanes, and existing performance lane; retain results in [dependency split evidence](review-evidence/dependency-split-2026-09-28/README.md).
-- [ ] Open an independently reviewable draft replacement. Leave #1000 open and the paid ready-for-review workflow, merge/release, quality programme and held pricing #1009 outside this tranche.
+- [x] Verify the exact compiled candidate on committed `20e0855d`: full backend gate passed 3,806 tests; both performance tests passed; disposable PostgreSQL 15.15 seeded 33 tables with psycopg2, passed migration counts 40/0, 0/40, 40/0 and all four concurrency lanes (24/29/6/5 passes). Retain the initial macOS locale setup failure and successful retry in [dependency split evidence](review-evidence/dependency-split-2026-09-28/README.md).
+- [x] Prepare an independently reviewable draft replacement with unchanged application code and contract tests. Leave #1000 open and the paid ready-for-review workflow, merge/release, quality programme and held pricing #1009 outside this tranche.
+- [ ] Complete exact-head hosted checks and independent review before the coordinating release owner decides readiness and serial deployment.
 
 # September 28 — trial billing routing, separate from held pricing activation
 
