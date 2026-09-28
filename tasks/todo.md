@@ -5868,3 +5868,17 @@ See the [September 28 evidence](review-evidence/progress-2026-09-28/README.md). 
 - [ ] Resolve source-context ownership or choose source-first presentation before integration; no further paid draw.
 
 H15 historical equality, logo and 78 dispositions remain unresolved. Quality, beta and source work remain open; progress is 57.5%, dossiers 3/30. Stripe remains blocked; no credential was copied into project files.
+
+
+## September 28 — prospective beta event evidence
+
+- Implemented versioned, consent-gated summary-view identity snapshots from the existing
+  current-user query, with explicit unknown/anonymous states and summary identity. Later
+  person merges cannot substitute for the event's recorded account. Client state remains
+  weaker than server-authenticated consumption.
+- Added focused producer/capture tests, plus concrete reviewed usefulness intake instructions
+  in the existing beta support kit. Generation lifecycle completion, actual consent/cohort
+  observations, offered-scope acceptance and measured fleet headroom remain open.
+- Local evidence is under the September 28 workspace
+  `outputs/execution-2026-09-28/`: source-bound candidate stop, beta readout fixtures and
+  retained fleet arithmetic. No E7/E8 generation or claim of a completed fourth dossier.

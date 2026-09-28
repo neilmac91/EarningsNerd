@@ -22,3 +22,31 @@ Client coverage uses the 37 named browser emissions currently in `frontend/lib/a
 | `invoice_payment_recorded` | `backend/app/services/billing_revenue_service.py` on observed Stripe allocation | Analytics side-signal only. Use `earningsnerd_billing_payments` and its existing report for live positive, qualifying, attributed payment evidence; not ARR. |
 
 No event currently means an explicit “useful” rating. No event proves an Analysis dataset request succeeded. No `users` field persists analytics consent. These are explicit **unknowns** in both weekly reviews, not zeroes. The kit does not add production instrumentation under this preparation scope.
+
+## Summary view evidence v1 (September 28 implementation)
+
+New `summary_viewed` calls include `evidence_version=1`, `summary_id`,
+`auth_state_at_event` (`authenticated`, `anonymous`, or `unknown`),
+`account_id_at_event` (the route's current `/me` account ID or null), and
+`analytics_consent_at_event=true`. The helper sends this event only when the existing
+browser preference explicitly grants analytics consent. Pending/failed auth resolution
+is unknown. The once-per-mount view is not replayed after login or consent changes.
+These are client-observed snapshots, not server-authenticated view receipts; the existing
+account-query reset owns account transitions. A later PostHog person merge must not
+replace these properties or backfill legacy events. Historical claims above continue
+to apply to unversioned data.
+
+For a prospective weekly readout, select version 1 events with affirmative consent,
+`auth_state_at_event=authenticated`, a nonempty `account_id_at_event` in the frozen
+eligible account roster, and a valid filing/summary ID. Attribute using that event
+property only; never resolve the event through current person traits. Keep anonymous,
+unknown, malformed, legacy, excluded-account and outside-window rows as separate
+diagnostic exclusions. Keep every eligible user in the denominator; a user without
+a qualifying observed view remains unknown, not inactive. Report a client-observed
+signed-in-view count with its telemetry coverage and client-auth limitations.
+
+This closes the retrospective-identity ambiguity for new client events only after
+deployment. It does not establish cached-versus-fresh consumption, complete request
+lifecycles, actual usefulness, server-side analytics consent, or live PostHog receipt.
+The existing support process can capture explicit session-linked usefulness before
+a rating UI exists; ordinary `general` feedback is still not a useful rating.
