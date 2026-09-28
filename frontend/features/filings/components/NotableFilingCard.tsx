@@ -69,7 +69,12 @@ export default function NotableFilingCard({
           {ago ? ` • Filed ${ago}` : ''}
         </div>
       </div>
-      <Badge variant="neutral">{filing.reason_label}</Badge>
+      <Badge
+        variant="neutral"
+        className="max-w-40 justify-center !whitespace-normal text-center leading-tight"
+      >
+        {filing.reason_label}
+      </Badge>
     </Link>
   )
 }

@@ -77,18 +77,19 @@ _FORM_WEIGHTS: Dict[str, Tuple[float, str]] = {
     "S-1": (40.0, "ipo_filing"),
 }
 
-# Display copy for each reason slug — the honest "why is this here" chip on the card.
+# Display copy for each internal reason slug. These labels state only what the filing form or 8-K
+# item category proves; the scan does not read filing prose to corroborate a narrower event claim.
 REASON_LABELS: Dict[str, str] = {
-    "bankruptcy": "Bankruptcy filing",
-    "restatement": "Restatement",
-    "earnings_results": "Earnings results",
-    "acquisition": "Acquisition completed",
-    "activist_stake": "Activist stake",
-    "executive_change": "Executive change",
+    "bankruptcy": "Bankruptcy or receivership",
+    "restatement": "Non-reliance disclosure",
+    "earnings_results": "Results or financial condition",
+    "acquisition": "Completed acquisition or disposition",
+    "activist_stake": "Beneficial ownership filing",
+    "executive_change": "Leadership or compensation disclosure",
     "material_agreement": "Material agreement",
     "annual_report": "Annual report",
     "quarterly_report": "Quarterly report",
-    "ipo_filing": "IPO filing",
+    "ipo_filing": "S-1 registration filing",
 }
 
 
