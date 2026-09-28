@@ -12,7 +12,7 @@ The one-shot runner used release commit `1c8a017e49e2dbe98a7612a0d445b4b883d9b80
 
 The follow-up plan permits an official SEC web open only when the application transport is unavailable. The fallback opened the 12 exact SEC index URLs and the primary documents for the seven readable 8-K indices. Eight index pages and six primary pages rendered; four indices and one primary returned tool errors. These are 14 confirmed rendered SEC pages, below the 24-response cap. Cached-ref reopens and text finds inspected already-returned pages. No proxy, search result, exhibit, or related filing was used.
 
-The repository transport returned no source bytes, and the official web opener exposed normalized text with line locators rather than response bytes. Therefore the source-file count is zero and no raw-source SHA-256 is claimed. Exact hashes for the frozen inputs, runner, and transport ledger are in `source-custody.json`.
+The repository transport returned no source bytes, and the official web opener exposed normalized text with line locators rather than response bytes. Therefore the source-file count is zero and no raw-source SHA-256 is claimed. Exact hashes for the frozen inputs, runner, and transport ledger are in the [source custody receipt](notable-source-custody.json). The retained [transport ledger](notable-source-acquisition.json) and [runner text](notable-source-runner.txt) are operator history for the failed local-sandbox attempt, not source evidence or proof of SEC unavailability.
 
 ## Verdicts
 
@@ -31,7 +31,7 @@ The repository transport returned no source bytes, and the official web opener e
 | AETN | material_agreement | indeterminate | Official index inaccessible | Suppress or use neutral 8-K wording pending readable source. |
 | OPTU | restatement | pass | Index lines 9-15, 29-33; primary inaccessible | Say “non-reliance disclosed”; do not claim a restatement was completed or amended statements were filed. |
 
-`verdicts.json` contains every official URL, exact per-row locator, metadata result, reason result, and aggregate breakdown.
+The [frozen verdicts](notable-verdicts.json) contain every official URL, exact per-row locator, metadata result, reason result, and aggregate breakdown. Their fixed inputs are the [source packet](notable-source-packet.json), [bounded read instructions](notable-source-read-followup.md), and [cohort aggregate](notable-cohort-aggregate.json).
 
 ## Aggregate context and recommendation
 

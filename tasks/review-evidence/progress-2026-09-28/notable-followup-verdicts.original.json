@@ -1,10 +1,4 @@
 {
-  "publication": {
-    "derivative": true,
-    "original_path": "notable-followup-verdicts.original.json",
-    "original_sha256": "e447631db3688f3dc61d3b40a47a36192601599160a5d2e57e3dca8b71c5c17a",
-    "transformation": "Only frozen_inputs path strings were rewritten to committed flattened names; publication metadata was added. All row judgments, evidence, qualifications, and review limits are unchanged."
-  },
   "additive_effect": {
     "aggregate_precision_recomputed": false,
     "prior_indeterminate_resolved_to_pass": 4,
@@ -22,7 +16,7 @@
     "acquisition_ledger": {
       "bytes": 28837,
       "failures": 0,
-      "path": "notable-followup-acquisition.json",
+      "path": "ledger.json",
       "requests": 9,
       "rows": 5,
       "sha256": "41d9e5399a24042a9fcaa6f31c53c735d3e9635e9f9bc3c6917434a03fab43af",
@@ -30,19 +24,19 @@
     },
     "original_source_packet": {
       "bytes": 5504,
-      "path": "notable-source-packet.json",
+      "path": "../notable-acceptance-db/source-packet.json",
       "rows": 12,
       "selection_changed": false,
       "sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
     },
     "plan": {
       "bytes": 743,
-      "path": "notable-followup-plan.json",
+      "path": "plan.json",
       "sha256": "4c36ad5b760f45be0be5a6afefee3fa2cda6adecde3436bc6cf6918d457da288"
     },
     "prior_verdicts": {
       "bytes": 12404,
-      "path": "notable-verdicts.json",
+      "path": "../notable-source-review/verdicts.json",
       "rewritten": false,
       "sha256": "a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5"
     }

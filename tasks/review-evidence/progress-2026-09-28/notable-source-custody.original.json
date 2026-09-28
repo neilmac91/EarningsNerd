@@ -1,33 +1,27 @@
 {
-  "publication": {
-    "derivative": true,
-    "original_path": "notable-source-custody.original.json",
-    "original_sha256": "a58a36bfdca87270cb8631ba42515e94db2c33eda586b02b99b3d3f1555fd8f7",
-    "transformation": "Only artifact paths were rewritten to their committed flattened names; publication metadata was added. Acquisition history and custody conclusions are unchanged."
-  },
   "schema_version": 1,
   "status": "official_web_fallback_complete_with_retrieval_gaps",
   "frozen_inputs": [
     {
-      "path": "notable-source-packet.json",
+      "path": "../notable-acceptance-db/source-packet.json",
       "sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
     },
     {
-      "path": "notable-source-read-followup.md",
+      "path": "../notable-acceptance-db/source-read-followup.md",
       "sha256": "626476b00ef5622188fe3bd008c7d2c72e9a915788b4307d0d16d03878bfa50b"
     },
     {
-      "path": "notable-cohort-aggregate.json",
+      "path": "../notable-acceptance-db/aggregate.json",
       "sha256": "4de0805187b146794b355d2c6812053e19fd5c77a07249e5dd1341d5ccf91aa2"
     }
   ],
   "runner": {
-    "path": "notable-source-runner.txt",
+    "path": "acquire_sources.py",
     "sha256": "90387fa2d9c3501278556c132ed4fe2d59dd55d11b64d67a3c8b4023520d8cb4",
     "release_repository_head": "1c8a017e49e2dbe98a7612a0d445b4b883d9b80d"
   },
   "existing_transport_attempt": {
-    "path": "notable-source-acquisition.json",
+    "path": "acquisition.json",
     "sha256": "64fd56be878e29e786010dc1f4e84b5f0d543dd20d43f7a6cb0ed5de001fd936",
     "execution_mode": "functions.exec_command default sandbox (sandbox_permissions=use_default); no network permission grant or escalated retry",
     "transport_calls_recorded": 12,

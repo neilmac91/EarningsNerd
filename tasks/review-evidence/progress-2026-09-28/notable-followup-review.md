@@ -1,8 +1,8 @@
 # Notable source follow-up review
 
-This review is additive to the frozen [earlier verdicts](notable-verdicts.json) and uses the unchanged 12-row [source packet](notable-source-packet.json). It covers only INBP, SGMOQ, CD, AETN, and the newly readable OPTU primary. The earlier verdict file was not rewritten.
+This review is additive to the frozen [earlier verdicts](notable-verdicts.json) and uses the unchanged 12-row [source packet](notable-source-packet.json). It covers only INBP, SGMOQ, CD, AETN, and the newly readable OPTU primary. The earlier verdict file was not rewritten. The bounded acquisition is fixed by the committed [plan](notable-followup-plan.json) and [acquisition ledger](notable-followup-acquisition.json).
 
-All nine acquired files match the byte counts and SHA-256 values in `ledger.json`: nine complete requests, five rows, and zero acquisition failures. This review made no network or model calls, did not read exhibits or replacement filings, and did not read the INBP annual report body.
+All nine acquired files under [`sources/`](sources/) match the byte counts and SHA-256 values in the [acquisition ledger](notable-followup-acquisition.json): nine complete requests, five rows, and zero acquisition failures. This review made no network or model calls, did not read exhibits or replacement filings, and did not read the INBP annual report body.
 
 | Row | Additive source disposition | Current-card evidence | Narrow supported wording | Official source and locator |
 |---|---|---|---|---|
@@ -26,6 +26,6 @@ All nine acquired files match the byte counts and SHA-256 values in `ledger.json
 | 0001702780-26-000057 | `0001702780-26-000057-index.htm` | 10,090 | `203c46e83885af3072ce66369ae0936a05507f3b59370bf51a67c39b59f6696c` |
 | 0001702780-26-000057 | `optu-20260916.htm` | 39,988 | `870642679b7043cccb33c8ac6fc675dd6c4f5201b5e50ce049038ae655b7d5a5` |
 
-The frozen input hashes are: plan `4c36ad5b760f45be0be5a6afefee3fa2cda6adecde3436bc6cf6918d457da288`, acquisition ledger `41d9e5399a24042a9fcaa6f31c53c735d3e9635e9f9bc3c6917434a03fab43af`, original source packet `f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee`, and earlier verdicts `a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5`.
+The frozen input hashes are: [plan](notable-followup-plan.json) `4c36ad5b760f45be0be5a6afefee3fa2cda6adecde3436bc6cf6918d457da288`, [acquisition ledger](notable-followup-acquisition.json) `41d9e5399a24042a9fcaa6f31c53c735d3e9635e9f9bc3c6917434a03fab43af`, original [source packet](notable-source-packet.json) `f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee`, and [earlier verdicts](notable-verdicts.json) `a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5`. The published [additive verdict](notable-followup-verdicts.json) changes only flattened path strings and adds publication metadata; the byte-identical [original verdict](notable-followup-verdicts.original.json) is retained at SHA-256 `e447631db3688f3dc61d3b40a47a36192601599160a5d2e57e3dca8b71c5c17a`.
 
 Four prior indeterminate rows now have bounded source passes; OPTU's source pass now includes the primary filing. The original selection is unchanged and no aggregate precision was recomputed. The prior BOXL finding also remains unchanged: Form S-1 supports “S-1 registration statement filed,” not a traditional IPO, pricing, or completion. These five rows do not establish full-cohort precision, general product quality, or feature-flag approval.
